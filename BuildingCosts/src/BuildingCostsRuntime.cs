@@ -74,7 +74,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                LogDebug("Building cost map-start subscription failed; direct settings changes continue:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:77", "Building cost map-start subscription failed; direct settings changes continue:", ex);
             }
 
             try
@@ -83,11 +83,11 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                LogDebug("Could not install building cost tooltip hook:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:86", "Could not install building cost tooltip hook:", ex);
             }
 
             hooksSubscribed = true;
-            LogDebug("Building cost runtime hooks subscribed");
+            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:90", "Building cost runtime hooks subscribed");
         }
 
         public void InitializeAfterLibraryLoaded()
@@ -99,7 +99,7 @@ namespace BuildingCosts
             if (!EffectsEnabled)
             {
                 libraryInitialized = true;
-                LogDebug("Building costs disabled; runtime hooks not subscribed");
+                LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:102", "Building costs disabled; runtime hooks not subscribed");
                 return;
             }
 
@@ -108,7 +108,7 @@ namespace BuildingCosts
             TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
             TryRunFeature("building costs", ApplyBuildingCosts);
             libraryInitialized = true;
-            LogDebug("Applied initial building cost settings");
+            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:111", "Applied initial building cost settings");
         }
 
         private void DeactivateHooks()
@@ -126,7 +126,7 @@ namespace BuildingCosts
                 if (!ApiShared.Current.TryGetBuildingRepair(BuildingCostsPlugin.PluginGuid,
                     out repairCapability, out NativeCapabilityDiagnostic diagnostic))
                 {
-                    LogDebug("Shared building repair unavailable: " + diagnostic?.Reason);
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:129", "Shared building repair unavailable: " + diagnostic?.Reason);
                     return;
                 }
             }
@@ -157,7 +157,6 @@ namespace BuildingCosts
 
         private void OnSettingChanged(string propertyName)
         {
-            LogDebug("Settings changed:", propertyName);
 
             if (propertyName == nameof(BuildingCostsLobbyViewModel.EnableMod))
             {
@@ -199,13 +198,13 @@ namespace BuildingCosts
             }
             try
             {
-                LogDebug("Gameplay session started: " + context.Kind);
+                LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:202", "Gameplay session started: " + context.Kind);
                 ApplyBuildingCosts();
                 ResetTooltipCache();
             }
             catch (Exception ex)
             {
-                LogDebug("Gameplay session initialization failed:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:208", "Gameplay session initialization failed:", ex);
             }
         }
 
@@ -257,7 +256,7 @@ namespace BuildingCosts
                     if (!vanillaCostTooltipReadFailureLogged)
                     {
                         vanillaCostTooltipReadFailureLogged = true;
-                        LogDebug("Could not read vanilla building costs for options tooltip:", mapper, structure, ex);
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:260", "Could not read vanilla building costs for options tooltip:", mapper, structure, ex);
                     }
                 }
             }
@@ -274,7 +273,7 @@ namespace BuildingCosts
             {
                 if (!BuildingCostDefinitions.TryGetValue(entry.Key, out BuildingCostDefinition definition))
                 {
-                    LogDebug("Building cost mapper is not supported:", entry.Key);
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:277", "Building cost mapper is not supported:", entry.Key);
                     continue;
                 }
 
@@ -286,12 +285,12 @@ namespace BuildingCosts
                     }
                     catch (Exception ex)
                     {
-                        LogDebug("Could not apply building costs; remaining structures continue:", structure, ex);
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:289", "Could not apply building costs; remaining structures continue:", structure, ex);
                     }
                 }
             }
 
-            LogDebug("Applied building cost materials:", changedMaterials);
+            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:294", "Applied building cost materials:", changedMaterials);
             ResetTooltipCache();
         }
 
@@ -340,14 +339,14 @@ namespace BuildingCosts
                 catch (Exception ex)
                 {
                     failedRestores[entry.Key] = entry.Value;
-                    LogDebug("Could not restore building costs; remaining structures continue:", entry.Key, ex);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:343", "Could not restore building costs; remaining structures continue:", entry.Key, ex);
                 }
             }
 
             overriddenCostMaterials.Clear();
             foreach (KeyValuePair<eStructs, CostMaterialMask> failed in failedRestores)
                 overriddenCostMaterials[failed.Key] = failed.Value;
-            LogDebug("Restored default building cost materials:", restoredMaterials);
+            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:350", "Restored default building cost materials:", restoredMaterials);
             ResetTooltipCache();
         }
 
@@ -563,7 +562,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                LogDebug("Error updating building cost tooltip:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:566", "Error updating building cost tooltip:", ex);
                 ClearBuildingCostTooltip();
                 ResetTooltipCache();
             }
@@ -1050,9 +1049,9 @@ namespace BuildingCosts
             return names;
         }
 
-        private void LogDebug(params object[] parts)
+        private void LogDebug(string site, params object[] parts)
         {
-            Shared.DebugLogHelper.LogDebug(log, parts);
+            Shared.DebugLogHelper.LogDebugLimited(log, site, parts);
         }
 
         private void TryRunFeature(string featureName, Action action)
@@ -1060,7 +1059,7 @@ namespace BuildingCosts
             try { action(); }
             catch (Exception ex)
             {
-                LogDebug("Building costs feature failed; independent features continue:", featureName, ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingCosts/src/BuildingCostsRuntime.cs:1063", "Building costs feature failed; independent features continue:", featureName, ex);
             }
         }
     }

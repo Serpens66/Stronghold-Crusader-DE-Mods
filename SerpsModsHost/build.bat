@@ -46,7 +46,9 @@ set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 echo [%date% %time%] Check that the game is closed
@@ -84,6 +86,8 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe" "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" "%GAME_DIR%"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 echo [%date% %time%] Copy package files
@@ -98,6 +102,10 @@ if not exist "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\serps-modpack.json" goto package_failed
 
+if "%NO_INSTALL%"=="1" (
+  echo Serps Mods Host vorbereitet; Installation uebersprungen.
+  exit /b 0
+)
 if exist "%GAME_PLUGIN_DIR%\" (
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
     rem Independent infrastructure, including APIShared, is installed by its own build.

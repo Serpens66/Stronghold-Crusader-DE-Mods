@@ -919,16 +919,16 @@ namespace BugfixesAndQoL
             LogError(message + ".");
         }
 
-        private void LogInfo(string message) =>
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
-                Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
+                Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
 
-        private void LogError(string message) =>
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
+                Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
 
         private void QueueLogError(string message) =>
             Shared.UnityMainThreadDispatch.TryEnqueue(() =>
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerGameSpeedRuntime.cs:932", $"Bugfixes and QoL multiplayer game speed: {message}"));
     }
 }

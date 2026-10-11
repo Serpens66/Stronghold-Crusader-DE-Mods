@@ -264,6 +264,11 @@ namespace EnemyBridgePathTest
         private long incompleteCalls;
         private long coalesced,captures,captureTicks,drainTicks,outputBytes,outputRecords,pooledScopes,invalidIds;
         private long transportTicks,transportRawBytes,transportSavedBytes,transportPackedRecords;
+        private long transportMaxTicks,drainMaxTicks,drainOverruns,renderMaxTicks,renderOverruns;
+        internal void RenderCost(long elapsed)
+        {Maximum(ref renderMaxTicks,elapsed);if(elapsed*1000.0/Stopwatch.Frequency>2)Interlocked.Increment(ref renderOverruns);}
+        private static void Maximum(ref long target,long value)
+        {long old;do {old=Interlocked.Read(ref target);if(old>=value)return;}while(Interlocked.CompareExchange(ref target,value,old)!=old);}
         private long lastTransportTicks,lastTransportRaw,lastTransportSaved,lastTransportRecords;
         private readonly long[] siteCalls=new long[64];
         private long tick=-1;
@@ -371,11 +376,11 @@ namespace EnemyBridgePathTest
             foreach(var site in BridgeNativeDefinition.Sites) sites.Append(site.Name).Append(':').Append(Interlocked.Read(ref siteCalls[site.Index])).Append(';');
             return "entered="+capturedEntered+",exited="+capturedExited+",active="+capturedActive+",balanced="+(capturedEntered==capturedExited+capturedActive)+
                 ",incompleteCalls="+incompleteCalls+",captureFailures="+failures+",overflow="+overflow+",backgroundOverflow="+backgroundOverflow+",traceComplete="+(failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryPending="+(queued!=0)+",installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.OwnedCount+",sessionNativeCalls="+Interlocked.Read(ref sessionNativeCalls)+",sessionNativeExits="+Interlocked.Read(ref sessionNativeExits)+",nativeCoverageComplete="+(installed==BridgeNativeDefinition.OwnedCount&&APIShared.EnemyBridgeDiagnosticBridge.TopologyAvailable&&Interlocked.Read(ref sessionNativeCalls)>0&&Interlocked.Read(ref sessionNativeCalls)==Interlocked.Read(ref sessionNativeExits)&&capturedEntered==capturedExited&&capturedActive==0&&failures==0&&incompleteCalls==0)+",nativeUnavailable=["+nativeUnavailable+"]"+
-                ","+(planningCapture?.Status??"planningCapture=unavailable")+",physicalGeneration="+physical+",topologyGeneration="+topology+",fullCaptures="+captures+",indexBuilds="+buildingIndex.Builds+",indexBuildMs="+(buildingIndex.BuildTicks*1000.0/Stopwatch.Frequency).ToString("F3")+
+                ","+(planningCapture?.Status??"planningCapture=unavailable")+",physicalGeneration="+physical+",topologyGeneration="+topology+",fullCaptures="+captures+",indexBuilds="+buildingIndex.Builds+",indexBuildMs="+(buildingIndex.BuildTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+
                 ",coalesced="+coalesced+",invalidIds="+invalidIds+",pooledScopesCreated="+pooledScopes+",queue="+queued+
                 ",commandPre="+commandPre+",commandPost="+commandPost+",detailedCommands="+detailedCommands+",backgroundCalls="+backgroundCalls+
-                ",deliveryErrors="+deliveryErrors+",outputBytes="+outputBytes+",outputRecords="+outputRecords+",captureMs="+(captureTicks*1000.0/Stopwatch.Frequency).ToString("F3")+
-                ",drainMs="+(drainTicks*1000.0/Stopwatch.Frequency).ToString("F3")+",siteCalls=["+sites+"]";
+                ",deliveryErrors="+deliveryErrors+",outputBytes="+outputBytes+",outputRecords="+outputRecords+",captureMs="+(captureTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+
+                ",drainMs="+(drainTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",siteCalls=["+sites+"]";
         }
         internal Scope Enter(BridgeNativeDefinition.Site site,IntPtr pointer,int a=0,int b=0,int c=0,int d=0,int e=0,int f=0)
         {
@@ -752,11 +757,11 @@ namespace EnemyBridgePathTest
             Interlocked.Exchange(ref unscopedGroupSamples,0);
             Emit("interval-route-cost",Routes.Interval());
             long now=Stopwatch.GetTimestamp(),c=captures,b=buildingIndex.Builds,r=coalesced,o=outputBytes,ct=captureTicks,dt=drainTicks,bg=backgroundCalls;
-            Emit("interval-cost","seconds="+(lastCostClock==0?0:(now-lastCostClock)*1.0/Stopwatch.Frequency).ToString("F3")+",captures="+(c-lastCaptures)+",indexBuilds="+(b-lastBuilds)+",coalesced="+(r-lastCoalesced)+",outputBytes="+(o-lastOutputBytes)+",backgroundCalls="+(bg-lastBackgroundCalls)+",captureMs="+((ct-lastCaptureTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",drainMs="+((dt-lastDrainTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",queue="+queued+",criticalOverflow="+overflow+",backgroundOverflow="+backgroundOverflow);
-            Emit("interval-transport-cost","rawPayloadBytes="+(transportRawBytes-lastTransportRaw)+",savedPayloadBytes="+(transportSavedBytes-lastTransportSaved)+",packedRecords="+(transportPackedRecords-lastTransportRecords)+",encodeMs="+((transportTicks-lastTransportTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",scope=publisher-only,includedInDrainMs=True,semanticRecords=unchanged");
+            Emit("interval-cost","seconds="+(lastCostClock==0?0:(now-lastCostClock)*1.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",captures="+(c-lastCaptures)+",indexBuilds="+(b-lastBuilds)+",coalesced="+(r-lastCoalesced)+",outputBytes="+(o-lastOutputBytes)+",backgroundCalls="+(bg-lastBackgroundCalls)+",captureMs="+((ct-lastCaptureTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",drainMs="+((dt-lastDrainTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",queue="+queued+",criticalOverflow="+overflow+",backgroundOverflow="+backgroundOverflow);
+            Emit("interval-transport-cost","rawPayloadBytes="+(transportRawBytes-lastTransportRaw)+",savedPayloadBytes="+(transportSavedBytes-lastTransportSaved)+",packedRecords="+(transportPackedRecords-lastTransportRecords)+",encodeMs="+((transportTicks-lastTransportTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",maxEncodeMs="+(Interlocked.Exchange(ref transportMaxTicks,0)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",maxDrainMs="+(Interlocked.Exchange(ref drainMaxTicks,0)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",drainOverBudget="+Interlocked.Exchange(ref drainOverruns,0)+",maxDeferredRenderMs="+(Interlocked.Exchange(ref renderMaxTicks,0)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",renderOverBudget="+Interlocked.Exchange(ref renderOverruns,0)+",scope=publisher-only,maxRenderScope=whole-deferred-including-shadow-artifacts-and-snapshots,includedInDrainMs=True,maxRenderIncludedInDrainMs=False,semanticRecords=unchanged");
             lastTransportRaw=transportRawBytes;lastTransportSaved=transportSavedBytes;lastTransportRecords=transportPackedRecords;lastTransportTicks=transportTicks;
-            Emit("interval-index-cost","indexBuildMs="+((buildingIndex.BuildTicks-lastIndexTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",measurement=may-overlap-full-capture-time");
-            Emit("interval-capture-cost","numericBridgeReads="+(numericReads-lastNumericReads)+",candidateReads="+(tableReads-lastTableReads)+",definitionFormats="+(definitionFormats-lastDefinitionFormats)+",tableReferences="+(tableReferences-lastTableReferences)+",readMs="+((readTicks-lastReadTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",compareMs="+((compareTicks-lastCompareTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",formatMs="+((formatTicks-lastFormatTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",measurement=bridge-and-candidate-observations,mayOverlapCaptureMs=True,includesLoggerPrefix=False");
+            Emit("interval-index-cost","indexBuildMs="+((buildingIndex.BuildTicks-lastIndexTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",measurement=may-overlap-full-capture-time");
+            Emit("interval-capture-cost","numericBridgeReads="+(numericReads-lastNumericReads)+",candidateReads="+(tableReads-lastTableReads)+",definitionFormats="+(definitionFormats-lastDefinitionFormats)+",tableReferences="+(tableReferences-lastTableReferences)+",readMs="+((readTicks-lastReadTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",compareMs="+((compareTicks-lastCompareTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",formatMs="+((formatTicks-lastFormatTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",measurement=bridge-and-candidate-observations,mayOverlapCaptureMs=True,includesLoggerPrefix=False");
             lastNumericReads=numericReads;lastDefinitionFormats=definitionFormats;lastTableReferences=tableReferences;
             lastTableReads=tableReads;
             lastReadTicks=readTicks;lastCompareTicks=compareTicks;lastFormatTicks=formatTicks;
@@ -892,7 +897,7 @@ namespace EnemyBridgePathTest
                         try {WriteRecord(marker);}catch {Interlocked.Increment(ref deliveryErrors);}
                     }
             }
-            finally {Interlocked.Add(ref drainTicks,Stopwatch.GetTimestamp()-start);}
+            finally {long elapsed=Stopwatch.GetTimestamp()-start;Interlocked.Add(ref drainTicks,elapsed);Maximum(ref drainMaxTicks,elapsed);if(elapsed*1000.0/Stopwatch.Frequency>2)Interlocked.Increment(ref drainOverruns);}
         }
         private readonly StringBuilder nativeRows=new StringBuilder();
         private Record nativeEnvelope;
@@ -953,7 +958,7 @@ namespace EnemyBridgePathTest
             if(wireLines.Count==0)return;
             long start=Stopwatch.GetTimestamp();int count=wireLines.Count;
             string packed=BridgeTraceTransport.EncodeBatch(wireLines,out int raw,out int saved);
-            Interlocked.Add(ref transportTicks,Stopwatch.GetTimestamp()-start);
+            long elapsed=Stopwatch.GetTimestamp()-start;Interlocked.Add(ref transportTicks,elapsed);Maximum(ref transportMaxTicks,elapsed);
             Interlocked.Add(ref transportRawBytes,raw);Interlocked.Add(ref transportSavedBytes,saved);
             if(packed!=null)
             {wireLines.Clear();wireBytes=0;Interlocked.Add(ref transportPackedRecords,count);PublishWire(packed);}

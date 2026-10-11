@@ -60,7 +60,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"UnitCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:63", $"UnitCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -79,7 +79,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing UnitCosts after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:82", $"Error while initializing UnitCosts after library load: {ex}");
             }
         }
 
@@ -88,7 +88,7 @@ namespace UnitCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"UnitCosts {stageName} failed; independent stages continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:91", $"UnitCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
 
@@ -115,7 +115,7 @@ namespace UnitCosts
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(Logger, $"UnitCosts tooltip binding '{bindingTarget}' failed; remaining bindings continue: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:118", $"UnitCosts tooltip binding '{bindingTarget}' failed; remaining bindings continue: {ex}");
                 }
             }
         }

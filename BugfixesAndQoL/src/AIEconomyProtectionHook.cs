@@ -618,18 +618,14 @@ namespace BugfixesAndQoL
                 if (!inaccessibleDiagnosticSamplingCompleteLogged)
                 {
                     inaccessibleDiagnosticSamplingCompleteLogged = true;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Bugfixes and QoL AI inaccessible-building diagnostics sampled " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:621", $"Bugfixes and QoL AI inaccessible-building diagnostics sampled " +
                         $"{MaximumInaccessibleDiagnosticSamplesPerMap} distinct outcomes; further samples on this map are omitted.");
                 }
                 return;
             }
             inaccessibleDiagnosticSamples.Add(sampleKey);
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Bugfixes and QoL AI inaccessible-building sample: " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:630", $"Bugfixes and QoL AI inaccessible-building sample: " +
                 $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
                 $"buildingType={building->r_BuildingType}, owner={playerId}, " +
                 $"vanillaAccessibilityResult={vanillaResult}, effectiveAccessibilityResult={effectiveResult}, " +
@@ -639,9 +635,9 @@ namespace BugfixesAndQoL
                 summary);
         }
 
-        private void LogError(string message)
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
-            log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
+            Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
         }
 
         private static string TimestampNow()

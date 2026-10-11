@@ -2447,7 +2447,7 @@ static void TestCoopExporterIntegration()
         "Coop launch refresh retention, visible blocking, or Customize ready-state reset is missing");
     Assert(coordinator.Contains("SinglePlayerCoopStarting") &&
         runtime.Contains("PrepareSinglePlayerCoopStart") &&
-        runtime.Contains("packageCatalog.Scan(roots, LogInfo, LogError)") &&
+        runtime.Contains("packageCatalog.Scan(roots, message => LogInfo(message), message => LogError(message))") &&
         runtime.Contains("source: \"single-player Coop restart\"") &&
         runtime.Contains("missionSettingsCoordinator.PrepareCoopMissionLaunch()") &&
         runtime.Contains("Blocked custom single-player Coop restart"),
@@ -3216,11 +3216,11 @@ namespace Shared
 {
     internal static class DebugLogHelper
     {
-        internal static void LogError(BepInEx.Logging.ManualLogSource log, string message)
+        internal static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } internal static void LogError(BepInEx.Logging.ManualLogSource log, string message)
         {
         }
 
-        internal static void LogWarning(BepInEx.Logging.ManualLogSource log, string message)
+        internal static void LogWarningLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogWarning(log, System.String.Concat(parts)); } internal static void LogWarning(BepInEx.Logging.ManualLogSource log, string message)
         {
         }
 
@@ -3228,7 +3228,7 @@ namespace Shared
         {
         }
 
-        internal static void LogDebug(BepInEx.Logging.ManualLogSource log, string message)
+        internal static void LogDebugLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } internal static void LogDebug(BepInEx.Logging.ManualLogSource log, string message)
         {
         }
     }

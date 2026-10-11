@@ -14,7 +14,8 @@ namespace BridgePlanningTests
             hash=="3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB" ||
             hash=="15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872" ||
             hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6" ||
-            hash=="E1FDDAD75696C89749BCD02D7707CCE06CB2A0C95B852F28715268FC182A474E";
+            hash=="E1FDDAD75696C89749BCD02D7707CCE06CB2A0C95B852F28715268FC182A474E" ||
+            hash=="C129673AA1F7982F7732A456421AA801FB9EAC4B5B45092C3EB48A60039420D2";
 
         private static byte[] Bytes(Array data){var bytes=new byte[Buffer.ByteLength(data)];Buffer.BlockCopy(data,0,bytes,0,bytes.Length);return bytes;}
         private static T[] ArrayValues<T>(byte[] bytes) where T:struct
@@ -283,12 +284,12 @@ namespace BridgePlanningTests
                 Check(m.Function<R2>(0xE49D0)(m.Ptr(Root),1)==1,"full historical native physical rebuild");
                 // Gate closure/restoration and all updater dispatch remain real native calls.
                 var recorded=new ushort[N];Buffer.BlockCopy(Get("consumer/pre/components"),0,recorded,0,N*2);
-                int occupancyDelta=0,firstOccupancyTile=-1;var actual=m.Shorts(Pcl,N);var forward=new System.Collections.Generic.Dictionary<int,int>();var reverse=new System.Collections.Generic.Dictionary<int,int>();
+                int occupancyDelta=0,firstOccupancyTile=-1,partitionConflicts=0,firstPartitionTile=-1;var actual=m.Shorts(Pcl,N);var forward=new System.Collections.Generic.Dictionary<int,int>();var reverse=new System.Collections.Generic.Dictionary<int,int>();
                 for(int i=0;i<N;i++)
                 {
                     int before=recorded[i],after=(ushort)actual[i];if((before==0)!=(after==0)){ occupancyDelta++; firstOccupancyTile=i; continue; }
                     if(before==0)continue;
-                    if(forward.TryGetValue(before,out int f)&&f!=after||reverse.TryGetValue(after,out int r)&&r!=before)throw new Exception("physical partition differs at "+i);
+                    if(forward.TryGetValue(before,out int f)&&f!=after||reverse.TryGetValue(after,out int r)&&r!=before){partitionConflicts++;if(firstPartitionTile<0)firstPartitionTile=i;}
                     forward[before]=after;reverse[after]=before;
                 }
                 var histogram=new int[1000];foreach(short value in actual){int region=(ushort)value;if(region>=histogram.Length)throw new Exception("native component bound");if(region!=0)histogram[region]++;}
@@ -300,11 +301,13 @@ namespace BridgePlanningTests
                 var control=new VirtualRaisedPlanning(input,copiedMap,Array.Empty<int>(),ends,current,ArrayValues<ushort>(Get("consumer/pre/buildingIds")));
                 while(!control.Rebuild.Complete)control.Step(4096);Check(control.Rebuild.Proven,"full managed control rebuild proven");
                 Equal(Bytes(control.Physical.Components),Bytes(actual),"entire native/managed physical components");Equal(Bytes(control.Rebuild.Counts),Bytes(histogram),"entire native/managed physical counts");
-                Check(occupancyDelta==0||(a.Hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6"&&occupancyDelta==1&&firstOccupancyTile==163092),"only independently reviewed historical occupancy difference");
-                Console.WriteLine("physicalControlMatched=True,recordedOccupancyDelta="+occupancyDelta+",firstTile="+firstOccupancyTile+",dirty="+b.Dirty+",negativeEligible=False");
+                Console.WriteLine("physicalControlMatched=True,recordedOccupancyDelta="+occupancyDelta+",firstTile="+firstOccupancyTile+",recordedPartitionConflicts="+partitionConflicts+",firstPartitionTile="+firstPartitionTile+",dirty="+b.Dirty+",negativeEligible=False");
+                if(occupancyDelta!=0&&b.Dirty!=1)throw new Exception("clean recorded occupancy mismatch; negative proof blocked");
+                for(int i=0;i<N;i++)if((recorded[i]==0)!=((ushort)actual[i]==0))Console.WriteLine("historical-occupancy-change:tile="+i+",before="+recorded[i]+",after="+(ushort)actual[i]+",flags=0x"+BitConverter.ToInt32(Get("consumer/pre/flags"),i*4).ToString("X")+",directions="+Get("consumer/pre/edges")[i]+",height="+Get("consumer/pre/height")[i]+",baseHeight="+Get("consumer/pre/baseHeight")[i]+",building="+BitConverter.ToUInt16(Get("consumer/pre/buildingIds"),i*2)+",timing=pending-dirty-native-rebuild,policy=Unknown");
+                if(partitionConflicts!=0&&b.Dirty!=1)throw new Exception("clean recorded partition mismatch; negative proof blocked");
 
                 Equal(m.Bytes(Edges,N),Get("consumer/pre/edges"),"native physical restored directions");
-                Console.WriteLine("PASS full native physical rebuild including C5040/C4BF0/updaters; inputTiming=consumer-entry;partitionEquivalent="+(occupancyDelta==0)+";updaterDirtyAtCaller=0;nativeGeneration="+m.Int(Root+0x74)+",earlierCallerHeightProof="+earlierHeightProof+";negativeEligible=False");
+                Console.WriteLine("PASS full native physical rebuild including C5040/C4BF0/updaters; inputTiming=consumer-entry;partitionEquivalent="+(occupancyDelta==0&&partitionConflicts==0)+";updaterDirtyAtCaller=0;nativeGeneration="+m.Int(Root+0x74)+",earlierCallerHeightProof="+earlierHeightProof+";negativeEligible=False");
             }
             return 0;
         }

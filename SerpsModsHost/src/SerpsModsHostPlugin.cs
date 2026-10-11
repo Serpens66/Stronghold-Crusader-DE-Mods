@@ -20,22 +20,19 @@ using System.Threading;
 
 namespace SerpsModsHost
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
-    [BepInDependency("APIShared_Serp", "0.5.0")]
-    [BepInDependency("CrusaderDETweaker", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    [ExcludeFromSavegameModSettings]
-    public sealed class SerpsModsHostPlugin : BaseUnityPlugin
+    internal sealed class SerpsModsHostRuntime
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.25";
+        public const string PluginVersion = SerpsModsHostPlugin.PluginVersion;
         public const bool ExtendedDataModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
-        private static SerpsModsHostPlugin instance;
+        private static SerpsModsHostRuntime instance;
+        private readonly SerpsModsHostPlugin owner;
+        private ManualLogSource Logger => owner.HostLogger;
         private static PackLogListener packLogListener;
         private static IDisposable lobbyJoinSubscription;
         private static LobbyModHashWarning lobbyModHashWarning;
@@ -49,8 +46,10 @@ namespace SerpsModsHost
         private int validatedCount;
         private int registeredCount;
 
-        private void Awake()
+        internal SerpsModsHostRuntime(SerpsModsHostPlugin owner)
         {
+            APIShared.SavegameModSettings.ExcludePluginFromAutomaticSettings(owner.GetType());
+            this.owner = owner;
             instance = this;
             diagnostics = new SerpsModsDiagnosticsViewModel();
             diagnostics.SetRefreshAction(() => AuditLoadedPlugins(true));
@@ -107,7 +106,8 @@ namespace SerpsModsHost
             foreach (PackModRecord dependency in manifest.Infrastructure ?? new List<PackModRecord>())
             {
                 ValidateRecord(root, dependency, guids, paths);
-                if (!string.Equals(dependency.State, "Infrastructure", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(dependency.State, "Infrastructure", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(dependency.State, "External", StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException($"H002: Invalid infrastructure state for {dependency.Guid}: {dependency.State}");
                 expectedLogSources.Add(dependency.Guid);
                 expectedLogSources.Add(dependency.Name);
@@ -376,6 +376,13 @@ namespace SerpsModsHost
             HashSet<string> guids,
             HashSet<string> paths)
         {
+            if (mod != null && string.Equals(mod.State, "External", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(mod.Guid) || !Version.TryParse(mod.Version, out _) ||
+                    !guids.Add(mod.Guid) || !string.IsNullOrEmpty(mod.RelativePath) || (mod.Files?.Count ?? 0) != 0)
+                    throw new InvalidDataException("H002: Invalid external dependency record.");
+                return;
+            }
             if (mod == null || string.IsNullOrWhiteSpace(mod.Guid) || string.IsNullOrWhiteSpace(mod.RelativePath))
                 throw new InvalidDataException("H002: A mod record is missing GUID or RelativePath.");
             if (!string.Equals(mod.State, "Active", StringComparison.OrdinalIgnoreCase) &&
@@ -423,7 +430,7 @@ namespace SerpsModsHost
             try
             {
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
-                    this,
+                    owner,
                     Logger,
                     PluginGuid,
                     diagnostics,
@@ -467,7 +474,7 @@ namespace SerpsModsHost
                 Interlocked.Exchange(ref settingsSortQueued, 0);
                 try
                 {
-                    StatsTweakerPresetAdapter.TryAttach(instance.Info.Location, instance.Logger);
+                    StatsTweakerPresetAdapter.TryAttach(instance.owner.Info.Location, instance.Logger);
                     var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
                     LobbyModSettingsEntry host = registrations.FirstOrDefault(entry =>
                         string.Equals(entry.Name, PluginGuid, StringComparison.Ordinal));
@@ -475,7 +482,7 @@ namespace SerpsModsHost
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(instance.Logger, $"Modsettings ordering failed: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(instance.Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:485", $"Modsettings ordering failed: {ex}");
                 }
             });
         }
@@ -537,7 +544,9 @@ namespace SerpsModsHost
                 }
 
                 string actualVersion = pluginInfo.Metadata.Version?.ToString() ?? string.Empty;
-                if (!string.Equals(actualVersion, dependency.Version, StringComparison.Ordinal))
+                bool external = string.Equals(dependency.State, "External", StringComparison.OrdinalIgnoreCase);
+                if (external ? (!Version.TryParse(actualVersion, out Version loadedVersion) ||
+                    !Version.TryParse(dependency.Version, out Version minimumVersion) || loadedVersion < minimumVersion) : actualVersion != dependency.Version)
                 {
                     if (isApiShared)
                         apiSharedAvailable = false;
@@ -546,6 +555,7 @@ namespace SerpsModsHost
                         PackPluginDiagnosticMessages.InfrastructureVersionMismatch(dependency, actualVersion));
                 }
 
+                if (string.Equals(dependency.State, "External", StringComparison.OrdinalIgnoreCase)) continue;
                 string expectedDirectory = ResolveContainedPath(packRoot, dependency.RelativePath);
                 string loadedDirectory = Path.GetDirectoryName(pluginInfo.Location);
                 if (!DuplicateInstallationDetector.PathsEqual(loadedDirectory, expectedDirectory))
@@ -599,9 +609,7 @@ namespace SerpsModsHost
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebug(
-                    Logger,
-                    $"[{PluginName}] Could not refine the load diagnostic for {mod.Guid}: {ex.Message}");
+                Shared.DebugLogHelper.LogDebugLimited(Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:612", $"[{PluginName}] Could not refine the load diagnostic for {mod.Guid}: {ex.Message}");
                 return false;
             }
         }
@@ -637,7 +645,7 @@ namespace SerpsModsHost
         {
             string full = $"[{PluginName}] ERROR {code}: {message}";
             diagnostics?.RecordError(full);
-            Shared.DebugLogHelper.LogError(Logger, full);
+            Shared.DebugLogHelper.LogErrorLimited(Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:650", full);
         }
 
         private static string ResolveContainedPath(string parent, string relative)

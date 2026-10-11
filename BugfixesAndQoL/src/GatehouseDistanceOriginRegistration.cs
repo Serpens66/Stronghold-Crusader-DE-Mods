@@ -75,9 +75,7 @@ namespace BugfixesAndQoL
             if (string.Equals(lastFailure, failure, StringComparison.Ordinal))
                 return;
             lastFailure = failure;
-            Shared.DebugLogHelper.LogError(
-                log,
-                failure + ". Vanilla's gatehouse distance origin remains authoritative; independent fixes continue.");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/GatehouseDistanceOriginRegistration.cs:78", failure + ". Vanilla's gatehouse distance origin remains authoritative; independent fixes continue.");
         }
     }
 }

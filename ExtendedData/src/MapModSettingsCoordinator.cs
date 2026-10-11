@@ -310,7 +310,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    DebugLogHelper.LogError(log, "Could not execute the confirmed Map Editor save safely: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:313", "Could not execute the confirmed Map Editor save safely: " + exception);
                     ShowEditorSaveError();
                 }
                 finally
@@ -426,9 +426,7 @@ namespace ExtendedData
                 string.IsNullOrEmpty(normalizedPath) ||
                 !string.Equals(pendingMapSavePath, normalizedPath, StringComparison.OrdinalIgnoreCase))
             {
-                DebugLogHelper.LogError(
-                    log,
-                    "Blocked Map mod-settings save because the confirmed target path did not match [" +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:429", "Blocked Map mod-settings save because the confirmed target path did not match [" +
                     pendingMapSavePath + "]: [" + normalizedPath + "].");
                 ShowEditorSaveError();
                 return;
@@ -454,9 +452,7 @@ namespace ExtendedData
                         throw new InvalidDataException("Captured Map mod settings exceed the supported payload size.");
                     pendingMapSavePayload = payload;
                     pendingMapSavePath = NormalizePath(path);
-                    DebugLogHelper.LogDebug(
-                        log,
-                        "Captured Map mod settings before save; mentioned=[" +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:457", "Captured Map mod settings before save; mentioned=[" +
                         string.Join(", ", document.Mods.Keys) + "].");
                 }
                 else
@@ -477,9 +473,7 @@ namespace ExtendedData
             {
                 TryRestoreActiveMapSettingsEntry(removedEntry);
                 TryRollbackMapFile(normalizedPath, targetBackup, targetExisted);
-                DebugLogHelper.LogError(
-                    log,
-                    "The confirmed Map save was rolled back because its mod-settings state could not be published safely: " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:480", "The confirmed Map save was rolled back because its mod-settings state could not be published safely: " +
                     exception);
                 ShowEditorSaveError();
             }
@@ -499,9 +493,7 @@ namespace ExtendedData
                 !string.IsNullOrEmpty(contextPath) &&
                 !string.Equals(pendingMapSavePath, contextPath, StringComparison.OrdinalIgnoreCase))
             {
-                DebugLogHelper.LogError(
-                    log,
-                    "Refused to write Map mod settings because the save path changed from [" +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:502", "Refused to write Map mod settings because the save path changed from [" +
                     pendingMapSavePath + "] to [" + contextPath + "].");
                 return null;
             }
@@ -697,7 +689,7 @@ namespace ExtendedData
             }
             catch (Exception exception)
             {
-                DebugLogHelper.LogError(log, "Could not apply Map mod settings: " + exception);
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:700", "Could not apply Map mod settings: " + exception);
                 ShowMessage(
                     SerpLocalization.Get("ExtendedData.MapModSettingsErrorTitle"),
                     SerpLocalization.Get("ExtendedData.MapModSettingsUnavailable"));
@@ -709,9 +701,7 @@ namespace ExtendedData
             activeMapPath = NormalizePath(selected.filePath);
             activeMapCrc = selected.crc;
             activeJson = json;
-            DebugLogHelper.LogDebug(
-                log,
-                "Applied Map mod settings from [" + selected.filePath + "]; mentioned=[" +
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:712", "Applied Map mod settings from [" + selected.filePath + "]; mentioned=[" +
                 string.Join(", ", document.Mods.Keys) + "].");
             if (missing.Length != 0)
             {
@@ -754,9 +744,7 @@ namespace ExtendedData
             {
                 if (logFailure)
                 {
-                    DebugLogHelper.LogError(
-                        log,
-                        "Could not read Map mod settings from [" + header.filePath + "]: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:757", "Could not read Map mod settings from [" + header.filePath + "]: " + exception);
                 }
                 return false;
             }
@@ -781,7 +769,7 @@ namespace ExtendedData
                     apply: false,
                     mapFileName: clearedMapFileName,
                     mapCrc: clearedMapCrc);
-            DebugLogHelper.LogDebug(log, "Cleared Map mod-settings context: " + reason + ".");
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:784", "Cleared Map mod-settings context: " + reason + ".");
         }
 
         private void OnMapSettingsPacket(ReceiveCustomPacketEventArgs<MapModSettingsPacket> args)
@@ -810,7 +798,7 @@ namespace ExtendedData
             }
             catch (Exception exception)
             {
-                DebugLogHelper.LogError(log, "Could not process Map mod-settings packet: " + exception);
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:813", "Could not process Map mod-settings packet: " + exception);
             }
         }
 
@@ -819,7 +807,7 @@ namespace ExtendedData
             CSteamID? host = GameNetworkAPI.GetHostSteamId();
             if (!host.HasValue || sender != host.Value)
             {
-                DebugLogHelper.LogError(log, "Rejected Map mod-settings packet from a sender that is not the lobby host.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:822", "Rejected Map mod-settings packet from a sender that is not the lobby host.");
                 return;
             }
             FRONT_Multiplayer lobby = GetReadyLobby();
@@ -832,7 +820,7 @@ namespace ExtendedData
             {
                 if (!MatchesLobby(packet, lobby) && !MatchesActiveContext(packet))
                 {
-                    DebugLogHelper.LogWarning(log, "Ignored Map mod-settings clear for an unrelated map.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:835", "Ignored Map mod-settings clear for an unrelated map.");
                     return;
                 }
                 ExitMapContext(broadcast: false, "authenticated host clear");
@@ -840,13 +828,13 @@ namespace ExtendedData
             }
             if (!MatchesLobby(packet, lobby))
             {
-                DebugLogHelper.LogWarning(log, "Ignored Map mod-settings packet for a different lobby map.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:843", "Ignored Map mod-settings packet for a different lobby map.");
                 return;
             }
             if (string.IsNullOrEmpty(packet.Json) ||
                 StrictUtf8.GetByteCount(packet.Json) > MaxPayloadBytes)
             {
-                DebugLogHelper.LogError(log, "Rejected invalid Map mod-settings packet payload size.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:849", "Rejected invalid Map mod-settings packet payload size.");
                 return;
             }
             if (IsMapContextCurrent() && packet.MapCrc == activeMapCrc &&
@@ -877,11 +865,11 @@ namespace ExtendedData
                         SerpLocalization.Get("ExtendedData.MapModSettingsMissingTitle"),
                         SerpLocalization.Get("ExtendedData.MapModSettingsMissing") + " " + string.Join(", ", missing));
                 }
-                DebugLogHelper.LogDebug(log, "Applied authenticated host Map mod settings.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:880", "Applied authenticated host Map mod settings.");
             }
             catch (Exception exception)
             {
-                DebugLogHelper.LogError(log, "Rejected invalid authenticated Map mod settings: " + exception);
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:884", "Rejected invalid authenticated Map mod settings: " + exception);
             }
         }
 
@@ -913,7 +901,7 @@ namespace ExtendedData
                 dataLength = bytes.Length,
                 dataOffset = 0,
             });
-            DebugLogHelper.LogDebug(log, "Broadcast Map mod-settings " + (apply ? "apply" : "clear") + ".");
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:916", "Broadcast Map mod-settings " + (apply ? "apply" : "clear") + ".");
         }
 
         private void RegisterLobbyObserver()

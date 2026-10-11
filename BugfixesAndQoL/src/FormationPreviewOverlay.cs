@@ -120,8 +120,7 @@ namespace BugfixesAndQoL
                 if (renderedGeneration != current.Generation)
                 {
                     renderedGeneration = current.Generation;
-                    Shared.DebugLogHelper.LogDebug(log,
-                        $"FORMATION_OVERLAY_SUMMARY: generation={current.Generation}, roleMarkers={showRoleMarkers}, visible={visible}, skipped={skipped}, arrow={current.Direction.Visible}, explicitDirection={current.Direction.ExplicitDirection}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/FormationPreviewOverlay.cs:123", $"FORMATION_OVERLAY_SUMMARY: generation={current.Generation}, roleMarkers={showRoleMarkers}, visible={visible}, skipped={skipped}, arrow={current.Direction.Visible}, explicitDirection={current.Direction.ExplicitDirection}.");
                 }
             }
             catch (Exception exception)
@@ -130,7 +129,7 @@ namespace BugfixesAndQoL
                 if (renderFailureLogged)
                     return;
                 renderFailureLogged = true;
-                Shared.DebugLogHelper.LogError(log, $"Formation Noesis overlay disabled after render error: {exception}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/FormationPreviewOverlay.cs:133", $"Formation Noesis overlay disabled after render error: {exception}");
             }
         }
 
@@ -142,7 +141,7 @@ namespace BugfixesAndQoL
                 if (!missingHostLogged)
                 {
                     missingHostLogged = true;
-                    Shared.DebugLogHelper.LogWarning(log, "FORMATION_OVERLAY_SKIPPED: Noesis host BugfixesAndQoLFormationPreviewCanvas is unavailable.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationPreviewOverlay.cs:145", "FORMATION_OVERLAY_SKIPPED: Noesis host BugfixesAndQoLFormationPreviewCanvas is unavailable.");
                 }
                 HideAll();
                 return false;

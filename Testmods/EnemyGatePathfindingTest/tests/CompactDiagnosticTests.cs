@@ -59,7 +59,9 @@ namespace EnemyGatePathfindingTest
             string plugin = File.ReadAllText("src/EnemyGatePathfindingTestPlugin.cs");
             check(plugin.Contains("Config.Bind(\"Diagnostics\", \"DetailedDiagnostics\", false") && !plugin.Contains("SettingChanged"), "default false, startup-only option");
             foreach (string subscription in new[] { "targetOrderSubscription", "tribeMoveSubscription", "unitMoveSubscription" })
-                check(plugin.Contains("if (detailedDiagnostics && " + subscription + " == null)"), "order subscription guarded");
+                check(plugin.Contains("if ((detailedDiagnostics || macemenDiagnostics) && " + subscription + " == null)"), "order subscription requires an explicit diagnostic profile");
+            check(plugin.Contains("Config.Bind(\"Diagnostics\", \"MacemenDiagnostics\", false") &&
+                plugin.Contains("if (macemenDiagnostics) detailedDiagnostics = false;"), "Macemen profile defaults off and excludes broad observers");
             string runtime = File.ReadAllText("src/EnemyGatePathfindingRuntime.cs");
             check(runtime.Contains("if (detailedDiagnostics) APIShared.TemporaryGateRouteAcceptanceBridge.Register") &&
                 runtime.Contains("if (detailedDiagnostics)\n            {".Replace("\n", "\r\n")), "temporary registration and objects guarded");

@@ -89,4 +89,5 @@
   </Target>
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\MacemenDiagnosticAggregate.cs" /><Compile Include="src\MacemenCommandDiagnostics.cs" /></ItemGroup>
 </Project>

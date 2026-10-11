@@ -413,12 +413,12 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private void LogInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => Shared.DebugLogHelper.LogDebug(log, message));
-        private void LogWarning(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => Shared.DebugLogHelper.LogWarning(log, message));
-        private void LogError(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => Shared.DebugLogHelper.LogError(log, message));
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
 
         private readonly struct ResolvedTarget
         {

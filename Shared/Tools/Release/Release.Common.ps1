@@ -406,6 +406,8 @@ function Get-PublishedApiSharedRelease {
         [Parameter(Mandatory)]$Package
     )
     $tag = "APIShared/v$([string]$Package.Version)"
+    $testRelease = $env:SHCDE_WORKSHOP_TEST -eq '1'
+    if ($testRelease) { $tag = "APIShared/test/v$([string]$Package.Version)-$(([string]$Package.Commit).Substring(0,12))" }
     $assetName = "APIShared-v$([string]$Package.Version).zip"
     $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(
         'release', 'view', $tag, '--repo', [string]$Config.ApiShared.Repository,
@@ -418,7 +420,7 @@ function Get-PublishedApiSharedRelease {
     if ([string]$release.tagName -cne $tag) {
         throw "Required APIShared release resolved to unexpected tag '$([string]$release.tagName)' instead of '$tag'."
     }
-    if ([bool]$release.isDraft) {
+    if ([bool]$release.isDraft -ne $testRelease) {
         throw "Required APIShared release $tag is still a draft. Publish APIShared first."
     }
     $assets = @($release.assets | Where-Object { [string]$_.name -ceq $assetName })

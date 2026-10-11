@@ -112,9 +112,7 @@ namespace BugfixesAndQoL.UnitCommands
                     return;
                 }
                 menuViewModel.PublishPreview(points, directionIndicator);
-                APIShared.Internal.DebugLogHelper.LogDebug(
-                    log,
-                    $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:115", $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
                     $"density={previewKey.Density}, placement={previewKey.PlacementMode}, " +
                     $"direction={previewKey.DirectionSector}, explicitDirection={previewKey.ExplicitDirection}, " +
                     $"width={previewKey.Width}, " +
@@ -126,9 +124,7 @@ namespace BugfixesAndQoL.UnitCommands
             catch (Exception exception)
             {
                 ClearPreview();
-                APIShared.Internal.DebugLogHelper.LogDebug(
-                    log,
-                    $"Formation preview unavailable for this target: {exception.Message}");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:129", $"Formation preview unavailable for this target: {exception.Message}");
             }
         }
 

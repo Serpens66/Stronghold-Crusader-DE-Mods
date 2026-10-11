@@ -157,7 +157,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:160", $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
             }
         }
 
@@ -166,13 +166,12 @@ namespace UnitCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:169", $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
             }
         }
 
         private void OnSettingChanged(string propertyName)
         {
-            Shared.DebugLogHelper.LogDebug(log, "UnitCosts settings changed:", propertyName);
 
             if (propertyName == nameof(UnitCostsLobbyViewModel.EnableMod))
             {
@@ -281,12 +280,12 @@ namespace UnitCosts
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(log, $"UnitCosts could not apply {entry.Key}; remaining units continue: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:284", $"UnitCosts could not apply {entry.Key}; remaining units continue: {ex}");
                 }
             }
 
             noWeaponsUiMask = appliedNoWeaponsMask;
-            Shared.DebugLogHelper.LogDebug(log, "Applied unit cost values:", changedValues);
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:289", "Applied unit cost values:", changedValues);
         }
 
         private bool IsNoWeaponsUiActive(eChimps unitType)
@@ -308,7 +307,7 @@ namespace UnitCosts
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(log, $"UnitCosts could not restore {entry.Key}; remaining units continue: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:311", $"UnitCosts could not restore {entry.Key}; remaining units continue: {ex}");
                 }
             }
 
@@ -321,14 +320,14 @@ namespace UnitCosts
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(log, $"UnitCosts could not restore European good costs for {entry.Key}: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:324", $"UnitCosts could not restore European good costs for {entry.Key}: {ex}");
                 }
             }
 
             humanExtraCosts.Clear();
             configuredRecruitmentButtons.Clear();
             ClearRecruitmentCostTooltip();
-            Shared.DebugLogHelper.LogDebug(log, "Restored vanilla unit cost values:", restoredValues);
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:331", "Restored vanilla unit cost values:", restoredValues);
         }
 
         private static void SetUnitGoldCost(eChimps unitType, int goldCost)
@@ -351,7 +350,7 @@ namespace UnitCosts
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(log, $"UnitCosts could not capture European good costs for {unitType}; No Weapons disabled for this unit: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:354", $"UnitCosts could not capture European good costs for {unitType}; No Weapons disabled for this unit: {ex}");
                 }
             }
         }
@@ -377,7 +376,7 @@ namespace UnitCosts
             }
 
             RebuildConfiguredRecruitmentButtons();
-            Shared.DebugLogHelper.LogDebug(log, "Applied human extra unit cost rows:", configuredUnits);
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:380", "Applied human extra unit cost rows:", configuredUnits);
             RefreshCurrentRecruitmentCostTooltip();
         }
 
@@ -393,7 +392,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebug(log, "UnitCosts local recruitment cost check failed:", ex.Message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:396", "UnitCosts local recruitment cost check failed:", ex);
                 return MakeTroopGameActionDecision.AllowOriginal();
             }
         }
@@ -442,9 +441,7 @@ namespace UnitCosts
             {
                 // Keep the extra-cost ceiling even when the transient UI preview
                 // is unavailable. Native recruitment still applies all Vanilla costs.
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"UnitCosts could not resolve Vanilla's current Ctrl amount; forwarding the " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:445", $"UnitCosts could not resolve Vanilla's current Ctrl amount; forwarding the " +
                     $"extra-cost ceiling instead: unit={unitType}, player={playerId}, " +
                     $"extraAffordable={extraAffordableAmount}, rawUnitType={rawUnitType}.");
                 if (extraAffordableAmount > 0)
@@ -461,9 +458,7 @@ namespace UnitCosts
                     extraAffordableAmount,
                     interpretCtrlSentinel);
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "UnitCosts extra-cost recruitment decision:",
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:464", "UnitCosts extra-cost recruitment decision:",
                 "unit", unitType,
                 "player", playerId,
                 "incomingAmount", amount,
@@ -856,7 +851,7 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
-                    LogDebug(
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:859",
                         "UnitCosts transition extra cost missing:",
                         "unit", args.NextUnitType,
                         "player", playerId,
@@ -875,7 +870,7 @@ namespace UnitCosts
                     if (!TryFindAvailableHorseAllocation(playerId, out horseAllocation) ||
                         !TryLinkStableHorse(horseAllocation, args.UnitId, playerId))
                     {
-                        LogDebug(
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:878",
                             "UnitCosts transition horse link failed:",
                             "unit", args.NextUnitType,
                             "unitId", args.UnitId,
@@ -896,11 +891,10 @@ namespace UnitCosts
                         RollbackStableHorseLink(horseAllocation, args.UnitId);
                     throw;
                 }
-                Shared.DebugLogHelper.LogDebug(log, "UnitCosts applied human extra costs:", args.NextUnitType, "player", playerId);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebug(log, "UnitCosts OnUnitTransition failed:", ex.Message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:903", "UnitCosts OnUnitTransition failed:", ex);
             }
         }
 
@@ -925,7 +919,7 @@ namespace UnitCosts
 
                 args.CustomValidationRules = true;
                 args.ForceBlockPlacementState = true;
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:928",
                     "UnitCosts blocked siege placement:",
                     "unit", unitType,
                     "player", args.PlayerId,
@@ -937,7 +931,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebug(log, "UnitCosts siege placement validation failed:", ex.Message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:940", "UnitCosts siege placement validation failed:", ex);
             }
         }
 
@@ -959,7 +953,7 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
-                    LogDebug(
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:962",
                         "UnitCosts siege extra cost skipped after spawn because resources are missing:",
                         "unit", unitType,
                         "player", args.PlayerId,
@@ -973,7 +967,7 @@ namespace UnitCosts
                 }
 
                 ApplyExtraCosts(args.PlayerId, costs, 1);
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:976",
                     "UnitCosts applied siege extra costs:",
                     "unit", unitType,
                     "player", args.PlayerId,
@@ -981,7 +975,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebug(log, "UnitCosts OnBuildingSpawn failed:", ex.Message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:984", "UnitCosts OnBuildingSpawn failed:", ex);
             }
         }
 
@@ -1237,7 +1231,7 @@ namespace UnitCosts
                 unit->r_LinkedStableGlobalId = 0;
             }
 
-            LogDebug(
+            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1240",
                 "UnitCosts rolled back incomplete stable horse link:",
                 "stableId", allocation.StableId,
                 "slot", allocation.Slot,
@@ -1270,7 +1264,7 @@ namespace UnitCosts
                 (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1) != playerId ||
                 unit->r_GlobalId == 0)
             {
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1273",
                     "UnitCosts ignored invalid disband horse-link source:",
                     "unitId", unitId,
                     "player", playerId);
@@ -1287,7 +1281,7 @@ namespace UnitCosts
                 !IsUsableStable(stable, playerId) ||
                 stable->r_GlobalId != stableGlobalId)
             {
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1290",
                     "UnitCosts kept inconsistent disband horse link:",
                     "unitId", unitId,
                     "unitGlobalId", unitGlobalId,
@@ -1308,7 +1302,7 @@ namespace UnitCosts
 
                 if (matchingSlot >= 0)
                 {
-                    LogDebug(
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1311",
                         "UnitCosts kept ambiguous disband horse link:",
                         "unitId", unitId,
                         "unitGlobalId", unitGlobalId,
@@ -1323,7 +1317,7 @@ namespace UnitCosts
 
             if (matchingSlot < 0)
             {
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1326",
                     "UnitCosts kept unmatched disband horse backlink:",
                     "unitId", unitId,
                     "unitGlobalId", unitGlobalId,
@@ -1343,7 +1337,7 @@ namespace UnitCosts
                     usedBefore,
                     out int totalAfter))
             {
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1346",
                     "UnitCosts kept invalid disband horse accounting:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1393,7 +1387,7 @@ namespace UnitCosts
                 stable->r_HorseRechargeTimer == rechargeBefore;
             if (!slotCleared || !backlinkCleared || !slotTopologyMatches || !accountingMatches)
             {
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1396",
                     "UnitCosts disband horse consumption verification failed:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1419,9 +1413,7 @@ namespace UnitCosts
                 return;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "UnitCosts consumed stable horse on disband:",
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:1422", "UnitCosts consumed stable horse on disband:",
                 "unitId", unitId,
                 "stableId", stableId,
                 "slot", matchingSlot,
@@ -1449,7 +1441,7 @@ namespace UnitCosts
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit->r_GlobalId != unitGlobalId)
             {
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1452",
                     "UnitCosts could not reacquire disband horse rollback objects:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1476,7 +1468,7 @@ namespace UnitCosts
                 !backlinkCanRestore || !totalCanRestore || !vanillaAccountingUnchanged ||
                 !slotTopologyCanRestore)
             {
-                LogDebug(
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1479",
                     "UnitCosts skipped unsafe disband horse rollback:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1511,7 +1503,7 @@ namespace UnitCosts
                 stable->r_HorseRechargeTimer == rechargeBefore &&
                 TryCountOccupiedStableHorseSlots(stable, out int occupiedSlotsRestored) &&
                 occupiedSlotsRestored == occupiedSlotsBefore;
-            LogDebug(
+            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1514",
                 rollbackMatches
                     ? "UnitCosts rolled back disband horse consumption:"
                     : "UnitCosts disband horse rollback verification failed:",
@@ -1651,9 +1643,9 @@ namespace UnitCosts
             return playerId == GetLocalHumanPlayerId();
         }
 
-        private void LogDebug(params object[] parts)
+        private void LogDebug(string site, params object[] parts)
         {
-            Shared.DebugLogHelper.LogDebug(log, parts);
+            Shared.DebugLogHelper.LogDebugLimited(log, site, parts);
         }
 
         private void ShowMissingResourcesMessage(eGoods missingGood, bool missingHorse = false)
@@ -1685,7 +1677,7 @@ namespace UnitCosts
                 string speechFileName = missingGood == eGoods.STORED_GOLD
                     ? GetRandomSpeechFileName(MissingGoldSpeechFileNames)
                     : MissingWeaponsSpeechFileName;
-                LogDebug("UnitCosts missing resources speech:", "good", missingGood, "file", speechFileName);
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1688", "UnitCosts missing resources speech:", "good", missingGood, "file", speechFileName);
 
                 SFXManager.instance?.playSpeech(
                     1,
@@ -1694,7 +1686,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogDebug("Could not play UnitCosts missing resources speech:", ex.Message);
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1697", "Could not play UnitCosts missing resources speech:", ex.Message);
             }
         }
 
@@ -1739,7 +1731,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogDebug("Could not cancel UnitCosts material message timer:", ex.Message);
+                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1742", "Could not cancel UnitCosts material message timer:", ex.Message);
             }
 
             materialMessageTimerHandle = null;
@@ -1850,9 +1842,7 @@ namespace UnitCosts
             {
                 if (!VanillaGoldCosts.CaptureIfMissing(unitType, () => ReadVanillaUnitGoldCost(unitType), out Exception error))
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"UnitCosts could not capture the Vanilla gold cost for {unitType}; " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:1853", $"UnitCosts could not capture the Vanilla gold cost for {unitType}; " +
                         $"-1 and immediate restoration remain disabled for this unit: {error}");
                 }
             }

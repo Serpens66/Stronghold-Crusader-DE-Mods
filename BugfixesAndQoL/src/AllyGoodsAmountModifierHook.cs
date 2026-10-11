@@ -162,9 +162,7 @@ namespace BugfixesAndQoL
                 if (!failureLogged)
                 {
                     failureLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL ally goods amount modifier failed; this click uses Vanilla behavior: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AllyGoodsAmountModifierHook.cs:165", $"Bugfixes and QoL ally goods amount modifier failed; this click uses Vanilla behavior: {ex}");
                 }
                 buttonClickedTrampoline(self, parameter);
             }
@@ -224,9 +222,7 @@ namespace BugfixesAndQoL
                 if (!sendFailureLogged)
                 {
                     sendFailureLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL ally goods confirmation failed; the panel remains open and the action is not retried: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AllyGoodsAmountModifierHook.cs:227", $"Bugfixes and QoL ally goods confirmation failed; the panel remains open and the action is not retried: {ex}");
                 }
             }
         }

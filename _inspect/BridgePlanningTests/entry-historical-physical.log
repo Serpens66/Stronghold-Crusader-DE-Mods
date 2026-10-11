@@ -1,0 +1,3 @@
+physicalControlMatched=True,recordedOccupancyDelta=1,firstTile=117804,recordedPartitionConflicts=2,firstPartitionTile=206738,dirty=1,negativeEligible=False
+historical-occupancy-change:tile=117804,before=1,after=0,flags=0x40008000,directions=0,height=0,baseHeight=8,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+PASS full native physical rebuild including C5040/C4BF0/updaters; inputTiming=consumer-entry;partitionEquivalent=False;updaterDirtyAtCaller=0;nativeGeneration=48,earlierCallerHeightProof=OwnCopyMatched;negativeEligible=False

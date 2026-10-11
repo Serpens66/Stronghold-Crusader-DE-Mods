@@ -45,7 +45,7 @@ namespace UnitLimit
                     .Subscribe(OnBuildingDelete));
 
                 subscribed = true;
-                LogDebug("ActiveSiegeTentCache hooks subscribed.");
+                LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:48", "ActiveSiegeTentCache hooks subscribed.");
             }
             catch
             {
@@ -59,7 +59,7 @@ namespace UnitLimit
             foreach (IDisposable subscription in subscriptions)
             {
                 try { subscription.Dispose(); }
-                catch (Exception ex) { LogDebug("ActiveSiegeTentCache subscription cleanup failed:", ex); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/ActiveSiegeTentCache.cs:62", "ActiveSiegeTentCache subscription cleanup failed:", ex); }
             }
 
             subscriptions.Clear();
@@ -104,7 +104,7 @@ namespace UnitLimit
                     CreateCountChangeEvents(oldCounts, countsByOwnerAndUnit, ref events, ActiveSiegeTentChangeReason.Resync);
             }
 
-            LogDebug("ActiveSiegeTentCache ResyncAll:", "countKeys", countsByOwnerAndUnit.Count);
+            LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:107", "ActiveSiegeTentCache ResyncAll:", "countKeys", countsByOwnerAndUnit.Count);
             RaiseEvents(events);
         }
 
@@ -340,12 +340,12 @@ namespace UnitLimit
                 countsByOwnerAndUnit.Clear();
             }
 
-            LogDebug("ActiveSiegeTentCache cleared.");
+            LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:343", "ActiveSiegeTentCache cleared.");
         }
 
-        private void LogDebug(params object[] parts)
+        private void LogDebug(string site, params object[] parts)
         {
-            Shared.DebugLogHelper.LogDebug(log, parts);
+            Shared.DebugLogHelper.LogDebugLimited(log, site, parts);
         }
 
         internal enum ActiveSiegeTentChangeReason

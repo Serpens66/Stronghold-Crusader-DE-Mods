@@ -10,8 +10,8 @@ namespace EnemyGatePathfindingTest
         private sealed class State
         {
             internal uint Global;
-            internal int Owner, Capturer, RequestedCapturer;
-            internal long PublishedAt, EventAt;
+            internal int Owner, Capturer, RequestedCapturer, RequestedOwner;
+            internal long PublishedAt, EventAt, PostEventAt;
             internal bool Pending;
         }
         private readonly Dictionary<int, State> gates = new Dictionary<int, State>();
@@ -23,10 +23,18 @@ namespace EnemyGatePathfindingTest
         internal static string Time(long ticks) => "mono=" + ticks + ",observedUtc=" +
             utcAnchor.AddSeconds((ticks - monoAnchor) / (double)Stopwatch.Frequency).ToString("O", CultureInfo.InvariantCulture);
         internal void Reset(long epoch) { gates.Clear(); published = null; Generation = 0; Epoch = epoch; }
-        internal uint ObserveCapture(int building, int player, long at)
+        internal uint ObserveCapture(int building, int player, long at, bool post = false)
         {
             if (!gates.TryGetValue(building, out State state)) return 0;
-            state.Pending = true; state.EventAt = at; state.RequestedCapturer = player;
+            // Extender Post is a delayed notification, not capture success or a new transition.
+            if (post)
+            {
+                if (state.EventAt == 0 || state.RequestedCapturer != player) return 0;
+                state.PostEventAt = at;
+                return state.Global;
+            }
+            state.Pending = true; state.EventAt = at; state.PostEventAt = 0;
+            state.RequestedCapturer = player; state.RequestedOwner = state.Owner;
             return state.Global;
         }
         internal void Publish(RouteTilePolicySnapshot snapshot, long generation, long at)
@@ -42,7 +50,8 @@ namespace EnemyGatePathfindingTest
                     gates[pair.Key] = state = new State { Global = identity.Global };
                 state.Owner = identity.Owner; state.Capturer = identity.Capturer; state.PublishedAt = at;
                 // A post event or an equivalent publication is not capture confirmation by itself.
-                if (state.Pending && state.RequestedCapturer == identity.Capturer && at >= state.EventAt)
+                if (state.Pending && state.Global != 0 && state.RequestedOwner == identity.Owner &&
+                    state.RequestedCapturer == identity.Capturer && at >= state.EventAt)
                     state.Pending = false;
             }
             var removed = new List<int>();
@@ -61,7 +70,7 @@ namespace EnemyGatePathfindingTest
             return state.PublishedAt <= started ? "after-confirmed-publication" : "not-attributed";
         }
         internal string Describe(int gate) => gates.TryGetValue(gate, out State s)
-            ? "captureEventMono=" + s.EventAt + ",confirmedPublicationMono=" + s.PublishedAt +
+            ? "captureEventMono=" + s.EventAt + ",capturePostEventMono=" + s.PostEventAt + ",confirmedPublicationMono=" + s.PublishedAt +
                 ",owner=" + s.Owner + ",capturer=" + s.Capturer + ",capturePending=" + s.Pending
             : "captureTimeline=not-attributed";
     }

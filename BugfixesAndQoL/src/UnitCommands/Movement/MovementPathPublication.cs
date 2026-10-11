@@ -113,12 +113,13 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!assassinExactPublicationLogged)
                 {
                     assassinExactPublicationLogged = true;
-                    try { APIShared.Internal.DebugLogHelper.LogDebug(log, $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
+                    try { Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:116", $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
                     catch { /* Logging cannot turn a published route into a native failure. */ }
                 }
                 return count;
             }, controlPlayer, speedDelay,
-                (stage, result, detail) => ReportTemporaryAssassinStage(stage, result, detail));
+                TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver
+                    ? (Action<string, string, string>)((stage, result, detail) => ReportTemporaryAssassinStage(stage, result, detail)) : null);
         }
 
         internal int BuildPathWithCompletedMoatRouteVariantWithMoat(
@@ -537,8 +538,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     byte* manager = pathManager == nativePathManager ? (byte*)pathManager.ToPointer() : null;
                     UnitMoveFrame frame = GetCurrentUnitMoveFrame();
-                    APIShared.Internal.DebugLogHelper.LogWarning(log,
-                        $"Bugfixes and QoL stage=friendly-moat-movement-fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:540", $"Bugfixes and QoL stage=friendly-moat-movement-fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
                         $"count={fallbackContractRejections} reason={reason} " +
                         $"click=({activeMoveCommand?.TargetX ?? -1},{activeMoveCommand?.TargetY ?? -1}) " +
                         $"request=({frame?.Args.TileX ?? plan?.TargetX ?? -1},{frame?.Args.TileY ?? plan?.TargetY ?? -1}) " +
@@ -809,9 +809,7 @@ namespace BugfixesAndQoL.UnitCommands
                 details = $"replacement-rollback:{ex.GetType().Name}";
                 try
                 {
-                    APIShared.Internal.DebugLogHelper.LogWarning(
-                        log,
-                        $"Bugfixes and QoL stage=friendly-moat-movement-replacement-rollback unit={plan?.UnitId ?? 0} " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:812", $"Bugfixes and QoL stage=friendly-moat-movement-replacement-rollback unit={plan?.UnitId ?? 0} " +
                         $"reason={ex.GetType().Name} bufferRestored=1.");
                 }
                 catch { }

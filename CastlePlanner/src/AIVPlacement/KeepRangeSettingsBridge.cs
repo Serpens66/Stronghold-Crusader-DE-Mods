@@ -47,8 +47,7 @@ namespace CastlePlanner.AIVPlacement
                 if ((!rangeKnown || !bypass.HasValue) && !failureLogged)
                 {
                     failureLogged = true;
-                    Shared.DebugLogHelper.LogError(log,
-                        "Keep range lobby status unavailable in an installed optional mod; no certain range verdict will be published.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/AIVPlacement/KeepRangeSettingsBridge.cs:50", "Keep range lobby status unavailable in an installed optional mod; no certain range verdict will be published.");
                 }
             }
             catch (Exception ex)
@@ -57,7 +56,7 @@ namespace CastlePlanner.AIVPlacement
                 if (!failureLogged)
                 {
                     failureLogged = true;
-                    Shared.DebugLogHelper.LogError(log, "Keep range lobby capture failed: " + ex);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/AIVPlacement/KeepRangeSettingsBridge.cs:60", "Keep range lobby capture failed: " + ex);
                 }
             }
             return new KeepRangeSnapshot(bypass, ranges, teams);

@@ -128,9 +128,7 @@ namespace SerpsModsHost
                 // Opening the native Noesis modal must remain side-effect free. Indexing begins
                 // only when the user enters a query, after the selected view is fully attached.
                 index.Clear();
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "[ModSettingsSearch] Hub opened; indexing is deferred until the first query.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:131", "[ModSettingsSearch] Hub opened; indexing is deferred until the first query.");
             }
         }
 
@@ -153,9 +151,7 @@ namespace SerpsModsHost
         private void RebuildIndex()
         {
             index.Clear();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "[ModSettingsSearch] Building search index without changing the selected tab.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:156", "[ModSettingsSearch] Building search index without changing the selected tab.");
             foreach (LobbyModSettingsEntry tab in GameXAMLManagerAPI.Instance.RegisteredModSettings)
             {
                 if (tab.ViewModel is SerpsModsDiagnosticsViewModel)
@@ -172,9 +168,7 @@ namespace SerpsModsHost
                     {
                         // A foreign or older shared implementation must not make the whole mod
                         // unsearchable. Its text remains available through the fallback.
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"[ModSettingsSearch] Search-anchor export failed for [{tab.Name}]; using automatic text search: {ex}");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:175", $"[ModSettingsSearch] Search-anchor export failed for [{tab.Name}]; using automatic text search: {ex}");
                         exportedEntries = new List<IndexedModSetting>();
                     }
 
@@ -183,20 +177,14 @@ namespace SerpsModsHost
                             ? exportedEntries
                             : ReadAutomaticEntries(tab));
                     int addedCount = index.Count - previousCount;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"[ModSettingsSearch] Indexed [{tab.Name}]: entries={addedCount}, source={(exportedEntries.Count > 0 ? "shared" : "automatic")}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:186", $"[ModSettingsSearch] Indexed [{tab.Name}]: entries={addedCount}, source={(exportedEntries.Count > 0 ? "shared" : "automatic")}.");
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"[ModSettingsSearch] Could not index [{tab.Name}]; other mods remain searchable: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:192", $"[ModSettingsSearch] Could not index [{tab.Name}]; other mods remain searchable: {ex}");
                 }
             }
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"[ModSettingsSearch] Search index ready: entries={index.Count}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:197", $"[ModSettingsSearch] Search index ready: entries={index.Count}.");
         }
 
         private static List<IndexedModSetting> ReadExplicitEntries(LobbyModSettingsEntry tab)
@@ -474,16 +462,12 @@ namespace SerpsModsHost
                 if (applyTarget != null)
                 {
                     applyTarget.Invoke(result.Tab.ViewModel, new object[] { result.Key, result.Title });
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"[ModSettingsSearch] Applied exact local filter [{result.Tab.Name}/{result.Key}].");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:477", $"[ModSettingsSearch] Applied exact local filter [{result.Tab.Name}/{result.Key}].");
                 }
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"[ModSettingsSearch] Could not apply the optional local filter for [{result.Tab.Name}/{result.Key}]; opening the tab normally: {ex}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:484", $"[ModSettingsSearch] Could not apply the optional local filter for [{result.Tab.Name}/{result.Key}]; opening the tab normally: {ex}");
             }
             Plugin.ModSettingsHubViewModel.SelectedTab = result.Tab;
         }

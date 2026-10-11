@@ -195,9 +195,7 @@ namespace RandomEvents
 
         private void LogFeatureFailure(string featureName, Exception ex)
         {
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"Random Events feature '{featureName}' failed and remains inactive; independent event types continue: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "RandomEvents/src/RandomEventsRuntime.cs:198", $"Random Events feature '{featureName}' failed and remains inactive; independent event types continue: {ex}");
         }
 
         public void Dispose()
@@ -2566,18 +2564,18 @@ namespace RandomEvents
                 $"Network details: {details}.");
         }
 
-        private void LogDebug(string message) =>
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogDebug(log, message));
-        private void LogInfo(string message) =>
+                () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogDebug(log, message));
-        private void LogWarning(string message) =>
+                () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogWarning(log, message));
-        private void LogError(string message) =>
+                () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogError(log, message));
+                () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
 
         private readonly struct QueuedInitializationAck
         {

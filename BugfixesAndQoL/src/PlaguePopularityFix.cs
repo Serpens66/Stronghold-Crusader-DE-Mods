@@ -433,9 +433,7 @@ namespace BugfixesAndQoL
                     CancelAllDiagnostics();
                     herds.Clear();
                     managedPlayerIds.Clear();
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:436", $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
                 }
             }
         }
@@ -478,7 +476,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 // Diagnostics must never disable a working gameplay correction.
-                Shared.DebugLogHelper.LogWarning(log, "Plague callback watchdog could not be armed: " + ex);
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:481", "Plague callback watchdog could not be armed: " + ex);
             }
         }
 
@@ -505,8 +503,7 @@ namespace BugfixesAndQoL
                     diagnosticGeneration != generation || GetCount(diagnosticRevisions, playerId) != revision) return;
                 diagnosticTimers.Remove(playerId);
                 if (GetCount(loggedDiagnosticRevisions, playerId) == revision) return;
-                Shared.DebugLogHelper.LogWarning(log,
-                    $"No plague popularity correction callback was observed within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:508", $"No plague popularity correction callback was observed within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
                     $"playerId={playerId}, diagnosticRevision={revision}, activeHerds={CountHerds(playerId)}, " +
                     $"livingProjectiles={CountProjectiles(playerId)}, popularityCallbacksObserved={DescribeCallbackCounts()}.");
             }
@@ -603,9 +600,7 @@ namespace BugfixesAndQoL
                 return;
 
             callbackFailureLogged = true;
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"Plague popularity fix disabled for this process; Vanilla behavior restored because {reason}: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:606", $"Plague popularity fix disabled for this process; Vanilla behavior restored because {reason}: {ex}");
         }
 
         private static bool IsValidPlayerId(int playerId) =>

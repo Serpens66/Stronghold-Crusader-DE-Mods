@@ -64,14 +64,26 @@ unsafe
     manager.ReturnFalse = false;
     Check(UnitAccess.TryGetById(manager, 1, out GameUnit* reloaded, out _) && reloaded == &record, "reload uses current manager storage");
 
-    var log = new BepInEx.Logging.ManualLogSource();
-    UnitAccess.InitializeDiagnostics(log);
-    for (int i=0; i<100; i++) UnitAccess.TryGetById(manager, 0, out _, out _, "Mod/src/Worker.cs", "OnEvent", 12);
-    Check(log.Lines.Count == 1 && log.Lines[0].Contains("mod=Mod") && log.Lines[0].Contains("reason=InvalidId"), "bounded attributed debug diagnostic");
-    for (int i=0; i<300; i++) UnitAccess.TryGetById(manager, 0, out _, out _, "Mod/src/Worker.cs", "OnEvent", 100+i);
-    Check(log.Lines.Count == 128, "global diagnostic bound");
+    for (int i = 0; i < 4; i++) RejectedLookups();
+    long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+    bool rejected = RejectedLookups();
+    long allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+    Check(rejected && allocated == 0, "failure reasons remain available without shared diagnostic allocations");
 }
-Console.WriteLine("PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.");
+Console.WriteLine("PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.");
+
+[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+static unsafe bool RejectedLookups()
+{
+    bool rejected = true;
+    for (int i = 0; i < 10000; i++)
+    {
+        bool found = UnitAccess.TryGetById(null, 0, out var unit, out var failure,
+            "Mod/src/Worker.cs", "OnEvent", i);
+        rejected &= !found && unit == null && failure == UnitLookupFailure.InvalidId;
+    }
+    return rejected;
+}
 
 static void Check(bool value, string label) { if (!value) throw new Exception(label); }
 static void Scan(string[] arguments)

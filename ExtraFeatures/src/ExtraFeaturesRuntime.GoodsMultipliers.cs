@@ -97,7 +97,7 @@ namespace ExtraFeatures
                 if (GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) &&
                     !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
                 {
-                    Shared.DebugLogHelper.LogDebug(log, parts);
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.GoodsMultipliers.cs:100", parts);
                 }
             }
             catch

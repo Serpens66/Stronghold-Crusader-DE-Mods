@@ -47,7 +47,7 @@ namespace ExtraFeatures
                 releaseReservation = CreateDelegate<ReleaseReservationDelegate>(integrationType, "ReleaseReservation");
                 registerStateChanged = CreateDelegate<RegisterStateChangedDelegate>(integrationType, "RegisterStateChanged");
                 available = true;
-                Shared.DebugLogHelper.LogDebug(log, "Extra Features connected to UnitLimit capacity integration.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/UnitLimitBridge.cs:50", "Extra Features connected to UnitLimit capacity integration.");
             }
             catch (Exception ex)
             {
@@ -159,9 +159,7 @@ namespace ExtraFeatures
                 return;
 
             failureLogged = true;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"Extra Features could not use the optional UnitLimit integration; " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/UnitLimitBridge.cs:162", $"Extra Features could not use the optional UnitLimit integration; " +
                 $"standalone transformation behavior remains active: {exception.GetBaseException().Message}");
         }
 

@@ -6,14 +6,14 @@ namespace BugfixesAndQoL
 {
     internal static class FastRecruitRallyMovementModLog
     {
-        public static void Debug(ManualLogSource log, string message)
+        public static void Debug(ManualLogSource log, string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
-            Shared.DebugLogHelper.LogDebug(log, message);
+            Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
         }
 
-        public static void Error(ManualLogSource log, string message)
+        public static void Error(ManualLogSource log, string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
-            log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Bugfixes and QoL {message}");
+            Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
         }
     }
 }

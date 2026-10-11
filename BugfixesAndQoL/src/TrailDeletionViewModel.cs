@@ -132,7 +132,7 @@ namespace BugfixesAndQoL
 
         private void ShowError(string name, Exception exception)
         {
-            Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL Trail deletion failed for [{name}]: {exception}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailDeletionViewModel.cs:135", $"Bugfixes and QoL Trail deletion failed for [{name}]: {exception}");
             try
             {
                 HUD_ConfirmationPopup.ShowConfirmationOKMessage(
@@ -144,7 +144,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception popupException)
             {
-                Shared.DebugLogHelper.LogError(log, "Bugfixes and QoL could not display the Trail deletion error: " + popupException);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailDeletionViewModel.cs:147", "Bugfixes and QoL could not display the Trail deletion error: " + popupException);
             }
         }
     }

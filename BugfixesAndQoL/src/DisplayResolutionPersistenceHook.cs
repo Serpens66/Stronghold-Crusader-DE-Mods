@@ -123,9 +123,7 @@ namespace BugfixesAndQoL
                             protectedSettings.FullscreenWidth,
                             protectedSettings.FullscreenHeight))
                     {
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            "Bugfixes and QoL left an automatic display change untouched because this PC no longer " +
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:126", "Bugfixes and QoL left an automatic display change untouched because this PC no longer " +
                             $"reports the protected target: observed={current}, protected={protectedSettings}.");
                         CancelProtection();
                     }
@@ -137,9 +135,7 @@ namespace BugfixesAndQoL
                             if (!interceptedSaveLogged)
                             {
                                 interceptedSaveLogged = true;
-                                Shared.DebugLogHelper.LogWarning(
-                                    log,
-                                    "Bugfixes and QoL prevented an automatic borderless resolution change " +
+                                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:140", "Bugfixes and QoL prevented an automatic borderless resolution change " +
                                     $"from reaching settings.cfg: observed={current}, protected={protectedSettings}, " +
                                     $"focused={Application.isFocused}.");
                             }
@@ -278,9 +274,7 @@ namespace BugfixesAndQoL
 
             if (!IsSupportedFullscreenResolution(target.FullscreenWidth, target.FullscreenHeight))
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Bugfixes and QoL cannot restore the protected borderless target because this PC does not report it: target={target}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:281", $"Bugfixes and QoL cannot restore the protected borderless target because this PC does not report it: target={target}.");
                 CancelProtection();
                 return;
             }
@@ -294,9 +288,7 @@ namespace BugfixesAndQoL
             lastRecoveryFrame = -1;
             Application.onBeforeRender -= ObserveRecoveryBeforeRender;
             Application.onBeforeRender += ObserveRecoveryBeforeRender;
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"Bugfixes and QoL requested borderless resolution recovery ({reason}): " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:297", $"Bugfixes and QoL requested borderless resolution recovery ({reason}): " +
                 $"target={target}, observedBeforeRequest={DescribeActual()}.");
         }
 
@@ -322,15 +314,11 @@ namespace BugfixesAndQoL
 
                 if (action == DisplayRecoveryAction.Completed)
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:325", $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
                 }
                 else if (action == DisplayRecoveryAction.TimedOut)
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"Bugfixes and QoL stopped temporary resolution verification after {RecoveryTimeoutMilliseconds} ms; " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:331", $"Bugfixes and QoL stopped temporary resolution verification after {RecoveryTimeoutMilliseconds} ms; " +
                         $"save protection remains armed for the next focus gain. actual={DescribeActual()}.");
                 }
             }
@@ -433,9 +421,7 @@ namespace BugfixesAndQoL
                 return;
 
             failureLogged = true;
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"Bugfixes and QoL display-resolution protection failed {phase}; Vanilla remains active: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:436", $"Bugfixes and QoL display-resolution protection failed {phase}; Vanilla remains active: {ex}");
         }
 
         private static MethodInfo FindMethod(

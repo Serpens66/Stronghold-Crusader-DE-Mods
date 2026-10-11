@@ -316,3 +316,9 @@ native caller uses MOVSX WORD, convert through unchecked((short)control).
 Identity comparisons preserve all 16 bits. Unit size remains 0x490, and
 r_SpawnedForPlayerIndex is now public UInt16 at +0x7C. Historical assembly
 descriptions above retain their original provenance; these are the current contracts.
+
+## 2026-10-11: Maceman observation contract
+
+Reconfirmed full60 search/climb bodies,16,960 installed instruction ranges and21 planning/output bodies against current FBCB9319. The installed Extender Maceman speed signature uniquely locates the complete0x146A70 update body (6306 bytes); _inspect/EnemyGateBuildingContextAudit/macemen-native-update-evidence.txt preserves its full body and incoming table references. r_AIState is read at unit+2BC; r_AI_LastIssuedTribeCommand at+398 and context target tile at+3A4 are distinct. The update includes tile-damage execution via0x7EB00, but a group Post/positive movement result does not prove that later branch executed. The extra observation does not hook the update or damage function.
+
+Extender target/group/unit Pre events are mutable; Post is recreated with original input arguments. SkipOriginalFunction suppresses the Original and Post. Exact synchronous contexts must retain the Pre object and treat identity mutation/missing Post as unverified instead of fabricating a new order. All new reads use installed public SDK members; native queries/results are unchanged.

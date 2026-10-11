@@ -1815,10 +1815,10 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
-        private void LogInfo(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
-        private void LogWarning(string message) => log.LogWarning($"[{TimestampNow()}] Bugfixes and QoL {message}");
-        private void LogError(string message) => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
     }
 }

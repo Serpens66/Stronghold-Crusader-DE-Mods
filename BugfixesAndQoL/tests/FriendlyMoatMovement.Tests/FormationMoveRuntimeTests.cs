@@ -73,9 +73,10 @@ public class EditorDirector {
     public int Left;public bool RightDown,RightUp,StateRead,UpPending;
     public void clearMouseStateForEngine() {Left=0;StateRead=true;UpPending=false;}
 }
+namespace Shared { public static class DebugLogHelper { public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
 namespace APIShared.Internal {
     public class NativeTroopCommandModeReader {public int Mode=1;public int Read()=>Mode;}
-    public static class DebugLogHelper {public static void LogDebug(object l,string m) {} public static void LogWarning(object l,string m) {}}
+    public static class DebugLogHelper {public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string m) {} public static void LogWarningLimited(object l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(object l,string m) {}}
     public static class GroundMovePreviewEligibility {
         public static GroundMovePreviewRejection EvaluateCommandMode(int mode)=>mode==1?GroundMovePreviewRejection.None:GroundMovePreviewRejection.NonMoveCommandMode;
     }

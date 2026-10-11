@@ -65,9 +65,7 @@ namespace CastlePlanner
             LoadManifest(libraryDirectory);
             LoadDepthManifest(libraryDirectory);
             ReportStatus();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Blueprint image manifests loaded: composites={entries.Count}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:68", () => $"Blueprint image manifests loaded: composites={entries.Count}, " +
                 $"depthCaptures={depthCaptures.Count}, elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}.");
         }
 
@@ -146,9 +144,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 failedFiles.Add(loaded.FullPath);
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Exact Blueprint composite is invalid: key={request.Key}, " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:149", $"Exact Blueprint composite is invalid: key={request.Key}, " +
                     $"file={loaded.FullPath}, error={ex.Message}");
                 return false;
             }
@@ -313,12 +309,6 @@ namespace CastlePlanner
                     Object.DontDestroyOnLoad(material);
                     pages.Add(page.PageIndex, new LoadedDepthPage(page, texture, material));
                     pngDecodeMilliseconds += pageDecodeMilliseconds;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Decoded Blueprint depth atlas page: key={key}, page={page.PageIndex}, " +
-                        $"bytes={bytes.Length}, size={page.Width}x{page.Height}, " +
-                        $"pngDecodeMs={pageDecodeMilliseconds:F1}, " +
-                        $"pagePrepareMs={pageTimer.Elapsed.TotalMilliseconds:F1}.");
                 }
 
                 Stopwatch meshTimer = Stopwatch.StartNew();
@@ -342,9 +332,7 @@ namespace CastlePlanner
                     capture.MinimumRow,
                     capture.MaximumRow);
                 depthVisuals.Add(key, visual);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Prepared Blueprint depth visual: key={key}, pages={pages.Count}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:345", () => $"Prepared Blueprint depth visual: key={key}, pages={pages.Count}, " +
                     $"fragments={capture.Fragments.Count}, layers={layers.Count}, " +
                     $"fileReadMs={readResult.ElapsedMilliseconds:F1}, " +
                     $"pngDecodeMs={pngDecodeMilliseconds:F1}, " +
@@ -356,9 +344,7 @@ namespace CastlePlanner
             {
                 depthReadTasks.Remove(key);
                 failedDepthCaptures.Add(key);
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Blueprint depth atlas failed; only colored ground markers remain: " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:359", $"Blueprint depth atlas failed; only colored ground markers remain: " +
                     $"key={key}, elapsedMs={total.Elapsed.TotalMilliseconds:F1}, error={ex.Message}");
                 DepthVisualLoaded?.Invoke(key);
             }
@@ -473,7 +459,7 @@ namespace CastlePlanner
                         File.ReadAllLines(manifestPath),
                         out IReadOnlyList<string> errors);
                 foreach (string error in errors)
-                    Shared.DebugLogHelper.LogWarning(log, $"Blueprint image entry ignored: {error}");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:476", $"Blueprint image entry ignored: {error}");
                 foreach (BlueprintCaptureManifestEntry entry in parsed)
                 {
                     string fullPath = ResolveSafePath(directory, entry.PngFile);
@@ -482,9 +468,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Blueprint image manifest could not be loaded: manifest={manifestPath}, error={ex.Message}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:485", $"Blueprint image manifest could not be loaded: manifest={manifestPath}, error={ex.Message}");
             }
         }
 
@@ -501,15 +485,13 @@ namespace CastlePlanner
                         File.ReadAllLines(manifestPath),
                         out IReadOnlyList<string> errors);
                 foreach (string error in errors)
-                    Shared.DebugLogHelper.LogWarning(log, $"Blueprint depth atlas entry ignored: {error}");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:504", $"Blueprint depth atlas entry ignored: {error}");
                 foreach (BlueprintDepthAtlasCaptureDefinition capture in parsed)
                     depthCaptures[capture.Key] = capture;
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Blueprint depth atlas manifest could not be loaded: " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:510", $"Blueprint depth atlas manifest could not be loaded: " +
                     $"manifest={manifestPath}, error={ex.Message}");
             }
         }
@@ -541,15 +523,13 @@ namespace CastlePlanner
                         missingDepth.Add(request.Key);
                 }
             }
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Blueprint capture status: available={required - missing.Count}, required={required}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:544", () => $"Blueprint capture status: available={required - missing.Count}, required={required}, " +
                 $"missing={missing.Count}, depthAtlases={required - missingDepth.Count}, " +
                 $"missingDepth={missingDepth.Count}.");
             if (missing.Count > 0)
-                Shared.DebugLogHelper.LogWarning(log, "Missing Blueprint captures: " + string.Join(", ", missing));
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:550", "Missing Blueprint captures: " + string.Join(", ", missing));
             if (missingDepth.Count > 0)
-                Shared.DebugLogHelper.LogWarning(log, "Missing Blueprint depth atlases: " + string.Join(", ", missingDepth));
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:552", "Missing Blueprint depth atlases: " + string.Join(", ", missingDepth));
         }
 
         private static IEnumerable<BlueprintCaptureRequest> GetRequiredRequests(string mapperName)

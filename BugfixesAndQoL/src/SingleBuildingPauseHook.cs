@@ -953,16 +953,16 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void LogError(string message)
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}"));
+                () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
         }
 
-        private void LogInfo(string message)
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}"));
+                () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
         }
 
         private static string TimestampNow()

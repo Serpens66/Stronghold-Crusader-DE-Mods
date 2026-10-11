@@ -38,16 +38,14 @@ namespace ExtraFeatures
                 int[] goods = CopyLocalGoods(building);
                 RestoreGoods(pending.PlayerId, goods);
                 pending.PartsRemaining--;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    () => $"Extra Features restored stockpile part goods: buildingId={args.BuildingId}, playerId={pending.PlayerId}, goods={BuildGoodsSummary(goods)}, partsRemaining={pending.PartsRemaining}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:41", () => $"Extra Features restored stockpile part goods: buildingId={args.BuildingId}, playerId={pending.PlayerId}, goods={BuildGoodsSummary(goods)}, partsRemaining={pending.PartsRemaining}.");
 
                 if (pending.PartsRemaining <= 0)
                     pendingStockpileRefund = null;
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features stockpile restore hook failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:50", $"Extra Features stockpile restore hook failed: {ex}");
             }
         }
 
@@ -84,14 +82,12 @@ namespace ExtraFeatures
                 int[] goods = CopyLocalGoods(building);
                 RestoreGoods(args.PlayerId, goods);
                 uint buildingGlobalId = building->r_GlobalId;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    () => $"Extra Features restored storage goods: type={structure}, buildingId={args.BuildingId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:87", () => $"Extra Features restored storage goods: type={structure}, buildingId={args.BuildingId}, " +
                         $"buildingGlobalId={buildingGlobalId}, playerId={args.PlayerId}, goods={BuildGoodsSummary(goods)}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features storage restore hook failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:94", $"Extra Features storage restore hook failed: {ex}");
             }
         }
 

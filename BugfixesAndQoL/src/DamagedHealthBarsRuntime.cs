@@ -189,7 +189,7 @@ namespace BugfixesAndQoL
                     "/" + building.r_MaxHealth + ", type=" + building.r_BuildingType;
                 break;
             }
-            log.LogDebug("HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
+            Shared.DebugLogHelper.LogInfo(log, "HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
                 "}, buildingSample={" + buildingSample + "}.");
         }
 
@@ -376,10 +376,10 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void Info(string message) =>
-            log.LogDebug($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
+        private void Info(string message, [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
+            Shared.DebugLogHelper.LogDebugLimited(log, "HealthBars:" + callerLine, message);
 
-        private void Error(string message) =>
-            log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
+        private void Error(string message, [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
+            Shared.DebugLogHelper.LogErrorLimited(log, "HealthBars:" + callerLine, message);
     }
 }

@@ -83,7 +83,7 @@ namespace BugfixesAndQoL
         {
             string kind = phase + ":" + failure.GetType().FullName;
             if (loggedFailureKinds.Add(kind))
-                Shared.DebugLogHelper.LogError(log, "Countdown " + phase + " failed: " + failure);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TimerCountdownFeature.cs:86", "Countdown " + phase + " failed: " + failure);
         }
 
         private static bool IsGameplayReady()

@@ -23,7 +23,7 @@ namespace BuildingLimit
 
         private void OnSettingChanged(string propertyName)
         {
-            LogDebug("Settings changed:", propertyName);
+            lastPlacementBlocked = false;
 
             if (propertyName == nameof(BuildingLimitLobbyViewModel.EnableMod))
             {

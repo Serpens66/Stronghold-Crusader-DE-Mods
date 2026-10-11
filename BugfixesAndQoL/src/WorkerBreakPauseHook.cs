@@ -92,8 +92,7 @@ namespace BugfixesAndQoL
         {
             if (afterStartupLogged) return;
             afterStartupLogged = true;
-            Shared.DebugLogHelper.LogDebug(log,
-                "BUGFIXES_AND_QOL_WORKER_BREAK_READY: baker/miller hooks active after startup; tick=" + tick);
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WorkerBreakPauseHook.cs:95", "BUGFIXES_AND_QOL_WORKER_BREAK_READY: baker/miller hooks active after startup; tick=" + tick);
         }
 
         internal static void ValidateSite(ReadOnlySpan<byte> memory, ulong imageBase,

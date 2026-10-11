@@ -73,8 +73,7 @@ namespace ExtraFeatures
                     byte[] bytes = GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveFileName, ignoreCase: true);
                     if (bytes == null || bytes.Length == 0)
                     {
-                        Shared.DebugLogHelper.LogWarning(log,
-                            "Extra Features Lord health inactive: this save has no recorded Vanilla HP basis. Legacy saves are not supported.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:76", "Extra Features Lord health inactive: this save has no recorded Vanilla HP basis. Legacy saves are not supported.");
                         return;
                     }
                     LordHealthSaveState state = LordHealthSaveState.Decode(bytes);
@@ -82,7 +81,7 @@ namespace ExtraFeatures
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(log, $"Extra Features Lord health inactive: invalid saved HP basis: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:85", $"Extra Features Lord health inactive: invalid saved HP basis: {ex}");
                     return;
                 }
             }
@@ -127,7 +126,7 @@ namespace ExtraFeatures
             try { ApplyAvailableLords(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Extra Features Lord health scan failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:130", $"Extra Features Lord health scan failed: {ex}");
             }
         }
 
@@ -217,8 +216,7 @@ namespace ExtraFeatures
             lord->r_CurrentHealthPercentage = healthPercent;
             lord->r_HealthBarBlocks = (uint)(healthPercent / 10);
             appliedGlobalIds[playerId] = lord->r_GlobalId;
-            Shared.DebugLogHelper.LogDebug(log,
-                $"Extra Features applied Lord health: player={playerId}, globalId={lord->r_GlobalId}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:220", $"Extra Features applied Lord health: player={playerId}, globalId={lord->r_GlobalId}, " +
                 $"multiplier={selectedPercent}%, health={oldCurrent}/{oldMaximum}->{newCurrent}/{newMaximum}, vanillaMax={basis.VanillaMaximum}.");
             return true;
         }
@@ -241,7 +239,7 @@ namespace ExtraFeatures
             int bit = 1 << playerId;
             if ((warnedPlayersMask & bit) != 0) return;
             warnedPlayersMask |= bit;
-            Shared.DebugLogHelper.LogWarning(log, $"Extra Features skipped Lord health for player {playerId}: {reason}.");
+            Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:244", $"Extra Features skipped Lord health for player {playerId}: {reason}.");
         }
     }
 }

@@ -26,6 +26,9 @@ if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
+set "NO_INSTALL=0"
+if defined SHCDE_PREPARE_ONLY set "NO_INSTALL=%SHCDE_PREPARE_ONLY%"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
@@ -148,6 +151,7 @@ if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\HUD_Confirmati
 if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\FRONT_EditorSetup.xaml" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Locales\en-US.txt" goto package_failed
 echo Installiere geprueftes Paket...
+if "%NO_INSTALL%"=="1" goto prepared_no_install
 if exist "%STAGED_GAME_PLUGIN_DIR%\" rmdir /S /Q "%STAGED_GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 echo [%date% %time%] Copy package files
@@ -198,3 +202,9 @@ exit /b 1
 echo.
 echo Installation fehlgeschlagen. Ist das Spiel noch gestartet?
 exit /b 1
+
+:prepared_no_install
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName ExtendedData
+if errorlevel 1 exit /b 1
+echo Paket vorbereitet; Installation uebersprungen.
+exit /b 0

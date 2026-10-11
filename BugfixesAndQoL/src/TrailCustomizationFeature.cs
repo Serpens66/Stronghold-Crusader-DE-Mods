@@ -142,9 +142,7 @@ namespace BugfixesAndQoL
                 if (!providerStateFailureLogged)
                 {
                     providerStateFailureLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        "Trail customization provider state failed; using the BugfixesAndQoL setting only: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:145", "Trail customization provider state failed; using the BugfixesAndQoL setting only: " + exception);
                 }
                 return false;
             }
@@ -169,7 +167,7 @@ namespace BugfixesAndQoL
                         return;
                     if (providerActive)
                     {
-                        Shared.DebugLogHelper.LogError(log, "The active Trail customization provider rejected the Custom Trail transition.");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:172", "The active Trail customization provider rejected the Custom Trail transition.");
                         return;
                     }
                     OpenSelectedCustomTrailSetup(self);
@@ -179,7 +177,7 @@ namespace BugfixesAndQoL
                     customTrailSetupRestartInfo = null;
                     customTrailSetupHeader = null;
                     TrailCustomizationLaunchOriginApi.Clear();
-                    Shared.DebugLogHelper.LogError(log, "Could not open Custom Trail setup: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:182", "Could not open Custom Trail setup: " + exception);
                 }
                 return;
             }
@@ -270,9 +268,7 @@ namespace BugfixesAndQoL
                 trailMaker: false,
                 customiseTrailType: -1,
                 customiseTrailID: -1);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Opened standalone Custom Trail setup [{menus.CustomTrailName}] mission {missionId}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:273", $"Opened standalone Custom Trail setup [{menus.CustomTrailName}] mission {missionId}.");
         }
 
         private void EnsureCoopButtons()
@@ -339,14 +335,14 @@ namespace BugfixesAndQoL
                     return;
                 if (providerActive)
                 {
-                    Shared.DebugLogHelper.LogError(log, "The active Trail customization provider rejected the Coop Trail transition.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:342", "The active Trail customization provider rejected the Coop Trail transition.");
                     return;
                 }
                 CustomizeCurrentCoopTrail();
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogError(log, "Could not open Coop Trail setup: " + exception);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:349", "Could not open Coop Trail setup: " + exception);
             }
         }
 
@@ -363,7 +359,7 @@ namespace BugfixesAndQoL
                 return;
             if (!self.singlePlayerCoop && !self.currentLobby.isHost)
             {
-                Shared.DebugLogHelper.LogWarning(log, "Ignored Coop Trail Customize click from a non-host client.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:366", "Ignored Coop Trail Customize click from a non-host client.");
                 return;
             }
             OpenCoopTrailSetup(self, trailId, mission, !self.singlePlayerCoop, "local host");
@@ -432,9 +428,7 @@ namespace BugfixesAndQoL
             if (trailId == 1) MainViewModel.Instance.Show_CoopTrail2 = false;
             if (trailId == 2) MainViewModel.Instance.Show_CoopTrail3 = false;
             if (trailId == 3) MainViewModel.Instance.Show_CoopTrail4 = false;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Opened standalone Coop Trail setup trail={trailId + 1}, mission={missionId}, source={source}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:435", $"Opened standalone Coop Trail setup trail={trailId + 1}, mission={missionId}, source={source}.");
         }
 
         private void Broadcast(int trailId, int missionId, bool launch)
@@ -480,20 +474,20 @@ namespace BugfixesAndQoL
                 CSteamID? host = GameNetworkAPI.GetHostSteamId();
                 if (!host.HasValue || senderSteamId != host.Value)
                 {
-                    Shared.DebugLogHelper.LogError(log, "Rejected Trail customization packet from a sender that is not the lobby host.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:483", "Rejected Trail customization packet from a sender that is not the lobby host.");
                     return;
                 }
                 if (packet == null || packet.ProtocolVersion != TrailCustomizationPacket.CurrentProtocolVersion ||
                     packet.TrailId < 0 || packet.TrailId > 3 || packet.MissionId < 1 || packet.MissionId > 10)
                 {
-                    Shared.DebugLogHelper.LogError(log, "Rejected invalid Trail customization packet.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:489", "Rejected invalid Trail customization packet.");
                     return;
                 }
                 FRONT_Multiplayer self = MainViewModel.Instance?.FRONTMultiplayer;
                 if (!IsEffectiveEnabled() || self?.currentLobby == null || self.currentLobby.isHost ||
                     self.singlePlayerCoop || !self.currentLobby.coopTrailGame)
                 {
-                    Shared.DebugLogHelper.LogWarning(log, "Ignored Trail customization packet outside an active client Coop lobby.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:496", "Ignored Trail customization packet outside an active client Coop lobby.");
                     return;
                 }
                 if (packet.Launch)
@@ -506,7 +500,7 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 TrailCustomizationLaunchOriginApi.Clear();
-                Shared.DebugLogHelper.LogError(log, "Could not apply Trail customization packet: " + exception);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:509", "Could not apply Trail customization packet: " + exception);
             }
         }
 

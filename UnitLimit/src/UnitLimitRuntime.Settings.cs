@@ -23,7 +23,6 @@ namespace UnitLimit
 
         private void OnSettingChanged(string propertyName)
         {
-            LogDebug("Settings changed:", propertyName);
 
             if (propertyName == nameof(UnitLimitLobbyViewModel.EnableMod))
             {

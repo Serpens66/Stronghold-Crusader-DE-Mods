@@ -31,6 +31,7 @@ function Assert-SteamWorkshopUploadHistory {
         $hash = [string]$upload.MapSha256
         $itemId = [string]$upload.ItemId
         $timestampValid = $true
+        if($upload.PSObject.Properties['Format'] -and ($upload.Format -notin @('Map','Loose') -or $upload.ContentFingerprint -notmatch '^[a-f0-9]{64}$')) { throw 'Invalid upload format/fingerprint.' }
         try { [void][DateTimeOffset]$upload.UploadedUtc } catch { $timestampValid = $false }
         if ($version -notmatch '^\d+\.\d+\.\d+$' -or $hash -notmatch '^[0-9a-f]{64}$' -or
             $itemId -notmatch '^[1-9][0-9]*$' -or
@@ -92,7 +93,9 @@ function Add-SteamWorkshopUploadHistoryEntry {
         [Parameter(Mandatory)][string]$ItemId,
         [Parameter(Mandatory)][string]$PackVersion,
         [Parameter(Mandatory)][string]$MapSha256,
-        [Parameter(Mandatory)][DateTimeOffset]$UploadedUtc
+        [Parameter(Mandatory)][DateTimeOffset]$UploadedUtc,
+        [ValidateSet('Map','Loose')][string]$Format,
+        [string]$ContentFingerprint
     )
 
     $history = Get-SteamWorkshopUploadHistory -Path $Path -SeedPath $SeedPath -AppId $AppId -StateName $StateName
@@ -100,6 +103,7 @@ function Add-SteamWorkshopUploadHistoryEntry {
     if ($existing.Count -gt 0) {
         if ($existing.Count -eq 1 -and [string]$existing[0].ItemId -ceq $ItemId -and
             [string]$existing[0].MapSha256 -ceq $MapSha256.ToLowerInvariant()) {
+            if ($existing[0].PSObject.Properties['ContentFingerprint'] -and [string]$existing[0].ContentFingerprint -cne $ContentFingerprint) { throw 'Conflicting full content fingerprint for this package version.' }
             return $false
         }
         throw "Workshop upload history already contains a conflicting entry for pack $PackVersion."
@@ -109,6 +113,11 @@ function Add-SteamWorkshopUploadHistoryEntry {
         PackVersion = $PackVersion
         MapSha256 = $MapSha256.ToLowerInvariant()
         UploadedUtc = $UploadedUtc.UtcDateTime.ToString('o')
+    }
+    if ($Format) {
+        if ($ContentFingerprint -notmatch '^[a-f0-9]{64}$') { throw 'Invalid content fingerprint.' }
+        $entry | Add-Member -NotePropertyName Format -NotePropertyValue $Format
+        $entry | Add-Member -NotePropertyName ContentFingerprint -NotePropertyValue $ContentFingerprint
     }
     $history.Uploads = @($history.Uploads) + $entry
     Write-SteamWorkshopJson -Path $Path -Value $history

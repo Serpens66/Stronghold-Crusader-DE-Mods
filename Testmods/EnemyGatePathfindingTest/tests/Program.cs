@@ -20,6 +20,7 @@ namespace EnemyGatePathfindingTest
                 assertions += SharedTests.CaptureRefreshTests.Run();
                 assertions += GateRoutePolicyTests.Run();
                 assertions += CompactDiagnosticTests.Run();
+                assertions += MacemenDiagnosticTests.Run();
                 assertions += TemporaryGateAcceptanceTests.Run();
                 UncapturedEnemyPreservesVanillaExclusion();
                 OwnAndAlliedOwnersRemainEligible();

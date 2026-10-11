@@ -300,9 +300,7 @@ namespace BugfixesAndQoL.UnitCommands
                         {
                             if (contractCounts[2] <= 3)
                             {
-                                APIShared.Internal.DebugLogHelper.LogWarning(
-                                    log,
-                                    $"Bugfixes and QoL stage=friendly-moat-movement-weighted-path-consumer-contract-invalid " +
+                                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.Tracking.cs:303", $"Bugfixes and QoL stage=friendly-moat-movement-weighted-path-consumer-contract-invalid " +
                                     $"unit={unitId} commandSeq={tracker.WeightedCommandSequence} " +
                                     $"expectedLength={tracker.BuilderResult} " +
                                     $"observedLength={tracker.ObservedPublishedPathSize} " +

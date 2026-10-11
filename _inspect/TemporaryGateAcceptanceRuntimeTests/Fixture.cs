@@ -436,20 +436,32 @@ public static unsafe class RuntimeAcceptanceTests {
             acceptance.EndAssassin(prior,5,1,1,"weighted-published",false,2,0);
             acceptance.ObserveCapture(578,5,false); acceptance.ObserveCapture(578,5,true);
             GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=5; snapshot=gateState(5); acceptance.ObservePolicyPublication(snapshot,14);
+            acceptance.ObserveCapture(578,5,true); // the actual late post must not rearm transition
             var after=acceptance.BeginAssassin(5,37,100,100,101,100);
             acceptance.ObserveAssassinDecision(after,5,80100,80101,2,true,AssassinTransitionKind.Ground,true,0,0,"existing-weighted-ordinary-decision");
             acceptance.EndAssassin(after,5,1,1,"weighted-published",false,2,0);
             var nativeAfter=acceptance.BeginRoute(5,37,9,1,12,0x49,100,100,101,100,"fresh-ground-command");
+            acceptance.ObserveAssassinStage(nativeAfter,5,"handoff","published","source=single-unit");
             acceptance.RouteEdge(nativeAfter,80100,80101,2); acceptance.EndRoute(nativeAfter,"decoded",1);
             var during=acceptance.BeginAssassin(5,37,100,100,101,100);
             acceptance.ObserveAssassinDecision(during,5,80100,80101,2,true,AssassinTransitionKind.Ground,true,0,0,"existing-weighted-ordinary-decision");
             acceptance.ObserveCapture(578,2,false); snapshot=gateState(2); GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=2;
             acceptance.ObservePolicyPublication(snapshot,15); acceptance.EndAssassin(during,5,1,1,"weighted-published",false,2,0);
+            var savedSnapshot=snapshot;
+            foreach(var unavailable in new RouteTilePolicySnapshot[]{null,RouteTilePolicySnapshot.Empty})
+            {
+                snapshot=unavailable;
+                var missing=acceptance.BeginRoute(5,37,9,1,12,0x49,100,100,101,100,"missing-snapshot-probe");
+                acceptance.ObserveAssassinStage(missing,5,"handoff","probe","source=single-unit,missingSnapshotProbe=True");
+            }
+            snapshot=savedSnapshot;
             acceptance.End();
             Check(Contains("phase=before-capture/source=assassin-weighted-fresh"),"actual weighted route before capture");
             Check(Contains("phase=after-confirmed-publication/source=assassin-weighted-fresh") && Contains("Ground/allowed=True"),"captured ground edge remains visible and allowed");
             Check(Contains("phase=after-confirmed-publication/source=assassin-published") && Contains("packed-movement-unproven"),"native bytes never prove climb execution");
             Check(Contains("phase=transition/source=assassin-weighted-fresh") && Contains("routeVerdict=unclear"),"publication during synchronous route cannot pass");
+            Check(Contains("policyGeneration=14,generationSource=route-entry-snapshot"),"owned route supplies entry generation without policy-entry observer");
+            Check(Contains("missingSnapshotProbe=True")&&Contains("policyGeneration=unknown"),"absent and empty snapshots do not invent an entry generation");
             Check(Contains("entryGeneration=14")&&Contains("endGeneration=15")&&Contains("started=[mono=")&&Contains("emittedUtc="),"real observation time separate from aggregate emission");
             Check(Contains("kind=capture-event")&&Contains("capturingPlayer=5")&&Contains("selfCapturer=True"),"capture and subsequent publication are explicit");
             // One route touches a blocked foreign gate and an allowed own/captured gate.

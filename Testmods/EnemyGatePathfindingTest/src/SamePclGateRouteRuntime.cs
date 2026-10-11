@@ -334,6 +334,8 @@ namespace EnemyGatePathfindingTest
         private readonly IEnemyGatePathPolicy registeredProvider;
         private readonly DeferredGateDiagnosticErrors deferredErrors;
         private bool DetailedDiagnostics => attackOrderDiagnostics != null;
+        // TEMP_MACEMEN_GATE_DIAGNOSTICS: no optional API observer interface is exposed.
+        internal MacemenCommandDiagnostics MacemenDiagnostics;
 
         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
             ScanRegion region, ulong libraryBase, bool existingHookOwner,
@@ -687,6 +689,7 @@ namespace EnemyGatePathfindingTest
             CaptureScopeSample(localKind, playerId, playerId, -1, playerId);
             CountSharedSearch(kind, localKind);
             QueryScope scope = Enter(playerId, diagnosticKind: localKind);
+            MacemenDiagnostics?.BeginSearch(playerId, (int)kind);
             try { attackOrderDiagnostics?.BeginNativeSearch(kind.ToString(), playerId); }
             catch { Interlocked.Increment(ref exceptions); }
             if (kind == EnemyGateSearchKind.Builder)
@@ -706,6 +709,7 @@ namespace EnemyGatePathfindingTest
                 QueryKind localKind = query.Diagnostic.Kind;
                 long touched = Complete(query, localKind,
                     kind == EnemyGateSearchKind.Builder, completed && success);
+                MacemenDiagnostics?.EndSearch(completed, success, touched);
                 if (kind == EnemyGateSearchKind.Builder)
                 {
                     try { attackOrderDiagnostics?.ObserveBuilder(
@@ -1199,6 +1203,7 @@ namespace EnemyGatePathfindingTest
             if (kind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
             CaptureScopeSample(kind, player, player, -1, player);
             QueryScope scope = Enter(player, diagnosticKind: kind); int result = 0; bool completed = false;
+            MacemenDiagnostics?.BeginSearch(player, (int)EnemyGateSearchKind.Builder);
             try { attackOrderDiagnostics?.BeginBuilder(); }
             catch { Interlocked.Increment(ref exceptions); }
             try { result = originalBuilder(manager, player, profile); completed = true; return result; }
@@ -1206,6 +1211,7 @@ namespace EnemyGatePathfindingTest
             finally
             {
                 long touched = Complete(scope, kind, true, completed && result > 0);
+                MacemenDiagnostics?.EndSearch(completed, result > 0, touched);
                 try { attackOrderDiagnostics?.ObserveBuilder(player, scope.Diagnostic, completed, result > 0,
                     touched, scope.Snapshot.Fingerprint); }
                 catch { Interlocked.Increment(ref exceptions); }
@@ -1231,13 +1237,18 @@ namespace EnemyGatePathfindingTest
             QueryScope scope = Enter(used);
             bool completed = false;
             // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
+            MacemenDiagnostics?.BeginSearch(used, (int)EnemyGateSearchKind.BuildingApproach);
             try { attackOrderDiagnostics?.BeginNativeSearch("BuildingApproach", used); }
             catch { Interlocked.Increment(ref exceptions); }
             try { originalBuilding(manager, tribe, buildingId, count, targetPcl, player); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
             finally
             {
-                try { Complete(scope, QueryKind.BuildingApproach, false, false); }
+                try
+                {
+                    long touched = Complete(scope, QueryKind.BuildingApproach, false, false);
+                    MacemenDiagnostics?.EndSearch(completed, false, touched);
+                }
                 finally
                 {
                     try { attackOrderDiagnostics?.EndNativeSearch("BuildingApproach", completed, false); }

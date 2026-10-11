@@ -32,6 +32,9 @@ if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
+set "NO_INSTALL=0"
+if defined SHCDE_PREPARE_ONLY set "NO_INSTALL=%SHCDE_PREPARE_ONLY%"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
@@ -212,6 +215,7 @@ xcopy "%PROJECT_DIR%Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Q /Y >nul
 if not exist "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 
+if "%NO_INSTALL%"=="1" goto prepared_no_install
 if exist "%GAME_PLUGIN_DIR%\" (
   rem Keep player-created lobby settings while replacing all packaged files.
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
@@ -247,3 +251,9 @@ exit /b 1
 :copy_failed
 echo Installation fehlgeschlagen. Ist das Spiel noch gestartet?
 exit /b 1
+
+:prepared_no_install
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName BugfixesAndQoL
+if errorlevel 1 exit /b 1
+echo Paket vorbereitet; Installation uebersprungen.
+exit /b 0

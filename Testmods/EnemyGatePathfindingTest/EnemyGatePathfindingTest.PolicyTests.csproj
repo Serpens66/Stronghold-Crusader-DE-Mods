@@ -72,4 +72,5 @@
     <Compile Include="..\..\BugfixesAndQoL\src\UnitCommands\Movement\TemporaryPackedRouteInspection.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="src\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\MacemenDiagnosticAggregate.cs" /><Compile Include="tests\MacemenDiagnosticTests.cs" /></ItemGroup>
 </Project>

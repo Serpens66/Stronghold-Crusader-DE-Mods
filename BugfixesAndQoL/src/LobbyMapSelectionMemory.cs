@@ -455,22 +455,22 @@ namespace BugfixesAndQoL
             string.Equals(left.FilePath, right.FilePath, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(left.FileName, right.FileName, StringComparison.OrdinalIgnoreCase);
 
-        private void LogDebug(string message)
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             if (log != null)
-                Shared.DebugLogHelper.LogDebug(log, message);
+                Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
         }
 
-        private void LogWarning(string message)
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             if (log != null)
-                Shared.DebugLogHelper.LogWarning(log, message);
+                Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
         }
 
-        private void LogError(string message)
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             if (log != null)
-                Shared.DebugLogHelper.LogError(log, message);
+                Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
         }
     }
 }

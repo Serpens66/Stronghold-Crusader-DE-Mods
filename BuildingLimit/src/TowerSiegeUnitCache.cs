@@ -60,7 +60,7 @@ namespace BuildingLimit
                 trackedCount = trackedUnitIds.Count;
             }
 
-            Shared.DebugLogHelper.LogDebug(log, "TowerSiegeUnitCache resynced:", trackedCount);
+            Shared.DebugLogHelper.LogDebugLimited(log, "BuildingLimit/src/TowerSiegeUnitCache.cs:63", "TowerSiegeUnitCache resynced:", trackedCount);
         }
 
         public unsafe int GetAliveCount(int playerId, eChimps unitType)

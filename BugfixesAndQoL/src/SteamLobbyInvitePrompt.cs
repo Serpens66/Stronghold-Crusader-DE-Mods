@@ -117,9 +117,7 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Validating Steam lobby invitation: inviterId={context.InviterId}, lobbyId={context.LobbyId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:120", $"Validating Steam lobby invitation: inviterId={context.InviterId}, lobbyId={context.LobbyId}, " +
                     $"gameId={context.GameId}, inviteAppId={context.InviteAppId}, currentAppId={context.CurrentAppId}.");
             }
             catch (Exception ex)
@@ -348,9 +346,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Accepting validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} failed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:351", $"Accepting validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} failed; " +
                     $"no custom fallback join was attempted: {ex}");
             }
         }
@@ -364,15 +360,11 @@ namespace BugfixesAndQoL
             {
                 if (blacklist.TryAdd(context.InviterId, out string error))
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Dismissed the in-game Steam lobby-invite popup and added inviter {context.InviterId} to the local popup blacklist.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:367", $"Dismissed the in-game Steam lobby-invite popup and added inviter {context.InviterId} to the local popup blacklist.");
                     return;
                 }
 
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Dismissed the in-game Steam lobby-invite popup, but inviter {context.InviterId} could not be added to the local popup blacklist: {error}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:373", $"Dismissed the in-game Steam lobby-invite popup, but inviter {context.InviterId} could not be added to the local popup blacklist: {error}");
                 return;
             }
 
@@ -467,9 +459,7 @@ namespace BugfixesAndQoL
             SteamInviteRejectionReason reason,
             string detail)
         {
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                SteamLobbyInvitePolicy.FormatWarning(
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:470", SteamLobbyInvitePolicy.FormatWarning(
                     reason,
                     phase,
                     context.InviterId,

@@ -10,6 +10,7 @@ namespace EnemyBridgePathTest
     {
         internal static int Run()
         {
+            if(BridgeTraceTransport.WarmUp()<0||BridgeTraceTransport.WarmUp()!=0)throw new Exception("publisher warmup must be once and synthetic");
             string prefix="[Info : bridge] bridge trace seq=1,session=9,thread=15,tick=2,clock=9223372036854775807,physical=3,topology=4,";
             string detail="rows=["+string.Concat(Enumerable.Repeat("-9223372036854775808/4294967297/8/225464/0/0;",32))+"],unicode=Br\u00FCcke";
             string plain=prefix+"kind=command-frame-batch,"+detail;

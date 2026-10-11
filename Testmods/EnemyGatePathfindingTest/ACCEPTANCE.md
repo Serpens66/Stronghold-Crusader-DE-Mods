@@ -37,3 +37,20 @@ Cursor: 781 requests, 172 refreshes, 609 exact cache hits, no validation deferra
 
 Known path-table coverage warning remains 89/90 profiles and 534/540 permissions; all compared values match, no mutation evidence. No Error/Fatal log lines. The legacy hookOwnerConflict=True label denotes shared mainmod ownership, not a failing integrity verdict. No runtime code or installed DLL was changed for this analysis. This run supports the gate-only regression and independence from the bridge observer; remaining targeted acceptance cases retain their documented limits.
 Source log SHA-256: 53FCE6F47F5086030DCB0334CAA84393A421933DB4950A526A1C984BBAFA893C.
+
+## 2026-10-11: captured Assassin gatehouse accepted, diagnostic limits retained
+
+| Case | Current evidence | Assessment |
+|---|---|---|
+| Assassin ground passage after capture | Gate134/global6658 published capturer2 at16:57:28.379; permitted weighted Ground edges and final outputs afterwards; user saw later Assassins use the gate normally | Confirmed release and observed use |
+| Legal gatehouse climb before capture |22weighted routes with permitted climb, including a cached route; no confirmed weighted violation | Confirmed evaluated climb; older physical observations retained |
+| Weighted search/publication |131checked routes including1cache,58validator checks passed;38staged=19published+19discards, output-mode94 reported | Existing guard preserved; no reproduced validation failure |
+| Native packed overlaps |237checked outputs;10suspect,17other movement-unproven overlaps | Actual native movement remains unproven; no confirmed ground violation |
+| Raid alternative target | Role3 twice retargeted to a fresh valid attack point; user saw sensible overall behavior | Target/point confirmed; complete following Raid route not certified |
+| Negative AI builder series | All675negative AI builders are slaves with single-unit command3, not Assassins | Do not attribute to Assassin routing or assume a gate caused failure |
+| Lifecycle/diagnosis | Twoepochs, all paired events, counterAgreementPASS, no adapter/scope/snapshot errors | Confirmed for this run |
+| Resources lookup errors |24SDK errors with negative player IDs; no direct resource lookup in installed Gate/Bridge IL | Separate unresolved caller, no gatehouse-policy fix justified |
+
+Saves: test_gates_bridge2.sav16:55:38--16:56:48 (15,463AIqueries, zero negative AI builders, no checked Assassin routes), then test_Assassins_stuck_at_drawbridge.sav16:56:58--16:58:18 (3,427AIqueries). Both had the passive Bridge observer enabled, SE2.14.1, APIShared0.7.0, Main1.0.185 and Fixes1.26.4. User reports that later arrivals correctly walked through the captured gate; earlier climb may reflect an already assigned command, not a new error after release. This observation does not by itself prove that timing for every old climbing unit.
+
+The diagnostic transition label after16:57:28.393 was wrong: Extender Post is delayed100timerunits, and the old helper rearmed Pending after a matching publication. Historical transition labels are not proof of a functionally pending gate. The private helper now preserves the confirmed publication across Post and validates owner/capturer/global identity. Gatepolicy/weighted climbing/native mode94 behavior unchanged. Technical regression:66,660Gate assertions plus89actual diagnostic-path assertions; elevated gate-only build/install successful. DetailedDiagnostics is now false; standard end-of-map counters remain. No new game test required for this correction. Final integration/release still requires the separately listed mainmod-without-testmod and other unobserved cases; bridge behavior is excluded.

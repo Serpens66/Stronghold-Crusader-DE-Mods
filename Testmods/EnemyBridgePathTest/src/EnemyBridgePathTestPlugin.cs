@@ -26,6 +26,8 @@ namespace EnemyBridgePathTest
         private void Awake()
         {
             if (runtime != null) return;
+            try {Shared.DebugLogHelper.LogInfo(Logger,"Bridge publisher transport prepared before observer publication: synthetic=True,warmupMs="+BridgeTraceTransport.WarmUp().ToString("F3",System.Globalization.CultureInfo.InvariantCulture));}
+            catch(Exception error){Shared.DebugLogHelper.LogWarning(Logger,"Bridge transport warmup unavailable: "+error.Message+"; runtime diagnostic errors remain isolated");}
             runtime = new BridgeDiagnostics(Logger);
             CrusaderLibrary.Instance.LibraryLoaded += context => runtime.InitializeNative(context);
             if (!EnemyBridgeDiagnosticBridge.TryRegister(runtime))

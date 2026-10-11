@@ -1,0 +1,8 @@
+Evaluated APIShared.csproj: 135 sources
+PASS: APIShared source and installed assembly visibility/signature contract (memory only, no DLL file emitted).
+Evaluated EnemyGatePathfindingTest.csproj: 32 sources
+PASS: evaluated project sources compile against source and installed APIShared: EnemyGatePathfindingTest (no runtime assembly emitted)
+Evaluated EnemyBridgePathTest.csproj: 34 sources
+PASS: evaluated project sources compile against source and installed APIShared: EnemyBridgePathTest (no runtime assembly emitted)
+Evaluated EnemyBridgePathTest.PolicyTests.csproj: 45 sources
+PASS: evaluated project sources compile against source and installed APIShared: EnemyBridgePathTest.PolicyTests (no runtime assembly emitted)

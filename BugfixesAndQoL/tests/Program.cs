@@ -1709,8 +1709,8 @@ namespace BugfixesAndQoL
                   feature.Contains("catch (Exception ex)") &&
                   feature.Split(new[] { "controls.StopAllPlacement();" }, StringSplitOptions.None).Length == 2,
                 "placement-cancel classification fails open and invokes Vanilla cleanup exactly once");
-            Check(!feature.Contains("LogDebug(") &&
-                  feature.Split(new[] { "LogError(" }, StringSplitOptions.None).Length == 2 &&
+            Check(!feature.Contains("LogDebug(") && !feature.Contains("LogDebugLimited(") &&
+                  feature.Split(new[] { "LogErrorLimited(" }, StringSplitOptions.None).Length == 2 &&
                   feature.Contains("if (!classificationFailureLogged)") &&
                   feature.Contains("classificationFailureLogged = true;"),
                 "placement-cancel suppression logs only its once-guarded fail-open classification error");

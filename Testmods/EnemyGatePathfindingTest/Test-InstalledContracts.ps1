@@ -9,11 +9,20 @@ $assembly = [Reflection.Assembly]::LoadFrom((Join-Path $extender 'SHCDESE.dll'))
 $contracts = @(
     @('GameUnit',1168,'r_ControllableForPlayerId','System.UInt16',0x92),
     @('GameUnit',1168,'r_GlobalId','System.UInt32',0x94),
+    @('GameUnit',1168,'r_UnitChimp','SHCDESE.Interop.eChimps',0x8A),
+    @('GameUnit',1168,'r_TribeId','System.UInt16',0x2D4),
+    @('GameUnit',1168,'r_AIState','System.UInt16',0x2BC),
+    @('GameUnit',1168,'r_AI_LastIssuedTribeCommand','System.UInt16',0x398),
+    @('GameUnit',1168,'r_AI_ContextTargetBuildingTileId','System.UInt32',0x3A4),
+    @('GameUnit',1168,'r_CurrentTilePositionX','System.UInt16',0xC0),
+    @('GameUnit',1168,'r_CurrentTilePositionY','System.UInt16',0xC2),
     @('GameUnit',1168,'r_IsKilledByProjectile','System.UInt16',0x29C),
     @('GameTribe',1672,'r_GlobalId','System.UInt32',0xA),
+    @('GameTribe',1672,'r_PlayerIdOwner','System.UInt16',0x2),
     @('GameTribe',1672,'r_LeaderUnitId','System.UInt16',0x30),
     @('GameBuilding',812,'r_AIWalkableState','SHCDESE.Interop.Enums.GatePathOverrideMode',0xD4),
     @('GameBuilding',812,'r_GlobalId','System.UInt32',0xD8),
+    @('GameBuilding',812,'r_PlayerIdOwner','System.UInt16',0xD6),
     @('GameBuilding',812,'r_GateState','System.Byte',0x2A2),
     @('GameBuilding',812,'r_CapturedByPlayerId','System.UInt16',0x2C6),
     @('GameBuilding',812,'r_GatehouseId','System.UInt16',0x2D2)
@@ -24,6 +33,12 @@ foreach ($contract in $contracts) {
     if ($null -eq $field -or -not $field.IsPublic -or $field.FieldType.FullName -cne $contract[3] -or
         $type.StructLayoutAttribute.Size -ne $contract[1] -or
         [Runtime.InteropServices.Marshal]::OffsetOf($type,$contract[2]).ToInt64() -ne $contract[4]) { throw "Installed layout mismatch: $($contract[0]).$($contract[2])" }
+}
+# TEMP_MACEMEN_GATE_DIAGNOSTICS: only installed public coordinate/query APIs are used.
+$tileType = $assembly.GetType('SHCDESE.API.GameTileManagerAPI', $true)
+foreach ($name in @('IsTileInsideMapBounds','GetTileId','IsValidTileId','GetTileBuildingId')) {
+    $methods = @($tileType.GetMethods() | Where-Object Name -eq $name)
+    if ($methods.Count -ne 1 -or -not $methods[0].IsPublic) { throw "Public tile API unavailable: $name" }
 }
 # TEMP_GATE_ROUTE_ACCEPTANCE: new event input is public on the installed extender.
 $captureType = $assembly.GetType('SHCDESE.EventAPI.Buildings.BuildingCaptureEventArgs', $true)

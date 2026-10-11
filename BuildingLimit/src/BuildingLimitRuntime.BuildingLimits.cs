@@ -17,8 +17,18 @@ namespace BuildingLimit
 {
     public sealed partial class BuildingLimitRuntime
     {
+        private bool lastPlacementBlocked;
+        private int lastPlacementPlayer;
+        private eMappers lastPlacementMapper;
+        private int lastPlacementLimit;
+        private int lastPlacementCount;
+        private bool pendingPlacementLog;
+        private readonly Shared.LogRateGate placementLogRate = new Shared.LogRateGate(1);
+
         private void OnBuildingPlacementValidation(BuildingPlacementValidationEventArgs args)
         {
+            bool previouslyBlocked = lastPlacementBlocked;
+            lastPlacementBlocked = false;
             if (!EffectsEnabled || !IsBuildingLimitModeAllowed())
                 return;
 
@@ -30,20 +40,11 @@ namespace BuildingLimit
                 if (IsSiegeTentPlacementMapper(args.Mappers))
                     return;
 
-                LogDebug(
-                    "Building placement validation has no active limit rule:",
-                    "player", args.PlayerId,
-                    "mapper", args.Mappers);
                 return;
             }
 
             if (rule.Limit < 0)
             {
-                LogDebug(
-                    "Building placement validation limit is unlimited:",
-                    "player", args.PlayerId,
-                    "mapper", args.Mappers,
-                    "limit", rule.Limit);
                 return;
             }
 
@@ -52,38 +53,32 @@ namespace BuildingLimit
                 return;
 
             int aliveCount = CountAliveBuildings(args.PlayerId, rule.Definition);
-            if (Shared.DebugLogHelper.IsDebugEnabled())
-            {
-                string structures = string.Join(",", Array.ConvertAll(rule.Definition.Structures, structure => structure.ToString()));
-                LogDebug(
-                    "Building placement validation count:",
-                    "player", args.PlayerId,
-                    "mapper", args.Mappers,
-                    "definition", rule.Definition.Mapper,
-                    "limit", rule.Limit,
-                    "count", aliveCount,
-                    "structures", structures);
-            }
-
             if (aliveCount < rule.Limit)
             {
-                LogDebug(
-                    "Building placement validation below limit:",
-                    "player", args.PlayerId,
-                    "mapper", args.Mappers,
-                    "limit", rule.Limit,
-                    "count", aliveCount);
                 return;
             }
 
             args.CustomValidationRules = true;
             args.ForceBlockPlacementState = true;
-            LogDebug(
-                "Building placement validation blocked by limit:",
-                "player", args.PlayerId,
-                "mapper", args.Mappers,
-                "limit", rule.Limit,
-                "count", aliveCount);
+            // Preview validation repeats continuously; diagnose a changed blocked state only.
+            if (!previouslyBlocked || lastPlacementPlayer != args.PlayerId ||
+                lastPlacementMapper != args.Mappers || lastPlacementLimit != rule.Limit ||
+                lastPlacementCount != aliveCount)
+                pendingPlacementLog = true;
+
+            if (pendingPlacementLog && Shared.DebugLogHelper.IsDebugEnabled() &&
+                placementLogRate.TryReserve("blocked", 5, out long suppressed))
+            {
+                Shared.DebugLogHelper.LogDebug(log, () =>
+                    $"Building placement blocked by limit: player={args.PlayerId}, mapper={args.Mappers}, limit={rule.Limit}, count={aliveCount}." +
+                    (suppressed == 0 ? string.Empty : $" [suppressed repeats={suppressed}]"));
+                pendingPlacementLog = false;
+                lastPlacementPlayer = args.PlayerId;
+                lastPlacementMapper = args.Mappers;
+                lastPlacementLimit = rule.Limit;
+                lastPlacementCount = aliveCount;
+            }
+            lastPlacementBlocked = true;
             ShowBuildingLimitMessageForLocalPlayer(args.PlayerId, rule.Definition, rule.DisplayLimit);
         }
 
@@ -91,10 +86,6 @@ namespace BuildingLimit
         {
             if (!IsLocalPlayer(playerId))
             {
-                LogDebug(
-                    "Building limit message skipped for non-local player:",
-                    definition.Mapper,
-                    "player", playerId);
                 return;
             }
 
@@ -166,7 +157,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Error updating building limit tooltip:", ex.Message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:169", "Error updating building limit tooltip:", ex);
                 ClearBuildingLimitTooltip();
                 ResetBuildingLimitTooltipCache();
             }
@@ -210,7 +201,7 @@ namespace BuildingLimit
 
         private void ShowBuildingLimitMessage(eMappers building, string message)
         {
-            LogDebug("Building limit notification shown:", building, message);
+            LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:213", "Building limit notification shown:", building, message);
             DisplayLimitNotification(message);
         }
 
@@ -262,7 +253,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Could not cancel building limit message timer:", ex.Message);
+                LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:265", "Could not cancel building limit message timer:", ex.Message);
             }
 
             buildingLimitMessageTimerHandle = null;
@@ -278,7 +269,7 @@ namespace BuildingLimit
                 if (!BuildingLimitDefinitions.TryGetValue(entry.Key, out BuildingLimitDefinition definition) ||
                     definition.Mapper != entry.Key)
                 {
-                    LogDebug("Building limit mapper is not a supported limit key:", entry.Key);
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:281", "Building limit mapper is not a supported limit key:", entry.Key);
                     continue;
                 }
 
@@ -305,7 +296,7 @@ namespace BuildingLimit
                     if (Shared.DebugLogHelper.IsDebugEnabled())
                     {
                         string structures = string.Join(",", Array.ConvertAll(definition.Structures, structure => structure.ToString()));
-                        LogDebug(
+                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:308",
                             "Active building limit:",
                             entry.Key,
                             "=",
@@ -318,7 +309,7 @@ namespace BuildingLimit
                 }
             }
 
-            LogDebug("Applied active building limit rules:", activeBuildingLimitRules.Count);
+            LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:321", "Applied active building limit rules:", activeBuildingLimitRules.Count);
             ResetBuildingLimitTooltipCache();
         }
 

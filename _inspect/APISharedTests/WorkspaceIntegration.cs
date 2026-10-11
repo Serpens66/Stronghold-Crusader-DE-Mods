@@ -123,8 +123,9 @@ namespace APISharedTests
                 "central HUD sprite handling retains the hook, explicit refresh and activation-restoration paths");
             string beforeRenderMethod = ExtractSourceMethod(unitHud, "private void OnBeforeRender()");
             int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !hasActionButtons && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
-            Assert(idleGuard >= 0 && idleGuard < beforeRenderMethod.IndexOf("Time.frameCount", StringComparison.Ordinal),
+            Assert(idleGuard >= 0 && idleGuard < beforeRenderMethod.IndexOf("OnActiveBeforeRender();", StringComparison.Ordinal) && !beforeRenderMethod.Contains("Time.frameCount"),
                 "idle guard returns before Unity access and keeps action-only consumers active");
+            beforeRenderMethod = ExtractSourceMethod(unitHud, "private void OnActiveBeforeRender()");
             var actionPatch = new XmlDocument(); actionPatch.LoadXml(troopPatch);
             XmlNode actionHost = actionPatch.SelectSingleNode("//*[local-name()='Canvas' and @*[local-name()='Name']='APISharedTroopActionButtonsHost']");
             Assert(actionHost?.ParentNode?.ParentNode is XmlElement actionOperation &&
@@ -172,7 +173,7 @@ namespace APISharedTests
                     unitHud.IndexOf("updateSpritesHook.Apply();", StringComparison.Ordinal),
                 "HUD hooks must not become callable before their trampolines are published");
             Assert(unitHud.Contains("ButtonCreateTroop") && unitHud.Contains("Enums.GameActionCommand.MakeTroop") &&
-                unitHud.Contains("GameActionEvents.TryRegister(") && unitHud.Contains("accepted: BeforeRecruitmentOriginal") && !unitHud.Contains("recruitmentGameActionOriginal"),
+                unitHud.Contains("GameActionEvents.Registry.TryRegister(") && unitHud.Contains("accepted: (args, state) => BeforeRecruitmentOriginal(") && unitHud.Contains("isActive: () => sharedEventsPublished && activeRecruitmentHandlers") && !unitHud.Contains("recruitmentGameActionOriginal"),
                 "recruitment variants must observe Vanilla's MakeTroop action");
             Assert(unitHud.Contains("APIShared.Internal.MissionEvents.Ended") && unitHud.Contains("activeRecruitment.Clear()") &&
                 unitHud.Contains("APISharedUnitDetailHost"),

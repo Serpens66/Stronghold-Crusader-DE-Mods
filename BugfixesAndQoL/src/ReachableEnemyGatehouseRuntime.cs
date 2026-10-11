@@ -374,8 +374,8 @@ namespace BugfixesAndQoL
             LogWarning($"{message}. Vanilla remains authoritative ({failureLogs}/{MaximumFailureLogs}).");
         }
 
-        private void LogWarning(string message) =>
-            log.LogWarning($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
+            Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
         private static string TimestampNow() =>
             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
 

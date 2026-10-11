@@ -105,9 +105,7 @@ namespace BugfixesAndQoL.UnitCommands
                 rootedResolveMoatWorkTile = null;
                 rootedHasFillMoatApproach = null;
                 ResetMoatWorkTargetSelection();
-                APIShared.Internal.DebugLogHelper.LogError(
-                    log,
-                    "Bugfixes and QoL friendly-moat-movement moat-work target selection was not installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetHooks.cs:108", "Bugfixes and QoL friendly-moat-movement moat-work target selection was not installed; " +
                     $"existing movement remains active and work-target selection stays Vanilla: {ex}");
             }
         }

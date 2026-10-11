@@ -131,7 +131,7 @@ namespace BugfixesAndQoL
         private static void SafeError(ManualLogSource log, string message)
         {
             // Neither an observation nor its error reporting may escape into Vanilla.
-            try { Shared.DebugLogHelper.LogError(log, message); } catch { }
+            try { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/RaidSearchObserver.cs:134", message); } catch { }
         }
     }
 }

@@ -11,6 +11,17 @@ namespace EnemyBridgePathTest
     internal static class BridgeTraceTransport
     {
         internal const int MaximumBytes=65536;
+        private static readonly object warmGate=new object();private static bool warmed;
+        internal static double WarmUp()
+        {lock(warmGate)
+        {
+            if(warmed)return 0;
+            var watch=System.Diagnostics.Stopwatch.StartNew();
+            string sample="bridge trace seq=1,session=0,thread=0,tick=0,clock=0,physical=0,topology=0,kind=transport-fixture,rows=["+new string('x',2048)+"]";
+            string packed=EncodeBatch(new[]{sample,sample},out int raw,out int saved);
+            if(packed==null||saved<=0)throw new InvalidDataException("transport warmup failed");
+            warmed=true;return watch.Elapsed.TotalMilliseconds;
+        }}
         private static string Hash(byte[] data)
         {using(var sha=SHA256.Create())return BitConverter.ToString(sha.ComputeHash(data)).Replace("-","");}
         internal static string EncodeBatch(System.Collections.Generic.IList<string> lines,out int rawBytes,out int savedBytes)

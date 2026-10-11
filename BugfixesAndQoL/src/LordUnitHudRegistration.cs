@@ -38,7 +38,7 @@ namespace BugfixesAndQoL
         {
             if (!api.TryGetUnitHudPresentation(BugfixesAndQoLPlugin.PluginGuid, out IUnitHudPresentationCapability capability, out NativeCapabilityDiagnostic diagnostic))
             {
-                Shared.DebugLogHelper.LogError(log, $"Shared Lord HUD capability unavailable: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/LordUnitHudRegistration.cs:41", $"Shared Lord HUD capability unavailable: state={diagnostic?.State}, reason={diagnostic?.Reason}");
                 return;
             }
             var definition = new UnitHudCategoryDefinition(
@@ -51,7 +51,7 @@ namespace BugfixesAndQoL
             if (!capability.TryRegisterCategory(definition, IsControlledLord, out diagnostic) ||
                 !capability.TryRegisterInteraction("lord-middle-click", OnInteraction, out diagnostic))
             {
-                Shared.DebugLogHelper.LogError(log, $"Shared Lord HUD registration failed: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/LordUnitHudRegistration.cs:54", $"Shared Lord HUD registration failed: state={diagnostic?.State}, reason={diagnostic?.Reason}");
                 return;
             }
             Capability = capability;

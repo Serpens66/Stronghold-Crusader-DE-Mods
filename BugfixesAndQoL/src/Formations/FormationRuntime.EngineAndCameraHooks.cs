@@ -114,9 +114,7 @@ namespace BugfixesAndQoL.UnitCommands
                 DispatchDisposition disposition = TryDispatch(packet, out string rejection);
                 if (disposition != DispatchDisposition.Accepted)
                 {
-                    APIShared.Internal.DebugLogHelper.LogWarning(
-                        log,
-                        $"Formation order fell back to Vanilla: {rejection}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.EngineAndCameraHooks.cs:117", $"Formation order fell back to Vanilla: {rejection}.");
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 }
 

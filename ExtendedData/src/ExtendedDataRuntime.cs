@@ -678,8 +678,8 @@ namespace ExtendedData
             try
             {
                 var roots = new List<string> { customTrailsRoot };
-                roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(LogWarning));
-                packageCatalog.Scan(roots, LogInfo, LogError);
+                roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(message => LogWarning(message)));
+                packageCatalog.Scan(roots, message => LogInfo(message), message => LogError(message));
                 settings.RefreshPackages(packageCatalog.Packages.Values);
             }
             finally
@@ -688,8 +688,8 @@ namespace ExtendedData
             }
         }
 
-        private void LogWarning(string message) =>
-            Shared.DebugLogHelper.LogWarning(log, message);
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
+            Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
 
         private void OnActiveCoopPackageChanged()
         {
@@ -815,7 +815,7 @@ namespace ExtendedData
                 return;
             }
 
-            catalog.Load(activePackage, LogInfo, LogError);
+            catalog.Load(activePackage, message => LogInfo(message), message => LogError(message));
             var resolver = new MissionAssetResolver();
             var prepared = new List<KeyValuePair<int, ResolvedMission>>();
             try
@@ -996,7 +996,7 @@ namespace ExtendedData
                 if (players == null || players.Length != 8) return;
                 if (coopTrail1Preview == null || !ReferenceEquals(coopTrail1Preview.FirstRow, players[0].RefRow))
                     coopTrail1Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
-                coopTrail1Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+                coopTrail1Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), message => LogWarning(message));
             }
             catch (Exception ex) { LogPreviewFailure(1, ex); }
         }
@@ -1011,7 +1011,7 @@ namespace ExtendedData
                 if (players == null || players.Length != 8) return;
                 if (coopTrail2Preview == null || !ReferenceEquals(coopTrail2Preview.FirstRow, players[0].RefRow))
                     coopTrail2Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
-                coopTrail2Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+                coopTrail2Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), message => LogWarning(message));
             }
             catch (Exception ex) { LogPreviewFailure(2, ex); }
         }
@@ -1026,7 +1026,7 @@ namespace ExtendedData
                 if (players == null || players.Length != 8) return;
                 if (coopTrail3Preview == null || !ReferenceEquals(coopTrail3Preview.FirstRow, players[0].RefRow))
                     coopTrail3Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
-                coopTrail3Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+                coopTrail3Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), message => LogWarning(message));
             }
             catch (Exception ex) { LogPreviewFailure(3, ex); }
         }
@@ -1041,7 +1041,7 @@ namespace ExtendedData
                 if (players == null || players.Length != 8) return;
                 if (coopTrail4Preview == null || !ReferenceEquals(coopTrail4Preview.FirstRow, players[0].RefRow))
                     coopTrail4Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
-                coopTrail4Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+                coopTrail4Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), message => LogWarning(message));
             }
             catch (Exception ex) { LogPreviewFailure(4, ex); }
         }
@@ -1367,9 +1367,7 @@ namespace ExtendedData
             lastPackageRosterDiagnostic = diagnostic;
             if (!string.IsNullOrEmpty(diagnostic))
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Custom Coop package player identity mismatch; launch remains blocked until the roster converges: {diagnostic}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/ExtendedDataRuntime.cs:1370", $"Custom Coop package player identity mismatch; launch remains blocked until the roster converges: {diagnostic}");
             }
         }
 
@@ -1667,8 +1665,8 @@ namespace ExtendedData
             try
             {
                 var roots = new List<string> { customTrailsRoot };
-                roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(LogWarning));
-                packageCatalog.Scan(roots, LogInfo, LogError);
+                roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(message => LogWarning(message)));
+                packageCatalog.Scan(roots, message => LogInfo(message), message => LogError(message));
 
                 if (!packageCatalog.Packages.TryGetValue(
                         settings.ActiveCoopPackageId,
@@ -1687,7 +1685,7 @@ namespace ExtendedData
                 }
 
                 var restartCatalog = new MissionCatalog();
-                restartCatalog.Load(currentPackage, LogInfo, LogError);
+                restartCatalog.Load(currentPackage, message => LogInfo(message), message => LogError(message));
                 if (!restartCatalog.Missions.TryGetValue(
                         MissionCatalog.ToKey(trailId + 1, missionId),
                         out LoadedMission loaded))
@@ -1802,7 +1800,7 @@ namespace ExtendedData
         private static bool ReadLobbyFlag(FRONT_Multiplayer self, FieldInfo field) =>
             self != null && (bool)field.GetValue(self);
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogDebug(log, message);
-        private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
     }
 }

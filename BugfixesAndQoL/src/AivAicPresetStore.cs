@@ -290,9 +290,7 @@ namespace BugfixesAndQoL
                             if (removedAivs > 0)
                             {
                                 int originalCount = preset.Aivs.Count + removedAivs;
-                                Shared.DebugLogHelper.LogWarning(
-                                    log,
-                                    $"Bugfixes and QoL migrated AIV/AIC preset '{preset.Name}' for " +
+                                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AivAicPresetStore.cs:293", $"Bugfixes and QoL migrated AIV/AIC preset '{preset.Name}' for " +
                                     $"{lordEntry.Key}: truncated {originalCount} AIV entries to {MaximumAivEntries}.");
                                 migrated = true;
                             }
@@ -302,8 +300,7 @@ namespace BugfixesAndQoL
                         }
                         catch (Exception ex)
                         {
-                            Shared.DebugLogHelper.LogWarning(log,
-                                $"Bugfixes and QoL ignored an invalid AIV/AIC preset for {lordEntry.Key}: {ex.Message}");
+                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AivAicPresetStore.cs:305", $"Bugfixes and QoL ignored an invalid AIV/AIC preset for {lordEntry.Key}: {ex.Message}");
                         }
                     }
                     if (parsed.Count > 0)
@@ -314,8 +311,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarning(log,
-                    $"Bugfixes and QoL could not load AIV/AIC presets from {storePath}: {ex.Message}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AivAicPresetStore.cs:317", $"Bugfixes and QoL could not load AIV/AIC presets from {storePath}: {ex.Message}");
             }
         }
 
@@ -355,8 +351,7 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogWarning(log,
-                        $"Bugfixes and QoL could not remove temporary AIV/AIC preset file: {ex.Message}");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AivAicPresetStore.cs:358", $"Bugfixes and QoL could not remove temporary AIV/AIC preset file: {ex.Message}");
                 }
             }
         }

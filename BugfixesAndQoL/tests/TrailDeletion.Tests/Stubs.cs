@@ -5,7 +5,7 @@ namespace BepInEx.Logging { public class ManualLogSource { } }
 namespace Shared {
     public static class DebugLogHelper {
         public static void LogInfo(object log, string message) { }
-        public static void LogError(object log, string message) { }
+        public static void LogErrorLimited(object log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } public static void LogError(object log, string message) { }
     }
 }
 public static class SerpLocalization {

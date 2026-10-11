@@ -34,9 +34,7 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL could not start the optional Extra Features market-purchase guard; the single-unit trade continues: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.CtrlMarketTrade.cs:37", $"Bugfixes and QoL could not start the optional Extra Features market-purchase guard; the single-unit trade continues: {ex}");
                 }
             }
 
@@ -54,9 +52,7 @@ namespace BugfixesAndQoL
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"Bugfixes and QoL could not finish the optional Extra Features market-purchase guard: {ex}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.CtrlMarketTrade.cs:57", $"Bugfixes and QoL could not finish the optional Extra Features market-purchase guard: {ex}");
                     }
                 }
             }

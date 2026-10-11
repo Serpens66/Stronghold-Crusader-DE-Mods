@@ -70,7 +70,7 @@ namespace BugfixesAndQoL
                 // editor has no equivalent gameplay-spawn contract.
                 sessionEligible = notification.Context.StartKind == MissionStartKind.NewGame;
                 mapActive = true;
-                log.LogDebug(
+                Shared.DebugLogHelper.LogDebug(log,
                     $"Corrupt Lord-data spawn fix session armed: session={notification.Context.SessionId}, " +
                     $"eligible={sessionEligible}, phase={notification.Phase}, " +
                     $"startKind={notification.Context.StartKind}, mode={notification.Context.Mode.Kind}.");
@@ -248,7 +248,7 @@ namespace BugfixesAndQoL
                 return;
 
             sessionState.MarkConfirmed(playerId);
-            log.LogDebug(
+            Shared.DebugLogHelper.LogDebug(log,
                 $"Vanilla Lord spawn confirmed after corrupt-data repair: session={sessionState.SessionId}, " +
                 $"player={playerId}, unit/global={lordUnitId}/{lordGlobalId}, " +
                 $"observationTick={observationTick}, simulationTick={simulationTick}.");

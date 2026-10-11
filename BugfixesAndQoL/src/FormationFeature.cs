@@ -68,8 +68,7 @@ namespace BugfixesAndQoL
                 try { GameXAMLManagerAPI.Instance.RegisterBinding(host, menu); }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogWarning(log,
-                        "FORMATION_BINDING_FAILED: host=" + host + "; " + exception);
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationFeature.cs:71", "FORMATION_BINDING_FAILED: host=" + host + "; " + exception);
                 }
             }
         }
@@ -77,7 +76,7 @@ namespace BugfixesAndQoL
         private static string ReadConfig(string path)
         {
             try { return File.Exists(path) ? File.ReadAllText(path) : string.Empty; }
-            catch (IOException ex) { Shared.DebugLogHelper.LogWarning(log, "Formation migration source unavailable: " + ex.Message); return string.Empty; }
+            catch (IOException ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationFeature.cs:80", "Formation migration source unavailable: " + ex.Message); return string.Empty; }
         }
 
         internal static void Initialize(CrusaderLibraryLoadContext context)
@@ -98,7 +97,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, "Formation initialization failed; Vanilla remains active: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/FormationFeature.cs:101", "Formation initialization failed; Vanilla remains active: " + ex);
             }
             finally
             {

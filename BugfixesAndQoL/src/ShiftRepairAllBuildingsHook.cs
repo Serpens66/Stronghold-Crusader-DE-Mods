@@ -93,9 +93,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL Shift-repair expansion failed after the selected building's Vanilla repair action: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ShiftRepairAllBuildingsHook.cs:96", $"Bugfixes and QoL Shift-repair expansion failed after the selected building's Vanilla repair action: {ex}");
             }
         }
 

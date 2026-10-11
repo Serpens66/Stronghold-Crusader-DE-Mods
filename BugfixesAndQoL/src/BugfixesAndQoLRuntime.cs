@@ -364,9 +364,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 lordMixedDisbandContractValidated = false;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL mixed Lord disband is fail-closed because its native contract could not be validated: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:367", $"Bugfixes and QoL mixed Lord disband is fail-closed because its native contract could not be validated: {ex}");
             }
             assassinClimbCancellationRuntime.SetFixedUnitLayoutValidated(
                 isFixedLayoutHashValidated);
@@ -374,9 +372,7 @@ namespace BugfixesAndQoL
                 settings.EnableMod &&
                 settings.EnableImprovedAssassinPathfinding)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Bugfixes and QoL Assassin climb cancellation remains inactive because its fixed unit-field layout is not validated for this CrusaderDE.dll.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:377", "Bugfixes and QoL Assassin climb cancellation remains inactive because its fixed unit-field layout is not validated for this CrusaderDE.dll.");
             }
 
             if (isFixedLayoutHashValidated)
@@ -394,9 +390,7 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL weighted Assassin pathfinding could not be initialized and remains inactive: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:397", $"Bugfixes and QoL weighted Assassin pathfinding could not be initialized and remains inactive: {ex}");
                 }
 
                 try
@@ -411,24 +405,18 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL Assassin combat-resume fix could not be initialized and remains inactive: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:414", $"Bugfixes and QoL Assassin combat-resume fix could not be initialized and remains inactive: {ex}");
                 }
             }
             else
             {
                 if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:423", "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
                 }
                 if (settings.EnableMod && settings.EnableAssassinCombatResumeFix)
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        "Bugfixes and QoL Assassin combat-resume fix remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla behavior remains active.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:429", "Bugfixes and QoL Assassin combat-resume fix remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla behavior remains active.");
                 }
             }
 
@@ -440,9 +428,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL feature 'troop movement fix' could not be initialized and remains inactive: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:443", $"Bugfixes and QoL feature 'troop movement fix' could not be initialized and remains inactive: {ex}");
             }
             InitializeMovedFeatureNative(
                 newLibraryHandle,
@@ -465,7 +451,7 @@ namespace BugfixesAndQoL
                 aiRaidRetargetInitializationAttempted = true;
                 if (!isFixedLayoutHashValidated)
                 {
-                    Shared.DebugLogHelper.LogError(log, "AI_RAID_INACTIVE: unvalidated Native version; Vanilla preserved.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:468", "AI_RAID_INACTIVE: unvalidated Native version; Vanilla preserved.");
                     return;
                 }
                 processAiRaidRetargetFixRuntime = new AiRaidRetargetFixRuntime(log);
@@ -682,8 +668,7 @@ namespace BugfixesAndQoL
                 return;
             if (!isFixedLayoutHashValidated)
             {
-                Shared.DebugLogHelper.LogWarning(log,
-                    "Prebuilt AI workshop Both fix is inactive because the installed native hash is not audited.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:685", "Prebuilt AI workshop Both fix is inactive because the installed native hash is not audited.");
                 return;
             }
 
@@ -829,9 +814,7 @@ namespace BugfixesAndQoL
                     enemyProximityFixedLayoutErrorLogged))
                 {
                     enemyProximityFixedLayoutErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        "Bugfixes and QoL enemy-proximity bulldoze cursor remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:832", "Bugfixes and QoL enemy-proximity bulldoze cursor remains inactive because its fixed native layout is not validated for this CrusaderDE.dll.");
                 }
             }
 
@@ -857,9 +840,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL feature 'minimap improvements' deactivation failed; other features continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:860", $"Bugfixes and QoL feature 'minimap improvements' deactivation failed; other features continue: {ex}");
             }
         }
 
@@ -903,9 +884,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL feature '{featureName}' cleanup failed; other features continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:906", $"Bugfixes and QoL feature '{featureName}' cleanup failed; other features continue: {ex}");
             }
         }
 
@@ -1020,9 +999,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL ally goods amount modifier hook could not be installed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1023", $"Bugfixes and QoL ally goods amount modifier hook could not be installed: {ex}");
             }
         }
 
@@ -1042,17 +1019,13 @@ namespace BugfixesAndQoL
                     fixedLayoutHashValidated);
                 if (!fixedLayoutHashValidated)
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Bugfixes and QoL Ctrl single-unit market hooks are running on an unknown CrusaderDE.dll because all required native instruction patterns were validated.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1045", "Bugfixes and QoL Ctrl single-unit market hooks are running on an unknown CrusaderDE.dll because all required native instruction patterns were validated.");
                 }
             }
             catch (Exception ex)
             {
                 ctrlMarketTradeHookUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL Ctrl single-unit market hooks could not be installed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1053", $"Bugfixes and QoL Ctrl single-unit market hooks could not be installed: {ex}");
             }
         }
 
@@ -1072,9 +1045,7 @@ namespace BugfixesAndQoL
                     if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
                         "initialize:" + featureName + ":" + ex.GetType().FullName))
                     {
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1075", $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
                     }
                 }
             }
@@ -1096,9 +1067,7 @@ namespace BugfixesAndQoL
                     if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
                         "persistent-initialize:" + featureName + ":" + ex.GetType().FullName))
                     {
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1099", $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
                     }
                 }
             }
@@ -1120,9 +1089,7 @@ namespace BugfixesAndQoL
                     if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
                         "apply:" + featureName + ":" + ex.GetType().FullName))
                     {
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1123", $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
                     }
                 }
             }
@@ -1225,9 +1192,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 plaguePopularityFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1228", $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 
@@ -1251,9 +1216,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 aiStoneReserveFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AI stone-reserve fix could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1254", $"Bugfixes and QoL AI stone-reserve fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }
@@ -1299,9 +1262,7 @@ namespace BugfixesAndQoL
 
                 aiDefensePatrolFix = null;
                 aiDefensePatrolFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1302", $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }
@@ -1320,8 +1281,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     workshopIdleDelayHookUnavailable = true;
-                    Shared.DebugLogHelper.LogError(log,
-                        "BUGFIXES_AND_QOL_WORKSHOP_IDLE_INACTIVE: Vanilla remains active: " + ex);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1323", "BUGFIXES_AND_QOL_WORKSHOP_IDLE_INACTIVE: Vanilla remains active: " + ex);
                 }
             }
             if (processWorkshopIdleDelayHook != null && !workshopIdleTickSubscribed && !workshopIdleTickLogged)
@@ -1354,8 +1314,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     workerBreakPauseHookUnavailable = true;
-                    Shared.DebugLogHelper.LogError(log,
-                        "BUGFIXES_AND_QOL_WORKER_BREAK_INACTIVE: Vanilla behavior remains active: " + ex);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1357", "BUGFIXES_AND_QOL_WORKER_BREAK_INACTIVE: Vanilla behavior remains active: " + ex);
                 }
             }
             if (processWorkerBreakPauseHook != null && !workerBreakTickSubscribed &&
@@ -1415,9 +1374,7 @@ namespace BugfixesAndQoL
 
                 aiWallTargetingFix = null;
                 aiWallTargetingFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AI wall-targeting fix could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1418", $"Bugfixes and QoL AI wall-targeting fix could not be installed; " +
                     $"Vanilla behavior remains active: {ex}");
             }
         }
@@ -1461,9 +1418,7 @@ namespace BugfixesAndQoL
 
                 aivDefenderPositionFix = null;
                 aivDefenderPositionFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AIV defender-position fix could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1464", $"Bugfixes and QoL AIV defender-position fix could not be installed; " +
                     $"Vanilla behavior remains active: {ex}");
             }
         }
@@ -1495,9 +1450,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 aiTowerRuinRepairFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AI tower-ruin repair could not be installed; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1498", $"Bugfixes and QoL AI tower-ruin repair could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 
@@ -1530,9 +1483,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 betterAIOverbuildRulesFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL better AI overbuild rules could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1533", $"Bugfixes and QoL better AI overbuild rules could not be installed; " +
                     $"Vanilla behavior remains active: {ex}");
             }
         }
@@ -1555,9 +1506,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 plagueTreatmentFadeFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL plague-cloud removal fix could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1558", $"Bugfixes and QoL plague-cloud removal fix could not be installed; " +
                     $"only this fix remains inactive and Vanilla treatment remains active: {ex}");
             }
         }
@@ -1584,9 +1533,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 plagueApothecaryStateTransitionFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL stuck-apothecary fix could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1587", $"Bugfixes and QoL stuck-apothecary fix could not be installed; " +
                     $"only this fix remains inactive and Vanilla behavior remains active: {ex}");
             }
         }
@@ -1603,9 +1550,7 @@ namespace BugfixesAndQoL
             if (plagueTreatmentFadeFix == null)
             {
                 plagueTargetReservationFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "Bugfixes and QoL plague target-reservation fix remains inactive because " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1606", "Bugfixes and QoL plague target-reservation fix remains inactive because " +
                     "the treatment-completion hook is unavailable; other plague fixes remain independent.");
                 return;
             }
@@ -1628,9 +1573,7 @@ namespace BugfixesAndQoL
                 plagueTargetReservationFix?.Dispose();
                 plagueTargetReservationFix = null;
                 plagueTargetReservationFixUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL plague target-reservation fix could not be installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1631", $"Bugfixes and QoL plague target-reservation fix could not be installed; " +
                     $"only this fix remains inactive and Vanilla target selection remains active: {ex}");
             }
         }
@@ -1658,7 +1601,7 @@ namespace BugfixesAndQoL
             {
                 // A changed or already hooked signature cannot become valid later in this process.
                 assemblyPointPlacementPatchUnavailable = true;
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL assembly-point placement patch could not be installed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1661", $"Bugfixes and QoL assembly-point placement patch could not be installed: {ex}");
             }
         }
 
@@ -1689,9 +1632,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 mountedStockpileMovementPatchUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL mounted-stockpile movement patch could not be installed; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1692", $"Bugfixes and QoL mounted-stockpile movement patch could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 
@@ -1717,9 +1658,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 healerAttackCommandPatchUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL Healer attack-command patch could not be installed; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1720", $"Bugfixes and QoL Healer attack-command patch could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 
@@ -1749,9 +1688,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 lordControlGroupNativePatchUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL Lord control-group patch could not be installed; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1752", $"Bugfixes and QoL Lord control-group patch could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 
@@ -1777,9 +1714,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 controlGroupDisbandCleanupUnavailable = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL disbanded-unit control-group cleanup could not be installed; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1780", $"Bugfixes and QoL disbanded-unit control-group cleanup could not be installed; Vanilla behavior remains active: {ex}");
             }
         }
 

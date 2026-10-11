@@ -31,10 +31,11 @@ namespace SHCDESE.API.LowLevel {
         public ReadOnlySpan<byte> Memory => snapshot;
     }
 }
+namespace Shared { public static class DebugLogHelper { public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(BepInEx.Logging.ManualLogSource log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
 namespace APIShared.Internal {
     internal static class DebugLogHelper {
-        public static void LogDebug(ManualLogSource log,string message) {}
-        public static void LogWarning(ManualLogSource log,string message) {}
+        public static void LogDebugLimited(ManualLogSource log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource log,string message) {}
+        public static void LogWarningLimited(ManualLogSource log, string site, params object[] parts) { LogWarning(log, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource log,string message) {}
     }
 }
 namespace BugfixesAndQoL.UnitCommands {

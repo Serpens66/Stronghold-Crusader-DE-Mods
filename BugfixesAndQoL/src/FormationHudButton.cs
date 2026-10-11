@@ -24,14 +24,14 @@ namespace BugfixesAndQoL
                     if (!client.TryGetUnitHudPresentation(out var hud, out var diagnostic) ||
                         !(hud is IUnitHudActionButtonsCapability buttons))
                     {
-                        Shared.DebugLogHelper.LogWarning(log, "FORMATION_ACTION_BUTTON_UNAVAILABLE: " + diagnostic?.Reason);
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationHudButton.cs:27", "FORMATION_ACTION_BUTTON_UNAVAILABLE: " + diagnostic?.Reason);
                         return;
                     }
                     var definition = new UnitHudActionButtonDefinition("formation", menu.ToggleMenuCommand,
                         SerpLocalization.Get("BugfixesAndQoL.ArrangementTooltip"), CreateContent,
                         contextChanged: available => { ownContext = available; menu.RefreshHostState(); });
                     if (!buttons.TryRegisterActionButton(definition, out registration, out diagnostic))
-                        Shared.DebugLogHelper.LogWarning(log, "FORMATION_ACTION_BUTTON_FAILED: " + diagnostic.Reason);
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationHudButton.cs:34", "FORMATION_ACTION_BUTTON_FAILED: " + diagnostic.Reason);
                     else RefreshVisibility();
                 }));
         }

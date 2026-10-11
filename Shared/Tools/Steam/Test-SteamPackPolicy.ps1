@@ -152,25 +152,28 @@ Assert-True (-not $createScriptText.Contains('releaseConfig.ApiShared.Version'))
 Assert-True ($createScriptText.Contains('Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure')) 'Steam staging must consume a validated published APIShared package'
 Assert-True ($createScriptText.Contains('SHA-256 file mismatch for $tag.')) 'APIShared release validation must reject a mismatched hash file'
 Assert-True ($createScriptText.Contains('Provenance mismatch for $tag.')) 'APIShared release validation must reject mismatched provenance'
-Assert-True ($createScriptText.Contains('APIShared release ZIP must contain exactly the $($Infrastructure.Guid) root directory.')) 'APIShared release validation must enforce the package root'
+Assert-True ($createScriptText.Contains('APIShared release ZIP must contain exactly the BepInEx root directory.')) 'APIShared release validation must enforce the package root'
 Assert-True ($createScriptText.Contains('APIShared release DLL identity/dependency mismatch for $tag.')) 'APIShared release validation must enforce DLL identity and dependencies'
 Assert-True ($createScriptText.Contains('$assets = @($ZipPath,$ZipShaPath,$MapPath,$MapShaPath,$ProvenancePath)')) 'pack releases must publish ZIP, ZIP hash, map, map hash and provenance together'
 Assert-True ($createScriptText.Contains('Package = [ordered]@{ File = $zipPackage.File; RootDirectory = $zipPackage.RootDirectory; Sha256 = $zipPackage.Sha256; Size = $zipPackage.Size; Files = $zipPackage.Files }')) 'pack provenance must describe the audited ZIP package'
-Assert-True ($createScriptText.Contains("-CurrentMod 'SerpsMods'")) 'pack publication must update the README release index through the SerpsMods special entry'
+Assert-True (-not $createScriptText.Contains('Update-ReleaseIndex.ps1')) 'pack preparation must leave README unchanged'
 $outerPathGuard = $createScriptText.IndexOf('if (-not $path.StartsWith($packageRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }', [StringComparison]::Ordinal)
 Assert-True ($outerPathGuard -ge 0) 'existing-tombstone detection must skip outer map files before applying the internal package path policy'
 $archiveTraversalGuard = $createScriptText.IndexOf("Where-Object { `$_ -in @('','.', '..') }", [StringComparison]::Ordinal)
 Assert-True ($archiveTraversalGuard -ge 0) 'historical map inventory must reject empty, current-directory and parent-directory path segments'
-$preflightCall = $createScriptText.IndexOf('$safeHistoricalReplacements = Assert-HistoricalDeletionPolicyPreflight', [StringComparison]::Ordinal)
+$preflightCall = $createScriptText.IndexOf('$historicalSteamFiles = Get-HistoricalSteamFileIndex', [StringComparison]::Ordinal)
 $apiReleaseCall = $createScriptText.IndexOf('Invoke-ApiSharedRelease $apiSharedInfrastructure', [StringComparison]::Ordinal)
 $releaseCall = $createScriptText.IndexOf('Invoke-ModRelease $mod', [StringComparison]::Ordinal)
-Assert-True ($preflightCall -ge 0 -and $releaseCall -gt $preflightCall) 'fail-closed historical deletion preflight must run before GitHub mod releases'
-Assert-True ($preflightCall -ge 0 -and $apiReleaseCall -gt $preflightCall -and $releaseCall -gt $apiReleaseCall) 'APIShared must publish after deletion preflight and before consumer releases'
-Assert-True ($createScriptText.Contains('$journal.CompletedReleases = @($journal.CompletedReleases) + "APIShared/v$($apiSharedInfrastructure.Version)"')) 'APIShared publication must be recorded for safe reruns'
+Assert-True ($preflightCall -ge 0 -and $releaseCall -gt $preflightCall) 'verified historical archive inventory must run before GitHub mod releases'
+Assert-True ($apiReleaseCall -lt 0) 'SerpsMods preparation must not publish APIShared implicitly'
+Assert-True ($createScriptText.IndexOf('Assert-WorkshopPlatformProof') -lt $releaseCall) 'platform evidence must precede publication'
+Assert-True ($createScriptText.Contains('Prepare-SerpsModsWorkshop.ps1') -and $createScriptText.Contains('-WorkshopZipPath $workshopZipPath')) 'release must include loose Workshop content and the dedicated bootstrap'
+Assert-True (-not $createScriptText.Contains('$historicalReplacements = @(Add-HistoricalSteamReplacements')) 'new loose releases must not add historical retention overlays'
+Assert-True ($createScriptText.Contains('Assert-WorkshopContentZip $workshopZip') -and $createScriptText.Contains('ExtractToDirectory($workshopZip,$reuseStage)')) 'reused releases must validate and restore the full ZIP before replacing output'
 Assert-True ($createScriptText.Contains('ReleaseUrl = $apiSharedInfrastructure.ReleaseUrl')) 'pack provenance must use the validated APIShared release URL'
 Assert-True ($createScriptText.Contains('SourceCommit = $apiSharedInfrastructure.SourceCommit')) 'pack provenance must use the APIShared release source commit'
 $uploadScriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Upload-Workshop.ps1'))
-$steamConfirmationCheck = $uploadScriptText.IndexOf('if (-not $updated)', [StringComparison]::Ordinal)
+$steamConfirmationCheck = $uploadScriptText.IndexOf("`$result.Status -cne 'Succeeded'", [StringComparison]::Ordinal)
 $historyAppendCall = $uploadScriptText.LastIndexOf('Add-SteamWorkshopUploadHistoryEntry', [StringComparison]::Ordinal)
 Assert-True ($steamConfirmationCheck -ge 0 -and $historyAppendCall -gt $steamConfirmationCheck) 'upload history may only be appended after Steam confirms the update'
 Assert-True ((Assert-ScriptExtenderXamlPatchContract -Directory (Join-Path $workspace 'APIShared')) -gt 0) 'the delivered APIShared XAML patches must satisfy the single-root contract'
@@ -259,3 +262,14 @@ try {
 }
 
 Write-Host 'Steam pack policy tests succeeded.' -ForegroundColor Green
+
+Assert-True ($createScriptText.Contains("State = 'External'; RelativePath = ''")) 'APIShared must be recorded as an external prerequisite'
+Assert-True ($createScriptText.Contains('EXTERNAL-V1|')) 'old bundled content signatures must not be reused'
+Assert-True ($createScriptText.Contains('Get-LegacyApiSharedFiles -History $uploadHistory')) 'migration evidence must cover confirmed historical deliveries'
+Assert-True ($createScriptText.Contains('New-ApiWorkshopInventory -Directory $hostStage -LegacyFiles $legacyApiSharedFiles')) 'the final host payload must ship its historical migration inventory'
+Assert-True ($createScriptText.Contains("-Arguments @('/nopause','/noinstall') -FailureCode 4")) 'compatibility builds must not install'
+Assert-True ($createScriptText.IndexOf("Fail-Pack 2 'Prepare APIShared first") -lt $createScriptText.IndexOf('foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility')) 'missing APIShared releases must fail before consumer source changes'
+foreach ($modName in @('BugfixesAndQoL','BuildingCosts','BuildingLimit','ExtraFeatures','RandomEvents','CastlePlanner','StartConditions','UnitCosts','UnitLimit','ExtendedData')) {
+    $driver = [IO.File]::ReadAllText((Join-Path $workspace "$modName/build.bat"))
+    Assert-True ($driver.Contains('if "%NO_INSTALL%"=="1" goto prepared_no_install')) "$modName must support preparation without touching installed files"
+}

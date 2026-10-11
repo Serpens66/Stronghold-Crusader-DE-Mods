@@ -11,7 +11,7 @@ namespace SerpsModsHost
             if (IsApiShared(dependency))
             {
                 return $"APIShared is missing or was not loaded: expected {dependency.Guid} v{dependency.Version}. " +
-                    "Mods that require APIShared cannot start. Reinstall the complete Serps Mods package and " +
+                    "Mods that require APIShared cannot start. Subscribe to APIShared separately in the Steam Workshop and " +
                     "check the earlier BepInEx dependency errors.";
             }
 
@@ -26,7 +26,7 @@ namespace SerpsModsHost
             if (IsApiShared(dependency))
             {
                 return $"The loaded APIShared version is incompatible with this package: expected " +
-                    $"{dependency.Version}, actual {actualVersion}. Reinstall the complete Serps Mods package.";
+                    $"{dependency.Version}, actual {actualVersion}. Subscribe to or update APIShared separately in the Steam Workshop.";
             }
 
             return $"Loaded infrastructure version mismatch: {dependency.Guid}, expected " +

@@ -155,17 +155,13 @@ namespace CastlePlanner
             {
                 if (Hud?.CloseSearchPopupForApplicationFocusLoss() == true)
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "Blueprint AIVJSON search popup closed because the " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:158", () => "Blueprint AIVJSON search popup closed because the " +
                         "application lost focus.");
                 }
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Failed to close the Blueprint AIVJSON search popup " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:166", $"Failed to close the Blueprint AIVJSON search popup " +
                     $"during application focus loss: {ex}");
             }
         }
@@ -193,7 +189,7 @@ namespace CastlePlanner
                         throw new InvalidOperationException(diagnostic.Reason);
                     hudExtrasRegistration.SetVisible(Hud.HudVisible);
                 }
-                catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "Blueprint side-HUD registration failed: " + ex); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:196", "Blueprint side-HUD registration failed: " + ex); }
             });
         }
 
@@ -232,9 +228,7 @@ namespace CastlePlanner
                 if (Time.unscaledTime >= nextRuntimeErrorLogTime)
                 {
                     nextRuntimeErrorLogTime = Time.unscaledTime + 5f;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Blueprint frame loop recovered from an error: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:235", $"Blueprint frame loop recovered from an error: {ex}");
                 }
             }
         }
@@ -383,9 +377,7 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Blueprint map-start lifecycle received; visibility reset to hidden.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:386", () => "Blueprint map-start lifecycle received; visibility reset to hidden.");
         }
 
         private void OnLoadSave(APIShared.MissionLifecycleNotification args)
@@ -400,9 +392,7 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Blueprint save-load lifecycle received; visibility reset to hidden.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:403", () => "Blueprint save-load lifecycle received; visibility reset to hidden.");
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
@@ -413,9 +403,7 @@ namespace CastlePlanner
             editorSessionActive = false;
             editorControlledPlayerId = -1;
             RefreshHud();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Blueprint overlay cleared for map unload.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:416", () => "Blueprint overlay cleared for map unload.");
         }
 
         private void OnSettingsChanged()
@@ -514,9 +502,7 @@ namespace CastlePlanner
                     hotkeyCaptureIgnoredKeys.Add(key);
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Blueprint hotkey capture armed; ignoredHeldMouseButtons=" +
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:517", () => $"Blueprint hotkey capture armed; ignoredHeldMouseButtons=" +
                 $"{hotkeyCaptureIgnoredKeys.Count}.");
         }
 
@@ -551,7 +537,7 @@ namespace CastlePlanner
             {
                 settings.CancelHotkeyCapture();
                 StopHotkeyCapture();
-                Shared.DebugLogHelper.LogError(log, $"Blueprint hotkey capture failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:554", $"Blueprint hotkey capture failed: {ex}");
             }
         }
 
@@ -611,9 +597,7 @@ namespace CastlePlanner
             if (!settings.CompleteHotkeyCapture(key, alt, control, shift))
                 return false;
             StopHotkeyCapture();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Blueprint hotkey capture finished: key={key}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:614", () => $"Blueprint hotkey capture finished: key={key}, " +
                 $"value={(int)key}, source={source}.");
             return true;
         }
@@ -734,9 +718,7 @@ namespace CastlePlanner
                 layoutKeepX = int.MinValue;
                 layoutKeepY = int.MinValue;
                 renderer.Clear();
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Blueprint hidden because the start selection contains no castle.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:737", () => "Blueprint hidden because the start selection contains no castle.");
                 return false;
             }
 
@@ -750,15 +732,11 @@ namespace CastlePlanner
                 {
                     // The host AIV dropdown is irrelevant while Spawn Castle is disabled.
                     // A stale local Blueprint choice therefore disables only the optional overlay.
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Blueprint preparation skipped because the local AIVJSON is unavailable and Spawn Castle is disabled: '{settings.SelectedCastle}'.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:753", () => $"Blueprint preparation skipped because the local AIVJSON is unavailable and Spawn Castle is disabled: '{settings.SelectedCastle}'.");
                     return false;
                 }
 
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Blueprint preparation failed; overlay remains unavailable: " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:759", $"Blueprint preparation failed; overlay remains unavailable: " +
                     $"Selected AIVJSON is unavailable while Spawn Castle is enabled: '{settings.SelectedCastle}'.");
                 return false;
             }
@@ -785,9 +763,7 @@ namespace CastlePlanner
                 layoutKeepX = keepX;
                 layoutKeepY = keepY;
                 renderer.PreloadDepthCaptures(layout);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Blueprint prepared locally: reason={reason}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:788", () => $"Blueprint prepared locally: reason={reason}, " +
                     $"file={fullPath}, keep=({keepX},{keepY}), " +
                     $"projectedKeep=({layout.ProjectedKeep.X},{layout.ProjectedKeep.Y}), " +
                     $"castleRotation={(int)layout.CastleRotation}, " +
@@ -802,9 +778,7 @@ namespace CastlePlanner
                 layoutKeepX = int.MinValue;
                 layoutKeepY = int.MinValue;
                 renderer.Clear();
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Blueprint preparation failed; overlay remains unavailable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:805", $"Blueprint preparation failed; overlay remains unavailable: {ex}");
                 return false;
             }
         }
@@ -873,9 +847,7 @@ namespace CastlePlanner
         {
             if (!EffectiveBlueprintMode || !mapActive)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Blueprint toggle ignored because Blueprint mode or the map is inactive.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:876", "Blueprint toggle ignored because Blueprint mode or the map is inactive.");
                 RefreshHud();
                 return;
             }
@@ -891,9 +863,7 @@ namespace CastlePlanner
                 layoutKeepY = int.MinValue;
                 blueprintVisible = false;
                 SchedulePrepare(false);
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Blueprint remains hidden because no live local Keep was found during activation.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:894", "Blueprint remains hidden because no live local Keep was found during activation.");
                 RefreshHud();
                 return;
             }
@@ -946,9 +916,7 @@ namespace CastlePlanner
                 blueprintVisible = false;
                 pendingViewSettleTime = -1f;
                 suppressOverlayUntilViewSettled = false;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Blueprint hidden locally: reason={reason}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:949", () => $"Blueprint hidden locally: reason={reason}.");
             }
 
             RefreshHud();
@@ -987,9 +955,7 @@ namespace CastlePlanner
             suppressOverlayUntilViewSettled = true;
             pendingViewSettleTime =
                 Time.unscaledTime + ViewSettleDelaySeconds;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Blueprint temporarily hidden while the normal map " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:990", () => $"Blueprint temporarily hidden while the normal map " +
                 $"projection settles: delay={ViewSettleDelaySeconds:F2}s, " +
                 $"flattened=false, rotation={rotation}.");
         }
@@ -1002,9 +968,7 @@ namespace CastlePlanner
             // fully settled, so retain the final confirmation render.
             pendingViewSettleTime =
                 Time.unscaledTime + ViewSettleDelaySeconds;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Blueprint view settle rebuild scheduled: " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1005", () => $"Blueprint view settle rebuild scheduled: " +
                 $"delay={ViewSettleDelaySeconds:F2}s, " +
                 $"flattened={flattened}, rotation={rotation}.");
         }
@@ -1021,9 +985,7 @@ namespace CastlePlanner
                 lastRotation = (int)GameMap.instance.CurrentRotation();
                 lastFlattenedLandscape =
                     EngineInterface.FlattenedLandscape;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Blueprint rendered locally: reason={reason}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1024", () => $"Blueprint rendered locally: reason={reason}, " +
                     $"tiles={result.RenderedTiles}, icons={result.RenderedIcons}, " +
                     $"clipped={result.ClippedTiles}, " +
                     $"depthReady={renderer.CompletedDepthCaptureCount}/" +
@@ -1035,9 +997,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Blueprint rendering failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1038", $"Blueprint rendering failed: {ex}");
                 return false;
             }
         }
@@ -1151,9 +1111,7 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                previousPlayerId > 0
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1154", () => previousPlayerId > 0
                     ? $"Blueprint editor player changed: previousActivePlayerId={previousPlayerId}, activePlayerId={activePlayerId}, restoreVisibility={restoreVisibility}."
                     : $"Blueprint editor lifecycle started: activePlayerId={activePlayerId}.");
         }

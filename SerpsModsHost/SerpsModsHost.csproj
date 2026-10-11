@@ -70,6 +70,8 @@
     <Compile Include="src\GlobalSettingsResetPolicy.cs" />
     <Compile Include="src\SerpsModsDiagnosticsViewModel.cs" />
     <Compile Include="src\SerpsModsHostPlugin.cs" />
+    <Compile Include="src\SerpsModsHostBootstrap.cs" />
+    <Compile Include="src\ApiSharedDependencyPolicy.cs" />
   </ItemGroup>
   <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

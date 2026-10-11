@@ -58,7 +58,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"BuildingCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:61", $"BuildingCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -76,7 +76,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing BuildingCosts after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:79", $"Error while initializing BuildingCosts after library load: {ex}");
             }
         }
 
@@ -85,7 +85,7 @@ namespace BuildingCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"BuildingCosts {stageName} failed; independent stages continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:88", $"BuildingCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

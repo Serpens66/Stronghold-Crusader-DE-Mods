@@ -122,7 +122,7 @@ namespace ExtraFeatures
                 try { if (lastHoverHost != null) lastHoverHost.Visibility = Visibility.Hidden; } catch { }
                 if (hudFailureLogged) return;
                 hudFailureLogged = true;
-                Shared.DebugLogHelper.LogError(log, "Building repair HUD update failed; further errors are suppressed: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/BuildingRepairHudRuntime.cs:125", "Building repair HUD update failed; further errors are suppressed: " + ex);
             }
         }
 

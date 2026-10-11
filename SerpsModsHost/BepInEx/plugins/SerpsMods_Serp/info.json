@@ -2,20 +2,21 @@
   "GUID": "SerpsMods_Serp",
   "Author": "Serpens66",
   "Name": "Serps Mods - Fully Customizable Collection",
-  "Description": "All included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit",
-  "Version": "1.0.25",
+  "Description": "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit",
+  "Version": "1.0.26",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.5.0"
+      "MinimumVersion": "0.7.1"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    { "Version": "1.0.26", "Changes": ["Require separately subscribed APIShared and keep startup dependency diagnostics available without APIShared."] },
     {
       "Version": "1.0.25",
       "Changes": [

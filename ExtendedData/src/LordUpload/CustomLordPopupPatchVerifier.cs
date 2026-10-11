@@ -52,9 +52,7 @@ namespace ExtendedData
                     : Interlocked.Exchange(ref uploadPageVerificationLogged, 1) == 0;
                 if (firstSuccess)
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        description + " XAML patch matched exactly once.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/LordUpload/CustomLordPopupPatchVerifier.cs:55", description + " XAML patch matched exactly once.");
                 }
             }
             else
@@ -70,9 +68,7 @@ namespace ExtendedData
                     else
                         lastUploadPageMismatchCount = count;
                 }
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    description + " XAML patch verification found " + count +
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/LordUpload/CustomLordPopupPatchVerifier.cs:73", description + " XAML patch verification found " + count +
                     " markers; expected exactly one. Review the XAML patch for this game/Extender version.");
             }
         }

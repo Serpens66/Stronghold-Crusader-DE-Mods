@@ -179,9 +179,7 @@ namespace ExtraFeatures
             Shared.CrashBreadcrumbDiagnostics.Record(
                 "ApothecaryPlagueSearchMaximum",
                 effectiveMaximum);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Extra Features apothecary plague-search maximum is now " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/PlagueApothecarySearchRangePatch.cs:182", $"Extra Features apothecary plague-search maximum is now " +
                 $"{effectiveMaximum} ({(enabled ? "configured" : "Vanilla")}).");
         }
 

@@ -53,7 +53,7 @@ namespace BugfixesAndQoL
             horizontalHook?.Undo();
             horizontalHook?.Dispose();
             horizontalHook = null;
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL camera movement modifier hooks disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CameraMovementModifierHook.cs:56", "Bugfixes and QoL camera movement modifier hooks disposed.");
         }
 
         private static MethodInfo FindAxisMethod(string methodName)

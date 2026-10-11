@@ -552,8 +552,8 @@ namespace RandomEvents
         private static IntPtr AtRva(IntPtr libraryHandle, int rva) =>
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
-        private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
-        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int WildlifeHandlerDelegate(

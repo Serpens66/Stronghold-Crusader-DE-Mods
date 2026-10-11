@@ -126,9 +126,7 @@ namespace BugfixesAndQoL
                     return;
 
                 commandFailureLogged = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL troop-HUD middle-click camera jump failed; the click keeps Vanilla behavior: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TroopHudMiddleClickCameraFeature.cs:129", $"Bugfixes and QoL troop-HUD middle-click camera jump failed; the click keeps Vanilla behavior: {ex}");
             }
         }
 
@@ -144,7 +142,7 @@ namespace BugfixesAndQoL
             {
                 if (commandFailureLogged) return;
                 commandFailureLogged = true;
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL category middle-click camera jump failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TroopHudMiddleClickCameraFeature.cs:147", $"Bugfixes and QoL category middle-click camera jump failed: {ex}");
             }
         }
 

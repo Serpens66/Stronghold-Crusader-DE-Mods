@@ -90,7 +90,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Unit limit game action event failed:", ex.Message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:93", "Unit limit game action event failed:", ex);
                 return MakeTroopGameActionDecision.AllowOriginal();
             }
         }
@@ -135,7 +135,7 @@ namespace UnitLimit
             {
                 // Forward the remaining limit as a conservative ceiling. Vanilla
                 // still owns peasants, weapons, gold and its native feedback.
-                LogDebug(
+                LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:138",
                     "UnitLimit could not resolve Vanilla's current Ctrl amount; forwarding remaining limit:",
                     "unit", unitType,
                     "player", playerId,
@@ -154,7 +154,7 @@ namespace UnitLimit
                     vanillaRequestedAmount,
                     remaining,
                     interpretCtrlSentinel);
-            LogDebug(
+            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:157",
                 log,
                 "UnitLimit recruitment decision:",
                 "unit", unitType,
@@ -189,7 +189,7 @@ namespace UnitLimit
                         amountToReserve);
             }
 
-            LogDebug(
+            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:192",
                 log,
                 "MakeTroop block: unit limit exceeded",
                 unitType,
@@ -229,7 +229,7 @@ namespace UnitLimit
                 decision.PendingPlayerId,
                 decision.PendingUnitType,
                 amountToReserve);
-            LogDebug(
+            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:232",
                 "UnitLimit finalized pending recruitment:",
                 "unit", decision.PendingUnitType,
                 "player", decision.PendingPlayerId,
@@ -309,7 +309,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Unit limit siege placement validation failed:", ex.Message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:312", "Unit limit siege placement validation failed:", ex);
             }
         }
 
@@ -333,7 +333,7 @@ namespace UnitLimit
 
             args.CustomValidationRules = true;
             args.ForceBlockPlacementState = true;
-            LogDebug(
+            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:336",
                 "Siege tent placement blocked by unit limit:",
                 "player", args.PlayerId,
                 "mapper", args.Mappers,
@@ -398,7 +398,7 @@ namespace UnitLimit
                 {
                     changed = true;
                     if (ShouldLogHumanPlayer(entry.Key.PlayerId))
-                        LogDebug("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
+                        LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:401", "Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
                 }
 
                 if (entry.Value.Count == 0)
@@ -426,7 +426,7 @@ namespace UnitLimit
             if (count == 0)
                 return;
 
-            LogDebug("Clearing pending recruitments:", reason, "keys", count);
+            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:429", "Clearing pending recruitments:", reason, "keys", count);
             pendingRecruitments.Clear();
             UnitLimitIntegration.NotifyStateChanged();
         }
@@ -448,7 +448,7 @@ namespace UnitLimit
                 bool consumed = consumedExternal ||
                     ConsumePendingRecruitment(args.NewSnapshot.OwnerId, pendingUnitType);
                 if (consumed && ShouldLogHumanPlayer(args.NewSnapshot.OwnerId))
-                    LogDebug("Active unit change consumed pending capacity:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType, "pendingUnitType", pendingUnitType, "external", consumedExternal);
+                { }
             }
 
             RefreshCurrentUnitLimitTooltip();
@@ -500,7 +500,7 @@ namespace UnitLimit
         private void ShowUnitLimitReachedMessage(eChimps unitType, int limit)
         {
             string message = SerpLocalization.Get(SerpLocalization.Max) + " " + limit + " " + GetLocalizedUnitName(unitType);
-            LogDebug("Unit limit notification shown:", unitType, message);
+            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:503", "Unit limit notification shown:", unitType, message);
             if (IsEngineerSiegeUnit(unitType))
                 DisplaySiegeLimitNotification(message);
             else
@@ -517,17 +517,17 @@ namespace UnitLimit
             {
                 if (!SoldierChimps.Contains(entry.Key))
                 {
-                    LogDebug("Unit limit type is not a supported recruitable soldier:", entry.Key);
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:520", "Unit limit type is not a supported recruitable soldier:", entry.Key);
                     continue;
                 }
 
                 activeUnitLimits[entry.Key] = entry.Value;
                 if (entry.Value >= 0)
-                    LogDebug("Active unit limit:", entry.Key, "=", entry.Value);
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:526", "Active unit limit:", entry.Key, "=", entry.Value);
             }
 
             RebuildConfiguredRecruitmentButtons();
-            LogDebug("Applied active unit limit rules:", activeUnitLimits.Count);
+            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:530", "Applied active unit limit rules:", activeUnitLimits.Count);
             RefreshCurrentUnitLimitTooltip();
             UnitLimitIntegration.NotifyStateChanged();
         }

@@ -40,9 +40,7 @@ namespace SerpsModsHost
                 string hostHash = SteamMatchmaking.GetLobbyData(lobby.id, LobbyModHashToken);
                 if (string.IsNullOrWhiteSpace(localHash) || string.IsNullOrWhiteSpace(hostHash))
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"[Serps Mods] Lobby mod hashes could not be compared: " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "SerpsModsHost/src/LobbyModHashWarning.cs:43", $"[Serps Mods] Lobby mod hashes could not be compared: " +
                         $"localHash={FormatHash(localHash)}, hostHash={FormatHash(hostHash)}.");
                     return;
                 }
@@ -59,18 +57,14 @@ namespace SerpsModsHost
                     template,
                     out string message))
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"[Serps Mods] Lobby mod hashes match: local={localHash}, host={hostHash}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/LobbyModHashWarning.cs:62", $"[Serps Mods] Lobby mod hashes match: local={localHash}, host={hostHash}.");
                     return;
                 }
 
                 if (TryBuildNetworkedDifference(lobby.id, out ModInventoryDifference difference) &&
                     difference.Count == 0)
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"[Serps Mods] Lobby mod hashes differ only because of client-side-only mod differences: " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/LobbyModHashWarning.cs:71", $"[Serps Mods] Lobby mod hashes differ only because of client-side-only mod differences: " +
                         $"local={localHash}, host={hostHash}. No warning was sent.");
                     return;
                 }
@@ -91,17 +85,13 @@ namespace SerpsModsHost
                     SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHashFolders));
                 foreach (string chatMessage in messages)
                     Platform_Multiplayer.Instance.SendLobbyChatMessage(chatMessage);
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"[Serps Mods] Lobby mod hash mismatch announced: " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "SerpsModsHost/src/LobbyModHashWarning.cs:94", $"[Serps Mods] Lobby mod hash mismatch announced: " +
                     $"player={localName}, host={hostName}, localHash={localHash}, hostHash={hostHash}, " +
                     $"chatMessages={messages.Count}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"[Serps Mods] Lobby mod hash comparison failed: {Unwrap(ex)}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "SerpsModsHost/src/LobbyModHashWarning.cs:102", $"[Serps Mods] Lobby mod hash comparison failed: {Unwrap(ex)}");
             }
         }
 
@@ -120,9 +110,7 @@ namespace SerpsModsHost
                 json,
                 out List<ModInventoryEntry> hostEntries))
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Script Extender lobby mod metadata is unavailable or invalid; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "SerpsModsHost/src/LobbyModHashWarning.cs:123", "Script Extender lobby mod metadata is unavailable or invalid; " +
                     "using the conservative legacy mod-hash warning.");
                 return false;
             }
@@ -160,9 +148,7 @@ namespace SerpsModsHost
 
         private void LogInventoryDifference(ModInventoryDifference difference)
         {
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Gameplay-relevant lobby mod inventory difference: hostOnly=[" +
+            Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/LobbyModHashWarning.cs:163", "Gameplay-relevant lobby mod inventory difference: hostOnly=[" +
                 string.Join("; ", difference.HostOnly.Select(entry => entry.LogDisplay)) +
                 "], clientOnly=[" +
                 string.Join("; ", difference.ClientOnly.Select(entry => entry.LogDisplay)) +

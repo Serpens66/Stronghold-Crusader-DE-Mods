@@ -42,6 +42,7 @@ try {
     if ($branch.Trim() -ne $config.Branch) { throw "Releases must be created from branch '$($config.Branch)', current branch is '$($branch.Trim())'." }
     [void](Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'fetch', '--prune', 'origin', $config.Branch, '--tags'))
     $commit = ((Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'rev-parse', 'HEAD')).Output -join '').Trim()
+    if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $metadata.Tag = "$ModName/test/v$($metadata.Version)-$($commit.Substring(0,12))" }
     $remoteCommit = ((Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'rev-parse', "origin/$($config.Branch)")).Output -join '').Trim()
     if ($commit -ne $remoteCommit) { throw "HEAD ($commit) must exactly match origin/$($config.Branch) ($remoteCommit)." }
 
@@ -93,7 +94,9 @@ try {
         if ($null -ne $apiSharedPackage) {
             $env:SHCDE_API_SHARED_DIR = $apiSharedPackage.Directory
         }
-        $buildResult = Invoke-CheckedCommand -FilePath $metadata.BuildBat -Arguments @('/nopause') -AllowFailure
+        $buildArguments = @('/nopause')
+        if ($env:SHCDE_PREPARE_ONLY -eq '1') { $buildArguments += '/noinstall' }
+        $buildResult = Invoke-CheckedCommand -FilePath $metadata.BuildBat -Arguments $buildArguments -AllowFailure
         $buildOutput = @($buildResult.Output)
         $buildExitCode = $buildResult.ExitCode
     } finally {
@@ -111,6 +114,9 @@ try {
     $trackedStatus = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'status', '--porcelain=v1', '--untracked-files=no')
     $trackedChangesAfterBuild = @($trackedStatus.Output | ForEach-Object { if ([string]$_ -match '^.. (.+)$') { $Matches[1] } })
     $outputRoot = Join-Path $config.Root ".release-output\$ModName\v$($metadata.Version)"
+    if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $outputRoot=Join-Path $config.Root ".release-output\SteamWorkshop\test\$ModName\v$($metadata.Version)" }
+    $outputRoot=[IO.Path]::GetFullPath($outputRoot)
+    if(-not $outputRoot.StartsWith([IO.Path]::GetFullPath($config.Root).TrimEnd('\')+'\.release-output\',[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe release output path.'}
     if (Test-Path -LiteralPath $outputRoot) { Remove-Item -LiteralPath $outputRoot -Recurse -Force }
     [void](New-Item -ItemType Directory -Path $outputRoot -Force)
     $stageRoot = Join-Path $outputRoot 'stage'
@@ -257,10 +263,13 @@ try {
         [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'edit', $metadata.Tag, '--repo', $config.Repository, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath))
         [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments (@('release', 'upload', $metadata.Tag, '--repo', $config.Repository, '--clobber') + $releaseAssets))
     }
+    if ($env:SHCDE_WORKSHOP_TEST -eq '1') { Write-Host "Test draft prepared: $($metadata.Tag)"; exit 0 }
     [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'edit', $metadata.Tag, '--repo', $config.Repository, '--draft=false'))
     $published = ((Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'view', $metadata.Tag, '--repo', $config.Repository, '--json', 'url')).Output -join "`n") | ConvertFrom-Json
 
+    if ($env:SHCDE_PREPARE_ONLY -ne '1') {
     & (Join-Path $PSScriptRoot 'Update-ReleaseIndex.ps1') -CurrentTag $metadata.Tag -CurrentUrl ([string]$published.url) -CurrentVersion $metadata.Version -CurrentMod $ModName -CurrentCommit $commit -CurrentSha256 $zipHash -CommitAndPush
+    }
     Write-Host "Release published: $($published.url)" -ForegroundColor Green
 } catch {
     Write-Error $_

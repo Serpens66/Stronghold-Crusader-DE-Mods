@@ -118,9 +118,9 @@ namespace Shared
     public static class DebugLogHelper
     {
         public static int Warnings, Errors, Factories; public static bool FailDebug;
-        public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { if (FailDebug) { Factories++; throw new Exception("listener failure"); } }
-        public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { Warnings++; }
-        public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { Errors++; }
+        public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log, string site, System.Func<string> text) { LogDebug(log, text); } public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { if (FailDebug) { Factories++; throw new Exception("listener failure"); } }
+        public static void LogWarningLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogWarning(log, System.String.Concat(parts)); } public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { Warnings++; }
+        public static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { Errors++; }
     }
 }
 namespace UnityEngine

@@ -271,14 +271,14 @@ namespace BugfixesAndQoL
                   !noDogsPatch.Contains("DebugLogHelper.LogInfo(") &&
                   !peaceTimePatch.Contains("DebugLogHelper.LogInfo(") &&
                   runtime.Contains("DebugLogHelper.LogDebug(") &&
-                  access.Contains("DebugLogHelper.LogDebug(") &&
+                  access.Contains("DebugLogHelper.LogDebugLimited(") &&
                   noDogsPatch.Contains("DebugLogHelper.LogDebug(") &&
                   peaceTimePatch.Contains("DebugLogHelper.LogDebug("),
                 "successful initialization and routine Skirmish actions are debug-only");
-            check(runtime.Contains("DebugLogHelper.LogWarning(") &&
+            check(runtime.Contains("DebugLogHelper.LogWarningLimited(") &&
                   runtime.Contains("SKIRMISH_GAME_OPTIONS_NO_DOGS_DISABLED") &&
                   runtime.Contains("SKIRMISH_GAME_OPTIONS_PEACE_TIME_DISABLED") &&
-                  access.Contains("DebugLogHelper.LogError(") &&
+                  access.Contains("DebugLogHelper.LogErrorLimited(") &&
                   access.Contains("SKIRMISH_GAME_OPTIONS_BUTTON_BIND_FAILED"),
                 "feature degradation and structural binding failures remain visible");
             string extraRuntime = File.ReadAllText(Path.Combine(

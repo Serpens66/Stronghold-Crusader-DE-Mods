@@ -41,9 +41,7 @@ namespace BugfixesAndQoL.UnitCommands
             try { APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
-                APIShared.Internal.DebugLogHelper.LogError(
-                    log,
-                    $"Formation native assignment failed open at {stage}; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:44", $"Formation native assignment failed open at {stage}; " +
                     $"future formation commands are disabled: {exception}");
             }
             catch
@@ -57,7 +55,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 try
                 {
-                    APIShared.Internal.DebugLogHelper.LogDebug(log, message);
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:60", message);
                 }
                 catch
                 {
@@ -71,7 +69,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 try
                 {
-                    APIShared.Internal.DebugLogHelper.LogWarning(log, message);
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:74", message);
                 }
                 catch
                 {
@@ -85,7 +83,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 try
                 {
-                    APIShared.Internal.DebugLogHelper.LogError(log, message);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:88", message);
                 }
                 catch
                 {

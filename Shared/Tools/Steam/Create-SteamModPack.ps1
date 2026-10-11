@@ -5,7 +5,10 @@ param(
     [Parameter(Mandatory)][string]$SteamStateName,
     [Parameter(Mandatory)][string]$WorkshopPackagerPath,
     [Parameter(Mandatory)][string]$PreviewPath,
+    [string]$ApiSharedPreviewPath,
+    [string]$ApiSharedWorkshopItemId,
     [switch]$Validate,
+    [switch]$TestMode,
     [switch]$NoPause
 )
 
@@ -13,6 +16,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
+. (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
+. (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
+. (Join-Path $PSScriptRoot '..\..\..\APIShared\tools\WorkshopPackage.ps1')
 
 class SteamPackFailure : System.Exception {
     [int]$ExitCode
@@ -21,6 +27,7 @@ class SteamPackFailure : System.Exception {
 
 $script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $script:OutputRoot = Join-Path $script:Root '.release-output\SerpsMods'
+if ($TestMode) { $script:OutputRoot = Join-Path $script:Root '.release-output\SteamWorkshop\test\SerpsMods' }
 $script:RunId = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')
 $script:LogDir = Join-Path $script:OutputRoot 'logs'
 $script:LogPath = Join-Path $script:LogDir "$($script:RunId).log"
@@ -447,13 +454,13 @@ function Get-PluginSourceMetadata {
 }
 
 function Get-LatestReleaseForMod {
-    param([string]$ModName, [object[]]$Releases)
+    param([string]$ModName, [object[]]$Releases, [string]$Repository = $script:Repository)
     $candidate = @($Releases | Where-Object {
         (-not [bool]$_.isDraft) -and ([string]$_.tagName).StartsWith($ModName + '/v', [StringComparison]::Ordinal)
     } | Sort-Object publishedAt -Descending | Select-Object -First 1)
     Write-RunLog "Release lookup for ${ModName}: inputs=$($Releases.Count), matches=$($candidate.Count)."
     if ($candidate.Count -eq 0) { return $null }
-    $view = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',[string]$candidate[0].tagName,'--repo',$script:Repository,'--json','targetCommitish,url') -FailureCode 2
+    $view = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',[string]$candidate[0].tagName,'--repo',$Repository,'--json','targetCommitish,url') -FailureCode 2
     $details = ($view.Output -join "`n") | ConvertFrom-Json
     return [pscustomobject]@{
         Tag = [string]$candidate[0].tagName
@@ -472,7 +479,7 @@ function Get-ReleasePackage {
     $sha = Join-Path $cache "$base.zip.sha256"
     $provenance = Join-Path $cache "$base.provenance.json"
     if ($ForceDownload -or -not (Test-Path -LiteralPath $zip) -or -not (Test-Path -LiteralPath $sha) -or -not (Test-Path -LiteralPath $provenance)) {
-        $tag = "$($Mod.Name)/v$($Mod.TargetVersion)"
+        $tag = if ($TestMode -and $Mod.LatestTag -like '*/test/*') {$Mod.LatestTag} else {"$($Mod.Name)/v$($Mod.TargetVersion)"}
         Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$tag,'--repo',$script:Repository,'--pattern',"$base.*",'--dir',$cache,'--clobber') -FailureCode 7 | Out-Null
     }
     foreach ($path in @($zip,$sha,$provenance)) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail-Pack 7 "Missing release asset: $path" } }
@@ -501,14 +508,15 @@ function Get-ApiSharedReleasePackage {
     )
 
     $tag = "APIShared/v$($Infrastructure.Version)"
+    if ($TestMode) { $apiCommit=((Invoke-Checked -FilePath 'git' -Arguments @('-C',$Infrastructure.ProjectDirectory,'rev-parse','HEAD') -FailureCode 3).Output -join '').Trim(); $tag="APIShared/test/v$($Infrastructure.Version)-$($apiCommit.Substring(0,12))" }
     $base = "APIShared-v$($Infrastructure.Version)"
     $expectedAssetNames = @("$base.zip", "$base.zip.sha256", "$base.provenance.json")
     $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @(
-        'release','view',$tag,'--repo',$script:Repository,'--json','tagName,isDraft,targetCommitish,url,assets'
+            'release','view',$tag,'--repo',$Infrastructure.Repository,'--json','tagName,isDraft,targetCommitish,url,assets'
     ) -FailureCode 7 -AllowFailure
     if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is not published." }
     $release = ($releaseResult.Output -join "`n") | ConvertFrom-Json
-    if ([string]$release.tagName -cne $tag -or [bool]$release.isDraft) {
+    if ([string]$release.tagName -cne $tag -or ([bool]$release.isDraft -and -not $TestMode)) {
         Fail-Pack 7 "APIShared release $tag is missing, still a draft, or resolved to an unexpected tag."
     }
     foreach ($assetName in $expectedAssetNames) {
@@ -517,7 +525,8 @@ function Get-ApiSharedReleasePackage {
         }
     }
 
-    $cache = Join-Path $script:OutputRoot "cache\APIShared\v$($Infrastructure.Version)"
+    $cache = Join-Path $script:Root ".release-output\APIShared\cache\v$($Infrastructure.Version)"
+    if ($TestMode) { $cache=Join-Path $script:OutputRoot ("cache/APIShared/v$($Infrastructure.Version)-"+$apiCommit.Substring(0,12)) }
     [void](New-Item -ItemType Directory -Path $cache -Force)
     $zip = Join-Path $cache "$base.zip"
     $shaPath = Join-Path $cache "$base.zip.sha256"
@@ -526,7 +535,7 @@ function Get-ApiSharedReleasePackage {
         -not (Test-Path -LiteralPath $shaPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $provenancePath -PathType Leaf)) {
         Invoke-Checked -FilePath 'gh' -Arguments @(
-            'release','download',$tag,'--repo',$script:Repository,'--pattern',"$base.*",'--dir',$cache,'--clobber'
+            'release','download',$tag,'--repo',$Infrastructure.Repository,'--pattern',"$base.*",'--dir',$cache,'--clobber'
         ) -FailureCode 7 | Out-Null
     }
     foreach ($path in @($zip,$shaPath,$provenancePath)) {
@@ -550,30 +559,32 @@ function Get-ApiSharedReleasePackage {
         Fail-Pack 7 "Provenance mismatch for $tag."
     }
 
+    Assert-ApiWorkshopZipLayout -ZipPath $zip -Guid $Infrastructure.Guid
     $audit = Join-Path $cache 'audit'
     if (Test-Path -LiteralPath $audit) { Remove-Item -LiteralPath $audit -Recurse -Force }
     Expand-Archive -LiteralPath $zip -DestinationPath $audit
     $roots = @(Get-ChildItem -LiteralPath $audit -Directory)
     $outerFiles = @(Get-ChildItem -LiteralPath $audit -File)
-    if ($roots.Count -ne 1 -or $outerFiles.Count -ne 0 -or $roots[0].Name -cne $Infrastructure.Guid) {
-        Fail-Pack 7 "APIShared release ZIP must contain exactly the $($Infrastructure.Guid) root directory."
+    if ($roots.Count -ne 1 -or $outerFiles.Count -ne 0 -or $roots[0].Name -cne 'BepInEx') {
+        Fail-Pack 7 'APIShared release ZIP must contain exactly the BepInEx root directory.'
     }
-    $packageDirectory = $roots[0].FullName
+    $packageDirectory = Join-Path $audit "BepInEx\plugins\$($Infrastructure.Guid)"
     $manifestPath = Join-Path $packageDirectory 'info.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { Fail-Pack 7 "APIShared release package lacks info.json." }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     if ([string]$manifest.GUID -cne $Infrastructure.Guid -or [string]$manifest.Version -cne $Infrastructure.Version) {
         Fail-Pack 7 "APIShared release manifest identity mismatch for $tag."
     }
+    Assert-ApiWorkshopInventory -Directory $packageDirectory
     $actualFileRecords = @(Get-FileRecords $packageDirectory | ForEach-Object {
         [ordered]@{
-            Path = "$($Infrastructure.Guid)/$($_.Path)"
+            Path = "BepInEx/plugins/$($Infrastructure.Guid)/$($_.Path)"
             Sha256 = $_.Sha256
             Size = $_.Size
         }
     })
     if (($actualFileRecords | ConvertTo-Json -Depth 5 -Compress) -cne
-        (@($provenance.Files) | ConvertTo-Json -Depth 5 -Compress)) {
+        (@($provenance.Package.Files | Sort-Object Path) | ConvertTo-Json -Depth 5 -Compress)) {
         Fail-Pack 7 "APIShared release files differ from provenance for $tag."
     }
     try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $packageDirectory) }
@@ -610,6 +621,11 @@ function Get-PackagedContentComparison {
         [Parameter(Mandatory)][string]$HeadCommit
     )
 
+    if ($Mod.Name -eq 'APIShared') {
+        $apiRoot = Join-Path $script:Root 'APIShared'
+        $result = Invoke-Checked -FilePath 'git' -Arguments @('-C',$apiRoot,'diff','--name-only',$BaseCommit,'HEAD','--','src','Patches','Workshop','tools','APIShared.csproj','info.json') -FailureCode 3
+        return [pscustomobject]@{ IsCurrent = $result.Output.Count -eq 0; Paths = @($result.Output) }
+    }
     $rootPrefix = $script:Root.TrimEnd('\') + '\'
     if (-not $Mod.PackageDirectory.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         Fail-Pack 3 "Packaged plugin directory is outside the repository for $($Mod.Name): $($Mod.PackageDirectory)"
@@ -721,7 +737,7 @@ function Add-ReleaseProjectIfNeeded {
 function Invoke-ModBuild {
     param([Parameter(Mandatory)]$Mod)
     Write-RunLog "Building $($Mod.Name) for compatibility validation."
-    Invoke-Checked -FilePath $Mod.BuildBat -Arguments @('/nopause') -FailureCode 4 -WorkingDirectory $Mod.Directory | Out-Null
+    Invoke-Checked -FilePath $Mod.BuildBat -Arguments @('/nopause','/noinstall') -FailureCode 4 -WorkingDirectory $Mod.Directory | Out-Null
     try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $Mod.PackageDirectory) }
     catch { Fail-Pack 4 "Built package for $($Mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
     $built = Get-CecilPluginMetadata -Directory $Mod.PackageDirectory
@@ -735,20 +751,30 @@ function Invoke-ModRelease {
     try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $Mod.PackageDirectory) }
     catch { Fail-Pack 6 "Package for $($Mod.Name) violates the XAML patch contract before release: $($_.Exception.Message)" }
     Write-RunLog "Publishing required individual release $($Mod.Name) v$($Mod.TargetVersion)."
+    $previousPreparationMode = $env:SHCDE_PREPARE_ONLY
+    try {
+        $env:SHCDE_PREPARE_ONLY = '1'
+        $previousWorkshopTest=$env:SHCDE_WORKSHOP_TEST; $env:SHCDE_WORKSHOP_TEST=$(if($TestMode){'1'}else{''})
     Invoke-Checked -FilePath $Mod.ReleaseBat -Arguments @('/noprompt','/nopause') -FailureCode 6 -WorkingDirectory $Mod.Directory | Out-Null
-    $Mod.LatestTag = "$($Mod.Name)/v$($Mod.TargetVersion)"
+    } finally { $env:SHCDE_PREPARE_ONLY = $previousPreparationMode; $env:SHCDE_WORKSHOP_TEST=$previousWorkshopTest }
+    $Mod.LatestTag = if($TestMode){"$($Mod.Name)/test/v$($Mod.TargetVersion)-$(((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim().Substring(0,12))"}else{"$($Mod.Name)/v$($Mod.TargetVersion)"}
     $Mod.LatestUrl = "https://github.com/$($script:Repository)/releases/tag/$([Uri]::EscapeDataString($Mod.LatestTag))"
 }
 
-function Invoke-ApiSharedRelease {
-    param([Parameter(Mandatory)]$Infrastructure)
-    $releaseBat = Join-Path $Infrastructure.ProjectDirectory 'release.bat'
-    if (-not (Test-Path -LiteralPath $releaseBat -PathType Leaf)) {
-        Fail-Pack 6 "Missing APIShared release.bat: $releaseBat"
+function Get-LegacyApiSharedFiles {
+    param($History)
+    $prefix = "BepInEx/plugins/$PackGuid/Infrastructure/APIShared_Serp/"
+    $known = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($upload in @($History.Uploads)) {
+        $map = Get-HistoryMapPath -Upload $upload
+        foreach ($file in @(Get-MapFileRecords -MapPath $map -SourcePack "SerpsMods/v$($upload.PackVersion)")) {
+            if (-not ([string]$file.Path).StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { continue }
+            $relative = ([string]$file.Path).Substring("BepInEx/plugins/$PackGuid/".Length)
+            if ($relative -match '(?i)(^|/)(LobbyModSettings|config)/') { Fail-Pack 11 'Historical APIShared inventory contains settings.' }
+            $known["$relative|$($file.Sha256)"] = [ordered]@{ Path = $relative; Sha256 = $file.Sha256 }
+        }
     }
-    Write-RunLog "Publishing required infrastructure release APIShared v$($Infrastructure.Version)."
-    Invoke-Checked -FilePath $releaseBat -Arguments @('/noprompt','/nopause') -FailureCode 6 `
-        -WorkingDirectory $Infrastructure.ProjectDirectory | Out-Null
+    return @($known.Values | Sort-Object { $_.Path }, { $_.Sha256 })
 }
 
 function Get-NextPatchVersion {
@@ -758,23 +784,29 @@ function Get-NextPatchVersion {
 }
 
 function Get-HostContentSignature {
-    param([object[]]$Mods, [object[]]$RetiredMods = @(), [AllowNull()]$Infrastructure)
+    param([object[]]$Mods, [object[]]$RetiredMods = @(), [AllowNull()]$Infrastructure, [object[]]$HistoricalUploads = @())
     $lines = [Collections.Generic.List[string]]::new()
+    $lines.Add('FORMAT|APISHARED-WORKSHOP-1')
+    $lines.Add("WORKSHOP|$ApiSharedWorkshopItemId")
+    foreach ($upload in @($HistoricalUploads | Where-Object { $_.PSObject.Properties.Name -notcontains 'Format' -or $_.Format -eq 'Map' } | Sort-Object PackVersion)) { $lines.Add("HISTORY|$($upload.PackVersion)|$($upload.MapSha256)") }
     foreach ($mod in @($Mods | Sort-Object PluginGuid)) { $lines.Add("MOD|$($mod.PluginGuid)|$($mod.TargetVersion)|$($mod.Package.Sha256)") }
-    if ($null -ne $Infrastructure) { $lines.Add("INFRA|$($Infrastructure.Guid)|$($Infrastructure.Version)|$($Infrastructure.DirectorySha256)") }
+    if ($null -ne $Infrastructure) { $lines.Add("EXTERNAL-V1|$($Infrastructure.Guid)|$($Infrastructure.Version)|$($Infrastructure.DirectorySha256)") }
     foreach ($mod in @($RetiredMods | Sort-Object Guid)) { $lines.Add("RETIRED|$($mod.Guid)|$($mod.Version)|$($mod.TombstoneSha256)") }
     $hostRoot = Join-Path $script:Root 'SerpsModsHost'
     $files = @(Get-ChildItem -LiteralPath $hostRoot -Recurse -File | Where-Object {
-        $_.FullName -notmatch '\\BepInEx\\plugins\\' -and $_.Name -notin @('info.json','serps-modpack.json','steam-preview.png')
+        $_.FullName -notmatch '\\(?:BepInEx|bin|obj|\.local|\.git)\\' -and $_.Name -notin @('info.json','serps-modpack.json','steam-preview.png','README.md')
     } | Sort-Object FullName)
     foreach ($file in $files) {
         $relative = $file.FullName.Substring($hostRoot.Length).TrimStart('\').Replace('\','/')
         $text = if ($file.Extension -in @('.cs','.csproj','.xaml','.txt','.bat')) { [IO.File]::ReadAllText($file.FullName) } else { Get-Sha256 $file.FullName }
-        if ($file.Name -eq 'SerpsModsHostPlugin.cs') { $text = [regex]::Replace($text, 'PluginVersion\s*=\s*"[^"]+"', 'PluginVersion="<PACK_VERSION>"') }
+        if ($file.Name -in @('SerpsModsHostPlugin.cs','SerpsModsHostBootstrap.cs')) { $text = [regex]::Replace($text, 'PluginVersion\s*=\s*"[^"]+"', 'PluginVersion="<PACK_VERSION>"') }
         $bytes = [Text.Encoding]::UTF8.GetBytes("$relative`n$text")
         $fileSha = [Security.Cryptography.SHA256]::Create()
         try { $lines.Add("FILE|$relative|" + ([BitConverter]::ToString($fileSha.ComputeHash($bytes)).Replace('-','').ToLowerInvariant())) }
         finally { $fileSha.Dispose() }
+    }
+    foreach ($relative in @('Shared/Tools/Steam/Prepare-SerpsModsWorkshop.ps1','APIShared/tools/Prepare-WorkshopPackage.ps1','APIShared/tools/New-WorkshopBootstrap.ps1','APIShared/tools/WorkshopPackage.ps1')) {
+        $lines.Add("PACKAGER|$relative|"+(Get-Sha256 (Join-Path $script:Root $relative)))
     }
     $payload = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
     $payloadSha = [Security.Cryptography.SHA256]::Create()
@@ -793,19 +825,25 @@ function Copy-DirectoryContents {
 
 function Find-MapZipOffset {
     param([Parameter(Mandatory)][string]$MapPath)
-    [byte[]]$signature = @(0x50, 0x4B, 0x03, 0x04)
     $stream = [IO.File]::Open($MapPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
     try {
-        $matched = 0
+        # Scan blocks in .NET rather than making one PowerShell call per byte.
+        # Keep three bytes between blocks so a split ZIP header is still found.
+        $buffer = [byte[]]::new(65539)
+        $carry = 0
         $position = 0L
-        while (($value = $stream.ReadByte()) -ne -1) {
-            if ($value -eq $signature[$matched]) {
-                $matched++
-                if ($matched -eq $signature.Length) { return $position - ($signature.Length - 1) }
-            } else {
-                $matched = if ($value -eq $signature[0]) { 1 } else { 0 }
+        while (($read = $stream.Read($buffer, $carry, 65536)) -gt 0) {
+            $count = $carry + $read
+            $cursor = 0
+            while ($cursor -le $count - 4) {
+                $candidate = [Array]::IndexOf($buffer, [byte]0x50, $cursor, $count - $cursor)
+                if ($candidate -lt 0 -or $candidate -gt $count - 4) { break }
+                if ($buffer[$candidate + 1] -eq 0x4B -and $buffer[$candidate + 2] -eq 0x03 -and $buffer[$candidate + 3] -eq 0x04) { return $position + $candidate }
+                $cursor = $candidate + 1
             }
-            $position++
+            $carry = [Math]::Min(3, $count)
+            [Array]::Copy($buffer, $count - $carry, $buffer, 0, $carry)
+            $position += $count - $carry
         }
     } finally {
         $stream.Dispose()
@@ -974,7 +1012,7 @@ function Get-HistoricalSteamFileIndex {
 
     $index = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
     $canonical = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($upload in @($History.Uploads | Sort-Object { [version]$_.PackVersion })) {
+    foreach ($upload in @($History.Uploads | Where-Object { $_.PSObject.Properties.Name -notcontains 'Format' -or $_.Format -eq 'Map' } | Sort-Object { [version]$_.PackVersion })) {
         $sourcePack = "SerpsMods/v$([string]$upload.PackVersion)"
         $mapPath = Get-HistoryMapPath -Upload $upload
         foreach ($record in @(Get-MapFileRecords -MapPath $mapPath -SourcePack $sourcePack)) {
@@ -1131,7 +1169,7 @@ function Assert-HistoricalDeletionPolicyPreflight {
         }
     }
     & $addDirectory (Join-Path $script:Root "SerpsModsHost\BepInEx\plugins\$PackGuid") "BepInEx/plugins/$PackGuid"
-    & $addDirectory $Infrastructure.Directory "BepInEx/plugins/$PackGuid/Infrastructure/$($Infrastructure.Guid)"
+    # APIShared is an external dependency; historical removals are inventoried separately.
     foreach ($mod in $Mods) { & $addDirectory $mod.PackageDirectory "BepInEx/plugins/$PackGuid/Mods/$($mod.PluginGuid)" }
     foreach ($mod in $RetiredMods) { & $addDirectory $mod.Directory "BepInEx/plugins/$PackGuid/Mods/$($mod.Guid)" }
     foreach ($guaranteed in @('info.json','preview.png',"BepInEx/plugins/$PackGuid/serps-modpack.json","BepInEx/plugins/$PackGuid/Provenance/pack-inputs.json")) {
@@ -1166,13 +1204,18 @@ function Assert-HistoricalDeletionPolicyPreflight {
 
 function Set-HostVersion {
     param([string]$Version)
-    $source = Join-Path $script:Root 'SerpsModsHost\src\SerpsModsHostPlugin.cs'
+    $source = Join-Path $script:Root 'SerpsModsHost\src\SerpsModsHostBootstrap.cs'
     $text = [IO.File]::ReadAllText($source)
     $text = [regex]::Replace($text, '(PluginVersion\s*=\s*")[^"]+("\s*;)', '${1}' + $Version + '${2}', 1)
     Write-Utf8CrLf -Path $source -Text $text
     $infoPath = Join-Path $script:Root 'SerpsModsHost\info.json'
     $info = Get-Content -LiteralPath $infoPath -Raw | ConvertFrom-Json
     $info.Version = $Version
+    if ($info.Description -notmatch '^APIShared must') { $info.Description = 'APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!' + "`n`n" + $info.Description }
+    $info | Add-Member -NotePropertyName APISharedWorkshopUrl -NotePropertyValue "https://steamcommunity.com/sharedfiles/filedetails/?id=$ApiSharedWorkshopItemId" -Force
+    foreach ($dependency in @($info.Dependencies)) {
+        if ($dependency.GUID -eq 'APIShared_Serp') { $dependency.MinimumVersion = $apiSharedInfrastructure.Version }
+    }
     if (@($info.SerpChangelog | Where-Object { [string]$_.Version -eq $Version }).Count -eq 0) {
         $entry = [pscustomobject][ordered]@{ Version = $Version; Changes = @('Updated unified Steam Workshop package contents.') }
         $info.SerpChangelog = @($entry) + @($info.SerpChangelog)
@@ -1186,12 +1229,14 @@ function Set-HostVersion {
 
 function Get-PackReleaseState {
     param([object[]]$Releases)
+    $testCandidates=@($Releases|Where-Object {$_.isDraft -and ([string]$_.tagName).StartsWith('SerpsMods/test/v',[StringComparison]::Ordinal)})
+    $prefix=if($TestMode -and $testCandidates.Count){'SerpsMods/test/v'}else{'SerpsMods/v'}
     $candidate = @($Releases | Where-Object {
-        (-not [bool]$_.isDraft) -and ([string]$_.tagName).StartsWith('SerpsMods/v', [StringComparison]::Ordinal)
+        ([bool]$_.isDraft -eq ($TestMode -and $testCandidates.Count -gt 0)) -and ([string]$_.tagName).StartsWith($prefix, [StringComparison]::Ordinal)
     } | Sort-Object publishedAt -Descending | Select-Object -First 1)
     if ($candidate.Count -eq 0) { return $null }
     $tag = [string]$candidate[0].tagName
-    $version = $tag.Substring('SerpsMods/v'.Length)
+    $version = ($tag.Substring($prefix.Length) -split '-')[0]
     $cache = Join-Path $script:OutputRoot "cache\pack\v$version"
     [void](New-Item -ItemType Directory -Path $cache -Force)
     Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$tag,'--repo',$script:Repository,'--pattern','SerpsMods.provenance.json','--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
@@ -1308,11 +1353,13 @@ function Publish-PackRelease {
         [string]$MapPath,
         [string]$MapShaPath,
         [string]$ProvenancePath,
-        [string]$NotesPath
+        [string]$NotesPath,
+        [string]$WorkshopZipPath
     )
-    $tag = "SerpsMods/v$Version"
     $commit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
+    $tag = if ($TestMode) { "SerpsMods/test/v$Version-$($commit.Substring(0,12))" } else { "SerpsMods/v$Version" }
     $assets = @($ZipPath,$ZipShaPath,$MapPath,$MapShaPath,$ProvenancePath)
+    if ($WorkshopZipPath) { $assets += $WorkshopZipPath }
     $existing = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',$tag,'--repo',$script:Repository,'--json','isDraft,targetCommitish') -FailureCode 10 -AllowFailure
     if ($existing.ExitCode -eq 0) {
         $details = ($existing.Output -join "`n") | ConvertFrom-Json
@@ -1322,19 +1369,19 @@ function Publish-PackRelease {
     } else {
         Invoke-Checked -FilePath 'gh' -Arguments (@('release','create',$tag,'--repo',$script:Repository,'--draft','--target',$commit,'--title',"$PackName v$Version",'--notes-file',$NotesPath) + $assets) -FailureCode 10 | Out-Null
     }
-    Invoke-Checked -FilePath 'gh' -Arguments @('release','edit',$tag,'--repo',$script:Repository,'--draft=false') -FailureCode 10 | Out-Null
+    if (-not $TestMode) { Invoke-Checked -FilePath 'gh' -Arguments @('release','edit',$tag,'--repo',$script:Repository,'--draft=false') -FailureCode 10 | Out-Null }
     $published = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',$tag,'--repo',$script:Repository,'--json','assets') -FailureCode 10
     $publishedDetails = ($published.Output -join "`n") | ConvertFrom-Json
     $zipName = [IO.Path]::GetFileName($ZipPath)
     $zipAsset = @($publishedDetails.assets | Where-Object { [string]$_.name -ceq $zipName })
     if ($zipAsset.Count -ne 1) { Fail-Pack 10 "Published pack release does not expose exactly one ZIP asset named $zipName." }
-    & (Join-Path $script:Root 'Shared\Tools\Release\Update-ReleaseIndex.ps1') `
-        -CurrentTag $tag -CurrentUrl ([string]$zipAsset[0].url) -CurrentVersion $Version -CurrentMod 'SerpsMods' `
-        -CurrentCommit $commit -CurrentSha256 (Get-Sha256 $ZipPath) -CommitAndPush
+    # README release index is maintained only on an explicit documentation request.
 }
 
 try {
     Write-RunLog "Starting $PackName pack workflow; validate=$Validate."
+    if (-not $ApiSharedPreviewPath) { $ApiSharedPreviewPath = $PreviewPath }
+    if (-not (Test-Path -LiteralPath $ApiSharedPreviewPath -PathType Leaf)) { Fail-Pack 2 'APIShared preview image is missing.' }
     $uploadHistory = Get-SteamWorkshopUploadHistory -Path $script:UploadHistoryPath -SeedPath $script:UploadHistorySeedPath -AppId $SteamAppId -StateName $SteamStateName
     Write-RunLog "Loaded $(@($uploadHistory.Uploads).Count) confirmed Steam uploads from $script:UploadHistoryPath."
     $mods = @(Get-ModNames | ForEach-Object { Get-PluginSourceMetadata $_ })
@@ -1401,6 +1448,7 @@ try {
     }
     $apiSharedInfrastructure = [pscustomobject]@{
         Name = [string]$apiSharedInfo.Name
+        Repository = [string]$releaseConfig.ApiShared.Repository
         Guid = [string]$apiSharedInfo.GUID
         Version = [string]$apiSharedInfo.Version
         ProjectDirectory = Split-Path -Parent $apiSharedSourceInfoPath
@@ -1424,7 +1472,9 @@ try {
     . (Join-Path $script:Root 'Shared\Tools\Release\Release.Common.ps1')
     $headCommit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
 
-    $apiSharedLatest = Get-LatestReleaseForMod -ModName 'APIShared' -Releases $script:ReleaseList
+    $apiReleasesResult = Invoke-Checked -FilePath 'gh' -Arguments @('release','list','--repo',$apiSharedInfrastructure.Repository,'--limit','1000','--json','tagName,isDraft,publishedAt') -FailureCode 2
+    $apiReleases = @((($apiReleasesResult.Output -join "`n") | ConvertFrom-Json) | Where-Object { -not $_.isDraft })
+    $apiSharedLatest = Get-LatestReleaseForMod -ModName 'APIShared' -Releases $apiReleases -Repository $apiSharedInfrastructure.Repository
     $apiSharedPublishedVersion = if ($null -eq $apiSharedLatest) { $null } else { [string]$apiSharedLatest.Version }
     $apiSharedContentIsCurrent = $false
     $apiSharedArtifactIsValid = $false
@@ -1446,15 +1496,16 @@ try {
         }
     }
     try {
-        $apiSharedAction = Resolve-ApiSharedReleaseAction `
+        $apiSharedAction = if ($TestMode) { [pscustomobject]@{ NeedsRelease=$false; Reason="Use reviewed APIShared test draft" } } else { Resolve-ApiSharedReleaseAction `
             -PreparedVersion $apiSharedInfrastructure.Version `
             -PublishedVersion $apiSharedPublishedVersion `
             -PublishedContentIsCurrent $apiSharedContentIsCurrent `
-            -PublishedArtifactIsValid $apiSharedArtifactIsValid
+            -PublishedArtifactIsValid $apiSharedArtifactIsValid }
     } catch {
         Fail-Pack 3 $_.Exception.Message
     }
     $apiSharedInfrastructure.NeedsRelease = [bool]$apiSharedAction.NeedsRelease
+    if ($TestMode) { $apiSharedInfrastructure.ReleasePackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure; $apiSharedInfrastructure.NeedsRelease = $false }
     $apiSharedInfrastructure.ReleaseReason = [string]$apiSharedAction.Reason
     if ($null -ne $apiSharedInfrastructure.ReleasePackage) {
         $apiPackage = $apiSharedInfrastructure.ReleasePackage
@@ -1507,17 +1558,16 @@ try {
     }
     $previousPack = Get-PackReleaseState -Releases $script:ReleaseList
     $historicalSteamFiles = Get-HistoricalSteamFileIndex -History $uploadHistory -PackGuid $PackGuid
+    $legacyApiSharedFiles = @(Get-LegacyApiSharedFiles -History $uploadHistory)
+    $apiHistoricalPrefix = "BepInEx/plugins/$PackGuid/Infrastructure/APIShared_Serp/"
+    foreach ($path in @($historicalSteamFiles.Keys)) {
+        if ($path.StartsWith($apiHistoricalPrefix, [StringComparison]::OrdinalIgnoreCase)) { $historicalSteamFiles.Remove($path) }
+    }
     Write-RunLog "Historical Steam audit indexed $($historicalSteamFiles.Count) unique paths from $(@($uploadHistory.Uploads).Count) confirmed uploads." 'OK'
     $retiredPlan = Get-RetiredModPlan -PreviousPack $previousPack -ActiveMods $mods
     $retiredMods = @($retiredPlan.RetiredMods)
     $missingTombstones = @($retiredPlan.MissingTombstones)
-    $safeHistoricalReplacements = Assert-HistoricalDeletionPolicyPreflight `
-        -HistoricalIndex $historicalSteamFiles `
-        -PackGuid $PackGuid `
-        -Mods $mods `
-        -Infrastructure $apiSharedInfrastructure `
-        -RetiredMods $retiredMods
-    Write-RunLog "Historical deletion preflight accepted $safeHistoricalReplacements missing path(s) with deterministic tombstone/retention rules." 'OK'
+    Write-RunLog 'Historical archive hashes will be supplied as migration inventories; obsolete payload files are no longer replaced with retention overlays.' 'OK'
     foreach ($missing in $missingTombstones) {
         Write-RunLog ("  MISSING TOMBSTONE: {0} ({1}) v{2}, previously recorded by {3}; expected at {4}" -f `
             $missing.Name, $missing.Guid, $missing.Version, $missing.PreviousPack, $missing.ExpectedDirectory) 'WARN'
@@ -1527,6 +1577,7 @@ try {
     }
     Write-RunLog "  Workshop packager: $resolvedPackager"
     Write-RunLog "  Preview: $PreviewPath"
+    if ($apiSharedInfrastructure.NeedsRelease) { Fail-Pack 2 'Prepare APIShared first through CreateSteamModPack.bat /apishared.' }
 
     if ($Validate) {
         Write-RunLog 'Validation completed before all source edits, builds, commits, pushes and releases.' 'OK'
@@ -1534,15 +1585,31 @@ try {
         exit 0
     }
 
-    $confirmation = Read-Host 'Type VEROEFFENTLICHEN to apply source changes, commit, push and publish required releases'
-    if ($confirmation -cne 'VEROEFFENTLICHEN') { Fail-Pack 2 'Publishing cancelled.' }
-
+    if (-not $TestMode) { Assert-WorkshopPlatformProof (Get-WorkshopConfiguration) }
+    $word=if($TestMode){'TESTPAKET'}else{'VEROEFFENTLICHEN'}
+    $confirmation = Read-Host "Type $word to apply reviewed source changes, commit/push and create required releases"
+    if ($confirmation -cne $word) { Fail-Pack 2 'Preparation cancelled.' }
     $confirmedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal')).Output
     if ($confirmedStatus.Count -gt 0) {
         Fail-Pack 2 "Git working tree changed while awaiting publishing confirmation. Commit or otherwise resolve these changes, then restart the workflow:`r`n$($confirmedStatus -join "`r`n")"
     }
     $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); Status = 'source-preparation' }
     Write-JsonCrLf -Path $script:JournalPath -Value $journal
+    $apiPackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure `
+        -ForceDownload:$apiSharedInfrastructure.NeedsRelease
+    $apiSharedInfrastructure.ReleasePackage = $apiPackage
+    $apiSharedInfrastructure.Directory = $apiPackage.PackageDirectory
+    $apiSharedInfrastructure.DirectorySha256 = Get-DirectorySignature $apiPackage.PackageDirectory
+    $apiSharedInfrastructure.ReleaseTag = $apiPackage.ReleaseTag
+    $apiSharedInfrastructure.ReleaseUrl = $apiPackage.ReleaseUrl
+    $apiSharedInfrastructure.SourceCommit = [string]$apiPackage.Provenance.Commit
+    $apiSharedInfrastructure.PackageSha256 = $apiPackage.Sha256
+    # APIShared preparation is owned by the separate workflow target.
+    if ($ApiSharedWorkshopItemId -notmatch '^[1-9][0-9]*$') {
+        Fail-Pack 2 'APIShared.map is ready. Upload it separately, then configure APISHARED_WORKSHOP_ITEM_ID in CreateSteamModPack.bat before preparing the publishable modpack.'
+    }
+    Write-RunLog 'The separate APIShared package remains Extender-managed; the modpack payload uses its own receipts.' 'OK'
+
     foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility $mod }
     Add-ReleaseProjectIfNeeded $mods
     foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Invoke-ModBuild $mod }
@@ -1564,28 +1631,6 @@ try {
         Fail-Pack 5 "Unexpected working-tree changes remain after source preparation. They were not committed:`r`n$($unexpectedStatus -join "`r`n")"
     }
 
-    if ($apiSharedInfrastructure.NeedsRelease) {
-        Invoke-ApiSharedRelease $apiSharedInfrastructure
-        $journal.CompletedReleases = @($journal.CompletedReleases) + "APIShared/v$($apiSharedInfrastructure.Version)"
-        Write-JsonCrLf -Path $script:JournalPath -Value $journal
-    }
-    $apiPackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure `
-        -ForceDownload:$apiSharedInfrastructure.NeedsRelease
-    $apiSharedInfrastructure.ReleasePackage = $apiPackage
-    $apiSharedInfrastructure.Directory = $apiPackage.PackageDirectory
-    $apiSharedInfrastructure.DirectorySha256 = Get-DirectorySignature $apiPackage.PackageDirectory
-    $apiSharedInfrastructure.ReleaseTag = $apiPackage.ReleaseTag
-    $apiSharedInfrastructure.ReleaseUrl = $apiPackage.ReleaseUrl
-    $apiSharedInfrastructure.SourceCommit = [string]$apiPackage.Provenance.Commit
-    $apiSharedInfrastructure.PackageSha256 = $apiPackage.Sha256
-    [void](Assert-HistoricalDeletionPolicyPreflight `
-        -HistoricalIndex $historicalSteamFiles `
-        -PackGuid $PackGuid `
-        -Mods $mods `
-        -Infrastructure $apiSharedInfrastructure `
-        -RetiredMods $retiredMods)
-    Write-RunLog 'Published APIShared artifact passed the historical deletion preflight.' 'OK'
-
     foreach ($mod in @($mods | Where-Object NeedsRelease)) {
         Invoke-ModRelease $mod
         $journal.CompletedReleases = @($journal.CompletedReleases) + "$($mod.Name)/v$($mod.TargetVersion)"
@@ -1596,23 +1641,27 @@ try {
         if ($null -eq $mod.Package) { $mod.Package = Get-ReleasePackage -Mod $mod }
     }
 
-    $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods -Infrastructure $apiSharedInfrastructure
-    $previousPackMissingHistory = if ($null -eq $previousPack) { @() } else {
-        @(Get-MissingSteamPackPaths -PreviousPaths @($historicalSteamFiles.Keys) -CurrentPaths @(Get-MapFilePaths -MapPath $previousPack.MapPath))
-    }
-    if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature -and $previousPackMissingHistory.Count -eq 0) {
+    $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods -Infrastructure $apiSharedInfrastructure -HistoricalUploads @($uploadHistory.Uploads)
+    if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature -and $previousPack.Provenance.PSObject.Properties.Name -contains 'Workshop') {
         Write-RunLog "Pack content is unchanged from $($previousPack.Tag); reusing the published map." 'OK'
-        $finalDir = Join-Path $script:Root $PackName
+        $finalDir = Get-WorkshopFolder (Get-WorkshopConfiguration) (Get-WorkshopConfiguration).SerpsMods ([bool]$TestMode)
         if (-not $finalDir.StartsWith($script:Root + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
-        if (Test-Path -LiteralPath $finalDir) { Remove-Item -LiteralPath $finalDir -Recurse -Force }
-        [void](New-Item -ItemType Directory -Path $finalDir)
-        Copy-Item -LiteralPath $previousPack.MapPath -Destination $finalDir
-        Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $finalDir 'preview.png')
+        $reuseStage=Join-Path $script:OutputRoot ("reuse-"+[guid]::NewGuid().ToString("N")); [void][IO.Directory]::CreateDirectory($reuseStage)
+        $workshopZipName=[string]$previousPack.Provenance.Workshop.File
+        if ([IO.Path]::GetFileName($workshopZipName) -cne $workshopZipName) { Fail-Pack 10 'Invalid Workshop content ZIP name.' }
+        $cache=Split-Path -Parent $previousPack.MapPath
+        Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$previousPack.Tag,'--repo',$script:Repository,'--pattern',$workshopZipName,'--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
+        $workshopZip=Join-Path $cache $workshopZipName
+        if ((Get-Sha256 $workshopZip) -cne [string]$previousPack.Provenance.Workshop.Sha256) { Fail-Pack 10 'Workshop content ZIP hash differs from release provenance.' }
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        Assert-WorkshopContentZip $workshopZip
+        [IO.Compression.ZipFile]::ExtractToDirectory($workshopZip,$reuseStage)
+        Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $reuseStage 'preview.png')
+        Assert-PreparedLooseFolder $reuseStage ([string]$previousPack.Version)
+        Publish-WorkshopFolder $reuseStage $finalDir $script:Root
+        Save-WorkshopReleaseReference (Get-WorkshopConfiguration) ([bool]$TestMode) (Join-Path (Split-Path -Parent $previousPack.MapPath) 'SerpsMods.provenance.json')
         Write-RunLog "Reusable pack ready: $finalDir" 'OK'
         exit 0
-    }
-    if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature -and $previousPackMissingHistory.Count -gt 0) {
-        Write-RunLog "The latest GitHub pack cannot be reused because it omits historical Steam paths: $($previousPackMissingHistory -join ', ')." 'WARN'
     }
 
     $preparedHostInfoPath = Join-Path $script:Root 'SerpsModsHost\info.json'
@@ -1620,7 +1669,7 @@ try {
     $previousVersion = if ($null -eq $previousPack) { $null } else { [string]$previousPack.Version }
     $packVersion = Resolve-SteamPackVersion -PreviousVersion $previousVersion -PreparedVersion ([string]$preparedHostInfo.Version)
     Set-HostVersion $packVersion
-    Invoke-Git @('add','--','SerpsModsHost/src/SerpsModsHostPlugin.cs','SerpsModsHost/info.json','SerpsModsHost/serps-modpack.json') | Out-Null
+    Invoke-Git @('add','--','SerpsModsHost/src/SerpsModsHostBootstrap.cs','SerpsModsHost/info.json','SerpsModsHost/serps-modpack.json') | Out-Null
     $hostStatus = (Invoke-Git @('status','--porcelain=v1','--','SerpsModsHost')).Output
     if ($hostStatus.Count -gt 0) {
         Invoke-Git @('commit','-m',"Prepare Serps Mods v$packVersion") | Out-Null
@@ -1634,7 +1683,7 @@ try {
     $localApiDll = Join-Path $script:Root 'APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll'
     try { Assert-SteamApiSharedBinary -LocalDll $localApiDll -PublishedDll (Join-Path $apiSharedInfrastructure.Directory 'APIShared.dll') }
     catch { Fail-Pack 8 $_.Exception.Message }
-    Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
+    Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause','/noinstall') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
 
     $runRoot = Join-Path $script:OutputRoot "v$packVersion"
     $stage = Join-Path $runRoot 'stage'
@@ -1643,24 +1692,12 @@ try {
     [void](New-Item -ItemType Directory -Path $hostStage -Force)
     Copy-DirectoryContents -Source (Join-Path $hostDir "BepInEx\plugins\$PackGuid") -Destination $hostStage
     $commit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
-    $infrastructureRelative = "Infrastructure/$($apiSharedInfrastructure.Guid)"
-    $infrastructureStage = Join-Path $hostStage $infrastructureRelative
-    Copy-DirectoryContents -Source $apiSharedInfrastructure.Directory -Destination $infrastructureStage
-    try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $infrastructureStage) }
-    catch { Fail-Pack 8 "Staged APIShared infrastructure violates the XAML patch contract: $($_.Exception.Message)" }
-    $infrastructureForbidden = @(Get-ChildItem -LiteralPath $infrastructureStage -File -Recurse | Where-Object {
-        $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll'
-    })
-    $infrastructureApiCopies = @(Get-ChildItem -LiteralPath $infrastructureStage -File -Recurse -Filter 'APIShared.dll')
-    if ($infrastructureForbidden.Count -ne 0 -or $infrastructureApiCopies.Count -ne 1) {
-        Fail-Pack 8 'Steam infrastructure must contain exactly one APIShared.dll and no private SHCDESE/RedBird DLLs.'
-    }
     $infrastructureRecords = @([ordered]@{
-        Name = $apiSharedInfrastructure.Name; Guid = $apiSharedInfrastructure.Guid; Version = $apiSharedInfrastructure.Version
-        State = 'Infrastructure'; RelativePath = $infrastructureRelative
-        ReleaseUrl = $apiSharedInfrastructure.ReleaseUrl
-        ReleaseTag = $apiSharedInfrastructure.ReleaseTag; SourceCommit = $apiSharedInfrastructure.SourceCommit
-        PackageSha256 = $apiSharedInfrastructure.PackageSha256; ExpectedSoftDependency = ''; Files = @(Get-FileRecords $infrastructureStage)
+        Name = $apiSharedInfrastructure.Name; Guid = $apiSharedInfrastructure.Guid
+        Version = $apiSharedInfrastructure.Version; State = 'External'; RelativePath = ''
+        ReleaseUrl = $apiSharedInfrastructure.ReleaseUrl; ReleaseTag = $apiSharedInfrastructure.ReleaseTag
+        SourceCommit = $apiSharedInfrastructure.SourceCommit; PackageSha256 = $apiSharedInfrastructure.PackageSha256
+        ExpectedSoftDependency = ''; Files = @()
     })
     $packRecords = @()
     foreach ($mod in $mods) {
@@ -1705,10 +1742,8 @@ try {
     Copy-Item -LiteralPath (Join-Path $hostDir 'info.json') -Destination (Join-Path $stage 'info.json')
     Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $stage 'preview.png')
 
-    $historicalReplacements = @(Add-HistoricalSteamReplacements -Stage $stage -PackGuid $PackGuid -HistoricalIndex $historicalSteamFiles)
-    foreach ($record in $infrastructureRecords) {
-        $record['Files'] = @(Get-FileRecords (Join-Path $hostStage ([string]$record.RelativePath)))
-    }
+    $historicalReplacements = @()
+
     foreach ($record in $packRecords) {
         $record['Files'] = @(Get-FileRecords (Join-Path $hostStage ([string]$record.RelativePath)))
     }
@@ -1717,21 +1752,32 @@ try {
     Write-JsonCrLf -Path (Join-Path $inputProvenanceDir 'pack-inputs.json') -Value ([ordered]@{
         SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; Commit = $commit; ContentSignature = $contentSignature; Infrastructure = $infrastructureRecords; Mods = $packRecords; HistoricalReplacements = $historicalReplacements
     })
-    $finalStageIndex = Get-StageFileIndex -Stage $stage
-    $finalStagePaths = @($finalStageIndex.Keys)
-    $unresolvedHistoricalPaths = @(Get-MissingSteamPackPaths -PreviousPaths @($historicalSteamFiles.Keys) -CurrentPaths $finalStagePaths)
-    if ($unresolvedHistoricalPaths.Count -gt 0) { Fail-Pack 11 "Final map audit found unresolved historical paths: $($unresolvedHistoricalPaths -join ', ')" }
-    Write-RunLog "Final map audit preserves or neutralizes all $($historicalSteamFiles.Count) historically delivered Steam paths; replacements=$($historicalReplacements.Count)." 'OK'
+    $legacyReleases=@(foreach ($upload in @($uploadHistory.Uploads | Where-Object { $_.PSObject.Properties.Name -notcontains 'Format' -or $_.Format -eq 'Map' })) {
+        $historyMap=Get-HistoryMapPath -Upload $upload
+        $legacyFiles=@(Get-MapFileRecords -MapPath $historyMap -SourcePack ('SerpsMods/v'+$upload.PackVersion) | Where-Object {
+            $_.Path.StartsWith("BepInEx/plugins/$PackGuid/",[StringComparison]::Ordinal) -and $_.Path -notmatch '/(config|LobbyModSettings)/'
+        } | ForEach-Object { [ordered]@{Path=$_.Path;Size=$_.Size;Sha256=$_.Sha256} })
+        if ($legacyFiles.Count) { [ordered]@{Version=[string]$upload.PackVersion;Files=$legacyFiles} }
+    })
+    Write-RunLog "Migration inventories contain $($legacyReleases.Count) verified old releases; unknown/modified obsolete files will remain untouched." 'OK'
 
+    $null = New-ApiWorkshopInventory -Directory $hostStage -LegacyFiles $legacyApiSharedFiles
+    $privateApiCopies = @(Get-ChildItem -LiteralPath $hostStage -Recurse -File -Filter 'APIShared.dll')
+    if ($privateApiCopies.Count -ne 0 -or (Test-Path -LiteralPath (Join-Path $hostStage 'Infrastructure\APIShared_Serp'))) { Fail-Pack 8 'The modpack must not contain APIShared.' }
     $zipPath = Join-Path $runRoot "SerpsMods-v$packVersion.zip"
     $zipPackage = New-SteamPackReleaseZip -PackageDirectory $hostStage -DestinationPath $zipPath
     $zipShaPath = "$zipPath.sha256"
     Write-Utf8CrLf -Path $zipShaPath -Text "$($zipPackage.Sha256)  $($zipPackage.File)"
 
-    $mapPath = Join-Path $runRoot 'SerpsMods.map'
-    Invoke-Checked -FilePath $resolvedPackager -Arguments @('-s',$stage,'-o',$mapPath) -FailureCode 9 | Out-Null
+    $workshop=& (Join-Path $PSScriptRoot 'Prepare-SerpsModsWorkshop.ps1') -HostPackage $hostStage -OutputDirectory (Join-Path $runRoot 'Workshop') -Packager $resolvedPackager -APISharedVersion $apiSharedInfrastructure.Version -APISharedWorkshopId $ApiSharedWorkshopItemId -LegacyReleases $legacyReleases
+    $mapPath = $workshop.MapPath
     if (-not (Test-Path -LiteralPath $mapPath -PathType Leaf) -or (Get-Item -LiteralPath $mapPath).Length -lt 1024) { Fail-Pack 9 'Workshop packager did not produce a plausible map file.' }
-    Test-MapContents -MapPath $mapPath -StageDirectory $stage
+    Test-MapContents -MapPath $mapPath -StageDirectory ((Join-Path $runRoot 'Workshop')+'.bootstrap-stage')
+    Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $workshop.Directory 'preview.png')
+    $workshopZipPath=Join-Path $runRoot "SerpsMods-Workshop-v$packVersion.zip"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::CreateFromDirectory($workshop.Directory,$workshopZipPath)
+    $workshopZipHash=Get-Sha256 $workshopZipPath
     $mapHash = Get-Sha256 $mapPath
     $mapShaPath = Join-Path $runRoot 'SerpsMods.map.sha256'
     Write-Utf8CrLf -Path $mapShaPath -Text "$mapHash  SerpsMods.map"
@@ -1745,13 +1791,14 @@ try {
         CreatedUtc = [DateTime]::UtcNow.ToString('o')
         Package = [ordered]@{ File = $zipPackage.File; RootDirectory = $zipPackage.RootDirectory; Sha256 = $zipPackage.Sha256; Size = $zipPackage.Size; Files = $zipPackage.Files }
         Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }
+        Workshop = [ordered]@{SchemaVersion=1;File=[IO.Path]::GetFileName($workshopZipPath);Sha256=$workshopZipHash;BootstrapGuid=$workshop.BootstrapGuid;BootstrapVersion=$workshop.BootstrapVersion}
         Packager = [ordered]@{ Path = $resolvedPackager; Sha256 = Get-Sha256 $resolvedPackager }; Infrastructure = $infrastructureRecords; Mods = $packRecords
         HistoricalReplacements = $historicalReplacements
         OmittedWithoutTombstone = $omittedWithoutTombstone
     }
     Write-JsonCrLf -Path $provenancePath -Value $provenance
     $notesPath = Join-Path $runRoot 'release-notes.md'
-    $noteLines = @("# $PackName v$packVersion",'', '## Included mods','') + @($mods | Sort-Object Name | ForEach-Object { "- $($_.Name) v$($_.TargetVersion)" }) + @(
+    $noteLines = @("# $PackName v$packVersion",'', "**APIShared must be subscribed separately / APIShared muss separat abonniert werden:** https://steamcommunity.com/sharedfiles/filedetails/?id=$ApiSharedWorkshopItemId", '', '## Included mods','') + @($mods | Sort-Object Name | ForEach-Object { "- $($_.Name) v$($_.TargetVersion)" }) + @(
         '',
         '## Download and verification',
         '',
@@ -1764,14 +1811,13 @@ try {
     }
     Write-Utf8CrLf -Path $notesPath -Text ($noteLines -join "`r`n")
 
-    Publish-PackRelease -Version $packVersion -ZipPath $zipPath -ZipShaPath $zipShaPath -MapPath $mapPath -MapShaPath $mapShaPath -ProvenancePath $provenancePath -NotesPath $notesPath
-    $finalDir = Join-Path $script:Root $PackName
+    Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $workshop.Directory 'preview.png')
+    Assert-PreparedLooseFolder $workshop.Directory $packVersion
+    Publish-PackRelease -Version $packVersion -ZipPath $zipPath -ZipShaPath $zipShaPath -MapPath $mapPath -MapShaPath $mapShaPath -ProvenancePath $provenancePath -NotesPath $notesPath -WorkshopZipPath $workshopZipPath
+    $finalDir = Get-WorkshopFolder (Get-WorkshopConfiguration) (Get-WorkshopConfiguration).SerpsMods ([bool]$TestMode)
     if (-not $finalDir.StartsWith($script:Root + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
-    if (Test-Path -LiteralPath $finalDir) { Remove-Item -LiteralPath $finalDir -Recurse -Force }
-    [void](New-Item -ItemType Directory -Path $finalDir)
-    Copy-Item -LiteralPath $mapPath -Destination $finalDir
-    Copy-Item -LiteralPath $mapShaPath -Destination $finalDir
-    Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $finalDir 'preview.png')
+    Publish-WorkshopFolder $workshop.Directory $finalDir $script:Root
+    Save-WorkshopReleaseReference (Get-WorkshopConfiguration) ([bool]$TestMode) $provenancePath
     $journal.Status = 'complete'; $journal.CompletedUtc = [DateTime]::UtcNow.ToString('o'); Write-JsonCrLf -Path $script:JournalPath -Value $journal
     Write-RunLog "Steam upload folder ready: $finalDir" 'OK'
     Write-RunLog "Map SHA-256: $mapHash" 'OK'

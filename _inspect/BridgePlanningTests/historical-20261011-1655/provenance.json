@@ -1,0 +1,35 @@
+{
+  "source": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\LogOutput.log",
+  "processSections": 1,
+  "sessions": 2,
+  "files": {
+    "full.log": {
+      "bytes": 3407824,
+      "sha256": "0274897A1CC57E84B3CCF8F9458DBA3FD6426E5B3C9527EB66FD85BF3778C086"
+    },
+    "process.log": {
+      "bytes": 3407824,
+      "sha256": "0274897A1CC57E84B3CCF8F9458DBA3FD6426E5B3C9527EB66FD85BF3778C086"
+    },
+    "session-1.log": {
+      "bytes": 1548697,
+      "sha256": "C72BF2730AAF23F43DE9D2369663085A4C91A9B9F162EA53559B4759BFBE7EC9",
+      "selection": "physical wire rows; process setup retained separately"
+    },
+    "session-2.log": {
+      "bytes": 368658,
+      "sha256": "D76C69644B65F706EF5A86A2C391AA2E1B423C7F7FC44E570985927AE6B97332",
+      "selection": "physical wire rows; process setup retained separately"
+    },
+    "bridge-1-10.bin": {
+      "source": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\diagnostics\\EnemyBridgePathTest\\20261011-145404-7159220\\bridge-1-10.bin",
+      "bytes": 45427537,
+      "sha256": "C129673AA1F7982F7732A456421AA801FB9EAC4B5B45092C3EB48A60039420D2"
+    },
+    "bridge-1-11.bin": {
+      "source": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\diagnostics\\EnemyBridgePathTest\\20261011-145404-7159220\\bridge-1-11.bin",
+      "bytes": 4620157,
+      "sha256": "04F1A686D1A101F62B4091D9D174571E9E2C45A2557F3A679CAB6F902EFF82D1"
+    }
+  }
+}

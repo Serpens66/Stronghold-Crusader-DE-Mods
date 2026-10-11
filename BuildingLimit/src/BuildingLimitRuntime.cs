@@ -62,23 +62,23 @@ namespace BuildingLimit
             if (hooksSubscribed)
                 return;
 
-            LogDebug("Subscribing building limit runtime hooks");
+            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:65", "Subscribing building limit runtime hooks");
             if (!TryInitializeFeature("active-building cache", activeBuildingCache.SubscribeHooks))
             {
                 TryInitializeFeature("active-building cache rollback", activeBuildingCache.Dispose);
-                LogDebug("Building limit enforcement remains inactive because its required cache is unavailable.");
+                LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:69", "Building limit enforcement remains inactive because its required cache is unavailable.");
                 return;
             }
             towerSiegeCacheAvailable = TryInitializeFeature("tower-siege unit cache", towerSiegeUnitCache.SubscribeHooks);
             if (!towerSiegeCacheAvailable)
-                LogDebug("Tower-siege limits remain inactive because their unit cache is unavailable.");
+                LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:74", "Tower-siege limits remain inactive because their unit cache is unavailable.");
             try
             {
                 InstallUpdateRolloverHook();
             }
             catch (Exception ex)
             {
-                LogDebug("Could not install building limit tooltip hook:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:81", "Could not install building limit tooltip hook:", ex);
             }
             if (towerSiegeCacheAvailable)
             {
@@ -101,7 +101,7 @@ namespace BuildingLimit
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnTowerSiegeUnitCreated));
 
-            LogDebug("Building limit runtime hooks subscribed");
+            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:104", "Building limit runtime hooks subscribed");
             hooksSubscribed = true;
         }
 
@@ -113,15 +113,16 @@ namespace BuildingLimit
             SubscribeSettingsChanges();
             SubscribeHooks();
             ApplyBuildingLimits();
-            LogDebug("Applied building limit settings");
+            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:116", "Applied building limit settings");
             libraryInitialized = true;
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            lastPlacementBlocked = false;
             try
             {
-                LogDebug("Gameplay session started: " + context.Kind);
+                LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:124", "Gameplay session started: " + context.Kind);
                 Shared.DebugLogHelper.LogDebug(log, "BuildingLimit persistent runtime active after startup cleanup: " + context.Kind);
                 ClearTowerSiegeReservations();
                 ResetBuildingLimitTooltipCache();
@@ -129,13 +130,14 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Gameplay session initialization failed:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:132", "Gameplay session initialization failed:", ex);
             }
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            LogDebug("OnUnloadMap");
+            lastPlacementBlocked = false;
+            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:138", "OnUnloadMap");
             ClearTowerSiegeReservations();
             HideBuildingLimitMessage();
             ClearBuildingLimitTooltip();
@@ -179,9 +181,9 @@ namespace BuildingLimit
             UpdateBuildingLimitTooltip(self);
         }
 
-        private void LogDebug(params object[] parts)
+        private void LogDebug(string site, params object[] parts)
         {
-            Shared.DebugLogHelper.LogDebug(log, parts);
+            Shared.DebugLogHelper.LogDebugLimited(log, site, parts);
         }
 
         private bool TryInitializeFeature(string featureName, Action initialize)
@@ -193,7 +195,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Building limit feature failed; independent features continue:", featureName, ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:196", "Building limit feature failed; independent features continue:", featureName, ex);
                 return false;
             }
         }
@@ -206,7 +208,7 @@ namespace BuildingLimit
                 if (subscription != null)
                     subscriptions.Add(subscription);
             }
-            catch (Exception ex) { LogDebug("Building limit subscription failed; independent features continue:", featureName, ex); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:209", "Building limit subscription failed; independent features continue:", featureName, ex); }
         }
 
         private void ClearBuildingLimitTooltip()

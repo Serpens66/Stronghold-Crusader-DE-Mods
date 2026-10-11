@@ -41,6 +41,8 @@ namespace EnemyBridgePathTest
         private object identity,consumerIdentity;
         private long consumerOp,militaryEntryOp;private byte[] militaryEntry;
         private Dictionary<string,byte[]> militaryInputs;
+        internal const int EntryUnitBytes=0x65c+10000*0x490,EntryTribeBytes=0x2a+4500*0x688;
+        private int entryAttempts;private long entryCopyTicks;
         private long session;
         private bool selected;
         private int attempts;
@@ -48,14 +50,14 @@ namespace EnemyBridgePathTest
         private NativePathfindingTableCopy tablesAtStart;
         private long skipped,rejected,completedBundles,lastTicks;
         private string lastReason="awaiting-fresh-player8-planning";
-        internal string Status => "planningCaptureAttempts="+attempts+",planningBundles="+completedBundles+",planningCaptureRejected="+rejected+",planningCaptureSkipped="+skipped+",planningCapturePending="+(current!=null||ready!=null)+",planningCaptureReason="+lastReason+",planningCopyMs="+(lastTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
+        internal string Status => "planningCaptureAttempts="+attempts+",militaryEntryAttempts="+entryAttempts+",militaryEntryCopyMs="+(entryCopyTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",planningBundles="+completedBundles+",planningCaptureRejected="+rejected+",planningCaptureSkipped="+skipped+",planningCapturePending="+(current!=null||ready!=null)+",planningCaptureReason="+lastReason+",planningCopyMs="+(lastTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
         internal void PublicationRejected(long op,string reason){selected=false;lastReason=reason;emit("planning-artifact-retry","op="+op+",reason="+reason+",attempts="+attempts+",attemptLimit=2");}
         internal BridgePlanningCapture(int length,Func<int,int,byte[]> read,Func<object> token,Action<Bundle> deliver,Action<string,string> emit,bool requireMilitaryRoot=false,Func<Bundle,bool> prepare=null)
         {moduleLength=length;this.read=read;this.token=token;this.deliver=deliver;this.emit=emit;this.requireMilitaryRoot=requireMilitaryRoot;this.prepare=prepare;}
         private byte[] Read(int at,int bytes)
         {if(at<0||bytes<0||(long)at+bytes>moduleLength)throw new InvalidOperationException("planning-read-outside-module");byte[] b=read(at,bytes);if(b==null||b.Length!=bytes)throw new InvalidOperationException("short-planning-copy");return b;}
         private int Int(int at)=>BitConverter.ToInt32(Read(at,4),0);
-        internal void Begin(long value){if(current!=null)Reject("map-changed-during-planning");current=ready=null;targetFrames.Clear();identity=consumerIdentity=null;consumerOp=militaryEntryOp=0;militaryEntry=null;militaryInputs=null;session=value;selected=false;attempts=0;skipped=rejected=completedBundles=lastTicks=0;lastReason="awaiting-fresh-player8-planning";emit("planning-capture-ready","attacker=8,attemptLimit=2,planningArtifactLimit=1,groupArtifactLimit=1,requires=stable-map-and-military-parent,dirtyCaptureAllowed=True,requiredEntryPhase=4,negativePolicyRequiresCompletedTopology=True,behavior=unchanged");}
+        internal void Begin(long value){if(current!=null)Reject("map-changed-during-planning");current=ready=null;targetFrames.Clear();identity=consumerIdentity=null;consumerOp=militaryEntryOp=0;militaryEntry=null;militaryInputs=null;session=value;selected=false;attempts=entryAttempts=0;entryCopyTicks=0;skipped=rejected=completedBundles=lastTicks=0;lastReason="awaiting-fresh-player8-planning";emit("planning-capture-ready","attacker=8,attemptLimit=2,planningArtifactLimit=1,groupArtifactLimit=1,requires=stable-map-and-military-parent,dirtyCaptureAllowed=True,requiredEntryPhase=4,entryInputVersion=1,entryAttemptLimit=2,fullUnitAndTribeManagers=True,negativePolicyRequiresCompletedTopology=True,behavior=unchanged");}
         internal void End(){if(current!=null)Reject("map-ended-during-planning");if(ready!=null){emit("planning-capture-incomplete","op="+ready.Op+",reason=map-ended-before-military-root-completed");ready=null;targetFrames.Clear();}emit("planning-capture-end",Status+",historicalMissingValues=unknown,behavior=unchanged");session=0;militaryInputs=null;militaryEntry=null;militaryEntryOp=0;}
         private void Reject(string reason)
         {if(current==null)return;lastReason=reason;rejected++;lastTicks=current.Ticks;current.Reason=reason;current.Complete=false;emit("planning-capture-incomplete","op="+current.Op+",reason="+reason+",behavior=unchanged");current=null;identity=null;}
@@ -76,12 +78,16 @@ namespace EnemyBridgePathTest
             if(rva==0x2C480){ObserveConsumer(post,run,op,parent,a,completed,root);return;}
             if(rva==0x3C2E0&&!post&&run==session&&a==8&&!selected&&attempts<2)
             {
+                if(current!=null||ready!=null){emit("planning-military-entry-incomplete","op="+op+",reason=nested-military-entry-preserved-outer");return;}
+                long entryStart=0;
                 try
                 {
                     militaryEntry=null;militaryInputs=null;militaryEntryOp=0;
                     long entryClock=Stopwatch.GetTimestamp();
                     if(Int(0x379D974+a*0x583c)==4)
                     {
+                        if(entryAttempts>=2){emit("planning-military-entry-incomplete","op="+op+",reason=entry-attempt-limit,attemptLimit=2");return;}
+                        entryAttempts++;entryStart=Stopwatch.GetTimestamp();object ownToken=token();if(ownToken==null)throw new InvalidOperationException("military-missing-map-identity");
                         militaryEntry=Read(0x379AE00+a*0x583c,0x583c);
                         var copied=new Dictionary<string,byte[]>();
                         // Writable native tables, captured at this own entry, not
@@ -105,10 +111,30 @@ namespace EnemyBridgePathTest
                         long[] context={run,op,entryClock,Thread.CurrentThread.ManagedThreadId};
                         var bytes=new byte[32];Buffer.BlockCopy(context,0,bytes,0,32);
                         copied.Add("military/entryIdentity4",bytes);
+                        copied.Add("military/entryInputVersion",BitConverter.GetBytes(1));
+                        copied.Add("military/entryUnitManagerFull",Read(0x67E8400,EntryUnitBytes));
+                        copied.Add("military/entryTribesFull",Read(0x7CC6720,EntryTribeBytes));
+                        copied.Add("military/entryPlayers9",Read(0x379AE00,9*0x583c));
+                        copied.Add("military/entryQuota",Read(checked(0x366C210+lord*0x5e4-0x380),4));
+                        var counters=new byte[8];Buffer.BlockCopy(Read(checked(0x2EB2CCC+a*0x177bc),4),0,counters,0,4);Buffer.BlockCopy(Read(checked(0x2EBAA04+a*0x177bc),4),0,counters,4,4);
+                        copied.Add("military/entryEngineerCounters2",counters);
+                        // All 9999 slots are used by 3FE50/2A6B0; high-water is
+                        // not a coverage bound. Tribe bitsets supply 119F90/126020.
+                        // Verify this own entry before Vanilla is allowed to mutate it.
+                        if(!Same(copied["military/entryUnitManagerFull"],Read(0x67E8400,EntryUnitBytes))||
+                           !Same(copied["military/entryTribesFull"],Read(0x7CC6720,EntryTribeBytes))||
+                           !Same(militaryEntry,Read(0x379AE00+a*0x583c,0x583c))||
+                           !Same(copied["military/entryPlayers9"],Read(0x379AE00,9*0x583c))||
+                           !Same(copied["military/entryQuota"],Read(checked(0x366C210+lord*0x5e4-0x380),4))||
+                           !Equals(ownToken,token()))throw new InvalidOperationException("military-own-entry-changed-during-copy");
+                        foreach(var table in new[]{Tuple.Create("military/entryLeaderIds9",0x3A0F9F0),Tuple.Create("military/entryLeaderGlobals9",0x3A0FA04),Tuple.Create("military/entryUpdateClasses11",0x2C8040),Tuple.Create("military/entryMoveClasses11",0x2C80E0)})
+                            if(!Same(copied[table.Item1],Read(table.Item2,copied[table.Item1].Length)))throw new InvalidOperationException("military-own-entry-table-changed");
+                        if(lord!=0&&(config[1]!=Int(checked(0x366C210+lord*0x5e4-0x3d8))||config[2]!=Int(checked(0x366C210+lord*0x5e4-0x2f8))||config[3]!=Read(checked(0x366C210+lord*0x5e4-0x2f0),1)[0])||config[4]!=Int(0x3665FBC)||BitConverter.ToInt32(counters,0)!=Int(checked(0x2EB2CCC+a*0x177bc))||BitConverter.ToInt32(counters,4)!=Int(checked(0x2EBAA04+a*0x177bc)))throw new InvalidOperationException("military-own-entry-controls-changed");
                         militaryInputs=copied;militaryEntryOp=op;
                     }
                 }
                 catch(Exception error){emit("planning-military-entry-incomplete","op="+op+",reason="+error.Message);militaryEntry=null;militaryInputs=null;militaryEntryOp=0;}
+                finally {if(entryStart!=0)entryCopyTicks+=Stopwatch.GetTimestamp()-entryStart;}
                 return;
             }
             if(rva==0x2C5A0||rva==0x3C2E0){ObserveSelection(rva,post,run,op,parent,a,b,completed,root);return;}

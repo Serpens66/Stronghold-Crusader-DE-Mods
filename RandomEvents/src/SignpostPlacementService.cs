@@ -797,10 +797,10 @@ namespace RandomEvents
             return minimum;
         }
 
-        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogDebug(log, message);
-        private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
-        private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
 
         private enum MapEdge { MinimumSum, MaximumSum, MaximumDifference, MinimumDifference }
 

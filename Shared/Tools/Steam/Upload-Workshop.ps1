@@ -1,20 +1,11 @@
-param(
-    [Parameter(Mandatory)][string]$UploadFolder,
-    [string]$ItemName,
-    [string]$ConfiguredItemId,
-    [Parameter(Mandatory)][string]$Visibility,
-    [Parameter(Mandatory)][uint32]$AppId,
-    [Parameter(Mandatory)][string]$ToolPath,
-    [switch]$ContentOnlyUpdate,
-    [switch]$Validate
-)
-
+param([ValidateSet('SerpsMods','APIShared')][string]$Target='SerpsMods',[int]$TestMode=0,[switch]$Validate)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $outputRoot = Join-Path $root '.release-output\SteamWorkshop'
+if ($TestMode -eq 1) { $outputRoot = Join-Path $outputRoot 'test' }
 $logDirectory = Join-Path $outputRoot 'logs'
 $runId = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')
 $logPath = Join-Path $logDirectory "$runId.log"
@@ -138,21 +129,22 @@ function Get-WorkshopChangeNote {
     param(
         [Parameter(Mandatory)][string]$ReleaseOutputRoot,
         [Parameter(Mandatory)][IO.FileInfo]$MapFile,
-        [AllowNull()]$PreviousState
+        [AllowNull()]$PreviousState,
+        [string]$ProvenancePath=''
     )
 
     $packReleaseRoot = Join-Path $ReleaseOutputRoot 'SerpsMods'
-    if (-not (Test-Path -LiteralPath $packReleaseRoot -PathType Container)) {
+    if (-not $ProvenancePath -and -not (Test-Path -LiteralPath $packReleaseRoot -PathType Container)) {
         Stop-Upload 2 "SerpsMods release output not found: $packReleaseRoot"
     }
 
     $mapHash = Get-Sha256 -Path $MapFile.FullName
     $matchingReleases = [Collections.Generic.List[object]]::new()
-    $provenanceFiles = @(
+    $provenanceFiles = if($ProvenancePath){@($ProvenancePath)}else{@(
         Get-ChildItem -LiteralPath $packReleaseRoot -Directory -Filter 'v*' |
             ForEach-Object { Join-Path $_.FullName 'SerpsMods.provenance.json' } |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
-    )
+    )}
     foreach ($provenancePath in $provenanceFiles) {
         try {
             $provenance = [IO.File]::ReadAllText($provenancePath) | ConvertFrom-Json
@@ -182,7 +174,7 @@ function Get-WorkshopChangeNote {
     $previousVersions = Get-UploadedModVersions -State $PreviousState
     foreach ($mod in $activeMods) {
         $releaseTag = [string]$mod.ReleaseTag
-        $releaseTagMatch = [regex]::Match($releaseTag, '^([A-Za-z0-9._-]+)/v([A-Za-z0-9._-]+)$')
+        $releaseTagMatch = [regex]::Match($releaseTag, '^([A-Za-z0-9._-]+)/(?:test/)?v(\d+\.\d+\.\d+)(?:-[a-f0-9]{12})?$')
         if (-not $releaseTagMatch.Success) {
             Stop-Upload 2 "Invalid release tag for active mod '$($mod.Name)': '$releaseTag'"
         }
@@ -206,10 +198,12 @@ function Get-WorkshopChangeNote {
         $modReleaseRoot = Join-Path $ReleaseOutputRoot $releaseTagMatch.Groups[1].Value
         $notesPath = Join-Path (Join-Path $modReleaseRoot "v$modVersion") 'release-notes.md'
         if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) {
-            Stop-Upload 2 "Release notes not found for active mod '$($mod.Name)' v${modVersion}: $notesPath"
+            $bodyJson=& gh release view $releaseTag --repo 'Serpens66/Stronghold-Crusader-DE-Mods' --json body
+            if($LASTEXITCODE -ne 0){Stop-Upload 2 "Release notes unavailable for $releaseTag."}
+            $notesText=[string](($bodyJson|ConvertFrom-Json).body)
+        } else {
+            $notesText = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $notesPath).Path)
         }
-
-        $notesText = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $notesPath).Path)
         $changesMatch = [regex]::Match(
             $notesText,
             '(?ms)^##[ \t]+Changes[ \t]*\r?\n(?<body>.*?)(?=^##[ \t]+|\z)')
@@ -224,7 +218,7 @@ function Get-WorkshopChangeNote {
             -ModName ([string]$mod.Name)
         $body = [regex]::Replace($body, "`r`n|`r|`n", "`r`n")
         $sections.Add("## $($mod.Name) v$modVersion`r`n`r`n$body")
-        $sources.Add((Resolve-Path -LiteralPath $notesPath).Path)
+        $sources.Add($(if(Test-Path -LiteralPath $notesPath){(Resolve-Path -LiteralPath $notesPath).Path}else{'GitHub:'+ $releaseTag}))
     }
 
     return [pscustomobject]@{
@@ -343,280 +337,61 @@ function Save-ItemId {
     Write-UploadLog -Message "Workshop item ID saved: $ItemId ($Path)" -Level 'OK'
 }
 
-function Get-SteamWorkshopItemState {
-    param(
-        [Parameter(Mandatory)][string]$ItemId,
-        [Parameter(Mandatory)][uint32]$ExpectedAppId
-    )
-
-    $endpoint = 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/'
-    try {
-        $result = Invoke-RestMethod -Method Post -Uri $endpoint -Body @{
-            itemcount = '1'
-            'publishedfileids[0]' = $ItemId
-        } -TimeoutSec 30
-    } catch {
-        Stop-Upload 2 "Steam Workshop item $ItemId could not be verified. No replacement item will be created after an inconclusive network/API failure: $($_.Exception.Message)"
-    }
-
-    if ($null -eq $result -or $null -eq $result.response -or
-        [int]$result.response.result -ne 1 -or
-        [int]$result.response.resultcount -ne 1) {
-        Stop-Upload 2 "Steam returned an unexpected response while verifying Workshop item $ItemId. No replacement item will be created."
-    }
-    $details = @($result.response.publishedfiledetails)
-    if ($details.Count -ne 1 -or [string]$details[0].publishedfileid -cne $ItemId) {
-        Stop-Upload 2 "Steam did not return the requested Workshop item identity $ItemId. No replacement item will be created."
-    }
-
-    $itemResult = [int]$details[0].result
-    if ($itemResult -eq 9) {
-        return 'Missing'
-    }
-    if ($itemResult -ne 1) {
-        Stop-Upload 2 "Steam returned result $itemResult while verifying Workshop item $ItemId. Only result 9 (FileNotFound) permits offering a replacement upload."
-    }
-
-    $consumerAppProperty = $details[0].PSObject.Properties['consumer_app_id']
-    if ($null -ne $consumerAppProperty -and [uint32]$consumerAppProperty.Value -ne $ExpectedAppId) {
-        Stop-Upload 2 "Workshop item $ItemId belongs to app $($consumerAppProperty.Value), not configured app $ExpectedAppId."
-    }
-    return 'Exists'
-}
 
 try {
-    if (-not (Test-Path -LiteralPath $ToolPath -PathType Leaf)) {
-        Stop-Upload 2 "Upload tool not found: $ToolPath"
-    }
-    if (-not (Test-Path -LiteralPath $UploadFolder -PathType Container)) {
-        Stop-Upload 2 "Upload folder not found: $UploadFolder"
-    }
-
-    $resolvedFolder = (Resolve-Path -LiteralPath $UploadFolder).Path
-    $previewPath = Join-Path $resolvedFolder 'preview.png'
-    if (-not (Test-Path -LiteralPath $previewPath -PathType Leaf)) {
-        Stop-Upload 2 "Preview image not found: $previewPath"
-    }
-    $mapFiles = @(Get-ChildItem -LiteralPath $resolvedFolder -File -Filter '*.map')
-    if ($mapFiles.Count -ne 1) {
-        Stop-Upload 2 "Upload folder must contain exactly one .map file; found $($mapFiles.Count): $resolvedFolder"
-    }
-    if ((Get-Item -LiteralPath $previewPath).Length -eq 0 -or $mapFiles[0].Length -eq 0) {
-        Stop-Upload 2 'Preview image and map file must not be empty.'
-    }
-    if ($Visibility -notin @('Public','Private','FriendsOnly','Unlisted')) {
-        Stop-Upload 2 "Unsupported visibility: $Visibility"
-    }
-    if ([string]::IsNullOrWhiteSpace($ItemName)) {
-        $ItemName = Split-Path -Leaf $resolvedFolder
-    }
-
-    $safeFolderName = ([regex]::Replace((Split-Path -Leaf $resolvedFolder), '[^A-Za-z0-9._-]', '_')).Trim('_')
-    if ([string]::IsNullOrWhiteSpace($safeFolderName)) { $safeFolderName = 'workshop-item' }
-    $itemIdPath = Join-Path $outputRoot "items\$AppId-$safeFolderName.item-id"
-    $itemId = $ConfiguredItemId.Trim()
-    $itemIdSource = 'configuration'
-    if ([string]::IsNullOrWhiteSpace($itemId) -and (Test-Path -LiteralPath $itemIdPath -PathType Leaf)) {
-        $itemId = [IO.File]::ReadAllText($itemIdPath).Trim()
-        $itemIdSource = 'saved state'
-    }
-    if (-not [string]::IsNullOrWhiteSpace($itemId)) {
-        $parsedItemId = [uint64]0
-        if (-not [uint64]::TryParse($itemId, [ref]$parsedItemId) -or $parsedItemId -eq 0) {
-            Stop-Upload 2 "Invalid Workshop item ID from ${itemIdSource}: '$itemId'"
-        }
-        $itemId = $parsedItemId.ToString()
-    }
-
-    $isUpdate = -not [string]::IsNullOrWhiteSpace($itemId)
-    $changelogStatePath = Join-Path $outputRoot "items\$AppId-$safeFolderName.changelog-state.json"
-    $uploadHistoryPath = Join-Path $outputRoot "items\$AppId-$safeFolderName.upload-history.json"
-    $uploadHistorySeedPath = Join-Path $PSScriptRoot "$safeFolderName.upload-history.seed.json"
-    try {
-        $uploadHistory = Get-SteamWorkshopUploadHistory -Path $uploadHistoryPath -SeedPath $uploadHistorySeedPath -AppId $AppId -StateName $safeFolderName
-        Write-UploadLog "Validated Workshop upload history with $(@($uploadHistory.Uploads).Count) confirmed upload(s): $uploadHistoryPath" 'OK'
-    } catch {
-        Stop-Upload 2 "Workshop upload history is not ready; no upload was attempted: $($_.Exception.Message)"
-    }
-    $previousChangelogState = if ($isUpdate) {
-        Read-ChangelogState -Path $changelogStatePath
+    . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
+    . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
+    $config=Get-WorkshopConfiguration;$test=$TestMode -eq 1;$targetConfig=$config.$Target
+    $folder=Get-WorkshopFolder $config $targetConfig $test
+    $proof=Assert-WorkshopPreparation $config $targetConfig $test
+    $publisher=Join-Path $config.Root 'APIShared/.local/WorkshopUploader/WorkshopUploader.exe'
+    if(-not(Test-Path -LiteralPath $publisher)){throw 'Build APIShared/tools/WorkshopUploader/build.bat first.'}
+    Assert-WorkshopPublisherBuild (Join-Path $config.Root 'APIShared')
+    if(-not $test -and -not $Validate){Assert-WorkshopPlatformProof $config}
+    $state=Get-WorkshopStateRoot $config $test
+    $id=Get-WorkshopItemId $config $targetConfig $test
+    $itemPath=Join-Path $state ('items/'+$config.AppId+'-'+$Target+'.item-id')
+    $changelogPath=Join-Path $state ('items/'+$config.AppId+'-'+$Target+'.changelog-state.json')
+    $previous=Read-ChangelogState $changelogPath
+    if($previous -and $id -and $previous.ItemId -cne $id){throw 'Changelog state belongs to a different Workshop item.'}
+    $map=Get-Item -LiteralPath (Join-Path $folder ($Target+'.map'))
+    if($Target -eq 'SerpsMods') {
+        $releaseOutput=if($test){Join-Path $config.Root '.release-output/SteamWorkshop/test'}else{Join-Path $config.Root '.release-output'}
+        $note=Get-WorkshopChangeNote -ReleaseOutputRoot $releaseOutput -MapFile $map -PreviousState $previous -ProvenancePath $proof.ReleaseProvenance
     } else {
-        $null
+        $changeText=[string]$proof.ReleaseNotes
+        if(-not $changeText){$changeText='APIShared package updated.'}
+        $note=[pscustomobject]@{Text=$changeText;PackVersion=$proof.Version;MapSha256=(Get-Sha256 $map.FullName);Mods=@();Sources=@();PackReleaseDirectory=$proof.ReleaseTag}
     }
-    if ($isUpdate -and $null -eq $previousChangelogState) {
-        $previousChangelogState = Find-LegacyChangelogState `
-            -LogDirectory $logDirectory `
-            -ItemId $itemId
-    }
-    if ($null -ne $previousChangelogState -and
-        [string]$previousChangelogState.ItemId -cne $itemId) {
-        Stop-Upload 2 "Workshop changelog state belongs to item $($previousChangelogState.ItemId), not item $itemId`: $changelogStatePath"
-    }
-
-    $changeNoteInfo = Get-WorkshopChangeNote `
-        -ReleaseOutputRoot (Join-Path $root '.release-output') `
-        -MapFile $mapFiles[0] `
-        -PreviousState $previousChangelogState
-
-    $uploadConfirmed = $false
-    $missingSavedItem = $false
-    if ($isUpdate) {
-        $itemState = Get-SteamWorkshopItemState -ItemId $itemId -ExpectedAppId $AppId
-        if ($itemState -eq 'Missing') {
-            if ($itemIdSource -ne 'saved state') {
-                Stop-Upload 2 "Configured Workshop item $itemId no longer exists. Clear ITEM_ID in UploadWorkshop.bat before creating a replacement."
-            }
-            $missingSavedItem = $true
-            Write-UploadLog "Saved Workshop item $itemId no longer exists (Steam result 9: FileNotFound)." 'WARN'
-            if (-not $Validate) {
-                $replacementConfirmation = Read-Host 'Type NEU_HOCHLADEN to create a new Workshop item and replace the saved ID'
-                if ($replacementConfirmation -cne 'NEU_HOCHLADEN') {
-                    Stop-Upload 3 'Replacement Workshop upload cancelled. The previous saved ID was preserved.'
-                }
-                $itemId = ''
-                $isUpdate = $false
-                $uploadConfirmed = $true
-                Write-UploadLog 'Replacement upload confirmed. Steam will be asked to create a new item.' 'WARN'
-            }
-        }
-    }
-    $mode = if ($missingSavedItem -and $Validate) {
-        'SAVED ITEM MISSING; REPLACEMENT CONFIRMATION REQUIRED'
-    } elseif ($isUpdate) {
-        "UPDATE item $itemId ($itemIdSource)"
-    } else {
-        'CREATE NEW ITEM'
-    }
-    Write-UploadLog "Mode: $mode"
-    Write-UploadLog "App ID: $AppId"
-    Write-UploadLog "Source: $resolvedFolder"
-    Write-UploadLog "Map: $($mapFiles[0].Name)"
-    if ($isUpdate -and $ContentOnlyUpdate) {
-        Write-UploadLog 'Workshop metadata: preserved (only content and changelog will be submitted).'
-    } else {
-        Write-UploadLog "Title: $ItemName"
-        Write-UploadLog "Preview: $previewPath"
-        Write-UploadLog "Visibility: $Visibility"
-    }
-    Write-UploadLog "Changelog pack release: $($changeNoteInfo.PackReleaseDirectory)"
-    Write-UploadLog "Changelog map SHA-256: $($changeNoteInfo.MapSha256)"
-    foreach ($source in $changeNoteInfo.Sources) {
-        Write-UploadLog "Changelog source: $source"
-    }
-    Write-UploadLog "Combined changelog characters: $($changeNoteInfo.Text.Length)"
-    Write-UploadLog 'Combined changelog follows:'
-    foreach ($changeLogLine in [regex]::Split($changeNoteInfo.Text, "`r`n|`r|`n")) {
-        Write-UploadLog "CHANGELOG: $changeLogLine"
-    }
-    if (-not $isUpdate) {
-        if ($missingSavedItem) {
-            Write-UploadLog 'The deleted saved item will be replaced with a newly created Workshop item.' 'WARN'
-        } else {
-            Write-UploadLog 'No saved item ID was found. Continuing will create a new Workshop item.' 'WARN'
-        }
-    }
-    if ($Validate) {
-        if ($missingSavedItem) {
-            Write-UploadLog 'Validation confirmed that the saved item is missing. A real run will require NEU_HOCHLADEN.' 'WARN'
-        }
-        Write-UploadLog 'Validation completed without invoking the upload tool or uploading files.' 'OK'
-        Write-Host "Log: $logPath"
-        exit 0
-    }
-
-    if (-not $uploadConfirmed) {
-        $confirmation = Read-Host 'Type HOCHLADEN to perform this Steam Workshop upload'
-        if ($confirmation -cne 'HOCHLADEN') {
-            Stop-Upload 3 'Upload cancelled.'
-        }
-    }
-
-    $arguments = @('-v', '-a', $AppId.ToString())
-    if ($isUpdate) {
-        $arguments += @('-i', $itemId, '-u', '-c', $changeNoteInfo.Text)
-        if (-not $ContentOnlyUpdate) {
-            $arguments += @('-k', $ItemName, '-o', $previewPath, '-h', $Visibility)
-        }
-    } else {
-        $arguments += @('-n', '-k', $ItemName, '-o', $previewPath, '-h', $Visibility)
-    }
-    $arguments += @('-s', $resolvedFolder)
-
-    Write-UploadLog "Starting pdengine.steamugc.tool $mode."
-    $toolOutput = [Collections.Generic.List[string]]::new()
-    $previousErrorActionPreference = $ErrorActionPreference
-    Push-Location (Split-Path -Parent $ToolPath)
-    try {
-        # Native stderr is diagnostic output; success is checked below using both
-        # the exit code and the Steam callback result printed by this tool.
-        $ErrorActionPreference = 'Continue'
-        & $ToolPath @arguments 2>&1 | ForEach-Object {
-            $line = [string]$_
-            $toolOutput.Add($line)
-            Write-UploadLog ("TOOL: " + (Remove-AnsiSequences $line))
-        }
-        $toolExitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $previousErrorActionPreference
-        Pop-Location
-    }
-
-    $cleanOutput = (($toolOutput | ForEach-Object { Remove-AnsiSequences $_ }) -join "`n")
-    $created = $cleanOutput -match 'Workshop Item:\s*Created'
-    $updated = $cleanOutput -match 'Workshop Item:\s*Updated'
-    $idMatch = [regex]::Match($cleanOutput, 'Updating Item:\s*([0-9]+)')
-
-    # Persist a newly created ID even if its immediately following content update
-    # fails, otherwise the next run could accidentally create a duplicate item.
-    if (-not $isUpdate -and $created -and $idMatch.Success) {
-        $itemId = $idMatch.Groups[1].Value
-        Save-ItemId -Path $itemIdPath -ItemId $itemId
-    }
-
-    if ($toolExitCode -ne 0) {
-        Stop-Upload 4 "Upload tool exited with code $toolExitCode."
-    }
-    if (-not $updated) {
-        if ($created -and -not $idMatch.Success) {
-            Stop-Upload 6 'Steam created an item, but its ID was not present in the tool output. Find the newest item in your Steam Workshop profile and set ITEM_ID in UploadWorkshop.bat before retrying.'
-        }
-        Stop-Upload 5 'Steam did not confirm a successful Workshop item update. Review the TOOL lines above.'
-    }
-    if (-not $isUpdate -and -not $created) {
-        Stop-Upload 5 'Steam updated content but did not confirm creation of the expected new Workshop item.'
-    }
-    if ($isUpdate -and $ConfiguredItemId.Trim()) {
-        Save-ItemId -Path $itemIdPath -ItemId $itemId
-    }
-    $uploadedUtc = [DateTimeOffset]::UtcNow
-    try {
-        $historyAdded = Add-SteamWorkshopUploadHistoryEntry `
-            -Path $uploadHistoryPath `
-            -SeedPath $uploadHistorySeedPath `
-            -AppId $AppId `
-            -StateName $safeFolderName `
-            -ItemId $itemId `
-            -PackVersion $changeNoteInfo.PackVersion `
-            -MapSha256 $changeNoteInfo.MapSha256 `
-            -UploadedUtc $uploadedUtc
-        if ($historyAdded) {
-            Write-UploadLog "Confirmed upload appended to Workshop history: $uploadHistoryPath" 'OK'
-        } else {
-            Write-UploadLog "Confirmed upload already exists in Workshop history: $($changeNoteInfo.PackVersion)" 'OK'
-        }
-    } catch {
-        Stop-Upload 6 "Steam confirmed the upload, but the upload history could not be saved. Do not build another pack until this is repaired: $($_.Exception.Message)"
-    }
-    Save-ChangelogState `
-        -Path $changelogStatePath `
-        -ChangeNoteInfo $changeNoteInfo `
-        -ItemId $itemId
-
-    Write-UploadLog "Steam Workshop upload completed successfully. Item ID: $itemId" 'OK'
-    Write-Host "Log: $logPath"
+    $run=Join-Path $state ('uploads/'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($run)
+    $requestPath=Join-Path $run 'request.json';$resultPath=Join-Path $run 'result.json'
+    $forbidden=@(@($config.APIShared,$config.SerpsMods)|ForEach-Object {Get-WorkshopItemId $config $_ $false}|Where-Object {$_})
+    $request=[ordered]@{SchemaVersion=1;Mode=$(if($test){'Test'}else{'Production'});PackageId=$targetConfig.Guid;Version=$proof.Version;
+        SourceDirectory=$folder;StateRoot=(Join-Path $state 'publisher');PreviewFile=(Join-Path $folder 'preview.png');Title=$targetConfig.Title;Description=($targetConfig.Title+' / '+$proof.ReleaseTag);
+        ChangeNote=$note.Text;Visibility=$(if($test){'Private'}else{$targetConfig.Visibility});WorkshopId=$id;PreservePresentation=(-not $test -and [bool]$id);ForbiddenItemIds=$forbidden;ExpectedFiles=@($proof.Files)}
+    Write-SteamWorkshopJson $requestPath $request
+    & $publisher --validate $requestPath $resultPath
+    if($LASTEXITCODE -ne 0){throw 'Complete package validation failed.'}
+    $checked=[IO.File]::ReadAllText($resultPath)|ConvertFrom-Json
+    $request.Fingerprint=$checked.Fingerprint;Write-SteamWorkshopJson $requestPath $request
+    if($Validate){Write-UploadLog 'Complete package validated without Steam initialization or upload.' 'OK';exit 0}
+    if(-not $test){Assert-WorkshopPlatformProof $config $targetConfig.Guid $request.Fingerprint}
+    & $publisher --inspect $requestPath $resultPath
+    if($LASTEXITCODE -ne 0){throw 'Steam item/prerequisite validation failed; no upload started.'}
+    Write-UploadLog "Target=$Target; mode=$($request.Mode); version=$($proof.Version); item=$id; files=$(@($proof.Files).Count); fingerprint=$($request.Fingerprint)"
+    Write-UploadLog ('CHANGELOG: '+$note.Text)
+    if((Read-Host 'Type HOCHLADEN to submit this reviewed snapshot') -cne 'HOCHLADEN'){throw 'Upload cancelled.'}
+    & $publisher --publish $requestPath $resultPath
+    $publisherExit=$LASTEXITCODE
+    $result=[IO.File]::ReadAllText($resultPath)|ConvertFrom-Json
+    # The core also persists IDs at CreateItem completion, including after interruption.
+    if($result.WorkshopId -match '^[1-9][0-9]*$'){Save-ItemId $itemPath $result.WorkshopId}
+    if($publisherExit -ne 0 -or $result.Status -cne 'Succeeded'){throw ('Publisher failed: '+$result.Diagnostic)}
+    $historyPath=Join-Path $state ('items/'+$config.AppId+'-'+$Target+'.upload-history.json')
+    $seed=Join-Path $PSScriptRoot ($Target+'.upload-history.seed.json')
+    if($test){$seed=Join-Path $state ($Target+'.empty-seed.json');if(-not(Test-Path -LiteralPath $seed)){Write-SteamWorkshopJson $seed ([ordered]@{SchemaVersion=1;AppId=$config.AppId;StateName=$Target;Uploads=@()})}}
+    $null=Add-SteamWorkshopUploadHistoryEntry -Path $historyPath -SeedPath $seed -AppId $config.AppId -StateName $Target -ItemId $result.WorkshopId -PackVersion $proof.Version -MapSha256 $note.MapSha256 -UploadedUtc ([DateTimeOffset]::UtcNow) -Format $(if($Target -eq 'APIShared'){'Map'}else{'Loose'}) -ContentFingerprint $result.Fingerprint
+    Save-ChangelogState -Path $changelogPath -ChangeNoteInfo $note -ItemId $result.WorkshopId
+    Write-UploadLog "Steam Workshop upload completed successfully. Item ID: $($result.WorkshopId)" 'OK'
     exit 0
-} catch {
-    Write-UploadLog -Message $_.Exception.ToString() -Level 'ERROR'
-    Write-Host "Log: $logPath"
-    exit 1
-}
+} catch {Write-UploadLog $_.Exception.ToString() 'ERROR';exit 1}

@@ -45,7 +45,7 @@ namespace BuildingLimit
                 throw;
             }
 
-            LogDebug("EngineInterface.PlaceMapperItem tower-siege hook installed");
+            LogDebug("BuildingLimit/src/BuildingLimitRuntime.TowerSiege.cs:48", "EngineInterface.PlaceMapperItem tower-siege hook installed");
         }
 
         private void PlaceMapperItemHookImpl(
@@ -85,13 +85,13 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Tower-siege placement check failed; forwarding Vanilla:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.TowerSiege.cs:88", "Tower-siege placement check failed; forwarding Vanilla:", ex);
             }
 
             if (blockedRule != null)
             {
                 try { ShowBuildingLimitMessageForLocalPlayer(player, blockedRule.Definition, blockedRule.DisplayLimit); }
-                catch (Exception ex) { LogDebug("Tower-siege limit message failed:", ex); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.TowerSiege.cs:94", "Tower-siege limit message failed:", ex); }
                 return;
             }
 

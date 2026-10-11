@@ -1,0 +1,183 @@
+[11.10.2026 22:20:59,57] START APIShared
+[11.10.2026 22:20:59,57] PowerShell checks / build step
+[Build] APIShared: checking toolchain and installed game references...
+[Build] Validating runtime, XAML, native hooks and real interop contracts...
+PASS: generic dependency declarations, arbitrary GUIDs, constants, presence-only and optional dependencies; 6 malformed fixtures rejected.
+PASS: APIShared has no executable-memory toggles or published transaction teardown.
+PASS: documentation links (139 local targets/anchors); no external workspace references.
+PASS: Workshop inventory completeness, settings exclusion, hashes, ZIP ownership/layout and archive roundtrip.
+PASS: Workshop manager publisher lifetime, vanilla upload isolation, XAML bindings and 24 localized tooltip controls.
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+Verified installed contract: Platform_Workshop.get_Instance (Platform_Workshop); public=True, static=True
+Verified installed contract: Platform_Workshop.GetListOfSubscribedItemsPaths (System.Collections.Generic.List`1<System.String>); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.Archive.MapModManager.TryStageModUpdate (System.Boolean); public=False, static=False
+Verified installed contract: SHCDESE.API.Components.Archive.MapArchive..ctor (System.Void); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.Archive.MapArchive.TryReadTextFile (System.String); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.Archive.MapArchive.get_Info (SHCDESE.API.Components.ModManager.ModInfo); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.Archive.MapArchive.get_Archive (ICSharpCode.SharpZipLib.Zip.ZipFile); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.ModManager.ModInfo.get_GUID (System.String); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.ModManager.ModInfo.get_Version (System.String); public=True, static=False
+Verified installed contract: ICSharpCode.SharpZipLib.Zip.ZipEntry.get_Name (System.String); public=True, static=False
+Verified installed contract: ICSharpCode.SharpZipLib.Zip.ZipEntry.get_IsFile (System.Boolean); public=True, static=False
+Verified installed contract: ICSharpCode.SharpZipLib.Zip.ZipFile.GetEnumerator (System.Collections.IEnumerator); public=True, static=False
+Verified installed contract: SHCDESE.API.LowLevel.CrusaderLibrary.add_LibraryLoaded (System.Void); public=True, static=False
+Verified installed contract: SHCDESE.API.GameXAMLManagerAPI.RegisterLobbyModSettings (System.Void); public=True, static=False
+Verified installed contract: SHCDESE.API.GameXAMLManagerAPI.RegisterLobbyModSettings (System.Void); public=True, static=False
+Verified installed contract: ICSharpCode.SharpZipLib.Zip.ZipEntry.get_IsDirectory (System.Boolean); public=True, static=False
+Verified installed contract: ICSharpCode.SharpZipLib.Zip.ZipEntry.get_ExternalFileAttributes (System.Int32); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.ModManager.GameAssetModManager.GetRegisteredAssetDirectories (System.Collections.Generic.IEnumerable`1<System.Collections.Generic.KeyValuePair`2<SHCDESE.API.Components.ModManager.ModInfo,System.String>>); public=True, static=False
+Verified installed contract: SHCDESE.API.Components.ModManager.GameAssetModManager.TryGetRegisteredDirectory (System.Boolean); public=True, static=False
+Verified installed contract: SHCDESE.UI.ToolTipResolutionScale.SetEnabled (System.Void); public=True, static=True
+Verified installed contract: Steamworks.CSteamID.GetAccountID (Steamworks.AccountID_t); public=True, static=False
+Verified Steam field: Steamworks.EResult Steamworks.SteamUGCDetails_t::m_eResult
+Verified Steam field: Steamworks.AppId_t Steamworks.SteamUGCDetails_t::m_nConsumerAppID
+Verified Steam field: System.UInt64 Steamworks.SteamUGCDetails_t::m_ulSteamIDOwner
+Verified Steam field: Steamworks.PublishedFileId_t Steamworks.SteamUGCDetails_t::m_nPublishedFileId
+Verified Steam field: System.UInt32 Steamworks.SteamUGCDetails_t::m_unNumChildren
+Verified Steam field: Steamworks.EResult Steamworks.SteamUGCQueryCompleted_t::m_eResult
+Verified Steam field: System.UInt32 Steamworks.SteamUGCQueryCompleted_t::m_unNumResultsReturned
+Verified Steam field: System.UInt32 Steamworks.SteamUGCQueryCompleted_t::m_unTotalMatchingResults
+Verified Steam field: Steamworks.EResult Steamworks.CreateItemResult_t::m_eResult
+Verified Steam field: Steamworks.PublishedFileId_t Steamworks.CreateItemResult_t::m_nPublishedFileId
+Verified Steam field: System.Boolean Steamworks.CreateItemResult_t::m_bUserNeedsToAcceptWorkshopLegalAgreement
+Verified Steam field: Steamworks.EResult Steamworks.SubmitItemUpdateResult_t::m_eResult
+Verified Steam field: System.Boolean Steamworks.SubmitItemUpdateResult_t::m_bUserNeedsToAcceptWorkshopLegalAgreement
+Verified Steam field: Steamworks.EResult Steamworks.AddUGCDependencyResult_t::m_eResult
+Verified Steam field: Steamworks.EResult Steamworks.RemoveUGCDependencyResult_t::m_eResult
+Verified Steam field: System.UInt64 Steamworks.SteamAPICall_t::m_SteamAPICall
+Verified Steam field: System.UInt64 Steamworks.PublishedFileId_t::m_PublishedFileId
+Verified Steam field: System.UInt32 Steamworks.AppId_t::m_AppId
+Verified Steam field: System.UInt64 Steamworks.UGCQueryHandle_t::m_UGCQueryHandle
+Verified Steam field: System.UInt64 Steamworks.UGCUpdateHandle_t::m_UGCUpdateHandle
+Verified installed contract: Steamworks.SteamUGCDetails_t.get_m_rgchTitle (System.String); public=True, static=False
+Verified encapsulated SteamManager reflection: s_instance
+Verified encapsulated SteamManager reflection: m_bInitialized
+Verified installed Steam signature: System.UInt32 Steamworks.SteamUGC::GetNumSubscribedItems()
+Verified installed Steam signature: System.UInt32 Steamworks.SteamUGC::GetSubscribedItems(Steamworks.PublishedFileId_t[],System.UInt32)
+Verified installed Steam signature: System.UInt32 Steamworks.SteamUGC::GetNumSubscribedItems()
+Verified installed Steam signature: System.UInt32 Steamworks.SteamUGC::GetItemState(Steamworks.PublishedFileId_t)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::GetItemInstallInfo(Steamworks.PublishedFileId_t,System.UInt64&,System.String&,System.UInt32,System.UInt32&)
+Verified installed Steam signature: Steamworks.UGCQueryHandle_t Steamworks.SteamUGC::CreateQueryUGCDetailsRequest(Steamworks.PublishedFileId_t[],System.UInt32)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetReturnMetadata(Steamworks.UGCQueryHandle_t,System.Boolean)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetReturnChildren(Steamworks.UGCQueryHandle_t,System.Boolean)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::GetQueryUGCResult(Steamworks.UGCQueryHandle_t,System.UInt32,Steamworks.SteamUGCDetails_t&)
+Verified installed Steam signature: Steamworks.CSteamID Steamworks.SteamUser::GetSteamID()
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::GetQueryUGCChildren(Steamworks.UGCQueryHandle_t,System.UInt32,Steamworks.PublishedFileId_t[],System.UInt32)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::ReleaseQueryUGCRequest(Steamworks.UGCQueryHandle_t)
+Verified installed Steam signature: Steamworks.SteamAPICall_t Steamworks.SteamUGC::SendQueryUGCRequest(Steamworks.UGCQueryHandle_t)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::ReleaseQueryUGCRequest(Steamworks.UGCQueryHandle_t)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::GetQueryUGCMetadata(Steamworks.UGCQueryHandle_t,System.UInt32,System.String&,System.UInt32)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::GetItemInstallInfo(Steamworks.PublishedFileId_t,System.UInt64&,System.String&,System.UInt32,System.UInt32&)
+Verified installed Steam signature: System.UInt32 Steamworks.SteamUGC::GetItemState(Steamworks.PublishedFileId_t)
+Verified installed Steam signature: System.Void Steamworks.SteamFriends::ActivateGameOverlayToWebPage(System.String,Steamworks.EActivateGameOverlayToWebPageMode)
+Verified installed Steam signature: Steamworks.SteamAPICall_t Steamworks.SteamUGC::CreateItem(Steamworks.AppId_t,Steamworks.EWorkshopFileType)
+Verified installed Steam signature: Steamworks.UGCUpdateHandle_t Steamworks.SteamUGC::StartItemUpdate(Steamworks.AppId_t,Steamworks.PublishedFileId_t)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetItemTitle(Steamworks.UGCUpdateHandle_t,System.String)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetItemDescription(Steamworks.UGCUpdateHandle_t,System.String)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetItemTags(Steamworks.UGCUpdateHandle_t,System.Collections.Generic.IList`1<System.String>,System.Boolean)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetItemPreview(Steamworks.UGCUpdateHandle_t,System.String)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetItemVisibility(Steamworks.UGCUpdateHandle_t,Steamworks.ERemoteStoragePublishedFileVisibility)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetItemContent(Steamworks.UGCUpdateHandle_t,System.String)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::SetItemMetadata(Steamworks.UGCUpdateHandle_t,System.String)
+Verified installed Steam signature: System.Void Steamworks.SteamFriends::ActivateGameOverlayToWebPage(System.String,Steamworks.EActivateGameOverlayToWebPageMode)
+Verified installed Steam signature: Steamworks.SteamAPICall_t Steamworks.SteamUGC::SubmitItemUpdate(Steamworks.UGCUpdateHandle_t,System.String)
+Verified installed Steam signature: Steamworks.SteamAPICall_t Steamworks.SteamUGC::RemoveDependency(Steamworks.PublishedFileId_t,Steamworks.PublishedFileId_t)
+Verified installed Steam signature: System.Void Steamworks.SteamFriends::ActivateGameOverlayToWebPage(System.String,Steamworks.EActivateGameOverlayToWebPageMode)
+Verified installed Steam signature: Steamworks.SteamAPICall_t Steamworks.SteamUGC::AddDependency(Steamworks.PublishedFileId_t,Steamworks.PublishedFileId_t)
+Verified installed Steam signature: Steamworks.EItemUpdateStatus Steamworks.SteamUGC::GetItemUpdateProgress(Steamworks.UGCUpdateHandle_t,System.UInt64&,System.UInt64&)
+Verified installed Steam signature: Steamworks.UGCQueryHandle_t Steamworks.SteamUGC::CreateQueryUserUGCRequest(Steamworks.AccountID_t,Steamworks.EUserUGCList,Steamworks.EUGCMatchingUGCType,Steamworks.EUserUGCListSortOrder,Steamworks.AppId_t,Steamworks.AppId_t,System.UInt32)
+Verified installed Steam signature: Steamworks.CSteamID Steamworks.SteamUser::GetSteamID()
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::GetQueryUGCResult(Steamworks.UGCQueryHandle_t,System.UInt32,Steamworks.SteamUGCDetails_t&)
+Verified installed Steam signature: Steamworks.CSteamID Steamworks.SteamUser::GetSteamID()
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::ReleaseQueryUGCRequest(Steamworks.UGCQueryHandle_t)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::ReleaseQueryUGCRequest(Steamworks.UGCQueryHandle_t)
+Verified installed Steam signature: Steamworks.SteamAPICall_t Steamworks.SteamUGC::SendQueryUGCRequest(Steamworks.UGCQueryHandle_t)
+Verified installed Steam signature: System.Boolean Steamworks.SteamUGC::ReleaseQueryUGCRequest(Steamworks.UGCQueryHandle_t)
+Verified installed Steam signature: System.Void Steamworks.SteamFriends::ActivateGameOverlayToWebPage(System.String,Steamworks.EActivateGameOverlayToWebPageMode)
+Public installed HUD contract: CrusaderDE.MainViewModel CrusaderDE.MainViewModel::get_Instance()
+Public installed HUD contract: System.Boolean CrusaderDE.MainViewModel::get_Show_HUD_Extras()
+Public installed HUD contract: System.Boolean CrusaderDE.MainViewModel::get_Show_HUD_Extras_Button_Objectves()
+Public installed HUD contract: System.Boolean CrusaderDE.MainViewModel::get_Show_HUD_Extras_Button_Freebuild()
+Public installed HUD contract: System.Void CrusaderDE.MainViewModel::add_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+Public installed HUD contract: System.Void CrusaderDE.MainViewModel::remove_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+Public installed HUD contract: System.Void CrusaderDE.PropEx::SetSprite1(Noesis.UIElement,System.Object)
+Public installed HUD contract: System.Void CrusaderDE.PropEx::SetSprite2(Noesis.UIElement,System.Object)
+Public installed HUD contract: System.Void CrusaderDE.PropEx::SetSprite3(Noesis.UIElement,System.Object)
+Public installed HUD contract: System.Void CrusaderDE.PropEx::SetSprite4(Noesis.UIElement,System.Object)
+Public installed HUD contract: Noesis.FrameworkElement SHCDESE.API.GameXAMLManagerAPI::FindGlobalElement(System.String)
+Public installed HUD contract: SHCDESE.API.GameXAMLManagerAPI SHCDESE.API.GameXAMLManagerAPI::get_Instance()
+PASS: side-HUD accesses use installed public managed members; no native or publicized contract is required.
+Installed interception: System.Int32 EngineInterface::GameAction(Enums/GameActionCommand,System.Int32,System.Int32,System.Int32); public=True
+Installed interception: System.Void FatControler::NoesisGUIUpdateChecksInGame(); public=True
+Installed interception: System.Void FatControler::ExitApp(); public=True
+Installed interception: System.Void CrusaderDE.HUD_Main::UpdateRollover(); public=True
+Installed interception: System.Void CrusaderDE.MainViewModel::ButtonEnterCreateTroop(System.Object); public=True
+Installed interception: System.Void CrusaderDE.MainViewModel::ButtonLeaveCreateTroop(System.Object); public=False
+Installed interception: System.Void CrusaderDE.MainViewModel::ButtonTroopPanelMouseEnter(System.Object); public=False
+Installed interception: System.Void CrusaderDE.MainViewModel::ButtonTroopPanelMouseLeave(System.Object); public=False
+Installed interception: System.Void CrusaderDE.MainViewModel::ButtonUnitRechargeRock(System.Object); public=False
+PASS: all 9 managed interception signatures match the real installed game assembly.
+PASS public method: Platform_Multiplayer Platform_Multiplayer::get_Instance()
+PASS public field: Platform_Multiplayer.activeLobby : Platform_Multiplayer/MPLobby
+PASS public field: Platform_Multiplayer/MPLobby.members : System.Collections.Generic.List`1<Platform_Multiplayer/MPLobbyMember>
+PASS public field: Platform_Multiplayer/MPData.packetType : System.Int16
+PASS public field: Platform_Multiplayer/MPData.dataLength : System.Int32
+PASS public field: Platform_Multiplayer/MPData.dataOffset : System.Int32
+PASS public field: Platform_Multiplayer/MPData.data : System.Byte[]
+PASS public method: System.Byte[] Platform_Multiplayer/MPData::ToBytes()
+PASS public method: System.Void Platform_Multiplayer/MPData::.ctor()
+PASS public field: Platform_Multiplayer/MPLobbyMember.id : Steamworks.CSteamID
+PASS public field: Platform_Multiplayer/MPLobbyMember.SkirmishMember : System.Boolean
+PASS public field: Platform_Multiplayer/MPLobbyMember.dummyToBeKicked : System.Boolean
+PASS public method: System.Boolean Platform_Multiplayer/MPLobbyMember::IsSelf()
+PASS public method: System.Void SHCDESE.API.GameNetworkAPI::SendPacketToAllEx2(T,System.Int16,System.Boolean,System.Boolean)
+PASS public method: System.Void SHCDESE.API.GameNetworkAPI::SendPacketToAllEx(Platform_Multiplayer/MPData,System.Boolean)
+PASS public method: System.Void SHCDESE.API.GameNetworkAPI::SendPacketToPlayerIdEx(System.Int32,Platform_Multiplayer/MPData)
+PASS public method: System.Byte[] SHCDESE.API.GameNetworkAPI::Serialize(T)
+PASS public method: T SHCDESE.API.GameNetworkAPI::Deserialize(System.Byte[])
+PASS public method: SHCDESE.EventAPI.R3PacketEventHook`1<T> SHCDESE.API.GameNetworkAPI::GetPacketEventFor()
+PASS public method: System.Boolean SHCDESE.API.GameNetworkAPI::IsNetworkedEnvironment()
+PASS public field: SHCDESE.GameGlobals.GameGlobalsManager.ChoreManagerVA : System.UInt64
+PASS: networking accesses checked against real installed game/Extender visibility and signatures.
+PASS: standalone APIShared boundaries (74 links), runtime JSON/lifecycle/scheduling and XAML; installed interop is checked in the local full run.
+[Build] Running dotnet: test
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\Workshop\WorkshopContracts.cs(251,23): warning CS0649: Dem Feld "WorkshopUploadPlan.Published" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "false". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\Core.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\PresetAtomicPublisherTests.cs(10,10): warning MSTEST0044: „DataTestMethod“ ist veraltet. Verwenden Sie stattdessen „TestMethod“. (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0044) [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\Core.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\WorkshopInventoryTests.cs(48,10): warning MSTEST0044: „DataTestMethod“ ist veraltet. Verwenden Sie stattdessen „TestMethod“. (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0044) [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\Core.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\WorkshopMigrationTests.cs(9,10): warning MSTEST0044: „DataTestMethod“ ist veraltet. Verwenden Sie stattdessen „TestMethod“. (https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/mstest0044) [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\Core.Tests.csproj]
+  Core.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\bin\Release\net10.0\Core.Tests.dll
+Testlauf für "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\bin\Release\net10.0\Core.Tests.dll" (.NETCoreApp,Version=v10.0)
+Insgesamt 1 Testdateien stimmten mit dem angegebenen Muster überein.
+  Fehler RejectedLookupsAllocateNothingAndKeepCallerFailureReasons [7 ms]
+  Fehlermeldung:
+   Assertion failed. Es wurde erwartet, dass die Werte gleich sind.
+no automatic site tracking, formatting or logging allocations
+
+expected: 0
+actual:   24
+
+Assert.AreEqual(0L, allocated)
+  Stapelverfolgung:
+     at APIShared.Core.Tests.UnitAccessTests.RejectedLookupsAllocateNothingAndKeepCallerFailureReasons() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\Core.Tests\UnitAccessTests.cs:line 80
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+Ergebnisdatei: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\.local\test-results\Serpens66_PC-SERPW11_2026-10-11_22_21_04_net10.0.trx
+
+Fehler!      : Fehler:     1, erfolgreich:   137, übersprungen:     0, gesamt:   138, Dauer: 2 s - Core.Tests.dll (net10.0)
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tools\Build.ps1 : dotnet failed with exit 
+code 1.
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tools\Build.ps1:75 Zeichen:11
++ } catch { Write-Error $_; exit 1 }
++           ~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Build.ps1
+ 
+[11.10.2026 22:21:06,63] END: exit code 1

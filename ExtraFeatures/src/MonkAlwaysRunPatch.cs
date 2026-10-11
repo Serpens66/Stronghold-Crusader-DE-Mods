@@ -124,9 +124,7 @@ namespace ExtraFeatures
             Shared.CrashBreadcrumbDiagnostics.Record(
                 "MonkMovementSetting",
                 value ? 1 : 0);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Extra Features Monks Always Run is now {(value ? "enabled" : "disabled")}; " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/MonkAlwaysRunPatch.cs:127", $"Extra Features Monks Always Run is now {(value ? "enabled" : "disabled")}; " +
                 "the native Monk movement decision applies to both skins.");
         }
 

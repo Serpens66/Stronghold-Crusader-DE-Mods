@@ -61,7 +61,7 @@ namespace BugfixesAndQoL.UnitCommands
             if (state == null)
                 return;
             ClearPreview();
-            APIShared.Internal.DebugLogHelper.LogDebug(log, $"FORMATION_DRAG_ABORTED: {reason}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Activation.cs:64", $"FORMATION_DRAG_ABORTED: {reason}.");
         }
 
         internal void DisableForProcess(string contract, Exception exception) => FailOpen(contract, exception);
@@ -85,8 +85,7 @@ namespace BugfixesAndQoL.UnitCommands
             try { APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
-                APIShared.Internal.DebugLogHelper.LogError(log,
-                    $"FORMATION_DISABLED: contract={contract}; Vanilla remains active; {exception}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Activation.cs:88", $"FORMATION_DISABLED: contract={contract}; Vanilla remains active; {exception}");
             }
             catch { }
         }

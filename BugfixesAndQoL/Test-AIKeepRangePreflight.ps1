@@ -27,7 +27,8 @@ if ($source -match '\bhook\??\.(Enable|Dispose)\s*\(' -or
 if ($runtime.IndexOf('Chainloader.PluginInfos.ContainsKey("AIKeepRangeLimitTest_Serp")') -lt 0 -or
     $runtime.IndexOf('Chainloader.PluginInfos') -gt $runtime.IndexOf('AIKeepRangeNativeContract.Resolve')) { throw 'Legacy testmod must be rejected before resolving/patching.' }
 if ([regex]::Matches($runtime,'DebugLogHelper.LogInfo\(').Count -ne 0 -or
-    [regex]::Matches($runtime,'DebugLogHelper.LogDebug\(').Count -ne 2 -or
+    [regex]::Matches($runtime,'DebugLogHelper\.LogDebug\(').Count -ne 1 -or
+    [regex]::Matches($runtime,'DebugLogHelper\.LogDebugLimited\(').Count -ne 1 -or
     $runtime -notmatch 'AI_KEEP_RANGE_READY:' -or
     $runtime -match 'Interlocked.Increment|AI exception:|human Vanilla forwarding:') { throw 'Unexpected verbose callback logging.' }
 if ($vm -notmatch 'private bool removeAIKeepRangeLimit = true;' -or

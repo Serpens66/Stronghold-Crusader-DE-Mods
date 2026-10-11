@@ -132,9 +132,7 @@ namespace BugfixesAndQoL
                 healer->r_AIState = VanillaTransitionState;
                 healer->UnknownRelevant2 = unchecked((byte)LeavingBuildingTransition);
                 healer->UnknownRelevant2_2 = unchecked((byte)(LeavingBuildingTransition >> 8));
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Bugfixes and QoL stuck-apothecary transition corrected: unit={unitId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueApothecaryStateTransitionFix.cs:135", $"Bugfixes and QoL stuck-apothecary transition corrected: unit={unitId}, " +
                     $"global={healer->r_GlobalId}, position={healer->r_CurrentTilePositionX}," +
                     $"{healer->r_CurrentTilePositionY}, state=2->109, " +
                     $"buildingTransition=0x{((ushort)(healer->UnknownRelevant2 | (healer->UnknownRelevant2_2 << 8))):X4}, vanillaNextState=5.");
@@ -153,9 +151,7 @@ namespace BugfixesAndQoL
                 return;
 
             correctionAvailable = false;
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"Bugfixes and QoL stuck-apothecary fix disabled for this process because {reason}: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueApothecaryStateTransitionFix.cs:156", $"Bugfixes and QoL stuck-apothecary fix disabled for this process because {reason}: {ex}");
         }
 
         private static bool TryGetHealer(int unitId, out GameUnit* healer)

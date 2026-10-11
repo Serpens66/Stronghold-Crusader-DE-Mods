@@ -540,9 +540,7 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.AreaRemovalHeightLength,
                     "area moat-removal height");
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Extra Features elevated-moat active; AI={allowAIPlacement}, human={allowHumanPlacement}, editor=true, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:543", $"Extra Features elevated-moat active; AI={allowAIPlacement}, human={allowHumanPlacement}, editor=true, " +
                     $"adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
                     $"healthReportInterval={ElevatedMoatHealthReporting.ReportInterval} corrections.");
 
@@ -821,9 +819,7 @@ namespace ExtraFeatures
             if (!ElevatedMoatHealthReporting.ShouldReport(total))
                 return;
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Extra Features elevated-moat healthy: corrections={total}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:824", $"Extra Features elevated-moat healthy: corrections={total}, " +
                 $"completed={Interlocked.Read(ref completedHeightCorrections)}, " +
                 $"restored={Interlocked.Read(ref restoredHeightCorrections)}, errors=0.");
         }
@@ -1066,9 +1062,7 @@ namespace ExtraFeatures
             if (Interlocked.Exchange(ref callbackFailureReported, 1) != 0)
                 return;
 
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"Extra Features elevated-moat callback failed at {stage}; later duplicate failures are suppressed: {exception}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:1069", $"Extra Features elevated-moat callback failed at {stage}; later duplicate failures are suppressed: {exception}");
         }
 
     }

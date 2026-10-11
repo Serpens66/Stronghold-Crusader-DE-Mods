@@ -246,25 +246,21 @@ namespace BugfixesAndQoL
                         building->r_NextProducedGoodId == choice.Good && building->r_ProducedGoodId == choice.Good)
                         verified++;
                 }
-                Shared.DebugLogHelper.LogDebug(log,
-                    $"Prebuilt AI workshop Both fix: session={sessionId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PrebuiltAiWorkshopBothFixRuntime.cs:249", $"Prebuilt AI workshop Both fix: session={sessionId}, " +
                     $"captured={observed.Count}, corrected={corrected.Count}, verified={verified}, " +
                     $"goods=bows:{bows},crossbows:{crossbows},maces:{maces},swords:{swords}," +
                     $"spears:{spears},pikes:{pikes}, " +
                     $"workshops=[{string.Join(",", workshopGoods)}], invalid={invalid}, firstTick={tick}.");
                 if (verified != corrected.Count)
-                    Shared.DebugLogHelper.LogWarning(log,
-                        $"Prebuilt AI workshop Both fix: {corrected.Count - verified} corrected workshop(s) changed before the first tick.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PrebuiltAiWorkshopBothFixRuntime.cs:256", $"Prebuilt AI workshop Both fix: {corrected.Count - verified} corrected workshop(s) changed before the first tick.");
                 if (invalid != 0)
-                    Shared.DebugLogHelper.LogWarning(log,
-                        $"Prebuilt AI workshop Both fix: {invalid} captured workshop(s) had unexpected first-tick goods or identity.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PrebuiltAiWorkshopBothFixRuntime.cs:259", $"Prebuilt AI workshop Both fix: {invalid} captured workshop(s) had unexpected first-tick goods or identity.");
             }
             catch (Exception ex) { Fail("First-tick verification failed", ex); }
         }
 
         private void WarnRejectedGroup(int playerId, eStructs type, string reason) =>
-            Shared.DebugLogHelper.LogWarning(log,
-                $"Prebuilt AI workshop Both fix skipped player={playerId}, type={type}: {reason}.");
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PrebuiltAiWorkshopBothFixRuntime.cs:266", $"Prebuilt AI workshop Both fix skipped player={playerId}, type={type}: {reason}.");
 
         private void ResetMapState()
         {
@@ -280,7 +276,7 @@ namespace BugfixesAndQoL
             captureNativeStart = false;
             reportOnFirstTick = false;
             observed.Clear();
-            Shared.DebugLogHelper.LogError(log, $"Prebuilt AI workshop Both fix: {message}: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PrebuiltAiWorkshopBothFixRuntime.cs:283", $"Prebuilt AI workshop Both fix: {message}: {ex}");
         }
 
         private int ReadPrebuiltBits() => Marshal.ReadInt32(prebuiltPlayersBits);

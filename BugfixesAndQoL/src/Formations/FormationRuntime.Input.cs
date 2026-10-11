@@ -142,9 +142,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!releaseObserved)
                     return;
                 ClearPreview();
-                APIShared.Internal.DebugLogHelper.LogDebug(
-                    log,
-                    $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs:145", $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
                     $"thread={Environment.CurrentManagedThreadId}; awaiting native release.");
             }
             catch (Exception exception)
@@ -245,9 +243,7 @@ namespace BugfixesAndQoL.UnitCommands
                 drag = state;
                 PublishPreview(state, force: true);
             }
-            APIShared.Internal.DebugLogHelper.LogDebug(
-                log,
-                $"FORMATION_DRAG_START: tribe={tribeId}, units={selection.Length}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs:248", $"FORMATION_DRAG_START: tribe={tribeId}, units={selection.Length}, " +
                 $"target={target.NativeX},{target.NativeY}, kind={state.Kind}, " +
                 $"density={state.Density}, placement={state.PlacementMode}.");
         }

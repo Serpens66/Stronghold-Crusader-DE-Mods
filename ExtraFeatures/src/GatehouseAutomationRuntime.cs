@@ -1050,7 +1050,7 @@ namespace ExtraFeatures
             if (string.Equals(lastVisibilityState, state, StringComparison.Ordinal))
                 return;
             lastVisibilityState = state;
-            log.LogDebug($"[{TimestampNow()}] Extra Features gatehouse diagnostic: button visibility state: {state}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures.GatehouseVisibility", () => $"Extra Features gatehouse button visibility: {state}.");
         }
 
         private void LogFailure(string message)
@@ -1061,12 +1061,12 @@ namespace ExtraFeatures
             LogWarning($"{message}. Vanilla remains authoritative ({failureLogs}/{MaximumFailureLogs}).");
         }
 
-        private void LogInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => log.LogDebug($"[{TimestampNow()}] Extra Features {message}"));
-        private void LogWarning(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => log.LogWarning($"[{TimestampNow()}] Extra Features {message}"));
-        private void LogError(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => log.LogError($"[{TimestampNow()}] Extra Features {message}"));
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
     }

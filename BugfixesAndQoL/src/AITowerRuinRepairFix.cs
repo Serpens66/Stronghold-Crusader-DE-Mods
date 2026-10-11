@@ -85,9 +85,7 @@ namespace BugfixesAndQoL
             {
                 classifierTransaction?.Dispose();
                 classifierTransaction = null;
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "AI tower-ruin native classifiers could not be installed; the fix stays " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:88", "AI tower-ruin native classifiers could not be installed; the fix stays " +
                     $"fail-closed and Vanilla behavior remains active: {ex}");
             }
 
@@ -155,9 +153,7 @@ namespace BugfixesAndQoL
             if (!narrowRuinClassifierHook.IsInstalled || !broadRuinClassifierHook.IsInstalled)
             {
                 logicallyEnabled = false;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "AI tower-ruin repair was disabled because a permanent native classifier hook is no longer installed.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:158", "AI tower-ruin repair was disabled because a permanent native classifier hook is no longer installed.");
                 return;
             }
 
@@ -222,9 +218,7 @@ namespace BugfixesAndQoL
                 // the true building type before cleanup, so this register-only surrogate never
                 // changes the building record.
                 registers->RCX = NativeDeletableSurrogateType;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"AI tower ruin routed through Vanilla {branch} cleanup: player={playerId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:225", $"AI tower ruin routed through Vanilla {branch} cleanup: player={playerId}, " +
                     $"type={type}, buildingId={buildingId}, globalId={building->r_GlobalId}.");
             }
             catch (Exception ex)
@@ -296,9 +290,7 @@ namespace BugfixesAndQoL
                         building.r_TilePositionYBegin);
                 }
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"AI tower-ruin tracking reconstructed after save load: count={runtimeRuins.Count}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:299", $"AI tower-ruin tracking reconstructed after save load: count={runtimeRuins.Count}.");
             }
             catch (Exception ex)
             {
@@ -380,9 +372,7 @@ namespace BugfixesAndQoL
             if (callbackFailureLogged)
                 return;
             callbackFailureLogged = true;
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"AI tower-ruin repair callback failed during {operation}; further callback errors are " +
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:383", $"AI tower-ruin repair callback failed during {operation}; further callback errors are " +
                 $"suppressed and Vanilla remains active: {ex}");
         }
 

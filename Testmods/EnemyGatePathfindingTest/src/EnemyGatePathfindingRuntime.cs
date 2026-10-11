@@ -35,6 +35,8 @@ namespace EnemyGatePathfindingTest
 
         private readonly ManualLogSource log;
         private readonly bool detailedDiagnostics;
+        private readonly bool macemenDiagnostics;
+        private MacemenCommandDiagnostics macemen;
         private readonly DeferredGateDiagnosticErrors deferredErrors = new DeferredGateDiagnosticErrors();
         private uint reportedIntegrityErrors;
         private long nextErrorCheckAt;
@@ -67,10 +69,11 @@ namespace EnemyGatePathfindingTest
         private readonly CapturerSample[] samples =
             new CapturerSample[SiteCount * DecisionCount];
 
-        internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = true)
+        internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = true, bool macemenDiagnostics = false)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.detailedDiagnostics = detailedDiagnostics;
+            this.detailedDiagnostics = detailedDiagnostics && !macemenDiagnostics;
+            this.macemenDiagnostics = macemenDiagnostics;
         }
 
         internal void ObserveBuildingCapture(BuildingCaptureEventArgs args)
@@ -134,6 +137,10 @@ namespace EnemyGatePathfindingTest
                 "builder-precheck captured-player filter");
             topologyProvider = new GateTopologySnapshotProvider(log, detailedDiagnostics, deferredErrors);
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
+            if (macemenDiagnostics)
+                macemen = new MacemenCommandDiagnostics(log,
+                    () => samePclRouteRuntime?.TemporaryAcceptanceSnapshot ?? RouteTilePolicySnapshot.Empty,
+                    () => gateAccess);
             if (detailedDiagnostics)
             {
                 attackOrderDiagnostics = new AttackOrderCorrelationDiagnostics(log, topologyProvider);
@@ -197,6 +204,7 @@ namespace EnemyGatePathfindingTest
                 samePclRouteRuntime = new SamePclGateRouteRuntime(
                     log, memory, context.Region, libraryBase, friendlyMoatHookOwnerLoaded,
                     attackOrderDiagnostics, deferredErrors);
+                samePclRouteRuntime.MacemenDiagnostics = macemen;
             }
             catch (Exception ex)
             {
@@ -249,6 +257,7 @@ namespace EnemyGatePathfindingTest
             attackOrderDiagnostics?.Reset();
             temporaryAcceptance?.Begin();
             topologyProvider?.BeginExplicitEpoch(reason);
+            macemen?.Begin(topologyProvider?.DiagnosticEpoch ?? 0);
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate map started: epoch={topologyProvider?.DiagnosticEpoch}, editor={editor}, " +
                 $"direction masks={(samePclRouteRuntime?.Installed == true ? "active" :
@@ -268,6 +277,7 @@ namespace EnemyGatePathfindingTest
                 temporaryAcceptance.CompareBuilderTotals(same.AiQueries, same.AiNoRoutes);
             }
             temporaryAcceptance?.End();
+            macemen?.End();
             topologyProvider?.EndEpoch(reason);
             gateAccess = NativeGateAccessSnapshot.Empty;
         }
@@ -281,6 +291,7 @@ namespace EnemyGatePathfindingTest
                 samePclRouteRuntime?.ProcessDeferred();
                 attackOrderDiagnostics?.ProcessDeferred();
                 temporaryAcceptance?.Deferred();
+                macemen?.Deferred();
                 long now = Stopwatch.GetTimestamp();
                 FlushDeferredErrors();
                 if (detailedDiagnostics && Volatile.Read(ref mapActive) != 0 &&
@@ -401,18 +412,21 @@ namespace EnemyGatePathfindingTest
 
         internal void ObserveTargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {
+            macemen?.TargetOrder(args);
             try { attackOrderDiagnostics?.ObserveOrder(args); }
             catch (Exception ex) { TryLogDiagnosticFailure(ex); }
         }
 
         internal void ObserveTribeMove(TribeIssueOrderMoveHereEventArgs args)
         {
+            macemen?.GroupMove(args);
             try { attackOrderDiagnostics?.ObserveTribeMove(args); }
             catch (Exception ex) { TryLogDiagnosticFailure(ex); }
         }
 
         internal void ObserveUnitMove(UnitMoveHereEventArgs args)
         {
+            macemen?.UnitMove(args);
             try { attackOrderDiagnostics?.ObserveUnitMove(args); }
             catch (Exception ex) { TryLogDiagnosticFailure(ex); }
         }
@@ -588,6 +602,9 @@ namespace EnemyGatePathfindingTest
                 else
                     Interlocked.Increment(ref untrackedNonGate);
             }
+            if (macemen != null)
+                macemen.GateComparison(queryPlayerId, buildingId, subjectGlobalId, originalZero, finalZero,
+                    site, nativeOwner, nativeCaptured);
             if (detailedDiagnostics && builderPrecheck)
             {
                 try

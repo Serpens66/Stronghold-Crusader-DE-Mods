@@ -273,7 +273,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void Write(string message) =>
-            log.LogDebug($"[{DateTimeOffset.Now:yyyy-MM-ddTHH:mm:ss.fffzzz}] TANNER_FADE_FIX {message}");
+        private void Write(string message, [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
+            Shared.DebugLogHelper.LogDebugLimited(log, "TannerFade:" + callerLine, message);
     }
 }

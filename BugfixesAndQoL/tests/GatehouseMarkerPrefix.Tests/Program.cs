@@ -201,6 +201,6 @@ namespace Shared
         public static List<string> Logs = new List<string>();
         public static bool IsCurrentNativeLibraryVersion() { return true; }
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { Logs.Add(text); }
-        public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { Logs.Add(text); }
+        public static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { Logs.Add(text); }
     }
 }

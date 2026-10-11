@@ -26,6 +26,9 @@ if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
+set "NO_INSTALL=0"
+if defined SHCDE_PREPARE_ONLY set "NO_INSTALL=%SHCDE_PREPARE_ONLY%"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
@@ -118,6 +121,7 @@ popd
 echo.
 if "%BUILD_EXIT_CODE%"=="0" (
   echo Build erfolgreich.
+if "%NO_INSTALL%"=="1" goto prepared_no_install
   echo Kopiere Plugin in den Spielordner...
   set "PLUGIN_NAME=StartConditions_Serp"
   set "OLD_PLUGIN_NAME=StartConditions"
@@ -187,3 +191,9 @@ echo Kopieren fehlgeschlagen. Ist das Spiel noch gestartet?
 echo Beende Stronghold Crusader Definitive Edition und starte build.bat erneut.
 echo.
 exit /b 1
+
+:prepared_no_install
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName StartConditions
+if errorlevel 1 exit /b 1
+echo Paket vorbereitet; Installation uebersprungen.
+exit /b 0

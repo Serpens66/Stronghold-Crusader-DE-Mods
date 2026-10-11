@@ -106,6 +106,36 @@ namespace EnemyGatePathfindingTest
             check(timeline.Phase(reused, 134, 201, 202) == "transition");
             timeline.Reset(3); check(timeline.Phase(reused, 134, 201, 202) == "not-attributed");
             check(timeline.Generation == 0 && timeline.Epoch == 3);
+            // Delayed Extender Post must not undo a publication made between Pre and Post.
+            for (int iteration = 0; iteration < 48; iteration++)
+            {
+                timeline.Reset(10 + iteration); timeline.Publish(before, 1, 100);
+                timeline.ObserveCapture(134, 2, 110); timeline.Publish(captured, 2, 120);
+                timeline.ObserveCapture(134, 2, 130, post: true);
+                check(timeline.Phase(captured, 134, 131, 132) == "after-confirmed-publication");
+                check(timeline.Describe(134).Contains("capturePending=False") &&
+                    timeline.Describe(134).Contains("captureEventMono=110,capturePostEventMono=130"));
+                timeline.ObserveCapture(134, 3, 140); timeline.ObserveCapture(134, 3, 150, post: true);
+                check(timeline.Phase(captured, 134, 151, 152) == "transition");
+                timeline.Publish(third, 3, 160);
+                check(timeline.Phase(third, 134, 161, 162) == "after-confirmed-publication");
+                timeline.ObserveCapture(134, 2, 165, post: true); // unmatched old notification
+                check(timeline.Phase(third, 134, 166, 167) == "after-confirmed-publication");
+                timeline.ObserveCapture(134, 0, 170); timeline.Publish(before, 4, 180);
+                timeline.ObserveCapture(134, 0, 190, post: true);
+                check(timeline.Phase(before, 134, 191, 192) == "before-capture");
+                timeline.ObserveCapture(134, 2, 200);
+                var changedOwner = new RouteTilePolicySnapshot(new byte[9][], 123, gateIdentities:
+                    new System.Collections.Generic.Dictionary<int, RouteTilePolicySnapshot.GateIdentity> {
+                        {134, new RouteTilePolicySnapshot.GateIdentity(6658, 3, 2)} });
+                timeline.Publish(changedOwner, 5, 210);
+                check(timeline.Phase(changedOwner, 134, 211, 212) == "transition");
+                timeline.Publish(reused, 6, 220);
+                check(timeline.ObserveCapture(134, 2, 230, post: true) == 0);
+                check(timeline.Phase(changedOwner, 134, 231, 232) == "not-attributed");
+                timeline.Reset(100 + iteration);
+                check(timeline.ObserveCapture(134, 2, 240, post: true) == 0);
+            }
             var chronological = new TemporaryGateAcceptanceAggregate();
             for (int i = 1; i <= 100; i++)
             {

@@ -55,7 +55,7 @@ namespace UnitLimit
                     .Subscribe(OnUnitTransition));
 
                 subscribed = true;
-                LogDebug("ActiveUnitCache hooks subscribed.");
+                LogDebug("UnitLimit/src/ActiveUnitCache.cs:58", "ActiveUnitCache hooks subscribed.");
             }
             catch
             {
@@ -69,7 +69,7 @@ namespace UnitLimit
             foreach (IDisposable subscription in subscriptions)
             {
                 try { subscription.Dispose(); }
-                catch (Exception ex) { LogDebug("ActiveUnitCache subscription cleanup failed:", ex); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/ActiveUnitCache.cs:72", "ActiveUnitCache subscription cleanup failed:", ex); }
             }
 
             subscriptions.Clear();
@@ -139,7 +139,7 @@ namespace UnitLimit
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanActiveIds > 0 || humanCountKeys > 0)
             {
-                LogDebug(
+                LogDebug("UnitLimit/src/ActiveUnitCache.cs:142",
                     "ActiveUnitCache ResyncAll:",
                     "raiseEvents", raiseEvents,
                     "scanned", scannedUnits,
@@ -157,8 +157,6 @@ namespace UnitLimit
             if (args.Phase != EventHookPhase.Post || args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
                 return;
 
-            if (verboseUnitEventLogging)
-                LogDebug($"OnUnitCreate: unitId={args.ReturnValue}, type={args.UnitType}, owner={args.PlayerOwnerId}, phase={args.Phase}");
 
             NotifyNativeSnapshotChanged((int)args.ReturnValue, ActiveUnitChangeReason.Created);
         }
@@ -168,23 +166,11 @@ namespace UnitLimit
             if (args.Phase != EventHookPhase.Pre || args.UnitId == 0 || args.UnitId > int.MaxValue)
                 return;
 
-            if (verboseUnitEventLogging)
-                LogDebug("OnUnitDelete", "unitId", args.UnitId, "phase", args.Phase);
             RemoveUnit((int)args.UnitId, ActiveUnitChangeReason.Deleted);
         }
 
         private void OnUnitTransition(UnitTransitionEventArgs args)
         {
-            if (verboseUnitEventLogging)
-            {
-                LogDebug(
-                    "ActiveUnitCache OnUnitTransition fired: " +
-                    "phase=" + args.Phase +
-                    ", unitId=" + args.UnitId +
-                    ", playerOwnerId=" + args.PlayerOwnerId +
-                    ", nextUnitType=" + args.NextUnitType +
-                    ", source=" + args.Source);
-            }
 
             if (args.Phase != EventHookPhase.Pre || args.UnitId <= 0)
                 return;
@@ -268,11 +254,6 @@ namespace UnitLimit
             }
             else if (verboseUnitEventLogging)
             {
-                LogDebug(
-                    "ActiveUnitCache transition owner confirmed:",
-                    "source", args.Source,
-                    "unitId", args.UnitId,
-                    "owner", snapshot.OwnerId);
             }
 
             UnitSnapshot transitionedSnapshot = new UnitSnapshot(
@@ -294,24 +275,13 @@ namespace UnitLimit
 
             if (TryReadSnapshot(unitId, out UnitSnapshot snapshot))
             {
-                if (ShouldLogCacheChange(fallbackReason, snapshot.OwnerId))
-                {
-                    LogDebug(
-                        "ActiveUnitCache NotifyNativeSnapshotChanged read snapshot:",
-                        "unitId", unitId,
-                        "owner", snapshot.OwnerId,
-                        "type", snapshot.UnitType,
-                        "aliveState", snapshot.AliveState,
-                        "reason", fallbackReason,
-                        "preferFallbackReason", preferFallbackReason);
-                }
                 UpdateSnapshot(unitId, snapshot, fallbackReason, preferFallbackReason);
             }
             else
             {
                 if (ShouldLogCacheChange(fallbackReason, 0))
                 {
-                    LogDebug(
+                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:314",
                         "ActiveUnitCache NotifyNativeSnapshotChanged missing snapshot:",
                         "unitId", unitId,
                         "reason", fallbackReason,
@@ -372,18 +342,6 @@ namespace UnitLimit
             if (ShouldLogCacheChange(fallbackReason, snapshot.OwnerId) ||
                 (eventArgs != null && ShouldLogCacheChange(eventArgs.Reason, eventArgs.OldSnapshot.OwnerId)))
             {
-                LogDebug(
-                    "ActiveUnitCache UpdateSnapshot:",
-                    "unitId", unitId,
-                    "oldOwner", eventArgs == null ? 0 : eventArgs.OldSnapshot.OwnerId,
-                    "oldType", eventArgs == null ? default(eChimps) : eventArgs.OldSnapshot.UnitType,
-                    "oldAliveState", eventArgs == null ? default(AliveState) : eventArgs.OldSnapshot.AliveState,
-                    "owner", snapshot.OwnerId,
-                    "type", snapshot.UnitType,
-                    "aliveState", snapshot.AliveState,
-                    "reason", fallbackReason,
-                    "preferFallbackReason", preferFallbackReason,
-                    "changed", changed);
             }
 
             if (eventArgs != null)
@@ -409,17 +367,6 @@ namespace UnitLimit
                 }
             }
 
-            if (ShouldLogCacheChange(reason, removedSnapshot.OwnerId))
-            {
-                LogDebug(
-                    "ActiveUnitCache RemoveUnit:",
-                    "unitId", unitId,
-                    "owner", removedSnapshot.OwnerId,
-                    "type", removedSnapshot.UnitType,
-                    "aliveState", removedSnapshot.AliveState,
-                    "reason", reason,
-                    "removedOrKnown", removedOrKnown);
-            }
 
             if (eventArgs != null)
                 ApplyAndRaiseEvent(eventArgs);
@@ -476,7 +423,7 @@ namespace UnitLimit
 
             if (ShouldLogCacheChange(reason, key.PlayerId))
             {
-                LogDebug(
+                LogDebug("UnitLimit/src/ActiveUnitCache.cs:479",
                     "ActiveUnitCache count changed:",
                     "player", key.PlayerId,
                     "type", key.UnitType,
@@ -520,7 +467,7 @@ namespace UnitLimit
 
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanCountKeys > 0)
-                LogDebug("ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                LogDebug("UnitLimit/src/ActiveUnitCache.cs:523", "ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
         }
 
         private int GetHumanActiveUnitIdCount()
@@ -555,32 +502,21 @@ namespace UnitLimit
 
         private void LogAllCounts(string prefix)
         {
-            List<KeyValuePair<UnitCountKey, int>> counts;
-            lock (syncRoot)
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitLimit/src/ActiveUnitCache.cs.Summary", () =>
             {
-                counts = new List<KeyValuePair<UnitCountKey, int>>(countsByOwnerAndType);
-            }
-
-            counts.Sort((left, right) =>
-            {
-                int playerCompare = left.Key.PlayerId.CompareTo(right.Key.PlayerId);
-                if (playerCompare != 0)
-                    return playerCompare;
-
-                return left.Key.UnitType.CompareTo(right.Key.UnitType);
+                int keys = 0;
+                int total = 0;
+                lock (syncRoot)
+                {
+                    foreach (KeyValuePair<UnitCountKey, int> pair in countsByOwnerAndType)
+                    {
+                        if (!ShouldLogPlayer(pair.Key.PlayerId)) continue;
+                        keys++;
+                        total += pair.Value;
+                    }
+                }
+                return prefix + ": humanCountKeys=" + keys + ", aliveTotal=" + total + ".";
             });
-
-            foreach (KeyValuePair<UnitCountKey, int> pair in counts)
-            {
-                if (!ShouldLogPlayer(pair.Key.PlayerId))
-                    continue;
-
-                LogDebug(
-                    prefix + ":",
-                    "player", pair.Key.PlayerId,
-                    "type", pair.Key.UnitType,
-                    "count", pair.Value);
-            }
         }
 
         private static void AddUnitEvent(ref List<ActiveUnitChangedEventArgs> events, int unitId, UnitSnapshot oldSnapshot, UnitSnapshot newSnapshot, ActiveUnitChangeReason reason)
@@ -710,17 +646,17 @@ namespace UnitLimit
                     "suppressedOwnerWarnings=" + suppressedOwnerWarnings +
                     ", suppressedTypeWarnings=" + suppressedTypeWarnings + ".");
             }
-            LogDebug("ActiveUnitCache cleared.");
+            LogDebug("UnitLimit/src/ActiveUnitCache.cs:713", "ActiveUnitCache cleared.");
         }
 
-        private void LogDebug(params object[] parts)
+        private void LogDebug(string site, params object[] parts)
         {
-            Shared.DebugLogHelper.LogDebug(log, parts);
+            Shared.DebugLogHelper.LogDebugLimited(log, site, parts);
         }
 
-        private void LogWarning(string message)
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
-            Shared.DebugLogHelper.LogWarning(log, message);
+            Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
         }
 
         internal enum ActiveUnitChangeReason

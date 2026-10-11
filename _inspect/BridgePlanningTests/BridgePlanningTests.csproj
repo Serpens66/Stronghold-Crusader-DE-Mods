@@ -7,4 +7,7 @@
 <ItemGroup><Compile Include="..\..\Testmods\EnemyBridgePathTest\src\VirtualCandidateBuilder.cs" /><Compile Include="CandidateWorkTests.cs" /><Compile Include="MilitaryContracts.cs" /></ItemGroup>
 <ItemGroup><Compile Include="..\..\Testmods\EnemyBridgePathTest\src\CopiedCandidateInputs.cs" /></ItemGroup>
 <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="..\..\Testmods\EnemyBridgePathTest\src\CopiedMilitaryEntry.cs" />
+  </ItemGroup>
 </Project>

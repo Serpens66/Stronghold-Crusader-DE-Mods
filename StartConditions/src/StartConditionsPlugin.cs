@@ -61,7 +61,7 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"StartConditions settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/src/StartConditionsPlugin.cs:64", $"StartConditions settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -71,7 +71,7 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing StartConditions after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/src/StartConditionsPlugin.cs:74", $"Error while initializing StartConditions after library load: {ex}");
             }
         }
 
@@ -80,7 +80,7 @@ namespace StartConditions
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"StartConditions {stageName} failed; independent stages continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/src/StartConditionsPlugin.cs:83", $"StartConditions {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

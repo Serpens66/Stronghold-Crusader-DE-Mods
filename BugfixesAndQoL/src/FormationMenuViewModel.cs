@@ -74,7 +74,7 @@ namespace BugfixesAndQoL
             {
                 if (!FeatureAvailable || rememberRows.Value == value) return;
                 try { rememberRows.Value = value; SaveConfiguration("rememberRows", value.ToString()); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement preference save failed: " + ex.Message); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:77", "Arrangement preference save failed: " + ex.Message); }
             });
         }
 
@@ -94,7 +94,7 @@ namespace BugfixesAndQoL
             {
                 if (!rememberRows.Value || rememberedRows[index].Value == selectedRows) return;
                 try { rememberedRows[index].Value = selectedRows; SaveConfiguration("remembered" + kind + "Rows", selectedRows.ToString()); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement preference save failed: " + ex.Message); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:97", "Arrangement preference save failed: " + ex.Message); }
             });
         }
 
@@ -275,9 +275,7 @@ namespace BugfixesAndQoL
         private void SaveConfiguration(string setting, string value)
         {
             configFile.Save();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"FORMATION_MENU_CHANGED: setting={setting}, value={value}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:278", $"FORMATION_MENU_CHANGED: setting={setting}, value={value}.");
         }
 
         private void ConfigurationChanged(object sender, System.EventArgs args)
@@ -329,8 +327,7 @@ namespace BugfixesAndQoL
             if (!value)
                 HideRollover();
             OnChanged(nameof(MenuVisible));
-            Shared.DebugLogHelper.LogDebug(
-                log, $"FORMATION_MENU_VISIBILITY: visible={value}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:332", $"FORMATION_MENU_VISIBILITY: visible={value}.");
         }
 
         private void NotifySelectionsChanged()

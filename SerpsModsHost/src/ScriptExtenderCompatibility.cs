@@ -74,7 +74,7 @@ namespace SerpsModsHost
                 return records;
 
             records.AddRange((manifest.Infrastructure ?? new List<PackModRecord>())
-                .Where(record => record != null));
+                .Where(record => record != null && !string.Equals(record.State, "External", StringComparison.OrdinalIgnoreCase)));
             records.AddRange((manifest.Mods ?? new List<PackModRecord>())
                 .Where(record => record != null &&
                     string.Equals(record.State, "Active", StringComparison.OrdinalIgnoreCase)));

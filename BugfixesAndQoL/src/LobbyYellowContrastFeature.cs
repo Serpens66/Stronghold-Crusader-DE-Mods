@@ -151,9 +151,7 @@ namespace BugfixesAndQoL
                     ApplySetting();
                     if (firstBinding && !faulted)
                     {
-                        Shared.DebugLogHelper.LogDebug(
-                            log,
-                            "Bugfixes and QoL high-contrast yellow presentation ready; " +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/LobbyYellowContrastFeature.cs:154", "Bugfixes and QoL high-contrast yellow presentation ready; " +
                             $"shields=4, enabled={IsActive}.");
                     }
                 }
@@ -335,9 +333,7 @@ namespace BugfixesAndQoL
                 return;
 
             failureLogged = true;
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"Bugfixes and QoL high-contrast yellow presentation failed during {stage}; " +
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/LobbyYellowContrastFeature.cs:338", $"Bugfixes and QoL high-contrast yellow presentation failed during {stage}; " +
                 $"The previously active visuals remain in place: {error}");
         }
 
@@ -397,9 +393,7 @@ namespace BugfixesAndQoL
                 if (reportConflict && !failureLogged)
                 {
                     failureLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        "Bugfixes and QoL high-contrast yellow presentation stopped " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/LobbyYellowContrastFeature.cs:400", "Bugfixes and QoL high-contrast yellow presentation stopped " +
                         $"fail-closed while restoring its resources: {restoreError}");
                 }
             }

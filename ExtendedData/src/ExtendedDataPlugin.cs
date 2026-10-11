@@ -71,14 +71,14 @@ namespace ExtendedData
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, "ExtendedData initialization failed: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtendedData/src/ExtendedDataPlugin.cs:74", "ExtendedData initialization failed: " + ex);
             }
         }
 
         private void OnDestroy()
         {
             // The BepInEx manager object is destroyed during startup; runtime hooks must survive it.
-            Shared.DebugLogHelper.LogDebug(Logger, "ExtendedData OnDestroy called; keeping process-lifetime runtime active.");
+            Shared.DebugLogHelper.LogDebugLimited(Logger, "ExtendedData/src/ExtendedDataPlugin.cs:81", "ExtendedData OnDestroy called; keeping process-lifetime runtime active.");
         }
 
         private static void ScheduleDeferredCompatibilityRefresh()

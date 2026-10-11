@@ -141,9 +141,7 @@ namespace CastlePlanner
                 BlueprintBuildingIconCatalog
                     .CurrentCalibrationRevision);
             Save();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Blueprint building alignment calibrated from Vanilla preview: " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:144", () => $"Blueprint building alignment calibrated from Vanilla preview: " +
                 $"mapper={mapperName} ({mapperValue}), " +
                 $"skin={skin}, " +
                 $"worldSize={preview.Width:F4}x{preview.Height:F4}, " +
@@ -510,17 +508,13 @@ namespace CastlePlanner
                     IsUsableMeasurement);
                 int alignedCount = measurements.Values.Count(
                     HasUsableGroundOffset);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Loaded {measurements.Count} Blueprint building-size " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:513", () => $"Loaded {measurements.Count} Blueprint building-size " +
                     $"calibrations ({usableCount} usable sizes, " +
                     $"{alignedCount} ground-aligned) from {filePath}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Blueprint building-size calibrations could not be " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:521", $"Blueprint building-size calibrations could not be " +
                     $"loaded from {filePath}: {ex.Message}");
             }
         }
@@ -582,9 +576,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Blueprint building-size calibration could not be " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:585", $"Blueprint building-size calibration could not be " +
                     $"saved to {filePath}: {ex.Message}");
             }
         }

@@ -66,7 +66,7 @@ namespace BugfixesAndQoL
                 DeactivateLordOnlyMode(false);
                 if (callbackErrorLogged) return;
                 callbackErrorLogged = true;
-                Shared.DebugLogHelper.LogError(log, $"Lord action HUD failed closed; Vanilla presentation remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:69", $"Lord action HUD failed closed; Vanilla presentation remains active: {ex}");
             }
         }
 
@@ -109,11 +109,11 @@ namespace BugfixesAndQoL
             if (action == LordDisbandAction.UseVanilla) { disbandOriginal(self, parameter); return; }
             if (action == LordDisbandAction.RejectUnsafeMixedSelection)
             {
-                Shared.DebugLogHelper.LogWarning(log, "Mixed Lord disband rejected because its native ignore contract is unavailable.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:112", "Mixed Lord disband rejected because its native ignore contract is unavailable.");
                 return;
             }
             if (!surrenderFeature.TryRequestSurrenderFromLordHud())
-                Shared.DebugLogHelper.LogWarning(log, "Lord surrender request was rejected; Vanilla disband was not called.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:116", "Lord surrender request was rejected; Vanilla disband was not called.");
         }
 
         private void BeforeTooltip(PresentationPreEventArgs args)

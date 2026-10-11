@@ -499,9 +499,7 @@ namespace BugfixesAndQoL
             if (failureLogged)
                 return;
             failureLogged = true;
-            APIShared.Internal.DebugLogHelper.LogError(
-                log,
-                $"MOVE_TARGET_MARKER_RENDER_FAIL_OPEN: Vanilla markers retained; {exception}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:502", $"MOVE_TARGET_MARKER_RENDER_FAIL_OPEN: Vanilla markers retained; {exception}");
         }
     }
 }

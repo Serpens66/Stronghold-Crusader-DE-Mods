@@ -99,7 +99,7 @@ namespace UnitLimit
             if (hooksSubscribed)
                 return;
 
-            LogDebug("Installing permanent unit limit runtime hooks");
+            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:102", "Installing permanent unit limit runtime hooks");
             activeUnitCacheAvailable = TryInitializeFeature("active-unit cache", () =>
             {
                 activeUnitCache.SubscribeHooks();
@@ -148,7 +148,7 @@ namespace UnitLimit
                         .Subscribe(OnBuildingPlacementValidation));
             }
 
-            LogDebug("Unit limit permanent runtime hooks installed");
+            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:151", "Unit limit permanent runtime hooks installed");
             hooksSubscribed = true;
         }
 
@@ -163,7 +163,7 @@ namespace UnitLimit
             ApplyUnitLimits();
             if (EffectsEnabled)
                 Volatile.Write(ref effectsActive, 1);
-            LogDebug("Applied unit limit settings");
+            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:166", "Applied unit limit settings");
             libraryInitialized = true;
         }
 
@@ -187,14 +187,14 @@ namespace UnitLimit
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
-            LogDebug("Gameplay session started: " + context.Kind);
+            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:190", "Gameplay session started: " + context.Kind);
             ResetUnitRecruitableTracking();
             ApplyUnitLimits();
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            LogDebug("OnUnloadMap");
+            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:197", "OnUnloadMap");
             ClearPendingRecruitments("OnUnloadMap");
             ClearExternalReservations("OnUnloadMap");
             HideLimitMessage();
@@ -216,9 +216,9 @@ namespace UnitLimit
             }
         }
 
-        private void LogDebug(params object[] parts)
+        private void LogDebug(string site, params object[] parts)
         {
-            Shared.DebugLogHelper.LogDebug(log, parts);
+            Shared.DebugLogHelper.LogDebugLimited(log, site, parts);
         }
 
         private bool TryInitializeFeature(string featureName, Action initialize)
@@ -230,7 +230,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                LogDebug("Unit limit feature failed; independent features continue:", featureName, ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/UnitLimitRuntime.cs:233", "Unit limit feature failed; independent features continue:", featureName, ex);
                 return false;
             }
         }
@@ -243,7 +243,7 @@ namespace UnitLimit
                 if (subscription != null)
                     subscriptions.Add(subscription);
             }
-            catch (Exception ex) { LogDebug("Unit limit subscription failed; independent features continue:", featureName, ex); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/UnitLimitRuntime.cs:246", "Unit limit subscription failed; independent features continue:", featureName, ex); }
         }
 
         private void RollbackUnpublishedFeature(string featureName, IDisposable feature)
@@ -251,7 +251,7 @@ namespace UnitLimit
             if (feature == null)
                 return;
             try { feature.Dispose(); }
-            catch (Exception ex) { LogDebug("Unit limit unpublished feature rollback failed:", featureName, ex); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/UnitLimitRuntime.cs:254", "Unit limit unpublished feature rollback failed:", featureName, ex); }
         }
     }
 }

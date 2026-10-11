@@ -66,6 +66,7 @@ namespace BridgePlanningTests
         }
         private static void MilitaryHelperCases(NativeImage m)
         {
+            MembershipCases(m);
             var random=new Random(1031);int[] boundary={int.MinValue,-99,-17,-1,0,1,2,4,12,13,16,17,199,int.MaxValue};
             int[] fields={0x379D994,0x379D990,0x379D984,0x379D980,0x379D97C,0x379D9A0,0x379D99C,0x379D998};
             var strength=m.Function<R2>(0x2FD40);
@@ -131,6 +132,29 @@ namespace BridgePlanningTests
             classesFixture[0]=-1;rejected=false;try{EntryTribeRequirements(entryFixture,classesFixture);}catch(ArgumentException){rejected=true;}Check(rejected,"unproved entry class range rejected");
             Console.WriteLine("PASS military helpers: 512 strength,256 metric,8 leader,8 full tribe-cleanup cases; writable class tables rejected; complete entry/formation NOT executed");
         }
+        private static void MembershipCases(NativeImage m)
+        {
+            for(int fixture=0;fixture<16;fixture++)
+            {
+                var tribes=new byte[BridgePlanningCapture.EntryTribeBytes];var units=new byte[BridgePlanningCapture.EntryUnitBytes];
+                var player=new byte[0x583c];var classes=new int[22];classes[1]=1;
+                void I(byte[] b,int at,int v)=>Buffer.BlockCopy(BitConverter.GetBytes(v),0,b,at,4);
+                void S(byte[] b,int at,short v)=>Buffer.BlockCopy(BitConverter.GetBytes(v),0,b,at,2);
+                int tribe=fixture+1;I(player,0x22d0,4);S(player,0x4870,(short)tribe);I(player,0x4ac8,123);
+                I(tribes,tribe*0x688+0x34,fixture%4==0?124:123);S(tribes,tribe*0x688+0x40,fixture%3==0?(short)1:(short)2);S(tribes,tribe*0x688+0x5c,3);
+                foreach(int id in new[]{0,17,9999})
+                {
+                    int bitAt=tribe*0x688+0x60+(id/16)*2;ushort bits=BitConverter.ToUInt16(tribes,bitAt);S(tribes,bitAt,(short)(bits|(1<<(id%16))));
+                    S(units,id*0x490+0x6e4,2);S(units,id*0x490+0x8f8,id==17&&fixture%2==0?(short)1:(short)0);S(units,id*0x490+0xa84,99);
+                }
+                m.Put(0x7CC6720,tribes);m.Put(0x67E8400,units);m.Put(0x379AE00+8*0x583c,player);m.Put(0x2C8040,classes);
+                for(int ordinal=-1;ordinal<=3;ordinal++)Check(m.Function<R3>(0x119F90)(m.Ptr(0x7CC6720),tribe,ordinal)==CopiedMilitaryEntry.Member(tribes,tribe,ordinal),"whole native membership bitset/order and rejected ordinal");
+                var expected=(byte[])units.Clone();CopiedMilitaryEntry.ResetMembership(player,classes,tribes,expected);
+                m.Function<V2>(0x3CF20)(m.Ptr(0x366C210),8);
+                Equal(m.Bytes(0x67E8400,units.Length),expected,"whole native 3CF20/126020 unit side effects: identity,live/state,bit0,last-slot");
+            }
+            Console.WriteLine("PASS copied military membership:16 full-memory native differentials; original entry/formation still separate");
+        }
         private static System.Collections.Generic.List<string> EntryTribeRequirements(byte[] entry,int[] classes)
         {
             if(entry.Length!=0x583C||classes.Length!=22)throw new ArgumentException("entry class extent");
@@ -184,6 +208,24 @@ namespace BridgePlanningTests
             }
             if(missing==0)
             {
+                bool ownManagers=b.Sections.ContainsKey("military/entryInputVersion")||b.References.ContainsKey("military/entryInputVersion");
+                if(ownManagers)
+                {
+                    CopiedMilitaryEntry.Validate(b);
+                    var units=CopiedPlanningBundle.Resolve(b,"military/entryUnitManagerFull");
+                    var tribes=CopiedPlanningBundle.Resolve(b,"military/entryTribesFull");
+                    var expected=(byte[])units.Clone();
+                    var classes=ArrayValues<int>(CopiedPlanningBundle.Resolve(b,"military/entryUpdateClasses11"));
+                    CopiedMilitaryEntry.ResetMembership(entry,classes,tribes,expected);
+                    using(var native=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv")))
+                    {
+                        native.Put(0x379AE00+b.Attacker*0x583C,entry);native.Put(0x67E8400,units);native.Put(0x7CC6720,tribes);
+                        native.Put(0x2C8040,Bytes(classes));native.Function<V2>(0x3CF20)(native.Ptr(0x366C210),b.Attacker);
+                        Check(native.Bytes(0x67E8400,units.Length).SequenceEqual(expected),"historical own-entry full membership side effect");
+                    }
+                    Console.WriteLine("PASS own-entry input version1 and native membership transition; fullMilitaryEntry=False,formationComplete=False,sideEffectCallClosure=Unknown,negativePolicyEligible=False,behaviorFix=disabled");
+                    return 0;
+                }
                 int[] update=ArrayValues<int>(CopiedPlanningBundle.Resolve(b,"military/entryUpdateClasses11"));
                 foreach(var requirement in EntryTribeRequirements(entry,update))Console.WriteLine("Unknown:missing-own-3CF20-tribe-identity,"+requirement);
                 int target=BitConverter.ToInt32(entry,0x379D9A8-0x379AE00);

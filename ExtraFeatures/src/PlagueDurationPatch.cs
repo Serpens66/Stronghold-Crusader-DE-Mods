@@ -155,9 +155,7 @@ namespace ExtraFeatures
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            "Extra Features could not initialize AI flag Disease tracking; " +
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:158", "Extra Features could not initialize AI flag Disease tracking; " +
                             $"the permanent lifetime hook remains active without that exception: {ex}");
                     }
                 }
@@ -175,9 +173,7 @@ namespace ExtraFeatures
                 RollbackUnpublishedLifetimeComparisonHook(candidate, hookPublished);
                 aiFlagDiseaseTracker?.Dispose();
                 aiFlagDiseaseTracker = null;
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Extra Features could not initialize the AI flag and Cesspit Disease lifetime exceptions; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:178", "Extra Features could not initialize the AI flag and Cesspit Disease lifetime exceptions; " +
                     $"the configured global plague duration remains active: {ex}");
             }
         }
@@ -217,9 +213,7 @@ namespace ExtraFeatures
                     return;
 
                 conditionalCallbackFailureLogged = true;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "Extra Features plague lifetime callback was disabled for this process; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:220", "Extra Features plague lifetime callback was disabled for this process; " +
                     $"the physically installed hook now preserves Vanilla behavior: {ex}");
             }
         }

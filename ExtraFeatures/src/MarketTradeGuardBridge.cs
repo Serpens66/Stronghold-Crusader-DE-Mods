@@ -43,9 +43,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Extra Features market-purchase guard integration failed; purchased goods may be treated as gained goods: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/MarketTradeGuardBridge.cs:46", $"Extra Features market-purchase guard integration failed; purchased goods may be treated as gained goods: {ex}");
             }
         }
 

@@ -125,8 +125,7 @@ namespace BugfixesAndQoL
         {
             Volatile.Write(ref enabled, 0);
             if (Interlocked.Exchange(ref failed, 1) == 0)
-                Shared.DebugLogHelper.LogError(log,
-                    "GATEHOUSE_TARGET_MARKER_DISABLED: Vanilla rendering retained; " + exception);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/GatehouseTargetMarkerHeightHook.cs:128", "GATEHOUSE_TARGET_MARKER_DISABLED: Vanilla rendering retained; " + exception);
         }
     }
 }

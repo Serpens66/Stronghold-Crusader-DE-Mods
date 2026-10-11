@@ -55,9 +55,9 @@ namespace EnemyGatePathfindingTest
         {
             if (!active) return;
             long at = Stopwatch.GetTimestamp();
-            uint global = captureTimeline.ObserveCapture(building, player, at);
+            uint global = captureTimeline.ObserveCapture(building, player, at, post);
             Record(player, -1, "capture-event", "gate=" + building + "/global=" + global + "/phase=" + (post ? "post" : "pre"), "",
-                TemporaryGateCaptureTimeline.Time(at) + ",capturingPlayer=" + player + ",postIsNotNativeSuccessProof=true");
+                TemporaryGateCaptureTimeline.Time(at) + ",capturingPlayer=" + player + ",postIsNotNativeSuccessProof=true,postTiming=extender-delayed-notification");
         }
         internal void ObservePolicyPublication(RouteTilePolicySnapshot snapshot, int generation)
         {
@@ -478,7 +478,8 @@ namespace EnemyGatePathfindingTest
                 if (stage == "search-entry") route.SourceEvidence = detail;
                 else if (route.SourceEvidence != null) detail = route.SourceEvidence + "," + detail;
                 route.Detail += "," + stage + "=[" + detail + "]";
-                detail += "," + (route.PolicyEvidence ?? "policyGeneration=unknown");
+                detail += "," + (route.PolicyEvidence ?? (route.Snapshot == null || ReferenceEquals(route.Snapshot, RouteTilePolicySnapshot.Empty) ? "policyGeneration=unknown" :
+                    "policyGeneration=" + route.EntryGeneration + ",generationSource=route-entry-snapshot"));
                 detail += ",policyEpoch=" + route.Epoch + ",policyFingerprint=" + (route.Snapshot?.TopologyFingerprint ?? 0);
             }
             detail += ",gateMapEpoch=" + epoch;

@@ -233,9 +233,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Keep-flag post-start scan failed: session={sessionNumber}, tick={tick}, error={ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/KeepFlagRotationRuntime.cs:236", $"Keep-flag post-start scan failed: session={sessionNumber}, tick={tick}, error={ex}");
             }
         }
 
@@ -378,9 +376,7 @@ namespace BugfixesAndQoL
                 correctedAfterStart++;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Keep-flag rotation summary: session={sessionNumber}, tick={tick}, enabled={Enabled}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/KeepFlagRotationRuntime.cs:381", $"Keep-flag rotation summary: session={sessionNumber}, tick={tick}, enabled={Enabled}, " +
                 $"captured={capturedCount}, correctedBeforeSpawn={correctedBeforeSpawnCount}, " +
                 $"alreadyCorrectBeforeSpawn={alreadyCorrectBeforeSpawnCount}, keeps={keeps}, " +
                 $"correctedAfterStart={correctedAfterStart}, verified={verified}, " +
@@ -447,7 +443,7 @@ namespace BugfixesAndQoL
             if (warningLogged)
                 return;
             warningLogged = true;
-            Shared.DebugLogHelper.LogWarning(log, message);
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/KeepFlagRotationRuntime.cs:450", message);
         }
 
         private static int MapperKeepKind(eMappers mapper) =>

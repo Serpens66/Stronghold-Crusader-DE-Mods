@@ -57,7 +57,7 @@ namespace BugfixesAndQoL
             disposed = true;
             hook.Undo();
             hook.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL enemy-proximity bulldoze cursor hook disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/EnemyProximityBulldozeCursorHook.cs:60", "Bugfixes and QoL enemy-proximity bulldoze cursor hook disposed.");
         }
 
         private static MethodInfo FindSetCursorMethod()
@@ -101,7 +101,7 @@ namespace BugfixesAndQoL
                     if (!queryFailureLogged)
                     {
                         queryFailureLogged = true;
-                        Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL enemy-proximity bulldoze cursor query failed: {ex}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/EnemyProximityBulldozeCursorHook.cs:104", $"Bugfixes and QoL enemy-proximity bulldoze cursor query failed: {ex}");
                     }
                 }
             }

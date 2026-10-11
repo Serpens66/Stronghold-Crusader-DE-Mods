@@ -1,6 +1,8 @@
 using BepInEx.Logging;
 using System;
 using System.Globalization;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -15,6 +17,59 @@ namespace Shared
         private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(1);
         private static DateTime debugEnabledCacheExpiresAtUtc;
         private static bool debugEnabledCache;
+        private static readonly LogRateGate debugRate = new LogRateGate();
+        private static readonly LogRateGate failureRate = new LogRateGate();
+
+        public static void LogDebugLimited(ManualLogSource log, string site, params object[] parts)
+        {
+            if (log == null || !IsDebugEnabled() || !debugRate.TryReserve(site, 5, out long suppressed))
+                return;
+            log.LogDebug(WithTimestamp(WithSuppressed(string.Join(" ", parts), suppressed)));
+        }
+
+        public static void LogDebugLimited(ManualLogSource log, string site, Func<string> messageFactory)
+        {
+            if (log == null || messageFactory == null || !IsDebugEnabled() ||
+                !debugRate.TryReserve(site, 5, out long suppressed))
+                return;
+            log.LogDebug(WithTimestamp(WithSuppressed(messageFactory(), suppressed)));
+        }
+
+        public static void LogWarningLimited(ManualLogSource log, string site, params object[] parts) =>
+            LogFailureLimited(log, site, false, parts);
+
+        public static void LogErrorLimited(ManualLogSource log, string site, params object[] parts) =>
+            LogFailureLimited(log, site, true, parts);
+
+        private static void LogFailureLimited(ManualLogSource log, string site, bool error, object[] parts)
+        {
+            if (log == null) return;
+            Exception exception = null;
+            foreach (object part in parts)
+                if (part is Exception candidate) exception = candidate;
+            string message = null;
+            // The call site separates features; exception identity separates causes without
+            // retaining whole stack traces or an unbounded set of object IDs.
+            string cause;
+            if (exception == null)
+                cause = message = string.Join(" ", parts);
+            else
+                cause = string.Join(" ", Array.FindAll(parts, part => part is string || part is Enum)) +
+                    ":" + exception.GetType().FullName + ":" + exception.Message;
+            if (cause.Length > 2048)
+            {
+                using (SHA256 hash = SHA256.Create())
+                    cause = cause.Substring(0, 2048) + ":" +
+                        BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(cause)));
+            }
+            string key = site + (error ? ":error:" : ":warning:") + cause;
+            if (!failureRate.TryReserve(key, 30, out long suppressed)) return;
+            message = WithTimestamp(WithSuppressed(message ?? string.Join(" ", parts), suppressed));
+            if (error) log.LogError(message); else log.LogWarning(message);
+        }
+
+        private static string WithSuppressed(string message, long suppressed) =>
+            suppressed == 0 ? message : message + " [suppressed repeats=" + suppressed + "]";
 
         public static bool IsDebugEnabled()
         {
@@ -245,6 +300,75 @@ namespace Shared
         private static bool HasDebugFlag(LogLevel logLevel)
         {
             return (logLevel & LogLevel.Debug) != LogLevel.None;
+        }
+    }
+}
+
+namespace Shared
+{
+    // Logging state only: monotonic wall time must never affect simulation decisions.
+    internal sealed class LogRateGate
+    {
+        private sealed class Entry
+        {
+            internal long LastEmission;
+            internal long Suppressed;
+        }
+
+        private readonly object sync = new object();
+        private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>(StringComparer.Ordinal);
+        private readonly Func<long> clock;
+        private readonly long frequency;
+        private readonly int capacity;
+
+        internal LogRateGate(int capacity = 4096)
+            : this(Stopwatch.GetTimestamp, Stopwatch.Frequency, capacity) { }
+
+        internal LogRateGate(Func<long> clock, long frequency, int capacity)
+        {
+            if (clock == null || frequency <= 0 || capacity <= 0)
+                throw new ArgumentException("A clock, positive frequency and capacity are required.");
+            this.clock = clock;
+            this.frequency = frequency;
+            this.capacity = capacity;
+        }
+
+        internal int Count { get { lock (sync) return entries.Count; } }
+
+        internal bool TryReserve(string site, int seconds, out long suppressed)
+        {
+            lock (sync)
+            {
+                long now = clock();
+                suppressed = 0;
+                if (!entries.TryGetValue(site, out Entry entry))
+                {
+                    // Sites are fixed source identities. Bound changing error signatures too.
+                    if (entries.Count == capacity)
+                    {
+                        string oldest = null;
+                        long oldestTime = long.MaxValue;
+                        foreach (KeyValuePair<string, Entry> candidate in entries)
+                            if (candidate.Value.LastEmission < oldestTime)
+                            {
+                                oldestTime = candidate.Value.LastEmission;
+                                oldest = candidate.Key;
+                            }
+                        entries.Remove(oldest);
+                    }
+                    entries.Add(site, new Entry { LastEmission = now });
+                    return true;
+                }
+                if (now - entry.LastEmission < seconds * frequency)
+                {
+                    if (entry.Suppressed < long.MaxValue) entry.Suppressed++;
+                    return false;
+                }
+                suppressed = entry.Suppressed;
+                entry.Suppressed = 0;
+                entry.LastEmission = now;
+                return true;
+            }
         }
     }
 }

@@ -55,7 +55,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"BuildingLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/src/BuildingLimitPlugin.cs:58", $"BuildingLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -76,7 +76,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing BuildingLimit after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/src/BuildingLimitPlugin.cs:79", $"Error while initializing BuildingLimit after library load: {ex}");
             }
         }
 
@@ -85,7 +85,7 @@ namespace BuildingLimit
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"BuildingLimit {stageName} failed; independent stages continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/src/BuildingLimitPlugin.cs:88", $"BuildingLimit {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

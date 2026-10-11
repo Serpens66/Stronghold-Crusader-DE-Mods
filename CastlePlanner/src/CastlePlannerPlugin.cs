@@ -87,9 +87,7 @@ namespace CastlePlanner
 
         private void OnDestroy()
         {
-            Shared.DebugLogHelper.LogDebug(
-                Logger,
-                "Plugin component destroyed during startup; keeping CastlePlanner lifecycle subscriptions rooted.");
+            Shared.DebugLogHelper.LogDebugLimited(Logger, "CastlePlanner/src/CastlePlannerPlugin.cs:90", "Plugin component destroyed during startup; keeping CastlePlanner lifecycle subscriptions rooted.");
         }
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
@@ -112,7 +110,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"CastlePlanner native version check failed; native Spawn mode remains inactive: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "CastlePlanner/src/CastlePlannerPlugin.cs:115", $"CastlePlanner native version check failed; native Spawn mode remains inactive: {ex}");
             }
 
             try
@@ -126,7 +124,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 // Host settings cannot safely drive gameplay without the shared authority path.
-                Shared.DebugLogHelper.LogError(Logger, $"CastlePlanner settings registration failed; runtime initialization stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "CastlePlanner/src/CastlePlannerPlugin.cs:129", $"CastlePlanner settings registration failed; runtime initialization stopped fail-closed: {ex}");
                 return;
             }
 
@@ -190,9 +188,7 @@ namespace CastlePlanner
                 catch (Exception ex)
                 {
                     failedOptionalStages.Add("native Spawn mode");
-                    Shared.DebugLogHelper.LogError(
-                        Logger,
-                        $"CastlePlanner native Spawn mode initialization failed; independent features continue: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(Logger, "CastlePlanner/src/CastlePlannerPlugin.cs:193", $"CastlePlanner native Spawn mode initialization failed; independent features continue: {ex}");
                 }
             }
 
@@ -204,9 +200,7 @@ namespace CastlePlanner
             }
             else
             {
-                Shared.DebugLogHelper.LogWarning(
-                    Logger,
-                    $"Crusader library initialization completed with {failedOptionalStages.Count} failed optional " +
+                Shared.DebugLogHelper.LogWarningLimited(Logger, "CastlePlanner/src/CastlePlannerPlugin.cs:207", $"Crusader library initialization completed with {failedOptionalStages.Count} failed optional " +
                     $"stage(s) [{string.Join(", ", failedOptionalStages)}]; independent CastlePlanner features continue.");
             }
         }
@@ -223,9 +217,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 failedOptionalStages.Add(stageName);
-                Shared.DebugLogHelper.LogError(
-                    Logger,
-                    $"CastlePlanner {stageName} initialization failed; independent features continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "CastlePlanner/src/CastlePlannerPlugin.cs:226", $"CastlePlanner {stageName} initialization failed; independent features continue: {ex}");
             }
         }
     }

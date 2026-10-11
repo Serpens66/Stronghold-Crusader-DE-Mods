@@ -129,7 +129,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
         internal void SetEnabled(bool enableMod, bool enableFix) =>
             Volatile.Write(ref active, published && CaptureDecision.IsEnabled(enableMod, enableFix) ? 1 : 0);
 
-        private void LogInfo(string message) => log.LogDebug($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
         private void TryLogError(string message)
         {
             try { log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}"); }

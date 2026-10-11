@@ -30,10 +30,10 @@ namespace BugfixesAndQoL.UnitCommands
             LogDetailedInfo($"Bugfixes and QoL friendly-moat-movement {message}.");
         }
 
-        internal void LogDetailedInfo(string message)
+        internal void LogDetailedInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             if (DetailedDiagnosticsEnabled)
-                APIShared.Internal.DebugLogHelper.LogDebug(log, message);
+                Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
         }
 
         internal void LogPositiveCursorDecision(ref int lastLoggedGeneration, string message)
@@ -402,9 +402,7 @@ namespace BugfixesAndQoL.UnitCommands
             if (callbackFailureReported)
                 return;
             callbackFailureReported = true;
-            APIShared.Internal.DebugLogHelper.LogError(
-                log,
-                $"Bugfixes and QoL friendly-moat-movement {stage} callback failed once; Vanilla behavior remains active: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs:405", $"Bugfixes and QoL friendly-moat-movement {stage} callback failed once; Vanilla behavior remains active: {ex}");
         }
 
         internal void TryLogDiagnosticFailure(string stage, Exception ex)
@@ -413,9 +411,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 if (!reportedDiagnosticFailureStages.Add(stage))
                     return;
-                APIShared.Internal.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL friendly-moat-movement read-only diagnostic stage={stage} failed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs:416", $"Bugfixes and QoL friendly-moat-movement read-only diagnostic stage={stage} failed; " +
                     $"Vanilla behavior remains unchanged: {ex}");
             }
             catch

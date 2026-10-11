@@ -704,13 +704,13 @@ namespace CastlePlanner.AIVPlacement
         private void LogWarningOnce(string key, string message)
         {
             if (reportedWarnings.Add(key ?? string.Empty))
-                Shared.DebugLogHelper.LogWarning(log, message);
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/AIVPlacement/AivSelectionDialogRuntime.cs:707", message);
         }
 
         private void LogErrorOnce(string key, string message)
         {
             if (reportedErrors.Add(key ?? string.Empty))
-                Shared.DebugLogHelper.LogError(log, message);
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/AIVPlacement/AivSelectionDialogRuntime.cs:713", message);
         }
 
         private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info) =>
@@ -841,8 +841,7 @@ namespace CastlePlanner.AIVPlacement
                     string.Equals(prior, value, StringComparison.Ordinal))
                     continue;
                 publishedUiStates[key] = value;
-                Shared.DebugLogHelper.LogDebug(log,
-                    $"AIV UI published route={uiRoute} player={playerId} candidate={candidateId} " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivSelectionDialogRuntime.cs:844", $"AIV UI published route={uiRoute} player={playerId} candidate={candidateId} " +
                     $"checksum={aiv.checksum} status={state.Status?.ToString() ?? "Pending"} " +
                     $"practice={state.PercentageText} " +
                     $"extraFeaturesAi={ElevatedMoatAiCapability.Current} " +

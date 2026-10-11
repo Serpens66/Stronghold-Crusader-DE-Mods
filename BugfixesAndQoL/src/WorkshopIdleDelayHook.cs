@@ -173,8 +173,7 @@ namespace BugfixesAndQoL
         {
             if (afterStartupLogged) return;
             afterStartupLogged = true;
-            Shared.DebugLogHelper.LogDebug(log,
-                "BUGFIXES_AND_QOL_WORKSHOP_IDLE_READY: permanent poleturner/tanner inline hooks; tick=" + tick +
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WorkshopIdleDelayHook.cs:176", "BUGFIXES_AND_QOL_WORKSHOP_IDLE_READY: permanent poleturner/tanner inline hooks; tick=" + tick +
                 "; unit allocation=" + *(int*)unitManager + "; building allocation=" + *(int*)(buildingManager + 0x50));
         }
     }

@@ -550,11 +550,11 @@ namespace BugfixesAndQoL
         {
             if (steamInviteBlacklist.TryClear(out string error))
             {
-                Shared.DebugLogHelper.LogDebug(log, "Cleared the local Steam invite blacklist.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs:553", "Cleared the local Steam invite blacklist.");
                 return;
             }
 
-            Shared.DebugLogHelper.LogError(log, $"Could not clear the local Steam invite blacklist: {error}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs:557", $"Could not clear the local Steam invite blacklist: {error}");
         }
 
         private void OnSteamInviteBlacklistChanged()
@@ -895,9 +895,7 @@ namespace BugfixesAndQoL
 
                 if (!valid && value != null)
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        marketGoodsLog,
-                        "Bugfixes and QoL rejected an invalid market-goods order and restored the HD order.");
+                    Shared.DebugLogHelper.LogWarningLimited(marketGoodsLog, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs:898", "Bugfixes and QoL rejected an invalid market-goods order and restored the HD order.");
                 }
 
                 if (MarketGoodsOrderDefinition.AreEqual(marketGoodsOrder.Value, normalized))

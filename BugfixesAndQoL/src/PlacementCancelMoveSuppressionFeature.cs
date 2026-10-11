@@ -122,9 +122,7 @@ namespace BugfixesAndQoL
                 if (!classificationFailureLogged)
                 {
                     classificationFailureLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL could not classify a placement-cancel click; Vanilla input continues: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlacementCancelMoveSuppressionFeature.cs:125", $"Bugfixes and QoL could not classify a placement-cancel click; Vanilla input continues: {ex}");
                 }
             }
 

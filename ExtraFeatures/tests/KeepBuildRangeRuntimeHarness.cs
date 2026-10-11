@@ -32,12 +32,12 @@ namespace Shared
     {
         public static int DebugCalls, ErrorCalls;
         public static bool ThrowDebug, ThrowError;
-        public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text)
+        public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text)
         {
             DebugCalls++;
             if (ThrowDebug) throw new System.Exception("Injected debug logger failure");
         }
-        public static void LogError(BepInEx.Logging.ManualLogSource log, string text)
+        public static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } public static void LogError(BepInEx.Logging.ManualLogSource log, string text)
         {
             ErrorCalls++;
             if (ThrowError) throw new System.Exception("Injected error logger failure");

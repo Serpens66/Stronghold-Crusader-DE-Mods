@@ -167,7 +167,7 @@ namespace BugfixesAndQoL
                     return;
                 media.Pause();
                 media.Opacity = 1f;
-                Shared.DebugLogHelper.LogDebug(feature.log, "NOTIFICATION_LAST_FRAME_HELD: final frame held while speech continues.");
+                Shared.DebugLogHelper.LogDebugLimited(feature.log, "BugfixesAndQoL/src/NotificationLastFrameFeature.cs:170", "NOTIFICATION_LAST_FRAME_HELD: final frame held while speech continues.");
             }
             catch (Exception ex)
             {

@@ -10,8 +10,10 @@ namespace SerpsModsHostDuplicateTests
 {
     internal static class Program
     {
-        private static int Main()
+        private static int Main(string[] args)
         {
+            if (args.Length == 2) return BootstrapProbe.Run(args[0], args[1]);
+            TestApiSharedGate();
             TestGlobalSettingsResetPolicy();
             TestGlobalSettingsResetUiContract();
             TestModSettingsRegistrationOrder();
@@ -631,6 +633,26 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException(
                     "Serps Mods must become the initial selected tab after it is promoted.");
             }
+        }
+
+        private static void TestApiSharedGate()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "host-api-root");
+            string separate = Path.Combine(root, "APIShared_Serp", "APIShared.dll");
+            string embedded = Path.Combine(root, "SerpsMods_Serp", "Infrastructure", "APIShared_Serp", "APIShared.dll");
+            var minimum = new Version("0.7.0");
+            if (ApiSharedDependencyPolicy.IsSatisfied(null, minimum, null, root) ||
+                ApiSharedDependencyPolicy.IsSatisfied(new Version("0.6.9"), minimum, separate, root) ||
+                ApiSharedDependencyPolicy.IsSatisfied(minimum, minimum, embedded, root) ||
+                !ApiSharedDependencyPolicy.IsSatisfied(minimum, minimum, separate, root) ||
+                !ApiSharedDependencyPolicy.IsSatisfied(new Version("2.0.0"), minimum, separate, root))
+                throw new Exception("APIShared gate failed missing/old/embedded/equal/newer compatibility cases.");
+            var manifest = new PackManifest {
+                Infrastructure = new List<PackModRecord> { new PackModRecord { Guid = "APIShared_Serp", State = "External" } },
+                Mods = new List<PackModRecord> { new PackModRecord { Guid = "Child", State = "Active" } }
+            };
+            var records = ScriptExtenderCompatibility.SelectRuntimePackRecords(manifest);
+            if (records.Count != 1 || records[0].Guid != "Child") throw new Exception("External APIShared was registered as embedded assets.");
         }
 
         private static void TestScriptExtenderCompatibility()

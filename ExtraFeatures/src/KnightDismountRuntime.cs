@@ -1805,22 +1805,22 @@ namespace ExtraFeatures
 
         private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
-        private void LogDebug(string message)
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => log.LogDebug($"[{TimestampNow()}] Extra Features {message}"));
+                () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
         }
 
-        private void LogError(string message)
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => log.LogError($"[{TimestampNow()}] Extra Features {message}"));
+                () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
         }
 
-        private void LogWarning(string message)
+        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => log.LogWarning($"[{TimestampNow()}] Extra Features {message}"));
+                () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
         }
 
         private static string TimestampNow()

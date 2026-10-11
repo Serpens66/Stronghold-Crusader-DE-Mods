@@ -67,7 +67,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"UnitLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/src/UnitLimitPlugin.cs:70", $"UnitLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -93,7 +93,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"Error while initializing UnitLimit after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/src/UnitLimitPlugin.cs:96", $"Error while initializing UnitLimit after library load: {ex}");
             }
         }
 
@@ -102,7 +102,7 @@ namespace UnitLimit
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(Logger, $"UnitLimit {stageName} failed; independent stages continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/src/UnitLimitPlugin.cs:105", $"UnitLimit {stageName} failed; independent stages continue: {ex}");
             }
         }
 

@@ -78,4 +78,7 @@
   </Target>
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /><Compile Include="src\VirtualCandidateBuilder.cs" /></ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="src\CopiedMilitaryEntry.cs" />
+  </ItemGroup>
 </Project>

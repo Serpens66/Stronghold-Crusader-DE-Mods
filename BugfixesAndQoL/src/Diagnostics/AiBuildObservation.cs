@@ -51,7 +51,7 @@ namespace BugfixesAndQoL.Diagnostics
             var current = Volatile.Read(ref sink);
             if (current != null) { current.EndNearbyWoodObservation(restore, state, playerId, x, y); return; }
             try { restore?.Invoke(); }
-            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI nearby wood diagnostic restore failed: " + ex); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Diagnostics/AiBuildObservation.cs:54", "AI nearby wood diagnostic restore failed: " + ex); }
         }
     }
 }

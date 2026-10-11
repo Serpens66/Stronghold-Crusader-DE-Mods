@@ -14493,6 +14493,172 @@ void FUN_18002fc80(undefined8 param_1,int param_2)
 2FD36 5e pop rsi
 2FD37 c3 ret
 
+Decoded 140/140 bytes; remaining raw body=
+
+119F90 FUN_180119f90 140
+
+/* FUNCTION FUN_180119f90 VA=0x180119F90 RVA=0x119F90 */
+
+int FUN_180119f90(longlong param_1,int param_2,int param_3)
+
+{
+  uint uVar1;
+  short *psVar2;
+  longlong lVar3;
+  longlong lVar4;
+  int iVar5;
+  int iVar6;
+
+  iVar5 = 0;
+  lVar3 = (longlong)param_2 * 0x688;
+  if (*(short *)(lVar3 + 0x40 + param_1) == 2) {
+    if ((param_3 < *(short *)(lVar3 + 0x5c + param_1)) && (-1 < param_3)) {
+      iVar6 = 0;
+      psVar2 = (short *)(param_1 + 0x60 + lVar3);
+      lVar4 = 0;
+      lVar3 = lVar3 - (longlong)psVar2;
+      do {
+        if (*(short *)(param_1 + lVar3 + 0x60 + (longlong)psVar2) != 0) {
+          uVar1 = 0;
+          do {
+            if (((uint)(int)*psVar2 >> (uVar1 & 0x1f) & 1) != 0) {
+              if (iVar5 == param_3) {
+                return uVar1 + iVar6 * 0x10;
+              }
+              iVar5 = iVar5 + 1;
+            }
+            uVar1 = uVar1 + 1;
+          } while ((int)uVar1 < 0x10);
+        }
+        iVar6 = iVar6 + 1;
+        lVar4 = lVar4 + 1;
+        psVar2 = psVar2 + 1;
+      } while (lVar4 < 0x271);
+    }
+  }
+  return 0;
+}
+
+
+
+
+
+119F90 48895c2408 mov qword ptr [rsp + 8], rbx
+119F95 4863c2 movsxd rax, edx
+119F98 4533c9 xor r9d, r9d
+119F9B 4869d088060000 imul rdx, rax, 0x688
+119FA2 4c8bd9 mov r11, rcx
+119FA5 66837c0a4002 cmp word ptr [rdx + rcx + 0x40], 2
+119FAB 755a jne 0x11a007
+119FAD 0fbf440a5c movsx eax, word ptr [rdx + rcx + 0x5c]
+119FB2 443bc0 cmp r8d, eax
+119FB5 7d50 jge 0x11a007
+119FB7 4585c0 test r8d, r8d
+119FBA 784b js 0x11a007
+119FBC 4883c160 add rcx, 0x60
+119FC0 4533d2 xor r10d, r10d
+119FC3 4803ca add rcx, rdx
+119FC6 33db xor ebx, ebx
+119FC8 482bd1 sub rdx, rcx
+119FCB 4c03da add r11, rdx
+119FCE 6690 nop
+119FD0 6641837c0b6000 cmp word ptr [r11 + rcx + 0x60], 0
+119FD7 741b je 0x119ff4
+119FD9 0fbf11 movsx edx, word ptr [rcx]
+119FDC 33c0 xor eax, eax
+119FDE 6690 nop
+119FE0 0fa3c2 bt edx, eax
+119FE3 7308 jae 0x119fed
+119FE5 453bc8 cmp r9d, r8d
+119FE8 7425 je 0x11a00f
+119FEA 41ffc1 inc r9d
+119FED ffc0 inc eax
+119FEF 83f810 cmp eax, 0x10
+119FF2 7cec jl 0x119fe0
+119FF4 41ffc2 inc r10d
+119FF7 48ffc3 inc rbx
+119FFA 4883c102 add rcx, 2
+119FFE 4881fb71020000 cmp rbx, 0x271
+11A005 7cc9 jl 0x119fd0
+11A007 33c0 xor eax, eax
+11A009 488b5c2408 mov rbx, qword ptr [rsp + 8]
+11A00E c3 ret
+11A00F 488b5c2408 mov rbx, qword ptr [rsp + 8]
+11A014 41c1e204 shl r10d, 4
+11A018 4103c2 add eax, r10d
+11A01B c3 ret
+
+Decoded 153/153 bytes; remaining raw body=
+
+126020 FUN_180126020 153
+
+/* FUNCTION FUN_180126020 VA=0x180126020 RVA=0x126020 */
+
+void FUN_180126020(longlong param_1,int param_2)
+
+{
+  int iVar1;
+  longlong lVar2;
+  int iVar3;
+
+  iVar3 = 0;
+  if (0 < *(short *)((longlong)param_2 * 0x688 + 0x5c + param_1)) {
+    do {
+      iVar1 = FUN_180119f90(param_1,param_2,iVar3);
+      lVar2 = (longlong)iVar1;
+      iVar3 = iVar3 + 1;
+      if (((&DAT_1867e8ae4)[lVar2 * 0x248] == 2) && ((&DAT_1867e8cf8)[lVar2 * 0x248] == 0)) {
+        *(undefined2 *)(&DAT_1867e8e84 + lVar2 * 0x490) = 0;
+      }
+    } while (iVar3 < *(short *)((longlong)param_2 * 0x688 + 0x5c + param_1));
+  }
+  return;
+}
+
+
+
+
+
+126020 48895c2410 mov qword ptr [rsp + 0x10], rbx
+126025 48896c2418 mov qword ptr [rsp + 0x18], rbp
+12602A 56 push rsi
+12602B 57 push rdi
+12602C 4157 push r15
+12602E 4883ec20 sub rsp, 0x20
+126032 4533ff xor r15d, r15d
+126035 4863f2 movsxd rsi, edx
+126038 4869fe88060000 imul rdi, rsi, 0x688
+12603F 488be9 mov rbp, rcx
+126042 418bdf mov ebx, r15d
+126045 66443b7c0f5c cmp r15w, word ptr [rdi + rcx + 0x5c]
+12604B 7d59 jge 0x1260a6
+12604D 4c89742440 mov qword ptr [rsp + 0x40], r14
+126052 4c8d35a7236c06 lea r14, [rip + 0x66c23a7]
+126059 0f1f8000000000 nop dword ptr [rax]
+126060 448bc3 mov r8d, ebx
+126063 8bd6 mov edx, esi
+126065 488bcd mov rcx, rbp
+126068 e8233fffff call 0x119f90
+12606D 4898 cdqe
+12606F ffc3 inc ebx
+126071 4869c090040000 imul rax, rax, 0x490
+126078 664283bc30e406000002 cmp word ptr [rax + r14 + 0x6e4], 2
+126082 7514 jne 0x126098
+126084 664639bc30f8080000 cmp word ptr [rax + r14 + 0x8f8], r15w
+12608D 7509 jne 0x126098
+12608F 664689bc30840a0000 mov word ptr [rax + r14 + 0xa84], r15w
+126098 0fbf442f5c movsx eax, word ptr [rdi + rbp + 0x5c]
+12609D 3bd8 cmp ebx, eax
+12609F 7cbf jl 0x126060
+1260A1 4c8b742440 mov r14, qword ptr [rsp + 0x40]
+1260A6 488b5c2448 mov rbx, qword ptr [rsp + 0x48]
+1260AB 488b6c2450 mov rbp, qword ptr [rsp + 0x50]
+1260B0 4883c420 add rsp, 0x20
+1260B4 415f pop r15
+1260B6 5f pop rdi
+1260B7 5e pop rsi
+1260B8 c3 ret
+
 Decoded 44/44 bytes; remaining raw body=
 
 181E00 FUN_180181e00 44
@@ -14597,4 +14763,4 @@ undefined8 FUN_180117c70(longlong param_1,int param_2)
 117D0D b801000000 mov eax, 1
 117D12 ebde jmp 0x117cf2
 
-Unsupported branch target guards: ['0x2990', '0x77c0', '0x1ce80', '0x297a0', '0x298c0', '0x29a20', '0x2a600', '0x2b080', '0x2b340', '0x2b5f0', '0x2b6c0', '0x2c620', '0x2c710', '0x2cb10', '0x2d500', '0x2d600', '0x2fef0', '0x304b0', '0x30550', '0x3b820', '0x3b980', '0x3ba10', '0x3bb80', '0x3bc90', '0x3bfa0', '0x3c0a0', '0x3c9c0', '0x3ccd0', '0x3d020', '0x3d260', '0x3d3e0', '0x3d560', '0x3d6e0', '0x3fb80', '0x3fc40', '0xc3b20', '0xc4080', '0xcf400', '0xda590', '0xea3d0', '0xf2cb0', '0x107970', '0x113ab0', '0x113f60', '0x1140c0', '0x1178d0', '0x11b520', '0x122b40', '0x126020', '0x199c00', '0x1a6a4c']
+Unsupported branch target guards: ['0x2990', '0x77c0', '0x1ce80', '0x297a0', '0x298c0', '0x29a20', '0x2a600', '0x2b080', '0x2b340', '0x2b5f0', '0x2b6c0', '0x2c620', '0x2c710', '0x2cb10', '0x2d500', '0x2d600', '0x2fef0', '0x304b0', '0x30550', '0x3b820', '0x3b980', '0x3ba10', '0x3bb80', '0x3bc90', '0x3bfa0', '0x3c0a0', '0x3c9c0', '0x3ccd0', '0x3d020', '0x3d260', '0x3d3e0', '0x3d560', '0x3d6e0', '0x3fb80', '0x3fc40', '0xc3b20', '0xc4080', '0xcf400', '0xda590', '0xea3d0', '0xf2cb0', '0x107970', '0x113ab0', '0x113f60', '0x1140c0', '0x1178d0', '0x11b520', '0x122b40', '0x199c00', '0x1a6a4c']

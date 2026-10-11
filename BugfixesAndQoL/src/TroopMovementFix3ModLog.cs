@@ -7,14 +7,14 @@ namespace BugfixesAndQoL
 {
     internal static class TroopMovementFix3ModLog
     {
-        public static void Debug(ManualLogSource log, string message)
+        public static void Debug(ManualLogSource log, string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
-            log?.LogDebug(WithTimestamp(message));
+            Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
         }
 
-        public static void Warning(ManualLogSource log, string message)
+        public static void Warning(ManualLogSource log, string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
-            log?.LogWarning(WithTimestamp(message));
+            Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
         }
 
         private static string WithTimestamp(string message)

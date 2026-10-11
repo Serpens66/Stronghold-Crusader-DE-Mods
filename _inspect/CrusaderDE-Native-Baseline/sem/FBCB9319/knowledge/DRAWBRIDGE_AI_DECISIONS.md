@@ -1374,3 +1374,52 @@ in memory. Previous2354 candidate fixture passes; older1833 full candidate repla
 correctly refuses its missing own consumer table instead of using PE defaults.
 Full historical transport regression and corrupt/truncated delivery tests pass.
 Versions, README, public APIs and external mods remain unchanged.
+
+### Own military entry capture and offline controls — 2026-10-11
+
+Frozen historical process: historical-20261011-1655/full.log, SHA256
+0274897A1CC57E84B3CCF8F9458DBA3FD6426E5B3C9527EB66FD85BF3778C086.
+Planning SHA256 C129673AA1F7982F7732A456421AA801FB9EAC4B5B45092C3EB48A60039420D2
+is explicitly approved; native/backend/content gates are unchanged. Two delivered
+sessions are separate; the second is not a raised-703 control. Baseline full
+2C480 candidate/weight/work replay matches, including the recorded post-consumer
+suffix. Only703 and all-unpermitted variants change that suffix from phase6 to5,
+while saved target225464 and434 inherited mode0 candidates are not a new selection.
+This does not execute the full military entry or later formation closure.
+
+Complete native and managed physical control grids/counts match. Against the
+older Dirty1 published grid both remove tile117804 (flags0x40008000, directions0,
+height0/base8, building0). Native start predicate excludes it; no edge reaches it.
+There are two partition-mapping conflicts, first206738. Historical negative
+policy remains Unknown; a matching copied rebuild does not make stale publication
+valid. Dirty0 partition validation remains strict.
+
+The existing3C2E0 observer now captures up to two own player8 phase4 attempts:
+unit manager0x67E8400, 11,681,628 bytes (all9999 searched slots plus native prefix),
+tribe manager0x7CC6720, 7,524,026 bytes (all memberships/identities), nine AI player
+records, separate3CE40 quota at0x366C210+lord*0x5E4-0x380 and two engineer counters.
+Managers, controls, class/leader tables, map token and own player are rechecked
+before the original call. Source session/root/thread/clock remain distinct from
+later consumer inputs. Entry input version1 is additive in schema2; old originals
+remain readable and missing own inputs remain Unknown. At most one planning and
+one associated group artifact are delivered; no new hook, API or Vanilla search.
+Private native119F90/126020 complete bodies join the audit (79 reference bodies).
+Sixteen full-memory membership cases match native; membership is only a preamble
+side effect, not complete entry/formation execution. Formation group observations
+remain later stored-path observations, not command-entry snapshots. Unknown search
+or side-effect callees remain guarded and cannot be replaced by recorded outputs.
+
+Publisher Deflate/hash warmup uses synthetic data before publication. Interval
+metrics include maximum encode, drain and whole Deferred publisher render costs
+and over-budget counts, with invariant decimal formatting. Whole-render scope
+includes shadow/artifact/snapshot work;2ms is a measured target, not a hard promise.
+Existing64-record/64KiB bounded outputs, counters and delivery markers are retained.
+Full-entry capture is bounded once/twice, not a repeated per-command scan; its
+actual game cost is not inferred from offline fixture costs.
+
+Current regressions:150 private native differential cases/12243 checks,
+including capture/write/import, Dirty0/1, full-manager stability, attempt budget,
+identity and legacy validation. All original files remain unchanged. The live
+originals lack own full managers; the new recording fields cannot be reconstructed
+from later consumer copies. Full military entry and formation remain separate
+release gates. Behavior fix disabled; versions, README and external mods unchanged.

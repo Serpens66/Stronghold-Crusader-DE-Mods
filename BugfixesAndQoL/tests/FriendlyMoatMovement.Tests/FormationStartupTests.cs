@@ -95,18 +95,18 @@ namespace APIShared.Internal {
     public static class UnityMainThreadDispatch { public static void TryRunInlineOrEnqueue(Action a)=>a(); }
     public static class DebugLogHelper {
         public static bool IsCurrentNativeLibraryVersion()=>true;
-        public static void LogDebug(ManualLogSource l,string m) {}
-        public static void LogWarning(ManualLogSource l,string m) {}
-        public static void LogError(ManualLogSource l,string m) {}
+        public static void LogDebugLimited(ManualLogSource l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource l,string m) {}
+        public static void LogWarningLimited(ManualLogSource l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource l,string m) {}
+        public static void LogErrorLimited(ManualLogSource l, string site, params object[] parts) { LogError(l, System.String.Concat(parts)); } public static void LogError(ManualLogSource l,string m) {}
     }
 }
 namespace Shared {
     public static class UnityMainThreadDispatch { public static void TryRunInlineOrEnqueue(Action a)=>a(); }
     public static class DebugLogHelper {
         public static bool IsCurrentNativeLibraryVersion()=>true;
-        public static void LogDebug(ManualLogSource l,string m) {}
-        public static void LogWarning(ManualLogSource l,string m) {}
-        public static void LogError(ManualLogSource l,string m) {}
+        public static void LogDebugLimited(ManualLogSource l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource l,string m) {}
+        public static void LogWarningLimited(ManualLogSource l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource l,string m) {}
+        public static void LogErrorLimited(ManualLogSource l, string site, params object[] parts) { LogError(l, System.String.Concat(parts)); } public static void LogError(ManualLogSource l,string m) {}
     }
 }
 namespace BugfixesAndQoL { internal static class LargeMoveTargetMarkerRuntime { internal static object Renderer; } }

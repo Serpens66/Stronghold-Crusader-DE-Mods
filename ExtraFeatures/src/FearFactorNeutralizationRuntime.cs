@@ -192,8 +192,7 @@ namespace ExtraFeatures
                 TryAttachArmyReportViewModel();
                 RefreshArmyReportText();
             }
-            Shared.DebugLogHelper.LogDebug(log,
-                $"FEAR_FACTOR_SETTING: enabled={enabled}, mode={Shared.GameplayModActivationGate.Snapshot.Kind}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/FearFactorNeutralizationRuntime.cs:195", $"FEAR_FACTOR_SETTING: enabled={enabled}, mode={Shared.GameplayModActivationGate.Snapshot.Kind}.");
         }
 
         internal void TryAttachArmyReportViewModel()

@@ -300,9 +300,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 statisticsReady = false;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL spectator statistics initialization failed closed; surrender remains available: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:303", $"Bugfixes and QoL spectator statistics initialization failed closed; surrender remains available: {ex}");
             }
             try
             {
@@ -312,9 +310,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 statisticsTeamBadgesReady = false;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL statistics team-badge initialization failed closed; Vanilla statistics remain available: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:315", $"Bugfixes and QoL statistics team-badge initialization failed closed; Vanilla statistics remain available: {ex}");
             }
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
@@ -383,7 +379,7 @@ namespace BugfixesAndQoL
                     CloseStatisticsPreview("button-refresh-error");
                 buttonViewModel.SetMenuState(false, false, false, false);
                 buttonViewModel.RefreshText();
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL surrender/statistics button refresh failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:386", $"Bugfixes and QoL surrender/statistics button refresh failed closed: {ex}");
             }
         }
 
@@ -456,9 +452,7 @@ namespace BugfixesAndQoL
                 if (!spectatorPromotionErrorLogged)
                 {
                     spectatorPromotionErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL could not activate local spectator features for the eliminated player; Vanilla behavior remains active: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:459", $"Bugfixes and QoL could not activate local spectator features for the eliminated player; Vanilla behavior remains active: {ex}");
                 }
             }
 
@@ -476,9 +470,7 @@ namespace BugfixesAndQoL
                 if (!statisticsTeamBadgeErrorLogged)
                 {
                     statisticsTeamBadgeErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL statistics team badges failed closed; Vanilla statistics remain available: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:479", $"Bugfixes and QoL statistics team badges failed closed; Vanilla statistics remain available: {ex}");
                 }
             }
         }
@@ -496,17 +488,13 @@ namespace BugfixesAndQoL
                 if (!spectatorPromotionErrorLogged)
                 {
                     spectatorPromotionErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Vanilla spectator mode changed the local player identity unexpectedly: expected={spectatorPromotionPlayerId}, native={currentLocalPlayerId}, managed={managedLocalPlayerId}, mode={spectatorPromotionGameMode}.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:499", $"Vanilla spectator mode changed the local player identity unexpectedly: expected={spectatorPromotionPlayerId}, native={currentLocalPlayerId}, managed={managedLocalPlayerId}, mode={spectatorPromotionGameMode}.");
                 }
                 return;
             }
 
             spectatorPromotionConfirmed = true;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Vanilla spectator mode confirmed for eliminated local player {spectatorPromotionPlayerId}; local identity remained unchanged and omniscient visibility/AI information are active: mode={spectatorPromotionGameMode}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:507", $"Vanilla spectator mode confirmed for eliminated local player {spectatorPromotionPlayerId}; local identity remained unchanged and omniscient visibility/AI information are active: mode={spectatorPromotionGameMode}.");
         }
 
         private void RegisterPlayerDefeatObserver()
@@ -529,9 +517,7 @@ namespace BugfixesAndQoL
         }
 
         private void LogPlayerDefeatRegistrationFailure(NativeCapabilityDiagnostic diagnostic) =>
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"Eliminated-player spectator promotion is unavailable because the APIShared player-defeat observer could not be registered: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:532", $"Eliminated-player spectator promotion is unavailable because the APIShared player-defeat observer could not be registered: state={diagnostic?.State}, reason={diagnostic?.Reason}");
 
         private void OnPlayerLordDied(PlayerLordDeathNotification notification)
         {
@@ -542,9 +528,7 @@ namespace BugfixesAndQoL
             if (playerId < 1 || playerId > 8 ||
                 activeSessionId <= 0 || notification.SessionId != activeSessionId)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Ignored stale or invalid APIShared lord-death notification: activeSessionId={activeSessionId}, notificationSessionId={notification.SessionId}, playerId={playerId}, simulationTick={notification.SimulationTick}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:545", $"Ignored stale or invalid APIShared lord-death notification: activeSessionId={activeSessionId}, notificationSessionId={notification.SessionId}, playerId={playerId}, simulationTick={notification.SimulationTick}.");
                 return;
             }
 
@@ -562,9 +546,7 @@ namespace BugfixesAndQoL
                 localPlayerLordDeathPlayerId = playerId;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Observed lord death through APIShared: sessionId={notification.SessionId}, playerId={playerId}, lordUnitId={notification.LordUnitId}, lordGlobalId={notification.LordGlobalId}, simulationTick={notification.SimulationTick}, localPlayerId={localPlayerId}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:565", $"Observed lord death through APIShared: sessionId={notification.SessionId}, playerId={playerId}, lordUnitId={notification.LordUnitId}, lordGlobalId={notification.LordGlobalId}, simulationTick={notification.SimulationTick}, localPlayerId={localPlayerId}.");
 
             APIShared.GameModes.GameModeSnapshot gameMode = APIShared.GameModes.GameModeHelper.Capture();
             if (!gameMode.IsRealMultiplayer)
@@ -604,17 +586,13 @@ namespace BugfixesAndQoL
                     out byte[] body,
                     out string rejectionReason))
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Eliminated-player spectator Chore was not queued; no unsynchronized fallback was applied: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, reason={rejectionReason}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:607", $"Eliminated-player spectator Chore was not queued; no unsynchronized fallback was applied: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, reason={rejectionReason}.");
                 return;
             }
 
             spectatorChoreQueuedPlayers[playerId] = true;
             int queueTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Eliminated-player spectator Chore queued: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, queueTick={queueTick}, packetId={packetId}, bodyBytes={body.Length}, bodyHex={ToCompactHex(body)}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:615", $"Eliminated-player spectator Chore queued: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, queueTick={queueTick}, packetId={packetId}, bodyBytes={body.Length}, bodyHex={ToCompactHex(body)}.");
         }
 
         private void OnSpectatorPacketReceived(
@@ -696,9 +674,7 @@ namespace BugfixesAndQoL
                     !spectatorPromotionRejectionLogged)
                 {
                     spectatorPromotionRejectionLogged = true;
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        $"Eliminated-player spectator activation was rejected fail-closed: playerId={localPlayerId}, source={source}, supportedGameMode={supportedGameMode}, validLocalParticipant={validLocalParticipant}, mode={gameMode.ToDiagnosticString()}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:699", $"Eliminated-player spectator activation was rejected fail-closed: playerId={localPlayerId}, source={source}, supportedGameMode={supportedGameMode}, validLocalParticipant={validLocalParticipant}, mode={gameMode.ToDiagnosticString()}.");
                 }
                 return;
             }
@@ -707,9 +683,7 @@ namespace BugfixesAndQoL
             spectatorPromotionActivated = true;
             spectatorPromotionPlayerId = localPlayerId;
             spectatorPromotionGameMode = gameMode.ToDiagnosticString();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Activated Vanilla spectator mode for eliminated local player {localPlayerId}: source={source}, mode={spectatorPromotionGameMode}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:710", $"Activated Vanilla spectator mode for eliminated local player {localPlayerId}: source={source}, mode={spectatorPromotionGameMode}.");
         }
 
         private static bool IsValidLocalSpectatorPromotionParticipant(
@@ -747,7 +721,7 @@ namespace BugfixesAndQoL
                 RefreshButtonState();
                 if (buttonViewModel.SurrenderButtonVisibility != Visibility.Visible || !buttonViewModel.SurrenderButtonEnabled)
                 {
-                    Shared.DebugLogHelper.LogWarning(log, "Bugfixes and QoL surrender click was rejected because the action is unavailable.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:750", "Bugfixes and QoL surrender click was rejected because the action is unavailable.");
                     return;
                 }
 
@@ -756,7 +730,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 ReopenIngameMenu();
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL could not display the surrender confirmation: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:759", $"Bugfixes and QoL could not display the surrender confirmation: {ex}");
             }
         }
 
@@ -776,9 +750,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL could not display the Lord-disband surrender confirmation: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:779", $"Bugfixes and QoL could not display the Lord-disband surrender confirmation: {ex}");
                 return false;
             }
         }
@@ -795,9 +767,7 @@ namespace BugfixesAndQoL
                 () => ConfirmSurrender(sequence),
                 () => CancelSurrender(sequence),
                 SerpLocalization.Get("BugfixesAndQoL.SurrenderConfirmationMessage"));
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Displayed surrender confirmation: source={(openedFromIngameMenu ? "ingame-menu" : "lord-disband")}, sequence={sequence}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:798", $"Displayed surrender confirmation: source={(openedFromIngameMenu ? "ingame-menu" : "lord-disband")}, sequence={sequence}.");
         }
 
         private static void OnQuitMissionCommand()
@@ -814,19 +784,19 @@ namespace BugfixesAndQoL
                 if (buttonViewModel.StatisticsButtonVisibility != Visibility.Visible ||
                     !buttonViewModel.StatisticsButtonEnabled)
                 {
-                    Shared.DebugLogHelper.LogWarning(log, "Bugfixes and QoL spectator-statistics click was rejected because the action is unavailable.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:817", "Bugfixes and QoL spectator-statistics click was rejected because the action is unavailable.");
                     return;
                 }
 
                 // Close restores Vanilla's pre-menu pause state so the observed match keeps running.
                 MainViewModel.Instance?.HUDIngameMenu?.Close();
                 if (!TryOpenStatisticsPreview())
-                    Shared.DebugLogHelper.LogError(log, "Bugfixes and QoL spectator statistics could not be opened; the match remains unchanged.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:824", "Bugfixes and QoL spectator statistics could not be opened; the match remains unchanged.");
             }
             catch (Exception ex)
             {
                 CloseStatisticsPreview("open-error");
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL spectator-statistics opening failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:829", $"Bugfixes and QoL spectator-statistics opening failed closed: {ex}");
             }
         }
 
@@ -846,18 +816,18 @@ namespace BugfixesAndQoL
                 EngineInterface.MPScoreData snapshot = EngineInterface.GetMPScoreData();
                 if (!ValidateStatisticsSnapshot(snapshot))
                 {
-                    Shared.DebugLogHelper.LogError(log, "Bugfixes and QoL rejected an invalid spectator-statistics refresh snapshot; the previous snapshot remains visible.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:849", "Bugfixes and QoL rejected an invalid spectator-statistics refresh snapshot; the previous snapshot remains visible.");
                     return;
                 }
 
                 if (!TryApplyStatisticsSnapshot(statisticsPreviewView, snapshot, initializeView: false))
                     return;
 
-                Shared.DebugLogHelper.LogDebug(log, "Spectator statistics refreshed from the current local simulation snapshot.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:856", "Spectator statistics refreshed from the current local simulation snapshot.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL spectator-statistics refresh failed; the previous snapshot remains selected: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:860", $"Bugfixes and QoL spectator-statistics refresh failed; the previous snapshot remains selected: {ex}");
             }
         }
 
@@ -1008,9 +978,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL early post-game lobby preparation failed; the later Game-over fallback remains available: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1011", $"Bugfixes and QoL early post-game lobby preparation failed; the later Game-over fallback remains available: {ex}");
             }
         }
 
@@ -1023,9 +991,7 @@ namespace BugfixesAndQoL
                 return;
 
             gameOverStateCorrectionLogged = true;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Corrected Vanilla spectator game-over result for eliminated local player {spectatorPromotionPlayerId}: source={source}, originalState={originalState}, presentedState={presentedState}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1026", $"Corrected Vanilla spectator game-over result for eliminated local player {spectatorPromotionPlayerId}: source={source}, originalState={originalState}, presentedState={presentedState}.");
         }
 
         private void MissionOverButtonClickedHook(HUD_MissionOver self, string parameter)
@@ -1060,7 +1026,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL pre-game-over handling failed; Vanilla game over still runs: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1063", $"Bugfixes and QoL pre-game-over handling failed; Vanilla game over still runs: {ex}");
             }
 
             // Vanilla must run exactly once even if preview cleanup failed.
@@ -1075,7 +1041,7 @@ namespace BugfixesAndQoL
             EngineInterface.MPScoreData snapshot = EngineInterface.GetMPScoreData();
             if (!ValidateStatisticsSnapshot(snapshot))
             {
-                Shared.DebugLogHelper.LogError(log, "Bugfixes and QoL rejected an invalid spectator-statistics snapshot.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1078", "Bugfixes and QoL rejected an invalid spectator-statistics snapshot.");
                 return false;
             }
 
@@ -1088,7 +1054,7 @@ namespace BugfixesAndQoL
             if (view == null)
             {
                 viewModel.Show_HUD_MissionOver = false;
-                Shared.DebugLogHelper.LogError(log, "Bugfixes and QoL could not resolve exactly one visible in-game statistics view.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1091", "Bugfixes and QoL could not resolve exactly one visible in-game statistics view.");
                 return false;
             }
 
@@ -1102,7 +1068,7 @@ namespace BugfixesAndQoL
             statisticsPreviewView = view;
             statisticsPreviewActive = true;
             buttonViewModel.SetStatisticsPreviewActive(true);
-            Shared.DebugLogHelper.LogDebug(log, "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1105", "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
             return true;
         }
 
@@ -1121,7 +1087,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL could not apply the spectator-statistics snapshot: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1124", $"Bugfixes and QoL could not apply the spectator-statistics snapshot: {ex}");
                 if (!initializeView && ValidateStatisticsSnapshot(previousSnapshot))
                 {
                     try
@@ -1130,7 +1096,7 @@ namespace BugfixesAndQoL
                     }
                     catch (Exception rollbackEx)
                     {
-                        Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL could not restore the previous spectator-statistics snapshot: {rollbackEx}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1133", $"Bugfixes and QoL could not restore the previous spectator-statistics snapshot: {rollbackEx}");
                     }
                 }
                 return false;
@@ -1411,7 +1377,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL spectator-statistics video cleanup failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1414", $"Bugfixes and QoL spectator-statistics video cleanup failed: {ex}");
             }
 
             MainViewModel viewModel = MainViewModel.Instance;
@@ -1422,7 +1388,7 @@ namespace BugfixesAndQoL
                 viewModel.Show_HUD_MissionOver = false;
             }
 
-            Shared.DebugLogHelper.LogDebug(log, $"Closed spectator statistics preview: reason={reason}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1425", $"Closed spectator statistics preview: reason={reason}.");
         }
 
         private bool CanUseStatisticsPreview() =>
@@ -1532,7 +1498,7 @@ namespace BugfixesAndQoL
                     IsStartSpectator(),
                     lord))
                 {
-                    Shared.DebugLogHelper.LogWarning(log, "Confirmed surrender was rejected because the local lord or match state changed.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1535", "Confirmed surrender was rejected because the local lord or match state changed.");
                     return;
                 }
 
@@ -1540,20 +1506,20 @@ namespace BugfixesAndQoL
                 {
                     if (APIShared.UnitAccess.TryGetById(lord.UnitId, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
                     ClearSurrenderLordSelection(lord.PlayerId, lord.UnitId, lord.GlobalId);
-                    Shared.DebugLogHelper.LogDebug(log, $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1543", $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
                     return;
                 }
 
                 if (!IsChoreTransportReady())
                 {
-                    Shared.DebugLogHelper.LogError(log, "Multiplayer surrender was rejected because the Chore transport is unavailable; no local kill was applied.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1549", "Multiplayer surrender was rejected because the Chore transport is unavailable; no local kill was applied.");
                     return;
                 }
 
                 if (GameNetworkAPI.IsLocalHost())
                 {
                     if (!TryQueueExecution(lord))
-                        Shared.DebugLogHelper.LogError(log, "Host surrender could not be queued; no local kill was applied.");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1556", "Host surrender could not be queued; no local kill was applied.");
                     return;
                 }
 
@@ -1564,11 +1530,11 @@ namespace BugfixesAndQoL
                     RequestId = requestId
                 };
                 GameNetworkAPI.SendPacketToPlayerId(1, request, requestPacketHook.GetPacketId());
-                Shared.DebugLogHelper.LogDebug(log, $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1567", $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL confirmed surrender failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1571", $"Bugfixes and QoL confirmed surrender failed closed: {ex}");
             }
         }
 
@@ -1581,9 +1547,7 @@ namespace BugfixesAndQoL
             confirmationOpenedFromMenuSequence = 0;
             if (reopenMenu)
                 ReopenIngameMenu();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                reopenMenu
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1584", reopenMenu
                     ? "Cancelled surrender and reopened the in-game menu."
                     : "Cancelled surrender from the Lord troop HUD.");
         }
@@ -1609,20 +1573,20 @@ namespace BugfixesAndQoL
             {
                 if (request == null || request.ProtocolVersion != RequestProtocolVersion || request.RequestId == 0)
                 {
-                    Shared.DebugLogHelper.LogWarning(log, "Rejected surrender request with an invalid payload.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1612", "Rejected surrender request with an invalid payload.");
                     return;
                 }
 
                 if (!TryResolveHumanSender(senderSteamId, out int playerId))
                 {
-                    Shared.DebugLogHelper.LogWarning(log, "Rejected surrender request without a known authenticated human sender.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1618", "Rejected surrender request without a known authenticated human sender.");
                     return;
                 }
 
                 string requestKey = senderSteamId.m_SteamID + ":" + request.RequestId;
                 if (acceptedRequests.Contains(requestKey))
                 {
-                    Shared.DebugLogHelper.LogWarning(log, $"Rejected duplicate surrender request: playerId={playerId}, requestId={request.RequestId}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1625", $"Rejected duplicate surrender request: playerId={playerId}, requestId={request.RequestId}.");
                     return;
                 }
 
@@ -1637,7 +1601,7 @@ namespace BugfixesAndQoL
                     lord);
                 if (!accepted)
                 {
-                    Shared.DebugLogHelper.LogWarning(log, $"Rejected authenticated surrender request after host validation: playerId={playerId}, requestId={request.RequestId}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1640", $"Rejected authenticated surrender request after host validation: playerId={playerId}, requestId={request.RequestId}.");
                     return;
                 }
 
@@ -1646,7 +1610,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL host surrender-request handling failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1649", $"Bugfixes and QoL host surrender-request handling failed closed: {ex}");
             }
         }
 
@@ -1699,15 +1663,15 @@ namespace BugfixesAndQoL
 
         private void LogPacketInfo(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogDebug(log, message));
+                () => Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1702", message));
 
         private void LogPacketWarning(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogWarning(log, message));
+                () => Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1706", message));
 
         private void LogPacketError(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogError(log, message));
+                () => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1710", message));
 
         private bool TryQueueExecution(SurrenderLordSnapshot lord)
         {
@@ -1735,7 +1699,7 @@ namespace BugfixesAndQoL
                     out byte[] body,
                     out string rejectionReason))
             {
-                Shared.DebugLogHelper.LogError(log, $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, reason={rejectionReason}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1738", $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, reason={rejectionReason}.");
                 return false;
             }
 
@@ -1869,25 +1833,19 @@ namespace BugfixesAndQoL
             playerId = identity.PlayerId;
             if (!identity.IsResolved)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Surrender sender identity resolution failed closed: steamId={sender.m_SteamID}, error={identity.Error}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1872", $"Surrender sender identity resolution failed closed: steamId={sender.m_SteamID}, error={identity.Error}");
                 return false;
             }
             if (!string.IsNullOrEmpty(identity.Diagnostic))
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Surrender sender identity source mismatch: {identity.Diagnostic}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1879", $"Surrender sender identity source mismatch: {identity.Diagnostic}");
             }
 
             Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
             Platform_Multiplayer.MPGameMember member = multiplayer?.getPlayer(playerId);
             if (!IsHumanMember(member) || member.steamID != sender.m_SteamID)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Surrender sender identity did not resolve back to the authenticated human: " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1888", $"Surrender sender identity did not resolve back to the authenticated human: " +
                     $"steamId={sender.m_SteamID}, playerId={playerId}.");
                 playerId = 0;
                 return false;
@@ -1927,7 +1885,7 @@ namespace BugfixesAndQoL
             lastSpectatorPromotionFrame = -1;
             confirmationSequence++;
             buttonViewModel.SetMenuState(false, false, false, false);
-            Shared.DebugLogHelper.LogDebug(log, $"Reset surrender/statistics session state: reason={reason}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1930", $"Reset surrender/statistics session state: reason={reason}.");
         }
 
         private static void ReopenIngameMenu()

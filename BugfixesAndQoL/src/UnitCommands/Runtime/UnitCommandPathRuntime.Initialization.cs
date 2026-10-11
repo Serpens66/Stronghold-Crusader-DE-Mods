@@ -445,8 +445,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 // Cadence qualification is optional; keep shared commands and selectors available.
                 nativeMovementCadenceResolver = null;
-                APIShared.Internal.DebugLogHelper.LogWarning(log,
-                    "CADENCE_RESOLVER_UNAVAILABLE: weighted route publication disabled; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:448", "CADENCE_RESOLVER_UNAVAILABLE: weighted route publication disabled; " +
                     "shared movement commands remain available: " + exception);
             }
             rootedCentralMovementPlan = RunCentralMovementPlanWithContext;
@@ -565,8 +564,7 @@ namespace BugfixesAndQoL.UnitCommands
                 catch (Exception exception)
                 {
                     disposed = true;
-                    APIShared.Internal.DebugLogHelper.LogError(log,
-                        "Friendly moat movement disabled after a committed mode-detour contract mismatch: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:568", "Friendly moat movement disabled after a committed mode-detour contract mismatch: " + exception);
                 }
 
 

@@ -31,9 +31,7 @@ namespace BugfixesAndQoL
                     Adjust,
                     out diagnostic))
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Briefing No Starting Gold correction is unavailable: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BriefingNoStartingGoldFixRegistration.cs:34", $"Briefing No Starting Gold correction is unavailable: state={diagnostic?.State}, reason={diagnostic?.Reason}");
                 return;
             }
 

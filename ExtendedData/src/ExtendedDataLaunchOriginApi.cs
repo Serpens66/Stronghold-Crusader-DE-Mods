@@ -68,9 +68,7 @@ namespace ExtendedData
                 OnMapUnloaded);
             if (!registered)
             {
-                DebugLogHelper.LogError(
-                    log,
-                    "Could not register persistent Custom Trail launch-origin data; restored saves will fail closed.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:71", "Could not register persistent Custom Trail launch-origin data; restored saves will fail closed.");
             }
         }
 
@@ -157,7 +155,7 @@ namespace ExtendedData
                 launchPending = false;
             }
             if (previous != ExtendedDataLaunchOriginKind.None)
-                DebugLogHelper.LogDebug(log, $"Cleared customized launch origin: previous={previous}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:160", $"Cleared customized launch origin: previous={previous}.");
         }
 
         internal static void MarkMapStarted()
@@ -216,7 +214,7 @@ namespace ExtendedData
                 LaunchOriginSaveData data = MessagePackSerializer.Deserialize<LaunchOriginSaveData>(bytes);
                 if (!IsValid(data))
                 {
-                    DebugLogHelper.LogWarning(log, "Ignored invalid Custom Trail launch-origin save data.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:219", "Ignored invalid Custom Trail launch-origin save data.");
                     return;
                 }
                 Set((ExtendedDataLaunchOriginKind)data.Origin,
@@ -224,14 +222,12 @@ namespace ExtendedData
                     data.TrailId,
                     data.MissionId,
                     restored: true);
-                DebugLogHelper.LogDebug(
-                    log,
-                    $"Restored customized launch origin from save: origin={data.Origin}, trailId={data.TrailId}, missionId={data.MissionId}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:227", $"Restored customized launch origin from save: origin={data.Origin}, trailId={data.TrailId}, missionId={data.MissionId}.");
             }
             catch (Exception exception)
             {
                 Clear();
-                DebugLogHelper.LogWarning(log, "Ignored unreadable Custom Trail launch-origin save data: " + exception.Message);
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:234", "Ignored unreadable Custom Trail launch-origin save data: " + exception.Message);
             }
         }
 
@@ -275,9 +271,7 @@ namespace ExtendedData
                 restoredFromSave = restored;
                 launchPending = true;
             }
-            DebugLogHelper.LogDebug(
-                log,
-                $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:278", $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
                 $"trailId={trailIdValue}, missionId={missionIdValue}, restored={restored}.");
         }
 

@@ -42,7 +42,7 @@ namespace BugfixesAndQoL
             disposed = true;
             hook?.Undo();
             hook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL auto-trade sell zero hook disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AutoTradeSellZeroHook.cs:45", "Bugfixes and QoL auto-trade sell zero hook disposed.");
         }
 
         private static MethodInfo FindSellSliderValueChangedMethod()
@@ -112,7 +112,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL auto-trade sell zero hook failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AutoTradeSellZeroHook.cs:115", $"Bugfixes and QoL auto-trade sell zero hook failed: {ex}");
                 trampoline(self, sender, e);
             }
         }

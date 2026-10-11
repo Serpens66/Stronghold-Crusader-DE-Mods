@@ -22,7 +22,12 @@ The relevant `GamePlayerResources` fields are relative offsets `r_LordUnitId = 0
 `r_IsPaused = 0x2210`, and `r_WinLossState = 0x2244`. Player and unit game IDs are one-based.
 The installed Script Extender exposes these records and unit identity/alive fields directly.
 
-APIShared consequently observes all eight player records from `GameTimeManagerAPI.OnTick`.
+APIShared consequently observes all eight player records from `GameTimeManagerAPI.OnTick`
+only after the first subscriber registers. The first tick after that registration is
+baseline-only, including registration during an existing mission; earlier deaths/losses
+are not replayed. Without subscribers, the callback performs no state/resource/unit reads.
+This consumer-demand contract was approved and covered by service regression tests on
+2026-10-11; the native simulation and ID contracts below remain unchanged.
 The hook is pre-tick, so mutations made by the current native simulation step become visible on
 the next tick. A living lord identity arms the early edge; disappearance, invalidation, or death
 then emits once unless another living identity has already replaced it. Independently, entry into

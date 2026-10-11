@@ -118,6 +118,7 @@ namespace EnemyBridgePathTest
         }
         internal void Deferred()
         {
+            long renderStart=Stopwatch.GetTimestamp();try {
             Trace.VirtualShadow?.Pump();Trace.VirtualShadow?.PumpArtifacts();Trace.Drain();
             if (!running || Trace.InsideNative) return;
             // Rendering is outside synchronous native dispatch. No command frame
@@ -148,6 +149,7 @@ namespace EnemyBridgePathTest
                 });
             }
             if (now >= nextFlush) { nextFlush = now + Stopwatch.Frequency * 10; Flush(); }
+            } finally {Trace.RenderCost(Stopwatch.GetTimestamp()-renderStart);}
         }
         private void RetireFrames()
         {

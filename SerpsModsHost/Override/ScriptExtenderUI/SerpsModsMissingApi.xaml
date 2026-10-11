@@ -1,0 +1,7 @@
+<ScrollViewer xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel Margin="24">
+    <TextBlock Text="APIShared: separate Workshop subscription required / separat abonnieren" FontSize="24" Foreground="Red" TextWrapping="Wrap" Margin="0,0,0,20" />
+    <TextBlock Text="{Binding Message}" FontSize="18" TextWrapping="Wrap" Margin="0,0,0,20" />
+    <Button Content="Open APIShared Workshop / APIShared-Workshop öffnen" Command="{Binding OpenWorkshopCommand}" />
+  </StackPanel>
+</ScrollViewer>

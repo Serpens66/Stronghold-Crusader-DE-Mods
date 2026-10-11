@@ -107,9 +107,9 @@ namespace BugfixesAndQoL
             runtime?.Dispose();
         }
 
-        private void LogError(string message)
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
-            log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Bugfixes and QoL {message}");
+            Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
         }
     }
 }

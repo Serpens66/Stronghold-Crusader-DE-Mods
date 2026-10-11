@@ -31,6 +31,8 @@ namespace EnemyGatePathfindingTest
         // native hook and event subscriptions alive for the complete process.
         private static ManualLogSource persistentLog;
         private static bool detailedDiagnostics;
+        // TEMP_MACEMEN_GATE_DIAGNOSTICS: local, startup-only observation profile.
+        private static bool macemenDiagnostics;
         private static EnemyGatePathfindingRuntime runtime;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
@@ -48,10 +50,13 @@ namespace EnemyGatePathfindingTest
             persistentLog = Logger;
             detailedDiagnostics = Config.Bind("Diagnostics", "DetailedDiagnostics", false,
                 "Enable detailed gate and temporary Raid/Assassin diagnostics. Restart the game after changing this local option.").Value;
+            macemenDiagnostics = Config.Bind("Diagnostics", "MacemenDiagnostics", false,
+                "Enable compact TEMP_MACEMEN_GATE_DIAGNOSTICS. Takes precedence over DetailedDiagnostics; restart required.").Value;
+            if (macemenDiagnostics) detailedDiagnostics = false;
             LogScriptExtenderIdentity();
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion}: DetailedDiagnostics={detailedDiagnostics}, " +
+                $"{PluginName} {PluginVersion}: DetailedDiagnostics={detailedDiagnostics}, MacemenDiagnostics={macemenDiagnostics}, " +
                 $"hookOwner={(BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("BugfixesAndQoL_Serp") ? "BugfixesAndQoL" : "standalone")}; local option requires restart.");
 
             // UPDATE REVIEW (Script Extender): revalidate map event phases and lifetime;
@@ -67,17 +72,17 @@ namespace EnemyGatePathfindingTest
                 mapUnloadSubscription = Shared.MissionEvents.Ended
                     .Subscribe(_ => runtime?.EndMap("MissionEnd"));
             }
-            if (detailedDiagnostics && targetOrderSubscription == null)
+            if ((detailedDiagnostics || macemenDiagnostics) && targetOrderSubscription == null)
             {
                 // The public Script Extender event brackets Vanilla 0x11E960. This
                 // observer never mutates or suppresses the order.
                 targetOrderSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                     .Subscribe(ObserveTargetOrder);
             }
-            if (detailedDiagnostics && tribeMoveSubscription == null)
+            if ((detailedDiagnostics || macemenDiagnostics) && tribeMoveSubscription == null)
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                     .Subscribe(ObserveTribeMove);
-            if (detailedDiagnostics && unitMoveSubscription == null)
+            if ((detailedDiagnostics || macemenDiagnostics) && unitMoveSubscription == null)
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
                     .Subscribe(ObserveUnitMove);
             if (buildingCaptureSubscription == null)
@@ -122,7 +127,7 @@ namespace EnemyGatePathfindingTest
                 if (!referenceHashMatches)
                     return;
 
-                var installed = new EnemyGatePathfindingRuntime(persistentLog, detailedDiagnostics);
+                var installed = new EnemyGatePathfindingRuntime(persistentLog, detailedDiagnostics, macemenDiagnostics);
                 installed.InitializeNative(context, referenceHashMatches);
                 runtime = installed;
                 if (!gameTickInstalled)

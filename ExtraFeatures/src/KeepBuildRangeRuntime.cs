@@ -43,8 +43,7 @@ namespace ExtraFeatures
                 callbackLogged = true;
                 try
                 {
-                    Shared.DebugLogHelper.LogDebug(log,
-                        "Keep build range lifecycle active after startup: phase=" + notification.Phase + ".");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/KeepBuildRangeRuntime.cs:46", "Keep build range lifecycle active after startup: phase=" + notification.Phase + ".");
                 }
                 catch { /* Diagnostics must not interrupt mission callbacks. */ }
             }
@@ -72,7 +71,7 @@ namespace ExtraFeatures
                 if (!errorLogged)
                 {
                     errorLogged = true;
-                    try { Shared.DebugLogHelper.LogError(log, "Keep build range update failed: " + ex); }
+                    try { Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/KeepBuildRangeRuntime.cs:75", "Keep build range update failed: " + ex); }
                     catch { /* Logging must not escape the settings/event path. */ }
                 }
             }

@@ -152,9 +152,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL complete notification skip failed after activation; completion may be partial: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/NotificationSkipFeature.cs:155", $"Bugfixes and QoL complete notification skip failed after activation; completion may be partial: {ex}");
             }
         }
 
@@ -295,9 +293,7 @@ namespace BugfixesAndQoL
                 {
                     if (Interlocked.CompareExchange(ref pendingSkipRequest, null, request) == request)
                     {
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            "Bugfixes and QoL discarded notification completion for an unexpected manager.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/NotificationSkipFeature.cs:298", "Bugfixes and QoL discarded notification completion for an unexpected manager.");
                     }
                     notificationUpdateHook.Original(manager);
                     return;
@@ -319,9 +315,7 @@ namespace BugfixesAndQoL
                 {
                     if (Interlocked.CompareExchange(ref pendingSkipRequest, null, request) == request)
                     {
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"Bugfixes and QoL discarded stale notification completion: " +
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/NotificationSkipFeature.cs:322", $"Bugfixes and QoL discarded stale notification completion: " +
                             $"active={queueActive}, " +
                             $"expectedMessageId={request.MessageId}, " +
                             $"messageId={messageId}, expectedPresentationId={request.PresentationId}, " +
@@ -345,9 +339,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL native notification completion failed; Vanilla update retained where safe: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/NotificationSkipFeature.cs:348", $"Bugfixes and QoL native notification completion failed; Vanilla update retained where safe: {ex}");
                 if (Volatile.Read(ref pendingSkipRequest) != null)
                     notificationUpdateHook.Original(manager);
             }
@@ -449,9 +441,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL could not classify channel-1 speech; Vanilla loading continues: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/NotificationSkipFeature.cs:452", $"Bugfixes and QoL could not classify channel-1 speech; Vanilla loading continues: {ex}");
                 return false;
             }
         }
@@ -524,9 +514,7 @@ namespace BugfixesAndQoL
                     speechClip1Field.SetValue(audio, null);
                     speechMode1Field.SetValue(audio, 0);
                 }
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL channel-1 speech loading failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/NotificationSkipFeature.cs:527", $"Bugfixes and QoL channel-1 speech loading failed: {ex}");
             }
         }
 

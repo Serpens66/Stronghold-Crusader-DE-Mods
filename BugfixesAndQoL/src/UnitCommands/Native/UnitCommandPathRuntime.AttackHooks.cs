@@ -82,9 +82,7 @@ namespace BugfixesAndQoL.UnitCommands
                 buildingCursorHookTransaction = null;
                 buildingCursorReachabilityDetour = null;
                 rootedBuildingCursorReachability = null;
-                APIShared.Internal.DebugLogHelper.LogError(
-                    log,
-                    "Bugfixes and QoL friendly-moat-movement building cursor reachability was not installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Native/UnitCommandPathRuntime.AttackHooks.cs:85", "Bugfixes and QoL friendly-moat-movement building cursor reachability was not installed; " +
                     $"building cursors remain Vanilla and the movement feature remains active: {ex}");
             }
         }
@@ -184,9 +182,7 @@ namespace BugfixesAndQoL.UnitCommands
                 rootedBuildingApproachBuilder = null;
                 rootedBuildingCandidateConsumer = null;
                 rootedRegionPairReachability = null;
-                APIShared.Internal.DebugLogHelper.LogError(
-                    log,
-                    "Bugfixes and QoL friendly-moat-movement shared E2610/attack-approach hooks were not installed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Native/UnitCommandPathRuntime.AttackHooks.cs:187", "Bugfixes and QoL friendly-moat-movement shared E2610/attack-approach hooks were not installed; " +
                     "the ladder attack fix, building commands, and direct FillMoat staging remain Vanilla while the " +
                     $"existing movement feature remains active: {ex}");
             }
