@@ -118,6 +118,7 @@ internal static partial class Program
                 "diagnostics switch preserves route checksum, expansion, heap operations and unit scans: " + mode);
             Check(long.Parse(off[9]) <= long.Parse(on[9]), "disabled diagnostics do not allocate more: " + mode);
         }
+        InvokeKernel(CompileProductionKernel(root, false), "VerifyTemporaryRouteValidation");
         CheckDisabledDiagnosticIL(disabled);
         Check(true, "production search, cache, resolution, final publication and Dijkstra agree");
     }
@@ -179,6 +180,19 @@ internal static partial class Program
             .Replace("if (PerformanceDiagnosticsEnabled) ", "")
             .Replace("RememberTemporaryParent(nextTile);", "")
             .Replace("activeObservation?.ParentDecisions?.Clear();", "");
+        MethodDeclarationSyntax WithoutTemporaryValidation(MethodDeclarationSyntax method)
+        {
+            var calls = method.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                .Where(c => c.Expression.ToString() == "TemporaryRouteValidation").ToArray();
+            method = method.ReplaceNodes(calls, (old, rewritten) => rewritten.ArgumentList.Arguments[0].Expression);
+            var locals = method.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
+                .Where(l => l.Declaration.Variables.Any(v => v.Identifier.Text == "directClimbingMatches")).ToArray();
+            method = method.RemoveNodes(locals, SyntaxRemoveOptions.KeepNoTrivia);
+            var predicates = method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                .Where(p => p.ToString() == "!directClimbingMatches").ToArray();
+            return method.ReplaceNodes(predicates, (old, rewritten) =>
+                SyntaxFactory.ParseExpression("key.DirectGatehouseClimbing != AssassinPathAPI.DirectGatehouseClimbingEnabled"));
+        }
         MethodDeclarationSyntax FunctionalEvaluator(string source)
         {
             var method = Method(source, "EvaluateAssassinTransition");
@@ -198,7 +212,7 @@ internal static partial class Program
             "IsValidCoordinate", "GetTileId", "GetCoordinateIndex", "IsNativeTile", "ValidateCoordinateTileMapping",
             "EnsureCoordinateTileMappingValidated", "Touch", "ResetTouchedNodes", "Push", "PushOrDecrease", "Pop",
             "SiftUp", "SiftDown", "ComesBefore" })
-            Check(Method(previous,name).NormalizeWhitespace().ToFullString() == (name == "AllowsAssassinTransition" ? FunctionalEvaluator(current) : Method(current,name)).NormalizeWhitespace().ToFullString(),
+            Check(Method(previous,name).NormalizeWhitespace().ToFullString() == (name == "AllowsAssassinTransition" ? FunctionalEvaluator(current) : name == "ValidateCachedRoute" ? WithoutTemporaryValidation(Method(current,name)) : Method(current,name)).NormalizeWhitespace().ToFullString(),
                 "Git contract unchanged: " + name);
         string search = Method(current,"TryBuildWeightedRoute").ToFullString()
             .Replace("Dictionary<int, int> suffixCosts = command?.GetSuffixCosts(suffixKey);", "")

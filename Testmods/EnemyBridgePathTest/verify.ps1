@@ -203,3 +203,8 @@ foreach ($entryField in @('entryLeaderIds9','entryLeaderGlobals9','entryUpdateCl
 }
 if (!$entryCapture.Contains('checked(0x366C210+lord*0x5e4)') -or !$entryImporter.Contains('military-entry-binding') -or !$entryImporter.Contains('military-entry-config-lord')) {throw 'Own military configuration/frame contract missing'}
 Write-Host 'PASS: own military entry tables/configuration and caller heights, additive legacy-safe import; full entry/formation replay remains unproven.'
+
+$transportSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeTraceTransport.cs'))
+if ($transportSource -notmatch 'MaximumBytes=65536' -or $transportSource -notmatch 'lines.Count>16' -or $transportSource -notmatch 'CompressionLevel.Fastest' -or $transportSource -notmatch 'Hash\(bytes\)' -or $transportSource -match 'Game[A-Za-z]+|Marshal|CrusaderLibrary|UnityEngine|NativeDetour|Json') {throw 'Bounded publisher codec must not read game state, run native work or add serializers/hooks'}
+if ($commandText -notmatch 'wireLines.Count==16' -or $commandText -notmatch 'lock\(wireGate\)' -or $commandText -notmatch 'interval-transport-cost' -or $commandText -notmatch 'FlushNativeRows\(\);FlushWireRows\(\)' -or $commandText -notmatch 'count<64' -or $commandText -notmatch 'Frequency<2') {throw 'Publisher codec lifetime, bounded flush, counters or render budget missing'}
+Write-Host 'PASS: hash-checked16-record/64KiB publisher transport; exact original envelopes and direct completion markers; no game/API access.'

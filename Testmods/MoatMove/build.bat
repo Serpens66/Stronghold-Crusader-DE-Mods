@@ -26,9 +26,6 @@ if errorlevel 1 exit /b 1
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1"
 if errorlevel 1 exit /b 1
-echo [%date% %time%] Unit access regression tests
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-UnitAccess.ps1"
-if errorlevel 1 exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"

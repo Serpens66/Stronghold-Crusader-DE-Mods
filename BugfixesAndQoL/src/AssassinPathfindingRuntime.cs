@@ -798,7 +798,7 @@ namespace BugfixesAndQoL
             int expectedStart = GetCoordinateIndex(key.StartX, key.StartY);
             int expectedTarget = GetCoordinateIndex(key.TargetX, key.TargetY);
             if (cached.Nodes[length - 1] != expectedStart || cached.Nodes[0] != expectedTarget)
-                return false;
+                return TemporaryRouteValidation(false, key, "endpoint-mismatch", cached.Summary);
 
             int totalCost = 0;
             int groundEdges = 0;
@@ -815,21 +815,22 @@ namespace BugfixesAndQoL
                 int nextY = nextNode / MapWidth;
                 if (!IsValidCoordinate(currentX, currentY) ||
                     !IsValidCoordinate(nextX, nextY))
-                    return false;
+                    return TemporaryRouteValidation(false, key, "invalid-coordinate", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode);
                 int dx = nextX - currentX;
                 int dy = nextY - currentY;
                 int direction = GetDirectionIndex(dx, dy);
                 if (direction < 0)
-                    return false;
+                    return TemporaryRouteValidation(false, key, "invalid-direction", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode);
 
                 int currentTile = GetTileId(currentX, currentY);
                 int nextTile = GetTileId(nextX, nextY);
                 if (!IsNativeTile(currentTile) || !IsNativeTile(nextTile))
-                    return false;
+                    return TemporaryRouteValidation(false, key, "invalid-native-tile", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode, direction, currentTile, nextTile);
 
-                if (key.DirectGatehouseClimbing != AssassinPathAPI.DirectGatehouseClimbingEnabled ||
+                bool directClimbingMatches = key.DirectGatehouseClimbing == AssassinPathAPI.DirectGatehouseClimbingEnabled;
+                if (!directClimbingMatches ||
                     !AllowsAssassinTransition(key.GatePolicy, currentTile, nextTile, direction, key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints))
-                    return false;
+                    return TemporaryRouteValidation(false, key, directClimbingMatches ? "gate-transition-rejected" : "direct-climb-switch", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode, direction, currentTile, nextTile);
                 RememberTemporaryParent(nextTile);
                 bool cardinal = (direction & 1) == 0;
                 bool ordinaryEdge = HasOrdinaryConnection(currentTile, nextTile, direction);
@@ -848,7 +849,7 @@ namespace BugfixesAndQoL
                             tileFlags[currentTile],
                             key.AllowWalkableReservedClimbEndpoints))
                     {
-                        return false;
+                        return TemporaryRouteValidation(false, key, (direction & 1) != 0 ? "noncardinal-climb" : !key.AllowClimbing ? "climbing-disabled" : "native-climb-fallback", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode, direction, currentTile, nextTile);
                     }
                     climbEdges++;
                     edgeCost = AssassinAStarPolicy.SaturatingAdd(
@@ -857,9 +858,39 @@ namespace BugfixesAndQoL
                 totalCost = AssassinAStarPolicy.SaturatingAdd(totalCost, edgeCost);
             }
 
-            return totalCost == cached.Summary.TotalCost &&
+            return TemporaryRouteValidation(totalCost == cached.Summary.TotalCost &&
                 groundEdges == cached.Summary.GroundEdges &&
-                climbEdges == cached.Summary.ClimbEdges;
+                climbEdges == cached.Summary.ClimbEdges, key, "route-summary", cached.Summary,
+                totalCost: totalCost, groundEdges: groundEdges, climbEdges: climbEdges);
+        }
+
+        // TEMP_GATE_ROUTE_ACCEPTANCE: returns the existing result; never repeats a native predicate.
+        private bool TemporaryRouteValidation(bool result, RouteCacheKey key, string reason, RouteSearchSummary summary,
+            int edgeIndex = -1, int fromNode = -1, int toNode = -1, int direction = -1, int fromTile = -1, int toTile = -1,
+            int totalCost = -1, int groundEdges = -1, int climbEdges = -1)
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return result;
+            try
+            {
+                string category = result ? "passed" : reason == "route-summary"
+                    ? totalCost != summary.TotalCost ? "total-cost-mismatch"
+                    : groundEdges != summary.GroundEdges ? "ground-count-mismatch" : "climb-count-mismatch"
+                    : reason;
+                UnitCommandPathRuntime.ReportTemporaryAssassinStage("route-validation", category,
+                    UnitCommandPathRuntime.CaptureTemporaryAssassinSource() +
+                    ",validationPhase=" + UnitCommandPathRuntime.CaptureTemporaryRouteValidationPhase() +
+                    ",valid=" + result + ",criterion=" + reason + ",start=" + key.StartX + "/" + key.StartY +
+                    ",target=" + key.TargetX + "/" + key.TargetY + ",policyReference=" + AssassinGateRoutePolicy.IdentityHash(key.GatePolicy) + ",edgeIndex=" + edgeIndex +
+                    ",fromNode=" + fromNode + ",toNode=" + toNode + ",direction=" + direction +
+                    ",fromTile=" + fromTile + ",toTile=" + toTile +
+                    ",costActual=" + totalCost + ",costExpected=" + summary.TotalCost +
+                    ",groundActual=" + groundEdges + ",groundExpected=" + summary.GroundEdges +
+                    ",climbActual=" + climbEdges + ",climbExpected=" + summary.ClimbEdges +
+                    ",playerId=" + key.PlayerId + ",speedDelay=" + key.SpeedDelay,
+                    key.PlayerId);
+            }
+            catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("route-validation-report", error); }
+            return result;
         }
 
         private static int GetDirectionIndex(int dx, int dy) => AssassinRouteEncoding.GetDirection(dx, dy);
@@ -1573,10 +1604,14 @@ namespace BugfixesAndQoL
             // Every Stage/Complete invocation still checks current map, settings,
             // climbing, gate policy, physical edges and costs in full.
             public Func<bool> GetValidator() => validator ?? (validator = Validate);
-            private bool Validate() => epoch == runtime.mapEpoch && runtime.settings.EnableMod &&
-                runtime.settings.EnableImprovedAssassinPathfinding &&
-                key.AllowClimbing == runtime.climbRuntime.IsClimbingAllowed(key.PlayerId) &&
-                AssassinGateRoutePolicy.IsCurrent(key.GatePolicy) && runtime.ValidateCachedRoute(key, this);
+            private bool Validate() =>
+                (epoch == runtime.mapEpoch || runtime.TemporaryRouteValidation(false, key, "map-epoch", Summary)) &&
+                (runtime.settings.EnableMod || runtime.TemporaryRouteValidation(false, key, "mod-disabled", Summary)) &&
+                (runtime.settings.EnableImprovedAssassinPathfinding || runtime.TemporaryRouteValidation(false, key, "improvement-disabled", Summary)) &&
+                (key.AllowClimbing == runtime.climbRuntime.IsClimbingAllowed(key.PlayerId) ||
+                    runtime.TemporaryRouteValidation(false, key, "player-climb-switch", Summary)) &&
+                (AssassinGateRoutePolicy.IsCurrent(key.GatePolicy) ||
+                    runtime.TemporaryRouteValidation(false, key, "gate-policy-stale", Summary)) && runtime.ValidateCachedRoute(key, this);
         }
 
         private sealed class AssassinCommandScope

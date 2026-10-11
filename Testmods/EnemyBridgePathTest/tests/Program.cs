@@ -20,6 +20,7 @@ namespace EnemyBridgePathTest
         {
             try
             {
+                if(args.Length==2&&args[0]=="--transport-replay")return TraceTransportTests.Replay(args[1]);
                 if(args.Length==2&&args[0]=="--replay")return ShadowControlTests.Replay(args[1]);
                 if(args.Length==2&&args[0]=="--replay-alternate-mode")return ShadowControlTests.Replay(args[1],true);
                 if(args.Length==2&&args[0]=="--planning-replay")
@@ -50,6 +51,7 @@ namespace EnemyBridgePathTest
                     if(!BridgePlanningImporter.TryRead(args[1],out planning,out reason)||!BridgePlanningImporter.TryRead(args[2],out group,out reason)){Console.WriteLine(reason);return 2;}
                     bool linked=BridgePlanningImporter.TryLinkGroup(planning,group,out reason);Console.WriteLine("planningGroupLinked="+linked+",reason="+reason+",behaviorFix=disabled");return linked?0:2;
                 }
+                count += TraceTransportTests.Run();
                 count += ShadowControlTests.Run();
                 count += VirtualBridgeTests.Run();
                 count += SharedTests.CaptureRefreshTests.Run();

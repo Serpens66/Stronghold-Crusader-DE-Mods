@@ -38,7 +38,7 @@ namespace Shared { static class DebugLogHelper { internal static void LogInfo(ob
 namespace APIShared {
  unsafe static class AssassinPathAPI {
   static string weightedOwner="fixture"; public static bool IsInstalled=>true;
-  public static bool DirectGatehouseClimbingEnabled=>true;
+  internal static bool DirectClimb=true;public static bool DirectGatehouseClimbingEnabled=>DirectClimb;
   public static bool HasSingleUnitRoutePublication=>AssassinRouteHandoff.HasFrame;
   public static int NativeCalls; public static long NativeTicks;
   public static int DirectEndpoint=-1;public static bool IsDirectGatehouseClimbEndpoint(int tile)=>tile==DirectEndpoint;
@@ -61,7 +61,10 @@ namespace APIShared.UnitCommands {
   object BeginTemporaryRouteReport(IntPtr p,string s,int? c=null,int? v=null)=>null;
   void ObserveTemporaryNativeBuilderOutput(object t,int r){}
   internal static string CaptureTemporaryAssassinSource()=>"source=unknown";
-  internal static void ReportTemporaryAssassinStage(string stage,string result,string detail) {}
+  internal static string CaptureTemporaryRouteValidationPhase()=>"post-native-builder";
+  internal static void ReportTemporaryAssassinStage(string stage,string result,string detail,int? player=null) {
+   try{(TemporaryGateRouteAcceptanceBridge.Current as ITemporaryAssassinGateObserver)?.ObserveAssassinStage(null,player??2,stage,result,detail);}catch(Exception e){TemporaryGateRouteAcceptanceBridge.ReportFailure("fixture-observer",e);}
+  }
   void EndTemporaryRouteReport(IntPtr p,object s,bool b,int r){}
   void EndEnemyGateSearch(object g,object s,EnemyGateSearchKind k,bool b,bool success){}
   void TryLogDiagnosticFailure(string s,Exception ex){throw new Exception(s,ex);}
@@ -95,6 +98,62 @@ namespace BugfixesAndQoL {
    public int PlayerId=>2;public bool IsCurrent=>true;
    public bool IsDirectionAllowed(int tile,int direction)=>false;
    public bool TryGetBlockedGateIdentity(int tile,int direction,out int b,out uint g,out int o,out int c){b=578;g=99;o=3;c=0;return true;}
+  }
+  sealed class ValidationSink:ITemporaryGateRouteAcceptanceObserver,ITemporaryAssassinGateObserver {
+   internal string Last="none",Detail;internal long Checks;internal bool Throw;
+   public object BeginRoute(int p,int t,uint tg,int u,uint ug,int ty,int x,int y,int tx,int tY,string d)=>null;
+   public void RouteEdge(object t,int f,int to,int d){} public void EndRoute(object t,string s,int r){}
+   public void Raid(int p,int role,int t,uint tg,int b,uint bg,string s,string r,string d){}
+   public void ObserveAssassinDecision(object t,int p,int f,int to,int d,bool prep,AssassinTransitionKind m,bool a,int g,uint gl,string e){}
+   public void ObserveAssassinStage(object t,int p,string stage,string result,string detail){
+    if(stage=="route-validation"){Last=result;Detail=detail;Checks++;if(Throw)throw new Exception("fixture-observer");}
+   }
+  }
+  sealed class ValidationMask:IEnemyGateRoutePolicySnapshot {
+   public int PlayerId=>2;internal bool Current=true,Allowed=true;public bool IsCurrent=>Current;
+   public bool IsDirectionAllowed(int tile,int direction)=>Allowed;
+  }
+  public static void VerifyTemporaryRouteValidation() {
+   var r=new AssassinPathfindingRuntime("open");var mask=new ValidationMask();
+   var key=new RouteCacheKey(5,5,10,5,TileCount,4,2,true,true,mask,true);
+   Assert(r.TryBuildWeightedRoute(5,5,10,5,TileCount,4,true,true,null,mask,out var summary),"reference route");
+   var nodes=new int[summary.RouteLength];Array.Copy(r.route,nodes,nodes.Length);
+   var prepared=new CachedRoute(nodes,summary,r,key,r.mapEpoch);
+   int calls=AssassinPathAPI.NativeCalls;
+   Assert(prepared.GetValidator()(),"validator without observer");
+   var sink=new ValidationSink();TemporaryGateRouteAcceptanceBridge.Register(sink);
+   try {
+    Assert(prepared.GetValidator()()&&sink.Last=="passed","actual validator diagnostic does not change valid route");
+    int publishes=0;var context=new IntPtr(123);
+    var handoff=new AssassinRouteHandoff(context,5,5,10,5,2,()=>true,(bytes,count)=>{publishes++;return count;},2,4);
+    try {
+     Assert(r.TryStagePreparedRoute(context,key,summary,prepared,null),"actual production stage callback validates current route");
+     mask.Allowed=false;
+     Assert(handoff.Complete(8)==8&&publishes==0&&sink.Last=="gate-transition-rejected","changed edge after staging preserves native output and reports exact reason");
+     Assert(sink.Detail.Contains("edgeIndex=0")&&sink.Detail.Contains("fromTile=")&&sink.Detail.Contains("validationPhase=post-native-builder"),"first failing edge is bound to final validation phase");
+    }finally{handoff.Leave();mask.Allowed=true;}
+    foreach(string reason in new[]{"map-epoch","mod-disabled","improvement-disabled","player-climb-switch","direct-climb-switch","gate-policy-stale"}){
+     int oldEpoch=r.mapEpoch;
+     if(reason=="map-epoch")r.mapEpoch++;
+     if(reason=="mod-disabled")r.settings.EnableMod=false;
+     if(reason=="improvement-disabled")r.settings.EnableImprovedAssassinPathfinding=false;
+     if(reason=="player-climb-switch")r.climbRuntime.Allowed=false;
+     if(reason=="direct-climb-switch")AssassinPathAPI.DirectClimb=false;
+     if(reason=="gate-policy-stale")mask.Current=false;
+     Assert(!prepared.GetValidator()()&&sink.Last==reason,"actual first rejection: "+reason);
+     r.mapEpoch=oldEpoch;r.settings.EnableMod=r.settings.EnableImprovedAssassinPathfinding=r.climbRuntime.Allowed=AssassinPathAPI.DirectClimb=mask.Current=true;
+    }
+    foreach(string reason in new[]{"total-cost-mismatch","ground-count-mismatch","climb-count-mismatch"}){
+     var altered=new RouteSearchSummary(summary.RouteLength,summary.GroundEdges+(reason=="ground-count-mismatch"?1:0),summary.ClimbEdges+(reason=="climb-count-mismatch"?1:0),summary.TotalCost+(reason=="total-cost-mismatch"?1:0),0,0,0,0,false);
+     var stale=new CachedRoute(nodes,altered,r,key,r.mapEpoch);
+     Assert(!stale.GetValidator()()&&sink.Last==reason,"existing final comparison rejects without weakening: "+reason);
+     Assert(sink.Detail.Contains("costActual=")&&sink.Detail.Contains("costExpected=")&&sink.Detail.Contains("groundExpected="),"summary keeps raw expected/actual values");
+    }
+    sink.Throw=true;Assert(prepared.GetValidator()(),"throwing diagnostic observer preserves valid callback");sink.Throw=false;
+    long before=sink.Checks;for(int i=0;i<1000;i++)Assert(prepared.GetValidator()(),"repeated validation");
+    Assert(sink.Checks==before+1000&&AssassinPathAPI.NativeCalls==calls,"no validation event cap or extra native search");
+    Console.WriteLine("PASS: actual cached validator/stage/complete reasons, post-stage physical rejection, observer failures and 1000 exact completions.");
+   }finally{r.Release();}
   }
   public static void VerifyTemporaryDecisions() {
    var runtime=new AssassinPathfindingRuntime("open");var sink=new DecisionSink();var mask=new DecisionMask();

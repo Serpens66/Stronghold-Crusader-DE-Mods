@@ -954,3 +954,112 @@ Bridge version remains0.1.0; README and external mods remain unchanged.
 The build contains passive bounded military-entry/caller-height capture;
 full entry/formation replay remains unproven and the behavior fix is disabled.
 No game start was performed.
+
+## Offline acceptance of 2026-10-11 14:02:30–14:04:06
+
+The frozen inputs are in `_inspect/BridgePlanningTests/historical-20261011-1402`.
+Full log and process section SHA256:
+80845EE9EEC531C5B2A80F35F18F1FEDE2A5722827FC84042731CD688C549939.
+Planning SHA256 E1FDDAD75696C89749BCD02D7707CCE06CB2A0C95B852F28715268FC182A474E;
+group SHA256 A2453E0213E3DC442086736C9FBD8098EF679CEF2CD70366997DF7D788EBF891.
+Only the exact planning hash was added to the private allowlist; native/backend,
+format, complete input and identity checks remain enabled.
+
+The actual continuous 2C480 candidate/weight/availability/work calculation matches
+all captured unchanged outputs. The post-consumer native suffix preserves target
+225464 and phase6. With only703 raised, 8600 candidate,10029 weight and10033
+consumer bytes differ; CF360 becomes0 and the audited suffix yields phase5,
+without a new target selection. All hostile bridges:8641/10076/10080 bytes differ.
+The 434 mode0 candidates remain inherited inputs. Seed/distance changes for703:
+4000/34878. These are not proof of executing the complete 3C2E0 entry or phase6
+formation. The suffix excludes the 2990 map observer and entry preamble.
+
+Full private E49D0 including relevant building updaters matches the managed
+physical control for the entire partition/count grids and concrete endpoints.
+Occupancy delta0; native generation46. This planning input is Dirty0. The later
+group input is Dirty1 and originates at stored-path observation, not command
+entry. Do not transfer its values backwards or authorize a negative policy from
+its geometric result. Every effective policy remains Unknown; behavior disabled.
+
+### Exact remaining entry inputs and timing
+
+Capture before 3C2E0's entry preamble, in its own session/frame, before 3CF20:
+
+| Tribe | Expected Global-ID | First identity read RVA / bytes |
+| --- | --- | --- |
+|4332|2426899|0x83AECB4 /4|
+|4404|2425918|0x83CC2F4 /4|
+|4324|2427508|0x83AB874 /4|
+|4364|2416650|0x83BBDB4 /4|
+|4340|2426333|0x83B20F4 /4|
+
+These identity reads only begin the necessary tribe contract; validated live
+records and audited reachable accesses are required, not just these four bytes.
+Target player1 Lord unit93 requires own entry reads 0x6803340/4 (Global-ID),
+0x6803334/2 (alive),0x6803548/2 (state) for187E60. 3CE40 requires quota
+0x366D620/4. Existing entryConfig5[2]-0x2F8 is the 3B450 formation count,
+not the separate -0x380 quota. Do not reinterpret the captured schema.
+3FE50/2A6B0 scan all9999 unit slots: an earlier manager image at0x67E8400,
+11681628 bytes, is necessary; a later consumer image or high-water subset is
+insufficient. 126020 unit membership side effects and special-engineer counters
+0x2EB2CCC/0x2EBAA04 + attacker*0x177BC also need their own entry provenance.
+Configuration/side-effect call closure and later formation remain separate gates.
+No broad replacement capture was installed in this step. A bounded coherent
+own-entry capture must be prepared and offline checked before requesting a test.
+An unchanged additional game run cannot resolve these missing fields.
+
+### Bounded transport and review
+
+Publisher-only packed-batch schema1 retains every original envelope and detail;
+max16 rows and64KiB uncompressed data. Deflate Fastest/Base64 plus SHA256 allows
+exact offline reconstruction. Readers validate extent/hash/count and reject
+corrupt or truncated payloads; historical plain logs remain supported. Readiness,
+interval, artifact and session delivery markers remain plain. Inner timestamps
+are the original observation times; the outer batch is only a transport envelope.
+No new hooks, game reads, APIs, searches or behavior changes. The existing static
+publisher,64-record render limit,2ms target and64KiB artifact blocks remain.
+Ten-second interval-transport-cost measures encoding separately; its time is
+also included in drain time, so those totals must not be added together.
+
+Frozen production codec replay:6784342 ->2481749 Bridge bytes including prefixes,
+63.4% reduction, approximately1.55MB/min for this changing run. The overall1MB/min
+goal is not yet met. Stable production fixture:2118706 calls/36923 commands,
+15242 bytes including prefix allowance; raised fixture169938 bytes. Offline
+encode/decode cost about163ms for the whole frozen file is not measured game cost.
+Exact analyzer semantic records, references, chains, movement and delivery match.
+27 external resource errors have no recorded caller (invalid positive values
+570018048/570018640); source/ABI checks do not establish provenance. External
+mods remain unchanged. The Bridge has no resources lookup at those call sites.
+
+Second review and regressions:150 native differential cases/12117 checks,
+38110 policy/observer/transport assertions; actual NativeX64 contracts and30
+private owners retained. Installed APIShared/source signature compilation passes
+in memory. Previous2354 candidate fixture passes; older1833 full candidate replay
+correctly refuses its missing own consumer table instead of using PE defaults.
+Full historical transport regression and corrupt/truncated delivery tests pass.
+Versions, README, public APIs and external mods remain unchanged.
+
+### Build delivery blocked by unrelated workspace change — 2026-10-11 14:34
+
+The prescribed elevated Bridge build driver exited1 before runtime compilation
+and before package removal/installation. SharedBoundaries passed102 projects;
+UnitAccess production contract tests passed. The mandatory global source scan
+then rejected Testmods/ArabianIdleSoundTest/src/SoundRuntime.cs:112 for its direct
+TryGetUnitById call outside APIShared's UnitAccess adapter. This parallel mod is
+not changed here; the validation is not weakened or bypassed. The focused Bridge,
+APIShared and Shared/Runtime UnitAccess scan passes. The previously installed
+Bridge build remains in place; new transport is source/offline-tested only.
+Build log: `_inspect/BridgePlanningTests/new-final-build.log`.
+Resolve the separate workspace violation, then rerun the prescribed driver.
+
+### Installation completed — 2026-10-11 15:12
+
+The prescribed elevated build.bat /nopause retry completed with exit0 at15:12:14.
+The previously blocked workspace UnitAccess scan now passes; no check bypass.
+All runtime, JSON/lifecycle, assembly, hook, XAML and CRLF checks passed;
+12117 private native checks and38110 policy/observer assertions passed.
+Runtime compilation:0 errors, existing CS0649 TemporaryCountsOnly warning.
+Local and installed DLL/PDB/info.json match by SHA256. Bounded packed-batch
+transport is now installed. Versions/README unchanged; behavior fix disabled.
+Log: `_inspect/BridgePlanningTests/new-final-build-retry.log`.
+No game start was performed. Entry/formation provenance gates remain open.

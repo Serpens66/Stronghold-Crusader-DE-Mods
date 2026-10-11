@@ -1229,9 +1229,21 @@ namespace EnemyGatePathfindingTest
             int used = ResolveBuildingMovementPlayer(player, tribe);
             CaptureScopeSample(QueryKind.BuildingApproach, player, player, tribePlayer, used);
             QueryScope scope = Enter(used);
-            try { originalBuilding(manager, tribe, buildingId, count, targetPcl, player); }
+            bool completed = false;
+            // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
+            try { attackOrderDiagnostics?.BeginNativeSearch("BuildingApproach", used); }
+            catch { Interlocked.Increment(ref exceptions); }
+            try { originalBuilding(manager, tribe, buildingId, count, targetPcl, player); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, QueryKind.BuildingApproach, false, false); }
+            finally
+            {
+                try { Complete(scope, QueryKind.BuildingApproach, false, false); }
+                finally
+                {
+                    try { attackOrderDiagnostics?.EndNativeSearch("BuildingApproach", completed, false); }
+                    catch { Interlocked.Increment(ref exceptions); }
+                }
+            }
         }
         private void FilterConsumer(IntPtr tribeManager, int tribe, int variant)
         {
@@ -1239,9 +1251,21 @@ namespace EnemyGatePathfindingTest
             int player = ResolveTribePlayer(tribe);
             CaptureScopeSample(QueryKind.BuildingApproach, tribe, -1, player, player);
             QueryScope scope = Enter(player);
-            try { originalConsumer(tribeManager, tribe, variant); }
+            bool completed = false;
+            // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
+            try { attackOrderDiagnostics?.BeginNativeSearch("BuildingConsumer", player); }
+            catch { Interlocked.Increment(ref exceptions); }
+            try { originalConsumer(tribeManager, tribe, variant); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, QueryKind.BuildingApproach, false, false); }
+            finally
+            {
+                try { Complete(scope, QueryKind.BuildingApproach, false, false); }
+                finally
+                {
+                    try { attackOrderDiagnostics?.EndNativeSearch("BuildingConsumer", completed, false); }
+                    catch { Interlocked.Increment(ref exceptions); }
+                }
+            }
         }
         private void FilterAlternateConsumer(IntPtr tribeManager, int tribe, int variant)
         {
@@ -1249,9 +1273,21 @@ namespace EnemyGatePathfindingTest
             int player = ResolveTribePlayer(tribe);
             CaptureScopeSample(QueryKind.AlternateBuildingApproach, tribe, -1, player, player);
             QueryScope scope = Enter(player);
-            try { originalAlternateConsumer(tribeManager, tribe, variant); }
+            bool completed = false;
+            // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
+            try { attackOrderDiagnostics?.BeginNativeSearch("AlternateBuildingConsumer", player); }
+            catch { Interlocked.Increment(ref exceptions); }
+            try { originalAlternateConsumer(tribeManager, tribe, variant); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, QueryKind.AlternateBuildingApproach, false, false); }
+            finally
+            {
+                try { Complete(scope, QueryKind.AlternateBuildingApproach, false, false); }
+                finally
+                {
+                    try { attackOrderDiagnostics?.EndNativeSearch("AlternateBuildingConsumer", completed, false); }
+                    catch { Interlocked.Increment(ref exceptions); }
+                }
+            }
         }
         private void FilterCandidateSearch(IntPtr manager, int startTileId, int count,
             int targetPcl, int player, int mode, int candidateClass)

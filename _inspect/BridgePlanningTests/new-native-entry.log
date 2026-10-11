@@ -1,0 +1,11 @@
+PASS own military entry strength; attacker=8,result=0,phase=4,hash=E1FDDAD75696C89749BCD02D7707CCE06CB2A0C95B852F28715268FC182A474E
+Unknown:missing-own-3CF20-tribe-identity,tribe=4332,expectedGlobal=2426899,firstReadRva=0x83AECB4,firstReadBytes=4,consumerCopiesAreNotOwnEntry=True
+Unknown:missing-own-3CF20-tribe-identity,tribe=4404,expectedGlobal=2425918,firstReadRva=0x83CC2F4,firstReadBytes=4,consumerCopiesAreNotOwnEntry=True
+Unknown:missing-own-3CF20-tribe-identity,tribe=4324,expectedGlobal=2427508,firstReadRva=0x83AB874,firstReadBytes=4,consumerCopiesAreNotOwnEntry=True
+Unknown:missing-own-3CF20-tribe-identity,tribe=4364,expectedGlobal=2416650,firstReadRva=0x83BBDB4,firstReadBytes=4,consumerCopiesAreNotOwnEntry=True
+Unknown:missing-own-3CF20-tribe-identity,tribe=4340,expectedGlobal=2426333,firstReadRva=0x83B20F4,firstReadBytes=4,consumerCopiesAreNotOwnEntry=True
+Unknown:missing-own-187E60-unit,target=1,unit=93,reads=[0x6803340/4;0x6803334/2;0x6803548/2],timing=before-entry-preamble
+Unknown:missing-own-3CE40-quota,rva=0x366D620,bytes=4;entryConfig5-minus2F8-is-3B450-formation-count-not-this-quota
+Unknown:3FE50-and-2A6B0-read-all9999-unit-slots;own-entry-unit-manager-required,base=0x67E8400,bytes=11681628,no-high-water-or-consumer-default;side-effect126020-unit-members-and-special-engineer-counters-also-require-own-entry
+militaryEntryComplete=False,formationComplete=False,missingPreviouslyRequestedInputs=0,consumerCopiesAreNotEntryCopies=True,negativePolicyEligible=False,behaviorFix=disabled
+scope=necessary-input-coverage-only; AI configuration and side-effect call closure still required; no later snapshot or PE default substituted

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -65,11 +66,54 @@ namespace SHCDESE.API {
     public unsafe class GameBuildingManagerAPI {
         public static readonly GameBuildingManagerAPI Instance=new GameBuildingManagerAPI();
         public GameBuilding* Building; public int BuildingId=578;
-        public bool IsValidId(int id)=>id==BuildingId;
-        public bool TryGetBuildingById(int id,out GameBuilding* building) { building=IsValidId(id)?Building:null; return building!=null; }
+        public GameBuilding* Additional;
+        public bool IsValidId(int id)=>id==BuildingId || (id==579&&Additional!=null&&Additional->r_GlobalId!=0);
+        public bool TryGetBuildingById(int id,out GameBuilding* building) { building=id==579&&Additional!=null&&Additional->r_GlobalId!=0?Additional:id==BuildingId?Building:null;return building!=null; }
     }
 }
 namespace EnemyGatePathfindingTest { internal static class EnemyGatePathfindingNativeDefinition { internal const uint MaximumTileIdExclusive = 320800; } }
+namespace EnemyGatePathfindingTest {
+    internal sealed class AttackOrderCorrelationDiagnostics {
+        /* ACTUAL_CORRELATION_FRAMES */
+        private static List<NativeFrame> nativeFrames;
+        internal TemporaryGateRouteAcceptance TemporaryAcceptance;
+        internal int Begins,Ends; internal bool ThrowBegin,LastCompleted;
+        internal void BeginNativeSearch(string source,int player){Begins++;if(ThrowBegin)throw new Exception("observer");}
+        internal void EndNativeSearch(string source,bool completed,bool success){Ends++;LastCompleted=completed;}
+        /* ACTUAL_CORRELATION_METHODS */
+        internal void Report(int player,string kind,bool success,long touched,string nativeSource=null,int contextPlayer=5) {
+            Frame frame=kind==null?null:new Frame {Player=contextPlayer,Kind=kind,Id=1,Tribe=37,Command=3,Target1=100,Target2=101,
+                UnitType=kind=="unit"?"CHIMP_TYPE_ARAB_ASSASIN":null,UnitIdentity="unitGlobal=12,controlWord=5"};
+            nativeFrames=nativeSource==null?null:new List<NativeFrame>{new NativeFrame {Player=player,Source=nativeSource},new NativeFrame {Player=player,Source="Builder"}};
+            ObserveTemporaryBuilderResult(player,frame,true,success,touched,42);
+            nativeFrames=null;
+        }
+    }
+}
+namespace EnemyGatePathfindingTest {
+    internal class ActualStandaloneBuildings {
+        private enum QueryKind {BuildingApproach,AlternateBuildingApproach}
+        private struct QueryScope { }
+        private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions;
+        private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics=new AttackOrderCorrelationDiagnostics();
+        internal int Calls,Releases,LastPlayer;internal bool ThrowNative;
+        private int ResolveTribePlayer(int t)=>5;
+        private int ResolveBuildingMovementPlayer(int p,int t)=>5;
+        private void CaptureScopeSample(QueryKind k,int a,int b,int c,int d){}
+        private QueryScope Enter(int p){LastPlayer=p;return default;}
+        private void Complete(QueryScope s,QueryKind k,bool contract,bool success){Releases++;}
+        private void originalBuilding(IntPtr m,int t,int b,int n,int pcl,int p){Calls++;if(p!=2||t!=37||b!=578)throw new Exception("arguments");if(ThrowNative)throw new InvalidOperationException("original");}
+        private void originalConsumer(IntPtr m,int t,int v){Calls++;if(ThrowNative)throw new InvalidOperationException("original");}
+        private void originalAlternateConsumer(IntPtr m,int t,int v){Calls++;if(ThrowNative)throw new InvalidOperationException("original");}
+        /* ACTUAL_STANDALONE_METHODS */
+        internal bool Run(int mode,bool failNative,bool failObserver){
+            ThrowNative=failNative;attackOrderDiagnostics.ThrowBegin=failObserver;bool threw=false;
+            try{if(mode==0)FilterBuilding(IntPtr.Zero,37,578,1,2,2);else if(mode==1)FilterConsumer(IntPtr.Zero,37,1);else FilterAlternateConsumer(IntPtr.Zero,37,1);}
+            catch(InvalidOperationException){threw=true;}
+            return Calls==1&&Releases==1&&LastPlayer==5&&attackOrderDiagnostics.Begins==1&&attackOrderDiagnostics.Ends==1&&attackOrderDiagnostics.LastCompleted==!failNative&&threw==failNative;
+        }
+    }
+}
 namespace BugfixesAndQoL {
     internal interface IEnemyGatePathPolicy { bool HasPublishedMask {get;} }
     internal interface IEnemyGateAssassinObserver {
@@ -347,7 +391,7 @@ public static unsafe class RuntimeAcceptanceTests {
                 runtime.Reset(); runtime.Invoke();
             }
             acceptance.End();
-            Check(Contains("checked=0,violated=0,unclear=40,suspectedNativeGroundRoutes=40") && Shared.DebugLogHelper.Lines.FindAll(s=>s.Contains("kind=mask-overlap,")).Count==40 &&
+            Check(Contains("checked=0,violated=0,unclear=40") && Contains("suspectedNativeGroundRoutes=40") && Shared.DebugLogHelper.Lines.FindAll(s=>s.Contains("kind=mask-overlap,")).Count==40 &&
                 runtime.Calls==routeCallsBefore+40,"more than 32 exact gates counted without event cap or extra native calls");
             GameBuildingManagerAPI.Instance.BuildingId=578;
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); int missingReads=GameTribeManagerAPI.Instance.Reads;
@@ -405,9 +449,40 @@ public static unsafe class RuntimeAcceptanceTests {
             Check(Contains("phase=before-capture/source=assassin-weighted-fresh"),"actual weighted route before capture");
             Check(Contains("phase=after-confirmed-publication/source=assassin-weighted-fresh") && Contains("Ground/allowed=True"),"captured ground edge remains visible and allowed");
             Check(Contains("phase=after-confirmed-publication/source=assassin-published") && Contains("packed-movement-unproven"),"native bytes never prove climb execution");
-            Check(Contains("phase=transition/source=assassin-weighted-fresh") && Contains("verdict=unclear"),"publication during synchronous route cannot pass");
+            Check(Contains("phase=transition/source=assassin-weighted-fresh") && Contains("routeVerdict=unclear"),"publication during synchronous route cannot pass");
             Check(Contains("entryGeneration=14")&&Contains("endGeneration=15")&&Contains("started=[mono=")&&Contains("emittedUtc="),"real observation time separate from aggregate emission");
             Check(Contains("kind=capture-event")&&Contains("capturingPlayer=5")&&Contains("selfCapturer=True"),"capture and subsequent publication are explicit");
+            // One route touches a blocked foreign gate and an allowed own/captured gate.
+            GameBuildingManagerAPI.Instance.BuildingId=578; GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=0;
+            var mixedOwners=new GateEdgeOwnership[9];mixedOwners[5]=new GateEdgeOwnership();mixedOwners[5].Record(80100,2,578);
+            var mixedGeometry=new GateEdgeOwnership();mixedGeometry.Record(80100,2,578);mixedGeometry.Record(80101,2,579);
+            snapshot=new RouteTilePolicySnapshot(masks,800,edgeOwners:mixedOwners,
+                gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{578,new RouteTilePolicySnapshot.GateIdentity(99,2,0)},{579,new RouteTilePolicySnapshot.GateIdentity(100,5,5)}},diagnosticGateEdges:mixedGeometry);
+            GameTileManagerAPI.Instance.Buildings[80100]=578;
+            Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();acceptance.ObservePolicyPublication(snapshot,30);
+            var mixed=acceptance.BeginRoute(5,37,9,1,12,0x49,100,100,102,100,"fixture-two-gates");
+            acceptance.RouteEdge(mixed,80100,80101,2);acceptance.RouteEdge(mixed,80101,80102,2);
+            // Fixture supplies the second live identity during completion, as the API lookup would.
+            GameBuildingManagerAPI.Instance.Additional=(GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));
+            *GameBuildingManagerAPI.Instance.Additional=new GameBuilding {r_GlobalId=100,r_BuildingType=45,r_PlayerIdOwner=5,r_CapturedByPlayerId=5,r_AliveState=2};
+            acceptance.EndRoute(mixed,"decoded",2);acceptance.End();
+            Check(Shared.DebugLogHelper.Lines.Exists(l=>l.Contains("kind=gate-route-timing")&&l.Contains("gate=578/")&&l.Contains("gateVerdict=suspected-native-ground-overlap")),"blocked gate retains its own suspect assessment");
+            Check(Shared.DebugLogHelper.Lines.Exists(l=>l.Contains("kind=gate-route-timing")&&l.Contains("gate=579/")&&l.Contains("gateVerdict=access-permitted")&&l.Contains("gateSuspectedNativeGround=0")),"allowed gate does not inherit the route's other gate suspicion");
+            Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Additional);GameBuildingManagerAPI.Instance.Additional=null;
+            Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();int beforeMissing=GameUnitManagerAPI.Instance.Reads;
+            for(int i=0;i<1000;i++)acceptance.BeginRoute(0,0,0,0,0,-1,-1,-1,-1,-1,"unit-buffer-mismatch");
+            acceptance.End();Check(Contains("unobservedPublications=1000")&&Contains("unclear=0")&&Contains("not-inspected/unit-buffer-mismatch,count=1000")&&GameUnitManagerAPI.Instance.Reads==beforeMissing,"unowned buffers count as unobserved coverage, no invented unit or SDK read");
+            Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();var correlation=new AttackOrderCorrelationDiagnostics {TemporaryAcceptance=acceptance};
+            for(int i=0;i<1200;i++)correlation.Report(5,i%3==0?"unit":i%3==1?"move":null,i%2==0,i%4==0?0:1);
+            correlation.Report(5,"unit",false,1,"BuildingApproach");correlation.Report(5,"unit",false,0,contextPlayer:2);
+            acceptance.CompareBuilderTotals(1202,601);acceptance.End();Check(Contains("builderCounterAgreement=PASS")&&Contains("aiBuilderResults=1202,aiBuilderNegative=602,aiBuilderFilteredNegative=601"),"AI completion counts preserve exact failed/touched split across many identities");
+            Check(Contains("source=building-query/unitType=CHIMP_TYPE_ARAB_ASSASIN")&&Contains("source=unknown/unitType=unknown")&&Contains("source=group-move/unitType=unknown"),"actual synchronous source extractor never guesses missing or conflicting identity");
+            Check(Contains("gateCauseProven=false")&&Contains("aiClassification=entry-bound"),"native failure with filtered edges does not prove causal gate denial");
+            Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();correlation.Report(5,"unit",false,1);
+            acceptance.CompareBuilderTotals(2,1);acceptance.End();
+            Check(Contains("builderCounterAgreement=FAIL")&&Contains("ai-builder-counter-mismatch"),"missing AI callback cannot be called complete coverage");
+            for(int mode=0;mode<3;mode++)foreach(bool originalFailure in new[]{false,true})foreach(bool observerFailure in new[]{false,true})
+                Check(new ActualStandaloneBuildings().Run(mode,originalFailure,observerFailure),"actual standalone original call/arguments/exception/cleanup preserved with optional context failures");
             Console.WriteLine("PASS: "+assertions+" actual diagnostic path assertions; no moat-plan helper present in fixture.");
         } finally { runtime.DisposeFixture(); Marshal.FreeHGlobal((IntPtr)GameUnitManagerAPI.Instance.Unit); Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe); Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Building); }
     }

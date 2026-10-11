@@ -248,6 +248,11 @@ if ($contents.Count -ne 3 -or @($contents | Where-Object { $_.OuterXml -match 'B
     throw 'Expected ForeignTroopHud, spectator and integrated formation XAML operations.'
 }
 if ($patch.OuterXml -notmatch 'ForeignTroopHudPanel') { throw 'Existing ForeignTroopHud XAML was lost.' }
+foreach ($content in $contents) {
+    if (@($content.ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element }).Count -ne 1) {
+        throw 'Every XAML Content must have exactly one direct root element.'
+    }
+}
 $spectatorContent = @($contents | Where-Object { $_.OuterXml -match 'SpectatorPerspectiveCanvas' })
 if ($spectatorContent.Count -ne 1) { throw 'Expected one spectator XAML operation.' }
 $elements = @($spectatorContent[0].ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
@@ -260,4 +265,21 @@ if ($canvas.LocalName -ne 'Canvas' -or
     $canvas.OuterXml -match 'Zuschauer|▶') {
     throw 'Compact HUD XAML must contain a drag strip and eight number-only player buttons.'
 }
-Write-Output 'BugfixesAndQoL spectator perspective preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root.'
+$style = $canvas.SelectSingleNode('./*[local-name()="Canvas.Style"]/*[local-name()="Style"]')
+$visibilitySetter = $style.SelectSingleNode('./*[local-name()="Setter" and @Property="Visibility"]')
+if ($canvas.HasAttribute('Visibility') -or $style.GetAttribute('TargetType') -ne '{x:Type Canvas}' -or
+    $visibilitySetter.GetAttribute('Value') -ne '{Binding Show_HUD_Extras, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}') {
+    throw 'Spectator canvas must follow the Vanilla extras HUD gate and collapse without binding data.'
+}
+foreach ($property in @('Show_HUD_Briefing', 'Show_HUD_MissionOver')) {
+    $trigger = $style.SelectSingleNode('./*[local-name()="Style.Triggers"]/*[local-name()="DataTrigger" and @Binding="{Binding ' + $property + '}" and @Value="True"]')
+    if ($null -eq $trigger -or
+        $null -eq $trigger.SelectSingleNode('./*[local-name()="Setter" and @Property="Visibility" and @Value="Collapsed"]')) {
+        throw "Spectator canvas must collapse while $property is true."
+    }
+}
+$bar = $canvas.SelectSingleNode('.//*[@*[local-name()="Name"]="SpectatorPerspectiveBar"]')
+if ($null -eq $bar -or $bar.GetAttribute('Visibility') -ne 'Collapsed') {
+    throw 'Spectator bar must start collapsed and retain its separate runtime visibility gate.'
+}
+Write-Output 'BugfixesAndQoL spectator perspective preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root/HUD visibility.'

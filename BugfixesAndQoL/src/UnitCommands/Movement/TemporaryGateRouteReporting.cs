@@ -20,7 +20,8 @@ namespace BugfixesAndQoL.UnitCommands
             internal TemporaryRouteReport Previous;
             internal IntPtr Manager;
             internal string Source, FirstSearch, LastSearch;
-            internal long Searches, TargetSearches, Floods, Continuations, WeightedFields;
+            internal long Searches, TargetSearches, Floods, Continuations, WeightedFields, ValidationChecks, ValidationFailures;
+            internal bool ExactWeightedPublished;
             internal int Flags84, Flags88, Flags94;
             internal int? BuilderArgument2, BuilderArgument3, NativeResult, NativeLength;
             internal long Sequence, Started;
@@ -115,11 +116,22 @@ namespace BugfixesAndQoL.UnitCommands
                 CaptureTemporaryAssassinSource() + ",category=" + category + ",reason=" + reason + ",observedMono=" + Stopwatch.GetTimestamp() + ",observedUtc=" + DateTime.UtcNow.ToString("O"));
             return false;
         }
+        // TEMP_GATE_ROUTE_ACCEPTANCE: tied only to the current builder, never inferred from time proximity.
+        internal static string CaptureTemporaryRouteValidationPhase() => temporaryRouteCall == null ? "outside-builder"
+            : temporaryRouteCall.NativeResult.HasValue ? "post-native-builder" : "search-or-staging";
         internal static void ReportTemporaryAssassinStage(string stage, string result, string detail, int? player = null)
         {
             if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver observer)) return;
-            try { observer.ObserveAssassinStage(temporaryRouteCall?.Token, player ?? temporaryRouteCall?.Player ?? 0,
-                stage, result, detail); }
+            try
+            {
+                TemporaryRouteReport report = temporaryRouteCall;
+                if (report != null)
+                {
+                    if (stage == "route-validation") { report.ValidationChecks++; if (result != "passed") report.ValidationFailures++; }
+                    if (stage == "handoff" && result == "published") report.ExactWeightedPublished = true;
+                }
+                observer.ObserveAssassinStage(report?.Token, player ?? report?.Player ?? 0, stage, result, detail);
+            }
             catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-stage", error); }
         }
         // These counters describe only nested synchronous calls, never provenance of an older field.
@@ -310,7 +322,9 @@ namespace BugfixesAndQoL.UnitCommands
                         ",commandMapEpoch=" + report.Epoch + ",observedUtc=" + DateTime.UtcNow.ToString("O") +
                         ",reconstructionRelaxation=" + report.Relaxation + ",nestedAssassinCalls=" + report.Searches +
                         ",targetSearches=" + report.TargetSearches + ",floods=" + report.Floods + ",continuations=" + report.Continuations +
-                        ",weightedPublications=" + report.WeightedFields + ",fieldOrigin=" +
+                        ",weightedPublications=" + report.WeightedFields + ",exactWeightedPublished=" + report.ExactWeightedPublished +
+                        ",finalOutputOrigin=" + (report.ExactWeightedPublished ? "exact-weighted-publication" : "native-builder-output") +
+                        ",validationChecks=" + report.ValidationChecks + ",validationFailures=" + report.ValidationFailures + ",fieldOrigin=" +
                         (report.Searches == 0 ? "unknown-preexisting-field" : "nested-search-observed-consumed-field-unproven") +
                         ",firstSearch=[" + (report.FirstSearch ?? "none") + "],lastSearch=[" + (report.LastSearch ?? "none") + "]", result);
                 }

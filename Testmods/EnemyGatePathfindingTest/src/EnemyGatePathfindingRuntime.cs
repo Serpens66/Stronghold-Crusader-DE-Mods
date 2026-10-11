@@ -261,6 +261,12 @@ namespace EnemyGatePathfindingTest
             if (!hadActiveEpoch)
                 return;
             LogDiagnosticCheckpoint("final", reason);
+            // TEMP_GATE_ROUTE_ACCEPTANCE: validate complete AI result attribution against functional counters.
+            if (temporaryAcceptance != null && samePclRouteRuntime != null)
+            {
+                SamePclCoverageSnapshot same = samePclRouteRuntime.GetCoverageSnapshot();
+                temporaryAcceptance.CompareBuilderTotals(same.AiQueries, same.AiNoRoutes);
+            }
             temporaryAcceptance?.End();
             topologyProvider?.EndEpoch(reason);
             gateAccess = NativeGateAccessSnapshot.Empty;

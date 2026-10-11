@@ -1,0 +1,16 @@
+[11.10.2026 14:21:00,06] START EnemyGatePathfindingTest
+[11.10.2026 14:21:00,06] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 102 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+Text must use CRLF: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\Testmods\ArabianIdleSoundTest\src\NativeContract.cs
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\Shared\Tools\Validation\Test-SharedBoundaries.ps1:90 Zeichen:37
++ ... -match '(?<!\r)\n') { throw "Text must use CRLF: $($file.FullName)" }
++                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Text must use C...tiveContract.cs:String) [], RuntimeException
+    + FullyQualifiedErrorId : Text must use CRLF: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Te 
+   stmods\ArabianIdleSoundTest\src\NativeContract.cs
+ 
+[11.10.2026 14:21:03,59] END: exit code 1

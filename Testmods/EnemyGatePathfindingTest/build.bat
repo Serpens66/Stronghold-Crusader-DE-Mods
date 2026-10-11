@@ -21,10 +21,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
-echo [%date% %time%] Unit access regression tests
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-UnitAccess.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/EnemyGatePathfindingTest"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 

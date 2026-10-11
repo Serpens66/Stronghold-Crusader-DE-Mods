@@ -26,7 +26,7 @@ namespace EnemyGatePathfindingTest
 
         private sealed class Frame
         {
-            internal string Kind;
+            internal string Kind, UnitIdentity, UnitType;
             internal int Id, Player, Tribe, Command, Target1, Target2;
             internal readonly HashSet<int> Gates = new HashSet<int>();
             internal long Builders, BuilderSuccess, BuilderFailure, RejectedEdges;
@@ -117,8 +117,12 @@ namespace EnemyGatePathfindingTest
             else Interlocked.Increment(ref rawUnitPost);
             int player = ResolveUnitPlayer(args.UnitId, out int tribe, out int command, out string identity);
             if (pre && player == 0) ObserveUnattributedPlayer("unit-move", args.UnitId);
-            if (pre) Push("unit", args.UnitId, player, tribe, command,
-                args.TileX, args.TileY);
+            if (pre)
+            {
+                Push("unit", args.UnitId, player, tribe, command, args.TileX, args.TileY);
+                Frame frame = Current();
+                frame.UnitIdentity = identity; frame.UnitType = TemporaryIdentityValue(identity, "unitType");
+            }
             else Finish("unit", args.UnitId, player, tribe, command,
                 args.TileX, args.TileY, args.ReturnValue);
             if (!IsAi(player)) return;
@@ -166,6 +170,8 @@ namespace EnemyGatePathfindingTest
             }
             if (!context.IsAiBuilder) return;
             Frame frame = Current();
+            // TEMP_GATE_ROUTE_ACCEPTANCE: count all AI results, not only those touching a gate filter.
+            ObserveTemporaryBuilderResult(player, frame, completed, success, rejectedEdges, fingerprint);
             if (frame != null && frame.Player == player)
             {
                 frame.Builders++;
@@ -202,6 +208,39 @@ namespace EnemyGatePathfindingTest
                 }
                 order.LastBuilderCategory = gateSet;
             }
+        }
+
+        // TEMP_GATE_ROUTE_ACCEPTANCE: only the already resolved synchronous order/native frames are read.
+        private void ObserveTemporaryBuilderResult(int player, Frame current, bool completed, bool success, long rejectedEdges, ulong fingerprint)
+        {
+            try
+            {
+                Frame frame = current != null && current.Player == player ? current : null;
+                string source = frame == null ? "unknown" : frame.Kind == "unit" ? "single-unit"
+                    : frame.Kind == "move" ? "group-move" : frame.Kind == "target" ? "group-target" : "unknown";
+                string nativeSource = "none";
+                if (nativeFrames != null)
+                    for (int i = nativeFrames.Count - 1; i >= 0; i--)
+                    {
+                        NativeFrame native = nativeFrames[i];
+                        if (native.Player != player || native.Source == "Builder") continue;
+                        nativeSource = native.Source;
+                        if (native.Source == "BuildingApproach" || native.Source == "BuildingConsumer" || native.Source == "AlternateBuildingConsumer") source = "building-query";
+                        break;
+                    }
+                TemporaryAcceptance?.ObserveAiBuilderResult(player, source, frame?.UnitType ?? "unknown", completed, success,
+                    rejectedEdges, frame?.Command ?? 0, frame?.Tribe ?? 0,
+                    frame == null ? "unknown" : frame.Target1 + "/" + frame.Target2,
+                    "nativeSource=" + nativeSource + ",orderKind=" + (frame?.Kind ?? "unknown") +
+                    ",unitOrTribeId=" + (frame?.Id ?? 0) + "," + (frame?.UnitIdentity ?? "unitIdentity=unobserved") +
+                    ",fingerprint=" + fingerprint + ",aiClassification=entry-bound");
+            }
+            catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("ai-builder-result", error); }
+        }
+        private static string TemporaryIdentityValue(string text, string key)
+        {
+            int at = text.IndexOf(key + "=", StringComparison.Ordinal);
+            return at < 0 ? "unknown" : text.Substring(at + key.Length + 1).Split(',')[0];
         }
 
         internal void BeginBuilder()

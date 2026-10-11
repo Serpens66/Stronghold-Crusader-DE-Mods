@@ -263,6 +263,8 @@ namespace EnemyBridgePathTest
         private long stateId,tableId,sequence,session,entered,exited,active,failures,overflow,queued,topology,physical;
         private long incompleteCalls;
         private long coalesced,captures,captureTicks,drainTicks,outputBytes,outputRecords,pooledScopes,invalidIds;
+        private long transportTicks,transportRawBytes,transportSavedBytes,transportPackedRecords;
+        private long lastTransportTicks,lastTransportRaw,lastTransportSaved,lastTransportRecords;
         private readonly long[] siteCalls=new long[64];
         private long tick=-1;
         private IntPtr native;
@@ -751,6 +753,8 @@ namespace EnemyBridgePathTest
             Emit("interval-route-cost",Routes.Interval());
             long now=Stopwatch.GetTimestamp(),c=captures,b=buildingIndex.Builds,r=coalesced,o=outputBytes,ct=captureTicks,dt=drainTicks,bg=backgroundCalls;
             Emit("interval-cost","seconds="+(lastCostClock==0?0:(now-lastCostClock)*1.0/Stopwatch.Frequency).ToString("F3")+",captures="+(c-lastCaptures)+",indexBuilds="+(b-lastBuilds)+",coalesced="+(r-lastCoalesced)+",outputBytes="+(o-lastOutputBytes)+",backgroundCalls="+(bg-lastBackgroundCalls)+",captureMs="+((ct-lastCaptureTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",drainMs="+((dt-lastDrainTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",queue="+queued+",criticalOverflow="+overflow+",backgroundOverflow="+backgroundOverflow);
+            Emit("interval-transport-cost","rawPayloadBytes="+(transportRawBytes-lastTransportRaw)+",savedPayloadBytes="+(transportSavedBytes-lastTransportSaved)+",packedRecords="+(transportPackedRecords-lastTransportRecords)+",encodeMs="+((transportTicks-lastTransportTicks)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",scope=publisher-only,includedInDrainMs=True,semanticRecords=unchanged");
+            lastTransportRaw=transportRawBytes;lastTransportSaved=transportSavedBytes;lastTransportRecords=transportPackedRecords;lastTransportTicks=transportTicks;
             Emit("interval-index-cost","indexBuildMs="+((buildingIndex.BuildTicks-lastIndexTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",measurement=may-overlap-full-capture-time");
             Emit("interval-capture-cost","numericBridgeReads="+(numericReads-lastNumericReads)+",candidateReads="+(tableReads-lastTableReads)+",definitionFormats="+(definitionFormats-lastDefinitionFormats)+",tableReferences="+(tableReferences-lastTableReferences)+",readMs="+((readTicks-lastReadTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",compareMs="+((compareTicks-lastCompareTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",formatMs="+((formatTicks-lastFormatTicks)*1000.0/Stopwatch.Frequency).ToString("F3")+",measurement=bridge-and-candidate-observations,mayOverlapCaptureMs=True,includesLoggerPrefix=False");
             lastNumericReads=numericReads;lastDefinitionFormats=definitionFormats;lastTableReferences=tableReferences;
@@ -879,7 +883,7 @@ namespace EnemyBridgePathTest
                     Interlocked.Decrement(ref queued);
                     try {WriteRecord(r);}catch {Interlocked.Increment(ref deliveryErrors);}count++;
                 }
-                FlushNativeRows();
+                try {FlushNativeRows();FlushWireRows();}catch {Interlocked.Increment(ref deliveryErrors);}
                 if(count<64&&queued==0&&(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency<2)
                     lock(endedSessions)if(endedSessions.Count!=0)
                     {
@@ -925,10 +929,37 @@ namespace EnemyBridgePathTest
                     string kind=r.Kind;
                     if(r.Kind=="event-count") detail="columns="+(r.Args[0]==4?"searchKind/player/native/effective/completed/reserved":"kind/player/command/resultLow32/resultHigh32/phaseResolvedBits")+",values=["+r.Args+"],count="+r.Regions;
                     if(r.Kind=="region") detail="parent="+r.Parent+",player="+r.Args[0]+",from="+r.Args[1]+",to="+r.Args[2]+",mode="+r.Args[3]+",native="+r.Args[4]+",effective="+r.Args[5];
+                    string body="kind="+kind+","+detail;
                     string line="bridge trace seq="+r.Seq+",session="+r.Session+",thread="+r.Thread+",tick="+r.Tick+",clock="+r.Clock+
-                        ",physical="+r.Physical+",topology="+r.Topology+",kind="+kind+","+detail;
-                    Shared.DebugLogHelper.LogInfo(log,line);Interlocked.Add(ref outputBytes,Encoding.UTF8.GetByteCount(line));Interlocked.Increment(ref outputRecords);
+                        ",physical="+r.Physical+",topology="+r.Topology+","+body;
+                    BufferWire(kind,line);
         }
+        private readonly object wireGate=new object();
+        private void BufferWire(string kind,string line)
+        {lock(wireGate)
+        {
+            if(kind=="session-end"||kind=="session-delivered"||kind.Contains("readiness")||kind.StartsWith("interval-")||kind.StartsWith("input-artifact-")) {FlushWireRows();PublishWire(line);return;}
+                    int bytes=Encoding.UTF8.GetByteCount(line)+1;
+                    if(wireBytes+bytes>BridgeTraceTransport.MaximumBytes)FlushWireRows();
+                    if(bytes>BridgeTraceTransport.MaximumBytes){PublishWire(line);return;}
+                    wireLines.Add(line);wireBytes+=bytes;if(wireLines.Count==16)FlushWireRows();
+        }}
+        private readonly List<string> wireLines=new List<string>(16);private int wireBytes;
+        private void PublishWire(string line)
+        {Shared.DebugLogHelper.LogInfo(log,line);Interlocked.Add(ref outputBytes,Encoding.UTF8.GetByteCount(line));Interlocked.Increment(ref outputRecords);}
+        private void FlushWireRows()
+        {lock(wireGate)
+        {
+            if(wireLines.Count==0)return;
+            long start=Stopwatch.GetTimestamp();int count=wireLines.Count;
+            string packed=BridgeTraceTransport.EncodeBatch(wireLines,out int raw,out int saved);
+            Interlocked.Add(ref transportTicks,Stopwatch.GetTimestamp()-start);
+            Interlocked.Add(ref transportRawBytes,raw);Interlocked.Add(ref transportSavedBytes,saved);
+            if(packed!=null)
+            {wireLines.Clear();wireBytes=0;Interlocked.Add(ref transportPackedRecords,count);PublishWire(packed);}
+            else
+            {var plain=wireLines.ToArray();wireLines.Clear();wireBytes=0;foreach(string line in plain)PublishWire(line);}
+        }}
         private int Read(int rva)
         {
             if(testRead!=null)return testRead(rva);

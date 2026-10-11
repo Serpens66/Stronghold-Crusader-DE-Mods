@@ -19,7 +19,8 @@ namespace EnemyGatePathfindingTest
         private readonly TemporaryGateAcceptanceAggregate counts = new TemporaryGateAcceptanceAggregate();
         private readonly long[,] coverage = new long[9, 12];
         private bool active;
-        private long epoch, nextFlush, checkedRoutes, violated, unclear, negativeSearches, lastFailures, unattributedSearches, permittedClimbRoutes, maskOverlapRoutes, suspectedNativeGroundRoutes;
+        private long epoch, nextFlush, checkedRoutes, violated, unclear, negativeSearches, lastFailures, unattributedSearches, permittedClimbRoutes, maskOverlapRoutes, suspectedNativeGroundRoutes, unobservedPublications, aiBuilderResults, aiBuilderNegative, aiBuilderFilteredNegative;
+        private long expectedAiBuilders = -1, expectedFilteredNegative = -1;
         private sealed class Route
         {
             internal RouteTilePolicySnapshot Snapshot;
@@ -47,7 +48,8 @@ namespace EnemyGatePathfindingTest
         {
             internal int Gate;
             internal string Movement, First, Last;
-            internal long Edges;
+            internal long Edges, GroundViolations, AllowedClimb, UnknownOverlap, SuspectedNativeGround;
+            internal bool PolicyAllowed;
         }
         internal void ObserveCapture(int building, int player, bool post)
         {
@@ -74,10 +76,11 @@ namespace EnemyGatePathfindingTest
         {
             counts.Reset(); Array.Clear(coverage, 0, coverage.Length); epoch++; active = true;
             captureTimeline.Reset(epoch); callSequence = 0;
-            checkedRoutes = violated = unclear = negativeSearches = unattributedSearches = permittedClimbRoutes = maskOverlapRoutes = suspectedNativeGroundRoutes = 0; nextFlush = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 60;
+            checkedRoutes = violated = unclear = negativeSearches = unattributedSearches = permittedClimbRoutes = maskOverlapRoutes = suspectedNativeGroundRoutes = unobservedPublications = aiBuilderResults = aiBuilderNegative = aiBuilderFilteredNegative = 0; nextFlush = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 60;
+            expectedAiBuilders = expectedFilteredNegative = -1;
             lastFailures = TemporaryGateRouteAcceptanceBridge.Failures;
             Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE begin epoch=" + epoch +
-                ",format=7,emissionTimeIsNotObservationTime=true,monoFrequency=" + Stopwatch.Frequency + ",intervalSeconds=60,weightedLengthUnit=nodes,packedLengthUnit=edges," +
+                ",format=8,emissionTimeIsNotObservationTime=true,monoFrequency=" + Stopwatch.Frequency + ",intervalSeconds=60,weightedLengthUnit=nodes,packedLengthUnit=edges," +
                 "publicationContext=frame-or-owned-buffer,noExtraSearches=true,noNewHooks=true,unmeasuredNativeFallbacks=unknown," +
                 "fixesLoaded=" + Chainloader.PluginInfos.ContainsKey("fixes") + ",fixesLiveLordOverrides=unknown,fixesHookEffect=unmeasured");
         }
@@ -93,7 +96,10 @@ namespace EnemyGatePathfindingTest
             foreach (string row in counts.Drain()) Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE aggregate emittedUtc=" + DateTime.UtcNow.ToString("O") + "," + row);
             Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE summary epoch=" + epoch + ",final=" + final +
                 ",observations=" + counts.Total + ",checked=" + checkedRoutes + ",violated=" + violated +
-                ",unclear=" + unclear + ",suspectedNativeGroundRoutes=" + suspectedNativeGroundRoutes + ",permittedClimbRoutes=" + permittedClimbRoutes + ",maskOverlapRoutes=" + maskOverlapRoutes + ",unattributedSearches=" + unattributedSearches + ",negativeSearches=" + negativeSearches + ",adapterFailures=" + (TemporaryGateRouteAcceptanceBridge.Failures - lastFailures) +
+                ",unclear=" + unclear + ",unobservedPublications=" + unobservedPublications +
+                ",aiBuilderResults=" + aiBuilderResults + ",aiBuilderNegative=" + aiBuilderNegative + ",aiBuilderFilteredNegative=" + aiBuilderFilteredNegative +
+                ",builderCounterAgreement=" + (expectedAiBuilders < 0 ? "not-compared" : expectedAiBuilders == aiBuilderResults && expectedFilteredNegative == aiBuilderFilteredNegative ? "PASS" : "FAIL") +
+                ",expectedAiBuilders=" + expectedAiBuilders + ",expectedFilteredNegative=" + expectedFilteredNegative + ",suspectedNativeGroundRoutes=" + suspectedNativeGroundRoutes + ",permittedClimbRoutes=" + permittedClimbRoutes + ",maskOverlapRoutes=" + maskOverlapRoutes + ",unattributedSearches=" + unattributedSearches + ",negativeSearches=" + negativeSearches + ",adapterFailures=" + (TemporaryGateRouteAcceptanceBridge.Failures - lastFailures) +
                 ",lastAdapterFailure=" + TemporaryGateRouteAcceptanceBridge.LastFailureCause);
             if (final)
                 for (int player = 1; player <= 8; player++)
@@ -158,7 +164,7 @@ namespace EnemyGatePathfindingTest
         {
             if (!active) return null;
             if (type < 0)
-            { unclear++; Record(player, -1, "publication-context", orderContext, "", "unit=" + unit + "/" + unitGlobal); return null; }
+            { unobservedPublications++; Record(player, -1, "publication-context", "not-inspected/" + orderContext, "", "unit=" + unit + "/" + unitGlobal + ",coverage=unobserved,noRouteFailureImplied=true"); return null; }
             int role = Role(player, tribe, tribeGlobal);
             bool assassin = type == (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN;
             if (role < 0 && !assassin) return null;
@@ -202,6 +208,7 @@ namespace EnemyGatePathfindingTest
             { route.Invalid = true; return; }
             bool policyAllowed = route.Snapshot.IsDirectionAllowed(route.Player, from, direction);
             int diagnosticGate = route.Snapshot.DiagnosticGateEdges?.Resolve(from, direction) ?? 0;
+            GateUse gateUse = null;
             if (diagnosticGate > 0)
             {
                 string movementName = route.Kind.EndsWith("-published", StringComparison.Ordinal) ? "packed-movement-unproven" :
@@ -211,7 +218,8 @@ namespace EnemyGatePathfindingTest
                 route.SnapshotGateIdentities[diagnosticGate] = diagnosticIdentity;
                 string key = diagnosticGate + "/" + movementName + "/allowed=" + policyAllowed;
                 if (!route.GateUses.TryGetValue(key, out GateUse use))
-                    route.GateUses.Add(key, use = new GateUse { Gate = diagnosticGate, Movement = movementName });
+                    route.GateUses.Add(key, use = new GateUse { Gate = diagnosticGate, Movement = movementName, PolicyAllowed = policyAllowed });
+                gateUse = use;
                 string edge = "from=" + from + ",to=" + to + ",direction=" + direction + ",index=" + (route.Edges - 1);
                 if (use.First == null) use.First = edge;
                 use.Last = edge; use.Edges++;
@@ -236,6 +244,7 @@ namespace EnemyGatePathfindingTest
                 (movement == AssassinTransitionKind.ClimbUp || movement == AssassinTransitionKind.ClimbDown))
             {
                 route.AllowedClimb++;
+                if (gateUse != null && gateUse.Gate == gate) gateUse.AllowedClimb++;
                 if (functionalEvidence != null)
                 {
                     string proof = "from=" + from + ",to=" + to + ",direction=" + direction + ",movement=" + movement + "," + functionalEvidence;
@@ -248,6 +257,11 @@ namespace EnemyGatePathfindingTest
             if (provenGround) route.GroundViolations++;
             else route.UnknownOverlap++;
             if (packed && movement == AssassinTransitionKind.Ground && stableGate) route.SuspectedNativeGround++;
+            if (gateUse != null && gateUse.Gate == gate)
+            {
+                if (provenGround) gateUse.GroundViolations++; else gateUse.UnknownOverlap++;
+                if (packed && movement == AssassinTransitionKind.Ground && stableGate) gateUse.SuspectedNativeGround++;
+            }
             string detail = "movement=" + movement + ",assessment=" +
                 (provenGround ? "confirmed-ground-policy-violation" : packed && movement == AssassinTransitionKind.Ground && stableGate
                     ? "suspected-ground-overlap-native-branch-unproven" : "mask-overlap-unresolved") + ",from=" + from + ",to=" + to + ",direction=" + direction + ",edgeIndex=" + (route.Edges - 1) +
@@ -332,9 +346,16 @@ namespace EnemyGatePathfindingTest
                 string phase = captureTimeline.Phase(route.Snapshot, use.Gate, route.Started, ended);
                 if (route.GateIdentityInvalid || route.Epoch != epoch || (route.Invalid && phase != "transition")) phase = "not-attributed";
                 var identity = route.Snapshot.GateIdentities[use.Gate];
+                string gateVerdict = route.Invalid || !ReferenceEquals(route.Snapshot, policy()) || route.Epoch != epoch
+                    ? "not-inspected/context-changed" : use.PolicyAllowed ? "access-permitted"
+                    : use.GroundViolations > 0 ? "confirmed-ground-violation"
+                    : use.SuspectedNativeGround > 0 ? "suspected-native-ground-overlap"
+                    : use.UnknownOverlap > 0 ? "movement-unproven" : use.AllowedClimb > 0 ? "climb-permitted" : "not-inspected";
                 Record(route.Player, route.Role, "gate-route-timing",
-                    "gate=" + use.Gate + "/global=" + identity.Global + "/phase=" + phase + "/source=" + route.Kind + "/verdict=" + verdict + "/" + pair.Key,
-                    route.Target, route.Detail + ",routeStatus=" + status + ",gateEdges=" + use.Edges +
+                    "gate=" + use.Gate + "/global=" + identity.Global + "/phase=" + phase + "/source=" + route.Kind + "/gateVerdict=" + gateVerdict + "/" + pair.Key,
+                    route.Target, route.Detail + ",routeStatus=" + status + ",routeVerdict=" + verdict + ",gateEdges=" + use.Edges +
+                    ",gateGroundViolations=" + use.GroundViolations + ",gateSuspectedNativeGround=" + use.SuspectedNativeGround +
+                    ",gateAllowedClimb=" + use.AllowedClimb + ",gateUnknownOverlap=" + use.UnknownOverlap +
                     ",owner=" + identity.Owner + ",capturer=" + identity.Capturer +
                     ",selfCapturer=" + (identity.Capturer == route.Player) + ",actualNativeClimbExecution=not-observed," +
                     captureTimeline.Describe(use.Gate) + ",firstEdge=[" + use.First + "],lastEdge=[" + use.Last + "]",
@@ -355,6 +376,26 @@ namespace EnemyGatePathfindingTest
                         "/meaning=" + (route.ViolationMeanings.TryGetValue(pair.Key, out string meaning) ? meaning : "weighted-policy-edge"), route.Target,
                         route.Detail + ",blockedEdges=" + route.ViolationCounts[pair.Key] +
                         ",firstBlockedEdge=[" + route.FirstViolations[pair.Key] + "],lastBlockedEdge=[" + pair.Value + "]", route.Dimensions);
+        }
+        internal void CompareBuilderTotals(long queries, long filteredNegative)
+        {
+            if (!active) return;
+            expectedAiBuilders = queries; expectedFilteredNegative = filteredNegative;
+            if (queries != aiBuilderResults || filteredNegative != aiBuilderFilteredNegative)
+                TemporaryGateRouteAcceptanceBridge.ReportFailure("ai-builder-counter-mismatch");
+        }
+        // TEMP_GATE_ROUTE_ACCEPTANCE: one row for every AI builder completion, using entry-bound contexts only.
+        internal void ObserveAiBuilderResult(int player, string source, string unitType, bool completed, bool success,
+            long rejectedEdges, int command, int tribe, string target, string detail)
+        {
+            if (!active) return;
+            aiBuilderResults++;
+            if (completed && !success) { aiBuilderNegative++; if (rejectedEdges > 0) aiBuilderFilteredNegative++; }
+            Record(player, -1, "ai-builder-result", "source=" + source + "/unitType=" + unitType +
+                "/result=" + (!completed ? "incomplete" : success ? "positive" : "no-route") +
+                "/filterTouched=" + (rejectedEdges > 0) + "/command=" + command,
+                target, detail + ",tribe=" + tribe + ",rejectedEdges=" + rejectedEdges + ",gateCauseProven=false,aiBuilderCall=" + aiBuilderResults +
+                ",policyGeneration=" + captureTimeline.Generation + "," + TemporaryGateCaptureTimeline.Time(Stopwatch.GetTimestamp()));
         }
         private void MissingContext(int player, string source, string reason, int tribe)
         { Record(player, -1, "context", source + "/" + reason, "", "tribe=" + tribe); }
@@ -445,6 +486,20 @@ namespace EnemyGatePathfindingTest
             string source = detail.Contains("source=building-query") ? "building-query" :
                 detail.Contains("source=single-unit") ? "single-unit" :
                 detail.Contains("source=group-move") ? "group-move" : detail.Contains("source=group-target") ? "group-target" : "unknown";
+            if (stage == "route-validation")
+            {
+                string phase = DiagnosticValue(detail, "validationPhase");
+                result += "/phase=" + phase;
+                if (route?.Snapshot != null && int.TryParse(DiagnosticValue(detail, "fromTile"), out int fromTile) &&
+                    int.TryParse(DiagnosticValue(detail, "direction"), out int direction) && fromTile >= 0 && direction >= 0 && direction <= 7)
+                {
+                    int gate = route.Snapshot.DiagnosticGateEdges?.Resolve(fromTile, direction) ?? 0;
+                    if (gate > 0 && route.Snapshot.GateIdentities.TryGetValue(gate, out var identity))
+                    { result += "/gate=" + gate + "/global=" + identity.Global; detail += ",validationGate=" + gate + "/" + identity.Global; }
+                    else detail += ",validationGate=not-attributed";
+                }
+                else detail += ",validationGate=not-attributed";
+            }
             if (stage == "search-exit" && result == "weighted-exact-fallback")
             {
                 const string marker = "requestReason=";

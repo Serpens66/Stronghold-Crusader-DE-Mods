@@ -206,6 +206,22 @@
     <Content>
       <Canvas x:Name="SpectatorPerspectiveCanvas" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
               HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Panel.ZIndex="10030">
+        <Canvas.Style>
+          <Style TargetType="{x:Type Canvas}">
+            <!-- Follow the same Vanilla HUD gate as CastlePlanner's extras button.
+                 Keep this on the parent so runtime Bar.Visibility cannot override it. -->
+            <Setter Property="Visibility"
+                    Value="{Binding Show_HUD_Extras, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding Show_HUD_Briefing}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Show_HUD_MissionOver}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Canvas.Style>
         <Canvas.Resources>
           <Style x:Key="SpectatorPerspectiveButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>

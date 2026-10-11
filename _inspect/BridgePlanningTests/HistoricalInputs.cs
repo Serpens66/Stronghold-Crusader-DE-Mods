@@ -13,7 +13,8 @@ namespace BridgePlanningTests
         private static bool ApprovedPlanning(string hash) =>
             hash=="3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB" ||
             hash=="15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872" ||
-            hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6";
+            hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6" ||
+            hash=="E1FDDAD75696C89749BCD02D7707CCE06CB2A0C95B852F28715268FC182A474E";
 
         private static byte[] Bytes(Array data){var bytes=new byte[Buffer.ByteLength(data)];Buffer.BlockCopy(data,0,bytes,0,bytes.Length);return bytes;}
         private static T[] ArrayValues<T>(byte[] bytes) where T:struct

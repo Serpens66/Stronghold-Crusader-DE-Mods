@@ -124,7 +124,31 @@ namespace BridgePlanningTests
                 bool denied=false;try{m.ConstantBytes(address,88);}catch(Exception error){denied=error.Message.StartsWith("Unproven immutable native table");}
                 Check(denied,"military class table requires own capture");
             }
+            var entryFixture=new byte[0x583C];var classesFixture=new int[22];classesFixture[0]=186;classesFixture[1]=1;
+            Check(EntryTribeRequirements(entryFixture,classesFixture).Count==0,"empty own tribe slot requires no identity read");
+            Buffer.BlockCopy(BitConverter.GetBytes((short)4332),0,entryFixture,0x379F670-0x379AE00+186*2,2);
+            Check(EntryTribeRequirements(entryFixture,classesFixture).Count==1,"actual own tribe slot yields exact missing identity requirement");
+            classesFixture[0]=-1;rejected=false;try{EntryTribeRequirements(entryFixture,classesFixture);}catch(ArgumentException){rejected=true;}Check(rejected,"unproved entry class range rejected");
             Console.WriteLine("PASS military helpers: 512 strength,256 metric,8 leader,8 full tribe-cleanup cases; writable class tables rejected; complete entry/formation NOT executed");
+        }
+        private static System.Collections.Generic.List<string> EntryTribeRequirements(byte[] entry,int[] classes)
+        {
+            if(entry.Length!=0x583C||classes.Length!=22)throw new ArgumentException("entry class extent");
+            var result=new System.Collections.Generic.List<string>();var seen=new System.Collections.Generic.HashSet<int>();
+            for(int row=0;row<11;row++)
+            {
+                int start=classes[row*2],count=classes[row*2+1];if(count<=0)continue;
+                if(start<0||count>256||start>256-count)throw new ArgumentException("entry class bounds");
+                for(int n=0;n<count;n++)
+                {
+                    int slot=start+n;int id=BitConverter.ToInt16(entry,0x379F670-0x379AE00+slot*2);
+                    if(id==0)continue;if(id<0||id>=4500)throw new ArgumentException("entry tribe bounds");
+                    if(!seen.Add(id))continue;
+                    int global=BitConverter.ToInt32(entry,0x379F8C8-0x379AE00+slot*4);
+                    result.Add("tribe="+id+",expectedGlobal="+global+",firstReadRva=0x"+(0x7CC6754+id*0x688).ToString("X")+",firstReadBytes=4,consumerCopiesAreNotOwnEntry=True");
+                }
+            }
+            return result;
         }
         private static int HistoricalMilitaryCoverage(string path)
         {
@@ -158,7 +182,22 @@ namespace BridgePlanningTests
                 if(present&&CopiedPlanningBundle.Resolve(b,item.Item1).Length!=item.Item3)throw new Exception("military input extent "+item.Item1);
                 if(!present){missing++;Console.WriteLine("Unknown:missing-own-input="+item.Item1+",source="+(item.Item2==0?"assembled-observer-provenance-or-scattered-config-fields":"native-rva-"+item.Item2.ToString("X"))+",bytes="+item.Item3);}
             }
-            Console.WriteLine("militaryEntryComplete=False,formationComplete=False,missingRequiredInputs="+missing+",consumerCopiesAreNotEntryCopies=True,negativePolicyEligible=False,behaviorFix=disabled");
+            if(missing==0)
+            {
+                int[] update=ArrayValues<int>(CopiedPlanningBundle.Resolve(b,"military/entryUpdateClasses11"));
+                foreach(var requirement in EntryTribeRequirements(entry,update))Console.WriteLine("Unknown:missing-own-3CF20-tribe-identity,"+requirement);
+                int target=BitConverter.ToInt32(entry,0x379D9A8-0x379AE00);
+                var ids=CopiedPlanningBundle.Resolve(b,"military/entryLeaderIds9");
+                if(target<1||target>8)throw new Exception("own entry target extent");
+                int leader=BitConverter.ToInt16(ids,target*2);
+                if(leader<0||leader>=10000)throw new Exception("own entry leader extent");
+                if(leader!=0)Console.WriteLine("Unknown:missing-own-187E60-unit,target="+target+",unit="+leader+",reads=[0x"+(0x67E8400+leader*0x490+0x6F0).ToString("X")+"/4;0x"+(0x67E8400+leader*0x490+0x6E4).ToString("X")+"/2;0x"+(0x67E8400+leader*0x490+0x8F8).ToString("X")+"/2],timing=before-entry-preamble");
+                int lord=BitConverter.ToInt32(entry,0x379D0D0-0x379AE00);
+                if(lord<1)throw new Exception("own entry lord extent");
+                Console.WriteLine("Unknown:missing-own-3CE40-quota,rva=0x"+checked(0x366C210+lord*0x5E4-0x380).ToString("X")+",bytes=4;entryConfig5-minus2F8-is-3B450-formation-count-not-this-quota");
+                Console.WriteLine("Unknown:3FE50-and-2A6B0-read-all9999-unit-slots;own-entry-unit-manager-required,base=0x67E8400,bytes="+checked(0x65C+10000*0x490)+",no-high-water-or-consumer-default;side-effect126020-unit-members-and-special-engineer-counters-also-require-own-entry");
+            }
+            Console.WriteLine("militaryEntryComplete=False,formationComplete=False,missingPreviouslyRequestedInputs="+missing+",consumerCopiesAreNotEntryCopies=True,negativePolicyEligible=False,behaviorFix=disabled");
             Console.WriteLine("scope=necessary-input-coverage-only; AI configuration and side-effect call closure still required; no later snapshot or PE default substituted");
             return 0;
         }

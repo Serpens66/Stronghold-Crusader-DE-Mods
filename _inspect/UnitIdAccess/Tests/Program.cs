@@ -76,6 +76,7 @@ Console.WriteLine("PASS: production UnitAccess boundaries, no invalid SDK calls,
 static void Check(bool value, string label) { if (!value) throw new Exception(label); }
 static void Scan(string[] arguments)
 {
+    VerifyLookupFixtures();
     string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../")).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     string modRoot = null;
     if (arguments.Contains("--mod-directory"))
@@ -93,40 +94,8 @@ static void Scan(string[] arguments)
     {
         string relative=Path.GetRelativePath(root,file);
         if (relative.Split(Path.DirectorySeparatorChar).Any(p=>excluded.Contains(p)||p.EndsWith(".Tests",StringComparison.OrdinalIgnoreCase))) continue;
-        var syntax=CSharpSyntaxTree.ParseText(File.ReadAllText(file)).GetRoot();
         checkedFiles++;
-        foreach (var call in syntax.DescendantNodes().OfType<InvocationExpressionSyntax>())
-        {
-            if (call.Expression is not MemberAccessExpressionSyntax member) continue;
-            if (member.Name.Identifier.Text is "TryGetUnitById" or "TryGetUnitByIdEx")
-                Check(relative.Replace('\\','/')=="APIShared/src/Units/UnitAccess.cs", $"Unprotected direct unit lookup: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
-            if (member.Expression.ToString().Contains("UnitAccess") && member.Name.Identifier.Text=="TryGetById")
-                Check(call.Parent is not ExpressionStatementSyntax, $"Ignored lookup result: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
-            var indirectNames = new HashSet<string> {
-                "DeleteUnit", "DeleteUnitSafe", "GetGlobalId", "GetTribe", "GetOwner", "GetType",
-                "DamageUnitMelee", "DamageUnitRanged", "DamageUnitEx", "DamageUnitEx2",
-                "GetCurrentHealth", "SetCurrentHealth", "GetMaxHealth", "SetMaxHealth", "GetSpeed", "SetSpeed",
-                "KillUnit", "MoveToTile", "IsRendered", "GetCurrentUnityPosition", "GetCurrentLocalTilePosition", "GetCurrentWorldTilePosition",
-                "SetCurrentLocalTilePosition", "SetCurrentWorldTilePosition", "IsSiegeEngineManned", "GetIsInvisible", "SetIsInvisible",
-                "IsVisualHidden", "SetVisualHidden", "GetSpriteScale", "SetSpriteScale", "ResetSpriteScale",
-                "GetGameMaterial", "SetGameMaterial", "GetShieldCurrentHealth", "SetShieldHealth", "SetSelectable", "IsSelectable", "GetDirection", "SetDirection"
-            };
-            string receiver=member.Expression.ToString();
-            if (indirectNames.Contains(member.Name.Identifier.Text) && receiver is "GameUnitManagerAPI.Instance" or "api" or "unitApi" or "units")
-            {
-                ExpressionSyntax condition = call.Parent switch
-                {
-                    ConditionalExpressionSyntax ternary when ternary.WhenTrue==call => ternary.Condition,
-                    BinaryExpressionSyntax binary when binary.Right==call && binary.IsKind(SyntaxKind.LogicalAndExpression) => binary.Left,
-                    ExpressionStatementSyntax statement when statement.Parent is IfStatementSyntax branch => branch.Condition,
-                    _ => null
-                };
-                var guard=condition as InvocationExpressionSyntax;
-                Check(guard?.Expression.ToString()=="APIShared.UnitAccess.TryGetById", $"Indirect lookup lacks immediate checked guard: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
-                int idArgument=receiver=="GameUnitManagerAPI.Instance" ? 0 : 1;
-                Check(guard.ArgumentList.Arguments[idArgument].Expression.ToString()==call.ArgumentList.Arguments[0].Expression.ToString(), $"Indirect guard checks a different ID: {relative}");
-            }
-        }
+        CheckLookupSyntax(File.ReadAllText(file), relative);
     }
     Console.WriteLine($"PASS: {checkedFiles} runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.");
     using var inventory=JsonDocument.Parse(File.ReadAllText(Path.Combine(root,"_inspect/UnitIdAccess/inventory.json")));
@@ -180,6 +149,61 @@ static void Scan(string[] arguments)
         }
     }
 }
+
+static void CheckLookupSyntax(string text, string relative)
+{
+    var syntax=CSharpSyntaxTree.ParseText(text).GetRoot();
+        foreach (var call in syntax.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (call.Expression is not MemberAccessExpressionSyntax member) continue;
+            if (member.Name.Identifier.Text is "TryGetUnitById" or "TryGetUnitByIdEx")
+                Check(relative.Replace('\\','/')=="APIShared/src/Units/UnitAccess.cs", $"Direkter SDK-Lookup umgeht UnitAccess: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
+            if (member.Expression.ToString().Contains("UnitAccess") && member.Name.Identifier.Text=="TryGetById")
+                Check(call.Parent is not ExpressionStatementSyntax, $"Ignored lookup result: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
+            var indirectNames = new HashSet<string> {
+                "DeleteUnit", "DeleteUnitSafe", "GetGlobalId", "GetTribe", "GetOwner", "GetType",
+                "DamageUnitMelee", "DamageUnitRanged", "DamageUnitEx", "DamageUnitEx2",
+                "GetCurrentHealth", "SetCurrentHealth", "GetMaxHealth", "SetMaxHealth", "GetSpeed", "SetSpeed",
+                "KillUnit", "MoveToTile", "IsRendered", "GetCurrentUnityPosition", "GetCurrentLocalTilePosition", "GetCurrentWorldTilePosition",
+                "SetCurrentLocalTilePosition", "SetCurrentWorldTilePosition", "IsSiegeEngineManned", "GetIsInvisible", "SetIsInvisible",
+                "IsVisualHidden", "SetVisualHidden", "GetSpriteScale", "SetSpriteScale", "ResetSpriteScale",
+                "GetGameMaterial", "SetGameMaterial", "GetShieldCurrentHealth", "SetShieldHealth", "SetSelectable", "IsSelectable", "GetDirection", "SetDirection"
+            };
+            string receiver=member.Expression.ToString();
+            if (indirectNames.Contains(member.Name.Identifier.Text) && receiver is "GameUnitManagerAPI.Instance" or "api" or "unitApi" or "units")
+            {
+                ExpressionSyntax condition = call.Parent switch
+                {
+                    ConditionalExpressionSyntax ternary when ternary.WhenTrue==call => ternary.Condition,
+                    BinaryExpressionSyntax binary when binary.Right==call && binary.IsKind(SyntaxKind.LogicalAndExpression) => binary.Left,
+                    ExpressionStatementSyntax statement when statement.Parent is IfStatementSyntax branch => branch.Condition,
+                    _ => null
+                };
+                var guard=condition as InvocationExpressionSyntax;
+                Check(guard?.Expression.ToString()=="APIShared.UnitAccess.TryGetById", $"Indirect lookup lacks immediate checked guard: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
+                int idArgument=receiver=="GameUnitManagerAPI.Instance" ? 0 : 1;
+                Check(guard.ArgumentList.Arguments[idArgument].Expression.ToString()==call.ArgumentList.Arguments[0].Expression.ToString(), $"Indirect guard checks a different ID: {relative}");
+            }
+        }
+}
+
+static void VerifyLookupFixtures()
+{
+    string guarded = "class C { bool Read() => APIShared.UnitAccess.TryGetById(1, out var unit, out var failure); }";
+    CheckLookupSyntax(guarded, "consumer.cs");
+    string direct = "class C { bool Read() => GameUnitManagerAPI.Instance.TryGetUnitById(1, out var unit); }";
+    CheckLookupSyntax(direct, "APIShared/src/Units/UnitAccess.cs");
+    bool denied = false;
+    try { CheckLookupSyntax(direct, "consumer.cs"); }
+    catch (Exception ex) { denied = ex.Message.StartsWith("Direkter SDK-Lookup umgeht UnitAccess:"); }
+    Check(denied, "Direct SDK fixture must fail the real scanner rule");
+    bool ignored = false;
+    try { CheckLookupSyntax("class C { void Read() { APIShared.UnitAccess.TryGetById(1, out var unit, out var failure); } }", "consumer.cs"); }
+    catch (Exception ex) { ignored = ex.Message.StartsWith("Ignored lookup result:"); }
+    Check(ignored, "Ignored UnitAccess result fixture must fail the real scanner rule");
+    Console.WriteLine("PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.");
+}
+
 
 namespace SHCDESE.Interop.Enums { public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused } }
 namespace SHCDESE.Interop { public struct GameUnit { public int Alive, GlobalId; public SHCDESE.Interop.Enums.AliveState r_AliveState; public ushort r_IsKilledByProjectile, r_InterestingTodo4MaybeRandomPathing; public uint r_CurrentHealth; } }

@@ -233,7 +233,7 @@ namespace Shared
         {
             if(ThrowNext) {ThrowNext=false;throw new IOException("fixture output failure");}
             Bytes+=System.Text.Encoding.UTF8.GetByteCount(text)+95; // conservative logger prefix plus CRLF
-            if(Recent.Count>=10000)Recent.RemoveRange(0,5000);Recent.Add(text);
+            if(Recent.Count>=10000)Recent.RemoveRange(0,5000);Recent.AddRange(EnemyBridgePathTest.BridgeTraceTransport.DecodeLines(text));
         }
         internal static void LogError(ManualLogSource log,string text) { throw new InvalidOperationException("Unexpected diagnostic error: "+text); }
         internal static string CurrentNativeSha256 => EnemyBridgePathTest.BridgeNativeDefinition.NativeHash;

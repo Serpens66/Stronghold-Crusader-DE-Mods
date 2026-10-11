@@ -137,6 +137,9 @@ if (-not $?) { throw 'Permanent-hook verification failed.' }
 Write-Output "PASS: shared ownership boundaries; $($projects.Count) projects, $links valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks."
 
 & (Join-Path $PSScriptRoot 'Test-DependencyMetadata.ps1') -Workspace $Workspace -ProjectFiles $(if ($modRoot) { $projects.FullName } else { @() })
+Write-Host '[Preflight] Checking centralized UnitAccess contract...'
+& (Join-Path $PSScriptRoot 'Test-UnitAccess.ps1') -ModDirectory $ModDirectory
+if (-not $?) { throw 'UnitAccess contract preflight failed.' }
 $preflightWatch.Stop()
 Write-Host ('[Preflight] Completed in {0:N1}s.' -f $preflightWatch.Elapsed.TotalSeconds)
 

@@ -2,7 +2,7 @@
 param()
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
-foreach ($script in @('Test-SharedBoundaries.ps1','Test-UnitCommandSplit.ps1','Test-UnitAccess.ps1')) {
+foreach ($script in @('Test-SharedBoundaries.ps1','Test-UnitCommandSplit.ps1')) {
     & (Join-Path $PSScriptRoot $script)
     if (-not $?) { throw "Consumer preflight failed: $script" }
 }

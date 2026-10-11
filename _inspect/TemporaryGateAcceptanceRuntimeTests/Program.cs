@@ -16,8 +16,18 @@ string producer = production.GetRoot().DescendantNodes().OfType<MethodDeclaratio
     .Single(m => m.Identifier.ValueText == "ObservePreparedAssassinRoute").ToFullString();
 string searchWrapper = production.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
     .Single(m => m.Identifier.ValueText == "BuildWeightedPath").ToFullString();
+var correlation = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Testmods/EnemyGatePathfindingTest/src/AttackOrderCorrelationDiagnostics.cs")));
+string correlationMethods = string.Join("\n", correlation.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+    .Where(m => m.Identifier.ValueText is "ObserveTemporaryBuilderResult" or "TemporaryIdentityValue").Select(m => m.ToFullString()));
+string correlationFrames = string.Join("\n", correlation.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+    .Where(c => c.Identifier.ValueText is "Frame" or "NativeFrame").Select(c => c.ToFullString()));
+var standalone = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Testmods/EnemyGatePathfindingTest/src/SamePclGateRouteRuntime.cs")));
+string standaloneMethods = string.Join("\n", standalone.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+    .Where(m => m.Identifier.ValueText is "FilterBuilding" or "FilterConsumer" or "FilterAlternateConsumer").Select(m => m.ToFullString()));
 string fixture = File.ReadAllText(Path.Combine(root, "_inspect/TemporaryGateAcceptanceRuntimeTests/Fixture.cs"))
-    .Replace("/* ACTUAL_WEIGHTED_PRODUCER */", producer).Replace("/* ACTUAL_SEARCH_WRAPPER */", searchWrapper);
+    .Replace("/* ACTUAL_WEIGHTED_PRODUCER */", producer).Replace("/* ACTUAL_SEARCH_WRAPPER */", searchWrapper)
+    .Replace("/* ACTUAL_CORRELATION_METHODS */", correlationMethods).Replace("/* ACTUAL_CORRELATION_FRAMES */", correlationFrames)
+    .Replace("/* ACTUAL_STANDALONE_METHODS */", standaloneMethods);
 trees.Add(CSharpSyntaxTree.ParseText(fixture, path: "Fixture.cs"));
 var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
     .Select(p => MetadataReference.CreateFromFile(p));

@@ -29,9 +29,6 @@ if errorlevel 1 exit /b 1
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1"
 if errorlevel 1 exit /b 1
-echo [%date% %time%] Unit access regression tests
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitAccess.ps1" -ModDirectory BugfixesAndQoL
-if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"

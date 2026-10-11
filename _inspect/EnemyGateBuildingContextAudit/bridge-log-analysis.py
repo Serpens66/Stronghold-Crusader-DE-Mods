@@ -1,6 +1,6 @@
 """Read appended Bridge traces; delivery, capture and torn files are separate facts."""
 from pathlib import Path
-import argparse, collections, re, sys
+import argparse, collections, re, sys, base64, zlib, hashlib
 
 START = re.compile(r'\[Message:\s*BepInEx\] BepInEx .* - Stronghold Crusader Definitive Edition')
 FIELD = re.compile(r'(?:^|,)([A-Za-z][A-Za-z0-9]*)=')
@@ -20,20 +20,37 @@ def fields(text):
         result.setdefault(match[1], text[match.end():matches[i+1].start() if i+1<len(matches) else len(text)])
     return result
 
+def unpack_batch(line):
+    values=fields(line.split('bridge trace ',1)[1]);assert values.get('kind')=='packed-batch' and values.get('schema')=='1'
+    count=int(values['records']);assert 1<=count<=16
+    n=int(values['rawBytes']);assert 1<=n<=65536
+    payload=values['payload'];assert payload.startswith('[') and payload.endswith(']') and len(payload)<=131074
+    data=base64.b64decode(payload[1:-1],validate=True);codec=zlib.decompressobj(-15);decoded=codec.decompress(data,n+1)
+    assert len(decoded)==n and codec.eof and not codec.unconsumed_tail and not codec.unused_data
+    assert hashlib.sha256(decoded).hexdigest().upper()==values['sha256']
+    rows=decoded.decode('utf8').split('\n');assert len(rows)==count
+    assert all('bridge trace seq=' in row and ',kind=' in row and ',kind=packed-' not in row and '\r' not in row for row in rows)
+    return rows
+
 def analyze(raw):
     text = raw.decode('utf-8-sig', errors='replace')
     starts = list(START.finditer(text))
     if starts: text = text[starts[-1].start():]
-    records, torn = [], []
+    records, torn, wire_transport = [], [], []
     for line in text.splitlines():
         if 'bridge trace seq=' not in line: continue
-        item = fields(line.split('bridge trace ',1)[1])
-        if 'kind' not in item or any(token in line and ']' not in line.split(token,1)[1] for token in ('rows=[','rawRows=[','fragments=[')):
-            torn.append(line); continue
-        records.append((line,item))
-    # Bounded lossless native rows preserve their original envelopes; the batch
-    # envelope is delivery timing only. Missing/truncated rows remain incomplete.
-    wire_transport=list(records)
+        try:
+            outer=fields(line.split('bridge trace ',1)[1])
+            expanded=unpack_batch(line) if outer.get('kind')=='packed-batch' else [line]
+            local=[]
+            for row in expanded:
+                item=fields(row.split('bridge trace ',1)[1])
+                assert 'kind' in item
+                assert not any(token in row and ']' not in row.split(token,1)[1] for token in ('rows=[','rawRows=[','fragments=['))
+                local.append((row,item))
+            records.extend(local);wire_transport.append((line,outer))
+        except (AssertionError,ValueError,KeyError,zlib.error,UnicodeError):torn.append(line)
+    # Transport timing does not replace the original per-record envelopes.
     command_payloads={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='command-payload'}
     command_identities={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='command-identity'}
     search_sources={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='search-source'}
@@ -419,6 +436,18 @@ def self_test():
     complete=(prefix+'28,session=1,kind=input-artifact-complete,definition=1,sha256='+('A'*64)+'\r\n').encode()
     assert analyze(raw+shadow+artifact+complete)['artifactSummary']['completed']==1
     assert analyze(raw+shadow+artifact+complete)['artifactSummary']['deliveryComplete']
+    # Production bounded transport must preserve all semantic envelopes. Hash
+    # and extent failures remain Bridge-file failures, even after delivery.
+    payload=raw.decode().replace('\r\n','\n').rstrip('\n').encode()
+    compressor=zlib.compressobj(level=1,wbits=-15)
+    encoded=base64.b64encode(compressor.compress(payload)+compressor.flush()).decode()
+    digest=hashlib.sha256(payload).hexdigest().upper()
+    packed=(prefix+'1,session=1,kind=packed-batch,schema=1,records=2,rawBytes='+str(len(payload))+',sha256='+digest+',payload=['+encoded+']\r\n').encode()
+    assert analyze(packed)['records']==analyze(raw)['records']
+    assert analyze(packed)['bridgeComplete']
+    broken=packed.replace(digest.encode(),('0' if digest[0]!='0' else '1').encode()+digest[1:].encode())
+    assert not analyze(broken)['bridgeFileComplete']
+    assert not analyze(packed.replace(b'records=2',b'records=1'))['bridgeFileComplete']
     print('PASS analyzer: nested fields, exact low-first bytes, decision/group links, consumed-cursor boundaries, bounded completion and torn exit')
 
 def main():
