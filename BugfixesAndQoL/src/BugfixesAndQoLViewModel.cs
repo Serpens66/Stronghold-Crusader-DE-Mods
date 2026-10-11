@@ -31,6 +31,7 @@ namespace BugfixesAndQoL
         private bool enableAiRaidRetargetFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
         private bool enableAssassinGatehouseClimbFix = true;
+        private bool enableAssassinCapturedGateProtectionFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enableBakerMillerBreaks;
@@ -237,6 +238,8 @@ namespace BugfixesAndQoL
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
+        public string EnableAssassinCapturedGateProtectionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix");
+        public string EnableAssassinCapturedGateProtectionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp");
         public string EnableAssassinGatehouseClimbFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinGatehouseClimbFix");
         public string EnableAssassinGatehouseClimbFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp");
         public string EnableGatehouseLivingCaptureFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp");
@@ -932,6 +935,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAssassinCapturedGateProtectionFix
+        {
+            get => enableAssassinCapturedGateProtectionFix;
+            set => SetSetting(ref enableAssassinCapturedGateProtectionFix, value, nameof(EnableAssassinCapturedGateProtectionFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAssassinGatehouseClimbFix
         {
             get => enableAssassinGatehouseClimbFix;
@@ -1405,6 +1415,7 @@ namespace BugfixesAndQoL
                 EnableAiRaidRetargetFix = true;
                 EnableGatehouseLivingCaptureFix = true;
                 EnableAssassinGatehouseClimbFix = true;
+                EnableAssassinCapturedGateProtectionFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableBakerMillerBreaks = false;
                 EnableWorkshopIdleDelayFix = false;

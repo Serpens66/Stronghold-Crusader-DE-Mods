@@ -36,6 +36,7 @@ internal static class Program
                 string.Equals(args[0], "fear-factor-preset", StringComparison.OrdinalIgnoreCase))
             {
                 FearFactorPresetTests.Run();
+            AssassinCapturedGatePresetTests.Run();
                 return 0;
             }
 
@@ -73,6 +74,7 @@ internal static class Program
             }
 
             FearFactorPresetTests.Run();
+            AssassinCapturedGatePresetTests.Run();
             TestLobbySettingsRouting();
             TestPresetRegistrationWithoutExtenderPersistence();
             TestSharedPerPlayerLobbyConvergence();

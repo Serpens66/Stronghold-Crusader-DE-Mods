@@ -504,3 +504,62 @@ cursor-dispatch-targets.log, fixes-dynamic-command-spans.json and preserved
 before-command-ownership sources. They are workspace audit artifacts, not public
 APIShared dependencies. Source equivalence across70 moved files is checked modulo
 namespace/friend ownership and two imports. Game acceptance remains outstanding.
+
+## Formation movement permission correction (2026-10-11)
+
+Owning feature: Formations. Reference native SHA256:
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+The existing 195E30/196100/11B520/118E00/196280 chain and 18E1E0 path probe
+retain their existing signatures, search scopes, resolution and fail-closed rules.
+No new RVA, hook or layout dependency is introduced. Group-member permission is
+owned by Vanilla, not inferred from a positive path query. 11B520 excludes stationary
+Ballista (3D), Trebuchet (28), Mangonel (29) and restricted states; 118E00 has its
+own member predicates. 196280 does not repeat those checks.
+
+The formation post-order retry now requires a matched, unvetoed terminal Post
+with observed return zero. Missing calls, abandoned/vetoed frames and positive
+returns never receive direct MoveToTile retries. Recheck current global identity,
+life and tribe and retain the original extra parameter. Reaudit these event and
+permission boundaries after Native/Extender updates; do not substitute a type list.
+Evidence and pending gameplay acceptance:
+_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/FORMATION_MOVEMENT_PERMISSION.md.
+
+## 2026-10-11: preserve native ground cursor permission
+
+Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+The complete cursor CFG [8C5F0,90500), including its embedded dispatch tables,
+shows a separate permission channel from route reachability. At 8F10F R15D
+starts at one. Target veto 198C40 at 8F1E5 and selection predicate 1811A0 at
+8F1F8 can clear both EBX (reachability) and R15D (permission). 1811A0 scans
+selected living, non-killed units controlled by the active native player and
+requires a type other than 28/29/3D. These are the native stationary engines;
+no mod-maintained type list is introduced. 198C40 retains its target/structure
+restrictions. From 8F206 to the call at 8F325 no instruction writes R15.
+Function names remain candidate; these register/data-flow findings are static.
+
+The 196870 call at 8F325 is the native Assassin/special-selection fallback,
+not a fresh movement permission check. Promoting its zero result from a
+positive 18E1E0 path witness previously re-enabled EBX via E2CA0 at 8F350,
+bypassing the prior permission veto. This produced false accepted cursor
+feedback; 195E30 stages Chore17 before its own feedback/type checks. The later
+formation fallback fix protected execution but did not protect this UI path.
+
+The existing six-site adapter now passes its RVA and, only at 8F325, R15D.
+The callback clears pending cursor state and retains a zero result when that
+native ground permission is zero. Nonzero original/Extender results remain
+full-width and authoritative. The other five sites are attack queries and
+never consume their unrelated R15. Existing reachable-member and moat route
+corrections remain after the permission gate. No marker suppression, extra
+order, second 196870 detour, permission probe, or public interface is added.
+
+Producer bytes and the existing complete displaced spans are checked before
+publication. Production emitter tests execute all six Win64 callback paths
+with permission zero/one and zero/nonzero/full-width results. The complete
+production cursor fixture exercises pending-state clearing, provider settings,
+route repair and attack isolation. Rendering still reads final native feedback;
+formations and Shift commands continue through the original group/member
+checks. Visible Vanilla comparison and multiplayer acceptance remain pending.
+
+### TEMP_GATE_ROUTE_ACCEPTANCE: output-mode evidence (2026-10-11)
+
+Owner: existing UnitCommandPathRuntime F4930 detour; no added hook. Reference DLL SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2, RVA 0xF4930. At the existing entry/exit, read already audited manager modes +0x84/+0x88/+0x94 and output length +0x155F68; capture original arguments 2/3 as raw values. F4930 at 0xF4B9C tests +0x94 and argument 3 zero before DB650/DA590 and E1640 mode-1 reconstruction. Entry eligibility is not runtime proof that this branch executed. +0x94 remains excluded from exact staged Assassin publication. Use the existing hash/signature and displaced-span validation of the functional owner; no separate executable patch or address fallback. Unknown/unowned context is not read; diagnosis is inactive without an observer and cannot authorize publication. On future native updates re-audit the whole F4930 search/reconstruction flow rather than removing this guard.

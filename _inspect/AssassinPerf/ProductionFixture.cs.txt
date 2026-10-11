@@ -58,7 +58,9 @@ namespace APIShared.UnitCommands {
   Func<int> builder;
   internal UnitCommandPathRuntime(IntPtr context,byte* manager,Func<int> builder){nativePathManager=context;nativeUnitManager=manager;this.builder=builder;}
   IEnemyGatePathPolicy BeginEnemyGateSearch(int p,EnemyGateSearchKind k,out object s){s=null;return null;}
-  object BeginTemporaryRouteReport(IntPtr p,string s)=>null;
+  object BeginTemporaryRouteReport(IntPtr p,string s,int? c=null,int? v=null)=>null;
+  void ObserveTemporaryNativeBuilderOutput(object t,int r){}
+  internal static string CaptureTemporaryAssassinSource()=>"source=unknown";
   internal static void ReportTemporaryAssassinStage(string stage,string result,string detail) {}
   void EndTemporaryRouteReport(IntPtr p,object s,bool b,int r){}
   void EndEnemyGateSearch(object g,object s,EnemyGateSearchKind k,bool b,bool success){}

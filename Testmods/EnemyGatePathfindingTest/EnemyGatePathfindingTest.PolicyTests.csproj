@@ -42,6 +42,8 @@
   <ItemGroup>
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs"><Link>EnemyGatePathfindingNativeDefinition.cs</Link></Compile>
     <Compile Include="src\CursorPreviewCache.cs" />
+    <Compile Include="src\FunctionalGatePolicyAdapter.cs" />
+    <Compile Include="src\DeferredGateDiagnosticErrors.cs" />
     <Compile Include="src\BuildingSearchPlayerResolver.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
     <Compile Include="src\SparseBuildingFootprint.cs"><Link>SparseBuildingFootprint.cs</Link></Compile>
@@ -57,7 +59,7 @@
     <Compile Include="src\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
     <Compile Include="src\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="tests\CapturerAdapterMachineTests.cs" />
-    <Compile Include="tests\Program.cs" /><Compile Include="tests\TemporaryGateAcceptanceTests.cs" /><Compile Include="src\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
+    <Compile Include="tests\Program.cs" /><Compile Include="tests\CompactDiagnosticTests.cs" /><Compile Include="tests\TemporaryGateAcceptanceTests.cs" /><Compile Include="src\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
     <Compile Include="tests\GateRoutePolicyTests.cs" />
     <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
     <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\TemporaryGateRouteAcceptanceBridge.cs" />
@@ -69,4 +71,5 @@
   <ItemGroup>
     <Compile Include="..\..\BugfixesAndQoL\src\UnitCommands\Movement\TemporaryPackedRouteInspection.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="src\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
 </Project>

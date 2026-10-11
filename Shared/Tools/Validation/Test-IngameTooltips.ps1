@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')))
+param([string]$Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')), [string[]]$ModDirectories)
 $ErrorActionPreference = 'Stop'
 $checked = 0; $disabled = 0; $failures = [Collections.Generic.List[string]]::new()
 function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
@@ -15,7 +15,10 @@ function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
         $failures.Add("Nonstandard mod popup template: $location")
     }
 }
-foreach ($directory in Get-ChildItem -LiteralPath $Workspace -Directory) {
+$directories = if ($ModDirectories) { @($ModDirectories | ForEach-Object { Get-Item -LiteralPath $_ }) } else {
+    @(Get-ChildItem -LiteralPath $Workspace -Directory)
+}
+foreach ($directory in $directories) {
     if ($directory.Name -match '^\.|^_|^(Shared|Testmods|shcde-script-extender)$') { continue }
     $patches = Join-Path $directory.FullName 'Patches'
     if (-not (Test-Path -LiteralPath $patches)) { continue }

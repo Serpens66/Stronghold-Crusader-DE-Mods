@@ -40,6 +40,7 @@ namespace EnemyBridgePathTest
         private readonly Dictionary<long,int[]> targetFrames=new Dictionary<long,int[]>();
         private object identity,consumerIdentity;
         private long consumerOp,militaryEntryOp;private byte[] militaryEntry;
+        private Dictionary<string,byte[]> militaryInputs;
         private long session;
         private bool selected;
         private int attempts;
@@ -54,8 +55,8 @@ namespace EnemyBridgePathTest
         private byte[] Read(int at,int bytes)
         {if(at<0||bytes<0||(long)at+bytes>moduleLength)throw new InvalidOperationException("planning-read-outside-module");byte[] b=read(at,bytes);if(b==null||b.Length!=bytes)throw new InvalidOperationException("short-planning-copy");return b;}
         private int Int(int at)=>BitConverter.ToInt32(Read(at,4),0);
-        internal void Begin(long value){if(current!=null)Reject("map-changed-during-planning");current=ready=null;targetFrames.Clear();identity=consumerIdentity=null;consumerOp=militaryEntryOp=0;militaryEntry=null;session=value;selected=false;attempts=0;skipped=rejected=completedBundles=lastTicks=0;lastReason="awaiting-fresh-player8-planning";emit("planning-capture-ready","attacker=8,attemptLimit=2,planningArtifactLimit=1,groupArtifactLimit=1,requires=stable-map-and-military-parent,dirtyCaptureAllowed=True,requiredEntryPhase=4,negativePolicyRequiresCompletedTopology=True,behavior=unchanged");}
-        internal void End(){if(current!=null)Reject("map-ended-during-planning");if(ready!=null){emit("planning-capture-incomplete","op="+ready.Op+",reason=map-ended-before-military-root-completed");ready=null;targetFrames.Clear();}emit("planning-capture-end",Status+",historicalMissingValues=unknown,behavior=unchanged");session=0;}
+        internal void Begin(long value){if(current!=null)Reject("map-changed-during-planning");current=ready=null;targetFrames.Clear();identity=consumerIdentity=null;consumerOp=militaryEntryOp=0;militaryEntry=null;militaryInputs=null;session=value;selected=false;attempts=0;skipped=rejected=completedBundles=lastTicks=0;lastReason="awaiting-fresh-player8-planning";emit("planning-capture-ready","attacker=8,attemptLimit=2,planningArtifactLimit=1,groupArtifactLimit=1,requires=stable-map-and-military-parent,dirtyCaptureAllowed=True,requiredEntryPhase=4,negativePolicyRequiresCompletedTopology=True,behavior=unchanged");}
+        internal void End(){if(current!=null)Reject("map-ended-during-planning");if(ready!=null){emit("planning-capture-incomplete","op="+ready.Op+",reason=map-ended-before-military-root-completed");ready=null;targetFrames.Clear();}emit("planning-capture-end",Status+",historicalMissingValues=unknown,behavior=unchanged");session=0;militaryInputs=null;militaryEntry=null;militaryEntryOp=0;}
         private void Reject(string reason)
         {if(current==null)return;lastReason=reason;rejected++;lastTicks=current.Ticks;current.Reason=reason;current.Complete=false;emit("planning-capture-incomplete","op="+current.Op+",reason="+reason+",behavior=unchanged");current=null;identity=null;}
         private void Store(string name,byte[] bytes)
@@ -74,7 +75,42 @@ namespace EnemyBridgePathTest
             if(rva==0x10DF60||rva==0x115B10){ObserveConsumerChild(rva,post,run,op,parent,a,b,c,completed,root);return;}
             if(rva==0x2C480){ObserveConsumer(post,run,op,parent,a,completed,root);return;}
             if(rva==0x3C2E0&&!post&&run==session&&a==8&&!selected&&attempts<2)
-            {try{if(Int(0x379D974+a*0x583c)==4){militaryEntry=Read(0x379AE00+a*0x583c,0x583c);militaryEntryOp=op;}}catch(Exception error){emit("planning-military-entry-incomplete","op="+op+",reason="+error.Message);militaryEntry=null;militaryEntryOp=0;}return;}
+            {
+                try
+                {
+                    militaryEntry=null;militaryInputs=null;militaryEntryOp=0;
+                    long entryClock=Stopwatch.GetTimestamp();
+                    if(Int(0x379D974+a*0x583c)==4)
+                    {
+                        militaryEntry=Read(0x379AE00+a*0x583c,0x583c);
+                        var copied=new Dictionary<string,byte[]>();
+                        // Writable native tables, captured at this own entry, not
+                        // supplied from a later consumer or the PE's defaults.
+                        copied.Add("military/entryLeaderIds9",Read(0x3A0F9F0,18));
+                        copied.Add("military/entryLeaderGlobals9",Read(0x3A0FA04,36));
+                        copied.Add("military/entryUpdateClasses11",Read(0x2C8040,88));
+                        copied.Add("military/entryMoveClasses11",Read(0x2C80E0,88));
+                        int lord=BitConverter.ToInt32(militaryEntry,0x379D0D0-0x379AE00);
+                        if(lord<0)throw new InvalidOperationException("military-negative-lord");
+                        var config=new int[]{lord,0,0,0,Int(0x3665FBC)};
+                        if(lord!=0)
+                        {
+                            int record=checked(0x366C210+lord*0x5e4);
+                            config[1]=Int(checked(record-0x3d8));
+                            config[2]=Int(checked(record-0x2f8));
+                            config[3]=Read(checked(record-0x2f0),1)[0];
+                        }
+                        var controls=new byte[20];Buffer.BlockCopy(config,0,controls,0,20);
+                        copied.Add("military/entryConfig5",controls);
+                        long[] context={run,op,entryClock,Thread.CurrentThread.ManagedThreadId};
+                        var bytes=new byte[32];Buffer.BlockCopy(context,0,bytes,0,32);
+                        copied.Add("military/entryIdentity4",bytes);
+                        militaryInputs=copied;militaryEntryOp=op;
+                    }
+                }
+                catch(Exception error){emit("planning-military-entry-incomplete","op="+op+",reason="+error.Message);militaryEntry=null;militaryInputs=null;militaryEntryOp=0;}
+                return;
+            }
             if(rva==0x2C5A0||rva==0x3C2E0){ObserveSelection(rva,post,run,op,parent,a,b,completed,root);return;}
             if(rva!=0x2D250&&rva!=0xD95E0&&rva!=0xD9190)return;
             long start=Stopwatch.GetTimestamp();bool attemptStarted=false;
@@ -90,7 +126,14 @@ namespace EnemyBridgePathTest
                     attempts++;attemptStarted=true;int target=Int(0x379D9A8+attacker*0x583c);
                     if(target<1||target>8){lastReason="unresolved-target-player";rejected++;emit("planning-capture-incomplete","op="+op+",reason=unresolved-target-player");return;}
                     identity=token();current=new Bundle {Session=run,Op=op,Parent=parent,Root=root,Attacker=attacker,Target=target,Mode=b,Bank=target,Clock=start,Thread=Thread.CurrentThread.ManagedThreadId,Revision=Int(Root+0x74),Dirty=Int(Root+0x6c)};
-                    if(root!=0&&root==militaryEntryOp&&militaryEntry!=null)current.Sections.Add("military/entryPlayer",(byte[])militaryEntry.Clone());
+                    if(root!=0&&root==militaryEntryOp&&militaryEntry!=null)
+                    {
+                        current.Sections.Add("military/entryPlayer",(byte[])militaryEntry.Clone());
+                        if(militaryInputs!=null)foreach(var pair in militaryInputs)current.Sections.Add(pair.Key,(byte[])pair.Value.Clone());
+                    }
+                    // These are decision-time physical inputs. Consumer/pre
+                    // heights remain separate observations and may differ.
+                    Copy("callerHeight",0x4DDD350,N);Copy("callerBaseHeight",0x4E2B870,N);
                     Copy("flags",0x48F71B0,N*4);Copy("components",0x50EC690,N*2);Copy("edges",0x51890D0,N);
                     Copy("directionOffsets",0x405EDB0,6400*4);Copy("rowRecords",0x402FF2C,800*12);Copy("tileRows",0x3AAE2A4,N*2);
                     Copy("buildingIds",0x4B6AA50,N*2);int count=Int(0x64CCBB0+0x50);

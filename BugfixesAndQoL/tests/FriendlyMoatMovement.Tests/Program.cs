@@ -52,10 +52,12 @@ try { Assembly.Load(stream.ToArray()).GetType("CommandFixture.UnitCommandPathRun
 catch(TargetInvocationException e){System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException??e).Throw();}
 MoatModeFlagContract.Validate();
 NativeCommandDetourContract.Validate(root);
+CursorPermissionNativeTests.Validate(root);
 MovementLifeGeneratorTests.Validate(root);
 RallyTerrainGeneratorTests.Validate(root);
 CadenceSnapshotTests.Validate(root);
 FormationStartupTests.Validate(root);
 FormationMoveRuntimeTests.Validate(root);
 FormationMarkerFallbackTests.Validate(root);
+FormationMovementEligibilityTests.Validate(root);
 Console.WriteLine("PASS: main command fixes use native probes and group fallback; actual installed RedBird contracts verified.");

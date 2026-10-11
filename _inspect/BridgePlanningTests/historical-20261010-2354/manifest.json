@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "session": "2026-10-10 23:54:02--23:55:55",
+  "nativeSHA256": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "behaviorFix": "disabled",
+  "originals": [
+    {
+      "file": "LogOutput.log",
+      "bytes": 9746210,
+      "sha256": "5846E1780700710CF95C66F628F8E5B6E6EA846C2C5F01FAA3DA5BF29184A9EF"
+    },
+    {
+      "file": "bridge-1-10.bin",
+      "bytes": 44897921,
+      "sha256": "265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6"
+    },
+    {
+      "file": "bridge-1-11.bin",
+      "bytes": 4620155,
+      "sha256": "B60852790BC5EAF1EA97043FF322EDEA181EB87958F68071C993558CB09A01A0"
+    }
+  ],
+  "scope": "own table coverage 3/3; productive importer/factory candidate/work baseline matched; counterfactual 6/5/5 native suffix only; historical Dirty1 negative policy Unknown"
+}

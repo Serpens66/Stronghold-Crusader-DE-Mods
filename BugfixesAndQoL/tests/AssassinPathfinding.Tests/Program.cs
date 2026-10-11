@@ -36,6 +36,7 @@ internal static partial class Program
             TestActualPublication(args);
             TestActualRequestIndex(args);
             TestGatehouseActivation(args);
+            TestCapturedGateSetting(args);
             TestProductionKernel(Path.GetFullPath(args[0]));
             BenchmarkWallGroup();
             TestTemporaryHandoffEvidence();

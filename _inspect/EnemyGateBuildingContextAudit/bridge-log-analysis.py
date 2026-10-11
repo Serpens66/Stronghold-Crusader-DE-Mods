@@ -37,8 +37,24 @@ def analyze(raw):
     command_payloads={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='command-payload'}
     command_identities={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='command-identity'}
     search_sources={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='search-source'}
-    unbatched=[]
+    unbatched=[];command_pre_rows={}
     for line,f in records:
+        if f['kind']=='stored-route-definition-batch':
+            for row in f.get('rows','[]')[1:-1].split('|'):
+                if not row:continue
+                try:
+                    assert f.get('schema')=='1' and f.get('format')=='2' and f.get('complete')=='True'
+                    v=row.split(':');assert len(v)==14
+                    for n in v[:12]:int(n)
+                    assert 0<=int(v[4])<=2000 and 0<=int(v[5])<=int(v[4])
+                    assert len(v[13])==2*((int(v[4])+1)//2)
+                    bytes.fromhex(v[13])
+                    item={k:f[k] for k in ('seq','session','thread','tick','clock','physical','topology') if k in f}
+                    item.update(kind='stored-route',format='2',definition=v[0],captureClock=v[1],origin=v[2]+'/'+v[3],length=v[4],cursor=v[5],flags=v[6],substep=v[7],complete='True',decodedEndpoint=v[8]+'/'+v[9],nativeSegmentTarget=v[10]+'/'+v[11],bridges='['+v[12]+']',packedHex=v[13])
+                    item.update(physicalAtCapture='not-recorded',threadAtCapture='not-recorded',envelopeTiming='batch-flush',endpointMatchesTarget='unobserved' if not (0<=int(v[10])<800 and 0<=int(v[11])<800) else str(v[8]==v[10] and v[9]==v[11]))
+                    unbatched.append((line,item))
+                except (AssertionError,ValueError):torn.append(line)
+            continue
         if f['kind']=='search-result-batch':
             for row in f.get('rows','[]').strip('[]').split(';'):
                 if not row:continue
@@ -55,7 +71,14 @@ def analyze(raw):
             for row in f.get('rows','[]').strip('[]').split(';'):
                 if not row:continue
                 try:
-                    v=row.split('/');assert len(v) in (12,31) and v[7] in ('0','1')
+                    v=row.split('/')
+                    if len(v)==17:
+                        assert f.get('schema')=='2' and v[7]=='1'
+                        prior=command_pre_rows[(v[1],v[11])];assert prior[8]==v[8] and prior[9]==v[9]
+                        full=prior[:];full[:11]=v[:11];full[23:27]=v[12:16];full[28]=v[16];v=full
+                    assert len(v) in (12,31) and v[7] in ('0','1')
+                    if len(v)==31 and v[7]=='0':command_pre_rows[(v[1],v[0])]=v[:]
+
                     for n in v:int(n)
                     assert v[11] in (command_payloads if len(v)==12 else command_identities)
                     item=dict(zip(('seq','session','thread','tick','clock','physical','topology'),v[:7]))

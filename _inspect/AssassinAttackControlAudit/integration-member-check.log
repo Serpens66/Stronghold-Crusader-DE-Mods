@@ -1,0 +1,4 @@
+Evaluated APIShared.csproj: 131 sources
+PASS: APIShared source and installed assembly visibility/signature contract (memory only, no DLL file emitted).
+Evaluated BugfixesAndQoL.csproj: 364 sources
+PASS: evaluated project sources compile against source and installed APIShared: BugfixesAndQoL (no runtime assembly emitted)

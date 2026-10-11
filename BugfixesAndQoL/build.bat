@@ -21,7 +21,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory BugfixesAndQoL
 if errorlevel 1 exit /b 1
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\FormationIntegration\Verify-Interop.ps1"
@@ -30,7 +30,7 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1"
 if errorlevel 1 exit /b 1
 echo [%date% %time%] Unit access regression tests
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitAccess.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitAccess.ps1" -ModDirectory BugfixesAndQoL
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -184,6 +184,14 @@ dotnet run --project "tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommand
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 dotnet run --project "tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Captured-gate protection contracts
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinAttackControlAudit\verify-integrated.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Captured-gate protection tests
+"%MSBUILD%" "tests\AssassinCapturedGateProtection.Tests\AssassinCapturedGateProtection.Tests.csproj" /p:Configuration=Release
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%tests\AssassinCapturedGateProtection.Tests\bin\AssassinCapturedGateProtectionTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
 echo [%date% %time%] Run tests

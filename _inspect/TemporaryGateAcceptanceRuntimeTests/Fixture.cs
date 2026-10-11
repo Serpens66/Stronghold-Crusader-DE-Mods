@@ -6,7 +6,7 @@ using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using EnemyGatePathfindingTest;
-using APIShared.UnitCommands;
+using BugfixesAndQoL.UnitCommands;
 namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }
 namespace BepInEx.Bootstrap { public static class Chainloader { public static readonly Dictionary<string, object> PluginInfos=new Dictionary<string, object>(); } }
 namespace Shared { internal static class DebugLogHelper {
@@ -19,7 +19,7 @@ namespace SHCDESE.Interop.Enums {
     public enum AITribeStorageRole16 { HarassmentCombat0 = 180, SiegeAssassins=11 }
 }
 namespace SHCDESE.Interop {
-    public struct GameUnit { public uint r_GlobalId, r_AI_ContextTargetBuildingTileId, N0000019A; public SHCDESE.Interop.Enums.AliveState r_AliveState; public ushort r_TribeId,r_AI_LastIssuedTribeCommand,r_AIState; public byte r_ControllableForPlayerId, N00000569; public ushort r_UnitChimp; public int X,Y; }
+    public struct GameUnit { public uint r_GlobalId, r_AI_ContextTargetBuildingTileId, N0000019A; public SHCDESE.Interop.Enums.AliveState r_AliveState; public ushort r_TribeId,r_AI_LastIssuedTribeCommand,r_AIState,r_IsKilledByProjectile; public ushort r_ControllableForPlayerId; public byte N00000569; public ushort r_UnitChimp; public int X,Y; }
     public struct GameTribe { public uint r_GlobalId; public ushort r_PlayerIdOwner; }
     public struct GameBuilding { public uint r_GlobalId; public ushort r_BuildingType,r_PlayerIdOwner,r_CapturedByPlayerId,r_AliveState; }
 }
@@ -101,7 +101,7 @@ namespace BugfixesAndQoL {
         internal int Invoke(IntPtr context,int continuation=0,bool flood=false)=>BuildWeightedPath(context,100,100,flood?-1:103,flood?-1:100,1000,continuation);
     }
 }
-namespace APIShared.UnitCommands {
+namespace BugfixesAndQoL.UnitCommands {
     internal static class UnitCommandPathAPI { internal static Func<string> AssassinReconstructionRelaxation=()=>BugfixesAndQoL.AssassinPathfindingRuntime.TemporaryReconstructionRelaxation; }
     internal static class WeightedMoatRoutePlanner {
         internal const int MaximumRouteEdges=2000;
@@ -133,13 +133,13 @@ namespace APIShared.UnitCommands {
             unitMoveFrame=null;
             var u=GameUnitManagerAPI.Instance.Unit; *u=new GameUnit {r_GlobalId=12,r_UnitChimp=0x49,r_ControllableForPlayerId=5,X=100,Y=100};
         }
-        internal int Invoke(int result=3, Action change=null,string source="F4930-builder") {
-            object token=BeginTemporaryRouteReport(nativePathManager,source);
+        internal int Invoke(int result=3, Action change=null,string source="F4930-builder",int? profile=null) {
+            object token=BeginTemporaryRouteReport(nativePathManager,source,2,profile);
             Calls++;
             byte* context=(byte*)nativePathManager;
             byte* path=*(byte**)(context+PathManagerOutputBufferOffset);
             path[0]=0x22; path[1]=2; *(int*)(context+PathManagerOutputLengthOffset)=result;
-            change?.Invoke(); EndTemporaryRouteReport(nativePathManager,token,true,result); return result;
+            change?.Invoke(); ObserveTemporaryNativeBuilderOutput(token,result); EndTemporaryRouteReport(nativePathManager,token,true,result); return result;
         }
         internal void WithFrame(bool skip=false) { unitMoveFrame=new UnitMoveFrame(); unitMoveFrame.Args.SkipOriginalFunction=skip; }
         internal void UnknownBuffer() { *(byte**)((byte*)nativePathManager+PathManagerOutputBufferOffset)=nativeUnitManager+NativeUnitPathBufferOffset+999; }
@@ -148,6 +148,7 @@ namespace APIShared.UnitCommands {
             var token=BeginTemporaryAssassinSearch(nativePathManager,100,100,flood?-1:103,flood?-1:100,continuation);
             EndTemporaryAssassinSearch(token,true,0,1,5,outcome,false,4);
         }
+        internal bool RejectForTest(string reason)=>TemporaryAssassinPublicationRejected(reason);
         internal IntPtr Context => nativePathManager;
         internal void DisposeFixture() { Marshal.FreeHGlobal(nativePathManager); Marshal.FreeHGlobal((IntPtr)nativeUnitManager); }
     }
@@ -157,7 +158,7 @@ namespace BugfixesAndQoL {
         private const int MapWidth=800;
         private int[] route;
         private static readonly int[] DirectionX=WeightedMoatRoutePlanner.DirectionX, DirectionY=WeightedMoatRoutePlanner.DirectionY;
-        private readonly byte[] directionMasks={1,2,4,8,16,32,64,128}, occupancyLayer=new byte[320800];
+        private readonly byte[] directionMasks={1,2,4,8,16,32,64,128}, occupancyLayer=new byte[320800], heightLayer=new byte[320800];
         private AssassinObservation activeObservation;
         private class AssassinObservation { internal object Token, BridgeToken; internal Sink Observer, BridgeObserver; internal int RouteLength; internal string Error;
             internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver; internal Dictionary<int,GateTransitionEvidence> ParentDecisions; }
@@ -193,7 +194,7 @@ public static unsafe class RuntimeAcceptanceTests {
         GameBuildingManagerAPI.Instance.Building=(GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));
         *GameTribeManagerAPI.Instance.Tribe=new GameTribe {r_GlobalId=9,r_PlayerIdOwner=5};
         *GameBuildingManagerAPI.Instance.Building = new GameBuilding {r_GlobalId=99,r_BuildingType=45,r_PlayerIdOwner=2,r_AliveState=2};
-        var runtime=APIShared.UnitCommands.UnitCommandPathRuntime.Create();
+        var runtime=BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.Create();
         try {
             Check(runtime.Invoke()==3 && runtime.Calls==1 && GameUnitManagerAPI.Instance.Reads==0,"no observer: unchanged result and no SDK reads");
             var searchWrapper=new BugfixesAndQoL.ActualSearchWrapper();
@@ -255,7 +256,7 @@ public static unsafe class RuntimeAcceptanceTests {
             int before=runtime.Calls; runtime.Reset(); acceptance.Begin(); fail=true; Check(runtime.Invoke()==3 && runtime.Calls==before+1,"diagnostic exception leaves native call exactly once"); fail=false; acceptance.End(); Check(TemporaryGateRouteAcceptanceBridge.Failures>0,"diagnostic exception counted");
             Check(GameTribeManagerAPI.Instance.InvalidReads==0,"all paths avoid invalid Tribe reads");
             Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin(); before=runtime.Calls; runtime.Invoke(change:()=>runtime.Invoke()); acceptance.End(); Check(runtime.Calls==before+2 && Contains("checked=2"),"nested publications exactly match native calls");
-            Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin(); runtime.Invoke(change:()=>GameUnitManagerAPI.Instance.Unit->N00000569=1); acceptance.End(); Check(Contains("unit-or-call-identity-changed"),"full control WORD, not only low byte");
+            Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin(); runtime.Invoke(change:()=>GameUnitManagerAPI.Instance.Unit->r_ControllableForPlayerId=0x0105); acceptance.End(); Check(Contains("unit-or-call-identity-changed"),"full control WORD, not only low byte");
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); old=acceptance.BeginAssassin(5,37,100,100,101,100); acceptance.AssassinEdge(old,5,80100,80101,2,false); GameTribeManagerAPI.Instance.Tribe->r_GlobalId=10; acceptance.EndAssassin(old,5,1,1,"fixture",false,2,0); acceptance.End(); Check(Contains("tribe-identity-changed") && Contains("checked=0"),"weighted Tribe generation change is not a pass"); GameTribeManagerAPI.Instance.Tribe->r_GlobalId=9;
             Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin(); runtime.Invoke(change:()=>searchWrapper.Invoke(runtime.Context)); acceptance.End();
             Check(Contains("nestedAssassinCalls=1,targetSearches=1,floods=0,continuations=0,weightedPublications=1") && Contains("reconstructionRelaxation=active"),
@@ -272,6 +273,20 @@ public static unsafe class RuntimeAcceptanceTests {
                 Contains("nestedAssassinCalls=1"),"nested publication restores parent correlation without leaking child count");
             Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin(); runtime.Invoke(); acceptance.End();
             Check(Contains("fieldOrigin=unknown-preexisting-field") && Contains("firstSearch=[none]"),"previous calls never manufacture older field origin");
+            Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); *(int*)((byte*)runtime.Context+0x94)=1;
+            acceptance.Begin(); before=runtime.Calls; runtime.Invoke(profile:0,change:()=>runtime.RejectForTest("output-mode94")); acceptance.End();
+            Check(runtime.Calls==before+1 && Contains("secondaryGroundFlag94=1/1") && Contains("builderArgument3Raw=0") &&
+                Contains("secondaryGroundPassEntryEligible=True") && Contains("secondaryGroundPassExecution=not-observed") &&
+                Contains("nativeBuilderReturn=3,nativeOutputEdges=3,effectiveBuilderReturn=3"),"secondary-pass eligibility is not invented execution evidence");
+            Check(Contains("publication-rejected,result=source=single-unit/unsupported-output-mode/output-mode94") &&
+                Contains("publicationCall="),"precise mode rejection keeps synchronous unit provenance");
+            *(int*)((byte*)runtime.Context+0x94)=0;
+            Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin();
+            runtime.Invoke(change:()=>runtime.RejectForTest("unit-global")); acceptance.End();
+            Check(Contains("identity-or-request/unit-global"),"identity conflicts stay separate from output modes");
+            Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin();
+            runtime.Invoke(change:()=>runtime.RejectForTest("output-pointer")); acceptance.End();
+            Check(Contains("publication-prerequisite/output-pointer"),"publication prerequisites remain separate");
             Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); BugfixesAndQoL.AssassinPathfindingRuntime.TemporaryReconstructionRelaxation="inactive";
             acceptance.Begin(); runtime.Invoke(); acceptance.End(); Check(Contains("reconstructionRelaxation=inactive"),"inactive relaxation preserved in aggregate dimensions");
             BugfixesAndQoL.AssassinPathfindingRuntime.TemporaryReconstructionRelaxation="active";
@@ -292,6 +307,25 @@ public static unsafe class RuntimeAcceptanceTests {
             GameTileManagerAPI.Instance.Buildings.Remove(80103);
             Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin(); runtime.Invoke(); acceptance.End();
             Check(Contains("meaning=blocked-cut-crossing-purpose-unknown") && Contains("nativeAcceptedBranch=not-observed"),"through-cut does not invent accepted native branch");
+            Check(Contains("suspectedNativeGroundRoutes=1") && Contains("violated=0") && Contains("confirmedGroundEdges=0") &&
+                Contains("suspected-ground-overlap-native-branch-unproven"),"packed live ground classification is suspicion, never execution proof");
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
+            var proven=acceptance.BeginAssassin(5,37,100,100,103,100);
+            acceptance.AssassinEdge(proven,5,80100,80101,2,false); acceptance.AssassinEdge(proven,5,80101,80102,2,false); acceptance.AssassinEdge(proven,5,80102,80103,2,false);
+            acceptance.EndAssassin(proven,5,1,1,"fixture",false,4,0); acceptance.End();
+            Check(Contains("violated=1") && Contains("confirmedGroundEdges=1") && Contains("suspectedNativeGroundRoutes=0"),"weighted ground violation stays confirmed");
+            // Replay only the logged edge coordinates/directions, not a fabricated historical distance field.
+            foreach(var historical in new[]{(From:96591,To:95971,Direction:1),(From:264634,To:265107,Direction:4)}) {
+                var hm=new byte[9][];hm[5]=new byte[320800];Array.Fill(hm[5],(byte)255);hm[5][historical.From]&=unchecked((byte)~(1<<historical.Direction));
+                var ho=new GateEdgeOwnership[9];ho[5]=new GateEdgeOwnership();ho[5].Record(historical.From,historical.Direction,578);
+                var priorSnapshot=snapshot;
+                snapshot=new RouteTilePolicySnapshot(hm,47,edgeOwners:ho,gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{578,new RouteTilePolicySnapshot.GateIdentity(99,2,0)}});
+                Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();
+                var replay=acceptance.BeginRoute(5,37,9,1,12,73,0,0,1,0,"historicalField=not-reconstructed");
+                acceptance.RouteEdge(replay,historical.From,historical.To,historical.Direction);acceptance.EndRoute(replay,"decoded",1);acceptance.End();
+                Check(Contains("suspectedNativeGroundRoutes=1") && Contains("violated=0") && Contains("from="+historical.From+",to="+historical.To),"logged gate 58/727 edge assessed without invented native branch");
+                snapshot=priorSnapshot;
+            }
             Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); acceptance.Begin(); runtime.Invoke(change:()=>GameBuildingManagerAPI.Instance.Building->r_GlobalId=100); acceptance.End();
             // Identity is captured at edge inspection: a pre-edge change is visible raw, not an invented stale snapshot identity.
             Check(Contains("gateLive=578/100"),"live gate identity explicitly read at inspection");
@@ -313,7 +347,7 @@ public static unsafe class RuntimeAcceptanceTests {
                 runtime.Reset(); runtime.Invoke();
             }
             acceptance.End();
-            Check(Contains("checked=40,violated=40") && Shared.DebugLogHelper.Lines.FindAll(s=>s.Contains("kind=mask-overlap,")).Count==40 &&
+            Check(Contains("checked=0,violated=0,unclear=40,suspectedNativeGroundRoutes=40") && Shared.DebugLogHelper.Lines.FindAll(s=>s.Contains("kind=mask-overlap,")).Count==40 &&
                 runtime.Calls==routeCallsBefore+40,"more than 32 exact gates counted without event cap or extra native calls");
             GameBuildingManagerAPI.Instance.BuildingId=578;
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); int missingReads=GameTribeManagerAPI.Instance.Reads;
@@ -323,14 +357,14 @@ public static unsafe class RuntimeAcceptanceTests {
             // Actual scope and evidence callbacks: no additional path search or persistent correlation.
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
             int queryReads=GameUnitManagerAPI.Instance.Reads;
-            object outer=APIShared.UnitCommands.UnitCommandPathRuntime.BeginTemporaryAssassinScope("group-move",37,3,103,100);
-            object inner=APIShared.UnitCommands.UnitCommandPathRuntime.BeginTemporaryAssassinScope("building-query",37,2,578,1);
-            Check(APIShared.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource().Contains("source=building-query"),"inner building query overrides group provenance");
+            object outer=BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.BeginTemporaryAssassinScope("group-move",37,3,103,100);
+            object inner=BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.BeginTemporaryAssassinScope("building-query",37,2,578,1);
+            Check(BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource().Contains("source=building-query"),"inner building query overrides group provenance");
             runtime.Search();
-            APIShared.UnitCommands.UnitCommandPathRuntime.EndTemporaryAssassinScope(inner,true,0);
-            Check(APIShared.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource().Contains("source=group-move"),"nested scope restores parent");
-            APIShared.UnitCommands.UnitCommandPathRuntime.EndTemporaryAssassinScope(outer,true,7);
-            Check(APIShared.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource()=="source=unknown","no later order inherits a completed scope");
+            BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.EndTemporaryAssassinScope(inner,true,0);
+            Check(BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource().Contains("source=group-move"),"nested scope restores parent");
+            BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.EndTemporaryAssassinScope(outer,true,7);
+            Check(BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource()=="source=unknown","no later order inherits a completed scope");
             acceptance.End();
             Check(Contains("assassin-synchronous-order")&&Contains("source=building-query")&&Contains("return=7")&&Contains("searches=1"),"both synchronous orders report their actual nested search and return");
             Check(GameUnitManagerAPI.Instance.Reads==queryReads,"scope evidence does not inspect units");
@@ -345,6 +379,35 @@ public static unsafe class RuntimeAcceptanceTests {
             for(int i=0;i<1000;i++) acceptance.ObserveAssassinStage(null,5,"handoff","published","source=single-unit,unit="+i);
             acceptance.End();
             Check(Contains("kind=assassin-handoff,result=source=single-unit/published,count=1000"),"varying unit IDs do not split aggregate keys or lose events");
+            // Observe actual entry/output callbacks on unmasked captured geometry, including native uncertainty.
+            GameBuildingManagerAPI.Instance.BuildingId=578;
+            *GameBuildingManagerAPI.Instance.Building=new GameBuilding {r_GlobalId=99,r_BuildingType=45,r_PlayerIdOwner=2,r_AliveState=2};
+            *GameTribeManagerAPI.Instance.Tribe=new GameTribe {r_GlobalId=9,r_PlayerIdOwner=5};
+            var allGateEdges=new GateEdgeOwnership(); allGateEdges.Record(80100,2,578);
+            Func<int,RouteTilePolicySnapshot> gateState=c=>new RouteTilePolicySnapshot(new byte[9][],(ulong)(100+c),
+                gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{578,new RouteTilePolicySnapshot.GateIdentity(99,2,c)}},diagnosticGateEdges:allGateEdges);
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); snapshot=gateState(0); acceptance.ObservePolicyPublication(snapshot,11);
+            var prior=acceptance.BeginAssassin(5,37,100,100,101,100);
+            acceptance.ObserveAssassinDecision(prior,5,80100,80101,2,true,AssassinTransitionKind.Ground,true,0,0,"existing-weighted-ordinary-decision");
+            acceptance.EndAssassin(prior,5,1,1,"weighted-published",false,2,0);
+            acceptance.ObserveCapture(578,5,false); acceptance.ObserveCapture(578,5,true);
+            GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=5; snapshot=gateState(5); acceptance.ObservePolicyPublication(snapshot,14);
+            var after=acceptance.BeginAssassin(5,37,100,100,101,100);
+            acceptance.ObserveAssassinDecision(after,5,80100,80101,2,true,AssassinTransitionKind.Ground,true,0,0,"existing-weighted-ordinary-decision");
+            acceptance.EndAssassin(after,5,1,1,"weighted-published",false,2,0);
+            var nativeAfter=acceptance.BeginRoute(5,37,9,1,12,0x49,100,100,101,100,"fresh-ground-command");
+            acceptance.RouteEdge(nativeAfter,80100,80101,2); acceptance.EndRoute(nativeAfter,"decoded",1);
+            var during=acceptance.BeginAssassin(5,37,100,100,101,100);
+            acceptance.ObserveAssassinDecision(during,5,80100,80101,2,true,AssassinTransitionKind.Ground,true,0,0,"existing-weighted-ordinary-decision");
+            acceptance.ObserveCapture(578,2,false); snapshot=gateState(2); GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=2;
+            acceptance.ObservePolicyPublication(snapshot,15); acceptance.EndAssassin(during,5,1,1,"weighted-published",false,2,0);
+            acceptance.End();
+            Check(Contains("phase=before-capture/source=assassin-weighted-fresh"),"actual weighted route before capture");
+            Check(Contains("phase=after-confirmed-publication/source=assassin-weighted-fresh") && Contains("Ground/allowed=True"),"captured ground edge remains visible and allowed");
+            Check(Contains("phase=after-confirmed-publication/source=assassin-published") && Contains("packed-movement-unproven"),"native bytes never prove climb execution");
+            Check(Contains("phase=transition/source=assassin-weighted-fresh") && Contains("verdict=unclear"),"publication during synchronous route cannot pass");
+            Check(Contains("entryGeneration=14")&&Contains("endGeneration=15")&&Contains("started=[mono=")&&Contains("emittedUtc="),"real observation time separate from aggregate emission");
+            Check(Contains("kind=capture-event")&&Contains("capturingPlayer=5")&&Contains("selfCapturer=True"),"capture and subsequent publication are explicit");
             Console.WriteLine("PASS: "+assertions+" actual diagnostic path assertions; no moat-plan helper present in fixture.");
         } finally { runtime.DisposeFixture(); Marshal.FreeHGlobal((IntPtr)GameUnitManagerAPI.Instance.Unit); Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe); Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Building); }
     }

@@ -224,6 +224,10 @@ namespace EnemyBridgePathTest
         private readonly Dictionary<string,long> textDefinitions=new Dictionary<string,long>(StringComparer.Ordinal);
         private readonly StringBuilder commandRows=new StringBuilder();
         private int commandRowCount;
+        private readonly struct RetainedCommand {internal readonly CommandData Data;internal readonly long Seq;internal RetainedCommand(CommandData data,long seq){Data=data;Seq=seq;}}
+        private readonly Dictionary<long,RetainedCommand> commandPreRows=new Dictionary<long,RetainedCommand>();
+        private static bool SameCommandInputs(CommandData a,CommandData b)=>a.Parent==b.Parent&&a.Kind==b.Kind&&a.Id==b.Id&&a.Global==b.Global&&a.Tribe==b.Tribe&&a.Player==b.Player&&a.Command==b.Command&&a.X==b.X&&a.Y==b.Y&&a.StartX==b.StartX&&a.StartY==b.StartY&&a.Source==b.Source&&a.Target==b.Target&&a.Type==b.Type&&a.Extra==b.Extra&&a.Promoted==b.Promoted&&a.Near==b.Near&&a.Attribution==b.Attribution;
+
         private readonly StringBuilder searchRows=new StringBuilder();private int searchRowCount;
         private readonly Dictionary<Arguments,long> commandIdentities=new Dictionary<Arguments,long>();
         private readonly Dictionary<CommandContext,long> commandContexts=new Dictionary<CommandContext,long>();
@@ -323,7 +327,7 @@ namespace EnemyBridgePathTest
             lock(attackGate) attacks.Clear();
             lock(regionGate) {regionCounts.Clear();regionIds.Clear();backgroundCounts.Clear();}
             lock(attackGate) {plans.Clear();commands.Clear();accessInputs.Clear();accessResults.Clear();}
-            lock(textGate){commandContexts.Clear();commandIdentities.Clear();}
+            lock(textGate){commandContexts.Clear();commandIdentities.Clear();commandPreRows.Clear();}
             lock(regionGate) eventCounts.Clear();
             lock(captureGate) {tableImages.Clear();bridgeProgress.Clear();buildingIndex.Invalidate();}
             planningMapIdentity=new object();Interlocked.Exchange(ref session,value);
@@ -661,8 +665,17 @@ namespace EnemyBridgePathTest
                 var record=StampRecord(new Record());
                 lock(textGate)
                 {
+                    if(kind=="command-post"&&commandPreRows.TryGetValue(detail.Op,out var pre)&&SameCommandInputs(pre.Data,detail))
+                    {
+                        commandRows.Append(record.Seq).Append('/').Append(record.Session).Append('/').Append(record.Thread).Append('/').Append(record.Tick).Append('/').Append(record.Clock).Append('/').Append(record.Physical).Append('/').Append(record.Topology).Append("/1/").Append(detail.Op).Append('/').Append(detail.Parent).Append('/').Append(definition).Append('/').Append(pre.Seq).Append('/').Append(detail.Result).Append('/').Append(detail.Regions).Append('/').Append(detail.Searches).Append('/').Append(detail.Failed).Append('/').Append(detail.Following).Append(';');
+                    }
+                    else
+                    {
                     commandRows.Append(record.Seq).Append('/').Append(record.Session).Append('/').Append(record.Thread).Append('/').Append(record.Tick).Append('/').Append(record.Clock).Append('/').Append(record.Physical).Append('/').Append(record.Topology).Append('/').Append(kind=="command-pre"?0:1).Append('/').Append(detail.Op).Append('/').Append(detail.Parent).Append('/').Append(definition).Append('/').Append(identity)
                         .Append('/').Append(detail.Kind).Append('/').Append(detail.Tribe).Append('/').Append(detail.Player).Append('/').Append(detail.Command).Append('/').Append(detail.X).Append('/').Append(detail.Y).Append('/').Append(detail.StartX).Append('/').Append(detail.StartY).Append('/').Append(detail.Source).Append('/').Append(detail.Target).Append('/').Append(detail.Extra).Append('/').Append(detail.Result).Append('/').Append(detail.Regions).Append('/').Append(detail.Searches).Append('/').Append(detail.Failed).Append('/').Append(detail.Promoted).Append('/').Append(detail.Following).Append('/').Append(detail.Near).Append('/').Append(detail.Attribution).Append(';');
+                    }
+                    if(kind=="command-pre") {if(commandPreRows.Count>=4096)commandPreRows.Clear();commandPreRows[detail.Op]=new RetainedCommand(detail,record.Seq);}
+                    else commandPreRows.Remove(detail.Op);
                     if(++commandRowCount==32)FlushCommandRows();
                 }
             });
@@ -673,7 +686,7 @@ namespace EnemyBridgePathTest
             lock(textGate){searchRows.Append(r.Seq).Append('/').Append(r.Session).Append('/').Append(r.Thread).Append('/').Append(r.Tick).Append('/').Append(r.Clock).Append('/').Append(r.Physical).Append('/').Append(r.Topology).Append('/').Append(eventOp).Append('/').Append(CurrentId).Append('/').Append(sourceId).Append('/').Append(nativeResult.HasValue?1:0).Append('/').Append(nativeResult??0).Append('/').Append(effective).Append('/').Append(calls).Append('/').Append(completed?1:0).Append(';');if(++searchRowCount==32)FlushSearchRows();}
         }
         private void FlushSearchRows(){lock(textGate){if(searchRowCount==0)return;Enqueue(new Record {Kind="search-result-batch",Detail="columns=seq/session/thread/tick/clock/physical/topology/eventOp/parent/sourceDefinition/nativeKnown/native/effective/nativeCalls/completed,rows=["+searchRows+"],envelopeTiming=batch-flush"});searchRows.Clear();searchRowCount=0;}}
-        private void FlushCommandRows(){lock(textGate){if(commandRowCount==0)return;Enqueue(new Record {Kind="command-frame-batch",Detail="columns=seq/session/thread/tick/clock/physical/topology/post/op/parentEvent/commandContext/identityDefinition/commandKind/tribe/player/command/x/y/startX/startY/sourcePcl/targetPcl/extra/result/regions/searches/failed/promoted/followingUnitOp/nearBridge/attribution,rows=["+commandRows+"],envelopeTiming=batch-flush"});commandRows.Clear();commandRowCount=0;}}
+        private void FlushCommandRows(){lock(textGate){if(commandRowCount==0)return;Enqueue(new Record {Kind="command-frame-batch",Detail="schema=2,postReferenceColumns=seq/session/thread/tick/clock/physical/topology/post/op/parentEvent/commandContext/preSeq/result/regions/searches/failed/followingUnitOp,columns=seq/session/thread/tick/clock/physical/topology/post/op/parentEvent/commandContext/identityDefinition/commandKind/tribe/player/command/x/y/startX/startY/sourcePcl/targetPcl/extra/result/regions/searches/failed/promoted/followingUnitOp/nearBridge/attribution,rows=["+commandRows+"],envelopeTiming=batch-flush"});commandRows.Clear();commandRowCount=0;}}
         internal void CountCommand(bool pre) {if(pre) {Interlocked.Increment(ref commandPre);if(CurrentScope!=null)CurrentScope.Commands++;}else Interlocked.Increment(ref commandPost);}
         internal void TaskCommand(int unit,uint global,int tribe,int player,int command,long operation)
         {

@@ -25,6 +25,14 @@ foreach ($contract in $contracts) {
         $type.StructLayoutAttribute.Size -ne $contract[1] -or
         [Runtime.InteropServices.Marshal]::OffsetOf($type,$contract[2]).ToInt64() -ne $contract[4]) { throw "Installed layout mismatch: $($contract[0]).$($contract[2])" }
 }
+# TEMP_GATE_ROUTE_ACCEPTANCE: new event input is public on the installed extender.
+$captureType = $assembly.GetType('SHCDESE.EventAPI.Buildings.BuildingCaptureEventArgs', $true)
+foreach ($name in @('BuildingId','CapturingPlayerId')) {
+    $property = $captureType.GetProperty($name)
+    if ($null -eq $property -or $property.PropertyType -ne [int] -or -not $property.GetMethod.IsPublic) {
+        throw "Installed capture event input is unavailable: $name"
+    }
+}
 $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/EnemyGatePathfindingNativeDefinition.cs'))
 function Constant([string]$name) {
     $match = [regex]::Match($source,'\b'+[regex]::Escape($name)+'\s*=\s*(0x[0-9A-Fa-f]+|[0-9]+)\s*;')

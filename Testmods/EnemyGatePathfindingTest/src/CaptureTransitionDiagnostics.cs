@@ -78,6 +78,17 @@ namespace EnemyGatePathfindingTest
         internal long Recovered { get { lock (sync) return recovered; } }
         internal string Summary { get { lock (sync) return "epoch=" + epoch + ",generation=" + publishedGeneration +
             ",observed=" + total + ",confirmedRecovered=" + recovered + ",unresolved=" + (total - recovered); } }
+        internal string[] UnresolvedDetails()
+        {
+            lock (sync)
+            {
+                var output = new List<string>();
+                foreach (var pair in rows)
+                    if (pair.Value.Pending > 0) output.Add(pair.Key + ",unresolved=" + pair.Value.Pending);
+                output.Sort(StringComparer.Ordinal);
+                return output.ToArray();
+            }
+        }
         internal string[] DrainChanges()
         {
             lock (sync)

@@ -19,6 +19,7 @@ namespace EnemyGatePathfindingTest
             {
                 assertions += SharedTests.CaptureRefreshTests.Run();
                 assertions += GateRoutePolicyTests.Run();
+                assertions += CompactDiagnosticTests.Run();
                 assertions += TemporaryGateAcceptanceTests.Run();
                 UncapturedEnemyPreservesVanillaExclusion();
                 OwnAndAlliedOwnersRemainEligible();
@@ -1214,7 +1215,7 @@ namespace EnemyGatePathfindingTest
                     samePclSource.IndexOf("PathDirectionGridRva", StringComparison.Ordinal) < 0,
                 "Same-PCL filters loaded bytes without addressing the global grid for writes");
             Assert(samePclSource.IndexOf("if (!ownerConflict)", StringComparison.Ordinal) >= 0 &&
-                    samePclSource.IndexOf("EnemyGatePathPolicyBridge.TryRegister(this)",
+                    samePclSource.IndexOf("EnemyGatePathPolicyBridge.TryRegister(registeredProvider)",
                         StringComparison.Ordinal) >= 0,
                 "shared mode leaves existing function detours with Bugfixes and registers the policy");
         }
@@ -1466,6 +1467,8 @@ namespace EnemyGatePathfindingTest
             Assert(requests.Consume(), "request after consumption survives for next deferred pass");
             string[] pending = recovery.DrainChanges();
             Assert(pending.Length == 1 && pending[0].Contains("unresolved=43"), "repetitions compact, none lost");
+            Assert(recovery.UnresolvedDetails().Length == 1 && recovery.UnresolvedDetails()[0].Contains("unresolved=43"),
+                "standard report retains exact pending identity after a detail drain");
             recovery.Publish(Publication(2, 1));
             recovery.Publish(Publication(2, 2, 2));
             Assert(recovery.Recovered == 0, "old generation and foreign map cannot confirm");
@@ -1477,6 +1480,7 @@ namespace EnemyGatePathfindingTest
             Assert(recovery.Recovered == 0, "changed owner cannot confirm old owner observation");
             recovery.Publish(Publication(2, 5));
             Assert(recovery.Recovered == 43 && recovery.Summary.Contains("unresolved=0"), "exact later publication confirms all 43");
+            Assert(recovery.UnresolvedDetails().Length == 0, "recovered transitions do not warn in standard mode");
             string[] confirmed = recovery.DrainChanges();
             Assert(confirmed.Length == 1 && confirmed[0].Contains("proofGeneration=5") &&
                 recovery.DrainChanges().Length == 0, "changed proof logged once");
@@ -1489,6 +1493,7 @@ namespace EnemyGatePathfindingTest
                 !recovery.Observe(source, 1, 1234, 1, 9), "unverified mismatch cannot earn recovered credit");
             Assert(recovery.Observe(Publication(2, 6), 1, 1234, 1, 0), "recapture-to-zero is observed");
             Assert(recovery.Summary.Contains("unresolved=1"), "unconfirmed transition stays unresolved at final checkpoint");
+            Assert(recovery.UnresolvedDetails()[0].Contains("observedCapturer=0"), "recapture remains explicit in standard failure report");
             Assert(recovery.Observe(Publication(2, 6), 1, 1234, 1, 3), "second capturer change is counted independently");
             recovery.Publish(Publication(3, 7));
             Assert(recovery.Recovered == 45 && recovery.Summary.Contains("unresolved=1"),

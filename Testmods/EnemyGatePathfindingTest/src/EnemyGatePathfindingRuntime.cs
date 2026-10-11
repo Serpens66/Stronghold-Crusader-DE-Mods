@@ -26,7 +26,6 @@ namespace EnemyGatePathfindingTest
 {
     internal sealed unsafe class EnemyGatePathfindingRuntime
     {
-        private const int MaximumCallbackWarningsPerMap = 8;
         private const int SiteCount = 2;
         private static readonly int DecisionCount =
             Enum.GetValues(typeof(NativeGateSnapshotDecision)).Length;
@@ -35,6 +34,10 @@ namespace EnemyGatePathfindingTest
         private TemporaryGateRouteAcceptance temporaryAcceptance;
 
         private readonly ManualLogSource log;
+        private readonly bool detailedDiagnostics;
+        private readonly DeferredGateDiagnosticErrors deferredErrors = new DeferredGateDiagnosticErrors();
+        private uint reportedIntegrityErrors;
+        private long nextErrorCheckAt;
         private GateTopologySnapshotProvider topologyProvider;
         private SamePclGateRouteRuntime samePclRouteRuntime;
         private AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
@@ -64,15 +67,19 @@ namespace EnemyGatePathfindingTest
         private readonly CapturerSample[] samples =
             new CapturerSample[SiteCount * DecisionCount];
 
-        internal EnemyGatePathfindingRuntime(ManualLogSource log)
+        internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = true)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.detailedDiagnostics = detailedDiagnostics;
         }
 
         internal void ObserveBuildingCapture(BuildingCaptureEventArgs args)
         {
             if (args != null && args.BuildingId > 0)
+            {
+                temporaryAcceptance?.ObserveCapture(args.BuildingId, args.CapturingPlayerId, args.Phase == EventHookPhase.Post);
                 topologyProvider?.RequestCaptureSnapshot(args.Phase == EventHookPhase.Post);
+            }
         }
 
         internal void InitializeNative(
@@ -125,13 +132,16 @@ namespace EnemyGatePathfindingTest
                 builderPrecheckFilterRva,
                 EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength,
                 "builder-precheck captured-player filter");
-            topologyProvider = new GateTopologySnapshotProvider(log);
+            topologyProvider = new GateTopologySnapshotProvider(log, detailedDiagnostics, deferredErrors);
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
-            attackOrderDiagnostics = new AttackOrderCorrelationDiagnostics(log, topologyProvider);
-            // TEMP_GATE_ROUTE_ACCEPTANCE: process-rooted through this existing static runtime owner.
-            temporaryAcceptance = new TemporaryGateRouteAcceptance(log,
-                () => samePclRouteRuntime?.TemporaryAcceptanceSnapshot ?? RouteTilePolicySnapshot.Empty);
-            attackOrderDiagnostics.TemporaryAcceptance = temporaryAcceptance;
+            if (detailedDiagnostics)
+            {
+                attackOrderDiagnostics = new AttackOrderCorrelationDiagnostics(log, topologyProvider);
+                // TEMP_GATE_ROUTE_ACCEPTANCE: process-rooted through this existing static runtime owner.
+                temporaryAcceptance = new TemporaryGateRouteAcceptance(log,
+                    () => samePclRouteRuntime?.TemporaryAcceptanceSnapshot ?? RouteTilePolicySnapshot.Empty);
+                attackOrderDiagnostics.TemporaryAcceptance = temporaryAcceptance;
+            }
 
             // Our adapter executes CMP once, saves inequality in R11b, and TESTs
             // that Boolean after callback cleanup. The real R11 is preserved.
@@ -186,7 +196,7 @@ namespace EnemyGatePathfindingTest
             {
                 samePclRouteRuntime = new SamePclGateRouteRuntime(
                     log, memory, context.Region, libraryBase, friendlyMoatHookOwnerLoaded,
-                    attackOrderDiagnostics);
+                    attackOrderDiagnostics, deferredErrors);
             }
             catch (Exception ex)
             {
@@ -195,12 +205,14 @@ namespace EnemyGatePathfindingTest
                     "Active Same-PCL builder correction could not be initialized; " +
                     $"Vanilla remains active for that path: {ex.GetType().Name}: {ex.Message}");
             }
+            if (samePclRouteRuntime != null && temporaryAcceptance != null)
+                samePclRouteRuntime.TemporaryPolicyPublished = temporaryAcceptance.ObservePolicyPublication;
             topologyProvider.SetRoutePolicyConsumer(updated =>
                 samePclRouteRuntime?.UpdatePolicy(updated));
             // TEMP_GATE_ROUTE_ACCEPTANCE: publish only after the existing initialization succeeds.
-            APIShared.TemporaryGateRouteAcceptanceBridge.Register(temporaryAcceptance);
+            if (detailedDiagnostics) APIShared.TemporaryGateRouteAcceptanceBridge.Register(temporaryAcceptance);
 
-            Shared.DebugLogHelper.LogInfo(log,
+            if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
                 "capturerAdapter=post-cleanup-test, " +
                 $"pclGraphCapturerFilter=0x{pclGraphFilterRva:X} " +
@@ -215,7 +227,7 @@ namespace EnemyGatePathfindingTest
                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
                 "Managed cursor searches, the whole PCL detour and every global " +
                 "Direction-Grid write were removed.");
-            if (samePclRouteRuntime?.Installed != true && !friendlyMoatHookOwnerLoaded)
+            if (detailedDiagnostics && samePclRouteRuntime?.Installed != true && !friendlyMoatHookOwnerLoaded)
                 Shared.DebugLogHelper.LogInfo(log,
                     "Same-PCL hook publication is waiting for the first non-empty gate direction mask; " +
                     "all searches remain fail-open until then.");
@@ -238,7 +250,7 @@ namespace EnemyGatePathfindingTest
             temporaryAcceptance?.Begin();
             topologyProvider?.BeginExplicitEpoch(reason);
             Shared.DebugLogHelper.LogInfo(log,
-                "Enemy-gate map started: Different-PCL filter and native Same-PCL " +
+                $"Enemy-gate map started: epoch={topologyProvider?.DiagnosticEpoch}, editor={editor}, " +
                 $"direction masks={(samePclRouteRuntime?.Installed == true ? "active" :
                     samePclRouteRuntime != null ? "pending-policy" : "inactive")}.");
         }
@@ -264,7 +276,8 @@ namespace EnemyGatePathfindingTest
                 attackOrderDiagnostics?.ProcessDeferred();
                 temporaryAcceptance?.Deferred();
                 long now = Stopwatch.GetTimestamp();
-                if (Volatile.Read(ref mapActive) != 0 &&
+                FlushDeferredErrors();
+                if (detailedDiagnostics && Volatile.Read(ref mapActive) != 0 &&
                     now >= Volatile.Read(ref nextDiagnosticAt))
                 {
                     Volatile.Write(ref nextDiagnosticAt, now + DiagnosticInterval);
@@ -295,7 +308,7 @@ namespace EnemyGatePathfindingTest
                 string counts = FormatPathfindingGlobalCounts(comparison);
                 if (comparison.MatchesCanonical)
                 {
-                    Shared.DebugLogHelper.LogInfo(log,
+                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                         "Script Extender pathfinding globals match the canonical " +
                         $"FBCB9319 process-start tables: {counts}.");
                     return;
@@ -569,7 +582,7 @@ namespace EnemyGatePathfindingTest
                 else
                     Interlocked.Increment(ref untrackedNonGate);
             }
-            if (builderPrecheck)
+            if (detailedDiagnostics && builderPrecheck)
             {
                 try
                 {
@@ -582,6 +595,7 @@ namespace EnemyGatePathfindingTest
                 catch (Exception ex) { TryLogDiagnosticFailure(ex); }
             }
 
+            if (!detailedDiagnostics) return;
             ref CapturerSample sample = ref samples[(site * DecisionCount) + decisionIndex];
             if (Interlocked.CompareExchange(ref sample.State, 1, 0) != 0)
                 return;
@@ -607,14 +621,49 @@ namespace EnemyGatePathfindingTest
 
         private void TryLogDiagnosticFailure(Exception ex)
         {
-            if (Interlocked.Increment(ref callbackWarnings) <= MaximumCallbackWarningsPerMap)
-                Shared.DebugLogHelper.LogWarning(log,
-                    "Enemy-gate deferred diagnostics failed without changing native behavior: " +
-                    $"{ex.GetType().Name}: {ex.Message}");
+            Interlocked.Increment(ref callbackWarnings);
+            deferredErrors.Record(ex.GetType().Name, ex.Message);
+        }
+
+        private string DescribeIntegrityErrors(SamePclCoverageSnapshot same, TopologyCoverageSnapshot topology) =>
+            $"callback={Volatile.Read(ref callbackWarnings)},snapshot={topology.Errors},exceptions={same.Exceptions}," +
+            $"slots={same.SlotConflicts},scope={same.ScopeMismatches},player={same.InvalidPlayers},pool={same.PoolExhaustions}," +
+            $"tacticalPlayer={same.AiTacticalInvalidPlayers},tacticalScope={same.AiTacticalScopeConflicts},tacticalExceptions={same.AiTacticalExceptions}," +
+            $"identity={DecisionTotal(NativeGateSnapshotDecision.RecordIdMismatch)},owner={DecisionTotal(NativeGateSnapshotDecision.OwnerMismatch)}," +
+            $"queryPlayer={DecisionTotal(NativeGateSnapshotDecision.InvalidQueryPlayer)},nativeException={DecisionTotal(NativeGateSnapshotDecision.Exception)}," +
+            $"unexpectedGate={Read(ref untrackedUnexpectedGate)}";
+
+        private void FlushDeferredErrors()
+        {
+            foreach (string error in deferredErrors.DrainNewCauses())
+                Shared.DebugLogHelper.LogWarning(log, "Enemy-gate deferred failure: " + error);
+            if (detailedDiagnostics || Volatile.Read(ref mapActive) == 0) return;
+            long now = Stopwatch.GetTimestamp();
+            if (now < nextErrorCheckAt) return;
+            nextErrorCheckAt = now + Stopwatch.Frequency;
+            SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
+            TopologyCoverageSnapshot topology = topologyProvider?.GetCoverageSnapshot() ?? default;
+            // Only a newly observed category emits a warning; repetitions remain in the final totals.
+            uint causes = (topology.Errors > 0 ? 1U : 0) |
+                (same.Exceptions > 0 ? 2U : 0) | (same.SlotConflicts > 0 ? 4U : 0) |
+                (same.ScopeMismatches > 0 ? 8U : 0) | (same.InvalidPlayers > 0 ? 16U : 0) |
+                (same.PoolExhaustions > 0 ? 32U : 0) | (same.AiTacticalInvalidPlayers > 0 ? 64U : 0) |
+                (same.AiTacticalScopeConflicts > 0 ? 128U : 0) | (same.AiTacticalExceptions > 0 ? 256U : 0) |
+                (DecisionTotal(NativeGateSnapshotDecision.RecordIdMismatch) > 0 ? 512U : 0) |
+                (DecisionTotal(NativeGateSnapshotDecision.OwnerMismatch) > 0 ? 1024U : 0) |
+                (DecisionTotal(NativeGateSnapshotDecision.InvalidQueryPlayer) > 0 ? 2048U : 0) |
+                (DecisionTotal(NativeGateSnapshotDecision.Exception) > 0 ? 4096U : 0) |
+                (Read(ref untrackedUnexpectedGate) > 0 ? 8192U : 0);
+            if ((causes & ~reportedIntegrityErrors) != 0)
+                Shared.DebugLogHelper.LogWarning(log, "Enemy-gate integrity errors (complete totals at map end): " + DescribeIntegrityErrors(same, topology));
+            reportedIntegrityErrors |= causes;
         }
 
         private void ResetMapCounters()
         {
+            deferredErrors.Reset();
+            reportedIntegrityErrors = 0;
+            nextErrorCheckAt = 0;
             previousStableGateAccess = NativeGateAccessSnapshot.Empty;
             Array.Clear(siteCalls, 0, siteCalls.Length);
             Array.Clear(lastSiteCalls, 0, lastSiteCalls.Length);
@@ -636,6 +685,14 @@ namespace EnemyGatePathfindingTest
 
         private void LogDiagnosticCheckpoint(string kind, string reason)
         {
+            FlushDeferredErrors();
+            if (!detailedDiagnostics)
+            {
+                foreach (string pending in topologyProvider?.CaptureDiagnostics.UnresolvedDetails() ?? Array.Empty<string>())
+                    Shared.DebugLogHelper.LogWarning(log, "Enemy-gate unresolved capture: " + pending);
+                LogAcceptanceVerdict(reason);
+                return;
+            }
             if (topologyProvider != null)
             {
                 foreach (string change in topologyProvider.CaptureDiagnostics.DrainChanges())
@@ -759,6 +816,19 @@ namespace EnemyGatePathfindingTest
                 same.AiTacticalInvalidPlayers != 0 ||
                 same.AiTacticalScopeConflicts != 0 || same.AiTacticalExceptions != 0 ||
                 Read(ref untrackedUnexpectedGate) != 0 || policyFailures != 0;
+            if (!detailedDiagnostics)
+            {
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"Enemy-gate map completed: epoch={topologyProvider?.DiagnosticEpoch}, reason={reason}, " +
+                    $"queries={same.Queries}, aiQueries={same.AiQueries}, aiNoRoute={same.AiNoRoutes}, " +
+                    $"edgeRejected={same.RejectedEdges}, cursorBlocks={same.CursorResultForcedZero}, " +
+                    $"capture=[{topologyProvider?.CaptureDiagnostics.Summary ?? "unavailable"}], " +
+                    $"errors=[{(runtimeFailed ? DescribeIntegrityErrors(same, topology) : "none")}], " +
+                    (string.IsNullOrEmpty(deferredErrors.Summary) ? "" : $"causes=[{deferredErrors.Summary}], ") +
+                    $"runtimeIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity || same.Queries > 0, runtimeFailed)}, " +
+                    "Raid/Assassin routes=NOT_INSPECTED (DetailedDiagnostics=false).");
+                return;
+            }
             DiagnosticVerdict sameHookVerdict = same.OwnerConflict
                 ? DiagnosticVerdict.NOT_APPLICABLE
                 : !same.Installed ? DiagnosticVerdict.FAIL
@@ -812,7 +882,7 @@ namespace EnemyGatePathfindingTest
                 $"untrackedRemovedRecord={Read(ref untrackedRemovedRecord)}," +
                 $"untrackedNonGate={Read(ref untrackedNonGate)}," +
                 $"untrackedUnexpectedGate={Read(ref untrackedUnexpectedGate)}," +
-                $"reason={reason}.");
+                $"causes=[{deferredErrors.Summary}],reason={reason}.");
         }
 
         private long DecisionTotal(NativeGateSnapshotDecision decision) =>

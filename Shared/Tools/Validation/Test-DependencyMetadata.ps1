@@ -1,11 +1,14 @@
 [CmdletBinding()]
-param([string]$Workspace)
+param([string]$Workspace, [string[]]$ProjectFiles)
 $ErrorActionPreference = 'Stop'
 Write-Host '[Preflight] Checking manifest and plugin minimum dependencies...'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
 . (Join-Path $Workspace 'APIShared\tools\Validation\DependencyMetadata.Common.ps1')
 $count = 0
-foreach ($project in Get-ChildItem -LiteralPath $Workspace -Recurse -File -Filter '*.csproj' | Where-Object {
+$projects = if ($ProjectFiles) { @($ProjectFiles | ForEach-Object { Get-Item -LiteralPath $_ }) } else {
+    @(Get-ChildItem -LiteralPath $Workspace -Recurse -File -Filter '*.csproj')
+}
+foreach ($project in $projects | Where-Object {
     $_.FullName -notmatch '[\\/](shcde-script-extender|tests|bin|obj|BepInEx|\.tools|\.inspect|_inspect|\.native-analysis|\.release-output|before)[\\/]'
 }) {
     $manifestPath = Join-Path $project.Directory.FullName 'info.json'

@@ -124,6 +124,7 @@ namespace BugfixesAndQoL.UnitCommands
                         args.TileY = destination.Y;
                         unit->r_AttackMoveToTargetTileX = (ushort)destination.X;
                         unit->r_AttackMoveToTargetTileY = (ushort)destination.Y;
+                        command.RecordTerminalAttempt(args.UnitId, args.Unknown);
                         unitAssignmentFrame = new UnitAssignmentFrame(
                             args,
                             parent,
@@ -161,24 +162,30 @@ namespace BugfixesAndQoL.UnitCommands
                         return;
                     try
                     {
-                        bool accepted = false;
+                        bool originalObserved = false;
                         if (args.UnitId == frame.UnitId &&
                             args.TileX == frame.OriginalX &&
                             args.TileY == frame.OriginalY &&
                             args.Unknown == frame.OriginalUnknown &&
-                            args.ReturnValue > 0 &&
                             !frame.PreArgs.SkipOriginalFunction &&
+                            frame.PreArgs.UnitId == frame.UnitId &&
+                            frame.PreArgs.TileX == frame.Destination.X &&
+                            frame.PreArgs.TileY == frame.Destination.Y &&
+                            frame.PreArgs.Unknown == frame.OriginalUnknown &&
                             ReferenceEquals(activeCommand, frame.Command) &&
                             TryGetMatchingUnit(
                                 frame.UnitId, frame.GlobalId, out GameUnit* unit) &&
-                            unit->r_TargetTilePositionX == frame.Destination.X &&
-                            unit->r_TargetTilePositionY == frame.Destination.Y &&
-                            unit->r_AttackMoveToTargetTileX == frame.Destination.X &&
-                            unit->r_AttackMoveToTargetTileY == frame.Destination.Y)
+                            unit->r_TribeId == frame.Command.TribeId)
                         {
-                            accepted = true;
+                            originalObserved = true;
                         }
-                        FinishUnitAssignmentFrame(frame, accepted);
+                        bool accepted = originalObserved && args.ReturnValue > 0 &&
+                            TryGetMatchingUnit(frame.UnitId, frame.GlobalId, out GameUnit* verifiedUnit) &&
+                            verifiedUnit->r_TargetTilePositionX == frame.Destination.X &&
+                            verifiedUnit->r_TargetTilePositionY == frame.Destination.Y &&
+                            verifiedUnit->r_AttackMoveToTargetTileX == frame.Destination.X &&
+                            verifiedUnit->r_AttackMoveToTargetTileY == frame.Destination.Y;
+                        FinishUnitAssignmentFrame(frame, accepted, originalObserved, args.ReturnValue);
                     }
                     finally
                     {
@@ -229,14 +236,18 @@ namespace BugfixesAndQoL.UnitCommands
 
         private static void FinishUnitAssignmentFrame(
             UnitAssignmentFrame frame,
-            bool accepted)
+            bool accepted,
+            bool originalObserved = false,
+            long returnValue = 0)
         {
             if (frame == null)
                 return;
             frame.Command.RecordTerminalResult(
                 frame.UnitId,
                 accepted,
-                frame.OriginalUnknown);
+                frame.OriginalUnknown,
+                originalObserved,
+                returnValue);
             if (accepted)
                 return;
             if (frame.PreArgs.UnitId == frame.UnitId &&

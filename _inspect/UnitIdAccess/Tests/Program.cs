@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
-if (args.Contains("--scan")) { Scan(); return; }
+if (args.Contains("--scan")) { Scan(args); return; }
 unsafe
 {
     foreach (var state in Enum.GetValues<SHCDESE.Interop.Enums.AliveState>())
@@ -74,12 +74,22 @@ unsafe
 Console.WriteLine("PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.");
 
 static void Check(bool value, string label) { if (!value) throw new Exception(label); }
-static void Scan()
+static void Scan(string[] arguments)
 {
-    string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
+    string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../")).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    string modRoot = null;
+    if (arguments.Contains("--mod-directory"))
+    {
+        int index = Array.IndexOf(arguments, "--mod-directory");
+        Check(index + 1 < arguments.Length, "Missing mod directory");
+        modRoot = Path.GetFullPath(Path.Combine(root, arguments[index + 1]));
+        Check(Directory.Exists(modRoot) && modRoot.StartsWith(root + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase), "Mod directory must be inside the workspace");
+    }
     var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".git", "bin", "obj", "BepInEx", "tests", "packages", ".inspect", "_inspect", ".tools", ".native-analysis", ".release-output", "shcde-script-extender", "UCP", "x86_64" };
     int checkedFiles=0;
-    foreach (string file in RuntimeFiles(root))
+    var scanRoots = modRoot == null ? new[] { root } : new[] { modRoot, Path.Combine(root,"APIShared"), Path.Combine(root,"Shared/Runtime") };
+    foreach (string file in scanRoots.SelectMany(RuntimeFiles).Distinct())
     {
         string relative=Path.GetRelativePath(root,file);
         if (relative.Split(Path.DirectorySeparatorChar).Any(p=>excluded.Contains(p)||p.EndsWith(".Tests",StringComparison.OrdinalIgnoreCase))) continue;
@@ -123,6 +133,8 @@ static void Scan()
     foreach (var projectEntry in inventory.RootElement.GetProperty("projects").EnumerateObject())
     {
         string projectPath=Path.Combine(root,projectEntry.Name);
+        if (modRoot != null && !Path.GetFullPath(projectPath).StartsWith(modRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+            !projectEntry.Name.Replace('\\','/').StartsWith("APIShared/", StringComparison.OrdinalIgnoreCase)) continue;
         if (!File.Exists(projectPath) && projectEntry.Name.Replace('\\','/').StartsWith("Testmods/", StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine($"SKIP: inventory testmod project no longer present: {projectEntry.Name}");

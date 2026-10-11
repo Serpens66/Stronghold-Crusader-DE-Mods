@@ -1,0 +1,15 @@
+[11.10.2026  2:55:24,43] START EnemyGatePathfindingTest
+[11.10.2026  2:55:24,43] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+Get-Item : Der Pfad "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\Testmods\AssassinAttackControlTest\AssassinAttackControlTest.csproj" kann nicht gefunden werden, da er nicht 
+vorhanden ist.
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\Shared\Tools\Validation\Test-SharedBoundaries.ps1:32 Zeichen:65
++ ... | ForEach-Object { Get-Item -LiteralPath (Join-Path $Workspace $_) })
++                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (D:\CDesktopLink...trolTest.csproj:String) [Get-Item], ItemNotFoundExcep 
+   tion
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetItemCommand
+ 
+[11.10.2026  2:55:25,74] END: exit code 1

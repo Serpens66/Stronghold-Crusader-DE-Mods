@@ -22,11 +22,11 @@ namespace EnemyBridgePathTest
             var track=new BridgeRouteTrace.Track {Unit=1145,Global=2416993,Player=8,Tribe=4364,Command=1320346,ParentEvent=1287021,PlanningRoot=1320345,CandidatePlan=1287038,Phase=6,Session=1};
             var h=new BridgeRouteTrace.Header(track.Global,600,474,600,474,4,0);
             byte[] bytes={0x22,0x22};
-            trace.ObservePlan(track,h,bytes,0);
-            Check(output.Single(x=>x.StartsWith("stored-route,")).Contains("703/2432893/0/2/600/474/604/474/deck-without-parent-footprint"),"sideways route intersects exact deck even when endpoints are outside");
-            Check(output.Single(x=>x.StartsWith("stored-route,")).Contains("packedHex=2222")&&track.PlanningRoot==1320345,"stored route reconstructible; binding retains actual root separately");
-            for(int i=0;i<10000;i++)trace.ObservePlan(track,h,bytes,0);
-            Check(output.Count==2&&output.Count(x=>x.StartsWith("route-format,"))==1&&captures==1,"unchanged full paths do not capture or format again");
+            trace.ObservePlan(track,h,bytes,0);trace.Flush();
+            Check(output.Single(x=>x.StartsWith("stored-route-definition-batch,")).Contains("703/2432893/0/2/600/474/604/474/deck-without-parent-footprint"),"sideways route intersects exact deck even when endpoints are outside");
+            Check(output.Single(x=>x.StartsWith("stored-route-definition-batch,")).Contains(":2222|")&&track.PlanningRoot==1320345,"stored route reconstructible; binding retains actual root separately");
+            int firstOutputCount=output.Count;for(int i=0;i<10000;i++)trace.ObservePlan(track,h,bytes,0);
+            Check(output.Count==firstOutputCount&&output.Count(x=>x.StartsWith("route-format,"))==1&&captures==1,"unchanged full paths do not capture or format again");
             trace.ObserveMovement(track,h,false,0);
             trace.ObserveMovement(track,new BridgeRouteTrace.Header(track.Global,601,474,600,474,4,1),true,1);
             trace.ObserveMovement(track,new BridgeRouteTrace.Header(track.Global,604,474,600,474,4,4),true,2);
@@ -35,7 +35,7 @@ namespace EnemyBridgePathTest
             int gaps=output.Count(x=>x.StartsWith("route-progress-gap"));
             trace.ObserveMovement(track,new BridgeRouteTrace.Header(track.Global,604,474,600,474,4,4),true,12*Stopwatch.Frequency);
             Check(gaps==1&&output.Count(x=>x.StartsWith("route-progress-gap"))==1,"progress gap emitted once until movement resumes, cause unproven");
-            bridge.Gate.Add(BridgeRouteTrace.Bridge.XY(602,474));track.HasPlan=false;trace.ObservePlan(track,h,bytes,0);
+            bridge.Gate.Add(BridgeRouteTrace.Bridge.XY(602,474));track.HasPlan=false;trace.ObservePlan(track,h,bytes,0);trace.Flush();
             Check(output.Any(x=>x.Contains("gate-footprint-observed")),"gate passage differs from sideways deck intersection");
             trace.ObservePlan(track,h,new byte[]{0x44,0x44},0);
             trace.Flush();Check(output.Any(x=>x.StartsWith("stored-route-background-batch,")&&x.Contains("bridges=[]")),"same-header replacement reads actual changed bytes and alternative route remains allowed");
@@ -104,10 +104,10 @@ namespace EnemyBridgePathTest
         }
         private static bool CommandPayload(long op,params string[] terms)
         {
-            var lines=Shared.DebugLogHelper.Recent;
+            var lines=Shared.DebugLogHelper.Recent;var retained=new Dictionary<string,string[]>();
             foreach(var line in lines.Where(v=>v.Contains("kind=command-frame-batch,")))
             foreach(var row in line.Split(new[]{"rows=["},StringSplitOptions.None)[1].Split(']')[0].Split(';'))
-            {var v=row.Split('/');if(v.Length!=31||v[8]!=op.ToString())continue;
+            {var v=row.Split('/');if(v.Length==17){if(!retained.TryGetValue(v[1]+":"+v[11],out var prior))continue;var full=(string[])prior.Clone();Array.Copy(v,0,full,0,11);Array.Copy(v,12,full,23,4);full[28]=v[16];v=full;}if(v.Length!=31)continue;if(v[7]=="0")retained[v[1]+":"+v[0]]=v;if(v[8]!=op.ToString())continue;
                 bool promoted=v[27]=="1",same=v[12]=="2"&&v[20]!="0"&&v[20]==v[21]&&v[24]=="0";
                 if(terms.All(term=>term=="promotion=bridge-route-observed"||term=="entryData=retained-pre-fields"?promoted:term=="stage=same-pcl-with-no-region-call"&&v[7]=="1"&&same))return true;}
             return false;

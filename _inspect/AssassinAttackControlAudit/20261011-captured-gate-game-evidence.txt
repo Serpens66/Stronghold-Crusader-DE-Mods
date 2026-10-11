@@ -1,0 +1,21 @@
+[Info   :   BepInEx] Loading [Fixes 1.26.4.0]
+[Info   : APIShared] Assassin attack guard installed; APIShared owner, RVA=0x16CD70, Indirect/10, continuation=0x16CD7A.
+[Info   :Assassin Attack Control Test] 02:24:45.491 ASSASSIN_ATTACK_CONTROL map=1; captured-gate protection only.
+[Info   :Assassin Attack Control Test] 02:24:52.959 ASSASSIN_ATTACK_CONTROL persistent native callback executed after startup cleanup.
+[Info   :Assassin Attack Control Test] 02:28:08.903 ASSASSIN_ATTACK_CONTROL protected unit=1384/195818 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:11.185 ASSASSIN_ATTACK_CONTROL protected unit=1546/261849 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:11.816 ASSASSIN_ATTACK_CONTROL protected unit=1845/223592 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:12.688 ASSASSIN_ATTACK_CONTROL protected unit=1487/55499 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:12.751 ASSASSIN_ATTACK_CONTROL protected unit=1325/31482 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:12.817 ASSASSIN_ATTACK_CONTROL protected unit=399/133356 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:13.991 ASSASSIN_ATTACK_CONTROL protected unit=1908/252968 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:14.251 ASSASSIN_ATTACK_CONTROL protected unit=2037/327240 P4 gate=727 capturer=P4; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:38.865 ASSASSIN_ATTACK_CONTROL protected unit=1760/186234 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:39.174 ASSASSIN_ATTACK_CONTROL protected unit=2002/315927 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:39.229 ASSASSIN_ATTACK_CONTROL protected unit=1356/34746 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:39.238 ASSASSIN_ATTACK_CONTROL protected unit=1529/366879 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:39.417 ASSASSIN_ATTACK_CONTROL protected unit=1755/389688 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:39.853 ASSASSIN_ATTACK_CONTROL protected unit=1376/36804 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:39.866 ASSASSIN_ATTACK_CONTROL protected unit=1409/42490 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:28:39.875 ASSASSIN_ATTACK_CONTROL protected unit=1760/186234 P7 gate=560 capturer=P7; Vanilla retarget requested.
+[Info   :Assassin Attack Control Test] 02:34:18.196 ASSASSIN_ATTACK_CONTROL ended; protected updates=85.

@@ -151,10 +151,12 @@ namespace EnemyBridgePathTest
             var compact=new BridgeDecisionTrace(null,_=>new BridgeDecisionTrace.AttackStamp(uint.MaxValue,8,125,6,0,1,uint.MaxValue),()=>1);
             compact.StartSession(602);int start=Shared.DebugLogHelper.Recent.Count;
             var scope=compact.Enter(attack,IntPtr.Zero,4340);
-            for(int i=0;i<4;i++)compact.Command(i%2==0?"command-pre":"command-post",new BridgeDecisionTrace.CommandData(800+i),8);
+            for(int i=0;i<4;i++)compact.Command(i%2==0?"command-pre":"command-post",new BridgeDecisionTrace.CommandData(800+i/2),8);
             compact.Exit(scope,true,0x100000001,IntPtr.Zero);compact.FlushRegions();while(compact.Pending>0)compact.Drain();
             var output=Shared.DebugLogHelper.Recent.Skip(start).ToArray();
             Check(output.Count(s=>s.Contains("kind=command-context,"))==1&&output.Where(s=>s.Contains("kind=command-frame-batch,")).Sum(s=>s.Split(';').Length-1)==4,"equal numeric command contexts defined once and referenced without dropping commands");
+            Check(output.Where(s=>s.Contains("kind=command-frame-batch,")).SelectMany(s=>s.Split(new[]{"rows=["},StringSplitOptions.None)[1].Split(']')[0].Split(';')).Any(row=>row.Split('/').Length==17),"unchanged post arguments reference exact pre sequence while outcomes remain numeric");
+
             Check(output.Any(s=>s.Contains("kind=native-frame-batch,")&&s.Contains("/4294967297/")),"numeric native frame preserves full64-bit return");
             compact.StartSession(603);compact.Command("command-pre",new BridgeDecisionTrace.CommandData(900),8);compact.FlushRegions();while(compact.Pending>0)compact.Drain();
             Check(Shared.DebugLogHelper.Recent.Any(s=>s.Contains("kind=command-context,")&&s.Contains("definition=2,")),"map reload redefines context with monotonic identity");

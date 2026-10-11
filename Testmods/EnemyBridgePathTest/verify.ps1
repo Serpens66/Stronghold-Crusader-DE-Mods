@@ -190,3 +190,16 @@ $definitionSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeNat
 if ($definitionSource -notmatch 'site.Rva != 0xE49D0 && site.Rva != 0x111C00' -or [regex]::Matches($hookSource,'if \(!BridgeNativeDefinition.OwnsEntry\(').Count -ne 2) {throw 'External topology/ladder owners must be excluded from validation and detour preparation'}
 if ($traceSource -notmatch 'effective-consumer-pre-post' -or $traceSource -notmatch 'selectorReturn=not-observed' -or $traceSource -notmatch 'unit->r_ControllableForPlayerId==evidence.Player' -or $traceSource -notmatch 'nativeResult.HasValue' -or $traceSource -match 'N00000569') {throw 'Effective consumer or shared topology contract regression'}
 Write-Host 'PASS: thirty private detours, shared topology, conservative effective ladder consumer and UInt16 ownership.'
+
+$routeText=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeRouteTrace.cs'))
+$commandText=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeDecisionTrace.cs'))
+if ($routeText -notmatch 'stored-route-definition-batch' -or $routeText -notmatch 'relevantPathCount==32' -or $routeText -notmatch 'physicalAtCapture=not-recorded' -or $commandText -notmatch 'SameCommandInputs' -or $commandText -notmatch 'commandPreRows.Count>=4096' -or $commandText -notmatch 'commandPreRows.Clear\(\)') { throw 'Bounded exact command/path transport contract missing' }
+Write-Host 'PASS: bounded exact command Pre references and numeric route definitions; batch timing is not capture timing.'
+
+$entryCapture = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgePlanningCapture.cs'))
+$entryImporter = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgePlanningImporter.cs'))
+foreach ($entryField in @('entryLeaderIds9','entryLeaderGlobals9','entryUpdateClasses11','entryMoveClasses11','entryConfig5','entryIdentity4','callerHeight','callerBaseHeight')) {
+    if (!$entryCapture.Contains($entryField) -or !$entryImporter.Contains($entryField)) {throw ('Own military/height input or import validation missing: '+$entryField)}
+}
+if (!$entryCapture.Contains('checked(0x366C210+lord*0x5e4)') -or !$entryImporter.Contains('military-entry-binding') -or !$entryImporter.Contains('military-entry-config-lord')) {throw 'Own military configuration/frame contract missing'}
+Write-Host 'PASS: own military entry tables/configuration and caller heights, additive legacy-safe import; full entry/formation replay remains unproven.'

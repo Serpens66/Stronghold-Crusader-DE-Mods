@@ -4,6 +4,7 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Diagnostics;
 namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
@@ -20,7 +21,9 @@ namespace BugfixesAndQoL.UnitCommands
             internal IntPtr Manager;
             internal string Source, FirstSearch, LastSearch;
             internal long Searches, TargetSearches, Floods, Continuations, WeightedFields;
-            internal int Flags84, Flags88;
+            internal int Flags84, Flags88, Flags94;
+            internal int? BuilderArgument2, BuilderArgument3, NativeResult, NativeLength;
+            internal long Sequence, Started;
             internal string Relaxation;
         }
         internal sealed class TemporaryAssassinCall
@@ -28,23 +31,25 @@ namespace BugfixesAndQoL.UnitCommands
             internal TemporaryRouteReport Report;
             internal TemporaryAssassinScope Scope;
             internal int X, Y, TX, TY, Continuation;
+            internal long Sequence, Started;
+            internal string Source;
         }
         // TEMP_GATE_ROUTE_ACCEPTANCE: synchronous provenance; no cross-call target history.
         [ThreadStatic] private static TemporaryAssassinScope temporaryAssassinScope;
-        [ThreadStatic] private static long temporaryAssassinSequence;
+        private static long temporaryAssassinSequence;
         internal sealed class TemporaryAssassinScope
         {
             internal TemporaryAssassinScope Previous;
             internal string Source, First, Last;
             internal int Tribe, Command, X, Y, Player;
             internal bool MixedPlayers;
-            internal long Sequence, Searches;
+            internal long Sequence, Searches, Started;
         }
         internal static object BeginTemporaryAssassinScope(string source, int tribe, int command, int x, int y)
         {
             if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return null;
             var scope = new TemporaryAssassinScope { Previous = temporaryAssassinScope, Source = source,
-                Tribe = tribe, Command = command, X = x, Y = y, Sequence = ++temporaryAssassinSequence };
+                Tribe = tribe, Command = command, X = x, Y = y, Sequence = System.Threading.Interlocked.Increment(ref temporaryAssassinSequence), Started = Stopwatch.GetTimestamp() };
             temporaryAssassinScope = scope;
             return scope;
         }
@@ -58,6 +63,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (scope.Searches > 0) ReportTemporaryAssassinStage("synchronous-order", completed ? "completed" : "incomplete",
                     "source=" + scope.Source + ",sequence=" + scope.Sequence + ",tribe=" + scope.Tribe +
                     "," + DescribeTemporaryAssassinArguments(scope) + ",return=" + (scope.Source == "building-query" ? "void" : result.ToString()) +
+                    ",startedMono=" + scope.Started + ",endedMono=" + Stopwatch.GetTimestamp() +
                     ",searches=" + scope.Searches + ",mixedPlayers=" + scope.MixedPlayers + ",first=[" + scope.First + "],last=[" + scope.Last + "]", scope.Player);
             }
             finally { temporaryAssassinScope = scope.Previous; }
@@ -69,11 +75,12 @@ namespace BugfixesAndQoL.UnitCommands
             if (temporaryAssassinScope?.Source == "building-query") return DescribeTemporaryAssassinScope();
             if (temporaryRouteCall?.Token != null) return "source=single-unit,unit=" + temporaryRouteCall.Unit +
                 ",unitGlobal=" + temporaryRouteCall.Global + ",tribe=" + temporaryRouteCall.Tribe +
-                ",tribeGlobal=" + temporaryRouteCall.TribeGlobal + ",builder=" + temporaryRouteCall.Source;
+                ",tribeGlobal=" + temporaryRouteCall.TribeGlobal + ",publicationCall=" + temporaryRouteCall.Sequence +
+                ",publicationStartedMono=" + temporaryRouteCall.Started + ",builder=" + temporaryRouteCall.Source;
             return temporaryAssassinScope == null ? "source=unknown" : DescribeTemporaryAssassinScope();
         }
         private static string DescribeTemporaryAssassinScope() => "source=" + temporaryAssassinScope.Source +
-            ",sequence=" + temporaryAssassinScope.Sequence + ",tribe=" + temporaryAssassinScope.Tribe +
+            ",sequence=" + temporaryAssassinScope.Sequence + ",startedMono=" + temporaryAssassinScope.Started + ",tribe=" + temporaryAssassinScope.Tribe +
             "," + DescribeTemporaryAssassinArguments(temporaryAssassinScope);
         private static string DescribeTemporaryAssassinArguments(TemporaryAssassinScope scope) => scope.Source == "building-query"
             ? "rawSearchPlayer=" + scope.Command + ",building=" + scope.X + ",sourcePcl=" + scope.Y
@@ -90,6 +97,24 @@ namespace BugfixesAndQoL.UnitCommands
             }
             catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-order-context", error); }
         }
+        // TEMP_GATE_ROUTE_ACCEPTANCE: called by the existing short-circuit identity guard only.
+        private static bool TemporaryAssassinPublicationRejected(string reason)
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return false;
+            string category;
+            switch (reason)
+            {
+                case "assassin-mode88": case "output-mode84": case "output-mode94":
+                    category = "unsupported-output-mode"; break;
+                case "path-manager": case "unit-manager": case "output-length":
+                case "output-pointer": case "unit-buffer":
+                    category = "publication-prerequisite"; break;
+                default: category = "identity-or-request"; break;
+            }
+            ReportTemporaryAssassinStage("publication-rejected", category + "/" + reason,
+                CaptureTemporaryAssassinSource() + ",category=" + category + ",reason=" + reason + ",observedMono=" + Stopwatch.GetTimestamp() + ",observedUtc=" + DateTime.UtcNow.ToString("O"));
+            return false;
+        }
         internal static void ReportTemporaryAssassinStage(string stage, string result, string detail, int? player = null)
         {
             if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver observer)) return;
@@ -103,8 +128,8 @@ namespace BugfixesAndQoL.UnitCommands
             TemporaryRouteReport report = temporaryRouteCall;
             if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver) &&
                 (report?.Token == null || manager != report.Manager)) return null;
-            return new TemporaryAssassinCall { Report = report != null && manager == report.Manager ? report : null,
-                Scope = temporaryAssassinScope, X = x, Y = y, TX = tx, TY = ty, Continuation = continuation };
+            return new TemporaryAssassinCall { Sequence = System.Threading.Interlocked.Increment(ref temporaryAssassinSequence), Started = Stopwatch.GetTimestamp(), Report = report != null && manager == report.Manager ? report : null,
+                Scope = temporaryAssassinScope, Source = CaptureTemporaryAssassinSource(), X = x, Y = y, TX = tx, TY = ty, Continuation = continuation };
 
         }
         internal static void EndTemporaryAssassinSearch(object token, bool completed, int native, int effective,
@@ -114,7 +139,8 @@ namespace BugfixesAndQoL.UnitCommands
             try
             {
                 TemporaryRouteReport report = call.Report;
-                string searchDetail = "native=" + native + ",effective=" + effective + ",outcome=" + outcome + ",player=" + player;
+                long ended = Stopwatch.GetTimestamp();
+                string searchDetail = "searchCall=" + call.Sequence + ",startedMono=" + call.Started + ",endedMono=" + ended + ",native=" + native + ",effective=" + effective + ",outcome=" + outcome + ",player=" + player;
                 for (TemporaryAssassinScope scope = call.Scope; scope != null; scope = scope.Previous)
                 {
                     scope.Searches++;
@@ -126,12 +152,19 @@ namespace BugfixesAndQoL.UnitCommands
                     if (scope.First == null) scope.First = searchDetail;
                     scope.Last = searchDetail;
                 }
+                try
+                {
+                    if (TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver observer)
+                        observer.ObserveAssassinStage(report?.Token, player, "native-search-pair", completed ? "completed" : "incomplete",
+                            searchDetail + ",observedUtc=" + DateTime.UtcNow.ToString("O") + ",sourceContext=[" + call.Source + "]");
+                }
+                catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("search-pair-observer", error); }
                 if (report == null) return;
                 report.Searches++;
                 if (call.TX < 0 || call.TY < 0) report.Floods++; else report.TargetSearches++;
                 if (call.Continuation != 0) report.Continuations++;
                 if (completed && effective > 0 && outcome == "weighted-published") report.WeightedFields++;
-                string detail = "start=" + call.X + "/" + call.Y + ",target=" + call.TX + "/" + call.TY +
+                string detail = searchDetail + ",start=" + call.X + "/" + call.Y + ",target=" + call.TX + "/" + call.TY +
                     ",continuation=" + call.Continuation + ",completed=" + completed + ",native=" + native +
                     ",effective=" + effective + ",player=" + player + ",outcome=" + outcome + ",cache=" + cache + ",nodes=" + nodes;
                 if (report.FirstSearch == null) report.FirstSearch = detail;
@@ -141,19 +174,29 @@ namespace BugfixesAndQoL.UnitCommands
         }
         internal static object UnavailableTemporaryRoute(ITemporaryGateRouteAcceptanceObserver observer, string reason, string source)
         { observer.BeginRoute(0, 0, 0, 0, 0, -1, -1, -1, -1, -1, reason + ",builderSource=" + source); return null; }
-        internal object BeginTemporaryRouteReport(IntPtr manager, string source = "unspecified-builder")
+        internal object BeginTemporaryRouteReport(IntPtr manager, string source = "unspecified-builder", int? builderArgument2 = null, int? builderArgument3 = null)
         {
             if (TemporaryGateRouteAcceptanceBridge.Current == null) return null;
             TemporaryRouteReport report = CaptureTemporaryRouteReport(manager, source) as TemporaryRouteReport ?? new TemporaryRouteReport();
             report.Previous = temporaryRouteCall; report.Source = source; report.Manager = manager;
+            report.Sequence = System.Threading.Interlocked.Increment(ref temporaryAssassinSequence); report.Started = Stopwatch.GetTimestamp();
+            report.BuilderArgument2 = builderArgument2; report.BuilderArgument3 = builderArgument3;
             if (report.Token != null)
             {
                 byte* context = (byte*)manager.ToPointer();
-                report.Flags84 = *(int*)(context + 0x84); report.Flags88 = *(int*)(context + 0x88);
+                report.Flags84 = *(int*)(context + 0x84); report.Flags88 = *(int*)(context + 0x88); report.Flags94 = *(int*)(context + 0x94);
                 report.Relaxation = UnitCommandPathAPI.AssassinReconstructionRelaxation?.Invoke() ?? "unavailable";
             }
             temporaryRouteCall = report;
             return report;
+        }
+        // TEMP_GATE_ROUTE_ACCEPTANCE: read only the original builder result before handoff.Complete.
+        private void ObserveTemporaryNativeBuilderOutput(object token, int result)
+        {
+            if (!(token is TemporaryRouteReport report) || report.Token == null ||
+                report.Manager != nativePathManager || report.Manager == IntPtr.Zero) return;
+            report.NativeResult = result;
+            report.NativeLength = *(int*)((byte*)report.Manager.ToPointer() + PathManagerOutputLengthOffset);
         }
         internal object CaptureTemporaryRouteReport(IntPtr manager, string source)
         {
@@ -172,7 +215,7 @@ namespace BugfixesAndQoL.UnitCommands
                     return UnavailableTemporaryRoute(observer, "stale-or-skipped-unit-frame", source);
                 if (frame != null && !GameUnitManagerAPI.Instance.IsValidId(frame.Args.UnitId))
                     return UnavailableTemporaryRoute(observer, "invalid-unit-frame", source);
-                if (!APIShared.Internal.TemporaryPackedRouteInspection.TryResolveUnit(path - (nativeUnitManager + NativeUnitPathBufferOffset),
+                if (!Shared.TemporaryPackedRouteInspection.TryResolveUnit(path - (nativeUnitManager + NativeUnitPathBufferOffset),
                     NativeUnitPathBufferStride, MaximumUnitCount, frame?.Args.UnitId ?? 0, out int unitId))
                     return UnavailableTemporaryRoute(observer, "unit-buffer-mismatch", source);
                 var units = GameUnitManagerAPI.Instance;
@@ -230,7 +273,7 @@ namespace BugfixesAndQoL.UnitCommands
                         *(int*)(context + 0x10) == report.TX && *(int*)(context + 0x14) == report.TY)
                     {
                         int x = report.X, y = report.Y;
-                        status = APIShared.Internal.TemporaryPackedRouteInspection.Decode(new ReadOnlySpan<byte>(path, (result + 1) / 2), result,
+                        status = Shared.TemporaryPackedRouteInspection.Decode(new ReadOnlySpan<byte>(path, (result + 1) / 2), result,
                             x, y, report.TX, report.TY, WeightedMoatRoutePlanner.DirectionX, WeightedMoatRoutePlanner.DirectionY, out int[] directions);
                         for (int i = 0; status == "decoded" && i < result; i++)
                         {
@@ -255,8 +298,16 @@ namespace BugfixesAndQoL.UnitCommands
                     byte* context = (byte*)manager.ToPointer();
                     string modes = manager == report.Manager && manager == nativePathManager && manager != IntPtr.Zero
                         ? ",flags84=" + report.Flags84 + "/" + *(int*)(context + 0x84) +
-                          ",assassinFlag88=" + report.Flags88 + "/" + *(int*)(context + 0x88) : ",nativeModes=unknown";
+                          ",assassinFlag88=" + report.Flags88 + "/" + *(int*)(context + 0x88) +
+                          ",secondaryGroundFlag94=" + report.Flags94 + "/" + *(int*)(context + 0x94) : ",nativeModes=unknown";
                     report.Observer.EndRoute(report.Token, status + "|diag=builderSource=" + report.Source + modes +
+                        ",builderArgument2Raw=" + (report.BuilderArgument2?.ToString() ?? "unknown") +
+                        ",builderArgument3Raw=" + (report.BuilderArgument3?.ToString() ?? "unknown") +
+                        ",secondaryGroundPassEntryEligible=" + (report.BuilderArgument3.HasValue ? (report.BuilderArgument3.Value == 0 && report.Flags94 != 0).ToString() : "unknown") +
+                        ",secondaryGroundPassExecution=not-observed,nativeBuilderReturn=" + (report.NativeResult?.ToString() ?? "unknown") +
+                        ",nativeOutputEdges=" + (report.NativeLength?.ToString() ?? "unknown") + ",effectiveBuilderReturn=" + result +
+                        ",publicationCall=" + report.Sequence + ",startedMono=" + report.Started + ",endedMono=" + Stopwatch.GetTimestamp() +
+                        ",commandMapEpoch=" + report.Epoch + ",observedUtc=" + DateTime.UtcNow.ToString("O") +
                         ",reconstructionRelaxation=" + report.Relaxation + ",nestedAssassinCalls=" + report.Searches +
                         ",targetSearches=" + report.TargetSearches + ",floods=" + report.Floods + ",continuations=" + report.Continuations +
                         ",weightedPublications=" + report.WeightedFields + ",fieldOrigin=" +

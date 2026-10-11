@@ -45,6 +45,8 @@
     <Compile Include="..\..\Shared\Runtime\Native\GameBuildingFootprint.cs"><Link>Shared\Runtime\Native\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs" />
     <Compile Include="src\CursorPreviewCache.cs" />
+    <Compile Include="src\FunctionalGatePolicyAdapter.cs" />
+    <Compile Include="src\DeferredGateDiagnosticErrors.cs" />
     <Compile Include="src\BuildingSearchPlayerResolver.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs" />
     <Compile Include="src\SparseBuildingFootprint.cs" />
@@ -86,4 +88,5 @@
     <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll with editor lifecycle capability is required in ApiSharedDir." />
   </Target>
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
 </Project>

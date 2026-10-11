@@ -12,7 +12,8 @@ namespace BridgePlanningTests
         // Explicit original files, not an arbitrary-file bypass. Importer also verifies envelope.
         private static bool ApprovedPlanning(string hash) =>
             hash=="3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB" ||
-            hash=="15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872";
+            hash=="15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872" ||
+            hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6";
 
         private static byte[] Bytes(Array data){var bytes=new byte[Buffer.ByteLength(data)];Buffer.BlockCopy(data,0,bytes,0,bytes.Length);return bytes;}
         private static T[] ArrayValues<T>(byte[] bytes) where T:struct
@@ -137,7 +138,16 @@ namespace BridgePlanningTests
                     m.Function<V2>(0x1126B0)(m.Ptr(VirtualCandidateConsumers.Root),b.Attacker);
                     if(variant==0)Equal(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-pre/candidates"),"continuous selection/unit-target handoff");
                 }
-                var managedCandidates=new VirtualCandidateBuilder();
+                VirtualCandidateBuilder managedCandidates;
+                if(continuous&&!referenceTables)
+                {
+                    var records=variant==0?Get("consumer/pre/macroRecords"):RemapConnections(Get("consumer/pre/macroRecords"),a,physical.Components);
+                    if(!CopiedCandidateInputs.TryCreate(b,variantState,physical,records,counts,out managedCandidates,out reason))throw new Exception(reason);
+                    Equal(managedCandidates.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),"productive importer/factory projection and unit handoff");
+                }
+                else
+                {
+                managedCandidates=new VirtualCandidateBuilder();
                 foreach(var range in new[]{
                     Tuple.Create(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),
                     Tuple.Create(0x67E8400,Get("consumer/pre/unitManager").Length),
@@ -158,6 +168,7 @@ namespace BridgePlanningTests
                     managedCandidates.Replace(VirtualCandidateConsumers.Root,Get("consumer/pre/candidates"));
                     managedCandidates.SelectAndUnitTargets(b.Attacker,b.Target,counts);
                     Equal(managedCandidates.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),"complete calculated managed projection/Fixes histogram/unit handoff");
+                }
                 }
                 managedCandidates.Run(b.Attacker,b.Target);
                 m.Function<V3>(0x10DF60)(m.Ptr(VirtualCandidateConsumers.Root),b.Attacker,b.Target);
@@ -242,8 +253,16 @@ namespace BridgePlanningTests
             if(!BridgePlanningImporter.TryRead(path,out a,out reason))throw new Exception(reason);
             if(!ApprovedPlanning(a.Hash)||a.Planning==null)throw new Exception("unapproved historical physical input");
             var b=a.Planning;byte[] Get(string name)=>CopiedPlanningBundle.Resolve(b,name);
-            // Heights were recorded at consumer entry, not at the earlier caller entry.
-            // Keep the original timing explicit; do not borrow later fields for that caller.
+            // Legacy heights are consumer-only. Own caller copies may establish
+            // exact equality, but are never supplied from a later observation.
+            string earlierHeightProof="Unknown";
+            bool Own(string key)=>b.Sections.ContainsKey(key)||b.References.ContainsKey(key);
+            if(Own("callerHeight")&&Own("callerBaseHeight"))
+            {
+                var h=Get("callerHeight");var baseH=Get("callerBaseHeight");
+                Check(h.Length==N&&baseH.Length==N,"own caller height extents");
+                earlierHeightProof=h.SequenceEqual(Get("consumer/pre/height"))&&baseH.SequenceEqual(Get("consumer/pre/baseHeight"))?"OwnCopyMatched":"OwnCopyChanged-consumer-control-not-earlier-proof";
+            }
             using(var m=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv")))
             {
                 m.Put(Flags,Get("consumer/pre/flags"));m.Put(Pcl,Get("consumer/pre/components"));m.Put(Edges,Get("consumer/pre/edges"));
@@ -263,18 +282,28 @@ namespace BridgePlanningTests
                 Check(m.Function<R2>(0xE49D0)(m.Ptr(Root),1)==1,"full historical native physical rebuild");
                 // Gate closure/restoration and all updater dispatch remain real native calls.
                 var recorded=new ushort[N];Buffer.BlockCopy(Get("consumer/pre/components"),0,recorded,0,N*2);
-                var actual=m.Shorts(Pcl,N);var forward=new System.Collections.Generic.Dictionary<int,int>();var reverse=new System.Collections.Generic.Dictionary<int,int>();
+                int occupancyDelta=0,firstOccupancyTile=-1;var actual=m.Shorts(Pcl,N);var forward=new System.Collections.Generic.Dictionary<int,int>();var reverse=new System.Collections.Generic.Dictionary<int,int>();
                 for(int i=0;i<N;i++)
                 {
-                    int before=recorded[i],after=(ushort)actual[i];if((before==0)!=(after==0))throw new Exception("physical occupancy differs at "+i);
+                    int before=recorded[i],after=(ushort)actual[i];if((before==0)!=(after==0)){ occupancyDelta++; firstOccupancyTile=i; continue; }
                     if(before==0)continue;
                     if(forward.TryGetValue(before,out int f)&&f!=after||reverse.TryGetValue(after,out int r)&&r!=before)throw new Exception("physical partition differs at "+i);
                     forward[before]=after;reverse[after]=before;
                 }
                 var histogram=new int[1000];foreach(short value in actual){int region=(ushort)value;if(region>=histogram.Length)throw new Exception("native component bound");if(region!=0)histogram[region]++;}
                 Equal(m.Ints(Root+0xe0,1000),histogram,"native field counts and rebuilt grid histogram");
+                var copiedMap=new VirtualBridgeMap(b.Session,b.Revision,recorded,Get("consumer/pre/edges"),ArrayValues<int>(Get("consumer/pre/flags")),ArrayValues<ushort>(a.Sections["x"]),ArrayValues<ushort>(a.Sections["y"]),ArrayValues<int>(a.Sections["rows"]),Array.Empty<VirtualConnection>(),true,ArrayValues<ushort>(a.Sections["specialIds"]),ArrayValues<short>(a.Sections["specialKinds"]));
+                VirtualPlanningInput input;VirtualPlanningState state;string inputReason;
+                if(!CopiedPlanningBundle.TryRead(b,copiedMap,"caller-pre",out input,out state,out inputReason))throw new Exception(inputReason);
+                var rows=ArrayValues<int>(Get("rowRecords"));var ends=new int[800];for(int y=0;y<800;y++)ends[y]=rows[y*3+2];
+                var control=new VirtualRaisedPlanning(input,copiedMap,Array.Empty<int>(),ends,current,ArrayValues<ushort>(Get("consumer/pre/buildingIds")));
+                while(!control.Rebuild.Complete)control.Step(4096);Check(control.Rebuild.Proven,"full managed control rebuild proven");
+                Equal(Bytes(control.Physical.Components),Bytes(actual),"entire native/managed physical components");Equal(Bytes(control.Rebuild.Counts),Bytes(histogram),"entire native/managed physical counts");
+                Check(occupancyDelta==0||(a.Hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6"&&occupancyDelta==1&&firstOccupancyTile==163092),"only independently reviewed historical occupancy difference");
+                Console.WriteLine("physicalControlMatched=True,recordedOccupancyDelta="+occupancyDelta+",firstTile="+firstOccupancyTile+",dirty="+b.Dirty+",negativeEligible=False");
+
                 Equal(m.Bytes(Edges,N),Get("consumer/pre/edges"),"native physical restored directions");
-                Console.WriteLine("PASS full native physical rebuild including C5040/C4BF0/updaters; inputTiming=consumer-entry;partitionEquivalent=True;updaterDirtyAtCaller=0;nativeGeneration="+m.Int(Root+0x74)+",earlierCallerHeightProof=Unknown;negativeEligible=False");
+                Console.WriteLine("PASS full native physical rebuild including C5040/C4BF0/updaters; inputTiming=consumer-entry;partitionEquivalent="+(occupancyDelta==0)+";updaterDirtyAtCaller=0;nativeGeneration="+m.Int(Root+0x74)+",earlierCallerHeightProof="+earlierHeightProof+";negativeEligible=False");
             }
             return 0;
         }

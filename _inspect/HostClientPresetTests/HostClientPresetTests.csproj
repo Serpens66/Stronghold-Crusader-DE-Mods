@@ -263,7 +263,7 @@
       <Link>TroopActionButtonLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
-  <ItemGroup><Compile Include="FearFactorPresetTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />

@@ -1,0 +1,351 @@
+[11.10.2026  2:15:25,48] START EnemyBridgePathTest
+[11.10.2026  2:15:25,48] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 101 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 101 projects, 1449 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 41 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Completed in 10,5s.
+PASS: 11 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[11.10.2026  2:15:36,17] Unit access regression tests
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: 1069 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 8,2s.
+[11.10.2026  2:15:44,47] PowerShell checks / build step
+PASS: local APIShared package and build inputs.
+[11.10.2026  2:15:44,84] Check that the game is closed
+[11.10.2026  2:15:44,99] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: EnemyBridge runtime JSON/lifecycle, permanent hooks, XAML and CRLF (32 runtime sources).
+PASS: virtual public copy/member contracts, bounded shadow queue and unvalidated policy fail-open.
+PASS: exact bounded attack entry and whole-body patch whitelist; failed unpublished candidates only can roll back.
+PASS: historical copied inputs, no guessed third endpoint, six controls, max two artifacts and one 64KiB render block.
+PASS: independently known A/B endpoints, conservative C, exact content reuse and selected group promotion.
+PASS: installed coupling views/signatures, copied class3/4 C endpoints and opaque connection-record field.
+PASS: dormant copied planning/permission kernels; no live integration, searches or new game-member accesses.
+PASS: hash-bound passive planning copy, no live planning execution or native writes.
+PASS: bounded own-frame consumer capture, native unit/tribe capacities, additive schema2 validation.
+PASS: consumer v2 records actual weight modes, full updater input and bounded work fields.
+PASS: bounded own consumer table capture, optional legacy import and dormant copied candidate continuation.
+PASS: thirty private detours, shared topology, conservative effective ladder consumer and UInt16 ownership.
+PASS: bounded exact command Pre references and numeric route definitions; batch timing is not capture timing.
+PASS: own military entry tables/configuration and caller heights, additive legacy-safe import; full entry/formation replay remains unproven.
+[11.10.2026  2:15:48,47] PowerShell checks / build step
+Using APIShared 0.7.0 from D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\..\..\APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll
+[11.10.2026  2:15:48,68] Compile projects
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 11.10.2026 02:15:48 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /platform:x64 /highentropyva+ /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /debug+ /out:obj\Debug\BridgePlanningTests.exe /subsystemversion:6.00 /target:exe /utf8output /langversion:latest ..\..\Testmods\EnemyBridgePathTest\src\VirtualComponentControl.cs NativeImage.cs Program.cs HistoricalInputs.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualTopologyRebuild.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualPlanningCaller.cs ..\..\Testmods\EnemyBridgePathTest\src\BridgePlanningCapture.cs ..\..\Testmods\EnemyBridgePathTest\src\BridgeInputArtifact.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualRaisedPlanning.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualPlanningBuildings.cs ..\..\Testmods\EnemyBridgePathTest\src\CopiedPlanningBundle.cs ..\..\Testmods\EnemyBridgePathTest\src\BridgePlanningImporter.cs ..\..\Testmods\EnemyBridgePathTest\src\CopiedPlanningRegions.cs ..\..\Testmods\EnemyBridgePathTest\src\CopiedPlanningReplay.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualBridgePlanning.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualBridgeGraph.cs ..\..\Testmods\EnemyBridgePathTest\src\NativePathfindingTableCopy.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualCandidateBuilder.cs CandidateWorkTests.cs MilitaryContracts.cs ..\..\Testmods\EnemyBridgePathTest\src\CopiedCandidateInputs.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server - server processed compilation - BridgePlanningTests
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\obj\Debug\BridgePlanningTests.exe" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\BridgePlanningTests.exe" kopiert.
+  BridgePlanningTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\BridgePlanningTests.exe
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\obj\Debug\BridgePlanningTests.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\BridgePlanningTests.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.23
+PASS military helpers: 512 strength,256 metric,8 leader,8 full tribe-cleanup cases; writable class tables rejected; complete entry/formation NOT executed
+PASS native 1126B0 and five candidate consumers; complete buffers, signed5999 boundary, reservation modes, unit IDs
+PASS full115B10 weight boundaries, active target, adjacent native blocker,70/150 and copied unit cycle rejection
+PASS native complete 2D250/2C5A0: 32 target/bank/mode/radius-boundary cases
+PASS full native2D250 Dirty0/Dirty1 without forced topology rebuild
+PASS private Fixes-equivalent 2C5E1 patched body; installed owner preserved; not backend validation
+native case 0 seed
+native case 0 distance
+native case 1 seed
+native case 1 distance
+native case 2 seed
+native case 2 distance
+native case 3 seed
+native case 3 distance
+native case 4 seed
+native case 4 distance
+native case 5 seed
+native case 5 distance
+native case 6 seed
+native case 6 distance
+native case 7 seed
+native case 7 distance
+native case 8 seed
+native case 8 distance
+native case 9 seed
+native case 10 seed
+native case 10 distance
+native case 11 seed
+native case 11 distance
+native case 12 seed
+native case 12 distance
+native case 13 seed
+native case 13 distance
+native case 14 seed
+native case 14 distance
+native case 15 seed
+native case 15 distance
+native temporary gate orientation=0 state=0
+native temporary gate orientation=0 state=1
+native temporary gate orientation=0 state=2
+native temporary gate orientation=1 state=0
+native temporary gate orientation=1 state=1
+native temporary gate orientation=1 state=2
+native raise orientation=0 moat=0 height=0 scene=0
+native raise orientation=0 moat=0 height=0 scene=1
+native raise orientation=0 moat=0 height=1 scene=0
+native raise orientation=0 moat=0 height=1 scene=1
+native raise orientation=0 moat=0 height=2 scene=0
+native raise orientation=0 moat=0 height=2 scene=1
+native raise orientation=0 moat=1 height=0 scene=0
+native raise orientation=0 moat=1 height=0 scene=1
+native raise orientation=0 moat=1 height=1 scene=0
+native raise orientation=0 moat=1 height=1 scene=1
+native raise orientation=0 moat=1 height=2 scene=0
+native raise orientation=0 moat=1 height=2 scene=1
+native raise orientation=0 moat=2 height=0 scene=0
+native raise orientation=0 moat=2 height=0 scene=1
+native raise orientation=0 moat=2 height=1 scene=0
+native raise orientation=0 moat=2 height=1 scene=1
+native raise orientation=0 moat=2 height=2 scene=0
+native raise orientation=0 moat=2 height=2 scene=1
+native raise orientation=1 moat=0 height=0 scene=0
+native raise orientation=1 moat=0 height=0 scene=1
+native raise orientation=1 moat=0 height=1 scene=0
+native raise orientation=1 moat=0 height=1 scene=1
+native raise orientation=1 moat=0 height=2 scene=0
+native raise orientation=1 moat=0 height=2 scene=1
+native raise orientation=1 moat=1 height=0 scene=0
+native raise orientation=1 moat=1 height=0 scene=1
+native raise orientation=1 moat=1 height=1 scene=0
+native raise orientation=1 moat=1 height=1 scene=1
+native raise orientation=1 moat=1 height=2 scene=0
+native raise orientation=1 moat=1 height=2 scene=1
+native raise orientation=1 moat=2 height=0 scene=0
+native raise orientation=1 moat=2 height=0 scene=1
+native raise orientation=1 moat=2 height=1 scene=0
+native raise orientation=1 moat=2 height=1 scene=1
+native raise orientation=1 moat=2 height=2 scene=0
+native raise orientation=1 moat=2 height=2 scene=1
+native raise orientation=2 moat=0 height=0 scene=0
+native raise orientation=2 moat=0 height=0 scene=1
+native raise orientation=2 moat=0 height=1 scene=0
+native raise orientation=2 moat=0 height=1 scene=1
+native raise orientation=2 moat=0 height=2 scene=0
+native raise orientation=2 moat=0 height=2 scene=1
+native raise orientation=2 moat=1 height=0 scene=0
+native raise orientation=2 moat=1 height=0 scene=1
+native raise orientation=2 moat=1 height=1 scene=0
+native raise orientation=2 moat=1 height=1 scene=1
+native raise orientation=2 moat=1 height=2 scene=0
+native raise orientation=2 moat=1 height=2 scene=1
+native raise orientation=2 moat=2 height=0 scene=0
+native raise orientation=2 moat=2 height=0 scene=1
+native raise orientation=2 moat=2 height=1 scene=0
+native raise orientation=2 moat=2 height=1 scene=1
+native raise orientation=2 moat=2 height=2 scene=0
+native raise orientation=2 moat=2 height=2 scene=1
+native raise orientation=3 moat=0 height=0 scene=0
+native raise orientation=3 moat=0 height=0 scene=1
+native raise orientation=3 moat=0 height=1 scene=0
+native raise orientation=3 moat=0 height=1 scene=1
+native raise orientation=3 moat=0 height=2 scene=0
+native raise orientation=3 moat=0 height=2 scene=1
+native raise orientation=3 moat=1 height=0 scene=0
+native raise orientation=3 moat=1 height=0 scene=1
+native raise orientation=3 moat=1 height=1 scene=0
+native raise orientation=3 moat=1 height=1 scene=1
+native raise orientation=3 moat=1 height=2 scene=0
+native raise orientation=3 moat=1 height=2 scene=1
+native raise orientation=3 moat=2 height=0 scene=0
+native raise orientation=3 moat=2 height=0 scene=1
+native raise orientation=3 moat=2 height=1 scene=0
+native raise orientation=3 moat=2 height=1 scene=1
+native raise orientation=3 moat=2 height=2 scene=0
+native raise orientation=3 moat=2 height=2 scene=1
+native raise orientation=4 moat=0 height=0 scene=0
+native raise orientation=4 moat=0 height=0 scene=1
+native raise orientation=4 moat=0 height=1 scene=0
+native raise orientation=4 moat=0 height=1 scene=1
+native raise orientation=4 moat=0 height=2 scene=0
+native raise orientation=4 moat=0 height=2 scene=1
+native raise orientation=4 moat=1 height=0 scene=0
+native raise orientation=4 moat=1 height=0 scene=1
+native raise orientation=4 moat=1 height=1 scene=0
+native raise orientation=4 moat=1 height=1 scene=1
+native raise orientation=4 moat=1 height=2 scene=0
+native raise orientation=4 moat=1 height=2 scene=1
+native raise orientation=4 moat=2 height=0 scene=0
+native raise orientation=4 moat=2 height=0 scene=1
+native raise orientation=4 moat=2 height=1 scene=0
+native raise orientation=4 moat=2 height=1 scene=1
+native raise orientation=4 moat=2 height=2 scene=0
+native raise orientation=4 moat=2 height=2 scene=1
+native raise orientation=5 moat=0 height=0 scene=0
+native raise orientation=5 moat=0 height=0 scene=1
+native raise orientation=5 moat=0 height=1 scene=0
+native raise orientation=5 moat=0 height=1 scene=1
+native raise orientation=5 moat=0 height=2 scene=0
+native raise orientation=5 moat=0 height=2 scene=1
+native raise orientation=5 moat=1 height=0 scene=0
+native raise orientation=5 moat=1 height=0 scene=1
+native raise orientation=5 moat=1 height=1 scene=0
+native raise orientation=5 moat=1 height=1 scene=1
+native raise orientation=5 moat=1 height=2 scene=0
+native raise orientation=5 moat=1 height=2 scene=1
+native raise orientation=5 moat=2 height=0 scene=0
+native raise orientation=5 moat=2 height=0 scene=1
+native raise orientation=5 moat=2 height=1 scene=0
+native raise orientation=5 moat=2 height=1 scene=1
+native raise orientation=5 moat=2 height=2 scene=0
+native raise orientation=5 moat=2 height=2 scene=1
+native raise orientation=6 moat=0 height=0 scene=0
+native raise orientation=6 moat=0 height=0 scene=1
+native raise orientation=6 moat=0 height=1 scene=0
+native raise orientation=6 moat=0 height=1 scene=1
+native raise orientation=6 moat=0 height=2 scene=0
+native raise orientation=6 moat=0 height=2 scene=1
+native raise orientation=6 moat=1 height=0 scene=0
+native raise orientation=6 moat=1 height=0 scene=1
+native raise orientation=6 moat=1 height=1 scene=0
+native raise orientation=6 moat=1 height=1 scene=1
+native raise orientation=6 moat=1 height=2 scene=0
+native raise orientation=6 moat=1 height=2 scene=1
+native raise orientation=6 moat=2 height=0 scene=0
+native raise orientation=6 moat=2 height=0 scene=1
+native raise orientation=6 moat=2 height=1 scene=0
+native raise orientation=6 moat=2 height=1 scene=1
+native raise orientation=6 moat=2 height=2 scene=0
+native raise orientation=6 moat=2 height=2 scene=1
+native raise orientation=7 moat=0 height=0 scene=0
+native raise orientation=7 moat=0 height=0 scene=1
+native raise orientation=7 moat=0 height=1 scene=0
+native raise orientation=7 moat=0 height=1 scene=1
+native raise orientation=7 moat=0 height=2 scene=0
+native raise orientation=7 moat=0 height=2 scene=1
+native raise orientation=7 moat=1 height=0 scene=0
+native raise orientation=7 moat=1 height=0 scene=1
+native raise orientation=7 moat=1 height=1 scene=0
+native raise orientation=7 moat=1 height=1 scene=1
+native raise orientation=7 moat=1 height=2 scene=0
+native raise orientation=7 moat=1 height=2 scene=1
+native raise orientation=7 moat=2 height=0 scene=0
+native raise orientation=7 moat=2 height=0 scene=1
+native raise orientation=7 moat=2 height=1 scene=0
+native raise orientation=7 moat=2 height=1 scene=1
+native raise orientation=7 moat=2 height=2 scene=0
+native raise orientation=7 moat=2 height=2 scene=1
+PASS native raise/update/rebuild: 144 synthetic orientation/moat cases
+PASS special seed kinds: isolated raised flag1000, including excluded kind15
+PASS native macro roles/modes/directions/C; any nonzero native capturer is NOT sufficient for Gate policy
+PASS alternating packed row widths and native 999-component boundary
+PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-d8996d9543d34eefb00a7da0930127cc\bridge-1-100.bin; captureMs=37,654
+PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-cda44ee964944fbbab62b2621c4f5dcb\bridge-1-100.bin; captureMs=76,924
+PASS 32 managed/native candidate floods: queue state, early exit, selection masks, visit wrap and directions
+PASS private native planning: 150 synthetic differential cases, 12114 checks; no game/library initialization
+offline-cost: totalMs=12535.9,scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled
+[11.10.2026  2:16:01,85] Compile projects
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 11.10.2026 02:16:01 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.PolicyTests.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /platform:x64 /highentropyva+ /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Iced.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Microsoft.Extensions.Logging.Abstractions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Abstractions.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Backends.NativeX64.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.X64.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\System.Memory.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\Microsoft.Win32.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\netstandard.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.AppContext.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Concurrent.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.NonGeneric.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Specialized.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Annotations.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.EventBasedAsync.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.TypeConverter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Console.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Data.Common.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Contracts.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Debug.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.FileVersionInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Process.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.StackTrace.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TextWriterTraceListener.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Tools.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TraceSource.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Drawing.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Dynamic.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Calendars.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Compression.ZipFile.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.DriveInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Watcher.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.IsolatedStorage.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.MemoryMappedFiles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Pipes.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.UnmanagedMemoryStream.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Expressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Queryable.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Http.Rtc.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NameResolution.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NetworkInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Ping.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Requests.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Sockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebHeaderCollection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.Client.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ObjectModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.ILGeneration.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.Lightweight.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Reader.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.ResourceManager.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Writer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.CompilerServices.VisualC.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Handles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.RuntimeInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.WindowsRuntime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Numerics.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Formatters.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Json.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Xml.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Claims.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Algorithms.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Csp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.X509Certificates.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Principal.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.SecureString.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Duplex.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Http.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.NetTcp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.RegularExpressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Overlapped.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Thread.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.ThreadPool.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Timer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ValueTuple.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.ReaderWriter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlSerializer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.XDocument.dll" /debug+ /out:obj\Debug\EnemyBridgePathTest.PolicyTests.exe /subsystemversion:6.00 /target:exe /utf8output /langversion:latest /analyzerconfig:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\.editorconfig" tests\NativeDecisionTests.cs src\BridgeNativeDefinition.cs src\BridgeNativeHooks.cs src\BridgeDiagnostics.cs src\BridgeDecisionTrace.cs src\BridgeRouteTrace.cs src\BridgeBuildingIndex.cs src\VirtualBridgeGraph.cs src\VirtualComponentControl.cs src\BridgeInputArtifact.cs src\BridgeVirtualShadow.cs src\BridgeSnapshot.cs tests\LeanTraceTests.cs tests\RouteTraceTests.cs tests\Program.cs tests\VirtualBridgeTests.cs tests\ShadowControlTests.cs tests\DrawbridgeClosureTests.cs src\VirtualTopologyRebuild.cs src\VirtualPlanningCaller.cs src\BridgePlanningCapture.cs src\VirtualRaisedPlanning.cs src\VirtualPlanningBuildings.cs src\CopiedPlanningBundle.cs src\BridgePlanningImporter.cs src\CopiedPlanningRegions.cs src\CopiedPlanningReplay.cs src\VirtualBridgePlanning.cs src\NativePathfindingTableCopy.cs src\DrawbridgeClosurePolicy.cs src\GateEdgeOwnership.cs ..\..\Shared\Runtime\Gameplay\PathDecisionAggregate.cs ..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs ..\..\APIShared\src\Pathfinding\GateRoutes\EnemyBridgeDiagnosticBridge.cs src\CopiedCandidateInputs.cs ..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs tests\CaptureRefreshTests.cs src\VirtualCandidateBuilder.cs ..\..\APIShared\src\Buildings\Gatehouse\GatehouseDrawbridgeCoupling.cs ..\..\APIShared\src\Units\UnitAccess.cs tests\OwnerFixture.cs ..\..\BugfixesAndQoL\src\UnitCommands\Attack\ManualProbeRepairGuards.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Runtime\Gameplay\PathDecisionAggregate.cs(26,23): warning CS0649: Dem Feld "AiGateDecisionAggregate.TemporaryCountsOnly" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "false". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.PolicyTests.csproj]
+  CompilerServer: server - server processed compilation - EnemyBridgePathTest.PolicyTests
+_CopyAppConfigFile:
+Das Ziel "_CopyAppConfigFile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\obj\Debug\EnemyBridgePathTest.PolicyTests.exe" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\tests\bin\EnemyBridgePathTest.PolicyTests.exe" kopiert.
+  EnemyBridgePathTest.PolicyTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\tests\bin\EnemyBridgePathTest.PolicyTests.exe
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\obj\Debug\EnemyBridgePathTest.PolicyTests.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\tests\bin\EnemyBridgePathTest.PolicyTests.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.PolicyTests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+
+"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.PolicyTests.csproj" (Standardziel) (1) ->
+(CoreCompile Ziel) -> 
+  D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Runtime\Gameplay\PathDecisionAggregate.cs(26,23): warning CS0649: Dem Feld "AiGateDecisionAggregate.TemporaryCountsOnly" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "false". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.PolicyTests.csproj]
+
+    1 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.42
+[11.10.2026  2:16:02,37] Run tests
+virtual-control:definition=1,op=40,parentOp=0,player=8,direction=attacker-to-target,mode=0,modeEvidence=observed-CF-mode,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/1/1,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Reachable,nativeBoolean=1,nativeDirection=target-to-attacker,macroMatchesNative=True,geometryMatchesNative=True,cutAssessment=conditional-baseline-agrees,historicalInput=True,captureClock=123,revision=1,validityKnown=True,nativeRevision=0,dirty=0,observationClock=0,negativeEligible=False,inputTiming=,policyResult=Unknown,behavior=unchanged
+virtual-control:definition=1,op=40,parentOp=0,player=8,direction=target-to-attacker,mode=0,modeEvidence=observed-CF-mode,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/1/1,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Reachable,nativeBoolean=1,nativeDirection=target-to-attacker,macroMatchesNative=True,geometryMatchesNative=True,cutAssessment=conditional-baseline-agrees,historicalInput=True,captureClock=123,revision=1,validityKnown=True,nativeRevision=0,dirty=0,observationClock=0,negativeEligible=False,inputTiming=,policyResult=Unknown,behavior=unchanged
+virtual-shadow:definition=1,stage=keep-access,op=40,parentOp=0,player=8,fromTile=0,toTile=4,nativeQueryOrder=keep-target-to-attacker,comparisonDirection=attacker-to-target,mode=0,observedOriginalReturn=1,observationClock=0,sourceSession=1,captureClock=123,revision=1,geometricResult=NoRoute,policyResult=Unknown,policyEvidence=authorization-boundary-mode-or-gate-policy-unvalidated,historicalInput=True,currentPublicationRevision=-1,inputReason=,decisionInputMissing=False,policyValidAtDecision=True,reason=controlled-six-variant-comparison,candidateCutCells=1,unknownRecords=0,expanded=18,structureRequired=False,behavior=unchanged
+offline-cost:elapsedMs=0.086,preparationHits=3,inputBytes=1466,timing=offline-not-game-frame
+Artifact regression retained at D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\tests\bin\bridge-artifact-tests-d43f85b63b52480abda466cc605fd135
+Virtual full-grid managed query: 30,227 ms, 320800 nodes (not game-frame timing)
+Log243 regression: calls=1351340,commands=30018,routeObservations=67,taskValues=19,routeBytesWithPrefix=30782,nativeBytesWithPrefix=82297
+Latest full population: calls=1695766,commands=34661,bytesWithPrefixAllowance=118263 (fixture reads; changed bursts separate)
+PASS actual consumer3776002-call load/66689 commands; bounded copies and quiet output, changed bursts separate
+PASS route observation: stored plans, deck/gate distinction, actual transitions, replacement/reuse and bounded completion.
+Patched attack full-body scan: expected=15,actual=57,scheme=Absolute
+PASS exact installed NativeX64 backend on copied Fixes-patched 2C5A0 body
+Lean steady load ms=26,632,records=4,bytes=1528
+Mixed population: nativeCalls=839714,commands=18835,actualRebuilds=47,captures=96,bytes=48308,ms=282,894
+PASS: actual diagnostic command frames and alternative planning parent promotion.
+Numeric unchanged capture 10000 ms=2,681
+Current full population: nativeCalls=1559559,commands=32410,bytesWithPrefixAllowance=100013
+Stable production population:2118706 calls,36923 commands,quietBytesWithPrefixes=53653; native frames and numeric context references preserve exact results
+Raised population:2500812 calls,40729 command pairs,bytesWithPrefixAllowance=520618
+Latest shadow population:982868 calls,21456 commands,57 rebuilds,quietBytesWithPrefixes=41767
+PASS lean trace: 75117 repeated attacks, two initial captures; exact counts, changes, nesting, exceptions and bounded drain.
+PASS: 38102 bridge geometry/observer/aggregate assertions
+[11.10.2026  2:16:12,06] Compile projects
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 11.10.2026 02:16:12 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.csproj" auf Knoten "1" (Standardziele).
+PrepareForBuild:
+  Das Verzeichnis "BepInEx\plugins\EnemyBridgePathTest_Serp\" wird erstellt.
+ValidateWorkspaceApiSharedPackage:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods" -PackageDirectory "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+  PASS: local APIShared package and build inputs.
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /warn:4 /highentropyva+ /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Iced.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Microsoft.Extensions.Logging.Abstractions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Abstractions.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Backends.NativeX64.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.X64.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\System.Memory.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\Microsoft.Win32.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\netstandard.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.AppContext.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Concurrent.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.NonGeneric.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Specialized.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Annotations.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.EventBasedAsync.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.TypeConverter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Console.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Data.Common.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Contracts.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Debug.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.FileVersionInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Process.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.StackTrace.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TextWriterTraceListener.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Tools.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TraceSource.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Drawing.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Dynamic.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Calendars.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Compression.ZipFile.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.DriveInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Watcher.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.IsolatedStorage.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.MemoryMappedFiles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Pipes.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.UnmanagedMemoryStream.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Expressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Queryable.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Http.Rtc.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NameResolution.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NetworkInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Ping.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Requests.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Sockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebHeaderCollection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.Client.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ObjectModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.ILGeneration.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.Lightweight.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Reader.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.ResourceManager.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Writer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.CompilerServices.VisualC.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Handles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.RuntimeInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.WindowsRuntime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Numerics.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Formatters.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Json.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Xml.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Claims.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Algorithms.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Csp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.X509Certificates.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Principal.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.SecureString.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Duplex.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Http.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.NetTcp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.RegularExpressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Overlapped.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Thread.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.ThreadPool.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Timer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ValueTuple.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.ReaderWriter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlSerializer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.XDocument.dll" /debug+ /debug:portable /out:obj\Debug\EnemyBridgePathTest.dll /subsystemversion:6.00 /target:library /utf8output /langversion:latest src\EnemyBridgePathTestPlugin.cs src\AssemblyInfo.cs src\BridgeDiagnostics.cs src\BridgeDecisionTrace.cs src\BridgeRouteTrace.cs src\BridgeBuildingIndex.cs src\VirtualBridgeGraph.cs src\VirtualComponentControl.cs src\BridgeInputArtifact.cs src\BridgeVirtualShadow.cs src\BridgeNativeHooks.cs src\BridgeNativeDefinition.cs src\BridgeSnapshot.cs src\VirtualTopologyRebuild.cs src\VirtualPlanningCaller.cs src\BridgePlanningCapture.cs src\VirtualRaisedPlanning.cs src\VirtualPlanningBuildings.cs src\CopiedPlanningBundle.cs src\BridgePlanningImporter.cs src\CopiedPlanningRegions.cs src\CopiedPlanningReplay.cs src\VirtualBridgePlanning.cs src\NativePathfindingTableCopy.cs src\DrawbridgeClosurePolicy.cs src\GateEdgeOwnership.cs ..\..\Shared\Runtime\Gameplay\PathDecisionAggregate.cs ..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs ..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs src\CopiedCandidateInputs.cs ..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs src\VirtualCandidateBuilder.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Runtime\Gameplay\PathDecisionAggregate.cs(26,23): warning CS0649: Dem Feld "AiGateDecisionAggregate.TemporaryCountsOnly" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "false". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.csproj]
+  CompilerServer: server - server processed compilation - EnemyBridgePathTest
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\obj\Debug\EnemyBridgePathTest.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\BepInEx\plugins\EnemyBridgePathTest_Serp\EnemyBridgePathTest.dll" kopiert.
+  EnemyBridgePathTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\BepInEx\plugins\EnemyBridgePathTest_Serp\EnemyBridgePathTest.dll
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\obj\Debug\EnemyBridgePathTest.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\BepInEx\plugins\EnemyBridgePathTest_Serp\EnemyBridgePathTest.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+
+"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.csproj" (Standardziel) (1) ->
+(CoreCompile Ziel) -> 
+  D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Runtime\Gameplay\PathDecisionAggregate.cs(26,23): warning CS0649: Dem Feld "AiGateDecisionAggregate.TemporaryCountsOnly" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "false". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyBridgePathTest\EnemyBridgePathTest.csproj]
+
+    1 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.48
+[11.10.2026  2:16:13,63] Copy package files
+[11.10.2026  2:16:13,63] Copy package files
+Enemy Bridge Path Test policy tests passed, mod built and installed successfully.
+[11.10.2026  2:16:13,65] END: exit code 0

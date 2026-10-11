@@ -1,0 +1,302 @@
+[
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "BugfixesAndQoL.dll",
+    "Sha256": "8FE61265B9896E38664106225B5555F9196066348BF8F90B272EDC8975841A23"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "BugfixesAndQoL.pdb",
+    "Sha256": "6E0608B1BCF0F8D0F915D7D63526A4185F000565CB623F4954BC8897780D14B5"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "info.json",
+    "Sha256": "12EB4FEAAD329530D47EA8556F1D39AD697500E33FDA529D2B1DFA6EA2C8E914"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\ar.txt",
+    "Sha256": "DEC8ACEAF092C64366D373FBF939B2FB67B308B38CB145FC64F6D3FDA100D750"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\cs-CZ.txt",
+    "Sha256": "777B829061D3271BC96057685D488010F04E0A9ED59F0E9EB0193751227FAA83"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\de-DE.txt",
+    "Sha256": "A720BF28E2040C8F324C87715BBA7C41FD3E5639BC8DB114D73C5DEDAA0CF7FA"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\el-GR.txt",
+    "Sha256": "13DAF281B22CC4EE28C657673E171341CF56B4AACB439F821B55098F9227A284"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\en-US.txt",
+    "Sha256": "0C9E174DDDDB54D1BC350FA7D1D644915005FCE1AB8DB4BB0BA727F71620DB09"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\es-ES.txt",
+    "Sha256": "093979F6754C73FF3ACD99CCA9E6E1BFDF44A711B770B8E92BD7EF6C10CA6FE5"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\fr-FR.txt",
+    "Sha256": "A2F38B097E4429DD4F820F643986242CFF0CFEB405B6C53D3BAE854E1616A423"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\hu-HU.txt",
+    "Sha256": "866689D67B54E2CAC827A266BCC7D9CA06FF5C48D50D63D832F7644091028838"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\it-IT.txt",
+    "Sha256": "346A431CFBFF9807FF14326530380722674A7273A1D1E89930198BDFEE568D17"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\ja-JP.txt",
+    "Sha256": "0A252FAED3AF4FB23C18BF3F8A8B8C413D1B96ECD5F07A09174EE5D433D5F322"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\ko-KR.txt",
+    "Sha256": "BD5359CCA33C2AF6EF85DDF5BE42DA60D6261906C759C7D20861DCABC0B15D49"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\nl-NL.txt",
+    "Sha256": "B07773C8895A396E6F0577D4B6CE04A827264A126E70209C6B5945653F4C263B"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\pl-PL.txt",
+    "Sha256": "B5C3F19C99C2B1C1D1CC3B5EC21C3D48BF6EB31D0B1A41B2F2A824D7C1260ACB"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\pt-BR.txt",
+    "Sha256": "BC60FCC42C5C209DFB55231B292A5EC3ED65ED82587F345D47DDE8B83D9F7982"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\ru-RU.txt",
+    "Sha256": "6DD0F1C2C04A7F44D7E23B95860080DAB3D0B46C1C179CAA3BE92EB36999364D"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\sv-SE.txt",
+    "Sha256": "76A66BAC8F20C3E024E7AED83F3A2FDD737B5135898E9929DAF0E2E88F696515"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\th-TH.txt",
+    "Sha256": "EABDF4B02A15E0D52D3162D8E1EF1BAE74102F55CAC99AF942625768536C37BB"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\tr-TR.txt",
+    "Sha256": "C337AD4B1E38F61AED62F4E98C8BC80209050AC4B94B7D27FF5CEB4B1B77B525"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\uk-UA.txt",
+    "Sha256": "A44DF08721DC1A370D6DFC6883A5305AE333ADF1042D756091D73D107F0601CA"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\zh-CN.txt",
+    "Sha256": "2C7693A9C2229E5C69FEBD4B7A1E8E5EB8A37A0AFD274716579F74CEB48D24DB"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Locales\\zh-HK.txt",
+    "Sha256": "FD39C559694842847B98E2B6073B7DE181070E10C752226220F3A966FE63E589"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Override\\Assets\\GUI\\Sprites\\BugfixesAndQoL-LobbyGoldShields.png",
+    "Sha256": "368E9D7D268DA7D2EE8340FAEC4FC51D7D2E146164025000FA039C6ABC233269"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Override\\Assets\\GUI\\Sprites\\BugfixesAndQoL-Lord.png",
+    "Sha256": "AE353606A5F6C0F21BAD85F02BB2B2D2793ACB969572B755C11BF861484FF80E"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Override\\ScriptExtenderUI\\BugfixesAndQoLSettings.xaml",
+    "Sha256": "FF444D966D32B4AB4C5B0EA910390CDFDE5D366EF8AECC8469EEF7209F0C718E"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\Sprites\\UI-MasterAtlas.xaml",
+    "Sha256": "726B2BA1F5147863069B99D5FB5170D3955DE6376D02F31406C9BE72418A4ED2"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAML\\IngameUIScreens.xaml",
+    "Sha256": "960EF622AC6C2E4FD06749C4C1230988A05F4E583526A644C1B3AB5F25A0AE28"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAML\\MainHUD.xaml",
+    "Sha256": "6A1868C36D2CB08D543714CAFD764D9A3062574E06FFE92B0CA92FF5D3032A17"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail1.xaml",
+    "Sha256": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail2.xaml",
+    "Sha256": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail3.xaml",
+    "Sha256": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail4.xaml",
+    "Sha256": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_ManageTrail.xaml",
+    "Sha256": "8D0ED99E6BEA2A6A842844342566122F5EEB48404496B01AE57AAA99A97D5142"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_AISettings.xaml",
+    "Sha256": "72BF69FB16E1EAEA8D41BF29364DB3B584BC7B553FBFCCD1230F150BDC3C3D33"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_Setup.xaml",
+    "Sha256": "22D90C80882E85EFA02A1048C2C6BA0B818A060076820552BFA3C3A2330C70BE"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer.xaml",
+    "Sha256": "AFFCD1B46DAA8DE7F53EF63FF8D06CF4A3A9AC7306AEF03A34FE9CD7F662A09A"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_AlliesPanel.xaml",
+    "Sha256": "258CB8083F3704EE4B732091F3A2070F115A3E41924E4C43F531DD571B8AF63F"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_Briefing.xaml",
+    "Sha256": "4780F1F4BDAB83DE8778014EF60100F100CFDBD101D4BACB7599892C924EC99D"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_Buildings.xaml",
+    "Sha256": "092691D1B3018980367995C75E602811FF5BBF7C681FD7B39D05ECEB51CDC1D5"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_ControlGroups.xaml",
+    "Sha256": "D7E7CD36CD6E9B103B8259BFCFF5DF5E6A546FFF46819B75A96780EE96A71DA4"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_IngameMenu.xaml",
+    "Sha256": "697ECDE589F03298EA6248AFE51861F8B9814811F97ED12E257369BF95E0172B"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_LoadSaveRequester.xaml",
+    "Sha256": "1A64EC7094D52C7A4E17D758E61A13961EF6C2CD380FF39BC976B80B3F532151"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_MissionOver.xaml",
+    "Sha256": "182C89DFCC7BA6E355334BB3D45F1A367FF6ACB328AEDEEF6889724449DA540D"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_MPResync.xaml",
+    "Sha256": "D03EC5E41609210901F3C804D876077F96E716C6455FF7BD175E340B0976B432"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_Objectives.xaml",
+    "Sha256": "6A2389E622C6C9F89C049876B64A5B32D4A2A147282A7F1BF43E7208E662F690"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_Troops.xaml",
+    "Sha256": "A2942955FAABF447B64F2AA79D24B97300185EB6BCEF18544DD2CEE8071B7C36"
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\OST_StartingGoods.xaml",
+    "Sha256": "7D96DE46CCAA4978A9A77C0B9DA08881A2BC74AA8BAE3FF9540560148A23EC4F"
+  },
+  {
+    "Mod": "EnemyGatePathfindingTest_Serp",
+    "File": "EnemyGatePathfindingTest.dll",
+    "Sha256": "CDF143628A132A947F3B673FEBB65E12D851F94769B84A1982C74543163E0FCA"
+  },
+  {
+    "Mod": "EnemyGatePathfindingTest_Serp",
+    "File": "EnemyGatePathfindingTest.pdb",
+    "Sha256": "90525AAE85847C1157D6101F68A8699AC0A67DD3A47A20F81CC1905D0B2B78B7"
+  },
+  {
+    "Mod": "EnemyGatePathfindingTest_Serp",
+    "File": "info.json",
+    "Sha256": "4CB0076F1D826E74DF9D8E67D69B8C52A795438E8476A532F6144F81AF74074D"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "APIShared.dll",
+    "Sha256": "B6DFC7DB299CF6D0556EEA389D3E922DFE8FC6C0711E224B5ECD93E9E794FC5A"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "APIShared.pdb",
+    "Sha256": "A5BFBAB6EB636E4D8C1A4E65D802C0C541BA403280E247865BAEC3AFF913DBC2"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "APIShared.xml",
+    "Sha256": "2B52E0EDFB1C14CEED073E70C98B26B2FE6BA3753DB443F9F9AB670266DF6E15"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "info.json",
+    "Sha256": "0D0ACCCFFEC53D8CD9FF424D1827695CAE7B9FBE550B580EAB2BED86A0AB90FF"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "Patches\\Assets\\GUI\\XAML\\IngameUIScreens.xaml",
+    "Sha256": "DCAFF77E7EA569288A1D727DE0430A7075D1F30CD89E63D7A4A52D99868D24EA"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "Patches\\Assets\\GUI\\XAML\\MainHUD.xaml",
+    "Sha256": "D26DD45C7AEFE73E38C5273A35EC5A95DCD24E682229638A6E4B8B831051E283"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_Buildings.xaml",
+    "Sha256": "C8AF066C4C11B65D3008B79DAF31A6DB653475088E1AE254AE8531B3C76B88A0"
+  },
+  {
+    "Mod": "APIShared_Serp",
+    "File": "Patches\\Assets\\GUI\\XAMLResources\\HUD_Troops.xaml",
+    "Sha256": "9003F13B8B672FF651364B7CA356B8F5F0A2AAF8FD0DD0E59CB06837B43DD197"
+  }
+]

@@ -30,7 +30,7 @@ namespace SHCDESE.EventAPI.Units {
         public int UnitId,TileX,TileY,Unknown;
     }
 }
-namespace SHCDESE.Interop {public struct GameUnit {public ushort r_TargetTilePositionX,r_TargetTilePositionY;}}
+namespace SHCDESE.Interop {public struct GameUnit {public ushort r_TargetTilePositionX,r_TargetTilePositionY;public int r_TribeId;}}
 namespace APIShared {
     public unsafe static class UnitAccess {
         internal static SHCDESE.Interop.GameUnit* Unit;
@@ -59,6 +59,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private class ActiveFormationCommand {
             internal Pending Pending=new Pending();internal int TargetX=562,TargetY=360,TribeId=415;
             internal string AssignmentPath="common";internal int AssignedCount,TerminalAttemptCount,ExpectedCount;
+            internal int ObservedTerminalCount,SkippedTerminalCount;
             internal UnitFallbackRequest[] Requests;internal UnitFallbackRequest[] GetFallbackRequests()=>Requests;
         }
         __FALLBACK__
@@ -66,7 +67,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private static FallbackFixture Scenario(int[] returns,int formationSucceeded=0,bool feedback=true,
             bool throws=false,bool targetMatches=true,bool identity=true,bool available=true) {
             var f=new FallbackFixture {IdentityMatches=identity};
-            var unit=new GameUnit();APIShared.UnitAccess.Unit=&unit;APIShared.UnitAccess.Available=available;
+            var unit=new GameUnit {r_TribeId=415};APIShared.UnitAccess.Unit=&unit;APIShared.UnitAccess.Available=available;
             int calls=0;
             GameUnitManagerAPI.Instance.Move=(id,x,y,u)=>{
                 calls++;

@@ -140,9 +140,15 @@ namespace EnemyGatePathfindingTest
         private long peakBlockedPairs;
         private int drawbridgeObserved;
 
-        internal GateTopologySnapshotProvider(ManualLogSource log)
+        private readonly bool detailedDiagnostics;
+        private readonly DeferredGateDiagnosticErrors deferredErrors;
+        internal int DiagnosticEpoch => Volatile.Read(ref epochNumber);
+
+        internal GateTopologySnapshotProvider(ManualLogSource log, bool detailedDiagnostics = true, DeferredGateDiagnosticErrors deferredErrors = null)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.detailedDiagnostics = detailedDiagnostics;
+            this.deferredErrors = deferredErrors;
         }
 
         internal void SetRoutePolicyConsumer(Action<RouteTilePolicySnapshot> consumer)
@@ -243,7 +249,7 @@ namespace EnemyGatePathfindingTest
                 return;
             captureRefresh.Reset();
             captureEvents.Reset();
-            Shared.DebugLogHelper.LogInfo(log,
+            if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {epochNumber} ended ({reason ?? "unspecified"}): " +
                 $"accessScans={Read(ref accessScans)}, accessChanges={Read(ref accessChanges)}, " +
                 $"builds={Read(ref topologyBuilds)}, changes={Read(ref topologyChanges)}, " +
@@ -364,7 +370,7 @@ namespace EnemyGatePathfindingTest
                     Volatile.Write(ref nextAccessAt, 0);
                     Volatile.Write(ref nextSnapshotAt, 0);
                     if (capturePost)
-                        Shared.DebugLogHelper.LogInfo(log,
+                        if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                             "Gate capture Post refresh deferred, epoch=" + Volatile.Read(ref epochNumber));
                 }
                 long now = Stopwatch.GetTimestamp();
@@ -480,7 +486,7 @@ namespace EnemyGatePathfindingTest
             Volatile.Write(ref accessPolicyWasCleared, 0);
             Volatile.Write(ref routePolicyWasCleared, 0);
             Volatile.Write(ref accessRefreshRequired, 1);
-            Shared.DebugLogHelper.LogInfo(log,
+            if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {currentEpoch} started ({pendingEpochReason}). " +
                 "Access and topology safety scans run at most once per second or immediately " +
                 "after a detected tracked-state change; " +
@@ -518,7 +524,7 @@ namespace EnemyGatePathfindingTest
                 Volatile.Write(ref accessPolicyWasCleared, 0);
                 Interlocked.Increment(ref accessChanges);
                 Volatile.Write(ref nextSnapshotAt, 0);
-                Shared.DebugLogHelper.LogInfo(log,
+                if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                     $"Gate access policy changed: fingerprint=0x{rebuilt.TopologyFingerprint:X16}, " +
                     $"tracked={rebuilt.TrackedRecords}, captured={rebuilt.CapturedRecords}, " +
                     $"uncaptured={rebuilt.UncapturedRecords}, blockedPairs={rebuilt.BlockedPlayerGatePairs}, " +
@@ -579,7 +585,7 @@ namespace EnemyGatePathfindingTest
                     Volatile.Write(ref routePolicyWasCleared, 1);
                     routePolicyConsumer?.Invoke(RouteTilePolicySnapshot.Empty);
                 }
-                TopologySnapshot rebuilt = BuildTopologySnapshot(firstBuild, previous);
+                TopologySnapshot rebuilt = BuildTopologySnapshot(detailedDiagnostics && firstBuild, previous);
                 snapshot = rebuilt;
                 lastStableTopologySnapshot = rebuilt;
                 lastTopologySignature = signature;
@@ -593,7 +599,7 @@ namespace EnemyGatePathfindingTest
                 {
                     lastTopologyFingerprint = rebuilt.Fingerprint;
                     Interlocked.Increment(ref topologyChanges);
-                    Shared.DebugLogHelper.LogInfo(log,
+                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                         $"Gate/drawbridge topology changed: epoch={epochNumber}, " +
                         $"combinations={rebuilt.Combinations.Length}, " +
                         $"fingerprint=0x{rebuilt.Fingerprint:X16}, " +
@@ -601,11 +607,11 @@ namespace EnemyGatePathfindingTest
                         $"maskedDirectedEdges={rebuilt.RoutePolicy.MaskedDirectedEdges}, " +
                         $"entities=[{FormatTopologyChanges(previous, rebuilt, 24)}], " +
                         $"{rebuilt.Rejections.Format()}.");
-                    Shared.DebugLogHelper.LogInfo(log,
+                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                         $"Gate passage axes: {rebuilt.RoutePolicy.DirectionMaskDiagnostics}.");
                 }
                 if (firstBuild && !string.IsNullOrEmpty(rebuilt.Detail))
-                    Shared.DebugLogHelper.LogInfo(log,
+                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                         $"Initial gate/drawbridge topology detail: {rebuilt.Detail}");
             }
             catch (Exception ex)
@@ -1078,13 +1084,15 @@ namespace EnemyGatePathfindingTest
             return signature;
         }
 
-        private static RouteTilePolicySnapshot BuildRoutePolicySnapshot(
+        private RouteTilePolicySnapshot BuildRoutePolicySnapshot(
             GameTileManagerAPI tiles,
             ulong fingerprint,
             GateBridgeInfo[] combinations)
         {
             byte[][] directionMasks = new byte[9][];
             var edgeOwners = new GateEdgeOwnership[9];
+            // TEMP_GATE_ROUTE_ACCEPTANCE: geometry before player permissions, detail mode only.
+            var diagnosticGateEdges = detailedDiagnostics ? new GateEdgeOwnership() : null;
             var gatesById = new Dictionary<int, GateBridgeInfo>();
             var bridgesByGateId = new Dictionary<int, GateBridgeInfo>();
             for (int index = 0; index < combinations.Length; index++)
@@ -1099,7 +1107,7 @@ namespace EnemyGatePathfindingTest
             var gateIdentities = new Dictionary<int, RouteTilePolicySnapshot.GateIdentity>();
             foreach (var pair in gatesById)
                 gateIdentities.Add(pair.Key, new RouteTilePolicySnapshot.GateIdentity(pair.Value.GateGlobal, pair.Value.Owner, pair.Value.CapturedBy));
-            var axisDiagnostics = new StringBuilder();
+            var axisDiagnostics = detailedDiagnostics ? new StringBuilder() : null;
             int maskedDirectedEdges = 0;
             int ambiguousPassages = 0;
             for (int infoIndex = 0; infoIndex < combinations.Length; infoIndex++)
@@ -1114,6 +1122,9 @@ namespace EnemyGatePathfindingTest
                 if (TryResolvePassageAxis(info, gateInfo, linkedBridge,
                         out bool horizontalPassage, out PassageAxisSource axisSource))
                 {
+                    if (diagnosticGateEdges != null)
+                        ClearGatehouseOuterDirections(tiles, info, horizontalPassage, null, diagnosticGateEdges, info.GateId,
+                            out _, out _, out _, out _, out _, out _);
                     int entityEdges = 0;
                     int firstFrom = -1, firstTo = -1, firstDirection = -1;
                     int secondFrom = -1, secondTo = -1, secondDirection = -1;
@@ -1181,7 +1192,7 @@ namespace EnemyGatePathfindingTest
             }
             return new RouteTilePolicySnapshot(
                 directionMasks, fingerprint, maskedDirectedEdges, ambiguousPassages,
-                axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString(), edgeOwners, gateIdentities);
+                axisDiagnostics == null || axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString(), edgeOwners, gateIdentities, diagnosticGateEdges);
         }
 
         private static bool TryResolvePassageAxis(
@@ -1245,6 +1256,7 @@ namespace EnemyGatePathfindingTest
             int secondDirection,
             string barrier)
         {
+            if (text == null) return;
             if (text.Length > 0) text.Append(';');
             text.Append(info.BridgeId > 0 ? "bridge#" : "gate#")
                 .Append(info.BridgeId > 0 ? info.BridgeId : info.GateId)
@@ -1317,8 +1329,20 @@ namespace EnemyGatePathfindingTest
         {
             int from = tiles.GetTileId(fromX, fromY);
             int to = tiles.GetTileId(toX, toY);
-            if (from < 0 || to < 0 || from >= masks.Length || to >= masks.Length)
+            int capacity = masks == null ? EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive : masks.Length;
+            if (from < 0 || to < 0 || from >= capacity || to >= capacity)
                 return 0;
+            // TEMP_GATE_ROUTE_ACCEPTANCE: record the identical six boundary directions without a mask.
+            if (masks == null)
+            {
+                ownership.Record(from, direction, gateId);
+                ownership.Record(to, (direction + 4) & 7, gateId);
+                ownership.Record(from, (direction + 7) & 7, gateId);
+                ownership.Record(from, (direction + 1) & 7, gateId);
+                ownership.Record(to, (direction + 3) & 7, gateId);
+                ownership.Record(to, (direction + 5) & 7, gateId);
+                return 0;
+            }
             byte beforeFrom = masks[from];
             byte beforeTo = masks[to];
             masks[from] = unchecked((byte)(masks[from] & ~(1 << direction)));
@@ -1624,7 +1648,8 @@ namespace EnemyGatePathfindingTest
         private void LogBoundedError(ref int counter, string category, Exception ex)
         {
             int count = Interlocked.Increment(ref counter);
-            if (count <= MaximumErrorsPerCategory)
+            if (deferredErrors != null) deferredErrors.Record(category + " / " + ex.GetType().Name, ex.Message);
+            else if (count <= MaximumErrorsPerCategory)
                 Shared.DebugLogHelper.LogWarning(log,
                     $"{category} ({count}/{MaximumErrorsPerCategory}): {ex.GetType().Name}: {ex.Message}");
         }

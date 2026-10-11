@@ -156,6 +156,9 @@ namespace BugfixesAndQoL.UnitCommands
                 $"tribe={completed.TribeId}, path={completed.AssignmentPath}, " +
                 $"selectorAssigned={completed.AssignedCount}, " +
                 $"terminalAttempts={completed.TerminalAttemptCount}, " +
+                $"terminalObserved={completed.ObservedTerminalCount}, " +
+                $"vanillaSkipped={completed.SkippedTerminalCount}, " +
+                $"terminalUnobserved={completed.TerminalAttemptCount - completed.ObservedTerminalCount}, " +
                 $"formationSucceeded={successfulFormationTargets}, " +
                 $"fallbackSucceeded={fallbackSummary.Succeeded}, " +
                 $"fallbackFailed={fallbackSummary.Failed}, " +
@@ -180,7 +183,8 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 UnitFallbackRequest request = requests[index];
                 if (!TryGetMatchingUnit(
-                        request.UnitId, request.GlobalId, out _))
+                        request.UnitId, request.GlobalId, out GameUnit* fallbackUnit) ||
+                    fallbackUnit->r_TribeId != command.TribeId)
                 {
                     failedCount++;
                     technicalErrors++;
@@ -292,6 +296,8 @@ namespace BugfixesAndQoL.UnitCommands
             private readonly Dictionary<int, int> terminalUnknownByUnitId =
                 new Dictionary<int, int>();
             private readonly HashSet<int> successfulTerminalUnitIds = new HashSet<int>();
+            private readonly Dictionary<int, long> terminalReturnsByUnitId = new Dictionary<int, long>();
+            private readonly HashSet<int> blockedFallbackUnitIds = new HashSet<int>();
             private int standardAssignments;
             private int assassinAssignments;
 
@@ -339,6 +345,8 @@ namespace BugfixesAndQoL.UnitCommands
             internal int Cursor { get; set; }
             internal bool CommonPathEntered { get; set; }
             internal int TerminalAttemptCount => terminalUnknownByUnitId.Count;
+            internal int ObservedTerminalCount => terminalReturnsByUnitId.Count;
+            internal int SkippedTerminalCount => ExpectedCount - TerminalAttemptCount;
             internal int SuccessfulTerminalCount => successfulTerminalUnitIds.Count;
             internal int AssignedCount =>
                 Math.Min(
@@ -389,9 +397,19 @@ namespace BugfixesAndQoL.UnitCommands
                     standardAssignments++;
             }
 
-            internal void RecordTerminalResult(int unitId, bool accepted, int unknown)
+            internal void RecordTerminalAttempt(int unitId, int unknown)
             {
                 terminalUnknownByUnitId[unitId] = unknown;
+            }
+
+            internal void RecordTerminalResult(int unitId, bool accepted, int unknown,
+                bool originalObserved, long returnValue)
+            {
+                RecordTerminalAttempt(unitId, unknown);
+                if (originalObserved)
+                    terminalReturnsByUnitId[unitId] = returnValue;
+                else
+                    blockedFallbackUnitIds.Add(unitId);
                 if (accepted)
                     successfulTerminalUnitIds.Add(unitId);
             }
@@ -401,7 +419,12 @@ namespace BugfixesAndQoL.UnitCommands
                 var result = new List<UnitFallbackRequest>();
                 foreach (KeyValuePair<int, NativeDestination> pair in destinationsByUnitId)
                 {
+                    // Native group dispatch owns movement permission. Missing calls,
+                    // vetoes and missing Post events never authorize a direct move.
                     if (successfulTerminalUnitIds.Contains(pair.Key) ||
+                        blockedFallbackUnitIds.Contains(pair.Key) ||
+                        !terminalReturnsByUnitId.TryGetValue(pair.Key, out long returnValue) ||
+                        returnValue != 0 ||
                         !globalIdsByUnitId.TryGetValue(pair.Key, out uint globalId))
                         continue;
                     terminalUnknownByUnitId.TryGetValue(pair.Key, out int unknown);

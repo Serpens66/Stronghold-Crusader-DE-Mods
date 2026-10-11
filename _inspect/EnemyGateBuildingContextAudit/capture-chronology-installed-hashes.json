@@ -1,0 +1,26 @@
+[
+  {
+    "mod": "EnemyGatePathfindingTest",
+    "version": "0.1.6",
+    "sha256": "85398487A8E366D9CA8D9893F9212FDEBDDA24BB485A100142ADC0F704341AE6",
+    "installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\EnemyGatePathfindingTest_Serp\\EnemyGatePathfindingTest.dll",
+    "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\EnemyGatePathfindingTest\\BepInEx\\plugins\\EnemyGatePathfindingTest_Serp\\EnemyGatePathfindingTest.dll",
+    "rebuilt": true
+  },
+  {
+    "mod": "BugfixesAndQoL",
+    "version": "1.0.184",
+    "sha256": "D67602F1347E95BAC52497F333E4593A76265C7065E2E7E2BF53A84715CD0F8D",
+    "installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+    "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BugfixesAndQoL\\BepInEx\\plugins\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+    "rebuilt": true
+  },
+  {
+    "mod": "APIShared",
+    "version": "0.7.0",
+    "sha256": "B6DFC7DB299CF6D0556EEA389D3E922DFE8FC6C0711E224B5ECD93E9E794FC5A",
+    "installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+    "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\APIShared\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+    "rebuilt": false
+  }
+]

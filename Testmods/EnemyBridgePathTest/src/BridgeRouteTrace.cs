@@ -111,6 +111,12 @@ namespace EnemyBridgePathTest
             if(replacementCount==0)return;
             emit("route-replacement-batch","columns=unit/global/oldCommand/newCommand/observationClock,rows=["+replacementRows+"],samePlanMustBeObserved=True,envelopeTiming=batch-flush");replacementRows.Clear();replacementCount=0;
         }
+        private readonly StringBuilder relevantPathRows=new StringBuilder();private int relevantPathCount;
+        private void FlushRelevantPaths()
+        {
+            if(relevantPathCount==0)return;
+            emit("stored-route-definition-batch","schema=1,columns=definition/clock/originX/originY/length/cursor/flags/substep/decodedX/decodedY/segmentX/segmentY/bridges/packedHex,fieldSeparator=colon,rowSeparator=pipe,rows=["+relevantPathRows+"],complete=True,format=2,envelopeTiming=batch-flush,physicalAtCapture=not-recorded,threadAtCapture=not-recorded;binding-and-synchronous-observation-retain-context");relevantPathRows.Clear();relevantPathCount=0;
+        }
         private void FlushBackgroundPaths()
         {
             if(backgroundPathCount==0)return;
@@ -128,7 +134,7 @@ namespace EnemyBridgePathTest
         {if(repeatCount==0)return;emit("route-repeat-batch","columns=binding/pathDefinition/count/firstClock/lastClock/firstCursor/lastCursor,rows=["+repeatRows+"],coverage=aggregate-not-movement-proof");repeatRows.Clear();repeatCount=0;}
         internal void Flush()
         {
-            lock(gate) {foreach(var track in tracks.Values)FlushRepeats(track);FlushRepeatRows();FlushReplacements();FlushBackgroundPaths();
+            lock(gate) {foreach(var track in tracks.Values)FlushRepeats(track);FlushRepeatRows();FlushReplacements();FlushBackgroundPaths();FlushRelevantPaths();
                 var counts=new StringBuilder();for(int player=0;player<9;player++)if(backgroundRepeats[player]!=0) {counts.Append(player).Append('/').Append(backgroundRepeats[player]).Append(';');backgroundRepeats[player]=0;}
                 if(counts.Length!=0)emit("route-background-repeat-batch","columns=player/count,rows=["+counts+"],coverage=complete-decoded-no-deck-observation-attempts-not-movement");
                 FlushBindings();if(observationCount==0)return;
@@ -311,7 +317,12 @@ namespace EnemyBridgePathTest
             if(complete&&!t.Relevant)
             {
                 backgroundPathRows.Append(t.Definition).Append('/').Append(now).Append('/').Append(h.OriginX).Append('/').Append(h.OriginY).Append('/').Append(h.Length).Append('/').Append(h.Cursor).Append('/').Append(h.Flags).Append('/').Append(h.Substep).Append('/').Append(decodedX).Append('/').Append(decodedY).Append('/').Append(h.SegmentX).Append('/').Append(h.SegmentY).Append(';');
-                if(++backgroundPathCount==32)FlushBackgroundPaths();
+                if(++backgroundPathCount==32)FlushBackgroundPaths();FlushRelevantPaths();
+            }
+            else if(complete)
+            {
+                relevantPathRows.Append(t.Definition).Append(':').Append(now).Append(':').Append(h.OriginX).Append(':').Append(h.OriginY).Append(':').Append(h.Length).Append(':').Append(h.Cursor).Append(':').Append(h.Flags).Append(':').Append(h.Substep).Append(':').Append(decodedX).Append(':').Append(decodedY).Append(':').Append(h.SegmentX).Append(':').Append(h.SegmentY).Append(':').Append(intersections).Append(':').Append(directions).Append('|');
+                if(++relevantPathCount==32)FlushRelevantPaths();
             }
             else emit("stored-route","format=2,definition="+t.Definition+",captureClock="+now+",origin="+h.OriginX+"/"+h.OriginY+",length="+h.Length+",cursor="+h.Cursor+",flags="+h.Flags+",substep="+h.Substep+",complete="+complete+",decodedEndpoint="+decodedX+"/"+decodedY+",nativeSegmentTarget="+h.SegmentX+"/"+h.SegmentY+",endpointMatchesTarget="+endpointMatch+",bridges=["+intersections+"],packedHex="+directions );
             Observation(t,h,now,true,bridges);

@@ -81,6 +81,21 @@ namespace EnemyBridgePathTest
                         if(stage=="seed-pre"||stage=="seed-post"||stage=="distance-pre"||stage=="distance-post")if(CopiedPlanningBundle.Resolve(b,stage+"/arguments4").Length!=16)throw new InvalidDataException("arguments-extent");
                         if(stage=="distance-pre"||stage=="distance-post")if(BitConverter.ToInt32(CopiedPlanningBundle.Resolve(b,stage+"/selectedBank"),0)!=b.Bank)throw new InvalidDataException("actual-distance-bank");
                     }
+                    bool Has(string name)=>b.Sections.ContainsKey(name)||b.References.ContainsKey(name);
+                    if(Has("callerHeight")||Has("callerBaseHeight"))
+                        foreach(string name in new[]{"callerHeight","callerBaseHeight"})if(CopiedPlanningBundle.Resolve(b,name).Length!=320800)throw new InvalidDataException("caller-height-extent");
+                    string[] entryNames={"entryIdentity4","entryLeaderIds9","entryLeaderGlobals9","entryUpdateClasses11","entryMoveClasses11","entryConfig5"};
+                    int[] entrySizes={32,18,36,88,88,20};bool entryPresent=false;
+                    foreach(string name in entryNames)if(Has("military/"+name))entryPresent=true;
+                    // Legacy artifacts are still readable, but new partial entry
+                    // groups are never promoted to a complete own observation.
+                    if(entryPresent)
+                    {
+                        for(int n=0;n<entryNames.Length;n++)if(CopiedPlanningBundle.Resolve(b,"military/"+entryNames[n]).Length!=entrySizes[n])throw new InvalidDataException("military-entry-extent:"+entryNames[n]);
+                        byte[] own=CopiedPlanningBundle.Resolve(b,"military/entryIdentity4"),player=CopiedPlanningBundle.Resolve(b,"military/entryPlayer"),config=CopiedPlanningBundle.Resolve(b,"military/entryConfig5");
+                        if(player.Length!=0x583c||b.Root<=0||BitConverter.ToInt64(own,0)!=b.Session||BitConverter.ToInt64(own,8)!=b.Root||BitConverter.ToInt64(own,16)<=0||BitConverter.ToInt64(own,16)>b.Clock||BitConverter.ToInt64(own,24)!=b.Thread)throw new InvalidDataException("military-entry-binding");
+                        if(BitConverter.ToInt32(config,0)!=BitConverter.ToInt32(player,0x379D0D0-0x379AE00))throw new InvalidDataException("military-entry-config-lord");
+                    }
                     string[] common={"flags","components","edges","directionOffsets","rowRecords","tileRows","buildingIds","coarseRecords","profiles90","permissions540","componentCounts1000","playerScalars7","buildingCount"};int[] sizes={1283200,641600,320800,25600,9600,641600,641600,1228800,360,2160,4000,252,4};
                     for(int i=0;i<common.Length;i++)if(CopiedPlanningBundle.Resolve(b,common[i]).Length!=sizes[i])throw new InvalidDataException("common-extent:"+common[i]);
                     int buildings=BitConverter.ToInt32(CopiedPlanningBundle.Resolve(b,"buildingCount"),0);if(buildings<1||buildings>4001||CopiedPlanningBundle.Resolve(b,"buildingRecords").Length!=(buildings-1)*0x32c)throw new InvalidDataException("building-extent");

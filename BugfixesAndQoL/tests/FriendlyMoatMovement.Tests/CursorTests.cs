@@ -44,7 +44,7 @@ namespace BugfixesAndQoL
                 var input=Decoder.Create(64,new ByteArrayCodeReader(source)); input.IP=library+(uint)sites[site];
                 var instructions=new List<Instruction>();
                 while(input.IP<library+(uint)sites[site]+(uint)source.Length) { input.Decode(out var i); instructions.Add(i); }
-                var adapter=new Assembler(64); EmitSelectionCallAdapter(adapter,instructions.ToArray(),0x123456789ABCDEF0);
+                var adapter=new Assembler(64); EmitSelectionCallAdapter(adapter,instructions.ToArray(),0x123456789ABCDEF0,sites[site]);
                 using var buffer=new MemoryStream(); adapter.Assemble(new StreamCodeWriter(buffer),stub);
                 var emittedBytes=buffer.ToArray();
                 File.WriteAllBytes(Path.Combine(root,"_inspect","BugfixesAndQoLNativeTests",$"selection-{sites[site]:X}.bin"),emittedBytes);
@@ -145,7 +145,7 @@ namespace BugfixesAndQoL
             {
                 pendingAttackCursorPair=null;
                 long gate=ObserveCursorTilePairFallbackSelection(
-                    (IntPtr)nativeUnitManager,upstreamSelectionResult);
+                    (IntPtr)nativeUnitManager,upstreamSelectionResult,0x8F325,1);
                 return gate==0?0:AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,pairTarget,1010,1);
             }
             try
@@ -235,7 +235,7 @@ namespace BugfixesAndQoL
                 movementTargetAvailability[10*800+17]=0;
                 Check(Hover()==1,"unit attack uses physical target region despite sprite offset and occupied target");
                 ObserveCursorTilePairFallbackSelection(
-                    (IntPtr)nativeUnitManager,upstreamSelectionResult);
+                    (IntPtr)nativeUnitManager,upstreamSelectionResult,0x8F325,1);
                 var bound=pendingAttackCursorPair;
                 units[1001].r_GlobalId++;
                 Check(!TryProbeUnitApproachCursorRoute(bound,out _,out _,out _),"reused attack target ID rejected");
@@ -256,7 +256,7 @@ namespace BugfixesAndQoL
                 {
                     upstreamSelectionResult=result;
                     Check(ObserveCursorTilePairFallbackSelection(
-                            (IntPtr)nativeUnitManager,upstreamSelectionResult)==result &&
+                            (IntPtr)nativeUnitManager,upstreamSelectionResult,0x8F325,1)==result &&
                             pendingAttackCursorPair==null,
                         "nonzero Script Extender results remain authoritative and full-width");
                 }

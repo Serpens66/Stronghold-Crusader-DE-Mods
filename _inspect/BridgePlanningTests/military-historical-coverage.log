@@ -1,0 +1,9 @@
+PASS own military entry strength; attacker=8,result=0,phase=4,hash=265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6
+Unknown:missing-own-input=military/entryLeaderIds9,rva=3A0F9F0,bytes=18
+Unknown:missing-own-input=military/entryLeaderGlobals9,rva=3A0FA04,bytes=36
+Unknown:missing-own-input=military/entryUpdateClasses11,rva=2C8040,bytes=88
+Unknown:missing-own-input=military/entryMoveClasses11,rva=2C80E0,bytes=88
+Unknown:missing-own-input=callerHeight,rva=4DDD350,bytes=320800
+Unknown:missing-own-input=callerBaseHeight,rva=4E2B870,bytes=320800
+militaryEntryComplete=False,formationComplete=False,missingRequiredInputs=6,consumerCopiesAreNotEntryCopies=True,negativePolicyEligible=False,behaviorFix=disabled
+scope=necessary-input-coverage-only; AI configuration and side-effect call closure still required; no later snapshot or PE default substituted

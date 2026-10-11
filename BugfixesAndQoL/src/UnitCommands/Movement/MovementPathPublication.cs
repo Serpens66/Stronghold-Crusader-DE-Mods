@@ -25,7 +25,7 @@ namespace BugfixesAndQoL.UnitCommands
                 movementClass, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("builder", movementClass);
             // TEMP_GATE_ROUTE_ACCEPTANCE
-            object temporaryRoute = BeginTemporaryRouteReport(pathManager, "F4930-builder");
+            object temporaryRoute = BeginTemporaryRouteReport(pathManager, "F4930-builder", movementClass, movementProfile);
             int result = 0;
             bool completed = false;
             AssassinRouteHandoff assassinRoute;
@@ -39,6 +39,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 result = BuildPathWithCompletedMoatRouteVariantWithMoat(
                     pathManager, movementClass, movementProfile);
+                ObserveTemporaryNativeBuilderOutput(temporaryRoute, result);
                 try { result = assassinRoute.Complete(result); }
                 catch (Exception ex) { TryLogDiagnosticFailure("assassin-route-publication", ex); }
                 completed = true;
@@ -77,20 +78,30 @@ namespace BugfixesAndQoL.UnitCommands
             IntPtr expectedPath = (IntPtr)path;
             Func<bool> valid = () =>
             {
-                if (pathManager != nativePathManager || nativeUnitManager == null ||
-                    !UnitAccess.TryGetById(unitId, out GameUnit* live, out _) ||
-                    !UnitAccess.IsReallyAlive(live) || live->r_GlobalId != global ||
-                    live->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
-                    (live->r_ControllableForPlayerId) != controlPlayer ||
-                    live->r_CurrentSpeed != speedDelay) return false;
+                if (pathManager != nativePathManager) return TemporaryAssassinPublicationRejected("path-manager");
+                if (nativeUnitManager == null) return TemporaryAssassinPublicationRejected("unit-manager");
+                if (!UnitAccess.TryGetById(unitId, out GameUnit* live, out _)) return TemporaryAssassinPublicationRejected("unit-lookup");
+                if (!UnitAccess.IsReallyAlive(live)) return TemporaryAssassinPublicationRejected("unit-not-alive");
+                if (live->r_GlobalId != global) return TemporaryAssassinPublicationRejected("unit-global");
+                if (live->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN) return TemporaryAssassinPublicationRejected("unit-type");
+                if (live->r_ControllableForPlayerId != controlPlayer) return TemporaryAssassinPublicationRejected("unit-control");
+                if (live->r_CurrentSpeed != speedDelay) return TemporaryAssassinPublicationRejected("unit-speed");
                 GetNativeMovementStart(live, out int x, out int y);
                 byte* m = (byte*)pathManager.ToPointer();
                 int length = *(int*)(m + PathManagerOutputLengthOffset);
-                return x == sx && y == sy && *(int*)(m + 8) == sx && *(int*)(m + 12) == sy &&
-                    *(int*)(m + 16) == tx && *(int*)(m + 20) == ty && length >= 0 && length <= 2000 &&
-                    *(int*)(m + 0x88) != 0 && *(int*)(m + 0x84) == 0 && *(int*)(m + 0x94) == 0 &&
-                    *(IntPtr*)(m + PathManagerOutputBufferOffset) == expectedPath &&
-                    (byte*)expectedPath == nativeUnitManager + NativeUnitPathBufferOffset + unitId * NativeUnitPathBufferStride;
+                if (x != sx || y != sy) return TemporaryAssassinPublicationRejected("unit-start");
+                if (*(int*)(m + 8) != sx || *(int*)(m + 12) != sy) return TemporaryAssassinPublicationRejected("request-start");
+                if (*(int*)(m + 16) != tx || *(int*)(m + 20) != ty) return TemporaryAssassinPublicationRejected("request-target");
+                if (length < 0 || length > 2000) return TemporaryAssassinPublicationRejected("output-length");
+                if (*(int*)(m + 0x88) == 0) return TemporaryAssassinPublicationRejected("assassin-mode88");
+                if (*(int*)(m + 0x84) != 0) return TemporaryAssassinPublicationRejected("output-mode84");
+                // F4930 can replace the Assassin reconstruction with a later normal route when +94 != 0.
+                // Keep this exclusion: publishing the staged route would overwrite that native output.
+                if (*(int*)(m + 0x94) != 0) return TemporaryAssassinPublicationRejected("output-mode94");
+                if (*(IntPtr*)(m + PathManagerOutputBufferOffset) != expectedPath) return TemporaryAssassinPublicationRejected("output-pointer");
+                if ((byte*)expectedPath != nativeUnitManager + NativeUnitPathBufferOffset + unitId * NativeUnitPathBufferStride)
+                    return TemporaryAssassinPublicationRejected("unit-buffer");
+                return true;
             };
             return new AssassinRouteHandoff(pathManager, sx, sy, tx, ty, player, valid, (bytes, count) =>
             {

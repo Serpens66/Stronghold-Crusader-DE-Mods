@@ -644,3 +644,153 @@ Next concrete missing input: the three own-consumer tables above, not another
 broad bridge comparison. The bounded capture is prepared and tested offline.
 Behavior remains disabled; versions, README, APIShared, external Fixes and
 Script Extender sources are unchanged. The installed update is passive.
+## 2026-10-11: own-table candidate proof and Dirty control
+
+Frozen source: historical-20261010-2354/manifest.json. Planning SHA256
+265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6;
+group B60852790BC5EAF1EA97043FF322EDEA181EB87958F68071C993558CB09A01A0.
+Both completed schema2 files validate. All three own-consumer table Pre/Post
+pairs are present, stable and loaded from the artifact; coverage3/3. The
+explicit private allowlist admits only this verified new planning hash.
+
+Normal importer -> CopiedCandidateInputs -> productive VirtualCandidateBuilder
+matches the full private native candidate build, weights, availability, work
+buffers and CF360 query controls. Actual computed caller fields feed each
+variant. Baseline full recorded candidate/stage outputs match. No PE default
+or reference-table hypothesis is used. None/703/all: castle1/0/0; the native
+post-consumer military suffix ends phase6/5/5, saved target225464. The434 mode0
+planning candidates remain inherited inputs. Only703 changes8367 candidate,
+9785 weight and9789 consumer bytes. Active-tribe and whole3C2E0 entry/preamble
+execution are NOT included; later formation modes remain hypotheses.
+
+The complete native physical rebuild includes retained updater slots and
+controls; caller updaterDirty=0, path Dirty=1 are DIFFERENT controls. Native
+and productive control components/counts match byte-for-byte. Both remove
+one previously published occupied field163092 (301/403): flags0xB000,
+outgoingEdges0, height/baseHeight8/8, buildingId0, specialId153, specialKind2.
+E49D0 rejects seed via0x4A5014B1 and107160(kind2); neighboring directions do
+not restore the cell. Recorded stale component1 is not an adapter mismatch.
+Native generation after rebuild48; historical input47. Earlier caller height
+proof is still Unknown: heights were recorded at consumer entry. No negative
+live permission is inferred from this forced private control or from Dirty1.
+
+Bridge703 disappears from indexed live-state fragments at23:55:50.734; zero
+raise calls were recorded. Later negative phase6->5 is not a raised control.
+Cause of the missing live identity remains unassigned. Earlier decision12,
+root670552 is separately linked to group artifact11 and actual bridge movement.
+46 player8 units have entry/exit evidence; observations and commands are not
+interchangeable counts. Capture, delivery and file completeness all pass;
+shadow computation coverage remains partial (64 results,208 skipped,3100
+deferred,903 unresolved group links; no queue rejection/cancellation).
+
+Transport changes: complete relevant path definitions use bounded32-row
+colon/pipe numeric batches with exact packed bytes; invalid paths stay explicit.
+Capture clocks remain own clocks; the batch envelope's thread/physical values
+are NOT capture evidence. Synchronous binding/observation states retain context.
+Command schema2 post rows reference an exact pre sequence only when every
+input/identity field matches; result/region/search/failure/following fields stay
+explicit. The4096-entry cache clears at session replacement; unmatched/changed
+posts retain all31 fields. No observation or counter is dropped.
+Frozen transport regression preserves decision/group chains, movement summaries,
+unique commands/units, complete references and shadow totals. Missing pre refs
+and truncated path bytes are rejected. Original total log9746210 ->9014842
+bytes (7.5% including unrelated mods); this is a transport replay, not a live
+frame/volume benchmark. Original trace9.03MB/113.5s remains above1MB/min.
+
+Resource errors:32 negative-player calls lack caller stacks. Bridge does not
+call that API. SE validates1..8 then indexes playerId-1; target field is UInt32
+at resource-relative0x2BD8. Existing manager/resource prefix arithmetic remains
+valid. Fixes1.26.4 siege guard at AIDetours.cs126-132 can pass an invalid stored
+target after its inverted valid-target early return. This is a POSSIBLE caller,
+not attribution. No external mod, APIShared API, version or README changed.
+
+Integration release contract: existing30 own detours only, E49D0 observation
+via APIShared/Main and111C00 owned by Fixes. One immutable publication must
+cover player roles, Gate filters, current identity, directions, packed map and
+link endpoints. Dirty or any stale/incomplete proof stays Unknown. Preserve
+original entry/preamble, exactly-once original call and all side effects. Early
+2D250/D95E0/D9190, CF360/CF400 and later3BD50/formations need separately proved
+input/output contracts before a result/output replacement. Current proof covers
+candidate continuation and mode0 castle/suffix, NOT complete live integration.
+No result overwrite is installed. No additional broad game run is justified.
+Next work is the remaining entry/formation and publication contract on existing
+inputs; request new data only after a concrete missing input is demonstrated.
+
+
+## 2026-10-11 military entry and formation contract review
+
+The full hash-bound private reference now retains 77 complete native bodies.
+The thirteen newly included bodies are 2FD40,3CF20,3CAC0,3CE40,3FE50,3CDC0,
+2A6B0,3B450,30E90,3BD50,79C0,187E60 and2FC80. Their unsupported side-effect calls
+remain explicit guards. No permissive command/search stub was added.
+
+Full helper differentials: 512 strength/age/phase/overflow cases (2FD40),
+256 signed coordinate/overflow cases including all four metric writes (79C0),
+eight alive/identity leader lookup cases (187E60), and eight whole-player
+tribe identity cleanup cases (2FC80), including its row8 exclusion. The historical own
+phase4 entry also matches 2FD40, result0. This is a helper proof, not a full
+3C2E0 entry or active formation replay.
+
+Important new provenance finding: BOTH military class arrays 2C8040 and
+2C80E0 (11 two-int rows,88 bytes each) are in writable .data. The private
+constant reader rejects them. 3CF20 uses the former for tribe updates;
+2FC80 and3B450 use the latter for identity cleanup and ordered group movement.
+Native full3BD50 initial selection uses unsigned penalty grid53FB9D0,
+79C0's MAX(dx,dy) output, strict first-minimum under100000, followed by
+107970/DA590/EA3D0 side effects. A phase4 mode0 projection is NOT that initial
+selection. 3B450 may issue a first move before its caller's CF360/CF400 check;
+its return0 exits the caller. Filtering only those later castle checks cannot
+prove that no command has already escaped. 30E90 can preserve/assign building
+work before the alternate formation branch. No late movement veto is installed.
+
+The original 2354 artifact lacks decision-time leader maps3A0F9F0 (18 bytes),
+3A0FA04 (36 bytes), both writable class arrays, entry configuration and caller
+heights4DDD350/4E2B870 (320800 bytes each). Consumer/pre copies are later
+observations and cannot fill these gaps. For recorded lord4, the exact separate
+configuration accesses are366D5C8(int phase4 delay),366D6A8(int first-group
+count),366D6B0(byte role flags), plus3665FBC(int global mode). The config5
+section assembles lord/delay/count/flag/global; it is NOT a contiguous20-byte
+memory view at366C210. EntryIdentity4 is observer provenance, not a native RVA.
+The CLI --historical-military explicitly reports necessary-input gaps and never
+claims completeness when those gaps disappear: side-effect/input closure and
+later active formations remain separately unproved.
+
+Existing passive3C2E0 observer now captures those small own-entry inputs,
+including session/root/entry clock/thread. Existing2D250 observer captures own
+caller heights independently of later consumer heights. Added copied payload
+is641882 bytes before exact deduplication per successful bundle; two-attempt,
+one-plan/one-group,64-record and64-KiB publisher limits remain unchanged.
+No new hooks, game members, APIShared APIs or native searches were introduced.
+The additive schema2 importer preserves old files and rejects partial new input
+groups, wrong root/session/thread/time, wrong lord configuration and malformed
+heights. The two-artifact cap is tested without weakening the productive cap.
+
+This does NOT retrospectively repair historical input completeness, or capture
+an entire active phase6 invocation. Whole entry/unit/tribe/configuration closure
+and same-decision formation provenance must still be proven before activation.
+The bounded additions address identified gaps only. They do not authorize a
+new broad game test or negative live policy; behavior remains disabled.
+
+
+Final offline review 2026-10-11: 150 native differential cases/12114 checks,
+including the784 military helper cases, and32 native candidate flood cases pass.
+Policy/observer suite38102 assertions passes. Current historical baseline,
+703/all variants and complete native/managed physical control still pass in
+their explicitly bounded scopes. Original plan/group hashes remain unchanged.
+New entry/height artifacts round-trip; wrong root and partial entry groups are
+rejected with valid payload hashes. Two-artifact cap remains enforced.
+Second code review, ownership/Runtime/JSON/lifecycle/Assembly/CRLF/workspace
+checks pass. In-memory source compilation passes for all32 Bridge Runtime and
+42 test sources against BOTH current APIShared source and installed assembly;
+no Runtime DLL was manually emitted or copied.
+
+Prescribed elevated Bridge build.bat was attempted once at00:38:09 and safely
+stopped before compilation/installation: APIShared build proof is stale because
+parallel Assassin sources were modified at00:31:42. No build proof was bypassed,
+no foreign APIShared edits or build were performed. The driver changed no
+package files. Final read-only inventory finds no installed Bridge plugin folder;
+its removal was not performed by this task. Build log: military-final-build.log. The external APIShared
+package must first be completed through its own authorized build driver; only
+then can the reviewed Bridge driver be retried. This is an installation gate,
+not a source compatibility failure. No new game start was performed/requested.
+Versions and README remain unchanged; live behavior fix remains disabled.

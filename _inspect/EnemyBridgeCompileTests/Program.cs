@@ -46,7 +46,7 @@ var apiResult=apiCompilation.Emit(apiImage,xmlDocumentationStream:apiXml);
 if(!apiResult.Success) { foreach(var d in apiResult.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)) Console.Error.WriteLine(d); return 1; }
 var changedApi=MetadataReference.CreateFromImage(apiImage.ToArray());
 Console.WriteLine("PASS: APIShared source and installed assembly visibility/signature contract (memory only, no DLL file emitted).");
-foreach (string mod in args.Length > 1 ? args.Skip(1) : new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest", "EnemyBridgePathTest.PolicyTests" })
+foreach (string mod in args.Length > 1 ? args.Skip(1).Where(a=>!a.StartsWith("--")) : new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest", "EnemyBridgePathTest.PolicyTests" })
 {
     string projectDir = mod == "BugfixesAndQoL" ? Path.Combine(root,mod) : Path.Combine(root,"Testmods",mod.Replace(".PolicyTests",""));
     var xml = XDocument.Load(Path.Combine(projectDir,mod+".csproj"));
@@ -66,7 +66,7 @@ foreach (string mod in args.Length > 1 ? args.Skip(1) : new[] { "EnemyGatePathfi
     var input = EvaluateSources(Path.Combine(projectDir,mod+".csproj"));
     var trees = input.Paths.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path),
         CSharpParseOptions.Default.WithPreprocessorSymbols(input.Symbols),path:path)).ToList();
-    foreach (var provider in new[] { changedApi, MetadataReference.CreateFromFile(api) })
+    foreach (var provider in args.Contains("--source-api-only") ? new[] { changedApi } : new[] { changedApi, MetadataReference.CreateFromFile(api) })
     {
         var compilation = CSharpCompilation.Create(mod == "BugfixesAndQoL" ? "BugfixesAndQoL" : mod+"StaticContract",trees,
             modReferences.Values.Where(p=>!Path.GetFileName(p).Equals("APIShared.dll",StringComparison.OrdinalIgnoreCase)).Select(p=>MetadataReference.CreateFromFile(p)).Cast<MetadataReference>().Append(provider),
@@ -75,7 +75,7 @@ foreach (string mod in args.Length > 1 ? args.Skip(1) : new[] { "EnemyGatePathfi
         foreach (var error in errors) Console.Error.WriteLine(error);
         if (errors.Length>0) return 1;
     }
-    Console.WriteLine("PASS: evaluated project sources compile against source and installed APIShared: " + mod + " (no runtime assembly emitted)");
+    Console.WriteLine("PASS: evaluated project sources compile against " + (args.Contains("--source-api-only") ? "source APIShared" : "source and installed APIShared") + ": " + mod + " (no runtime assembly emitted)");
 }
 return 0;
 

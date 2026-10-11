@@ -32,6 +32,12 @@ internal static partial class Program
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
             .Select(m => m.ToFullString()));
+        if (!before)
+        {
+            var reporting = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs"));
+            publishing += reporting.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+                .Single(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").ToFullString();
+        }
         var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs"));
         string boundary = string.Join("\n", api.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "TryStageWeightedRoute" or "TryGetCurrentWeightedRequest")
@@ -203,7 +209,10 @@ internal static partial class Program
             "Git A* body differs only in suffix dictionary binding and passive diagnostic gates");
         string publicationPath = "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs";
         Check(Method(GitSource("8fe105a11", "APIShared/src/UnitCommands/MovementPathPublication.cs"),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString() ==
-            Method(File.ReadAllText(Path.Combine(root, publicationPath)),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString(),
+            Method(File.ReadAllText(Path.Combine(root, publicationPath))
+                .Replace("ObserveTemporaryNativeBuilderOutput(temporaryRoute, result);", "")
+                .Replace("BeginTemporaryRouteReport(pathManager, \"F4930-builder\", movementClass, movementProfile)",
+                    "BeginTemporaryRouteReport(pathManager, \"F4930-builder\")"),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString(),
             "Git F4930 wrapper, original call, exception fallback and nested Leave unchanged");
         foreach (string path in new[] { "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs" })
             Check(CSharpSyntaxTree.ParseText(GitSource("f57dfdb02",path)).GetRoot().NormalizeWhitespace().ToFullString() ==

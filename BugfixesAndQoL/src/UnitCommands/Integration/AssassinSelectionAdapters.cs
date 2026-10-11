@@ -12,7 +12,8 @@ namespace BugfixesAndQoL.UnitCommands
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        internal delegate long SelectionResultDelegate(IntPtr selectionState, long originalResult);
+        internal delegate long SelectionResultDelegate(
+            IntPtr selectionState, long originalResult, int callSiteRva, int nativeGroundPermission);
 
         internal SelectionResultDelegate selectionResultCallback;
         internal readonly HookHandle<X64InlineHook>[] selectionCallHooks =
@@ -40,6 +41,15 @@ namespace BugfixesAndQoL.UnitCommands
         internal void AddSelectionCallAdapters(
             HookTransaction transaction, ReadOnlySpan<byte> memory, ulong libraryBase)
         {
+            // Hash-bound complete producer blocks for the ground permission in R15D.
+            ValidateExactBytes(memory, 0x8F10F, new byte[] { 0x45, 0x8B, 0xF8 },
+                "ground cursor permission initialization");
+            ValidateExactBytes(memory, 0x8F1DB, new byte[] {
+                0x48,0x8D,0x35,0x1E,0x92,0x75,0x06,0x48,0x8B,0xCE,
+                0xE8,0x56,0x9A,0x10,0x00,0x85,0xC0,0x74,0x07,0x33,0xC0,
+                0x8B,0xD8,0x44,0x8B,0xF8,0x48,0x8B,0xCE,0xE8,0xA3,0x1F,
+                0x0F,0x00,0x85,0xC0,0x75,0x05,0x8B,0xD8,0x44,0x8B,0xF8 },
+                "ground cursor native selection and target permission producers");
             selectionResultCallback = ObserveCursorTilePairFallbackSelection;
             ulong callback = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(
                 selectionResultCallback).ToInt64());
@@ -68,7 +78,7 @@ namespace BugfixesAndQoL.UnitCommands
                                 "SE selection call relocation contract changed.");
                         }
 
-                        EmitSelectionCallAdapter(asm, original, callback);
+                        EmitSelectionCallAdapter(asm, original, callback, rva);
                     },
                     hookSize: 14);
             }
@@ -90,7 +100,7 @@ namespace BugfixesAndQoL.UnitCommands
         }
 
         internal static void EmitSelectionCallAdapter(
-            Assembler asm, ReadOnlySpan<Instruction> original, ulong callback)
+            Assembler asm, ReadOnlySpan<Instruction> original, ulong callback, int callSiteRva)
         {
             // Each site is immediately before a Win64 call: RSP is aligned and RCX
             // is the selection manager. No stack arguments or input flags exist.
@@ -116,6 +126,14 @@ namespace BugfixesAndQoL.UnitCommands
             asm.mov(__qword_ptr[rsp + 0xC0], rax);
             asm.mov(rcx, __qword_ptr[rsp + 0xD0]);
             asm.mov(rdx, __qword_ptr[rsp + 0x20]);
+            asm.mov(r8d, callSiteRva);
+            // At 8F325, R15D retains both Vanilla's selection permission (1811A0)
+            // and target veto (198C40). The original Win64 callee preserves R15.
+            // Other sites have different register contracts and are attack queries.
+            if (callSiteRva == 0x8F325)
+                asm.mov(r9d, r15d);
+            else
+                asm.mov(r9d, 1);
             asm.mov(rax, callback);
             asm.call(rax);
             asm.mov(__qword_ptr[rsp + 0x20], rax);

@@ -30,6 +30,7 @@ namespace EnemyGatePathfindingTest
         // The BepInEx component is destroyed during startup. Static ownership keeps the
         // native hook and event subscriptions alive for the complete process.
         private static ManualLogSource persistentLog;
+        private static bool detailedDiagnostics;
         private static EnemyGatePathfindingRuntime runtime;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
@@ -45,11 +46,13 @@ namespace EnemyGatePathfindingTest
         private void Awake()
         {
             persistentLog = Logger;
+            detailedDiagnostics = Config.Bind("Diagnostics", "DetailedDiagnostics", false,
+                "Enable detailed gate and temporary Raid/Assassin diagnostics. Restart the game after changing this local option.").Value;
             LogScriptExtenderIdentity();
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; no settings are used; " +
-                "APIShared provides the editor-capable mission lifecycle.");
+                $"{PluginName} {PluginVersion}: DetailedDiagnostics={detailedDiagnostics}, " +
+                $"hookOwner={(BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("BugfixesAndQoL_Serp") ? "BugfixesAndQoL" : "standalone")}; local option requires restart.");
 
             // UPDATE REVIEW (Script Extender): revalidate map event phases and lifetime;
             // the BaseUnityPlugin component itself is intentionally not the runtime owner.
@@ -64,17 +67,17 @@ namespace EnemyGatePathfindingTest
                 mapUnloadSubscription = Shared.MissionEvents.Ended
                     .Subscribe(_ => runtime?.EndMap("MissionEnd"));
             }
-            if (targetOrderSubscription == null)
+            if (detailedDiagnostics && targetOrderSubscription == null)
             {
                 // The public Script Extender event brackets Vanilla 0x11E960. This
                 // observer never mutates or suppresses the order.
                 targetOrderSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                     .Subscribe(ObserveTargetOrder);
             }
-            if (tribeMoveSubscription == null)
+            if (detailedDiagnostics && tribeMoveSubscription == null)
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                     .Subscribe(ObserveTribeMove);
-            if (unitMoveSubscription == null)
+            if (detailedDiagnostics && unitMoveSubscription == null)
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
                     .Subscribe(ObserveUnitMove);
             if (buildingCaptureSubscription == null)
@@ -115,11 +118,11 @@ namespace EnemyGatePathfindingTest
                 bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                     persistentLog,
                     PluginName,
-                    requireCurrentVersion: true);
+                    requireCurrentVersion: true, logSuccess: detailedDiagnostics);
                 if (!referenceHashMatches)
                     return;
 
-                var installed = new EnemyGatePathfindingRuntime(persistentLog);
+                var installed = new EnemyGatePathfindingRuntime(persistentLog, detailedDiagnostics);
                 installed.InitializeNative(context, referenceHashMatches);
                 runtime = installed;
                 if (!gameTickInstalled)
@@ -164,7 +167,7 @@ namespace EnemyGatePathfindingTest
                     ? "unknown"
                     : FileVersionInfo.GetVersionInfo(location).FileVersion;
                 bool auditedVersion = assembly.GetName().Version == new Version(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion + ".0");
-                Shared.DebugLogHelper.LogInfo(
+                if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(
                     persistentLog,
                     $"Script Extender identity: manifestVersionRange=true, auditIdentityOnly=true, " +
                     $"auditedVersion={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion}, " +

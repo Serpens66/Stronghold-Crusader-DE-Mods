@@ -331,14 +331,20 @@ namespace EnemyGatePathfindingTest
         private int installAttempted;
         private bool hooksInstalled;
 
+        private readonly IEnemyGatePathPolicy registeredProvider;
+        private readonly DeferredGateDiagnosticErrors deferredErrors;
+        private bool DetailedDiagnostics => attackOrderDiagnostics != null;
+
         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
             ScanRegion region, ulong libraryBase, bool existingHookOwner,
-            AttackOrderCorrelationDiagnostics attackOrderDiagnostics)
+            AttackOrderCorrelationDiagnostics attackOrderDiagnostics, DeferredGateDiagnosticErrors deferredErrors = null)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.region = region;
             this.libraryBase = libraryBase;
             this.attackOrderDiagnostics = attackOrderDiagnostics;
+            this.deferredErrors = deferredErrors;
+            registeredProvider = DetailedDiagnostics ? (IEnemyGatePathPolicy)this : new FunctionalGatePolicyAdapter(this, this);
             ownerConflict = existingHookOwner;
             maskPool = new NativeMaskSnapshot[NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)
@@ -533,7 +539,7 @@ namespace EnemyGatePathfindingTest
             originalCandidateSearch = candidateSearch.Handle.Original;
             originalAiTacticalTarget = aiTacticalTarget.Handle.Original;
             hooksInstalled = true;
-            Shared.DebugLogHelper.LogInfo(log,
+            if (DetailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                 "Vanilla player-aware gate filter installed: " +
                 $"sharedHookOwner={ownerConflict}, " +
                 "scopes=builder/attack/building/consumer/alternateConsumer/candidateSearch/" +
@@ -569,7 +575,17 @@ namespace EnemyGatePathfindingTest
         bool IEnemyGatePathPolicy.IsDirectionAllowed(int playerId, int tileId, int direction) =>
             publishedPolicy.IsDirectionAllowed(playerId, tileId, direction);
         // TEMP_GATE_ROUTE_ACCEPTANCE: read-only publication identity.
-        internal RouteTilePolicySnapshot TemporaryAcceptanceSnapshot => publishedPolicy;
+        // TEMP_GATE_ROUTE_ACCEPTANCE: retains gate geometry even when all player masks are empty.
+        private RouteTilePolicySnapshot temporaryPublishedPolicy = RouteTilePolicySnapshot.Empty;
+        internal Action<RouteTilePolicySnapshot, int> TemporaryPolicyPublished;
+        internal RouteTilePolicySnapshot TemporaryAcceptanceSnapshot => temporaryPublishedPolicy;
+        private void NotifyTemporaryPublication(RouteTilePolicySnapshot policy, int generation)
+        {
+            if (!DetailedDiagnostics) return;
+            temporaryPublishedPolicy = policy ?? RouteTilePolicySnapshot.Empty;
+            try { TemporaryPolicyPublished?.Invoke(temporaryPublishedPolicy, generation); }
+            catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("capture-policy-publication", error); }
+        }
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: remove optional forwarding after acceptance.
         void ITemporaryAssassinGateObserver.ObserveAssassinStage(object token, int player, string stage, string result, string detail) =>
@@ -754,6 +770,7 @@ namespace EnemyGatePathfindingTest
                     currentMasks = NativeMaskSnapshot.Empty;
                     publishedPolicy = RouteTilePolicySnapshot.Empty;
                     routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
+                    NotifyTemporaryPublication(policy, policyGeneration);
                 }
                 return;
             }
@@ -762,13 +779,14 @@ namespace EnemyGatePathfindingTest
                 if (!Installed && Interlocked.CompareExchange(ref installAttempted, 1, 0) == 0)
                     InstallHooks();
                 if (!Installed) return;
-                if (ownerConflict && !EnemyGatePathPolicyBridge.TryRegister(this))
+                if (ownerConflict && !EnemyGatePathPolicyBridge.TryRegister(registeredProvider))
                     throw new InvalidOperationException("another enemy-gate policy provider owns APIShared");
             }
             catch (Exception ex)
             {
                 Interlocked.Increment(ref exceptions);
-                Shared.DebugLogHelper.LogWarning(log,
+                if (deferredErrors != null) deferredErrors.Record("Native gate-mask publication failed open / " + ex.GetType().Name, ex.Message);
+                else Shared.DebugLogHelper.LogWarning(log,
                     $"Native gate-mask publication failed open: {ex.GetType().Name}: {ex.Message}");
                 return;
             }
@@ -781,6 +799,7 @@ namespace EnemyGatePathfindingTest
                 currentMasks = NativeMaskSnapshot.Empty;
                 publishedPolicy = RouteTilePolicySnapshot.Empty;
                 routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
+                NotifyTemporaryPublication(RouteTilePolicySnapshot.Empty, generation);
             }
             TryPublishPending(policy, generation);
         }
@@ -1049,6 +1068,7 @@ namespace EnemyGatePathfindingTest
         private void CaptureCursorDecisionSample(int player, int unitId,
             int targetPcl, int sourcePcl, int vanillaResult, int finalResult)
         {
+            if (!DetailedDiagnostics) return;
             if (Interlocked.CompareExchange(ref cursorDecisionSampleState, 1, 0) != 0)
                 return;
             cursorDecisionSamplePlayer = player;
@@ -1093,13 +1113,15 @@ namespace EnemyGatePathfindingTest
                     publishedPolicy = policy;
                     routePolicySource.Publish(policy);
                     pendingPolicy = null;
+                    NotifyTemporaryPublication(policy, generation);
                 }
             }
             catch (Exception ex)
             {
                 lock (maskGate) slot.Filling = false;
                 Interlocked.Increment(ref exceptions);
-                Shared.DebugLogHelper.LogWarning(log,
+                if (deferredErrors != null) deferredErrors.Record("Native gate-mask slot fill failed open / " + ex.GetType().Name, ex.Message);
+                else Shared.DebugLogHelper.LogWarning(log,
                     $"Native gate-mask slot fill failed open: {ex.GetType().Name}: {ex.Message}");
             }
         }
@@ -1322,6 +1344,7 @@ namespace EnemyGatePathfindingTest
 
         private void CaptureScopeSample(QueryKind kind, int requested, int native, int tribe, int used)
         {
+            if (!DetailedDiagnostics) return;
             int index = (int)kind;
             if (Interlocked.CompareExchange(ref samplePublished[index], 1, 0) != 0) return;
             sampleRequested[index] = requested;
@@ -1511,6 +1534,7 @@ namespace EnemyGatePathfindingTest
         private void CaptureTacticalEdgeSample(int category, byte* slot,
             int sourceOffset, int targetOffset, int directionOffset)
         {
+            if (!DetailedDiagnostics) return;
             if (Interlocked.CompareExchange(ref tacticalEdgeSampleState[category], 1, 0) != 0)
                 return;
             tacticalEdgeSampleSource[category] = *(int*)(slot + sourceOffset);

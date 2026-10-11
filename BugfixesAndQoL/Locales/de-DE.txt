@@ -384,6 +384,8 @@ BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Tote Angreifer und Verteidige
 
 BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassinen können Torhäuser direkt erklimmen
 BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Ermöglicht Menschen und KI direkte Assassin-Kletterwege auf Torhäuser mit Vanillas Kletterausführung. Bestehende spielerbezogene Kletterverbote bleiben wirksam.
+BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=KI-Assassinen greifen keine eroberten Torhäuser mehr an
+BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Verhindert, dass KI-Assassinen selbst oder verbündet eroberte steinerne Torhäuser angreifen. Weitere Ziele bestimmt Vanilla beziehungsweise Fixes. Menschliche Befehle bleiben unverändert.
 
 BugfixesAndQoL.RememberRows=Breite/Länge merken
 BugfixesAndQoL.RememberRowsHelp=Merkt die per Mausrad gewählte Reihenanzahl je Aufstellungsart, auch nach Neustarts. Kleinere Gruppen begrenzen sie vorübergehend. Ausgeschaltet oder ohne gespeicherten Wert: automatische Reihenanzahl. Kreis und Vanilla bleiben unverändert.

@@ -58,6 +58,9 @@ Vanilla can find a route over a wall with a placed ladder for an ordinary moveme
 ### Resume Assassin movement after combat
 Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls.
 
+### Prevent AI Assassins from attacking captured gatehouses
+This enabled-by-default host setting under **Fixes** prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects their next target. It can be disabled independently of Assassin climbing and pathfinding; human commands are unchanged.
+
 ### Allow Assassins to climb gatehouses directly
 This enabled-by-default host setting lets human players and AI choose direct Assassin climbs onto freestanding gatehouses, using Vanilla's existing climbing execution. Existing player climbing restrictions still apply. Find it under **Fixes**.
 

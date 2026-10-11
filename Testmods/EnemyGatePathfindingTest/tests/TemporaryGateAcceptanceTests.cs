@@ -76,6 +76,51 @@ namespace EnemyGatePathfindingTest
             bool rejected = false;
             try { APIShared.TemporaryGateRouteAcceptanceBridge.Register(observer); } catch (InvalidOperationException) { rejected = true; }
             check(rejected && ReferenceEquals(APIShared.TemporaryGateRouteAcceptanceBridge.Current, observer));
+            // TEMP_GATE_ROUTE_ACCEPTANCE: capture chronology independent of deferred emission time.
+            var timeline = new TemporaryGateCaptureTimeline();
+            Func<int, uint, int, RouteTilePolicySnapshot> state = (id, global, capturer) =>
+                new RouteTilePolicySnapshot(new byte[9][], 123, gateIdentities:
+                    new System.Collections.Generic.Dictionary<int, RouteTilePolicySnapshot.GateIdentity> {
+                        { id, new RouteTilePolicySnapshot.GateIdentity(global, 1, capturer) } });
+            var before = state(134, 6658, 0); var captured = state(134, 6658, 2);
+            timeline.Reset(2); timeline.Publish(before, 11, 100);
+            check(timeline.Phase(before, 134, 101, 102) == "before-capture");
+            check(timeline.ObserveCapture(134, 2, 120) == 6658);
+            check(timeline.Phase(before, 134, 110, 121) == "transition");
+            timeline.Publish(before, 12, 125); // stale publication does not confirm capture
+            check(timeline.Phase(before, 134, 130, 131) == "transition");
+            timeline.Publish(captured, 14, 140);
+            check(timeline.Phase(captured, 134, 141, 142) == "after-confirmed-publication");
+            check(timeline.Phase(before, 134, 110, 145) == "transition");
+            check(timeline.Phase(captured, 134, 130, 145) == "transition");
+            timeline.ObserveCapture(134, 3, 150); timeline.Publish(captured, 15, 151);
+            check(timeline.Phase(captured, 134, 152, 153) == "transition");
+            var third = state(134, 6658, 3); timeline.Publish(third, 16, 160);
+            check(timeline.Phase(third, 134, 161, 162) == "after-confirmed-publication");
+            timeline.ObserveCapture(134, 0, 170); timeline.Publish(before, 17, 180);
+            check(timeline.Phase(before, 134, 181, 182) == "before-capture");
+            var reused = state(134, 9999, 2); timeline.Publish(reused, 18, 190);
+            check(timeline.Phase(captured, 134, 191, 192) == "not-attributed");
+            check(timeline.Phase(reused, 134, 191, 192) == "after-confirmed-publication");
+            timeline.Publish(RouteTilePolicySnapshot.Empty, 19, 200);
+            check(timeline.Phase(reused, 134, 201, 202) == "transition");
+            timeline.Reset(3); check(timeline.Phase(reused, 134, 201, 202) == "not-attributed");
+            check(timeline.Generation == 0 && timeline.Epoch == 3);
+            var chronological = new TemporaryGateAcceptanceAggregate();
+            for (int i = 1; i <= 100; i++)
+            {
+                var s = state(i, (uint)(1000 + i), 2); timeline.Publish(s, i, 10 * i);
+                check(timeline.Phase(s, i, 10 * i + 1, 10 * i + 2) == "after-confirmed-publication");
+                for (int n = 0; n < 50; n++) chronological.Record("gate=" + i + "/after-confirmed-publication", n.ToString(),
+                    "generation=" + i + "," + TemporaryGateCaptureTimeline.Time(10 * i + n));
+            }
+            var chronologicalRows = chronological.Drain();
+            check(chronological.Total == 5000 && chronologicalRows.Length == 100);
+            foreach (var row in chronologicalRows) check(row.Contains("count=50") && row.Contains("targetChanges=49") && row.Contains("observedUtc="));
+            var geometry = new GateEdgeOwnership(); geometry.Record(100, 2, 134);
+            var unmasked = new RouteTilePolicySnapshot(new byte[9][], 789, diagnosticGateEdges: geometry);
+            check(unmasked.IsDirectionAllowed(2, 100, 2) && unmasked.DiagnosticGateEdges.Resolve(100, 2) == 134);
+            check(unmasked.EdgeOwners == null && unmasked.MaskedDirectedEdges == 0);
             Console.WriteLine("TEMP_GATE_ROUTE_ACCEPTANCE: " + assertions + " assertions, 576000 events across 120 minute windows");
             return assertions;
         }

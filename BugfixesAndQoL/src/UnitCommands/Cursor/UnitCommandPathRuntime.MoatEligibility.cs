@@ -178,12 +178,16 @@ namespace BugfixesAndQoL.UnitCommands
         }
 
         internal long ObserveCursorTilePairFallbackSelection(
-            IntPtr selectionState, long vanillaResult)
+            IntPtr selectionState, long vanillaResult, int callSiteRva, int nativeGroundPermission)
         {
             pendingAttackCursorPair = null;
             if (vanillaResult != 0)
                 return vanillaResult;
             if (disposed || selectionState == IntPtr.Zero)
+                return vanillaResult;
+            // A path witness may repair reachability, never the preceding native
+            // selection/target veto. Clear pending state even when this query is rejected.
+            if (callSiteRva == 0x8F325 && nativeGroundPermission == 0)
                 return vanillaResult;
             if (activeBuildingCursorConnectivity != null)
                 return 1;

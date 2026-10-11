@@ -22,6 +22,7 @@ namespace BugfixesAndQoL
         private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
         private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
         private readonly AssassinCombatResumeRuntime assassinCombatResumeRuntime;
+        private readonly AssassinCapturedGateProtectionRuntime assassinCapturedGateProtectionRuntime;
         private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
@@ -153,6 +154,7 @@ namespace BugfixesAndQoL
             assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
             assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
             assassinCombatResumeRuntime = new AssassinCombatResumeRuntime(log, settings);
+            assassinCapturedGateProtectionRuntime = new AssassinCapturedGateProtectionRuntime(log, settings);
             troopActionHudCoordinator.Register(assassinClimbRuntime.RefreshButtonVisibility);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
@@ -256,6 +258,7 @@ namespace BugfixesAndQoL
             abruptHostMigrationFix?.ResetMapState();
             assassinClimbRuntime.EndMap();
             assassinPathfindingRuntime.EndMap();
+            assassinCapturedGateProtectionRuntime.EndMap();
             multiplayerFeatureGate.Reset();
         }
 
@@ -268,6 +271,7 @@ namespace BugfixesAndQoL
             if (!context.IsEditor)
                 TrailCustomizationLaunchOriginApi.MarkMapStarted();
             assassinPathfindingRuntime.BeginMap();
+            assassinCapturedGateProtectionRuntime.BeginMap();
             assassinClimbRuntime.BeginMap();
             multiplayerGameSpeedRuntime.ApplySetting();
             troopActionHudCoordinator.Refresh();
@@ -377,6 +381,9 @@ namespace BugfixesAndQoL
 
             if (isFixedLayoutHashValidated)
             {
+                TryInitializePersistentFeature("Assassin captured-gate protection",
+                    () => assassinCapturedGateProtectionRuntime.InitializeNative(newLibraryHandle));
+
                 try
                 {
                     assassinPathfindingRuntime.InitializeNative(

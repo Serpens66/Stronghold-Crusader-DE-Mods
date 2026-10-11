@@ -1,0 +1,16 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+variant=1,nativeCandidateChangedBytes=8367
+variant=1,nativeWeightChangedBytes=9785
+variant=1,nativeConsumerChangedBytes=9789
+variant=1,field=workControls,changedBytes=3
+variant=1,field=workQueueControls,changedBytes=0
+variant=1,field=workQueue,changedBytes=0
+variant=1,field=workQueueRows,changedBytes=0
+variant=1,field=workQueueX,changedBytes=0
+variant=1,field=workDistances,changedBytes=252
+variant=1,field=workVisits,changedBytes=8435
+variant=1,field=workTargets,changedBytes=0
+variant=1,nativeCastleResult=0,projectedTarget=225464,militaryBranch=4-to-5-follow-up-required,fullMilitaryExecuted=False,policy=Unknown
+variant=1,postConsumerMilitaryPhase=5,savedTarget=225464,playerChangedBytes=2,scope=post-consumer-suffix-excluding-map-observer2990-and-entry-preamble,policy=Unknown
+PASS native counterfactual consumer execution; changed outputs measured, not matched to recorded counterfactuals; full military entry remains separate
+PASS historical native candidate reference; variant=1,recordedOutputComparison=False,hash=265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6,managedCandidateBuilder=Matched,managedWorkAndCastle=Matched,militaryConsumer=post-consumer-native-suffix-only,behaviorFix=disabled

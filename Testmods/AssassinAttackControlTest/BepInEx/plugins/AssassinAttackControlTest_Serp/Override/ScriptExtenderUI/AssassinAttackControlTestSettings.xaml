@@ -1,9 +1,0 @@
-<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <StackPanel Margin="10">
-    <TextBlock Text="Assassin Attack Control Test (Host)" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,10"/>
-    <CheckBox IsChecked="{Binding EnableMod}" IsEnabled="{Binding IsHost}" Content="Testmod aktivieren" Foreground="White" Margin="0,5"/>
-    <CheckBox IsChecked="{Binding ProtectCapturedGates}" IsEnabled="{Binding IsHost}" Content="Eigene und verbündet eroberte Tore schützen" Foreground="White" Margin="0,5"/>
-    <CheckBox IsChecked="{Binding PreferCastleAccess}" IsEnabled="{Binding IsHost}" Content="Burgzugänge vor Mauern, Toren und Türmen bevorzugen" Foreground="White" Margin="0,5"/>
-    <TextBlock Text="Nur KI-Assassinen. Die Alternativsuche benötigt die verbesserte Assassin-Pfadsuche im Hauptmod. Menschliche Befehle bleiben unverändert." TextWrapping="Wrap" Foreground="#BBBBBB" Margin="0,10"/>
-  </StackPanel>
-</Grid>

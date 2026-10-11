@@ -1,0 +1,50 @@
+exec(Path('_inspect/EnemyGateBuildingContextAudit/implement_compact.py').read_text().split("p='src/EnemyGatePathfindingTestPlugin.cs'")[0])
+for p in ('EnemyGatePathfindingTest.csproj','EnemyGatePathfindingTest.PolicyTests.csproj'):
+    t=read(p)
+    t=replace(t,'<Compile Include="src\\CursorPreviewCache.cs" />','<Compile Include="src\\CursorPreviewCache.cs" />\n    <Compile Include="src\\FunctionalGatePolicyAdapter.cs" />\n    <Compile Include="src\\DeferredGateDiagnosticErrors.cs" />')
+    if 'PolicyTests' in p:
+        t=replace(t,'<Compile Include="tests\\Program.cs" />','<Compile Include="tests\\Program.cs" /><Compile Include="tests\\CompactDiagnosticTests.cs" />')
+    write(p,t)
+p='tests/Program.cs';t=read(p)
+t=replace(t,'assertions += GateRoutePolicyTests.Run();','assertions += GateRoutePolicyTests.Run();\n                assertions += CompactDiagnosticTests.Run();')
+t=replace(t,'EnemyGatePathPolicyBridge.TryRegister(this)','EnemyGatePathPolicyBridge.TryRegister(registeredProvider)')
+write(p,t)
+p='src/EnemyGatePathfindingRuntime.cs';t=read(p)
+t=replace(t,'private string lastIntegrityErrorState;','private string lastIntegrityErrorState;\n        private long nextErrorCheckAt;')
+t=replace(t,'new GateTopologySnapshotProvider(log, detailedDiagnostics)','new GateTopologySnapshotProvider(log, detailedDiagnostics, deferredErrors)')
+t=replace(t,'                    attackOrderDiagnostics);','                    attackOrderDiagnostics, deferredErrors);')
+t=replace(t,'            if (builderPrecheck)\n            {\n                try','            if (detailedDiagnostics && builderPrecheck)\n            {\n                try')
+t=replace(t,'            if (detailedDiagnostics || Volatile.Read(ref mapActive) == 0) return;','            if (detailedDiagnostics || Volatile.Read(ref mapActive) == 0) return;\n            long now = Stopwatch.GetTimestamp();\n            if (now < nextErrorCheckAt) return;\n            nextErrorCheckAt = now + Stopwatch.Frequency;')
+t=replace(t,'            lastIntegrityErrorState = null;','            lastIntegrityErrorState = null;\n            nextErrorCheckAt = 0;')
+t=replace(t,'$"errors=[{DescribeIntegrityErrors(same, topology)}], " +',' $"errors=[{DescribeIntegrityErrors(same, topology)}], causes=[{deferredErrors.Summary}], " +')
+t=replace(t,'            if (!detailedDiagnostics)\n            {\n                LogAcceptanceVerdict(reason);','            if (!detailedDiagnostics)\n            {\n                foreach (string pending in topologyProvider?.CaptureDiagnostics.UnresolvedDetails() ?? Array.Empty<string>())\n                    Shared.DebugLogHelper.LogWarning(log, "Enemy-gate unresolved capture: " + pending);\n                LogAcceptanceVerdict(reason);')
+# Avoid per-frame invariant formatting: the existing one-second publisher has already checked hot counters.
+write(p,t)
+p='src/SamePclGateRouteRuntime.cs';t=read(p)
+t=replace(t,'private readonly IEnemyGatePathPolicy registeredProvider;','private readonly IEnemyGatePathPolicy registeredProvider;\n        private readonly DeferredGateDiagnosticErrors deferredErrors;')
+t=replace(t,'AttackOrderCorrelationDiagnostics attackOrderDiagnostics)\n        {','AttackOrderCorrelationDiagnostics attackOrderDiagnostics, DeferredGateDiagnosticErrors deferredErrors = null)\n        {')
+t=replace(t,'            this.attackOrderDiagnostics = attackOrderDiagnostics;','            this.attackOrderDiagnostics = attackOrderDiagnostics;\n            this.deferredErrors = deferredErrors;')
+for marker,signature in [ ('cursorDecisionSampleState','private void CaptureCursorDecisionSample(int player, int unitId,\n            int targetPcl, int sourcePcl, int vanillaResult, int finalResult)'), ('tacticalEdgeSampleState','private void CaptureTacticalEdgeSample(int category, byte* slot,\n            int sourceOffset, int targetOffset, int directionOffset)') ]:
+    t=replace(t,signature+'\n        {',signature+'\n        {\n            if (!DetailedDiagnostics) return;')
+for message in ('Native gate-mask publication failed open','Native gate-mask slot fill failed open'):
+    a='                Shared.DebugLogHelper.LogWarning(log,\n                    $"'+message+': {ex.GetType().Name}: {ex.Message}");'
+    b='                if (deferredErrors != null) deferredErrors.Record("'+message+' / " + ex.GetType().Name, ex.Message);\n                else Shared.DebugLogHelper.LogWarning(log,\n                    $"'+message+': {ex.GetType().Name}: {ex.Message}");'
+    t=replace(t,a,b)
+write(p,t)
+p='src/GateTopologySnapshotProvider.cs';t=read(p)
+t=replace(t,'private readonly bool detailedDiagnostics;','private readonly bool detailedDiagnostics;\n        private readonly DeferredGateDiagnosticErrors deferredErrors;')
+t=replace(t,'ManualLogSource log, bool detailedDiagnostics = true)','ManualLogSource log, bool detailedDiagnostics = true, DeferredGateDiagnosticErrors deferredErrors = null)')
+t=replace(t,'this.detailedDiagnostics = detailedDiagnostics;','this.detailedDiagnostics = detailedDiagnostics;\n            this.deferredErrors = deferredErrors;')
+t=replace(t,'BuildTopologySnapshot(firstBuild, previous)','BuildTopologySnapshot(detailedDiagnostics && firstBuild, previous)')
+# The immutable geometry is functional; text about that geometry is optional.
+t=replace(t,'private static RouteTilePolicySnapshot BuildRoutePolicySnapshot(','private RouteTilePolicySnapshot BuildRoutePolicySnapshot(')
+t=replace(t,'var axisDiagnostics = new StringBuilder();','var axisDiagnostics = detailedDiagnostics ? new StringBuilder() : null;')
+t=replace(t,'axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString()','axisDiagnostics == null || axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString()')
+t=replace(t,'            if (text.Length > 0) text.Append(\';\');\n            text.Append(info.BridgeId','            if (text == null) return;\n            if (text.Length > 0) text.Append(\';\');\n            text.Append(info.BridgeId')
+t=replace(t,'            if (count <= MaximumErrorsPerCategory)','            if (deferredErrors != null) deferredErrors.Record(category + " / " + ex.GetType().Name, ex.Message);\n            else if (count <= MaximumErrorsPerCategory)')
+write(p,t)
+p='src/CaptureTransitionDiagnostics.cs';t=read(p)
+t=replace(t,'        internal string[] DrainChanges()','        internal string[] UnresolvedDetails()\n        {\n            lock (sync)\n            {\n                var output = new List<string>();\n                foreach (var pair in rows)\n                    if (pair.Value.Pending > 0) output.Add(pair.Key + ",unresolved=" + pair.Value.Pending);\n                output.Sort(StringComparer.Ordinal);\n                return output.ToArray();\n            }\n        }\n        internal string[] DrainChanges()')
+write(p,t)
+for p in ('src/FunctionalGatePolicyAdapter.cs','src/DeferredGateDiagnosticErrors.cs','tests/CompactDiagnosticTests.cs'):
+    write(p,read(p))

@@ -44,7 +44,7 @@ namespace MoatMove
                 var input=Decoder.Create(64,new ByteArrayCodeReader(source)); input.IP=library+(uint)sites[site];
                 var instructions=new List<Instruction>();
                 while(input.IP<library+(uint)sites[site]+(uint)source.Length) { input.Decode(out var i); instructions.Add(i); }
-                var adapter=new Assembler(64); EmitSelectionCallAdapter(adapter,instructions.ToArray(),0x123456789ABCDEF0);
+                var adapter=new Assembler(64); EmitSelectionCallAdapter(adapter,instructions.ToArray(),0x123456789ABCDEF0,sites[site]);
                 using var buffer=new MemoryStream(); adapter.Assemble(new StreamCodeWriter(buffer),stub);
                 var emittedBytes=buffer.ToArray();
                 File.WriteAllBytes(Path.Combine(root,"_inspect","MoatMove",$"se26-selection-{sites[site]:X}.bin"),emittedBytes);
@@ -53,6 +53,17 @@ namespace MoatMove
                 while(outputDecoder.IP<stub+(uint)emittedBytes.Length) { outputDecoder.Decode(out var i); Check(i.Code!=Code.INVALID,"selection adapter decode"); emittedInstructions.Add(i); }
                 Check(emittedInstructions.FindAll(i=>i.Mnemonic==Mnemonic.Call).Count==2,"one SE call and one decision call");
                 Check(emittedInstructions.Exists(i=>i.Code==Code.Call_rel32_64 && i.NearBranchTarget==library+0x196870),"live SE entry retained");
+                Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Mov && i.Op0Register==Register.R8D && i.Immediate32==(uint)sites[site]),
+                    "adapter supplies its exact call-site context");
+                Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Mov && i.Op0Register==Register.R9D &&
+                    (sites[site]==0x8F325 ? i.Op1Register==Register.R15D : i.Op1Kind==OpKind.Immediate32 && i.Immediate32==1)),
+                    "only the ground adapter consumes native R15D");
+                foreach(var reg in new[]{Register.RCX,Register.RDX,Register.R8,Register.R9,Register.R10,Register.R11})
+                    Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Mov && i.Op0Register==reg && i.Op1Kind==OpKind.Memory),
+                        "volatile register restored after callback");
+                foreach(var reg in new[]{Register.XMM0,Register.XMM1,Register.XMM2,Register.XMM3,Register.XMM4,Register.XMM5})
+                    Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Movdqu && i.Op0Register==reg && i.Op1Kind==OpKind.Memory),
+                        "SIMD register restored after callback");
                 foreach(var i in instructions)
                 {
                     if(i.IsJccShortOrNear) Check(emittedInstructions.Exists(j=>j.IsJccShortOrNear && j.NearBranchTarget==i.NearBranchTarget),"original branch destination retained");
@@ -144,12 +155,39 @@ namespace MoatMove
             int Hover(int pairTarget=1017)
             {
                 pendingAttackCursorPair=null;
-                long gate=ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager, nativeSelectionResult);
+                long gate=ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager, nativeSelectionResult,0x8F325,1);
                 return gate==0?0:AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,pairTarget,1010,1);
             }
             try
             {
                 Check(Hover()==1 && nativeCalls==0,"complete selection -> scope -> pair -> native positive cursor branch without a ground detour");
+                int savedType=units[1].r_UnitChimp;
+                bool savedManual=manualCommandsEnabled, savedTraversal=nativeTraversalDisabled;
+                try
+                {
+                    foreach(int type in new[]{0x3D,0x28,0x29,22})
+                    foreach(bool manual in new[]{false,true})
+                    foreach(bool traversal in new[]{false,true})
+                    {
+                        units[1].r_UnitChimp=type;
+                        manualCommandsEnabled=manual; nativeTraversalDisabled=!traversal;
+                        // The permission value is supplied by the real native producer,
+                        // not inferred from these fixture types or path reachability.
+                        pendingAttackCursorPair=new AttackCursorPairScope(1,1,1,10,10,1010,17,10,1017,CursorPairFallbackKind.DirectTile);
+                        int beforeCalls=nativeCalls;
+                        Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,0,0x8F325,0)==0 &&
+                            pendingAttackCursorPair==null && nativeCalls==beforeCalls,
+                            "native stationary/state/target veto cannot seed cursor or command feedback, with either provider setting");
+                        foreach(long positive in new long[]{1,7,0x100000001L,-1})
+                            Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,positive,0x8F325,0)==positive &&
+                                pendingAttackCursorPair==null,"original positive/full-width override remains authoritative even with R15D zero");
+                    }
+                }
+                finally { units[1].r_UnitChimp=savedType; manualCommandsEnabled=savedManual; nativeTraversalDisabled=savedTraversal; }
+                Check(Hover()==1,"allowed ground witness still repairs the route after rejected selections");
+                foreach(int attackSite in new[]{0x8D724,0x8E2B8,0x8E550,0xB7161,0xB7321})
+                    Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,0,attackSite,0)==1,
+                        "other call sites do not interpret R15D as a ground permission or forbid attacks");
                 Check(GamePlayerManagerAPI.Instance.GetSelectedChimps()[0].UnitId==1,
                     "the selected-unit projection preserves the 1-based unit ID");
                 foreach(int count in new[]{1,120,1000})
@@ -217,7 +255,7 @@ namespace MoatMove
                 *cursorTargetX=18;
                 movementTargetAvailability[10*800+17]=0;
                 Check(Hover()==1,"unit attack uses physical target region despite sprite offset and occupied target");
-                ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager, nativeSelectionResult);
+                ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager, nativeSelectionResult,0x8F325,1);
                 var bound=pendingAttackCursorPair;
                 units[1001].r_GlobalId++;
                 Check(!TryProbeUnitApproachCursorRoute(bound,out _,out _,out _),"reused attack target ID rejected");
@@ -236,10 +274,10 @@ namespace MoatMove
                 Check(Hover()==7 && nativeCalls==1,"native special selection without diggers retains original pair behavior");
                 foreach(long result in new long[]{1,7,0x100000001L,-1})
                 {
-                    Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,result)==result && pendingAttackCursorPair==null,
+                    Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,result,0x8F325,1)==result && pendingAttackCursorPair==null,
                         "SE positive/nonzero result is unchanged, including full-width value");
                 }
-                Check(ObserveCursorTilePairFallbackSelection(IntPtr.Zero,0)==0,"invalid selection does not gain access");
+                Check(ObserveCursorTilePairFallbackSelection(IntPtr.Zero,0,0x8F325,1)==0,"invalid selection does not gain access");
             }
             finally
             {

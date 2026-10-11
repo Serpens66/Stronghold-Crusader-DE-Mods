@@ -164,9 +164,6 @@ namespace BugfixesAndQoL
                     .Subscribe(ObserveTargetCommand);
                 AssassinPathAPI.RegisterWeightedBuilder(BugfixesAndQoLPlugin.PluginGuid, BuildWeightedPath);
                 sharedBuilderRegistered = true;
-                try { AssassinAttackControlAPI.RegisterTraversal(CaptureReadOnlyTraversal,
-                    () => IsInstalled && settings.EnableMod && settings.EnableImprovedAssassinPathfinding); }
-                catch (Exception ex) { LogWarning("Read-only Assassin traversal unavailable: " + ex.GetType().Name); }
                 ApplySetting();
                 LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
@@ -377,6 +374,15 @@ namespace BugfixesAndQoL
                             evidence.From == fromTile && evidence.To == toTile)
                             observation.DetailedObserver.ObserveAssassinDecision(observation.Token, player, fromTile, toTile, direction,
                                 true, evidence.Movement, evidence.Allowed, evidence.Gate, evidence.Global, evidence.Detail);
+                        else if (observation.DetailedObserver != null)
+                        {
+                            // TEMP_GATE_ROUTE_ACCEPTANCE: same ordinary connection and height layers used by route costs.
+                            AssassinTransitionKind movement = !climb ? AssassinTransitionKind.Ground :
+                                heightLayer[toTile] > heightLayer[fromTile] ? AssassinTransitionKind.ClimbUp :
+                                heightLayer[toTile] < heightLayer[fromTile] ? AssassinTransitionKind.ClimbDown : AssassinTransitionKind.Unknown;
+                            observation.DetailedObserver.ObserveAssassinDecision(observation.Token, player, fromTile, toTile, direction,
+                                true, movement, true, 0, 0, "movementSource=prepared-weighted-route,gateValidatorEvidence=not-retained,weightedClimb=" + climb);
+                        }
                         else observation.Observer?.ObserveAssassinEdge(observation.Token, player, fromTile, toTile, direction, climb);
                     }
                     catch (Exception ex) { LogWarning("Assassin diagnostic edge failed: " + ex.GetType().Name); }

@@ -5,10 +5,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
 string root = Path.GetFullPath(args[0]);
 string[] files = {
-    "APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/TemporaryGateRouteAcceptanceBridge.cs", "APIShared/src/Units/UnitAccess.cs", "Shared/Runtime/Native/TemporaryPackedRouteInspection.cs",
-    "APIShared/src/UnitCommands/TemporaryGateRouteReporting.cs", "Testmods/EnemyGatePathfindingTest/src/TemporaryGateRouteAcceptance.cs",
+    "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs", "APIShared/src/Units/UnitAccess.cs", "Shared/Runtime/Native/TemporaryPackedRouteInspection.cs",
+    "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs", "Testmods/EnemyGatePathfindingTest/src/TemporaryGateRouteAcceptance.cs",
     "Testmods/EnemyGatePathfindingTest/src/TemporaryGateAcceptanceAggregate.cs", "Testmods/EnemyGatePathfindingTest/src/RouteTilePolicySnapshot.cs",
-    "Testmods/EnemyGatePathfindingTest/src/GateEdgeOwnership.cs"
+    "Testmods/EnemyGatePathfindingTest/src/GateEdgeOwnership.cs", "Testmods/EnemyGatePathfindingTest/src/TemporaryGateCaptureTimeline.cs"
 };
 var trees = files.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, f)), path: f)).ToList();
 var production = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs")));

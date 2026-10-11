@@ -1,0 +1,509 @@
+[
+  {
+    "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "address": "0x180122800",
+    "rva": "0x122800",
+    "name": "FUN_180122800",
+    "confidence": "candidate",
+    "size": 826,
+    "signature": "undefined FUN_180122800(void)",
+    "comment": null,
+    "raw_hash": "C469ECA33AF860987CF20E307033A2E044EA25CD6D7AE0EC397D1719D7E27B15",
+    "normalized_hash": "6568CA48A72654110FB6DB0BBB769A095ECF3BBDD2B9CA76B1A717D3F0149953",
+    "block_count": 41,
+    "pseudocode": "/* FUNCTION FUN_180122800 VA=0x180122800 RVA=0x122800 */\n\nundefined8 FUN_180122800(longlong param_1,int param_2,int param_3)\n\n{\n  short sVar1;\n  short sVar2;\n  bool bVar3;\n  int iVar4;\n  int iVar5;\n  undefined8 uVar6;\n  longlong lVar7;\n  longlong lVar8;\n  undefined4 uVar9;\n  undefined4 uVar10;\n  undefined4 uVar11;\n  undefined4 uVar12;\n  short sVar13;\n  int iVar14;\n  longlong lVar15;\n  \n  lVar8 = (longlong)param_2;\n  lVar15 = lVar8 * 0x490;\n  uVar11 = 0;\n  uVar9 = 0;\n  iVar14 = 0;\n  sVar1 = (&DAT_1867e8d30)[lVar8 * 0x248];\n  iVar4 = 0x3f2;\n  if (param_3 != 0x420) {\n    iVar4 = param_3;\n  }\n  if (((((&DAT_1867e8ae4)[lVar8 * 0x248] == 2) && ((&DAT_1867e8cf8)[lVar8 * 0x248] == 0)) &&\n      (*(short *)(&DAT_1867e8cf6 + lVar15) == 0)) &&\n     (((&DAT_1867e8e6b)[lVar15] == '\\0' &&\n      ((&DAT_188574bcc)[(short)(&DAT_1867e8aee)[lVar8 * 0x248]] == -1)))) {\n    bVar3 = false;\n    if (iVar4 == 0x3f2) {\n      if (param_3 == 0x420) {\n        iVar4 = FUN_180111330(&DAT_182e76f10,param_2);\n      }\n      else {\n        iVar4 = FUN_180111620();\n      }\nLAB_1801229e3:\n      uVar11 = 0;\n      uVar9 = 0;\n      iVar14 = 0;\n      bVar3 = false;\n      if (iVar4 != 0) {\nLAB_1801229f5:\n        bVar3 = true;\n        uVar11 = DAT_182e76f10;\n        uVar9 = DAT_182e76f14;\n        iVar14 = DAT_182e76f18;\n      }\nLAB_180122a69:\n      iVar4 = iVar14;\n      uVar10 = uVar9;\n      uVar12 = uVar11;\n      (&DAT_1867e8e00)[lVar8 * 0x124] = 0;\n      if (!bVar3) goto LAB_180122b1b;\n    }\n    else {\n      if (iVar4 == 0x3f5) {\n        iVar4 = FUN_180111d90(&DAT_182e76f10,param_2);\n        goto LAB_1801229e3;\n      }\n      if (iVar4 != 0x3fb) {\n        if (iVar4 == 0x3fd) {\n          iVar4 = FUN_180111960(&DAT_182e76f10,param_2);\n        }\n        else if (iVar4 == 0x3f6) {\n          iVar4 = FUN_180111060(&DAT_182e76f10,param_2);\n        }\n        else {\n          if ((iVar4 != 0x413) && (iVar4 != 0x414)) {\n            if ((iVar4 != 0x3f7) ||\n               (iVar5 = FUN_180110740(&DAT_182e76f10,param_2), iVar4 = DAT_182e76f18,\n               uVar10 = DAT_182e76f14, uVar12 = DAT_182e76f10, iVar5 == 0)) goto LAB_180122a69;\n            (&DAT_1867e8e00)[lVar8 * 0x124] = 0;\n            goto LAB_180122a88;\n          }\n          iVar4 = FUN_180111f20(&DAT_182e76f10,param_2);\n        }\n        goto LAB_1801229e3;\n      }\n      iVar5 = FUN_180111af0(&DAT_182e76f10,param_2);\n      iVar4 = DAT_182e76f18;\n      uVar10 = DAT_182e76f14;\n      uVar12 = DAT_182e76f10;\n      if (iVar5 == 0) {\n        iVar4 = FUN_180111620(&DAT_182e76f10,param_2);\n        if (iVar4 != 0) {\n          lVar7 = (longlong)sVar1 * 0x688;\n          if (*(short *)(lVar7 + 0x5a + param_1) == param_2) {\n            *(undefined2 *)(&DAT_187cc6770 + lVar7) = 0x3f2;\n          }\n          *(undefined2 *)(&DAT_1867e8d5a + lVar15) = 0x3f2;\n          goto LAB_1801229f5;\n        }\n        goto LAB_180122a69;\n      }\n      (&DAT_1867e8e00)[lVar8 * 0x124] = 0;\n    }\nLAB_180122a88:\n    (&DAT_1867e8e00)[lVar8 * 0x124] = iVar4;\n    *(undefined2 *)(&DAT_1867e8d18 + lVar15) = 0x65;\n    sVar13 = (&DAT_183aae2a4)[iVar4];\n    (&DAT_1867e8e42)[lVar8 * 0x248] = sVar13;\n    sVar2 = *(short *)(&DAT_1867e8d2e + lVar15);\n    sVar13 = (short)iVar4 - *(short *)(&DAT_18402ff2c + (longlong)sVar13 * 3);\n    (&DAT_1867e8e40)[lVar8 * 0x248] = sVar13;\n    if (sVar2 == param_2) {\n      lVar15 = (longlong)sVar1 * 0x688;\n      *(short *)(lVar15 + 0x58a + param_1) = sVar13;\n      *(undefined2 *)(lVar15 + 0x58c + param_1) = (&DAT_1867e8e42)[lVar8 * 0x248];\n    }\n    iVar4 = FUN_1801946a0(&DAT_1867e8400,param_2);\n    if (iVar4 == 0) {\n      FUN_180196280(&DAT_1867e8400,param_2,uVar12,uVar10,0);\n    }\n    uVar6 = 1;\n  }\n  else {\nLAB_180122b1b:\n    uVar6 = 0;\n  }\n  return uVar6;\n}\n\n\n\n",
+    "semanticClaims": [],
+    "classifications": [],
+    "strings": [],
+    "dataReferences": [
+      {
+        "target_rva": "0x0"
+      },
+      {
+        "target_rva": "0x2E76F10"
+      },
+      {
+        "target_rva": "0x2E76F14"
+      },
+      {
+        "target_rva": "0x2E76F18"
+      },
+      {
+        "target_rva": "0x3AAE2A4"
+      },
+      {
+        "target_rva": "0x402FF2C"
+      },
+      {
+        "target_rva": "0x67E8400"
+      },
+      {
+        "target_rva": "0x67E8AE4"
+      },
+      {
+        "target_rva": "0x67E8AEE"
+      },
+      {
+        "target_rva": "0x67E8CF6"
+      },
+      {
+        "target_rva": "0x67E8CF8"
+      },
+      {
+        "target_rva": "0x67E8D18"
+      },
+      {
+        "target_rva": "0x67E8D2E"
+      },
+      {
+        "target_rva": "0x67E8D30"
+      },
+      {
+        "target_rva": "0x67E8D5A"
+      },
+      {
+        "target_rva": "0x67E8E00"
+      },
+      {
+        "target_rva": "0x67E8E40"
+      },
+      {
+        "target_rva": "0x67E8E42"
+      },
+      {
+        "target_rva": "0x67E8E6B"
+      },
+      {
+        "target_rva": "0x7CC6770"
+      },
+      {
+        "target_rva": "0x8574BCC"
+      }
+    ],
+    "callees": [
+      {
+        "callee_rva": "0x110740",
+        "callee_name": "FUN_180110740"
+      },
+      {
+        "callee_rva": "0x111060",
+        "callee_name": "FUN_180111060"
+      },
+      {
+        "callee_rva": "0x111330",
+        "callee_name": "FUN_180111330"
+      },
+      {
+        "callee_rva": "0x111620",
+        "callee_name": "FUN_180111620"
+      },
+      {
+        "callee_rva": "0x111960",
+        "callee_name": "FUN_180111960"
+      },
+      {
+        "callee_rva": "0x111AF0",
+        "callee_name": "FUN_180111af0"
+      },
+      {
+        "callee_rva": "0x111D90",
+        "callee_name": "FUN_180111d90"
+      },
+      {
+        "callee_rva": "0x111F20",
+        "callee_name": "FUN_180111f20"
+      },
+      {
+        "callee_rva": "0x1946A0",
+        "callee_name": "FUN_1801946a0"
+      },
+      {
+        "callee_rva": "0x196280",
+        "callee_name": "FUN_180196280"
+      }
+    ],
+    "callers": [
+      {
+        "caller_rva": "0x12E400"
+      },
+      {
+        "caller_rva": "0x13F540"
+      },
+      {
+        "caller_rva": "0x141DA0"
+      },
+      {
+        "caller_rva": "0x143400"
+      },
+      {
+        "caller_rva": "0x145030"
+      },
+      {
+        "caller_rva": "0x146A70"
+      },
+      {
+        "caller_rva": "0x1483F0"
+      },
+      {
+        "caller_rva": "0x1493E0"
+      },
+      {
+        "caller_rva": "0x14AED0"
+      },
+      {
+        "caller_rva": "0x151090"
+      },
+      {
+        "caller_rva": "0x15A950"
+      },
+      {
+        "caller_rva": "0x160420"
+      },
+      {
+        "caller_rva": "0x167D40"
+      },
+      {
+        "caller_rva": "0x169B70"
+      },
+      {
+        "caller_rva": "0x16B220"
+      },
+      {
+        "caller_rva": "0x16CD70"
+      },
+      {
+        "caller_rva": "0x16E440"
+      },
+      {
+        "caller_rva": "0x16F590"
+      },
+      {
+        "caller_rva": "0x170570"
+      },
+      {
+        "caller_rva": "0x1731F0"
+      },
+      {
+        "caller_rva": "0x174F90"
+      },
+      {
+        "caller_rva": "0x1768A0"
+      },
+      {
+        "caller_rva": "0x178350"
+      },
+      {
+        "caller_rva": "0x17A590"
+      },
+      {
+        "caller_rva": "0x17B540"
+      },
+      {
+        "caller_rva": "0x17CF50"
+      }
+    ],
+    "managedCallers": [],
+    "globals": [
+      {
+        "address": "0x180000000",
+        "rva": "0x0",
+        "name": "IMAGE_DOS_HEADER_180000000",
+        "data_type": "IMAGE_DOS_HEADER",
+        "reference_count": 2612
+      },
+      {
+        "address": "0x1801228CF",
+        "rva": "0x1228CF",
+        "name": "LAB_1801228cf",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801228D9",
+        "rva": "0x1228D9",
+        "name": "LAB_1801228d9",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801228F4",
+        "rva": "0x1228F4",
+        "name": "LAB_1801228f4",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122947",
+        "rva": "0x122947",
+        "name": "LAB_180122947",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122983",
+        "rva": "0x122983",
+        "name": "LAB_180122983",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122995",
+        "rva": "0x122995",
+        "name": "LAB_180122995",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801229AD",
+        "rva": "0x1229AD",
+        "name": "LAB_1801229ad",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801229C5",
+        "rva": "0x1229C5",
+        "name": "LAB_1801229c5",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801229D5",
+        "rva": "0x1229D5",
+        "name": "LAB_1801229d5",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801229E3",
+        "rva": "0x1229E3",
+        "name": "LAB_1801229e3",
+        "data_type": null,
+        "reference_count": 5
+      },
+      {
+        "address": "0x1801229F5",
+        "rva": "0x1229F5",
+        "name": "LAB_1801229f5",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122A0F",
+        "rva": "0x122A0F",
+        "name": "LAB_180122a0f",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122A5B",
+        "rva": "0x122A5B",
+        "name": "LAB_180122a5b",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122A62",
+        "rva": "0x122A62",
+        "name": "LAB_180122a62",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x180122A69",
+        "rva": "0x122A69",
+        "name": "LAB_180122a69",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x180122A88",
+        "rva": "0x122A88",
+        "name": "LAB_180122a88",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x180122AF2",
+        "rva": "0x122AF2",
+        "name": "LAB_180122af2",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122B14",
+        "rva": "0x122B14",
+        "name": "LAB_180122b14",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180122B1B",
+        "rva": "0x122B1B",
+        "name": "LAB_180122b1b",
+        "data_type": null,
+        "reference_count": 6
+      },
+      {
+        "address": "0x180122B1D",
+        "rva": "0x122B1D",
+        "name": "LAB_180122b1d",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x182E76F10",
+        "rva": "0x2E76F10",
+        "name": "DAT_182e76f10",
+        "data_type": "undefined4",
+        "reference_count": 142
+      },
+      {
+        "address": "0x182E76F14",
+        "rva": "0x2E76F14",
+        "name": "DAT_182e76f14",
+        "data_type": "undefined4",
+        "reference_count": 4
+      },
+      {
+        "address": "0x182E76F18",
+        "rva": "0x2E76F18",
+        "name": "DAT_182e76f18",
+        "data_type": "undefined4",
+        "reference_count": 5
+      },
+      {
+        "address": "0x183AAE2A4",
+        "rva": "0x3AAE2A4",
+        "name": "DAT_183aae2a4",
+        "data_type": "undefined2",
+        "reference_count": 240
+      },
+      {
+        "address": "0x18402FF2C",
+        "rva": "0x402FF2C",
+        "name": "DAT_18402ff2c",
+        "data_type": "undefined4",
+        "reference_count": 1039
+      },
+      {
+        "address": "0x1867E8400",
+        "rva": "0x67E8400",
+        "name": "DAT_1867e8400",
+        "data_type": "undefined4",
+        "reference_count": 2910
+      },
+      {
+        "address": "0x1867E8AE4",
+        "rva": "0x67E8AE4",
+        "name": "DAT_1867e8ae4",
+        "data_type": "undefined2",
+        "reference_count": 358
+      },
+      {
+        "address": "0x1867E8AEE",
+        "rva": "0x67E8AEE",
+        "name": "DAT_1867e8aee",
+        "data_type": "undefined2",
+        "reference_count": 482
+      },
+      {
+        "address": "0x1867E8CF6",
+        "rva": "0x67E8CF6",
+        "name": "DAT_1867e8cf6",
+        "data_type": null,
+        "reference_count": 20
+      },
+      {
+        "address": "0x1867E8CF8",
+        "rva": "0x67E8CF8",
+        "name": "DAT_1867e8cf8",
+        "data_type": "undefined2",
+        "reference_count": 143
+      },
+      {
+        "address": "0x1867E8D18",
+        "rva": "0x67E8D18",
+        "name": "DAT_1867e8d18",
+        "data_type": null,
+        "reference_count": 1874
+      },
+      {
+        "address": "0x1867E8D2E",
+        "rva": "0x67E8D2E",
+        "name": "DAT_1867e8d2e",
+        "data_type": null,
+        "reference_count": 14
+      },
+      {
+        "address": "0x1867E8D30",
+        "rva": "0x67E8D30",
+        "name": "DAT_1867e8d30",
+        "data_type": "undefined2",
+        "reference_count": 95
+      },
+      {
+        "address": "0x1867E8D5A",
+        "rva": "0x67E8D5A",
+        "name": "DAT_1867e8d5a",
+        "data_type": null,
+        "reference_count": 85
+      },
+      {
+        "address": "0x1867E8E00",
+        "rva": "0x67E8E00",
+        "name": "DAT_1867e8e00",
+        "data_type": "undefined4",
+        "reference_count": 203
+      },
+      {
+        "address": "0x1867E8E40",
+        "rva": "0x67E8E40",
+        "name": "DAT_1867e8e40",
+        "data_type": "undefined2",
+        "reference_count": 85
+      },
+      {
+        "address": "0x1867E8E42",
+        "rva": "0x67E8E42",
+        "name": "DAT_1867e8e42",
+        "data_type": "undefined2",
+        "reference_count": 85
+      },
+      {
+        "address": "0x1867E8E6B",
+        "rva": "0x67E8E6B",
+        "name": "DAT_1867e8e6b",
+        "data_type": null,
+        "reference_count": 27
+      },
+      {
+        "address": "0x187CC6770",
+        "rva": "0x7CC6770",
+        "name": "DAT_187cc6770",
+        "data_type": null,
+        "reference_count": 53
+      },
+      {
+        "address": "0x188574BCC",
+        "rva": "0x8574BCC",
+        "name": "DAT_188574bcc",
+        "data_type": "undefined4",
+        "reference_count": 226
+      }
+    ],
+    "types": [],
+    "versionMatches": [
+      {
+        "old_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+        "new_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+        "old_rva": "0x121920",
+        "new_rva": "0x122800",
+        "confidence": "confirmed",
+        "reason": "unique-normalized-hash-and-cfg",
+        "score": 1.0,
+        "changed": 1
+      }
+    ]
+  }
+]
