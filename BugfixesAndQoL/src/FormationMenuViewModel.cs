@@ -67,6 +67,18 @@ namespace BugfixesAndQoL
 
         public string RememberRowsText => SerpLocalization.Get("BugfixesAndQoL.RememberRows");
         public string RememberRowsHelp => SerpLocalization.Get("BugfixesAndQoL.RememberRowsHelp");
+        public string LineupText => SerpLocalization.Get("BugfixesAndQoL.ArrangementTooltip");
+        public string DensityText => SerpLocalization.Get("BugfixesAndQoL.LineupDensity");
+        public string TightText => SerpLocalization.Get("BugfixesAndQoL.LineupTight");
+        public string NormalText => SerpLocalization.Get("BugfixesAndQoL.LineupNormal");
+        public string FarText => SerpLocalization.Get("BugfixesAndQoL.LineupFar");
+        public string VeryFarText => SerpLocalization.Get("BugfixesAndQoL.LineupVeryFar");
+        public string RangedSiegeText => SerpLocalization.Get("BugfixesAndQoL.LineupRangedSiege");
+        public string OffText => SerpLocalization.Get("BugfixesAndQoL.LineupOff");
+        public string RearText => SerpLocalization.Get("BugfixesAndQoL.LineupRear");
+        public string CenterText => SerpLocalization.Get("BugfixesAndQoL.LineupCenter");
+        public string RoleMarkersText => SerpLocalization.Get("BugfixesAndQoL.LineupRoleMarkers");
+        public string OnText => SerpLocalization.Get("BugfixesAndQoL.LineupOn");
         public bool RememberRows
         {
             get => rememberRows.Value;
@@ -255,10 +267,18 @@ namespace BugfixesAndQoL
         private void ShowRollover(object parameter)
         {
             if (!FeatureAvailable) return;
-            string text = parameter as string;
-            if (string.IsNullOrWhiteSpace(text))
-                return;
-            rolloverText = text;
+            string key;
+            switch (parameter as string)
+            {
+                case "Vanilla": key = "BugfixesAndQoL.LineupVanilla"; break;
+                case "Block": key = "BugfixesAndQoL.LineupBlock"; break;
+                case "Line": key = "BugfixesAndQoL.LineupLine"; break;
+                case "Column": key = "BugfixesAndQoL.LineupColumn"; break;
+                case "Wedge": key = "BugfixesAndQoL.LineupWedge"; break;
+                case "Circle": key = "BugfixesAndQoL.LineupCircle"; break;
+                default: return;
+            }
+            rolloverText = SerpLocalization.Get(key);
             rolloverVisible = true;
             OnChanged(nameof(RolloverText));
             OnChanged(nameof(RolloverVisible));

@@ -17,7 +17,7 @@ internal static class FormationStartupTests
         string fixture = """
 using System; using System.Reflection; using System.Collections.Generic; using System.ComponentModel;
 using BugfixesAndQoL.UnitCommands; using BepInEx.Configuration; using BepInEx.Logging;
-public static class SerpLocalization { public static string Language="en"; public static string Get(string key)=>key=="BugfixesAndQoL.ArrangementTooltip"?(Language=="de"?"Aufstellung":"Arrangement"):key; }
+public static class SerpLocalization { public static string Language="en"; public static string Get(string key)=>key=="BugfixesAndQoL.ArrangementTooltip"?(Language=="de"?"Aufstellung":"Lineup"):Language+":"+key; }
 namespace BepInEx { public static class Paths { public static string ConfigPath="__missing_formation_fixture__"; } }
 namespace BepInEx.Logging { public class ManualLogSource {} }
 namespace BepInEx.Configuration {
@@ -153,7 +153,7 @@ namespace BugfixesAndQoL {
             Require(manager.Attempts.Count==2 && manager.Hosts.Count==1,"Registration failure prevented other hosts");
             Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Unavailable menu starts visible");
             FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
-            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Aufstellung");
+            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
             Require(!menu.MenuVisible && !menu.RolloverVisible,"Missing shared capability opened menu");
             manager.ThrowOnHost=null;manager.Hosts.Clear();manager.Attempts.Clear();
             menu=Configure(config,options);
@@ -195,8 +195,22 @@ namespace BugfixesAndQoL {
             Require(((ConfigEntry<int>)config.Entries["Density"]).Value==4 &&
                 ((ConfigEntry<RangedPlacementMode>)config.Entries["RangedPlacement"]).Value==RangedPlacementMode.Rear &&
                 !((ConfigEntry<bool>)config.Entries["ShowRoleMarkers"]).Value,"Window setting commands failed");
-            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Aufstellung");
+            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
             Require(menu.MenuVisible && menu.RolloverVisible,"Healthy menu/rollover did not open");
+            foreach(string language in new[]{"en","de"}) {
+                SerpLocalization.Language=language;
+                Require(menu.LineupText==(language=="de"?"Aufstellung":"Lineup"),"Lineup title was not localized");
+                Require(menu.DensityText==language+":BugfixesAndQoL.LineupDensity" &&
+                    menu.RoleMarkersText==language+":BugfixesAndQoL.LineupRoleMarkers","Menu labels bypassed localization");
+                foreach(string kind in new[]{"Vanilla","Block","Line","Column","Wedge","Circle"}) {
+                    menu.ShowRolloverCommand.Execute(kind);
+                    Require(menu.RolloverVisible && menu.RolloverText==language+":BugfixesAndQoL.Lineup"+kind,
+                        "Rollover displayed a raw selection parameter: "+kind);
+                }
+                menu.HideRolloverCommand.Execute(null);menu.ShowRolloverCommand.Execute("Unknown");
+                Require(!menu.RolloverVisible,"Unknown rollover parameter opened hover text");
+            }
+            SerpLocalization.Language="en";menu.ShowRolloverCommand.Execute("Block");
             FormationRuntime.Last.Failed=true;menu.RefreshHostState();
             Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Later runtime failure left UI active");
             menu.SelectFormationCommand.Execute("Block");

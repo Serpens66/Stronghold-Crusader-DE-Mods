@@ -19,7 +19,8 @@
     {
       "Version": "1.0.187",
       "Changes": [
-        "Moved the Assassin captured-gatehouse protection setting from Fixes to Fixes?; behavior unchanged."
+        "Moved the Assassin captured-gatehouse protection setting from Fixes to Fixes?; behavior unchanged.",
+        "Fixed mixed-language labels and hover texts in the unit lineup menu across all supported languages; standardized the English feature name to Lineup."
       ]
     },
     {
