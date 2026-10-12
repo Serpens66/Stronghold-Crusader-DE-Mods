@@ -2,6 +2,7 @@ param([ValidateSet('SerpsMods','APIShared')][string]$Target='SerpsMods',[int]$Te
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
+. (Join-Path $PSScriptRoot 'WorkshopChangelog.ps1')
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $outputRoot = Join-Path $root '.release-output\SteamWorkshop'
@@ -62,6 +63,9 @@ function Get-UploadedModVersions {
         foreach ($mod in @($State.Mods)) {
             $guid = [string]$mod.Guid
             if (-not [string]::IsNullOrWhiteSpace($guid)) {
+                if ($versions.ContainsKey($guid) -or [string]$mod.Version -notmatch '^\d+\.\d+\.\d+$') {
+                    throw "Invalid/duplicate mod in confirmed changelog state: $guid"
+                }
                 $versions[$guid] = [string]$mod.Version
             }
         }
@@ -69,68 +73,13 @@ function Get-UploadedModVersions {
     return $versions
 }
 
-function Get-IncrementalChangesBody {
-    param(
-        [Parameter(Mandatory)][string]$Body,
-        [Parameter(Mandatory)][string]$CurrentVersion,
-        [AllowEmptyString()][string]$PreviousVersion,
-        [Parameter(Mandatory)][string]$ModName
-    )
-
-    if ([string]::IsNullOrWhiteSpace($PreviousVersion)) {
-        return $Body
-    }
-
-    $previousHeading = [regex]::Match(
-        $Body,
-        '(?m)^###[ \t]+v' + [regex]::Escape($PreviousVersion) + '[ \t]*$')
-    if ($previousHeading.Success) {
-        $incrementalBody = $Body.Substring(0, $previousHeading.Index).Trim()
-        if (-not [string]::IsNullOrWhiteSpace($incrementalBody)) {
-            return $incrementalBody
-        }
-    }
-
-    # Release notes may have dropped the exact baseline while still containing
-    # several newer releases. Numeric versions can be compared safely so none
-    # of those intermediate changes are lost.
-    $parsedPreviousVersion = $null
-    if ([version]::TryParse($PreviousVersion, [ref]$parsedPreviousVersion)) {
-        $newerSections = [Collections.Generic.List[string]]::new()
-        $sectionMatches = [regex]::Matches(
-            $Body,
-            '(?ms)^###[ \t]+v(?<version>[^ \t\r\n]+)[ \t]*\r?\n.*?(?=^###[ \t]+v|\z)')
-        foreach ($sectionMatch in $sectionMatches) {
-            $parsedSectionVersion = $null
-            if ([version]::TryParse($sectionMatch.Groups['version'].Value, [ref]$parsedSectionVersion) -and
-                $parsedSectionVersion -gt $parsedPreviousVersion) {
-                $newerSections.Add($sectionMatch.Value.Trim())
-            }
-        }
-        if ($newerSections.Count -gt 0) {
-            Write-UploadLog "Previous version v$PreviousVersion is absent from the release notes for '$ModName'; selected $($newerSections.Count) newer numeric version section(s)." 'WARN'
-            return $newerSections -join "`r`n`r`n"
-        }
-    }
-
-    # Non-numeric versions cannot be ordered reliably without the baseline.
-    # The current section is the only one guaranteed not to be a duplicate.
-    $currentSection = [regex]::Match(
-        $Body,
-        '(?ms)^###[ \t]+v' + [regex]::Escape($CurrentVersion) + '[ \t]*\r?\n.*?(?=^###[ \t]+v|\z)')
-    if (-not $currentSection.Success -or [string]::IsNullOrWhiteSpace($currentSection.Value)) {
-        Stop-Upload 2 "Current version section v$CurrentVersion was not found for '$ModName'."
-    }
-    Write-UploadLog "Previous version v$PreviousVersion is absent from the release notes for '$ModName'; including only v$CurrentVersion to avoid duplicate entries." 'WARN'
-    return $currentSection.Value.Trim()
-}
-
 function Get-WorkshopChangeNote {
     param(
         [Parameter(Mandatory)][string]$ReleaseOutputRoot,
         [Parameter(Mandatory)][IO.FileInfo]$MapFile,
         [AllowNull()]$PreviousState,
-        [string]$ProvenancePath=''
+        [string]$ProvenancePath='',
+        [Parameter(Mandatory)][string]$PackageFolder
     )
 
     $packReleaseRoot = Join-Path $ReleaseOutputRoot 'SerpsMods'
@@ -195,30 +144,10 @@ function Get-WorkshopChangeNote {
             continue
         }
 
-        $modReleaseRoot = Join-Path $ReleaseOutputRoot $releaseTagMatch.Groups[1].Value
-        $notesPath = Join-Path (Join-Path $modReleaseRoot "v$modVersion") 'release-notes.md'
-        if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) {
-            $bodyJson=& gh release view $releaseTag --repo 'Serpens66/Stronghold-Crusader-DE-Mods' --json body
-            if($LASTEXITCODE -ne 0){Stop-Upload 2 "Release notes unavailable for $releaseTag."}
-            $notesText=[string](($bodyJson|ConvertFrom-Json).body)
-        } else {
-            $notesText = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $notesPath).Path)
-        }
-        $changesMatch = [regex]::Match(
-            $notesText,
-            '(?ms)^##[ \t]+Changes[ \t]*\r?\n(?<body>.*?)(?=^##[ \t]+|\z)')
-        if (-not $changesMatch.Success -or [string]::IsNullOrWhiteSpace($changesMatch.Groups['body'].Value)) {
-            Stop-Upload 2 "A non-empty '## Changes' section was not found for active mod '$($mod.Name)' v${modVersion}: $notesPath"
-        }
-
-        $body = Get-IncrementalChangesBody `
-            -Body $changesMatch.Groups['body'].Value.Trim() `
-            -CurrentVersion $modVersion `
-            -PreviousVersion $previousVersion `
-            -ModName ([string]$mod.Name)
-        $body = [regex]::Replace($body, "`r`n|`r|`n", "`r`n")
-        $sections.Add("## $($mod.Name) v$modVersion`r`n`r`n$body")
-        $sources.Add($(if(Test-Path -LiteralPath $notesPath){(Resolve-Path -LiteralPath $notesPath).Path}else{'GitHub:'+ $releaseTag}))
+        $changes = Get-PayloadChangelogBody $PackageFolder $mod $previousVersion
+        if ([string]::IsNullOrWhiteSpace($changes.Text)) { throw "Missing incremental changelog for $($mod.Name)." }
+        $sections.Add("## $($mod.Name) v$modVersion`r`n`r`n$($changes.Text)")
+        $sources.Add($changes.Path)
     }
 
     return [pscustomobject]@{
@@ -254,50 +183,6 @@ function Read-ChangelogState {
     }
 }
 
-function Find-LegacyChangelogState {
-    param(
-        [Parameter(Mandatory)][string]$LogDirectory,
-        [Parameter(Mandatory)][string]$ItemId
-    )
-
-    $logs = @(Get-ChildItem -LiteralPath $LogDirectory -File -Filter '*.log' |
-        Sort-Object LastWriteTimeUtc -Descending)
-    foreach ($log in $logs) {
-        $text = [IO.File]::ReadAllText($log.FullName)
-        if ($text -notmatch '(?m)^.*Steam Workshop upload completed successfully\. Item ID: ' + [regex]::Escape($ItemId) + '[ \t]*\r?$') {
-            continue
-        }
-        $releaseMatch = [regex]::Match($text, '(?m)^.*Changelog pack release: (?<path>.+?)[ \t]*\r?$')
-        if (-not $releaseMatch.Success) {
-            continue
-        }
-        $provenancePath = Join-Path $releaseMatch.Groups['path'].Value.Trim() 'SerpsMods.provenance.json'
-        if (-not (Test-Path -LiteralPath $provenancePath -PathType Leaf)) {
-            continue
-        }
-        try {
-            $provenance = [IO.File]::ReadAllText($provenancePath) | ConvertFrom-Json
-            Write-UploadLog "Using last successful upload as initial changelog baseline: $($log.FullName)" 'OK'
-            return [pscustomobject]@{
-                SchemaVersion = 1
-                ItemId = $ItemId
-                PackVersion = [string]$provenance.Version
-                MapSha256 = [string]$provenance.Map.Sha256
-                Mods = @($provenance.Mods | Where-Object { [string]$_.State -ceq 'Active' } | ForEach-Object {
-                    [pscustomobject]@{
-                        Guid = [string]$_.Guid
-                        Name = [string]$_.Name
-                        Version = [string]$_.Version
-                    }
-                })
-            }
-        } catch {
-            Write-UploadLog "Ignoring unusable legacy changelog baseline ${provenancePath}: $($_.Exception.Message)" 'WARN'
-        }
-    }
-    return $null
-}
-
 function Save-ChangelogState {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -313,6 +198,7 @@ function Save-ChangelogState {
         UploadedUtc = [DateTime]::UtcNow.ToString('o')
         Mods = @($ChangeNoteInfo.Mods)
     }
+    if ($ChangeNoteInfo.PSObject.Properties['ContentFingerprint']) { $state.ContentFingerprint = $ChangeNoteInfo.ContentFingerprint }
     $directory = Split-Path -Parent $Path
     [void](New-Item -ItemType Directory -Path $directory -Force)
     [IO.File]::WriteAllText(
@@ -356,7 +242,10 @@ try {
     $map=Get-Item -LiteralPath (Join-Path $folder ($Target+'.map'))
     if($Target -eq 'SerpsMods') {
         $releaseOutput=if($test){Join-Path $config.Root '.release-output/SteamWorkshop/test'}else{Join-Path $config.Root '.release-output'}
-        $note=Get-WorkshopChangeNote -ReleaseOutputRoot $releaseOutput -MapFile $map -PreviousState $previous -ProvenancePath $proof.ReleaseProvenance
+        $historyPath=Join-Path $state ('items/'+$config.AppId+'-SerpsMods.upload-history.json')
+        $seed=if($test){Join-Path $state 'SerpsMods.empty-seed.json'}else{Join-Path $PSScriptRoot 'SerpsMods.upload-history.seed.json'}
+        $previous=Get-ConfirmedWorkshopChangelogState $previous $id $historyPath $seed $config.AppId $releaseOutput $proof.ReleaseProvenance
+        $note=Get-WorkshopChangeNote -ReleaseOutputRoot $releaseOutput -MapFile $map -PreviousState $previous -ProvenancePath $proof.ReleaseProvenance -PackageFolder $folder
     } else {
         $changeText=[string]$proof.ReleaseNotes
         if(-not $changeText){$changeText='APIShared package updated.'}
@@ -373,11 +262,13 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Complete package validation failed.'}
     $checked=[IO.File]::ReadAllText($resultPath)|ConvertFrom-Json
     $request.Fingerprint=$checked.Fingerprint;Write-SteamWorkshopJson $requestPath $request
+    $note | Add-Member -NotePropertyName ContentFingerprint -NotePropertyValue $checked.Fingerprint
+    [IO.File]::WriteAllText((Join-Path $run 'changelog.txt'), $note.Text + "`r`n", [Text.UTF8Encoding]::new($false))
+    Write-UploadLog ('CHANGELOG: '+$note.Text)
     if($Validate){Write-UploadLog 'Complete package validated without Steam initialization or upload.' 'OK';exit 0}
     & $publisher --inspect $requestPath $resultPath
     if($LASTEXITCODE -ne 0){throw 'Steam item/prerequisite validation failed; no upload started.'}
     Write-UploadLog "Target=$Target; mode=$($request.Mode); version=$($proof.Version); item=$id; files=$(@($proof.Files).Count); fingerprint=$($request.Fingerprint)"
-    Write-UploadLog ('CHANGELOG: '+$note.Text)
     if((Read-Host 'Type HOCHLADEN to submit this reviewed snapshot') -cne 'HOCHLADEN'){throw 'Upload cancelled.'}
     & $publisher --publish $requestPath $resultPath
     $publisherExit=$LASTEXITCODE

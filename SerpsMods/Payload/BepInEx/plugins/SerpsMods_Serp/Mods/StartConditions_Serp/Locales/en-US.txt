@@ -1,0 +1,87 @@
+Common.PresetLoad=Load preset
+Common.PresetSave=Save preset
+Common.PresetBasedOn=Based on
+Common.PresetModified=modified
+Common.PresetLoadConfirm=Load
+Common.PresetLoadSelectionHelp=Selecting a preset changes nothing until you choose Load.
+Common.PresetLoadCancel=Cancel
+Common.PresetDelete=Delete
+Common.PresetDeleteTitle=Delete personal preset
+Common.PresetDeleteConfirm=The personal preset will be permanently deleted. Continue?
+Common.PresetDeleteFailedTitle=Preset deletion failed
+Common.PresetSaveTarget=Save as
+Common.PresetSaveNew=New personal preset
+Common.PresetSourcePersonal=Personal presets
+Common.PresetSourceBundled=Bundled with this mod
+Common.PresetSourceExternal=External presets
+Common.PresetSaveName=Preset name
+Common.PresetSaveDescription=Description (optional)
+Common.PresetSaveBulkMode=Set all modes
+Common.PresetSaveBulkModeHelp=Default: use the mod default. Player: keep the player's current value. Fixed: apply the saved value. Host Fixed: fix host settings and keep player/local values.
+Common.PresetSaveConfirm=Save
+Common.PresetSaveNameRequired=Enter a preset name before saving.
+Common.PresetSaveCancel=Cancel
+Common.PresetSaveOverwriteTitle=Overwrite personal preset
+Common.PresetSaveOverwrite=The selected personal preset will be completely replaced. Continue?
+Common.PresetSaveFailedTitle=Preset save failed
+Common.SettingsSource=Reset settings to
+Common.SettingsSourceLoad=Reset
+Common.SettingsSourceDefaults=Mod defaults
+Common.SettingsSourceTrail=Trail settings
+Common.SettingsSourceMap=Map settings
+Common.SettingsSourceLoadFailed=Could not reset settings
+Common.PresetConfirm=Confirm
+Common.PresetStatusDismiss=Close
+Common.PresetModeDefault=Default
+Common.PresetModePlayer=Player
+Common.PresetModeFixed=Fixed
+Common.PresetModeHostFixed=Host Fixed
+Common.PresetModeMixed=Mixed
+Common.PresetScopeHost=Host
+Common.PresetScopePlayer=Player
+Common.PresetScopeLocal=Local
+
+# Serp mod localization
+
+# Format: key=value
+Common.EnableMod=Enable Mod
+Common.HostActivationLabel=(Host-)
+Common.ClientActivationLabel=(Client settings)
+Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
+Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
+Common.Ai=AI
+Common.Human=Human
+StartConditions.StartGoldTitle=Start Gold
+StartConditions.StartGoodsTitle=Start Goods
+StartConditions.StartTroopsTitle=Start Troops
+StartConditions.UnchangedRangeHelp=-1 = unchanged. Allowed range: -1 to 10000.
+StartConditions.NormalCrusade=Normal/Crusade
+StartConditions.Deathmatch=Deathmatch
+StartConditions.SetStartGold=Set start gold (-1 = unchanged)
+StartConditions.SetStartGoldHelp=Replaces the effective Vanilla starting gold. For humans, Vanilla's "No Starting Gold" option first makes this base 0. -1 keeps the effective Vanilla base.
+StartConditions.AddStartGold=Add start gold
+StartConditions.AddStartGoldHelp=Applies a signed adjustment after the effective Vanilla base or an active Set value. The result is clamped to at least 0.
+StartConditions.MultiplyStartTroops=Multiply Start Troop armies
+StartConditions.StartTroopsMultiplierHelp=Multiplier: 0 = remove official start troops after the 20-second processing delay, 1 = unchanged, 2 = double. Active Vanilla Peace Time postpones that delay until it ends. Allowed range: 0 to 100.
+StartConditions.StartTroopsMultiplierToolTip=Multiplier for Start Troop armies. Applied after {DelayedStartTroopCountMilliseconds} ms (currently {DelayedStartTroopCountSeconds} seconds) following map start, or following the end of an active Vanilla Peace Time. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100.
+StartConditions.ExtraStartUnitsHelp=Extra Start Units: 0 = no extra units. Allowed range: 0 to 1000.
+
+Common.HostOptions=HOST OPTIONS
+Common.ClientOptions=LOCAL CLIENT OPTIONS
+Common.HostReadOnly=Values from host - read-only
+Common.EnableModHelp=Enables or disables this mod for the match.
+Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
+Common.Preset=Preset
+Common.ActionsScopeHost=Loading a preset or resetting settings affects host settings and your local client settings.
+Common.ActionsScopeClient=Loading a preset or resetting settings affects only your local client settings.
+StartConditions.StartTroopArmiesTitle=Start-troop Armies
+StartConditions.ExtraStartUnitsTitle=Additional Start Units
+Common.ModSettingsSearchLabel=Search
+Common.ModSettingsSearchHelp=Search setting titles. Optionally include tooltips.
+Common.ModSettingsSearchToggleHelp=Show or hide the settings search.
+Common.ModSettingsSearchIncludeToolTips=Search tooltips
+Common.ModSettingsSearchIncludeToolTipsHelp=Also search the explanatory tooltips of settings.
+Common.ModSettingsSearchClearHelp=Clear the settings filter.
+Common.ModSettingsSearchNoResults=No matching settings found.
+Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
+Common.PresetLoadFailedTitle=Preset load failed

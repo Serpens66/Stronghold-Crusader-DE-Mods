@@ -1,0 +1,192 @@
+{
+  "GUID": "BuildingLimit_Serp",
+  "Author": "Serpens66",
+  "Name": "Building Limit",
+  "Description": "Limits the number of active buildings per kind for human players in Stronghold Crusader Definitive Edition.",
+  "Version": "1.0.31",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.31",
+      "Changes": [
+        "version bump"
+      ]
+    },
+    {
+      "Version": "1.0.30",
+      "Changes": [
+        "Use APIShared 0.6.0 coordinated hooks and event contracts to improve compatibility with other mods; preserve existing gameplay behavior.",
+        "Rate-limit repeated diagnostics and avoid unnecessary logging work; warnings and errors remain available, with suppressed-repeat counts on subsequent reports."
+      ]
+    },
+    {
+      "Version": "1.0.29",
+      "Changes": [
+        "Migrate to APIShared 0.5.0 shared services and updated mod-owned adapters while preserving existing features.",
+        "Show game-mode availability and a direct-launch notice in mod settings; inactive edits remain saved for later customized games."
+      ]
+    },
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    {
+      "Version": "1.0.27",
+      "Changes": [
+        "Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."
+      ]
+    },
+    {
+      "Version": "1.0.26",
+      "Changes": [
+        "Building limits now also apply to tower-mounted mangonels and ballistas."
+      ]
+    },
+    {
+      "Version": "1.0.25",
+      "Changes": [
+        "Shows a settings warning when Crusader DE Tweaker is loaded because building limits should be configured in only one mod."
+      ]
+    },
+    {
+      "Version": "1.0.24",
+      "Changes": [
+        "Rebuilt and verified for compatibility with Script Extender 2.7.1."
+      ]
+    },
+    {
+      "Version": "1.0.23",
+      "Changes": [
+        "Rebuilt and verified for compatibility with Script Extender 2.4.0."
+      ]
+    },
+    {
+      "Version": "1.0.21",
+      "Changes": [
+        "Made the client-settings activation checkbox appear automatically only when the mod provides a client activation setting."
+      ]
+    },
+    {
+      "Version": "1.0.20",
+      "Changes": [
+        "Adjusted to Script Extender 2.3.0."
+      ]
+    },
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Updated the mod for Script Extender 2.2.0."
+      ]
+    },
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "Corrected building cache updates for the Script Extender pause event's zero-based building index."
+      ]
+    },
+    {
+      "Version": "1.0.17",
+      "Changes": [
+        "Add the shared Mod Settings search with title, optional tooltip and section filtering, safe global-search handoff, and automatic text-field focus."
+      ]
+    },
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Generate Portable PDB debug symbols for Unity Mono-compatible stack traces and debugging."
+      ]
+    },
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Adds standalone support for the shared Script Extender per-player identity workaround."
+      ]
+    },
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "fix game localization"
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Tooltip size test."
+      ]
+    },
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Separated core cache and placement subscriptions from optional tooltip bindings and made cleanup failures independent."
+      ]
+    },
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Disabled building-limit enforcement and limit tooltips in the map editor."
+      ]
+    },
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Made displayed building limits directly editable beyond the compact slider range and capped exact limits at 5000.",
+        "Added temporary Script Extender compatibility fixes for multiplayer settings synchronization during lobby joins, reliable lobby delivery, and authenticated in-game host updates."
+      ]
+    },
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Updated shared lobby settings for Script Extender 1.42.0 by avoiding redundant UI-only persistence and using the official multiplayer-game signal.",
+        "Added optional Serps Mods Host dependency for Workshop mod-pack load ordering."
+      ]
+    },
+    {
+      "Version": "1.0.8",
+      "Changes": [
+        "Made Script Extender initialization process-wide and race-safe, and removed the obsolete scan implementation."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Highlighted the activation control and standardized larger, wider settings tooltips."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Standardized the Host settings layout, corrected German labels, and added opaque wrapping tooltips."
+      ]
+    },
+    {
+      "Version": "1.0.5",
+      "Changes": [
+        "Delegated optional mission-preset coordination to CustomCustomTrail; local presets remain standalone."
+      ]
+    },
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Added mission-bound Trail presets from .modjson and CustomCustomTrail schema-2 missions, including shared customization UI."
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Added two automatically saved lobby-settings presets with migration of existing settings to preset 1."
+      ]
+    }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.6.0"
+    }
+  ]
+}

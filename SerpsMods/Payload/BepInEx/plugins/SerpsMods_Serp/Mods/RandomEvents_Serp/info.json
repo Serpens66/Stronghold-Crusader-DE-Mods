@@ -1,0 +1,329 @@
+{
+  "GUID": "RandomEvents_Serp",
+  "Author": "Serpens66",
+  "Name": "Random Events",
+  "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
+  "Version": "1.0.52",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.7.0"
+    }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.52",
+      "Changes": [
+        "version bump"
+      ]
+    },
+    {
+      "Version": "1.0.51",
+      "Changes": [
+        "Use APIShared 0.7.0 shared multiplayer transport while preserving existing packet schemas and gameplay execution.",
+        "Rate-limit repeated diagnostics and avoid unnecessary logging work; warnings and errors remain available, with suppressed-repeat counts on subsequent reports."
+      ]
+    },
+    {
+      "Version": "1.0.50",
+      "Changes": [
+        "Migrate to APIShared 0.5.0 shared services and updated mod-owned adapters while preserving existing features.",
+        "Show game-mode availability and a direct-launch notice in mod settings; inactive edits remain saved for later customized games."
+      ]
+    },
+    {
+      "Version": "1.0.49",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    {
+      "Version": "1.0.48",
+      "Changes": [
+        "Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."
+      ]
+    },
+    {
+      "Version": "1.0.47",
+      "Changes": [
+        "Use the controlled player for multiplayer initialization acknowledgements and the viewed player for event presentation."
+      ]
+    },
+    {
+      "Version": "1.0.46",
+      "Changes": [
+        "Random events now resume more reliably from saved games."
+      ]
+    },
+    {
+      "Version": "1.0.45",
+      "Changes": [
+        "Roll the first singleplayer event batch at its due month instead of at map initialization."
+      ]
+    },
+    {
+      "Version": "1.0.44",
+      "Changes": [
+        "Suppress bandit, lion, and archer event rolls and actions during Vanilla Peace Time."
+      ]
+    },
+    {
+      "Version": "1.0.43",
+      "Changes": [
+        "Warn only when no usable signpost remains after the center fallback."
+      ]
+    },
+    {
+      "Version": "1.0.42",
+      "Changes": [
+        "Migrated signpost, target, and farm geometry to Script Extender 2.7.1 occupied-tile footprints."
+      ]
+    },
+    {
+      "Version": "1.0.41",
+      "Changes": [
+        "Changed the default event interval to 6 months, chances to 1%, and cooldown to 12 months."
+      ]
+    },
+    {
+      "Version": "1.0.40",
+      "Changes": [
+        "Completed the Script Extender 2.4.0 path-component-grid migration audit."
+      ]
+    },
+    {
+      "Version": "1.0.38",
+      "Changes": [
+        "Made the client-settings activation checkbox appear automatically only when the mod provides a client activation setting."
+      ]
+    },
+    {
+      "Version": "1.0.37",
+      "Changes": [
+        "Adjusted to Script Extender 2.3.0."
+      ]
+    },
+    {
+      "Version": "1.0.36",
+      "Changes": [
+        "Updated the mod for Script Extender 2.2.0."
+      ]
+    },
+    {
+      "Version": "1.0.35",
+      "Changes": [
+        "Exclude indestructible stockpiles from bandit raid destinations and log each activated group's selected building type."
+      ]
+    },
+    {
+      "Version": "1.0.34",
+      "Changes": [
+        "Correct rabbit-farm diagnostics to store and report one-based building IDs derived from the native building span."
+      ]
+    },
+    {
+      "Version": "1.0.33",
+      "Changes": [
+        "Add an optional host setting that includes living AI players in shared or individual random-event targeting while keeping AI-only events hidden from human players.",
+        "Harden synchronized event targeting, bandit participation, and batch validation, with event-count-dependent limits that remain extensible for additional events."
+      ]
+    },
+    {
+      "Version": "1.0.32",
+      "Changes": [
+        "Add the shared Mod Settings search with title, optional tooltip and section filtering, safe global-search handoff, and automatic text-field focus."
+      ]
+    },
+    {
+      "Version": "1.0.31",
+      "Changes": [
+        "Generate Portable PDB debug symbols for Unity Mono-compatible stack traces and debugging."
+      ]
+    },
+    {
+      "Version": "1.0.30",
+      "Changes": [
+        "Adds standalone support for the shared per-player identity workaround and marks the temporary Script Extender sender workaround explicitly."
+      ]
+    },
+    {
+      "Version": "1.0.29",
+      "Changes": [
+        "minor code improvments"
+      ]
+    },
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "fix game localization"
+      ]
+    },
+    {
+      "Version": "1.0.27",
+      "Changes": [
+        "Spawn Vanilla archer groups on the nearest free, walkable signpost-perimeter tile connected to the target player instead of on the occupied signpost footprint."
+      ]
+    },
+    {
+      "Version": "1.0.26",
+      "Changes": [
+        "Tooltip size test."
+      ]
+    },
+    {
+      "Version": "1.0.25",
+      "Changes": [
+        "Fixed archer events to inject the selected signpost into Vanilla's actual 32-bit source-coordinate record instead of an unrelated scenario-point array.",
+        "Unified deterministic nearest-signpost selection and spawn diagnostics for archers, bandits, and lions."
+      ]
+    },
+    {
+      "Version": "1.0.22",
+      "Changes": [
+        "Isolated native event backends and lifecycle stages, and continue later due actions after one action fails without repeating the batch."
+      ]
+    },
+    {
+      "Version": "1.0.21",
+      "Changes": [
+        "Resolve active players exclusively from synchronized in-game members while excluding kicked and defeated slots.",
+        "Use the shared active-player Keep-readiness check for retried deterministic signpost initialization."
+      ]
+    },
+    {
+      "Version": "1.0.20",
+      "Changes": [
+        "Fixed archer events spawning every player's units at Vanilla's shared fallback location by injecting the affected player's nearest signpost into the first native attack scenario point.",
+        "Added exact original and injected attack-point diagnostics for multiplayer verification."
+      ]
+    },
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Made signpost-based Vanilla events expose only the signpost nearest to the affected player while their synchronized Chore executes, preventing peer-local source selection for archer spawns.",
+        "Added exact archer unit ID, owner, type, state, spawn tile, and target-tile diagnostics for multiplayer comparison."
+      ]
+    },
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "Limited event notifications and minimap action points to the affected local player while preserving synchronized simulation on every peer in both multiplayer event modes."
+      ]
+    },
+    {
+      "Version": "1.0.17",
+      "Changes": [
+        "Fixed multiplayer desyncs from FreeBuild events by executing their immediate native GameAction on every peer inside the synchronized Random Events batch Chore."
+      ]
+    },
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Added event-scoped diagnostics for Vanilla FreeBuild event Chores, including target players, command IDs, ticks, hashes, and exact payload bytes, to isolate the remaining multiplayer desync."
+      ]
+    },
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Reduced multiplayer initialization traffic with command-specific Chore packets, compact cooldown encoding, stable retries, and idempotent duplicate handling.",
+        "Replaced the legacy save payload with a dynamic-only schema; current synchronized lobby settings are authoritative when a save is loaded."
+      ]
+    },
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Delayed multiplayer initialization until the map startup is stable and prevented multiple Random Events Chores in one simulation tick.",
+        "Added a fail-closed peer acknowledgement handshake before signposts or event batches can change the synchronized simulation."
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Added fail-closed Chore serializer self-tests and packet hashes to diagnose multiplayer transport corruption.",
+        "Added matching PRNG, action-order, and state digests for precise host/client desync comparison."
+      ]
+    },
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Enabled Random Events in multiplayer through Script Extender's tick-aligned Chore transport.",
+        "Implemented shared rolls that affect every living human equally and independent per-player rolls that can produce different events.",
+        "Made the host authoritative for the private event PRNG while preserving identical Vanilla RNG call order on every peer, and replaced the bandit real-time delay with a deterministic simulation-tick delay."
+      ]
+    },
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Made all numeric event settings directly editable, including chances, intervals, group factors, and plague and fire ranges.",
+        "Added temporary Script Extender compatibility fixes for multiplayer settings synchronization during lobby joins, reliable lobby delivery, and authenticated in-game host updates."
+      ]
+    },
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Updated shared lobby settings for Script Extender 1.42.0 by avoiding redundant UI-only persistence and using the official multiplayer-game signal.",
+        "Added optional Serps Mods Host dependency for Workshop mod-pack load ordering."
+      ]
+    },
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Use Script Extender 1.41's official owner-then-color unit-spawn contract with explicit named arguments.",
+        "Update the native event documentation now that the former spawn-parameter workaround is part of the official API."
+      ]
+    },
+    {
+      "Version": "1.0.8",
+      "Changes": [
+        "Added meaningful units to Slider value displays, highlighted activation, and enlarged the shared tooltip presentation."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Grouped event probabilities into positive and negative events and added opaque, automatically wrapping tooltips."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Use audited RVAs directly for the known CrusaderDE.dll and scan signatures only as an unknown-DLL fallback."
+      ]
+    },
+    {
+      "Version": "1.0.4",
+      "Changes": [
+        "Added a configurable per-event cooldown with shared and player-specific state."
+      ]
+    },
+    {
+      "Version": "1.0.3",
+      "Changes": [
+        "Delegated optional mission-preset coordination to CustomCustomTrail; local presets remain standalone."
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Added mission-bound Trail presets from .modjson and CustomCustomTrail schema-2 missions, including shared customization UI."
+      ]
+    },
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Added two automatically saved lobby-settings presets with migration of existing settings to preset 1."
+      ]
+    },
+    {
+      "Version": "1.0.0",
+      "Changes": [
+        "Added all 15 Vanilla random events for offline skirmishes and Trail missions."
+      ]
+    }
+  ]
+}

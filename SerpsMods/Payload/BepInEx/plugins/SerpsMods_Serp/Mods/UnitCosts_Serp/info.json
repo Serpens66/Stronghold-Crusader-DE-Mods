@@ -1,0 +1,207 @@
+{
+  "GUID": "UnitCosts_Serp",
+  "Author": "Serpens66",
+  "Name": "Unit Costs",
+  "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
+  "Version": "1.0.36",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.10.4",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "1.0.36",
+      "Changes": [
+        "version bump"
+      ]
+    },
+    {
+      "Version": "1.0.35",
+      "Changes": [
+        "Use APIShared 0.6.0 coordinated hooks and event contracts to improve compatibility with other mods; preserve existing gameplay behavior.",
+        "Rate-limit repeated diagnostics and avoid unnecessary logging work; warnings and errors remain available, with suppressed-repeat counts on subsequent reports."
+      ]
+    },
+    {
+      "Version": "1.0.34",
+      "Changes": [
+        "Migrate to APIShared 0.5.0 shared services and updated mod-owned adapters while preserving existing features.",
+        "Show game-mode availability and a direct-launch notice in mod settings; inactive edits remain saved for later customized games."
+      ]
+    },
+    {
+      "Version": "1.0.33",
+      "Changes": [
+        "Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."
+      ]
+    },
+    {
+      "Version": "1.0.32",
+      "Changes": [
+        "Added No Weapons for European units, including knights' horse requirement, for human and AI players."
+      ]
+    },
+    {
+      "Version": "1.0.31",
+      "Changes": [
+        "Validated signed stable recharge timer compatibility with Script Extender 2.10.4."
+      ]
+    },
+    {
+      "Version": "1.0.30",
+      "Changes": [
+        "Loads after Crusader DE Tweaker when both mods are installed so Unit Costs settings have defined precedence."
+      ]
+    },
+    {
+      "Version": "1.0.29",
+      "Changes": [
+        "Rebuilt and verified for compatibility with Script Extender 2.7.1."
+      ]
+    },
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "Consumed linked stable horses when non-knight units are disbanded so stables replenish them naturally, and added horse icons beside the horse-cost checkboxes."
+      ]
+    },
+    {
+      "Version": "1.0.27",
+      "Changes": [
+        "Rebuilt and verified for compatibility with Script Extender 2.4.0."
+      ]
+    },
+    {
+      "Version": "1.0.25",
+      "Changes": [
+        "Made the client-settings activation checkbox appear automatically only when the mod provides a client activation setting."
+      ]
+    },
+    {
+      "Version": "1.0.24",
+      "Changes": [
+        "Adjusted to Script Extender 2.3.0."
+      ]
+    },
+    {
+      "Version": "1.0.23",
+      "Changes": [
+        "Updated the mod for Script Extender 2.2.0."
+      ]
+    },
+    {
+      "Version": "1.0.22",
+      "Changes": [
+        "Keep engineer-built siege engines at their Vanilla gold costs when configured as unchanged and restore modified costs immediately when the mod is disabled."
+      ]
+    },
+    {
+      "Version": "1.0.20",
+      "Changes": [
+        "Generate Portable PDB debug symbols for Unity Mono-compatible stack traces and debugging."
+      ]
+    },
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Adds standalone support for the shared Script Extender per-player identity workaround."
+      ]
+    },
+    {
+      "Version": "1.0.18",
+      "Changes": [
+        "fix game localization"
+      ]
+    },
+    {
+      "Version": "1.0.17",
+      "Changes": [
+        "Tooltip size test."
+      ]
+    },
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Isolated native gold costs, extra costs, enforcement, and optional UI hooks, with per-unit apply and restore failure handling."
+      ]
+    },
+    {
+      "Version": "1.0.15",
+      "Changes": [
+        "Disabled custom recruitment-cost UI, validation, and extra-resource deductions in the map editor."
+      ]
+    },
+    {
+      "Version": "1.0.14",
+      "Changes": [
+        "Made unit gold costs and extra resource costs directly editable beyond compact slider ranges; gold now supports -10000 through 10000 and other resources 0 through 100.",
+        "Prevented clients from persisting or retransmitting host-only extra-cost normalization after synchronized native gold-cost changes.",
+        "Added temporary Script Extender compatibility fixes for multiplayer settings synchronization during lobby joins, reliable lobby delivery, and authenticated in-game host updates."
+      ]
+    },
+    {
+      "Version": "1.0.13",
+      "Changes": [
+        "Updated shared lobby settings for Script Extender 1.42.0 by avoiding redundant UI-only persistence and using the official multiplayer-game signal.",
+        "Added optional Serps Mods Host dependency for Workshop mod-pack load ordering."
+      ]
+    },
+    {
+      "Version": "1.0.12",
+      "Changes": [
+        "Updated shared files"
+      ]
+    },
+    {
+      "Version": "1.0.11",
+      "Changes": [
+        "Highlighted the activation control and standardized larger, wider settings tooltips."
+      ]
+    },
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Clarified base and additional cost sections and added opaque, automatically wrapping tooltips."
+      ]
+    },
+    {
+      "Version": "1.0.9",
+      "Changes": [
+        "Delegated optional mission-preset coordination to CustomCustomTrail; local presets remain standalone."
+      ]
+    },
+    {
+      "Version": "1.0.7",
+      "Changes": [
+        "Added mission-bound Trail presets from .modjson and CustomCustomTrail schema-2 missions, including shared customization UI."
+      ]
+    },
+    {
+      "Version": "1.0.6",
+      "Changes": [
+        "Added two automatically saved lobby-settings presets with migration of existing settings to preset 1."
+      ]
+    },
+    {
+      "Version": "1.0.1",
+      "Changes": [
+        "Play -recruits are missing- if this is the reason for not being able to recruit",
+        "Do not highlight units as recruitable if extra costs are missing.",
+        "Also display current amounts of extra costs in tooltip"
+      ]
+    },
+    {
+      "Version": "1.0.2",
+      "Changes": [
+        "Removed support to change vanilla material costs of european units for everyone, because I think the extra costs for humans is enough and it makes this mod less complicated."
+      ]
+    }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.6.0"
+    }
+  ]
+}

@@ -58,3 +58,5 @@ Check ((Get-HostContentSignature -Mods @() -HistoricalUploads $history) -cne $be
 Write-Host "PASS: $checks Workshop workflow checks. Fixtures: $fixture"
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-BootstrapEnvironment.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Bootstrap environment regression failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-WorkshopCacheAndChangelog.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Workshop cache/changelog regression failed.' }

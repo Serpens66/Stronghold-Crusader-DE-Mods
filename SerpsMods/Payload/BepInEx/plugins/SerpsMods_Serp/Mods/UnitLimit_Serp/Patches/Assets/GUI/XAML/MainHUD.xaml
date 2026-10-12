@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Grid x:Name="UnitLimitNotificationOverlay"
+            Width="800"
+            Height="195"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Panel.ZIndex="10000"
+            IsHitTestVisible="False"
+            Visibility="{Binding IsVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+        <TextBlock x:Name="UnitLimitNotification"
+                   Text="{Binding Message}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   MaxWidth="520"
+                   Margin="0,-48,0,0"
+                   Padding="8,1"
+                   Background="#55000000"
+                   Foreground="#FFDDDDDD"
+                   FontSize="20"
+                   TextAlignment="Center"
+                   TextWrapping="Wrap"
+                   Tag="Ignore">
+          <TextBlock.Effect>
+            <DropShadowEffect
+              ShadowDepth="2"
+              Direction="315"
+              Color="#CC000000"
+              BlurRadius="0"/>
+          </TextBlock.Effect>
+        </TextBlock>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

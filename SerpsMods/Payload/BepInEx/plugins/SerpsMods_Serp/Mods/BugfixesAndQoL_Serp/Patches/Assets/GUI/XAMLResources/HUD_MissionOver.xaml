@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <Operation Type="Add" XPath="//n:StackPanel[@Name='RowStackMP']/n:Grid[n:Button[@CommandParameter='Exit']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLSpectatorStatisticsRefreshHost"
+            Width="300"
+            Height="60"
+            Margin="50,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Visibility="{Binding StatisticsPreviewControlsVisibility}">
+        <Grid.Resources>
+    <Style TargetType="{x:Type ToolTip}">
+      <Setter Property="Background" Value="#FF1D1710"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+      <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ToolTip}">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+              <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+        </Grid.Resources>
+        <Button Width="300"
+                Height="60"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                local:PropEx.TextCentre="{Binding RefreshStatisticsButtonText}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding RefreshStatisticsCommand}"
+                ToolTip="{Binding RefreshStatisticsButtonHelpText}"
+                ToolTipService.ShowDuration="60000"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowSDisable}" />
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields0}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row1" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row1VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row1EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row1Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row1Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields0}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row1" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row1VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row1EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row1Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row1Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields1}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row2" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row2VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row2EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row2Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row2Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields1}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row2" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row2VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row2EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row2Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row2Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields2}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row3" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row3VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row3EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row3Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row3Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields2}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row3" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row3VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row3EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row3Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row3Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields3}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row4" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row4VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row4EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row4Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row4Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields3}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row4" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row4VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row4EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row4Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row4Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields4}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row5" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row5VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row5EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row5Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row5Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields4}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row5" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row5VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row5EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row5Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row5Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields5}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row6" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row6VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row6EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row6Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row6Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields5}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row6" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row6VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row6EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row6Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row6Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields6}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row7" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row7VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row7EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row7Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row7Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields6}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row7" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row7VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row7EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row7Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row7Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields7}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row8" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage1Row8VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage1Row8EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage1Row8Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage1Row8Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields7}']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row8" Grid.Column="0" Panel.ZIndex="20" Visibility="Collapsed">
+        <Image x:Name="BugfixesAndQoLTeamBadgePage2Row8VanillaIcon" Width="20" Height="20" Margin="-22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" Visibility="Collapsed" />
+        <Grid x:Name="BugfixesAndQoLTeamBadgePage2Row8EasyReadIcon" Width="24" Height="28" Margin="-26,30,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+          <Path x:Name="BugfixesAndQoLTeamBadgePage2Row8Shield" Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round" />
+          <TextBlock x:Name="BugfixesAndQoLTeamBadgePage2Row8Number" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White" />
+        </Grid>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

@@ -24,6 +24,7 @@ $previousMsBuild = $env:SHCDE_MSBUILD
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
+. (Join-Path $PSScriptRoot 'ReleaseAssetCache.ps1')
 . (Join-Path $PSScriptRoot '..\..\..\APIShared\tools\WorkshopPackage.ps1')
 
 class SteamPackFailure : System.Exception {
@@ -477,17 +478,28 @@ function Get-LatestReleaseForMod {
 }
 
 function Get-ReleasePackage {
-    param([Parameter(Mandatory)]$Mod, [switch]$ForceDownload)
+    param([Parameter(Mandatory)]$Mod)
+    $tag = if ($TestMode -and $Mod.LatestTag -like '*/test/*') {$Mod.LatestTag} else {"$($Mod.Name)/v$($Mod.TargetVersion)"}
+    $view = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',$tag,'--repo',$script:Repository,'--json','tagName,isDraft,targetCommitish') -FailureCode 7
+    $release = ($view.Output -join "`n") | ConvertFrom-Json
+    if ($release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$TestMode) { Fail-Pack 7 "Release identity/mode mismatch: $tag" }
     $cache = Join-Path $script:OutputRoot "cache\$($Mod.Name)\v$($Mod.TargetVersion)"
+    if ($TestMode) { $cache = Join-Path $cache ($tag -replace '^.*/v','') }
     [void](New-Item -ItemType Directory -Path $cache -Force)
     $base = "$($Mod.Name)-v$($Mod.TargetVersion)"
     $zip = Join-Path $cache "$base.zip"
     $sha = Join-Path $cache "$base.zip.sha256"
     $provenance = Join-Path $cache "$base.provenance.json"
-    if ($ForceDownload -or -not (Test-Path -LiteralPath $zip) -or -not (Test-Path -LiteralPath $sha) -or -not (Test-Path -LiteralPath $provenance)) {
-        $tag = if ($TestMode -and $Mod.LatestTag -like '*/test/*') {$Mod.LatestTag} else {"$($Mod.Name)/v$($Mod.TargetVersion)"}
-        Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$tag,'--repo',$script:Repository,'--pattern',"$base.*",'--dir',$cache,'--clobber') -FailureCode 7 | Out-Null
-    }
+    $provenance = Get-CachedSteamReleaseAsset $cache "$base.provenance.json" $tag $script:Repository {
+        param($path)
+        $p = [IO.File]::ReadAllText($path) | ConvertFrom-Json
+        return $p.Tag -ceq $tag -and $p.Mod -ceq $Mod.Name -and $p.PluginGuid -ceq $Mod.PluginGuid -and
+            $p.Version -ceq $Mod.TargetVersion -and $p.Commit -ceq $release.targetCommitish -and
+            $p.Repository -ceq ('https://github.com/' + $script:Repository) -and $p.Package.Sha256 -match '^[a-f0-9]{64}$'
+    } 7
+    $expected = [string](([IO.File]::ReadAllText($provenance) | ConvertFrom-Json).Package.Sha256)
+    $zip = Get-CachedSteamReleaseAsset $cache "$base.zip" $tag $script:Repository {param($path) Test-ReleaseAssetHash $path $expected} 7
+    $sha = Get-CachedSteamReleaseAsset $cache "$base.zip.sha256" $tag $script:Repository {param($path) Test-ReleaseChecksum $path $expected} 7
     foreach ($path in @($zip,$sha,$provenance)) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail-Pack 7 "Missing release asset: $path" } }
     $actual = Get-Sha256 $zip
     $shaText = [IO.File]::ReadAllText($sha)
@@ -509,8 +521,7 @@ function Get-ReleasePackage {
 
 function Get-ApiSharedReleasePackage {
     param(
-        [Parameter(Mandatory)]$Infrastructure,
-        [switch]$ForceDownload
+        [Parameter(Mandatory)]$Infrastructure
     )
 
     $tag = "APIShared/v$($Infrastructure.Version)"
@@ -522,7 +533,7 @@ function Get-ApiSharedReleasePackage {
     ) -FailureCode 7 -AllowFailure
     if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is not published." }
     $release = ($releaseResult.Output -join "`n") | ConvertFrom-Json
-    if ([string]$release.tagName -cne $tag -or ([bool]$release.isDraft -and -not $TestMode)) {
+    if ([string]$release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$TestMode) {
         Fail-Pack 7 "APIShared release $tag is missing, still a draft, or resolved to an unexpected tag."
     }
     foreach ($assetName in $expectedAssetNames) {
@@ -537,13 +548,16 @@ function Get-ApiSharedReleasePackage {
     $zip = Join-Path $cache "$base.zip"
     $shaPath = Join-Path $cache "$base.zip.sha256"
     $provenancePath = Join-Path $cache "$base.provenance.json"
-    if ($ForceDownload -or -not (Test-Path -LiteralPath $zip -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $shaPath -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $provenancePath -PathType Leaf)) {
-        Invoke-Checked -FilePath 'gh' -Arguments @(
-            'release','download',$tag,'--repo',$Infrastructure.Repository,'--pattern',"$base.*",'--dir',$cache,'--clobber'
-        ) -FailureCode 7 | Out-Null
-    }
+    $provenancePath = Get-CachedSteamReleaseAsset $cache "$base.provenance.json" $tag $Infrastructure.Repository {
+        param($path)
+        $p = [IO.File]::ReadAllText($path) | ConvertFrom-Json
+        return $p.Mod -ceq 'APIShared' -and $p.PluginGuid -ceq $Infrastructure.Guid -and
+            $p.Version -ceq $Infrastructure.Version -and $p.Tag -ceq $tag -and
+            $p.Commit -ceq $release.targetCommitish -and $p.Package.Sha256 -match '^[a-f0-9]{64}$'
+    } 7
+    $expected = [string](([IO.File]::ReadAllText($provenancePath) | ConvertFrom-Json).Package.Sha256)
+    $zip = Get-CachedSteamReleaseAsset $cache "$base.zip" $tag $Infrastructure.Repository {param($path) Test-ReleaseAssetHash $path $expected} 7
+    $shaPath = Get-CachedSteamReleaseAsset $cache "$base.zip.sha256" $tag $Infrastructure.Repository {param($path) Test-ReleaseChecksum $path $expected} 7
     foreach ($path in @($zip,$shaPath,$provenancePath)) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail-Pack 7 "Missing APIShared release asset: $path" }
     }
@@ -995,11 +1009,13 @@ function Get-HistoryMapPath {
 
     $version = [string]$Upload.PackVersion
     $localPath = Join-Path $script:OutputRoot "v$version\SerpsMods.map"
-    if (-not (Test-Path -LiteralPath $localPath -PathType Leaf)) {
+    Assert-ApiWorkshopUnlinkedPath $localPath
+    if (-not (Test-Path -LiteralPath $localPath -PathType Leaf) -or
+        -not (Test-ReleaseAssetHash $localPath ([string]$Upload.MapSha256))) {
         $cache = Join-Path $script:OutputRoot "cache\history\v$version"
-        [void](New-Item -ItemType Directory -Path $cache -Force)
-        Invoke-Checked -FilePath 'gh' -Arguments @('release','download',"SerpsMods/v$version",'--repo',$script:Repository,'--pattern','SerpsMods.map','--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
-        $localPath = Join-Path $cache 'SerpsMods.map'
+        $localPath = Get-CachedSteamReleaseAsset $cache 'SerpsMods.map' "SerpsMods/v$version" $script:Repository {
+            param($path) Test-ReleaseAssetHash $path ([string]$Upload.MapSha256)
+        }
     }
     if (-not (Test-Path -LiteralPath $localPath -PathType Leaf)) {
         Fail-Pack 10 "Confirmed Steam pack v$version is unavailable for the historical path audit."
@@ -1242,9 +1258,17 @@ function Get-PackReleaseState {
     $tag = [string]$candidate[0].tagName
     $version = ($tag.Substring($prefix.Length) -split '-')[0]
     $cache = Join-Path $script:OutputRoot "cache\pack\v$version"
+    if ($tag.StartsWith('SerpsMods/test/v', [StringComparison]::Ordinal)) { $cache = Join-Path $cache ($tag.Substring('SerpsMods/test/v'.Length)) }
     [void](New-Item -ItemType Directory -Path $cache -Force)
-    Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$tag,'--repo',$script:Repository,'--pattern','SerpsMods.provenance.json','--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
-    $path = Join-Path $cache 'SerpsMods.provenance.json'
+    $view = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',$tag,'--repo',$script:Repository,'--json','tagName,isDraft,targetCommitish') -FailureCode 10
+    $release = ($view.Output -join "`n") | ConvertFrom-Json
+    if ($release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$candidate[0].isDraft) { Fail-Pack 10 "Pack release identity/mode mismatch: $tag" }
+    $path = Get-CachedSteamReleaseAsset $cache 'SerpsMods.provenance.json' $tag $script:Repository {
+        param($asset)
+        $p = [IO.File]::ReadAllText($asset) | ConvertFrom-Json
+        return $p.Pack -ceq 'SerpsMods' -and $p.PackGuid -ceq $PackGuid -and $p.Version -ceq $version -and
+            $p.Commit -ceq $release.targetCommitish -and $p.Map.Sha256 -match '^[a-f0-9]{64}$'
+    }
     if (-not (Test-Path -LiteralPath $path)) { Fail-Pack 10 "Latest pack provenance is missing for $tag." }
     $provenance = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
     $mapFileName = [string]$provenance.Map.File
@@ -1252,9 +1276,11 @@ function Get-PackReleaseState {
         -not $mapFileName.EndsWith('.map', [StringComparison]::OrdinalIgnoreCase)) {
         Fail-Pack 10 "Latest pack provenance contains an invalid map filename for $tag."
     }
-    Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$tag,'--repo',$script:Repository,'--pattern',"$mapFileName*",'--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
-    $mapPath = Join-Path $cache $mapFileName
-    $mapShaPath = "$mapPath.sha256"
+    $expected = [string]$provenance.Map.Sha256
+    $mapPath = Get-CachedSteamReleaseAsset $cache $mapFileName $tag $script:Repository {
+        param($asset) (Test-ReleaseAssetHash $asset $expected) -and (Get-Item -LiteralPath $asset).Length -eq [long]$provenance.Map.Size
+    }
+    $mapShaPath = Get-CachedSteamReleaseAsset $cache ($mapFileName + '.sha256') $tag $script:Repository {param($asset) Test-ReleaseChecksum $asset $expected}
     foreach ($required in @($mapPath,$mapShaPath)) {
         if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { Fail-Pack 10 "Latest pack release asset is missing for ${tag}: $required" }
     }
@@ -1602,8 +1628,7 @@ try {
     }
     $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); ReusedReleases = @(); Status = 'source-preparation' }
     Write-JsonCrLf -Path $script:JournalPath -Value $journal
-    $apiPackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure `
-        -ForceDownload:$apiSharedInfrastructure.NeedsRelease
+    $apiPackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure
     $apiSharedInfrastructure.ReleasePackage = $apiPackage
     $apiSharedInfrastructure.Directory = $apiPackage.PackageDirectory
     $apiSharedInfrastructure.DirectorySha256 = Get-DirectorySignature $apiPackage.PackageDirectory
@@ -1647,7 +1672,7 @@ try {
         Invoke-ModRelease $mod
         $journal.CompletedReleases = @($journal.CompletedReleases) + "$($mod.Name)/v$($mod.TargetVersion)"
         Write-JsonCrLf -Path $script:JournalPath -Value $journal
-        $mod.Package = Get-ReleasePackage -Mod $mod -ForceDownload
+        $mod.Package = Get-ReleasePackage -Mod $mod
     }
     foreach ($mod in @($mods | Where-Object { -not $_.NeedsRelease })) {
         if ($null -eq $mod.Package) { $mod.Package = Get-ReleasePackage -Mod $mod }
@@ -1665,8 +1690,9 @@ try {
         $workshopZipName=[string]$previousPack.Provenance.Workshop.File
         if ([IO.Path]::GetFileName($workshopZipName) -cne $workshopZipName) { Fail-Pack 10 'Invalid Workshop content ZIP name.' }
         $cache=Split-Path -Parent $previousPack.MapPath
-        Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$previousPack.Tag,'--repo',$script:Repository,'--pattern',$workshopZipName,'--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
-        $workshopZip=Join-Path $cache $workshopZipName
+        $workshopZip=Get-CachedSteamReleaseAsset $cache $workshopZipName $previousPack.Tag $script:Repository {
+            param($asset) Test-ReleaseAssetHash $asset ([string]$previousPack.Provenance.Workshop.Sha256)
+        }
         if ((Get-Sha256 $workshopZip) -cne [string]$previousPack.Provenance.Workshop.Sha256) { Fail-Pack 10 'Workshop content ZIP hash differs from release provenance.' }
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         Assert-WorkshopContentZip $workshopZip
