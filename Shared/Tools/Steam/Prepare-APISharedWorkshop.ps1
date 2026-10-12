@@ -15,9 +15,10 @@ $tag=if($test){'APIShared/test/v'+$info.Version+'-'+$commit.Substring(0,12)}else
 $packager=if($config.Packager -ne 'AUTO'){$config.Packager}else{(Get-ChildItem -LiteralPath (Join-Path $config.Root 'shcde-script-extender/src/SHCDESE.WorkshopPackager') -Recurse -File -Filter 'SHCDESE.WorkshopPackager.exe'|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1).FullName}
 if(-not $packager -or -not(Test-Path -LiteralPath $packager)){throw 'Build the existing Extender Workshop packager before preparing packages.'}
 if(-not(Test-Path -LiteralPath $api.Preview)){throw 'APIShared preview missing.'}
-$releaseText=& gh release view $tag --repo 'SHCDE-APIShared/APIShared' --json tagName,isDraft,targetCommitish,assets 2>$null
-$exists=$LASTEXITCODE -eq 0
-if($exists){$release=$releaseText|ConvertFrom-Json;if($release.targetCommitish -cne $commit -or [bool]$release.isDraft -ne $test){throw 'Existing APIShared release has a different source or publication mode.'}}
+. (Join-Path $apiRoot 'tools/Release/GitHubRelease.ps1')
+$release=Get-ApiGitHubRelease 'SHCDE-APIShared/APIShared' $tag
+$exists=$null -ne $release
+if($exists){if($release.targetCommitish -cne $commit -or [bool]$release.isDraft -ne $test){throw 'Existing APIShared release has a different source or publication mode.'}}
 if($ValidateOnly){Write-Host "Validated APIShared $($info.Version), tag $tag; no release or build started.";exit 0}
 if(-not $test){Assert-WorkshopPlatformProof $config}
 if(-not $exists){
