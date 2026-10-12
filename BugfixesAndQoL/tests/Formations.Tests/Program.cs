@@ -1184,16 +1184,24 @@ internal static class Program
         var empty = FormationSelectionMigration.ReadFormationSection("");
         var legacy = FormationSelectionMigration.ReadFormationSection(
             "[Other]\r\nDensity=4\r\n[Formation]\r\nKind=Wedge\r\nDensity=3\r\nRangedPlacement=Rear\r\nShowRoleMarkers=false\r\n");
-        Check(FormationSelectionMigration.ResolveEnum(empty, legacy, "Kind", FormationKind.Block) == FormationKind.Wedge &&
+        Check(FormationSelectionMigration.ResolveKind(empty, legacy) == FormationKind.Wedge &&
               FormationSelectionMigration.ResolveDensity(empty, legacy) == 3 &&
               FormationSelectionMigration.ResolveEnum(empty, legacy, "RangedPlacement", RangedPlacementMode.Off) == RangedPlacementMode.Rear &&
               !FormationSelectionMigration.ResolveRoleMarkers(empty, legacy), "missing selections migrate from legacy config");
         var existing = FormationSelectionMigration.ReadFormationSection("[Formation]\nKind=Circle\nDensity=1\nRangedPlacement=Center\nShowRoleMarkers=true");
-        Check(FormationSelectionMigration.ResolveEnum(existing, legacy, "Kind", FormationKind.Block) == FormationKind.Block &&
+        Check(FormationSelectionMigration.ResolveKind(existing, legacy) == FormationKind.Block &&
               FormationSelectionMigration.ResolveDensity(existing, legacy) == 2 &&
               FormationSelectionMigration.ResolveRoleMarkers(existing, legacy), "existing main entries are never overridden by migration defaults");
+        Check(FormationSelectionMigration.ResolveKind(empty, empty) == FormationKind.Vanilla &&
+              FormationSelectionMigration.ResolveDensity(empty, empty) == 2 &&
+              !FormationSelectionMigration.ResolveRoleMarkers(empty, empty), "fresh installation uses Vanilla, Normal and no roles");
+        var partialLegacy = FormationSelectionMigration.ReadFormationSection("[Formation]\nDensity=3");
+        Check(FormationSelectionMigration.ResolveKind(empty, partialLegacy) == FormationKind.Block &&
+              FormationSelectionMigration.ResolveRoleMarkers(empty, partialLegacy), "partial legacy config retains testmod defaults");
+        Check(FormationSelectionMigration.ResolveKind(existing, empty) == FormationKind.Block &&
+              FormationSelectionMigration.ResolveRoleMarkers(existing, empty), "existing main entries keep previous repair defaults");
         var invalid = FormationSelectionMigration.ReadFormationSection("[Formation]\nKind=255\nDensity=9\nRangedPlacement=garbage\nShowRoleMarkers=invalid");
-        Check(FormationSelectionMigration.ResolveEnum(empty, invalid, "Kind", FormationKind.Block) == FormationKind.Block &&
+        Check(FormationSelectionMigration.ResolveKind(empty, invalid) == FormationKind.Block &&
               FormationSelectionMigration.ResolveDensity(empty, invalid) == 2 &&
               FormationSelectionMigration.ResolveEnum(empty, invalid, "RangedPlacement", RangedPlacementMode.Off) == RangedPlacementMode.Off &&
               FormationSelectionMigration.ResolveRoleMarkers(empty, invalid), "invalid legacy values use testmod defaults");

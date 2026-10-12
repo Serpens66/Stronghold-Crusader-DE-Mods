@@ -72,7 +72,7 @@ namespace EnemyGatePathfindingTest
         internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = true, bool macemenDiagnostics = false)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.detailedDiagnostics = detailedDiagnostics && !macemenDiagnostics;
+            this.detailedDiagnostics = detailedDiagnostics;
             this.macemenDiagnostics = macemenDiagnostics;
         }
 
@@ -139,7 +139,7 @@ namespace EnemyGatePathfindingTest
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
             if (macemenDiagnostics)
                 macemen = new MacemenCommandDiagnostics(log,
-                    () => samePclRouteRuntime?.TemporaryAcceptanceSnapshot ?? RouteTilePolicySnapshot.Empty,
+                    () => samePclRouteRuntime?.MacemenDiagnosticSnapshot ?? RouteTilePolicySnapshot.Empty,
                     () => gateAccess);
             if (detailedDiagnostics)
             {

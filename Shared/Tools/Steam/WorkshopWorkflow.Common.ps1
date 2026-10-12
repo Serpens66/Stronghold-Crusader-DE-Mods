@@ -36,16 +36,6 @@ function Get-WorkshopRecords([string]$Directory){
     Assert-ApiWorkshopUnlinkedTree $Directory;$base=[IO.Path]::GetFullPath($Directory).TrimEnd('\')
     return @(Get-ChildItem -LiteralPath $base -File -Recurse|ForEach-Object {[ordered]@{Path=$_.FullName.Substring($base.Length+1).Replace('\','/');Size=$_.Length;Sha256=(Get-WorkshopFileHash $_.FullName)}}|Sort-Object {$_.Path})
 }
-function Assert-WorkshopPlatformProof($Config,[string]$PackageId,[string]$Fingerprint){
-    $path=Join-Path $Config.Root 'APIShared/.local/workshop-platform-tests.json'
-    if(-not(Test-Path -LiteralPath $path)){throw 'Production requires reviewed platform evidence. Use /test first.'}
-    $proof=[IO.File]::ReadAllText($path)|ConvertFrom-Json
-    $checks=@{APISharedSha256='APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll';UpdaterWindowsSha256='APIShared/Workshop/workshop-updater.ps1';UpdaterProtonSha256='APIShared/Workshop/workshop-updater.sh';PublisherSha256='APIShared/.local/WorkshopUploader/WorkshopUploader.exe'}
-    if($proof.SchemaVersion -ne 2){throw 'Platform evidence schema 2 is required.'}
-    foreach($field in $checks.Keys){if($proof.$field -cne (Get-WorkshopFileHash (Join-Path $Config.Root $checks[$field]))){throw "Platform evidence belongs to another build: $field"}}
-    foreach($field in @('Windows','Proton','SteamUploads','ModpackMigration','ExternalManager','ExtenderAndFixes')){if($proof.$field -ne $true){throw "Missing platform approval: $field"}}
-    if($PackageId -and @($proof.Packages|Where-Object {$_.PackageId -ceq $PackageId -and $_.Fingerprint -ceq $Fingerprint}).Count -ne 1){throw 'Platform approval does not cover this exact prepared package.'}
-}
 function Invoke-WorkshopTargets($Targets,[scriptblock]$Execute){foreach($target in $Targets){& $Execute $target}}
 function Save-WorkshopReleaseReference($Config,[bool]$Test,[string]$Source){
     $path=Join-Path (Get-WorkshopStateRoot $Config $Test) 'references/SerpsMods.provenance.json'

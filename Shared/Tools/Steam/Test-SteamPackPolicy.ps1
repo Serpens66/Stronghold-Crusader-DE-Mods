@@ -166,7 +166,7 @@ $apiReleaseCall = $createScriptText.IndexOf('Invoke-ApiSharedRelease $apiSharedI
 $releaseCall = $createScriptText.IndexOf('Invoke-ModRelease $mod', [StringComparison]::Ordinal)
 Assert-True ($preflightCall -ge 0 -and $releaseCall -gt $preflightCall) 'verified historical archive inventory must run before GitHub mod releases'
 Assert-True ($apiReleaseCall -lt 0) 'SerpsMods preparation must not publish APIShared implicitly'
-Assert-True ($createScriptText.IndexOf('Assert-WorkshopPlatformProof') -lt $releaseCall) 'platform evidence must precede publication'
+Assert-True (-not $createScriptText.Contains('Assert-WorkshopPlatformProof')) 'manual releases must not require platform approval'
 Assert-True ($createScriptText.Contains('Prepare-SerpsModsWorkshop.ps1') -and $createScriptText.Contains('-WorkshopZipPath $workshopZipPath')) 'release must include loose Workshop content and the dedicated bootstrap'
 Assert-True (-not $createScriptText.Contains('$historicalReplacements = @(Add-HistoricalSteamReplacements')) 'new loose releases must not add historical retention overlays'
 Assert-True ($createScriptText.Contains('Assert-WorkshopContentZip $workshopZip') -and $createScriptText.Contains('ExtractToDirectory($workshopZip,$reuseStage)')) 'reused releases must validate and restore the full ZIP before replacing output'

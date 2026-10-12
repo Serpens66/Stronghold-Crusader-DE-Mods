@@ -347,7 +347,6 @@ try {
     $publisher=Join-Path $config.Root 'APIShared/.local/WorkshopUploader/WorkshopUploader.exe'
     if(-not(Test-Path -LiteralPath $publisher)){throw 'Build APIShared/tools/WorkshopUploader/build.bat first.'}
     Assert-WorkshopPublisherBuild (Join-Path $config.Root 'APIShared')
-    if(-not $test -and -not $Validate){Assert-WorkshopPlatformProof $config}
     $state=Get-WorkshopStateRoot $config $test
     $id=Get-WorkshopItemId $config $targetConfig $test
     $itemPath=Join-Path $state ('items/'+$config.AppId+'-'+$Target+'.item-id')
@@ -375,7 +374,6 @@ try {
     $checked=[IO.File]::ReadAllText($resultPath)|ConvertFrom-Json
     $request.Fingerprint=$checked.Fingerprint;Write-SteamWorkshopJson $requestPath $request
     if($Validate){Write-UploadLog 'Complete package validated without Steam initialization or upload.' 'OK';exit 0}
-    if(-not $test){Assert-WorkshopPlatformProof $config $targetConfig.Guid $request.Fingerprint}
     & $publisher --inspect $requestPath $resultPath
     if($LASTEXITCODE -ne 0){throw 'Steam item/prerequisite validation failed; no upload started.'}
     Write-UploadLog "Target=$Target; mode=$($request.Mode); version=$($proof.Version); item=$id; files=$(@($proof.Files).Count); fingerprint=$($request.Fingerprint)"

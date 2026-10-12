@@ -157,6 +157,20 @@ namespace BugfixesAndQoL {
             Require(!menu.MenuVisible && !menu.RolloverVisible,"Missing shared capability opened menu");
             manager.ThrowOnHost=null;manager.Hosts.Clear();manager.Attempts.Clear();
             menu=Configure(config,options);
+            Require(((ConfigEntry<FormationKind>)config.Entries["Kind"]).Value==FormationKind.Vanilla &&
+                ((ConfigEntry<int>)config.Entries["Density"]).Value==2 &&
+                !((ConfigEntry<bool>)config.Entries["ShowRoleMarkers"]).Value &&
+                ((ConfigEntry<bool>)config.Entries["RememberRows"]).Value,"Fresh installation defaults changed");
+            var savedConfig=new ConfigFile();
+            savedConfig.Stored["Kind"]=FormationKind.Circle;savedConfig.Stored["Density"]=4;
+            savedConfig.Stored["ShowRoleMarkers"]=true;savedConfig.Stored["RememberRows"]=false;
+            Configure(savedConfig,options);
+            Require(((ConfigEntry<FormationKind>)savedConfig.Entries["Kind"]).Value==FormationKind.Circle &&
+                ((ConfigEntry<int>)savedConfig.Entries["Density"]).Value==4 &&
+                ((ConfigEntry<bool>)savedConfig.Entries["ShowRoleMarkers"]).Value &&
+                !((ConfigEntry<bool>)savedConfig.Entries["RememberRows"]).Value,"Existing configuration overwritten");
+            manager.Hosts.Clear();manager.Attempts.Clear();
+            menu=Configure(config,options);
             Require(manager.Hosts.Count==2 && manager.Attempts.Count==2,"Early registration needs successful native initialization");
             UnitCommandPathAPI.Runtime=new object();BugfixesAndQoL.LargeMoveTargetMarkerRuntime.Renderer=new object();
             FormationRuntime.ThrowOnInitialize=true;

@@ -1,3 +1,4 @@
+using BugfixesAndQoL.UnitCommands;
 using System;
 using System.Collections.Generic;
 
@@ -32,6 +33,14 @@ namespace BugfixesAndQoL
             return value;
         }
 
+        internal static FormationKind ResolveKind(Dictionary<string, string> main, Dictionary<string, string> legacy)
+        {
+            // Fresh installations use Vanilla. Existing entries and legacy configs
+            // retain the previous repair/migration defaults.
+            if (!main.ContainsKey("Kind") && legacy.Count == 0) return FormationKind.Vanilla;
+            return ResolveEnum(main, legacy, "Kind", FormationKind.Block);
+        }
+
         internal static int ResolveDensity(Dictionary<string, string> main, Dictionary<string, string> legacy)
         {
             return !main.ContainsKey("Density") && legacy.TryGetValue("Density", out string raw) &&
@@ -40,6 +49,7 @@ namespace BugfixesAndQoL
 
         internal static bool ResolveRoleMarkers(Dictionary<string, string> main, Dictionary<string, string> legacy)
         {
+            if (!main.ContainsKey("ShowRoleMarkers") && legacy.Count == 0) return false;
             return main.ContainsKey("ShowRoleMarkers") || !legacy.TryGetValue("ShowRoleMarkers", out string raw) ||
                 !bool.TryParse(raw, out bool value) || value;
         }

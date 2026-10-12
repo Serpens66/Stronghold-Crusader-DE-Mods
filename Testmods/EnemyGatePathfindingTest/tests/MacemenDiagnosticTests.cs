@@ -15,7 +15,8 @@ namespace EnemyGatePathfindingTest
             check(MacemenDiagnosticAggregate.Classify(3,false,true)==MacemenTarget.GroundElsewhere);
             check(MacemenDiagnosticAggregate.Classify(6,false,true)==MacemenTarget.Moat);
             check(MacemenDiagnosticAggregate.Classify(7,false,true)==MacemenTarget.Moat);
-            check(MacemenDiagnosticAggregate.Classify(38,true,true)==MacemenTarget.Unknown);
+            check(MacemenDiagnosticAggregate.Classify(38,true,true)==MacemenTarget.GateApproach);
+            check(MacemenDiagnosticAggregate.Classify(38,false,true)==MacemenTarget.OtherBuildingApproach);
             var aggregate = new MacemenDiagnosticAggregate();
             var unit = new MacemenUnit(10,100,2,5,500,3,1,20,20,2,0,true);
             var reused = new MacemenUnit(10,101,2,5,500,3,1,20,20,2,0,true);

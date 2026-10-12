@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace EnemyGatePathfindingTest
 {
     internal enum MacemenStage { TargetOrder, GroupMove, UnitMove, Search, GateComparison }
-    internal enum MacemenTarget { Unknown, GroundElsewhere, GroundOnGate, GateAttack, OtherBuildingAttack, Moat, Wall, Unit }
+    internal enum MacemenTarget { Unknown, GroundElsewhere, GroundOnGate, GateAttack, OtherBuildingAttack, Moat, Wall, Unit, GateApproach, OtherBuildingApproach }
 
     internal readonly struct MacemenUnit
     {
@@ -33,21 +33,23 @@ namespace EnemyGatePathfindingTest
     internal readonly struct MacemenSample
     {
         internal readonly long Call, Timestamp, Generation;
-        internal readonly int Epoch, Target1, Target2, SearchKind, ComparisonSite;
+        internal readonly int Epoch, Target1, Target2, SearchKind, ComparisonSite, MoveType, OrderTarget1, OrderTarget2;
         internal readonly long ReturnValue, RejectedEdges;
         internal readonly MacemenUnit Before, After;
         internal readonly MacemenGate Gate;
         internal readonly bool Stable;
         internal MacemenSample(long call, long timestamp, int epoch, long generation, int t1, int t2,
             int searchKind, long result, long rejected, MacemenUnit before, MacemenUnit after,
-            MacemenGate gate, bool stable, int comparisonSite = -1)
+            MacemenGate gate, bool stable, int comparisonSite = -1, int moveType = -1, int orderTarget1 = 0, int orderTarget2 = 0)
         { Call = call; Timestamp = timestamp; Epoch = epoch; Generation = generation;
           Target1 = t1; Target2 = t2; SearchKind = searchKind; ReturnValue = result;
-          RejectedEdges = rejected; Before = before; After = after; Gate = gate; Stable = stable; ComparisonSite = comparisonSite; }
+          RejectedEdges = rejected; Before = before; After = after; Gate = gate; Stable = stable; ComparisonSite = comparisonSite;
+          MoveType = moveType; OrderTarget1 = orderTarget1; OrderTarget2 = orderTarget2; }
         internal string Format() => "call=" + Call + ",observedTicks=" + Timestamp +
             ",epoch=" + Epoch + ",generation=" + Generation + ",unit=" + Before.Id + "/" + Before.Global +
             ",tribe=" + Before.Tribe + "/" + Before.TribeGlobal + ",control=" + Before.Control +
             ",start=" + Before.X + "/" + Before.Y + ",target=" + Target1 + "/" + Target2 +
+            ",orderTarget=" + OrderTarget1 + "/" + OrderTarget2 + ",moveType=" + MoveType +
             ",storedCommand=" + Before.Command + "->" + After.Command +
             ",unitState=" + Before.State + "->" + After.State +
             ",contextBuildingTile=" + Before.BuildingTile + "->" + After.BuildingTile +
@@ -60,16 +62,16 @@ namespace EnemyGatePathfindingTest
     {
         internal readonly MacemenStage Stage;
         internal readonly MacemenTarget Target;
-        internal readonly int Player, Command, SearchKind, BeforeCommand, AfterCommand, BeforeState, AfterState, Result, ComparisonSite;
+        internal readonly int Player, Command, SearchKind, BeforeCommand, AfterCommand, BeforeState, AfterState, Result, ComparisonSite, MoveType;
         internal readonly MacemenGate Gate;
         internal MacemenKey(MacemenStage stage, MacemenTarget target, int command, int result, MacemenSample sample)
         { Stage = stage; Target = target; Command = command; Result = result; Player = sample.Before.Player;
-          SearchKind = sample.SearchKind; ComparisonSite = sample.ComparisonSite; Gate = sample.Gate; BeforeCommand = sample.Before.Command;
+          SearchKind = sample.SearchKind; ComparisonSite = sample.ComparisonSite; MoveType = sample.MoveType; Gate = sample.Gate; BeforeCommand = sample.Before.Command;
           AfterCommand = sample.After.Command; BeforeState = sample.Before.State; AfterState = sample.After.State; }
         public bool Equals(MacemenKey b) => Stage == b.Stage && Target == b.Target && Player == b.Player &&
             Command == b.Command && SearchKind == b.SearchKind && ComparisonSite == b.ComparisonSite && BeforeCommand == b.BeforeCommand &&
             AfterCommand == b.AfterCommand && BeforeState == b.BeforeState && AfterState == b.AfterState &&
-            Result == b.Result && Gate.Id == b.Gate.Id && Gate.Global == b.Gate.Global &&
+            Result == b.Result && MoveType == b.MoveType && Gate.Id == b.Gate.Id && Gate.Global == b.Gate.Global &&
             Gate.Owner == b.Gate.Owner && Gate.Capturer == b.Gate.Capturer &&
             Gate.RawState == b.Gate.RawState && Gate.Walkable == b.Gate.Walkable;
         public override bool Equals(object obj) => obj is MacemenKey key && Equals(key);
@@ -79,9 +81,9 @@ namespace EnemyGatePathfindingTest
           h = h * 31 + AfterCommand; h = h * 31 + BeforeState; h = h * 31 + AfterState;
           h = h * 31 + Result; h = h * 31 + Gate.Id; h = h * 31 + (int)Gate.Global;
           h = h * 31 + Gate.Owner; h = h * 31 + Gate.Capturer;
-          h = h * 31 + Gate.RawState; h = h * 31 + Gate.Walkable; return h * 31 + ComparisonSite; } }
+          h = h * 31 + Gate.RawState; h = h * 31 + Gate.Walkable; h = h * 31 + MoveType; return h * 31 + ComparisonSite; } }
         internal string Format() => "stage=" + Stage + ",player=" + Player + ",targetKind=" + Target +
-            ",incomingCommand=" + Command + ",storedCommand=" + BeforeCommand + "->" + AfterCommand +
+            ",incomingCommand=" + Command + ",moveType=" + MoveType + ",storedCommand=" + BeforeCommand + "->" + AfterCommand +
             ",state=" + BeforeState + "->" + AfterState + ",gate=" + Gate.Id + "/" + Gate.Global +
             ",owner=" + Gate.Owner + ",capturer=" + Gate.Capturer + ",gateRaw=" + Gate.RawState +
             ",walkableRaw=" + Gate.Walkable + ",searchKind=" + SearchKind + ",comparisonSite=" + ComparisonSite + ",resultClass=" + Result +
@@ -116,6 +118,7 @@ namespace EnemyGatePathfindingTest
         {
             if (!targetOrder || command == 3) return exactGate ? MacemenTarget.GroundOnGate : MacemenTarget.GroundElsewhere;
             if (command == 9 || command == 36) return exactGate ? MacemenTarget.GateAttack : MacemenTarget.OtherBuildingAttack;
+            if (command == 38) return exactGate ? MacemenTarget.GateApproach : MacemenTarget.OtherBuildingApproach;
             if (command == 6 || command == 7) return MacemenTarget.Moat;
             if (command == 23) return MacemenTarget.Wall;
             if (command == 4) return MacemenTarget.Unit;

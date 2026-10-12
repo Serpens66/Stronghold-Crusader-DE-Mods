@@ -20,7 +20,6 @@ $release=Get-ApiGitHubRelease 'SHCDE-APIShared/APIShared' $tag
 $exists=$null -ne $release
 if($exists){if($release.targetCommitish -cne $commit -or [bool]$release.isDraft -ne $test){throw 'Existing APIShared release has a different source or publication mode.'}}
 if($ValidateOnly){Write-Host "Validated APIShared $($info.Version), tag $tag; no release or build started.";exit 0}
-if(-not $test){Assert-WorkshopPlatformProof $config}
 if(-not $exists){
     $word=if($test){'TESTPAKET'}else{'VEROEFFENTLICHEN'}
     if((Read-Host "Type $word to build and create the reviewed GitHub release") -cne $word){throw 'Preparation cancelled.'}

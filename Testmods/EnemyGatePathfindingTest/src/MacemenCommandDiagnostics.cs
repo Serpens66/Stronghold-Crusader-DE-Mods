@@ -28,6 +28,7 @@ namespace EnemyGatePathfindingTest
         private long epochStarted;
         private DateTime epochUtc;
         private readonly Dictionary<string, long> failures = new Dictionary<string, long>();
+        private readonly Dictionary<int, long> unattributedComparisons = new Dictionary<int, long>();
 
         private struct Frame
         {
@@ -38,6 +39,8 @@ namespace EnemyGatePathfindingTest
             internal MacemenUnit Unit;
             internal MacemenGate Gate;
             internal bool Relevant, TargetOrderContext;
+            internal TribeIssueOrderWithTargetEventArgs TargetArgs;
+            internal int MoveType;
         }
         private struct Search
         {
@@ -64,6 +67,7 @@ namespace EnemyGatePathfindingTest
             epochStarted = Stopwatch.GetTimestamp(); epochUtc = DateTime.UtcNow;
             calls = pre = post = skipped = missingPost = unmatchedPost = identityUnknown = errors = workTicks = callbacks = 0;
             failures.Clear();
+            unattributedComparisons.Clear();
             nextFlush = Stopwatch.GetTimestamp() + 60L * Stopwatch.Frequency;
         }
         internal void End()
@@ -113,17 +117,22 @@ namespace EnemyGatePathfindingTest
                     // Publish an unverified placeholder before fallible SDK reads.
                     frames[frameIndex] = new Frame { Args = args, Stage = stage, Id = id };
                     MacemenUnit unit = stage == MacemenStage.UnitMove ? CaptureUnit(id) : CaptureLeader(id);
-                    Frame frame = new Frame { Args = args, Stage = stage, Id = id, Command = command,
+                    Frame frame = new Frame { Args = args, Stage = stage, Id = id, Command = stage == MacemenStage.TargetOrder ? command : -1,
                         T1 = t1, T2 = t2, Call = ++calls, Unit = unit, Relevant = unit.Valid && unit.Maceman,
-                        TargetOrderContext = stage == MacemenStage.TargetOrder };
+                        TargetOrderContext = stage == MacemenStage.TargetOrder,
+                        TargetArgs = args as TribeIssueOrderWithTargetEventArgs,
+                        MoveType = stage == MacemenStage.GroupMove ? command : -1 };
                     MacemenGate parentGate = default;
-                    if (stage == MacemenStage.UnitMove && frameIndex > 0)
+                    if (stage != MacemenStage.TargetOrder && frameIndex > 0)
                     {
                         Frame parent = frames[frameIndex - 1];
                         if (parent.Stage != MacemenStage.UnitMove && unit.Valid &&
-                            parent.Id == unit.Tribe && parent.Unit.TribeGlobal == unit.TribeGlobal)
-                        { frame.Command = parent.Stage == MacemenStage.TargetOrder ? CurrentCommand(parent) : -1;
-                          frame.TargetOrderContext = parent.Stage == MacemenStage.TargetOrder;
+                            parent.Unit.Valid && parent.Id == unit.Tribe && parent.Unit.Player == unit.Player &&
+                            parent.Unit.TribeGlobal == unit.TribeGlobal && ArgumentsIdentityMatches(parent))
+                        { frame.TargetArgs = parent.TargetArgs;
+                          frame.TargetOrderContext = frame.TargetArgs != null;
+                          frame.Command = frame.TargetOrderContext ? (int)frame.TargetArgs.AICommand : -1;
+                          if (stage == MacemenStage.UnitMove) frame.MoveType = parent.MoveType;
                           if (unit.Maceman) { parent.Relevant = true; frames[frameIndex - 1] = parent;
                             RefreshArguments(ref parent); parentGate = ResolveTarget(parent, policy()); } }
                     }
@@ -152,20 +161,20 @@ namespace EnemyGatePathfindingTest
             while (depth > 0 && frames[depth - 1].Args?.SkipOriginalFunction == true)
             { skipped++; frames[--depth] = default; }
         }
-        private static int CurrentCommand(Frame frame) =>
-            frame.Args is TribeIssueOrderWithTargetEventArgs order ? (int)order.AICommand : frame.Command;
         private static bool ArgumentsIdentityMatches(Frame frame) =>
-            frame.Args is TribeIssueOrderWithTargetEventArgs order ? order.TribeId == frame.Id :
+            (frame.TargetArgs == null || (frame.TargetArgs.TribeId == frame.Unit.Tribe && !frame.TargetArgs.SkipOriginalFunction)) &&
+            (frame.Args is TribeIssueOrderWithTargetEventArgs order ? order.TribeId == frame.Id :
             frame.Args is TribeIssueOrderMoveHereEventArgs move ? move.TribeId == frame.Id :
-            frame.Args is UnitMoveHereEventArgs unit ? unit.UnitId == frame.Id : false;
+            frame.Args is UnitMoveHereEventArgs unit ? unit.UnitId == frame.Id : false);
         private static void RefreshArguments(ref Frame frame)
         {
             if (frame.Args is TribeIssueOrderWithTargetEventArgs order)
             { frame.Command = (int)order.AICommand; frame.T1 = order.TargetValue1; frame.T2 = order.TargetValue2; }
             else if (frame.Args is TribeIssueOrderMoveHereEventArgs move)
-            { frame.Command = (int)move.MoveType; frame.T1 = move.TileX; frame.T2 = move.TileY; }
+            { frame.MoveType = (int)move.MoveType; frame.T1 = move.TileX; frame.T2 = move.TileY; }
             else if (frame.Args is UnitMoveHereEventArgs unit)
             { frame.T1 = unit.TileX; frame.T2 = unit.TileY; }
+            if (frame.TargetArgs != null) frame.Command = (int)frame.TargetArgs.AICommand;
         }
         internal void BeginSearch(int player, int kind)
         {
@@ -213,6 +222,14 @@ namespace EnemyGatePathfindingTest
                 // Capturer callback: immutable lookup only, no game API or live-state read.
                 MacemenGate gate = search.Policy.GateIdentities.TryGetValue(gateId, out var identity) && identity.Global == global
                     ? new MacemenGate(gateId, global, nativeOwner, nativeCapturer, -1, -1) : default;
+                if (gate.Id == 0)
+                {
+                    // Missing identity is coverage, not an identity mismatch or route failure.
+                    int key = (player << 8) | (site << 2) | (nativeRejected ? 1 : 0) | (effectiveRejected ? 2 : 0);
+                    unattributedComparisons.TryGetValue(key, out long count);
+                    unattributedComparisons[key] = count + 1;
+                    return;
+                }
                 Record(search.Frame, MacemenStage.GateComparison, gate,
                     (nativeRejected ? 1 : 0) | (effectiveRejected ? 2 : 0), 0, 0, search.Kind,
                     search.Frame.Unit, gate.Id > 0 && identity.Owner == nativeOwner && identity.Capturer == nativeCapturer &&
@@ -226,7 +243,8 @@ namespace EnemyGatePathfindingTest
             NativeGateAccessSnapshot publication = access();
             var sample = new MacemenSample(frame.Call, Stopwatch.GetTimestamp(), epoch,
                 publication.DiagnosticGeneration, frame.T1, frame.T2, kind, nativeResult, rejected,
-                frame.Unit, after, gate, stable, comparisonSite);
+                frame.Unit, after, gate, stable, comparisonSite, frame.MoveType,
+                frame.TargetArgs?.TargetValue1 ?? 0, frame.TargetArgs?.TargetValue2 ?? 0);
             // A comparison visits a gate; it does not prove that gate was the order target.
             MacemenTarget target = MacemenDiagnosticAggregate.Classify(frame.Command,
                 frame.Gate.Id > 0, frame.TargetOrderContext);
@@ -275,12 +293,15 @@ namespace EnemyGatePathfindingTest
         private MacemenGate ResolveTarget(Frame frame, RouteTilePolicySnapshot snapshot)
         {
             if (!frame.Relevant || snapshot == null || snapshot.GateIdentities.Count == 0) return default;
-            if (frame.Stage == MacemenStage.TargetOrder && (frame.Command == 9 || frame.Command == 36))
-                return ReadGate(frame.T1, unchecked((uint)frame.T2), snapshot);
-            if (frame.Stage == MacemenStage.TargetOrder && frame.Command != 3) return default;
+            if (!ArgumentsIdentityMatches(frame)) return default;
+            int target1 = frame.TargetArgs?.TargetValue1 ?? frame.T1;
+            int target2 = frame.TargetArgs?.TargetValue2 ?? frame.T2;
+            if (frame.TargetArgs != null && (frame.Command == 9 || frame.Command == 36 || frame.Command == 38))
+                return ReadGate(target1, unchecked((uint)target2), snapshot);
+            if (frame.TargetArgs != null && frame.Command != 3) return default;
             var tiles = GameTileManagerAPI.Instance;
-            if (!tiles.IsTileInsideMapBounds(frame.T1, frame.T2)) return default;
-            int tile = tiles.GetTileId(frame.T1, frame.T2);
+            if (!tiles.IsTileInsideMapBounds(target1, target2)) return default;
+            int tile = tiles.GetTileId(target1, target2);
             if (!tiles.IsValidTileId(tile)) return default;
             return ReadGate(tiles.GetTileBuildingId(tile), 0, snapshot);
         }
@@ -297,6 +318,11 @@ namespace EnemyGatePathfindingTest
         }
         private void Flush(bool final)
         {
+            foreach (var pair in unattributedComparisons)
+                Shared.DebugLogHelper.LogInfo(log, "TEMP_MACEMEN_GATE_DIAGNOSTICS coverage: player=" + (pair.Key >> 8) +
+                    ",comparisonSite=" + ((pair.Key >> 2) & 63) + ",comparisonResult=" + (pair.Key & 3) +
+                    ",reason=gate-identity-not-attributed,count=" + pair.Value);
+            unattributedComparisons.Clear();
             foreach (var failure in failures)
                 Shared.DebugLogHelper.LogInfo(log, "TEMP_MACEMEN_GATE_DIAGNOSTICS failure: cause=" + failure.Key + ",count=" + failure.Value);
             aggregate.Drain((key, row) => Shared.DebugLogHelper.LogInfo(log,

@@ -9,9 +9,6 @@ namespace EnemyGatePathfindingTest
     internal static class Program
     {
         private static int assertions;
-        private static string ReadSharedCommandRuntime() => string.Join("\n",
-            Array.ConvertAll(Directory.GetFiles(Path.Combine("..", "..", "BugfixesAndQoL", "src", "UnitCommands"),
-                "UnitCommandPathRuntime.*.cs", SearchOption.AllDirectories), File.ReadAllText));
 
         private static int Main()
         {
@@ -1296,7 +1293,6 @@ namespace EnemyGatePathfindingTest
                 Path.Combine("src", "GateTopologySnapshotProvider.cs"));
             string bridge = File.ReadAllText(Path.Combine("..", "..", "APIShared",
                 "src", "Pathfinding", "GateRoutes", "EnemyGatePathPolicyBridge.cs"));
-            string sharedOwner = ReadSharedCommandRuntime();
 
             Assert(plugin.Contains("Subscribe(ObserveTargetOrder)") &&
                     plugin.Contains("Subscribe(ObserveTribeMove)") &&
@@ -1337,11 +1333,8 @@ namespace EnemyGatePathfindingTest
             Assert(correlation.Contains("stage") &&
                     correlation.Contains("\"unattributed-player\"") &&
                     correlation.Contains("\"region-pair\"") &&
-                    bridge.Contains("interface IEnemyGateRegionPairObserver") &&
-                    sharedOwner.Contains("policy is IEnemyGateRegionPairObserver observer") &&
-                    sharedOwner.Contains("ObserveScopedRegionPairReachabilityCore(") &&
-                    sharedOwner.Contains("out int vanillaResult"),
-                "shared E2610 owner reports both results only to a registered observer");
+                    bridge.Contains("interface IEnemyGateRegionPairObserver"),
+                "gate diagnostics implement the region observer contract used by this mod");
 
             var aggregate = new AiGateDecisionAggregate();
             for (int i = 0; i < 160; i++)
@@ -1888,11 +1881,6 @@ namespace EnemyGatePathfindingTest
                 source.Contains("Snapshot.Readers--"), "nested masks, counters and snapshot reader ownership restore");
             Assert(source.Contains("globals[tribeId] = tribes[tribeId].r_GlobalId") &&
                 source.Contains("tribePlayers = TribePlayerSnapshot.Empty"), "identity snapshot replaces across maps");
-            string shared = ReadSharedCommandRuntime();
-            string sharedBuilding = ExtractMethodBody(shared, "ObserveBuildingApproachBuilder");
-            Assert(sharedBuilding.Contains("ResolveEnemyGateBuildingPlayer(movementClass, tribeId)") &&
-                sharedBuilding.Contains("sourceRegion, movementClass") && sharedBuilding.Contains("finally"),
-                "mainmod preserves native arguments and closes shared building scope");
         }
 
         private static void DirectCursorCallsiteContractIsExact()

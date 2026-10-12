@@ -581,6 +581,8 @@ namespace EnemyGatePathfindingTest
         private RouteTilePolicySnapshot temporaryPublishedPolicy = RouteTilePolicySnapshot.Empty;
         internal Action<RouteTilePolicySnapshot, int> TemporaryPolicyPublished;
         internal RouteTilePolicySnapshot TemporaryAcceptanceSnapshot => temporaryPublishedPolicy;
+        // TEMP_MACEMEN_GATE_DIAGNOSTICS: functional publication exists in every mode.
+        internal RouteTilePolicySnapshot MacemenDiagnosticSnapshot => publishedPolicy;
         private void NotifyTemporaryPublication(RouteTilePolicySnapshot policy, int generation)
         {
             if (!DetailedDiagnostics) return;

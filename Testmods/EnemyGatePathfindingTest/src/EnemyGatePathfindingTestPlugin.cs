@@ -51,8 +51,7 @@ namespace EnemyGatePathfindingTest
             detailedDiagnostics = Config.Bind("Diagnostics", "DetailedDiagnostics", false,
                 "Enable detailed gate and temporary Raid/Assassin diagnostics. Restart the game after changing this local option.").Value;
             macemenDiagnostics = Config.Bind("Diagnostics", "MacemenDiagnostics", false,
-                "Enable compact TEMP_MACEMEN_GATE_DIAGNOSTICS. Takes precedence over DetailedDiagnostics; restart required.").Value;
-            if (macemenDiagnostics) detailedDiagnostics = false;
+                "Enable compact TEMP_MACEMEN_GATE_DIAGNOSTICS. Can run alongside DetailedDiagnostics; restart required.").Value;
             LogScriptExtenderIdentity();
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,

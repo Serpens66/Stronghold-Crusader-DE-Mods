@@ -67,10 +67,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
-<ItemGroup><Compile Include="..\EnemyBridgePathTest\tests\CaptureRefreshTests.cs" /></ItemGroup>
-  <ItemGroup>
-    <Compile Include="..\..\BugfixesAndQoL\src\UnitCommands\Movement\TemporaryPackedRouteInspection.cs" />
-  </ItemGroup>
+<ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\MacemenDiagnosticAggregate.cs" /><Compile Include="tests\MacemenDiagnosticTests.cs" /></ItemGroup>
 </Project>

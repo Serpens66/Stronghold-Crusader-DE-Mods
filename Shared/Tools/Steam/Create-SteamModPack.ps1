@@ -1555,6 +1555,9 @@ try {
     $previousPack = Get-PackReleaseState -Releases $script:ReleaseList
     $historicalSteamFiles = Get-HistoricalSteamFileIndex -History $uploadHistory -PackGuid $PackGuid
     $legacyApiSharedFiles = @(Get-LegacyApiSharedFiles -History $uploadHistory)
+    . (Join-Path $script:Root 'APIShared/tools/WorkshopMigration.ps1')
+    $verifiedMigrationMaps = @($uploadHistory.Uploads | Where-Object { $_.PSObject.Properties.Name -notcontains 'Format' -or $_.Format -eq 'Map' } | ForEach-Object { Get-HistoryMapPath -Upload $_ })
+    Assert-ApiWorkshopMigrationVersion -Version $apiSharedInfrastructure.Version -LegacyMapPaths $verifiedMigrationMaps -HostGuid $PackGuid
     $apiHistoricalPrefix = "BepInEx/plugins/$PackGuid/Infrastructure/APIShared_Serp/"
     foreach ($path in @($historicalSteamFiles.Keys)) {
         if ($path.StartsWith($apiHistoricalPrefix, [StringComparison]::OrdinalIgnoreCase)) { $historicalSteamFiles.Remove($path) }
@@ -1581,7 +1584,6 @@ try {
         exit 0
     }
 
-    if (-not $TestMode) { Assert-WorkshopPlatformProof (Get-WorkshopConfiguration) }
     $word=if($TestMode){'TESTPAKET'}else{'VEROEFFENTLICHEN'}
     $confirmation = Read-Host "Type $word to apply reviewed source changes, commit/push and create required releases"
     if ($confirmation -cne $word) { Fail-Pack 2 'Preparation cancelled.' }

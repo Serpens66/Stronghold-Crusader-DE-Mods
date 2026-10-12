@@ -28,7 +28,7 @@ namespace BugfixesAndQoL
             var legacy = FormationSelectionMigration.ReadFormationSection(
                 ReadConfig(Path.Combine(Paths.ConfigPath, "FormationTest_Serp.cfg")));
             kind = config.Bind("Formation", "Kind",
-                FormationSelectionMigration.ResolveEnum(existing, legacy, "Kind", FormationKind.Block),
+                FormationSelectionMigration.ResolveKind(existing, legacy),
                 "Local formation selection; sent with each synchronized move command.");
             density = config.Bind("Formation", "Density", FormationSelectionMigration.ResolveDensity(existing, legacy),
                 new ConfigDescription("Local formation spacing.", new AcceptableValueRange<int>(1, 4)));

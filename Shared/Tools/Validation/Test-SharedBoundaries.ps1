@@ -81,6 +81,11 @@ $activeDirectories = if ($modRoot) { @($modRoot, $apiRoot) + @($projects | Where
 $activeFiles = @(foreach ($directory in $activeDirectories | Sort-Object -Unique) {
     Get-ChildItem -LiteralPath $directory -Recurse -File | Where-Object {
         $_.FullName -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect)[\\/]' -and
+        # Consumer checks cover the dependency's runtime sources and project/manifest,
+        # not its independent tests, documentation, examples or release tooling.
+        (-not $modRoot -or -not $_.FullName.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
+         ($_.FullName.StartsWith((Join-Path $apiRoot 'src') + '\', [StringComparison]::OrdinalIgnoreCase) -and $_.Extension -eq '.cs') -or
+         $projects.FullName -contains $_.FullName -or $_.FullName -eq (Join-Path $apiRoot 'info.json')) -and
         $_.Extension -match '^\.(cs|csproj|ps1|bat|cmd|md|json|yml|props|targets)$' -and
         $_.Name -ne 'legacy-shared-paths.json' -and $_.Name -notmatch '^\d.*\.(compatibility|release-hooks)\.json$'
     }
@@ -104,7 +109,12 @@ foreach ($file in $activeFiles | Sort-Object FullName -Unique) {
     $retiredPath = $legacyRegex.Match($normalized)
     if ($retiredPath.Success) { throw "Active reference to retired Shared path '$($retiredPath.Value)': $($file.FullName)" }
 }
-foreach ($file in Get-ChildItem -LiteralPath $apiRoot -Recurse -File -Filter '*.cs' | Where-Object FullName -NotMatch '[\\/](bin|obj|BepInEx)[\\/]') {
+$apiOwnershipFiles = if ($modRoot) {
+    @($activeFiles | Where-Object { $_.Extension -eq '.cs' -and $_.FullName.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase) })
+} else {
+    @(Get-ChildItem -LiteralPath $apiRoot -Recurse -File -Filter '*.cs' | Where-Object FullName -NotMatch '[\\/](bin|obj|BepInEx)[\\/]')
+}
+foreach ($file in $apiOwnershipFiles) {
     $text = [IO.File]::ReadAllText($file.FullName)
     if ($text -cmatch '\busing\s+Shared\s*;|\bnamespace\s+Shared\b|(?<!API)\bShared\.(?!MissionEvents\.")') {
         throw "API implementation still depends on workspace Shared type identities: $($file.FullName)"
