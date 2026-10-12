@@ -98,3 +98,13 @@ function Assert-PreparedWorkshopFolder([string]$Directory,[string]$Version,[stri
     if($LASTEXITCODE -ne 0){throw "Complete package validation failed: $result"}
 }
 function Assert-PreparedLooseFolder([string]$Directory,[string]$Version){Assert-PreparedWorkshopFolder $Directory $Version 'SerpsMods_Serp'}
+function Initialize-WorkshopBootstrapEnvironment([string]$Workspace) {
+    . (Join-Path $Workspace 'APIShared/tools/BuildProof.ps1')
+    Initialize-ApiBuildEnvironment (Join-Path $Workspace 'APIShared')
+    # The shipped standalone bootstrap compiler uses these installed references.
+    # Validate them before any source edits, releases or expensive packaging.
+    foreach ($relative in @('BepInEx/core/BepInEx.dll','BepInEx/plugins/000shcdese/SHCDESE.dll','Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.dll','Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.CoreModule.dll')) {
+        $reference = Join-Path $env:SHCDE_GAME_DIR $relative
+        if (-not (Test-Path -LiteralPath $reference -PathType Leaf)) { throw "Workshop bootstrap reference is missing: $reference" }
+    }
+}

@@ -17,6 +17,9 @@ $ErrorActionPreference = 'Stop'
 $previousApiSharedDirectory = $env:SHCDE_API_SHARED_DIR
 $previousApiSharedReleaseProof = $env:SHCDE_API_SHARED_RELEASE_PROOF
 $previousApiSharedTestMode = $env:SHCDE_WORKSHOP_TEST
+$previousGameDirectory = $env:SHCDE_GAME_DIR
+$previousExtenderDirectory = $env:SHCDESE_EXTENDER_DIR
+$previousMsBuild = $env:SHCDE_MSBUILD
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
@@ -1381,6 +1384,7 @@ function Publish-PackRelease {
 
 try {
     Write-RunLog "Starting $PackName pack workflow; validate=$Validate."
+    Initialize-WorkshopBootstrapEnvironment $script:Root
     if (-not $ApiSharedPreviewPath) { $ApiSharedPreviewPath = $PreviewPath }
     if (-not (Test-Path -LiteralPath $ApiSharedPreviewPath -PathType Leaf)) { Fail-Pack 2 'APIShared preview image is missing.' }
     $uploadHistory = Get-SteamWorkshopUploadHistory -Path $script:UploadHistoryPath -SeedPath $script:UploadHistorySeedPath -AppId $SteamAppId -StateName $SteamStateName
@@ -1596,7 +1600,7 @@ try {
     if ($confirmedStatus.Count -gt 0) {
         Fail-Pack 2 "Git working tree changed while awaiting publishing confirmation. Commit or otherwise resolve these changes, then restart the workflow:`r`n$($confirmedStatus -join "`r`n")"
     }
-    $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); Status = 'source-preparation' }
+    $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); ReusedReleases = @(); Status = 'source-preparation' }
     Write-JsonCrLf -Path $script:JournalPath -Value $journal
     $apiPackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure `
         -ForceDownload:$apiSharedInfrastructure.NeedsRelease
@@ -1647,7 +1651,10 @@ try {
     }
     foreach ($mod in @($mods | Where-Object { -not $_.NeedsRelease })) {
         if ($null -eq $mod.Package) { $mod.Package = Get-ReleasePackage -Mod $mod }
+        Write-RunLog "Using verified existing release $($mod.LatestTag); no consumer build or publication required." 'OK'
+        $journal.ReusedReleases = @($journal.ReusedReleases) + $mod.LatestTag
     }
+    Write-JsonCrLf -Path $script:JournalPath -Value $journal
 
     $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods -Infrastructure $apiSharedInfrastructure -HistoricalUploads @($uploadHistory.Uploads)
     if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature -and $previousPack.Provenance.PSObject.Properties.Name -contains 'Workshop') {
@@ -1841,4 +1848,7 @@ try {
     $env:SHCDE_API_SHARED_DIR = $previousApiSharedDirectory
     $env:SHCDE_API_SHARED_RELEASE_PROOF = $previousApiSharedReleaseProof
     $env:SHCDE_WORKSHOP_TEST = $previousApiSharedTestMode
+    $env:SHCDE_GAME_DIR = $previousGameDirectory
+    $env:SHCDESE_EXTENDER_DIR = $previousExtenderDirectory
+    $env:SHCDE_MSBUILD = $previousMsBuild
 }

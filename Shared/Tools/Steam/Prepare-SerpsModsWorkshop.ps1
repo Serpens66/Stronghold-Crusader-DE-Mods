@@ -3,6 +3,8 @@ param([Parameter(Mandatory)][string]$HostPackage, [Parameter(Mandatory)][string]
     [Parameter(Mandatory)][string]$APISharedVersion, [Parameter(Mandatory)][string]$APISharedWorkshopId, [object[]]$LegacyReleases=@())
 $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+. (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
+Initialize-WorkshopBootstrapEnvironment $workspace
 . (Join-Path $workspace 'APIShared/tools/WorkshopPackage.ps1')
 $info=[IO.File]::ReadAllText((Join-Path $HostPackage 'info.json')) | ConvertFrom-Json
 if ($info.GUID -cne 'SerpsMods_Serp') { throw 'Expected the existing SerpsMods host identity.' }

@@ -56,3 +56,5 @@ $before=Get-HostContentSignature -Mods @() -HistoricalUploads $history
 [IO.File]::WriteAllText((Join-Path $fixture 'APIShared/tools/WorkshopPackage.ps1'),'packager change')
 Check ((Get-HostContentSignature -Mods @() -HistoricalUploads $history) -cne $before) 'Packaging changes must change package signature.'
 Write-Host "PASS: $checks Workshop workflow checks. Fixtures: $fixture"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-BootstrapEnvironment.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Bootstrap environment regression failed.' }
