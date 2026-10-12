@@ -34,6 +34,7 @@ $null=Write-WorkshopPreparation $config $config.APIShared $false '0.7.1' ('a'*40
 Check ((Assert-WorkshopPreparation $config $config.APIShared $false).Version -ceq '0.7.1') 'Proof rejected unchanged folder.'
 [IO.File]::WriteAllText((Join-Path $config.APIShared.Folder 'APIShared.map'),'modified');Reject {Assert-WorkshopPreparation $config $config.APIShared $false}
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.IO.Compression
 function MakeZip([string[]]$Names){$path=Join-Path $fixture ([guid]::NewGuid().ToString('N')+'.zip');$zip=[IO.Compression.ZipFile]::Open($path,[IO.Compression.ZipArchiveMode]::Create);try{foreach($name in $Names){[void]$zip.CreateEntry($name)}}finally{$zip.Dispose()};return $path}
 Assert-WorkshopContentZip (MakeZip @('SerpsMods.map','apishared-workshop.json','Payload/BepInEx/plugins/SerpsMods_Serp/Mods/Example.dll'));$checks++
 foreach($names in @(@('../escape'),@('SerpsMods.map','serpsmods.map'),@('Payload/BepInEx/plugins/SerpsMods_Serp/CON.dll'),@('Payload/BepInEx/plugins/SerpsMods_Serp/config/settings.json'),@('Payload/BepInEx/plugins/SerpsMods_Serp/A','Payload/BepInEx/plugins/SerpsMods_Serp/A/b.dll'))){Reject {Assert-WorkshopContentZip (MakeZip $names)}}

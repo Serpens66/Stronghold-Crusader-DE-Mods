@@ -149,8 +149,12 @@ Hold Shift while clicking a building's Repair button to repair the selected buil
 ### Queue movement and attack commands with Shift
 The enabled-by-default host option extends Shift queues so movement orders and attacks against units or buildings share one deterministic FIFO with up to 128 pending commands. 
 
-### Improve Move formations and target markers
-Show correct Destination markers for moving units, even if they are a very big group. Set up how close they should stand to each other selectable from **Very dense (1)** through **Very wide (4)**.
+### Choose unit arrangements and preview movement
+The enabled-by-default host option **Enable unit arrangement and complete target markers** adds an **Arrangement** button to your troop HUD. Choose Vanilla, Block, Line, Column, Wedge, or Circle, density 1-4, optional rear/centre role placement, and coloured previews. Personal defaults are Vanilla, density 2, role placement off, and role markers off.
+
+With at least two units selected, hold your configured Move-command mouse button over open ground and drag to set facing. Scroll up for fewer rows (wider), down for more rows (longer); release issues one synchronized Move. Circle and Vanilla keep their geometry; adjust density in the window. **Remember rows**, on by default, saves rows per Block, Line, Column, and Wedge across restarts, temporarily limiting them for smaller groups.
+
+Destination markers cover large groups. The enabled-by-default local **Correct gatehouse target markers** option also corrects their height on gatehouses, including formation previews.
 
 ### Make new recruits run to rally points
 Newly recruited human units move to their rally points at their own normal fastest pace, with the matching animation. Enable the separate **Fix Rally Point Terrain Slowdown** setting to retain terrain slowdown; both options are enabled by default.
@@ -247,8 +251,8 @@ When an owned Assassin is selected, a troop-action button allows or forbids clim
 ### Control the Lord through the troop HUD
 Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
 
-### Digging Units Get Stuck In Moat Pockets: allow units to move through allied moat
-Vanilla moat-digging units can now move through completed moats owned by their player or an ally.  
+### Improve manual unit commands
+The enabled-by-default host setting **Improved manual unit commands** allows reachable members of a selection to carry out movement, queued movement, patrol, attack, and moat-work orders, including units already standing in a moat.
 
 ### More Zoom Levels
 Adds more zoom levels (with game setting Extra Zoom enabled) which allows the same zooms on every game resolution.  
@@ -257,4 +261,12 @@ Adds more zoom levels (with game setting Extra Zoom enabled) which allows the sa
 On Statistic screen you will now see team markers next to the colour-shield.  
 
 ### Customize trails
-Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Ally in Coop Trails.  
+Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Ally in Coop Trails.
+
+## Compatibility and diagnostics
+
+This mod requires the Script Extender and **APIShared 0.7.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+
+Shared hooks coordinate command and HUD integrations with other mods; synchronized multiplayer actions use APIShared transport.
+
+Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change. Plague tracking now follows projectile events, and disabled countdown, health and statistics overlays avoid unnecessary refresh work.

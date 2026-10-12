@@ -18,12 +18,66 @@ function Assert-ApiCheckout([string]$Workspace) {
 }
 function Assert-ApiConsumerPackage([string]$Workspace, [string]$PackageDirectory, [switch]$Release) {
     $api = Assert-ApiCheckout $Workspace
+    if ($PackageDirectory -and $env:SHCDE_API_SHARED_RELEASE_PROOF) {
+        return Assert-ApiPublishedConsumerPackage $Workspace $PackageDirectory $env:SHCDE_API_SHARED_RELEASE_PROOF
+    }
     . (Join-Path $api 'tools/BuildProof.ps1')
     $proof = Assert-ApiBuildProof $api -Release:$Release
     $localPackage = [IO.Path]::GetFullPath((Join-Path $api 'BepInEx/plugins/APIShared_Serp'))
     if ($PackageDirectory -and [IO.Path]::GetFullPath($PackageDirectory).TrimEnd('\','/') -ne $localPackage.TrimEnd('\','/')) {
         throw 'Workspace consumers must use the local APIShared package, not an installed or external DLL.'
     }
+    return $proof
+}
+function Assert-ApiPublishedConsumerPackage([string]$Workspace, [string]$PackageDirectory, [string]$ProvenancePath) {
+    # Only the release cache selected by the Workshop driver can supply a published SDK.
+    # Recheck it in every child build; an environment override alone grants no trust.
+    $api = Assert-ApiCheckout $Workspace
+    $cacheRoot = [IO.Path]::GetFullPath((Join-Path $Workspace '.release-output/APIShared')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
+    $testCacheRoot = [IO.Path]::GetFullPath((Join-Path $Workspace '.release-output/SteamWorkshop/test/SerpsMods/cache/APIShared')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
+    $proofPath = [IO.Path]::GetFullPath($ProvenancePath)
+    $allowedRoot = if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $testCacheRoot } else { $cacheRoot }
+    if (-not $proofPath.StartsWith($allowedRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Published APIShared proof must be in the workspace release cache for the selected mode.' }
+    $cache = Split-Path -Parent $proofPath
+    $audit = Join-Path $cache 'audit'
+    $expectedDirectory = [IO.Path]::GetFullPath((Join-Path $audit 'BepInEx/plugins/APIShared_Serp'))
+    if ([IO.Path]::GetFullPath($PackageDirectory).TrimEnd('\','/') -ne $expectedDirectory.TrimEnd('\','/')) { throw 'Published APIShared SDK path does not match its release proof.' }
+    $proof = Get-Content -LiteralPath $proofPath -Raw | ConvertFrom-Json
+    $info = Get-Content -LiteralPath (Join-Path $api 'info.json') -Raw | ConvertFrom-Json
+    if ($proof.Commit -notmatch '^[0-9a-f]{40}$') { throw 'Invalid published APIShared source commit.' }
+    $tag = "APIShared/v$($info.Version)"
+    if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $tag = "APIShared/test/v$($info.Version)-$(([string]$proof.Commit).Substring(0,12))" }
+    if ($proof.SchemaVersion -ne 1 -or $proof.Mod -cne 'APIShared' -or $proof.PluginGuid -cne 'APIShared_Serp' -or
+        $proof.Version -cne $info.Version -or $proof.Tag -cne $tag) { throw 'Published APIShared SDK identity or mode mismatch.' }
+    . (Join-Path $PSScriptRoot '../Steam/SteamPackPolicy.ps1')
+    $paths = @(Invoke-ApiGit $api @('diff','--name-only',[string]$proof.Commit,'--'))
+    $paths += @(Invoke-ApiGit $api @('ls-files','--others','--exclude-standard'))
+    $changed = @(Get-SteamApiReleaseRelevantChanges $paths)
+    if ($changed.Count) { throw "Published APIShared SDK differs from current package sources: $($changed -join ', ')" }
+    $zip = Join-Path $cache "APIShared-v$($proof.Version).zip"
+    if ((Get-SteamPackFileSha256 $zip) -cne $proof.Package.Sha256) { throw 'Published APIShared ZIP hash mismatch.' }
+    $known = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($record in @($proof.Package.Files)) {
+        $relative = [string]$record.Path
+        if ($relative -notmatch '^BepInEx/' -or $relative -match '(^|/)\.\.?(/|$)|[:\\]|//|/$' -or -not $known.Add($relative)) { throw "Unsafe or duplicate published APIShared file: $relative" }
+        $file = Join-Path $audit $relative
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -ne $record.Size -or
+            (Get-SteamPackFileSha256 $file) -cne $record.Sha256) { throw "Published APIShared file hash mismatch: $relative" }
+    }
+    # Refuse links in any ancestor or descendant, including a redirected cache directory.
+    $ancestor = Get-Item -LiteralPath $audit
+    while ($ancestor -and $ancestor.FullName.StartsWith([IO.Path]::GetFullPath($Workspace), [StringComparison]::OrdinalIgnoreCase)) {
+        if ($ancestor.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Published APIShared SDK contains a link.' }
+        $ancestor = $ancestor.Parent
+    }
+    foreach ($entry in @(Get-ChildItem -LiteralPath $audit -Recurse -Force)) {
+        if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Published APIShared SDK contains a link.' }
+        if (-not $entry.PSIsContainer) {
+            $relative = $entry.FullName.Substring($audit.Length + 1).Replace('\','/')
+            if (-not $known.Contains($relative)) { throw "Undeclared published APIShared file: $relative" }
+        }
+    }
+    if (-not $known.Contains('BepInEx/plugins/APIShared_Serp/APIShared.dll')) { throw 'Published APIShared SDK has no declared DLL.' }
     return $proof
 }
 function Assert-ApiReleaseState([string]$Workspace) {

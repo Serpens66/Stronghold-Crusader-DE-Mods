@@ -14,6 +14,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$previousApiSharedDirectory = $env:SHCDE_API_SHARED_DIR
+$previousApiSharedReleaseProof = $env:SHCDE_API_SHARED_RELEASE_PROOF
+$previousApiSharedTestMode = $env:SHCDE_WORKSHOP_TEST
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
@@ -607,6 +610,7 @@ function Get-ApiSharedReleasePackage {
         ReleaseTag = $tag
         ReleaseUrl = [string]$release.url
         TargetCommit = [string]$release.targetCommitish
+        ProvenancePath = $provenancePath
     }
 }
 
@@ -619,8 +623,9 @@ function Get-PackagedContentComparison {
 
     if ($Mod.Name -eq 'APIShared') {
         $apiRoot = Join-Path $script:Root 'APIShared'
-        $result = Invoke-Checked -FilePath 'git' -Arguments @('-C',$apiRoot,'diff','--name-only',$BaseCommit,'HEAD','--','src','Patches','Workshop','tools','APIShared.csproj','info.json') -FailureCode 3
-        return [pscustomobject]@{ IsCurrent = $result.Output.Count -eq 0; Paths = @($result.Output) }
+        $result = Invoke-Checked -FilePath 'git' -Arguments @('-C',$apiRoot,'diff','--name-only',$BaseCommit,'HEAD') -FailureCode 3
+        $relevant = @(Get-SteamApiReleaseRelevantChanges @($result.Output))
+        return [pscustomobject]@{ IsCurrent = $relevant.Count -eq 0; Paths = $relevant }
     }
     $rootPrefix = $script:Root.TrimEnd('\') + '\'
     if (-not $Mod.PackageDirectory.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
@@ -1603,6 +1608,11 @@ try {
     $apiSharedInfrastructure.SourceCommit = [string]$apiPackage.Provenance.Commit
     $apiSharedInfrastructure.PackageSha256 = $apiPackage.Sha256
     # APIShared preparation is owned by the separate workflow target.
+    $env:SHCDE_API_SHARED_DIR = $apiPackage.PackageDirectory
+    $env:SHCDE_API_SHARED_RELEASE_PROOF = $apiPackage.ProvenancePath
+    $env:SHCDE_WORKSHOP_TEST = $(if ($TestMode) { '1' } else { '' })
+    $null = Assert-ApiConsumerPackage $script:Root $apiPackage.PackageDirectory
+    Write-RunLog "Consumer builds use the verified published APIShared SDK: $($apiPackage.ReleaseTag)." 'OK'
     if ($ApiSharedWorkshopItemId -notmatch '^[1-9][0-9]*$') {
         Fail-Pack 2 'Prepare and upload APIShared through the Workshop BAT drivers first. Its saved Workshop ID is used automatically when preparing SerpsMods; test mode requires its own separate APIShared item.'
     }
@@ -1675,12 +1685,10 @@ try {
     }
     $hostDir = Join-Path $script:Root 'SerpsModsHost'
     $apiProof = Assert-ApiConsumerPackage $script:Root '' -Release
-    if ([string]$apiProof.Commit -ne (Get-ApiSubmodule $script:Root)) {
+    if (((Invoke-ApiGit (Join-Path $script:Root 'APIShared') @('rev-parse','HEAD')) -join '').Trim() -ne (Get-ApiSubmodule $script:Root)) {
         Fail-Pack 8 'APIShared changed during release preparation. Record its reviewed published submodule commit, then restart.'
     }
-    $localApiDll = Join-Path $script:Root 'APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll'
-    try { Assert-SteamApiSharedBinary -LocalDll $localApiDll -PublishedDll (Join-Path $apiSharedInfrastructure.Directory 'APIShared.dll') }
-    catch { Fail-Pack 8 $_.Exception.Message }
+    $null = Assert-ApiConsumerPackage $script:Root $apiSharedInfrastructure.Directory
     Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause','/noinstall') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
 
     $runRoot = Join-Path $script:OutputRoot "v$packVersion"
@@ -1829,4 +1837,8 @@ try {
     Write-RunLog $_.Exception.ToString() 'ERROR'
     Write-Host "Log: $($script:LogPath)"
     exit 1
+} finally {
+    $env:SHCDE_API_SHARED_DIR = $previousApiSharedDirectory
+    $env:SHCDE_API_SHARED_RELEASE_PROOF = $previousApiSharedReleaseProof
+    $env:SHCDE_WORKSHOP_TEST = $previousApiSharedTestMode
 }

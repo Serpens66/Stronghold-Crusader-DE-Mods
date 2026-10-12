@@ -1,5 +1,19 @@
 Set-StrictMode -Version Latest
 
+function Get-SteamApiReleaseRelevantChanges([string[]]$ChangedPaths) {
+    foreach ($path in $ChangedPaths) {
+        $relative = $path.Replace('\','/')
+        # The publisher's compiled implementation and shipped launchers belong to
+        # the APIShared package; validation and maintainer build drivers do not.
+        if ($relative -match '^(src|Properties|Patches|Override|Workshop)/' -or
+            $relative -match '^(APIShared\.csproj|info\.json|Directory\.Build\.(props|targets))$' -or
+            $relative -match '^tools/WorkshopUploader/[^/]+\.(cs|csproj|config|manifest|sh)$' -or
+            $relative -ceq 'tools/WorkshopUploader/UploadMod.bat') {
+            $relative
+        }
+    }
+}
+
 function Get-SteamReleaseRelevantChanges {
     param(
         [Parameter(Mandatory)][string]$ModName,

@@ -13,6 +13,12 @@ try {
     $commit = ($commitResult.Output -join '').Trim()
     $status = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $metadata.Config.Root, 'status', '--porcelain=v1', '--untracked-files=normal')
     $records = @(foreach ($file in $files) { Get-FileHashRecord -Path $file.FullName -BasePath $metadata.PackageDir })
+    $apiSharedCommit = if (Test-Path -LiteralPath (Join-Path $metadata.Config.Root 'APIShared/.git')) { (& git -C (Join-Path $metadata.Config.Root 'APIShared') rev-parse HEAD) } else { $null }
+    if ($env:SHCDE_API_SHARED_RELEASE_PROOF) {
+        . (Join-Path $PSScriptRoot '../ApiSharedRepository/ApiShared.Common.ps1')
+        $sdkProof = Assert-ApiConsumerPackage $metadata.Config.Root $env:SHCDE_API_SHARED_DIR
+        $apiSharedCommit = $sdkProof.Commit
+    }
     $manifest = [ordered]@{
         SchemaVersion = 1
         Kind = 'local-build'
@@ -27,7 +33,7 @@ try {
         CreatedUtc = [DateTime]::UtcNow.ToString('o')
         PackageDirectory = $metadata.PackageDir
         Files = $records
-        ApiSharedCommit = $(if (Test-Path -LiteralPath (Join-Path $metadata.Config.Root 'APIShared/.git')) { (& git -C (Join-Path $metadata.Config.Root 'APIShared') rev-parse HEAD) } else { $null })
+        ApiSharedCommit = $apiSharedCommit
         Dependencies = @(Get-DependencyRecords -Metadata $metadata -ExtenderDir $extenderDir)
         TrustStatement = 'Local build record only. This file is not a GitHub release and is not independently attested.'
     }

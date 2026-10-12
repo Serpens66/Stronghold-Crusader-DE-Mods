@@ -18,6 +18,11 @@ function Get-TestFileSha256([string]$Path) {
     }
 }
 
+$toolOnly = @('tools/Validation/Test-WorkshopPackaging.ps1','tools/WorkshopPackage.ps1','tools/BuildProof.ps1','tools/Build.ps1','tests/Core.Tests/Core.Tests.csproj','Directory.Packages.props','CONTRIBUTING.md')
+Assert-True (@(Get-SteamApiReleaseRelevantChanges $toolOnly).Count -eq 0) 'tests and maintainer tooling must not force a new APIShared package version'
+$delivered = @('src/Workshop/WorkshopInstallation.cs','Properties/AssemblyInfo.cs','Override/example.xaml','Patches/example.xaml','Workshop/workshop-updater.ps1','Workshop/Bootstrap/Plugin.cs.template','tools/WorkshopUploader/Program.cs','tools/WorkshopUploader/UploadMod.bat','tools/WorkshopUploader/UploadMod-linux.sh','APIShared.csproj','info.json','Directory.Build.props')
+Assert-True (@(Get-SteamApiReleaseRelevantChanges $delivered).Count -eq $delivered.Count) 'runtime, resources and shipped publisher changes must invalidate APIShared reuse'
+
 $packagePath = 'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp'
 $rebuiltOnly = @(Get-SteamReleaseRelevantChanges -ModName 'ExtraFeatures' -PackageDirectoryPath $packagePath `
     -ChangedPaths @("$packagePath/ExtraFeatures.dll", "$packagePath/ExtraFeatures.pdb"))
@@ -146,7 +151,8 @@ Assert-True ($hostBuildText.Contains('if not exist "%API_SHARED_DIR%\APIShared.d
 Assert-True ($hostBuildText.Contains('echo APIShared.dll wurde nicht gefunden: !API_SHARED_DIR!\APIShared.dll')) 'host build must identify the missing APIShared DLL path'
 Assert-True ($hostBuildText.IndexOf('if not exist "%API_SHARED_DIR%\APIShared.dll" (') -lt $hostBuildText.IndexOf('rmdir /S /Q "%LOCAL_PLUGIN_DIR%"')) 'host build must validate APIShared before deleting local output'
 Assert-True ($hostBuildText.Contains('/p:ApiSharedDir="%API_SHARED_DIR%"')) 'host build must pass APIShared directory to MSBuild'
-Assert-True ($createScriptText.Contains('Assert-SteamApiSharedBinary -LocalDll $localApiDll')) 'Steam staging must validate the local build DLL against the published infrastructure'
+Assert-True ($createScriptText.Contains('Assert-ApiConsumerPackage $script:Root $apiSharedInfrastructure.Directory')) 'Steam staging must revalidate the published SDK before building the host'
+Assert-True ($createScriptText.Contains('$env:SHCDE_API_SHARED_RELEASE_PROOF = $apiPackage.ProvenancePath')) 'Consumer builds must inherit the verified published SDK proof'
 Assert-True ($createScriptText.Contains('$apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version')) 'Steam staging must compare the APIShared DLL version with the source manifest'
 Assert-True (-not $createScriptText.Contains('releaseConfig.ApiShared.Version')) 'Steam staging must not depend on a duplicated configured APIShared version'
 Assert-True ($createScriptText.Contains('Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure')) 'Steam staging must consume a validated published APIShared package'

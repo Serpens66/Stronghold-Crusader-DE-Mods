@@ -19,7 +19,10 @@
     {
       "Version": "1.0.185",
       "Changes": [
-        "Add enabled-by-default host setting under Fixes to prevent AI Assassins from attacking stone gatehouses captured by themselves or allies; Vanilla/Fixes selects their next target."
+        "Add enabled-by-default host setting under Fixes to prevent AI Assassins from attacking stone gatehouses captured by themselves or allies; Vanilla/Fixes selects their next target.",
+        "Start fresh installations with Vanilla arrangement and role markers off; retain existing arrangement preferences and refine the Arrangement button, hover text and HUD integration.",
+        "Avoid repeated idle work in disabled countdown, health-display and statistics-badge features; clear their displays when disabled.",
+        "Rate-limit repeated diagnostics and avoid unnecessary logging work; warnings and errors remain available, with suppressed-repeat counts on subsequent reports."
       ]
     },
     {
@@ -31,7 +34,8 @@
     {
       "Version": "1.0.183",
       "Changes": [
-        "Add Delete Trail to the Import Trail dialog for local packages, with confirmation and protection for subscribed Workshop Trails; deletion creates no backup."
+        "Add Delete Trail to the Import Trail dialog for local packages, with confirmation and protection for subscribed Workshop Trails; deletion creates no backup.",
+        "Add an enabled-by-default local fix for green movement-marker height on gatehouses, including formation previews, without changing tower or keep markers."
       ]
     },
     {
@@ -49,13 +53,17 @@
     {
       "Version": "1.0.180",
       "Changes": [
-        "Added an independent, default-enabled rally point terrain slowdown fix for all recruitable troops and owners, including loaded games."
+        "Added an independent, default-enabled rally point terrain slowdown fix for all recruitable troops and owners, including loaded games.",
+        "Replace the former friendly-moat Off/Fast/Precise setting with enabled-by-default Improved manual unit commands for reachable selection members; the former additional friendly-moat crossing is no longer provided by this mod.",
+        "Remember wheel-selected row counts per Block, Line, Column and Wedge arrangement across restarts, with temporary limits for smaller selections; this personal option is enabled by default."
       ]
     },
     {
       "Version": "1.0.179",
       "Changes": [
-        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics.",
+        "Add a troop-HUD Arrangement window with Vanilla, Block, Line, Column, Wedge and Circle, density 1-4, optional role placement and coloured previews; drag a held Move to set facing and use the wheel to adjust rows.",
+        "Use indexed, event-driven plague-herd tracking instead of scanning all herds every tick, retaining the existing popularity correction and save format."
       ]
     },
     {
@@ -67,7 +75,8 @@
     {
       "Version": "1.0.177",
       "Changes": [
-        "Added a default-enabled host fix that ignores dead attackers and defenders during gatehouse capture, allowing capture while their bodies are still visible."
+        "Added a default-enabled host fix that ignores dead attackers and defenders during gatehouse capture, allowing capture while their bodies are still visible.",
+        "Add an enabled-by-default host option for direct Assassin climbs onto gatehouses, independently of the existing climbing and pathfinding settings."
       ]
     },
     {

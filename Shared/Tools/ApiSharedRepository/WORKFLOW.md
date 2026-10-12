@@ -28,8 +28,15 @@ Do not commit a parent pointer to a commit other users cannot obtain.
 Run APIShared's own elevated `build.bat /nopause` before consumer builds.
 Configure `SHCDE_GAME_DIR` for your installation first, as described in
 `APIShared/CONTRIBUTING.md`; the public build contains no machine-specific path.
-All workspace consumers use its local package; stale inputs or altered package files block builds.
+Ordinary workspace builds use its local package; stale inputs or altered package files block builds.
 Development edits are supported after rebuilding; releases require a clean published commit.
+The SerpsMods Workshop driver instead selects the verified published APIShared package for
+consumer and host builds when all release-relevant sources still match. Tests and maintainer
+tool changes do not require republishing APIShared. Each child build rechecks the release ZIP,
+complete file inventory, source equivalence, package identity and production/test separation.
+The original release commit and DLL hashes remain in consumer provenance; local APIShared
+build outputs are not replaced. Changed runtime sources or shipped resources require an
+appropriate new APIShared release before preparing the modpack.
 APIShared's `release.bat` works from this checkout and creates a draft by default.
 The public repository remains independent of these workspace helpers.
 

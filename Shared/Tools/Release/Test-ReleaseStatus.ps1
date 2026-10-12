@@ -327,6 +327,8 @@ Assert-True ($extraKeys.Contains('Common.EnableMod')) 'ExtraFeatures must consum
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-GitHubReleaseDraft.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'GitHub draft recovery regression failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '../ApiSharedRepository/Test-PublishedConsumerPackage.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Published APIShared SDK regression failed.' }
 if ($SourceOnly) {
     Write-Host 'Release status source/fixture tests succeeded. Fresh-package validation, package import order and live DLL provenance were not run.' -ForegroundColor Green
 } else {

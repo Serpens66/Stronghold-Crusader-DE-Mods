@@ -13,7 +13,9 @@
     {
       "Version": "1.0.31",
       "Changes": [
-        "Migrate to APIShared 0.5.0 shared services and updated mod-owned adapters while preserving existing features."
+        "Migrate to APIShared 0.5.0 shared services and updated mod-owned adapters while preserving existing features.",
+        "Rate-limit repeated diagnostics and avoid unnecessary logging work; warnings and errors remain available, with suppressed-repeat counts on subsequent reports.",
+        "Show game-mode availability and a direct-launch notice in mod settings; inactive edits remain saved for later customized games."
       ]
     },
     {

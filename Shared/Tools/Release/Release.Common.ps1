@@ -363,6 +363,7 @@ function Get-ValidatedApiSharedPackage {
     $apiGuid = [string]$Config.ApiShared.Guid
     $apiSourceInfoPath = Join-Path $Config.Root "$apiProject\info.json"
     $apiPackage = Join-Path $Config.Root "$apiProject\BepInEx\plugins\$apiGuid"
+    if ($env:SHCDE_API_SHARED_RELEASE_PROOF) { $apiPackage = $env:SHCDE_API_SHARED_DIR }
     $apiInfoPath = Join-Path $apiPackage 'info.json'
     $apiDllPath = Join-Path $apiPackage 'APIShared.dll'
     if (-not (Test-Path -LiteralPath $apiSourceInfoPath -PathType Leaf)) {
@@ -602,7 +603,7 @@ function Get-DependencyRecords {
         [string]$ApiSharedDir
     )
     if ([string]::IsNullOrWhiteSpace($ApiSharedDir)) {
-        $ApiSharedDir = Join-Path $Metadata.Config.Root 'APIShared\BepInEx\plugins\APIShared_Serp'
+        $ApiSharedDir = if ($env:SHCDE_API_SHARED_DIR) { $env:SHCDE_API_SHARED_DIR } else { Join-Path $Metadata.Config.Root 'APIShared\BepInEx\plugins\APIShared_Serp' }
     }
     $paths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     [void]$paths.Add((Join-Path $Metadata.Config.GameDir 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'))
@@ -612,7 +613,7 @@ function Get-DependencyRecords {
         $hintNodes = @($xml.SelectNodes('//*[local-name()="HintPath"]'))
         foreach ($node in $hintNodes) {
               $candidate = [string]$node.InnerText
-              # Directory.Build.targets overrides APIShared references to the local package.
+              # Record the actual SDK selected by the build driver, including published SDKs.
               if ([string]$node.ParentNode.Include -eq 'APIShared') {
                   $candidate = Join-Path $ApiSharedDir 'APIShared.dll'
               }
