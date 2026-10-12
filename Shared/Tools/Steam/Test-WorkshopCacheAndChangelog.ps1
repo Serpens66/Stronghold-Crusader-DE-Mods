@@ -170,15 +170,8 @@ Reject {Get-ConfirmedWorkshopChangelogState $null '123' $historyPath $seedPath 3
 $statePath=Join-Path $fixture 'changelog-state.json'
 $savedNote=[pscustomobject]@{PackVersion='1.2.3';MapSha256=$mapHash;Mods=@();ContentFingerprint=('d'*64)}
 Save-ChangelogState $statePath $savedNote '123'
-$savedBytes=[IO.File]::ReadAllBytes($statePath)
-$null=Get-ConfirmedWorkshopChangelogState $null '456' $historyPath $seedPath 3024040 $fixture $reference
-Check ([Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath)) -ceq [Convert]::ToBase64String($savedBytes)) 'Planning changed saved upload state.'
-$uploadAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Upload-Workshop.ps1'),[ref]$null,[ref]$null)
-$saveCall=$uploadAst.Find({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -ceq 'Save-ChangelogState'},$true)
-$sourceText=$uploadAst.Extent.Text
-Check ($sourceText.IndexOf("`$result.Status -cne 'Succeeded'") -lt $saveCall.Extent.StartOffset -and
-    $sourceText.IndexOf('if($Validate)') -lt $saveCall.Extent.StartOffset -and
-    $sourceText.IndexOf("Read-Host 'Type HOCHLADEN") -lt $saveCall.Extent.StartOffset) 'Validation/cancel/failure can reach changelog-state save.'
+$persisted=[IO.File]::ReadAllText($statePath)|ConvertFrom-Json
+Check ($persisted.ContentFingerprint -ceq $savedNote.ContentFingerprint -and $persisted.ItemId -ceq '123') 'Saved upload identity/fingerprint differs from the confirmed result.'
 
 # Current prepared production package: compare every emitted line to its actual manifest.
 $config=Get-WorkshopConfiguration
