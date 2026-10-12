@@ -5,6 +5,7 @@ param(
 )
 
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
+. (Join-Path $PSScriptRoot 'GitHubReleaseDraft.ps1')
 . (Join-Path $PSScriptRoot 'SCDEModManagerPackage.ps1')
 
 if ($ModName -eq 'APIShared') {
@@ -46,13 +47,8 @@ try {
     $remoteCommit = ((Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'rev-parse', "origin/$($config.Branch)")).Output -join '').Trim()
     if ($commit -ne $remoteCommit) { throw "HEAD ($commit) must exactly match origin/$($config.Branch) ($remoteCommit)." }
 
-    $existingReleaseResult = Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'view', $metadata.Tag, '--repo', $config.Repository, '--json', 'isDraft,targetCommitish,url,assets') -AllowFailure
-    $existingDraft = $null
-    if ($existingReleaseResult.ExitCode -eq 0) {
-        $existing = ($existingReleaseResult.Output -join "`n") | ConvertFrom-Json
-        if (-not $existing.isDraft) { throw "Release already exists: $($metadata.Tag)" }
-        if ([string]$existing.targetCommitish -ne $commit) { throw "Existing draft targets another commit: $($existing.targetCommitish)" }
-        $existingDraft = $existing
+    $existingDraft = Get-VerifiedReleaseDraft $config.Repository $metadata.Tag $commit
+    if ($null -ne $existingDraft) {
         Write-Host 'A matching draft release exists and will be resumed.' -ForegroundColor Yellow
     } else {
         $tagCheck = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'rev-parse', '-q', '--verify', "refs/tags/$($metadata.Tag)") -AllowFailure
@@ -253,9 +249,11 @@ try {
     $releaseAssets = @($zipPath, $shaPath, $managerPackagePath, $managerPackageHashPath, $provenancePath)
 
     if ($null -eq $existingDraft) {
-        [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments (@('release', 'create', $metadata.Tag, '--repo', $config.Repository, '--draft', '--target', $commit, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath) + $releaseAssets))
-        $draftCreated = $true
-    } else {
+        $creation = New-ResumableReleaseDraft -Repository $config.Repository -Tag $metadata.Tag -Commit $commit -Title "$($metadata.Manifest.Name) v$($metadata.Version)" -NotesPath $notesPath -Assets $releaseAssets
+        $draftCreated = $creation.Created
+        $existingDraft = $creation.Draft
+    }
+    if ($null -ne $existingDraft) {
         $expectedAssetNames = @($releaseAssets | ForEach-Object { [IO.Path]::GetFileName([string]$_) })
         foreach ($asset in @($existingDraft.assets | Where-Object { [string]$_.name -notin $expectedAssetNames })) {
             [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'delete-asset', $metadata.Tag, [string]$asset.name, '--repo', $config.Repository, '--yes'))

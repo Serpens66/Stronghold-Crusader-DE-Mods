@@ -1604,7 +1604,7 @@ try {
     $apiSharedInfrastructure.PackageSha256 = $apiPackage.Sha256
     # APIShared preparation is owned by the separate workflow target.
     if ($ApiSharedWorkshopItemId -notmatch '^[1-9][0-9]*$') {
-        Fail-Pack 2 'APIShared.map is ready. Upload it separately, then configure APISHARED_WORKSHOP_ITEM_ID in CreateSteamModPack.bat before preparing the publishable modpack.'
+        Fail-Pack 2 'Prepare and upload APIShared through the Workshop BAT drivers first. Its saved Workshop ID is used automatically when preparing SerpsMods; test mode requires its own separate APIShared item.'
     }
     Write-RunLog 'The separate APIShared package remains Extender-managed; the modpack payload uses its own receipts.' 'OK'
 
