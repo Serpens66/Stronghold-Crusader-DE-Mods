@@ -91,8 +91,25 @@ namespace BugfixesAndQoL.UnitCommands
                     LogDebugNoThrow(
                         $"FORMATION_ORDER_SCOPE_PRE: source={pending.Source}, " +
                         $"operation={packet.OperationId}, tribe={packet.TribeId}, " +
-                        $"expected={units.Length}, kind={kind}, " +
+                        $"expected={units.Length}, kind={kind}, density={density}, direction={packet.DirectionSector}, " +
+                        $"plan=0x{actualPlanHash:X16}, " +
                         $"thread={Environment.CurrentManagedThreadId}.");
+                    if (kind == FormationKind.Circle)
+                    {
+                        List<FormationPoint> desired = FormationModel.BuildRelativeSlots(
+                            kind, units.Length, packet.Rows, density, packet.DirectionSector);
+                        var targetSet = new HashSet<long>();
+                        foreach (FormationPoint point in desired)
+                            targetSet.Add(((long)(packet.TargetX + point.X) << 32) |
+                                (uint)(packet.TargetY + point.Y));
+                        int exact = 0;
+                        foreach (NativeDestination destination in destinations)
+                            if (targetSet.Remove(((long)destination.X << 32) | (uint)destination.Y))
+                                exact++;
+                        LogDebugNoThrow($"FORMATION_ORDER_GEOMETRY: operation={packet.OperationId}, " +
+                            $"kind={kind}, density={density}, direction={packet.DirectionSector}, " +
+                            $"planned={desired.Count}, exact={exact}, displaced={destinations.Length - exact}.");
+                    }
                 }
                 catch (Exception exception)
                 {

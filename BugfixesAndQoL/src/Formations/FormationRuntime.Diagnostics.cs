@@ -55,7 +55,12 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:60", message);
+                    // These are once-per-command records, needed to compare the
+                    // planned and accepted targets. Render chatter must not suppress them.
+                    if (message.StartsWith("FORMATION_ORDER_", StringComparison.Ordinal))
+                        Shared.DebugLogHelper.LogDebug(log, message);
+                    else
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:60", message);
                 }
                 catch
                 {

@@ -1,0 +1,17 @@
+[12.10.2026 14:43:23,38] START BugfixesAndQoL
+[12.10.2026 14:43:23,38] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: BugfixesAndQoL, APIShared and explicit project/source dependencies.
+[Preflight] Checking 18 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+Active reference to retired Shared path 'Shared/DependencyFreeJson.cs': D:\CDesktopLink\Unterlagen\Mods\Stronghold 
+Crusader DE\Meine Mods\APIShared\tools\WorkshopUploader\WorkshopUploader.csproj
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\Shared\Tools\Validation\Test-SharedBoundaries.ps1:102 Zeichen:33
++ ... .Success) { throw "Active reference to retired Shared path '$($retire ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Active referenc...Uploader.csproj:String) [], RuntimeException
+    + FullyQualifiedErrorId : Active reference to retired Shared path 'Shared/DependencyFreeJson.cs': D:\CDesktopLink\ 
+   Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tools\WorkshopUploader\WorkshopUploader.csproj
+ 
+[12.10.2026 14:43:24,54] END: exit code 1

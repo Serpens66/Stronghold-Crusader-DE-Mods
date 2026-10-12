@@ -7,6 +7,42 @@ namespace BugfixesAndQoL.Formations.Tests;
 public class FormationGeometryTests
 {
     [TestMethod]
+    public void CircleFootprintAndSpacingAreIndependentOfFacing()
+    {
+        foreach (int count in new[] { 1, 2, 3, 30, 31, 41, 75, 76, 77, 100, 1000 })
+        foreach (int density in new[] { 1, 2, 3, 4 })
+        {
+            var baseline = FormationModel.BuildRelativeSlots(FormationKind.Circle, count, 1, density, 0);
+            var units = Enumerable.Range(1, count).Select(id => new FormationUnit(id, (uint)id, 1,
+                (FormationRole)(id % 4))).ToArray();
+            for (int direction = 0; direction < 8; direction++)
+            {
+                var slots = FormationModel.BuildRelativeSlots(FormationKind.Circle, count, count, density, direction);
+                CollectionAssert.AreEqual(baseline.Select(p => (p.X, p.Y)).ToArray(),
+                    slots.Select(p => (p.X, p.Y)).ToArray(), $"count={count}, density={density}, direction={direction}");
+                Assert.AreEqual(count, slots.Select(p => (p.X, p.Y)).Distinct().Count());
+                Assert.IsTrue(slots.All(p => p.Rank >= 0 && p.X % density == 0 && p.Y % density == 0));
+                foreach (RangedPlacementMode mode in Enum.GetValues<RangedPlacementMode>())
+                {
+                    int[] assignment = FormationModel.AssignSlotsByRole(units, slots, mode, FormationKind.Circle);
+                    Assert.AreEqual(count, assignment.Distinct().Count());
+                    if (mode == RangedPlacementMode.Center || mode == RangedPlacementMode.Off)
+                        CollectionAssert.AreEqual(FormationModel.AssignSlotsByRole(units, baseline, mode, FormationKind.Circle), assignment);
+                }
+                FormationModel.GetForwardVector(direction, out int fx, out int fy);
+                var ordered = slots.OrderBy(p => p.Rank).ToArray();
+                Assert.IsTrue(ordered.Zip(ordered.Skip(1)).All(pair =>
+                    pair.First.X * fx + pair.First.Y * fy >= pair.Second.X * fx + pair.Second.Y * fy));
+                var candidates = slots.Select(p => new FormationPoint(200 + p.X, 200 + p.Y, 0, 0)).Reverse().ToArray();
+                int[] snapped = FormationPlacementModel.SelectCandidates(200, 200, slots, candidates,
+                    Enumerable.Range(1, count).ToArray());
+                CollectionAssert.AreEqual(slots.Select(p => (200 + p.X, 200 + p.Y)).ToArray(),
+                    snapped.Select(i => (candidates[i].X, candidates[i].Y)).ToArray());
+            }
+        }
+    }
+
+    [TestMethod]
     public void ShapesPreserveEveryUnitAndProduceDistinctDeterministicSlots()
     {
         foreach (FormationKind kind in new[] { FormationKind.Block, FormationKind.Line,

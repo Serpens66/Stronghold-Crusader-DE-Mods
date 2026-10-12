@@ -241,6 +241,15 @@ namespace BugfixesAndQoL
 
         private static bool TryProject(Camera camera, Canvas host, int tileX, int tileY, out float x, out float y)
         {
+            x = y = 0f;
+            GameMap map = GameMap.instance;
+            if (map == null || CameraControls2D.instance == null || camera == null)
+                return false;
+            map.mapGameTileToTilemapCoord(tileX, tileY, out int mapX, out int mapY);
+            // Arrow endpoints may extend beyond the playable map; the converter's
+            // zero fallback is not a valid projection of such an endpoint.
+            if (map.getMapTile(mapX, mapY) == null)
+                return false;
             System.Numerics.Vector2 world = SHCDESE.CoordinateConverter.ConvertLocalTileToCameraWorld(new System.Numerics.Vector2(tileX, tileY));
             Vector3 screen = camera.WorldToScreenPoint(new Vector3(world.X, world.Y, 0f));
             x = screen.x * (host.ActualWidth / Screen.width);

@@ -576,13 +576,9 @@ function Get-ApiSharedReleasePackage {
         Fail-Pack 7 "APIShared release manifest identity mismatch for $tag."
     }
     Assert-ApiWorkshopInventory -Directory $packageDirectory
-    $actualFileRecords = @(Get-FileRecords $packageDirectory | ForEach-Object {
-        [ordered]@{
-            Path = "BepInEx/plugins/$($Infrastructure.Guid)/$($_.Path)"
-            Sha256 = $_.Sha256
-            Size = $_.Size
-        }
-    })
+    # APIShared's release also owns its separately inventoried publisher under
+    # BepInEx/tools. Provenance covers the entire already validated ZIP.
+    $actualFileRecords = @(Get-FileRecords $audit)
     if (($actualFileRecords | ConvertTo-Json -Depth 5 -Compress) -cne
         (@($provenance.Package.Files | Sort-Object Path) | ConvertTo-Json -Depth 5 -Compress)) {
         Fail-Pack 7 "APIShared release files differ from provenance for $tag."

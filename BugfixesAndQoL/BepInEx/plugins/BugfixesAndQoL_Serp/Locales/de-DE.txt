@@ -388,7 +388,7 @@ BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=KI-Assassinen greifen kei
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Verhindert, dass KI-Assassinen selbst oder verbündet eroberte steinerne Torhäuser angreifen. Weitere Ziele bestimmt Vanilla beziehungsweise Fixes. Menschliche Befehle bleiben unverändert.
 
 BugfixesAndQoL.RememberRows=Breite/Länge merken
-BugfixesAndQoL.RememberRowsHelp=Merkt die per Mausrad gewählte Reihenanzahl je Aufstellungsart, auch nach Neustarts. Kleinere Gruppen begrenzen sie vorübergehend. Ausgeschaltet oder ohne gespeicherten Wert: automatische Reihenanzahl. Kreis und Vanilla bleiben unverändert.
+BugfixesAndQoL.RememberRowsHelp=Mausrad bei gehaltenem Bewegungsbefehl: Breite/Länge ändern. Merkt die Reihenanzahl je Aufstellungsart, auch nach Neustarts. Kleinere Gruppen begrenzen sie vorübergehend. Aus oder ohne gespeicherten Wert: automatische Reihenanzahl. Gilt nicht für Kreis und Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Aufstellung
 BugfixesAndQoL.DeleteTrail=Trail löschen
 BugfixesAndQoL.DeleteTrailConfirmTitle=Trail löschen

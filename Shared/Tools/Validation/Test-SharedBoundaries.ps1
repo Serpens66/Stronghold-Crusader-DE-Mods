@@ -95,6 +95,9 @@ foreach ($file in $activeFiles | Sort-Object FullName -Unique) {
         foreach ($virtualLink in @($referenceDocument.SelectNodes('//*[local-name()="Link"]'))) {
             [void]$virtualLink.ParentNode.RemoveChild($virtualLink)
         }
+        foreach ($virtualLink in @($referenceDocument.SelectNodes('//@Link'))) {
+            [void]$virtualLink.OwnerElement.RemoveAttributeNode($virtualLink)
+        }
         $withoutProvenance = $referenceDocument.OuterXml
     }
     $normalized = [regex]::Replace($withoutProvenance.Replace('\', '/'), '/+', '/')

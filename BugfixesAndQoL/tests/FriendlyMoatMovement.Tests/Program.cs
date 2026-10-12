@@ -59,5 +59,6 @@ CadenceSnapshotTests.Validate(root);
 FormationStartupTests.Validate(root);
 FormationMoveRuntimeTests.Validate(root);
 FormationMarkerFallbackTests.Validate(root);
+CircleProjectionTests.Validate(root);
 FormationMovementEligibilityTests.Validate(root);
 Console.WriteLine("PASS: main command fixes use native probes and group fallback; actual installed RedBird contracts verified.");

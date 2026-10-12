@@ -1,0 +1,17 @@
+Circle / edge projection review (2026-10-12)
+Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Managed SHA256: BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+Reused full hash-matching MOVE_COMMAND_RELEASE and GATEHOUSE_TARGET_MARKER_HEIGHT feature audits; command staging, selection, assignment and marker rendering paths unchanged.
+Installed real GameMap public members checked with ILSpy: static instance field; void mapGameTileToTilemapCoord(int,int,out int,out int); GameMapTile getMapTile(int,int). Current real-assembly compiler audit: zero errors.
+Lifetime: existing permanently rooted camera hook / presentation refresh and main-thread dispatcher; no component callback, hook or teardown added.
+Fixes local GameMapManagedDetours affects private Arab-ballista getPivotOffset, not the public coordinate readers used here. Extender left untouched.
+Circle changes: only AddCirclePoint coordinates and non-negative facing metadata. North-facing footprint preserved exactly. Existing candidate generation, symmetric opposite pairs, centering, density, snapping, role assignment and Move APIs unchanged.
+Projection changes: preflight map/controls/camera and mapped tile, then existing converter. Invalid endpoint hides complete arrow; no clamping or fake origin. Valid zero world position tested.
+Order geometry counts logged once after hash-checked preparation; expected coordinates compared as a set, role permutation does not count as displacement. Existing post summary verifies successful per-unit target assignments and distinguishes normal fallback refusal from technical errors.
+Order diagnostics formerly shared a limited callsite with repeated preview diagnostics. Only FORMATION_ORDER_ Debug records now bypass this shared limiter; debug configuration and main-thread scheduling preserved.
+19 Core tests passed. Legacy formations: 560042 assertions. Shift queue: 468 checks. Production projection/arrow and destination/snapping fixtures passed. Existing production start/authorization/release/terminal/fallback tests passed.
+JSON/lifecycle/real-assembly/interop/permanent-hook/XAML/CRLF checks passed. All modified texts CRLF; diff --check passed.
+Shared boundary guard fix: virtual Link metadata attributes ignored just like existing Link child nodes. Actual Include paths still validated. Executable examples confirmed real legacy paths remain detectable. No APIShared modification.
+Comparison performed against Git and exact before snapshots. User Steam packaging edits preserved. Protocol remains 6; no versions, README, settings, menu, tooltip, native hook or public API changed.
+Free-terrain production planning simulation does not reproduce a dense rectangle. Physical game / multiplayer acceptance remains required; the observed in-game rectangle cause is not claimed solved beyond the confirmed circle transform defect. New operation records permit distinguishing displacement from terminal rejection/fallback.
+Final user-requested tooltip: all 21 locales explicitly explain mouse-wheel width/length while holding Move. Runtime preflight and complete elevated driver repeated successfully. DLL and installed German locale hashes match. Final diff --check passed.

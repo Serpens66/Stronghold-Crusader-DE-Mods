@@ -691,12 +691,14 @@ namespace BugfixesAndQoL.UnitCommands
             int maximumProjection,
             List<FormationPoint> destination)
         {
-            int baseX = rightX * localX + forwardX * localY;
-            int baseY = rightY * localX + forwardY * localY;
+            // Keep the filled circle on the north-facing integer raster. Facing
+            // changes role metadata only, never its footprint or lattice spacing.
+            int baseX = localX;
+            int baseY = -localY;
             int x = baseX * spacing;
             int y = baseY * spacing;
             int projection = baseX * forwardX + baseY * forwardY;
-            int rank = maximumProjection - projection;
+            int rank = maximumProjection * (Math.Abs(forwardX) + Math.Abs(forwardY)) - projection;
             int file = baseX * rightX + baseY * rightY;
             destination.Add(new FormationPoint(x, y, rank, file));
         }

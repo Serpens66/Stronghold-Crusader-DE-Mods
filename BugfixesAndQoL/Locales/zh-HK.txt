@@ -388,7 +388,7 @@ BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer at
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
 BugfixesAndQoL.RememberRows=Remember rows
-BugfixesAndQoL.RememberRowsHelp=Remembers wheel-selected rows for each arrangement, including after restarts. Smaller groups temporarily limit rows. Off or no saved value: automatic rows. Circle and Vanilla stay unchanged.
+BugfixesAndQoL.RememberRowsHelp=Hold a Move command and use the mouse wheel to change width/length. Remembers rows per arrangement across restarts. Smaller groups temporarily limit rows. Off or no saved value: automatic rows. Excludes Circle and Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Arrangement
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=修正城門樓上的目標標記
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=修正城門樓上綠色移動目標標記的高度，包括陣型預覽。不改變塔樓和主堡。此設定只在本機生效，不會同步。
