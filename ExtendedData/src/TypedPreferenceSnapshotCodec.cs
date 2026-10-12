@@ -12,6 +12,9 @@ namespace ExtendedData
     // A round trip is mandatory: a newly added property must never disappear silently.
     internal static class TypedPreferenceSnapshotCodec
     {
+        private static readonly object PropertyCacheLock = new object();
+        private static readonly Dictionary<Type, PropertyInfo[]> PropertyCache = new Dictionary<Type, PropertyInfo[]>();
+
         internal static string Capture(object entry)
         {
             if (entry == null)
@@ -83,13 +86,21 @@ namespace ExtendedData
 
         private static PropertyInfo[] Properties(Type type)
         {
-            PropertyInfo[] all = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            if (all.Length == 0 || all.Any(item => item.GetIndexParameters().Length != 0 ||
-                item.GetGetMethod() == null || item.GetSetMethod() == null) ||
-                all.Select(item => item.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != all.Length)
-                throw new InvalidDataException("Fixes preference type " + type.FullName +
-                    " has unreadable, unwritable, indexed or ambiguous public properties.");
-            return all.OrderBy(item => item.Name, StringComparer.Ordinal).ToArray();
+            lock (PropertyCacheLock)
+            {
+                if (PropertyCache.TryGetValue(type, out PropertyInfo[] cached)) return cached;
+                PropertyInfo[] all = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                if (all.Length == 0 || all.Any(item => item.GetIndexParameters().Length != 0 ||
+                    item.GetGetMethod() == null || item.GetSetMethod() == null) ||
+                    all.Select(item => item.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != all.Length)
+                    throw new InvalidDataException("Fixes preference type " + type.FullName +
+                        " has unreadable, unwritable, indexed or ambiguous public properties.");
+                // CLR property metadata is fixed for a constructed type. Cache only that
+                // successful schema, never instance values, defaults or failed validations.
+                cached = all.OrderBy(item => item.Name, StringComparer.Ordinal).ToArray();
+                PropertyCache.Add(type, cached);
+                return cached;
+            }
         }
 
         private static void ValidateType(Type type, HashSet<Type> ancestors, int depth, string path)

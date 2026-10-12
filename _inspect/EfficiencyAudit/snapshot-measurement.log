@@ -1,0 +1,32 @@
+(34,28): warning CS0649: Field 'BeforeService.ActionButtonRegistration.ContextAvailable' is never assigned to, and will always have its default value 
+            internal bool? ContextAvailable;
+                           ^
+
+(109,28): warning CS0649: Field 'AfterService.ActionButtonRegistration.ContextAvailable' is never assigned to, and will always have its default value 
+            internal bool? ContextAvailable;
+                           ^
+
+(108,59): warning CS0649: Field 'AfterService.ActionButtonRegistration.Hovered' is never assigned to, and will always have its default value false
+            internal bool Visible = true, Enabled = true, Hovered;
+                                                          ^
+
+(33,59): warning CS0649: Field 'BeforeService.ActionButtonRegistration.Hovered' is never assigned to, and will always have its default value false
+            internal bool Visible = true, Enabled = true, Hovered;
+                                                          ^
+
+(52,15): warning CS0414: The field 'AfterService.pendingPresentation' is assigned but its value is never used
+ private bool pendingPresentation;
+              ^
+
+(9,15): warning CS0414: The field 'BeforeService.pendingPresentation' is assigned but its value is never used
+ private bool pendingPresentation;
+              ^
+
+registrations=0, alternatingHidden=False, captures=10000, snapshotBytes=1360000 -> 0
+registrations=0, alternatingHidden=True, captures=10000, snapshotBytes=1360000 -> 0
+registrations=1, alternatingHidden=False, captures=10000, snapshotBytes=2880000 -> 0
+registrations=1, alternatingHidden=True, captures=10000, snapshotBytes=2880000 -> 0
+registrations=10, alternatingHidden=False, captures=10000, snapshotBytes=7920000 -> 0
+registrations=10, alternatingHidden=True, captures=10000, snapshotBytes=7520000 -> 0
+registrations=50, alternatingHidden=False, captures=10000, snapshotBytes=30320000 -> 0
+registrations=50, alternatingHidden=True, captures=10000, snapshotBytes=28320000 -> 0

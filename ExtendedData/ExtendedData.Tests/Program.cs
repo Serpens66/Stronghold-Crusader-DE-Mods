@@ -532,6 +532,15 @@ static void TestLegacyLordDataSnapshot()
 
 static void TestFixesPreferenceCodec()
 {
+    var metadataMethod = typeof(TypedPreferenceSnapshotCodec).GetMethod("Properties",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+    var metadata = (System.Reflection.PropertyInfo[])metadataMethod.Invoke(null, new object[] { typeof(FutureFixesPreferences) });
+    Assert(ReferenceEquals(metadata, metadataMethod.Invoke(null, new object[] { typeof(FutureFixesPreferences) })),
+        "successful property schemas should be reused across recursive captures");
+    Assert(metadata.Select(item => item.Name).SequenceEqual(metadata.Select(item => item.Name).OrderBy(name => name, StringComparer.Ordinal)),
+        "cached schema must preserve canonical property order");
+    Assert(!ReferenceEquals(metadata, metadataMethod.Invoke(null, new object[] { typeof(OlderFixesPreferences) })),
+        "distinct CLR schemas must remain isolated");
     var host = new FutureFixesPreferences
     {
         Field01 = true, Field02 = 37, Field03 = -2, Field04 = 4,
@@ -561,6 +570,13 @@ static void TestFixesPreferenceCodec()
         Field17 = host.Field17, Field18 = host.Field18, Nested = host.Nested };
     Assert(TypedPreferenceSnapshotCodec.Capture(reverse) == json,
         "dictionary insertion order changed the transferred preferences");
+
+    host.Field01 = false;
+    host.Nested.Weight = 3.75;
+    var updated = (FutureFixesPreferences)TypedPreferenceSnapshotCodec.Restore(typeof(FutureFixesPreferences),
+        TypedPreferenceSnapshotCodec.Capture(host));
+    Assert(updated.Field01 == false && updated.Nested.Weight == 3.75,
+        "schema reuse must never cache instance values or nested defaults");
 
     LordDataSnapshot snapshot = LordDataSnapshot.Parse(LordDataSnapshot.Create("lobby-fixes", true, new[]
     {

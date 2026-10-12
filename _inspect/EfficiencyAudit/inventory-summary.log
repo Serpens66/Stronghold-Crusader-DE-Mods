@@ -1,0 +1,18 @@
+
+Root                      Files    Lines Publishers FullScans
+----                      -----    ----- ---------- ---------
+APIShared/src               154 28283,00         18         2
+BugfixesAndQoL/src          343 97019,00        131        25
+BuildingCosts/src             7  2215,00          0         0
+BuildingLimit/src            14  2686,00         14         2
+CastlePlanner/src            41 19549,00         21         5
+ExtendedData/src             38 14015,00         11         0
+ExtraFeatures/src            53 15116,00         33         4
+RandomEvents/src             24  7840,00         11         7
+SerpsModsHost/src            23  3698,00          0         0
+Shared/Adapters/APIShared     6  1138,00          2         0
+Shared/Runtime               28  6025,00          1         0
+StartConditions/src          19  3796,00         11         0
+UnitCosts/src                14  3886,00          6         0
+UnitLimit/src                20  3629,00         15         2
+

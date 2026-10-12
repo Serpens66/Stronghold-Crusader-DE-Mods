@@ -1,0 +1,279 @@
+Effizienzprüfung der Hauptmods – Arbeitsstand 12.10.2026
+
+Ergebnis
+========
+Zwei nachgewiesene Wiederholungen wurden beseitigt:
+1. APIShared verwendet unveränderte Troop-HUD-Button-Registrierungszustände erneut.
+2. ExtendedData verwendet validierte Property-Metadaten eines Fixes-Einstellungstyps erneut.
+Beide Änderungen sind privat; öffentliche API-, Netzwerk-, JSON- und Gameplay-Verträge
+bleiben unverändert. APIShared und ExtendedData wurden mit ihren build.bat-Treibern
+geprüft, gebaut und installiert. Keine Commits, Veröffentlichungen, README-Änderungen
+oder Versionsänderungen wurden vorgenommen.
+
+Die Untersuchung umfasst das aktuelle Quellinventar aller zehn aktiven Mods des
+Modpacks 1.0.23, APIShared, Shared-Hilfen und Host-Integration. Das maschinelle
+Inventar ist keine Behauptung einer manuellen Prüfung jeder einzelnen Quellzeile.
+Schwerpunkte waren Publisher, wiederkehrende Call-Pfade, Scans, Materialisierung,
+Reflection, Dateizugriffe und vorhandene Caches. Ungeklärte native Optimierungen
+wurden nicht implementiert. Ein vollständiger neuer Native-Audit jedes unveränderten
+Gameplay-Features oder ein Ingame-Profilerlauf ist nicht Teil des belegten Ergebnisses.
+
+Provenienz und Umfang
+====================
+Packmitgliedschaft: .release-output/SteamWorkshop/items/3024040-SerpsMods.upload-history.json,
+Release 1.0.23 vom 07.10.2026; Stage-Manifest unter .release-output/SerpsMods/v1.0.23.
+Aktuelle Quellen: source-inventory.json, pro Datei SHA256, Zeilen und Suchtreffer.
+Erfasst werden APIShared/src, die zehn Mod-src-Verzeichnisse, SerpsModsHost/src,
+Shared/Runtime und Shared/Adapters/APIShared. Trefferzahlen beweisen keine Laufhäufigkeit.
+Installierter Extender: 2.14.1.0; lokaler Fork v2.14.1,
+Commit 5908e1f12437deb7ef5f5b1dc2d64e301178fba3,
+Tree c238441ea12db35ee36c5c5668d3c8fce0897295. Fork unverändert.
+Kanonischer Fixes-Klon: Commit f91968217e5ece7901df45a7d90e01fb48be2b96,
+Tree 740d4aa5af9f2352021372315a275a5f9c7455d3.
+Die aktuelle CustomLordPreferencesEntry-Struktur wurde für den Metadaten-Cache
+geprüft; gegenüber cbabdec besteht in dieser Datei kein Diff. Dies ersetzt keinen
+vollständigen Native-Audit des neueren Fixes-Gesamtstands.
+
+Umgesetzter Befund E01: Troop-HUD-Button-Zustände
+==============================================
+Fundstellen:
+APIShared/src/Presentation/UnitHud/UnitHudPresentationService.ActionButtons.cs,
+CaptureActionButtons, CaptureActionButtonSnapshot, ApplyActionButtons und Setter;
+UnitHudPresentationService.Registrations.cs, SetOwnerActive.
+Auslöser: laufende HUD-Präsentation über Application.onBeforeRender.
+Vorher: jedes Capture materialisierte ein neues Zustandsobjekt je Registrierung,
+ein Zustandsarray und LINQ-Verarbeitungsobjekte; die Sichtbarkeitsauswahl wurde
+zusätzlich materialisiert, auch bei unveränderten Registrierungswerten.
+Verbraucher: alle bestehenden IUnitHudActionButtonsCapability-Registrierungen.
+Änderung: ein unter dem bestehenden Lock erzeugter, unveränderlicher Snapshot mit
+States und Visible. Bei vollständig sichtbaren Zuständen teilen beide dasselbe Array.
+Neue Registrierung, echte Änderung an Visible/Enabled/Tooltip, ContentRefresh oder
+Owner-Aktivierung invalidieren den Snapshot. Identische Setter behalten das bisherige
+pendingPresentation-Verhalten, benötigen aber keinen neuen Registrierungszustand.
+Aufwand: Zustandserzeugung O(n) nur nach Invalidierung; unverändertes Capture O(1).
+Die übrige Verarbeitung des Renderdurchlaufs bleibt bestehen.
+
+Zeitpunkt und Reentranz: ein Durchlauf hält seinen begonnenen Snapshot fest.
+Änderungen während eines Consumer-Callbacks gelten beim nächsten Capture und
+schreiben den bereits begonnenen Durchlauf nicht um. Registrierungsidentität,
+Reihenfolge und bestehende Fehlerisolation bleiben erhalten. Content-Versionen,
+Tooltip, Enabled und effektive Sichtbarkeit sind im Snapshot eingefroren.
+Keine neuen öffentlichen Events, Thread-Regeln oder Payloads wurden eingeführt.
+
+Featurebezogene Vanilla-Prüfung vor Implementierung:
+CURRENT.json weist sem/FBCB9319 aus. HUD_PRESENTATION.md, EngineInterface-
+CopyPlayStateStruct, HUD_Troops-Kontext und native Auswahlproduktion wurden geprüft.
+Native Funktion RVA 0x19D960, Aufruf aus DLL_RunTick RVA 0x86680: Auswahlcount und
+Auswahllisten werden in PlayState übernommen; IDs bleiben 1-basiert. UI-Ausgaben
+können auch außerhalb des unpausierten Simulationszweigs erneuert werden.
+CrusaderDE.dll SHA256:
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+Assembly-CSharp.dll SHA256:
+BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789
+Deshalb bleiben Auswahl-, Kontext-, Panel-, Farb-, Layout- und Hindernisprüfungen
+pro Renderdurchlauf erhalten. Es gibt keine belegte allgemeine Änderungsgrenze,
+mit der beliebige dynamische Kategorien sicher seltener geprüft werden könnten.
+Kein neuer nativer Hook und kein neuer Spielmitgliedzugriff. ProcessInstance und
+Application.onBeforeRender verwurzeln den Dienst über das Startup-Cleanup hinaus.
+
+Messung: Measure-ActionSnapshots.ps1 extrahiert die relevanten Produktionsmethoden
+vorher/nachher und misst GC.GetAllocatedBytesForCurrentThread im isolierten Harness.
+10.000 warme Captures einschließlich Sichtbarkeitsauswahl:
+Registrierungen       vorher Bytes          nachher Bytes
+0                       1.360.000                      0
+1                       2.880.000                      0
+10, alle sichtbar       7.920.000                      0
+10, halb sichtbar       7.520.000                      0
+50, alle sichtbar      30.320.000                      0
+50, halb sichtbar      28.320.000                      0
+Das misst nur diesen Ausschnitt mit unveränderten Registrierungen. Erstaufbau und
+Invalidierungen allokieren weiterhin. Der gesamte HUD-Renderpfad ist nicht
+allokationsfrei; daraus folgt keine gemessene FPS-Verbesserung im Spiel.
+
+Umgesetzter Befund E02: wiederholte Schema-Reflection
+===================================================
+Fundstelle: ExtendedData/src/TypedPreferenceSnapshotCodec.cs, Properties(Type).
+Auslöser: Capture/Restore und rekursive Validierung, Projektion und Rekonstruktion
+von Fixes-Preference-Snapshots. Kein permanenter Tick- oder Renderpfad.
+Vorher: wiederholtes GetProperties, Indexer-/Accessorprüfung, Namensvergleich und
+Sortierung für denselben festen CLR-Typ innerhalb und zwischen Transfers.
+Verbraucher: Lord-Preference-Snapshot-Transfer und dessen Verlustfreiheitsprüfung.
+Änderung: pro konkretem Type wird nur die erfolgreich geprüfte, ordinal sortierte
+PropertyInfo-Liste gecacht. Keine Instanzwerte, Defaults, Serialisierungsergebnisse
+oder fehlgeschlagenen Validierungen werden gecacht. ValidateType, aktuelle Getter,
+Setter, zyklische Typprüfung und JSON-Verlustfreiheitsprüfung bleiben erhalten.
+Lebensdauer: statischer Cache, synchronisiert; Speicher proportional zu den tatsächlich
+verwendeten Einstellungstypen. Verschiedene CLR-Typen erhalten separate Einträge.
+Kein Vanilla-Vertrag wird verändert; keine neue native Abhängigkeit.
+
+Messung: Measure-PreferenceMetadata.ps1, 20 Properties, 10.000 warme Abfragen:
+27.120.000 -> 0 Bytes im Metadaten-Ausschnitt; identische kanonische Reihenfolge.
+Objektwerte, JSON-Parsing und vollständige Transfers allokieren weiterhin.
+Dies ist eine Optimierung gelegentlicher Transferarbeit, kein belegter FPS-Gewinn.
+
+Subsysteminventar und bewusst beibehaltene Verarbeitung
+======================================================
+APIShared
+- UnitHudPresentationService: dauerhafter Render-Publisher, aktive Oberflächen,
+  pendingPresentation, Wiederherstellung und Leases. Lokale Auswahl wird bereits
+  über den gemeinsamen LocalSelection-Dienst und abgeschlossene PlayState-Sicht
+  verwendet. E01 beseitigt Registry-Materialisierung ohne dynamische Prüfungen
+  oder bestehende Kategorien-/Recruitment-Verarbeitung umzudeuten.
+- PlayerDefeatCapability.OnTick: hasObservers-Gate vor CaptureObservations;
+  gemeinsame Beobachtung statt separater Consumer-Erfassung. LobbyStateCapability:
+  hasObservers, Dirty-Zustand, Hooksignale und begrenzter Render-Fallback.
+- HudExtrasButtonsService: Dirty-/PropertyChanged-getriebene Verarbeitung.
+- Netzwerk, Presets und Persistenz: Paket-/Action-/Registrierungsgrenzen;
+  bestehende Schema-Caches berücksichtigen. Öffentliche dynamische Property-
+  Deskriptoren nicht pauschal nach erster Abfrage einfrieren.
+
+BugfixesAndQoL
+- ExtendedShiftCommandQueueRuntime und UnitCommandPathRuntime.QueueTracking:
+  Tick-/Befehlspfad, Idle-Ausgänge und wiederverwendete Arbeitsbuffer.
+- UnitCommands: requestbezogene Indizes. Ein tickweiter nativer Zustands-Cache
+  wäre unsicher, weil Bewegungen innerhalb desselben nativen Ticks nacheinander
+  stattfinden können. Unterschiedliche Hookphasen nicht zusammenlegen.
+- ForeignTroopHudRuntime: Aktivierungs-/Reset-Gates, Framebegrenzung und
+  0,1-Sekunden-Drosselung. Eigene fremde HUD-Semantik bleibt erhalten.
+- Featurekonfiguration, Harmony-/Native-Installation und Vertragsprüfungen sind
+  Initialisierungsarbeit; fehlgeschlagene Kandidaten getrennt von publizierter
+  Runtime behandeln. Bestehende Benutzerarbeiten an Formationscode nicht bearbeitet.
+
+BuildingCosts
+- Materialkosten-/Tooltip-/Repair-Integration über bestehende gemeinsame Dienste.
+  Aktive Überschreibungen sowie Spieler-/Ressourcen-/Signaturzustand werden gecacht.
+  Einstellungsanwendung und Ressourcenentscheidung bleiben beim Mod.
+  Kein belegter zusätzlicher allgemeiner Tickscan.
+
+BuildingLimit
+- ActiveBuildingCache: Ereignisänderungen und Start-/Resync-Scan, kein vollständiger
+  Gebäudescan pro Tick. TowerSiegeUnitCache analog für relevante Einheiten.
+  Limits, Turmbesatzung und Autorisierung sind eigene Regeln.
+  Einstellungen/Hostzustände invalidieren die jeweiligen Regeln, nicht APIShared.
+
+UnitLimit
+- ActiveUnitCache und ActiveSiegeTentCache: Create/Delete/Transition sowie Resync;
+  große Erstscans von dauerhaftem Aufwand unterscheiden.
+- RecruitmentAvailability: bestehendes gemeinsames PresentationEvents-Signal,
+  aktive Regeln und lokale Bestandsprüfung. Von UnitCosts abweichende Entscheidung.
+
+UnitCosts
+- RecruitmentAvailabilityUiHook und Kosten-/Tooltip-Integration verwenden bereits
+  den gemeinsamen Präsentationsauslöser. Materialpreis und Rekrutierungslimit sind
+  unterschiedliche Consumer-Policies; die Zusammenfassung ihrer Abonnements allein
+  beseitigt keine Zustandsarbeit und rechtfertigt keinen neuen Broker.
+
+ExtraFeatures
+- LordHealthRuntime.OnGameTick: Pending-Spielermaske, Create-Signale und
+  10-Tick-Kadenz. Create ist kein nachgewiesenes finales HP-Ereignis.
+- AIDefenseRepairRuntime: begrenzte Queue-/Budgetverarbeitung, eigenständige
+  Reparaturentscheidungen und Wartung. Deaktivierung darf Wiederherstellung nicht
+  unterbinden. HealerTargetsRuntime-Tick enthält Runtime-Nachweis, nicht denselben
+  vollständigen Scan wie die anderen Features.
+- GatehouseAutomation und Dismount-Laufzeiten haben eigene Beobachtungsphasen;
+  deren native Identitäts-/Timing-Verträge nicht aus einem Alive-Scan ableiten.
+
+RandomEvents
+- RandomEventsRuntime.OnGameTick: Initialisierung, Bestätigungen, Handshake/Retry,
+  Spawnarbeit, fällige Batches und Monatsprüfung. Ein Monatsereignis ersetzt diesen
+  vollständigen Pfad nicht. Datumspublisher des Extenders liegt vor Originalarbeit;
+  eine Migration benötigt einen eigenen vollständigen Timing-Audit.
+- ScenarioSignpostRegistry und SignpostPlacementService scannen bei Setup/Retry
+  beziehungsweise Platzierung. Gegner-/Gebäudeauswahl bleibt ereignisspezifisch.
+
+StartConditions
+- ActivePlayerKeepReadiness-Waiter und Starttroop-/PeaceTime-/AI-Isolations-Ticks:
+  zeitlich begrenzte Wartearbeit bis Bereitschaft, Abbruch oder Timeout.
+  Bereitschaft betrachtet höchstens acht Spieler. RandomEvents nutzt denselben
+  Quellhelper für Setup-/Retryarbeit; kein belegter teurer dauerhafter Doppelscan.
+  Ein zusätzlicher öffentlicher Readiness-Dienst wurde deshalb nicht eingeführt.
+
+CastlePlanner
+- BlueprintRuntimeController.OnBeforeRender: Inaktivitätsausgänge und Framegate,
+  dynamische Projektion/Interaktion bei aktiver Vorschau.
+- FreeCastlePreviewRuntime: Pending-Zustand und differenzierte UI-Aktualisierung.
+- CastlePlannerRuntime.OnGameTick: ausstehende zusammengesetzte Bauarbeit;
+  Queue-Count-Gate. Gebäudesuchen sind Preview-/Import-/Auftragsarbeit, kein
+  identischer generischer Tickscan der Limitmods.
+- Persistenz und Blueprintdateien an Benutzer-/Ladeaktionen gekoppelt; Prüfungen
+  und Hashes nicht ohne belegte Invalidierung durch Dateizeitstempel ersetzen.
+
+ExtendedData
+- LordDataSyncCoordinator, Lord-/Trail-/Map-Verarbeitung: Session-, Netzwerk- und
+  Benutzeraktionsgrenzen; Größen-, Schema-, Hash- und Verlustfreiheitsprüfungen
+  erfüllen unterschiedliche Verträge und bleiben erhalten. E02 ersetzt ausschließlich
+  wiederholte unveränderliche Metadatenarbeit. Quelle: Shared.DependencyFreeJson.
+
+Shared und SerpsModsHost
+- Shared-Persistenzparser hat bereits Typmetadaten-Caches. Quelllinks in mehreren
+  Mods allein beweisen keinen mehrfach laufenden teuren Beobachter.
+- Host AuditLoadedPlugins: Startup beziehungsweise explizite Diagnoseaktualisierung,
+  kein Tick-/Renderpoll. Inventar-/Integritätshashes schützen den Vergleich und
+  dürfen nicht als allgemeine Ingame-Last dargestellt werden.
+- UI, Settings und Netzwerk bleiben getrennte Verantwortlichkeiten; keine neuen
+  öffentlichen APIShared-Verträge und daher keine Consumer-Migration erforderlich.
+
+Offene Befunde und Grenzen
+=========================
+O01: Snapshot-Erzeugung in ActiveUnitCache/ActiveBuildingCache/TowerSiegeUnitCache
+     nimmt GameUnit/GameBuilding als Wertparameter. Mögliche Strukturkopien sind
+     statisch sichtbar; tatsächliche ABI-/JIT-Kosten und sichere ref-Grenzen sind
+     nicht gemessen. Kein Codeeingriff ohne eigenen featurebezogenen Audit.
+O02: APIShared-Aktionslayout prüft sichtbare Geschwister und erzeugt weiterhin ein
+     displayed-HashSet. Dynamisches Layout, Panelersatz und reentrante Aufrufe sind
+     relevante Grenzen; keinen weiteren Cache aus fehlenden Änderungsereignissen
+     ableiten. Nicht als bereits optimiert ausweisen.
+O03: Gemeinsame Alive-Unit-/Building-Snapshots sind noch kein bestätigter Dienst.
+     Erstellung, Löschung, Slotwiederverwendung, Zustandswechsel und native
+     Zwischenphasen müssten vollständig auditiert werden. Ein eigener OnTick-
+     Publisher ohne konkret eingesparte Erfassung erfüllt das Optimierungsziel nicht.
+O04: Kartenwechsel, Save/Load, Pause, ID-Wiederverwendung, echte Noesis-UI-
+     Neuerzeugung und Zusammenspiel mit Fixes benötigen weiterhin Ingame-Nachweise.
+     Die Änderungen cachen keine Spiel-IDs oder PlayState-Werte; dies begrenzt ihre
+     Auswirkungen, ersetzt aber keine Laufzeitvalidierung.
+
+Validierung
+===========
+Vor den Änderungen: JSON-Abhängigkeiten, Lifecycle-/Teardownpfade und langlebige
+Publisher geprüft und in Arbeitsmeldungen zusammengefasst. Keine neuen Spiel-
+Felder/Properties/Methoden, kein neuer Hook, kein Plugin-Update oder Coroutinepfad.
+APIShared verwendet seinen internen Parser, ExtendedData den Shared-Quellparser.
+Workspaceprüfungen umfassen verbotene JSON-Abhängigkeiten, Plugin-Scheduling,
+Lifecycle, permanente Hooks/Code-Mutationen, XAML-Wurzelvertrag, Shared-Grenzen,
+UnitAccess und CRLF. Prüfscriptabdeckung wurde vor dem Build betrachtet.
+
+APIShared: Test-Standalone, Interop-/Interception-/HudExtras-/Netzwerkprüfungen gegen
+installierte Assemblies, öffentliche Consumer-Beispiele und build.bat erfolgreich.
+146 Core.Tests + 93 APISharedTests + 21 PresetTests = 260 bestandene Tests.
+Neu: leere Registry, Wiederverwendung, identische Setter, inaktive Owner,
+Reaktivierung, späte Registrierung, eingefrorene alte Zustände und echte reentrante
+Context-Callback-Änderung. Bestehend: mehrere Owner/Consumer, deterministische
+Reihenfolge, fehlerhafte Callback-/Factory-Isolation und Layoutverträge.
+Test-APISharedConsumers: Workspaceintegration einschließlich neun veröffentlichter
+Schema-1-Presetverträge bestanden. Abhängigkeitsprüfung: 41 Manifeste bestanden.
+
+ExtendedData: Runtime-Preflight, aktuelle Preference-Metadatenprüfung und sämtliche
+vom build.bat ausgeführten Core-, LordUpload- und JsonUpload-Tests bestanden;
+Build und Installation Exit 0. Zusätzliche Assertions prüfen identische Metadata-
+Instanz, ordinale Property-Reihenfolge, separate Typen und weiterhin aktuelle Werte
+nach Mutation von bool und verschachteltem double. Fehler-/Schema-/Verlustfreiheits-
+Tests bleiben bestehen. Nichtblockierende Buildwarnungen sind in den Logs erhalten
+(u.a. doppelt quellverlinkter DependencyFreeJson-Typ in ExtendedData, kein verbotener
+Serializer). Keine Warnung als erfolgreicher Laufzeittest interpretieren.
+
+Ein vorhandener LF-only-Seed Shared/Tools/Steam/APIShared.upload-history.seed.json
+musste für die vorgeschriebene workspaceweite CRLF-Prüfung ausschließlich in CRLF
+umgewandelt werden; keine JSON-Inhaltsänderung. Geänderte Quell-/Test-/Hilfsdateien
+mit expliziten Pfaden normalisiert und ordinal zurückgelesen. Versionswerte unverändert.
+Infrastruktur: Junction-Test benötigte erhöhten Sandboxzugriff; identische Prüfung
+anschließend erfolgreich. Keine fachliche Prüfung wurde deshalb ausgelassen.
+
+Nachweise in diesem Ordner
+=========================
+source-inventory.json / Inventory.ps1
+snapshot-measurement.log / Measure-ActionSnapshots.ps1 / ActionButtons.before.txt
+metadata-measurement.log / Measure-PreferenceMetadata.ps1 / PreferenceCodec.before.txt
+APIShared-preflight.log / workspace-preflight.log / workspace-preflight-final.log
+dependencies.log / consumers.log / ExtendedData-preflight.log
+APIShared-build.log / ExtendedData-build.log
+Die before.txt-Dateien sind Messgrundlagen, keine parallelen Runtime-Fallbacks.
