@@ -18,7 +18,7 @@ namespace BuildingLimit
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.30";
+        public const string PluginVersion = "1.0.31";
 
         private static BuildingLimitRuntime runtime;
         private int libraryInitializationStarted;
