@@ -17,6 +17,7 @@ namespace EnemyGatePathfindingTest
         private readonly Func<RouteTilePolicySnapshot> policy;
         private readonly Func<NativeGateAccessSnapshot> access;
         private readonly Func<int, MacemenUnit> unitReader, leaderReader;
+        private readonly Func<int, uint, RouteTilePolicySnapshot, MacemenGate> gateReader;
         private readonly MacemenDiagnosticAggregate aggregate = new MacemenDiagnosticAggregate();
         [ThreadStatic] private static Frame[] frames;
         [ThreadStatic] private static int depth;
@@ -29,6 +30,7 @@ namespace EnemyGatePathfindingTest
         private DateTime epochUtc;
         private readonly Dictionary<string, long> failures = new Dictionary<string, long>();
         private readonly Dictionary<int, long> unattributedComparisons = new Dictionary<int, long>();
+        internal long UnattributedGateComparisons { get; private set; }
 
         private struct Frame
         {
@@ -51,9 +53,10 @@ namespace EnemyGatePathfindingTest
         }
         internal MacemenCommandDiagnostics(ManualLogSource log, Func<RouteTilePolicySnapshot> policy,
             Func<NativeGateAccessSnapshot> access, Func<int, MacemenUnit> unitReader = null,
-            Func<int, MacemenUnit> leaderReader = null)
+            Func<int, MacemenUnit> leaderReader = null,
+            Func<int, uint, RouteTilePolicySnapshot, MacemenGate> gateReader = null)
         { this.log = log; this.policy = policy; this.access = access;
-          this.unitReader = unitReader; this.leaderReader = leaderReader; }
+          this.unitReader = unitReader; this.leaderReader = leaderReader; this.gateReader = gateReader; }
         internal long Observations => aggregate.Total;
         internal long Skipped => skipped;
         internal long MissingPost => missingPost;
@@ -68,6 +71,7 @@ namespace EnemyGatePathfindingTest
             calls = pre = post = skipped = missingPost = unmatchedPost = identityUnknown = errors = workTicks = callbacks = 0;
             failures.Clear();
             unattributedComparisons.Clear();
+            UnattributedGateComparisons = 0;
             nextFlush = Stopwatch.GetTimestamp() + 60L * Stopwatch.Frequency;
         }
         internal void End()
@@ -224,6 +228,7 @@ namespace EnemyGatePathfindingTest
                     ? new MacemenGate(gateId, global, nativeOwner, nativeCapturer, -1, -1) : default;
                 if (gate.Id == 0)
                 {
+                    UnattributedGateComparisons++;
                     // Missing identity is coverage, not an identity mismatch or route failure.
                     int key = (player << 8) | (site << 2) | (nativeRejected ? 1 : 0) | (effectiveRejected ? 2 : 0);
                     unattributedComparisons.TryGetValue(key, out long count);
@@ -297,14 +302,16 @@ namespace EnemyGatePathfindingTest
             int target1 = frame.TargetArgs?.TargetValue1 ?? frame.T1;
             int target2 = frame.TargetArgs?.TargetValue2 ?? frame.T2;
             if (frame.TargetArgs != null && (frame.Command == 9 || frame.Command == 36 || frame.Command == 38))
-                return ReadGate(target1, unchecked((uint)target2), snapshot);
+                return CaptureGate(target1, unchecked((uint)target2), snapshot);
             if (frame.TargetArgs != null && frame.Command != 3) return default;
             var tiles = GameTileManagerAPI.Instance;
             if (!tiles.IsTileInsideMapBounds(target1, target2)) return default;
             int tile = tiles.GetTileId(target1, target2);
             if (!tiles.IsValidTileId(tile)) return default;
-            return ReadGate(tiles.GetTileBuildingId(tile), 0, snapshot);
+            return CaptureGate(tiles.GetTileBuildingId(tile), 0, snapshot);
         }
+        private MacemenGate CaptureGate(int id, uint global, RouteTilePolicySnapshot snapshot) =>
+            gateReader == null ? ReadGate(id, global, snapshot) : gateReader(id, global, snapshot);
         private static MacemenGate ReadGate(int id, uint requestedGlobal, RouteTilePolicySnapshot snapshot)
         {
             if (snapshot == null || !snapshot.GateIdentities.TryGetValue(id, out var identity) ||
@@ -331,7 +338,8 @@ namespace EnemyGatePathfindingTest
                 ",unstable=" + row.Unstable + ",first={" + row.First.Format() + "},last={" + row.Last.Format() + "}"));
             Shared.DebugLogHelper.LogInfo(log, "TEMP_MACEMEN_GATE_DIAGNOSTICS summary: epoch=" + epoch +
                 ",epochUtc=" + epochUtc.ToString("O") + ",epochStartedTicks=" + epochStarted + ",ticksPerSecond=" + Stopwatch.Frequency +
-                ",final=" + final + ",observations=" + aggregate.Total + ",pre/post=" + pre + "/" + post +
+                ",final=" + final + ",observations=" + (aggregate.Total + UnattributedGateComparisons) +
+                ",attributedObservations=" + aggregate.Total + ",unattributedGateComparisons=" + UnattributedGateComparisons + ",pre/post=" + pre + "/" + post +
                 ",skipped=" + skipped + ",missingPost=" + missingPost + ",unmatchedPost=" + unmatchedPost +
                 ",identityUnknown=" + identityUnknown + ",errors=" + errors + ",commandCallbackCount=" + callbacks +
                 ",commandCallbackMs=" + (workTicks * 1000.0 / Stopwatch.Frequency).ToString("F3", System.Globalization.CultureInfo.InvariantCulture) +

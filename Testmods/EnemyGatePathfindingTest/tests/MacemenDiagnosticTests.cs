@@ -17,6 +17,12 @@ namespace EnemyGatePathfindingTest
             check(MacemenDiagnosticAggregate.Classify(7,false,true)==MacemenTarget.Moat);
             check(MacemenDiagnosticAggregate.Classify(38,true,true)==MacemenTarget.GateApproach);
             check(MacemenDiagnosticAggregate.Classify(38,false,true)==MacemenTarget.OtherBuildingApproach);
+            string runtime = System.IO.File.ReadAllText("src/EnemyGatePathfindingRuntime.cs");
+            string owner = System.IO.File.ReadAllText("src/SamePclGateRouteRuntime.cs");
+            check(runtime.Contains("samePclRouteRuntime?.MacemenDiagnosticSnapshot"));
+            check(owner.Contains("MacemenDiagnosticSnapshot => publishedPolicy;"));
+            check(runtime.Contains("this.detailedDiagnostics = detailedDiagnostics;") &&
+                !runtime.Contains("detailedDiagnostics && !macemenDiagnostics"));
             var aggregate = new MacemenDiagnosticAggregate();
             var unit = new MacemenUnit(10,100,2,5,500,3,1,20,20,2,0,true);
             var reused = new MacemenUnit(10,101,2,5,500,3,1,20,20,2,0,true);

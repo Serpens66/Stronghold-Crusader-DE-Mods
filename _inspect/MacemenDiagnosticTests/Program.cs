@@ -85,6 +85,42 @@ class Program
   failing.UnitMove(new UnitMoveHereEventArgs(EventHookPhase.Post,10,50,60,0));
   Check(failing.Errors==2&&failing.UnmatchedPost==0,"failed nested search preserves parent search");
   failing.End();Console.WriteLine("PASS: fallible child reads preserve synchronous stacks; total checks="+checks);
+  foreach(int command in new[]{3,9,36,38}) {
+   var ids=new System.Collections.Generic.Dictionary<int,RouteTilePolicySnapshot.GateIdentity> {
+     {134,new RouteTilePolicySnapshot.GateIdentity(6658,1,0)} };
+   RouteTilePolicySnapshot published=command==3?RouteTilePolicySnapshot.Empty:
+     new RouteTilePolicySnapshot(new byte[9][],42,gateIdentities:ids);
+   var nested=new MacemenCommandDiagnostics(null,()=>published,()=>NativeGateAccessSnapshot.Empty,
+      id=>live,id=>leader,(id,g,s)=>s.GateIdentities.TryGetValue(id,out var gi)&&gi.Global==g?
+        new MacemenGate(id,g,gi.Owner,gi.Capturer,1,0):default);
+   nested.Begin(4);live=Unit(10);leader=live;
+   nested.TargetOrder(new TribeIssueOrderWithTargetEventArgs(EventHookPhase.Pre,5,(TribeAICommand)command,134,6658,0));
+   nested.GroupMove(new TribeIssueOrderMoveHereEventArgs(EventHookPhase.Pre,5,50,60,0,true,(TribeMoveType)1));
+   nested.UnitMove(new UnitMoveHereEventArgs(EventHookPhase.Pre,10,51,61,0));
+   nested.BeginSearch(2,0);nested.GateComparison(2,999,123,false,true,1,1,0);
+   Check(nested.UnattributedGateComparisons==1&&nested.Errors==0,"unattributed gate is coverage");
+   nested.EndSearch(true,true,0);
+   nested.UnitMove(new UnitMoveHereEventArgs(EventHookPhase.Post,10,51,61,0){ReturnValue=1});
+   nested.GroupMove(new TribeIssueOrderMoveHereEventArgs(EventHookPhase.Post,5,50,60,0,true,(TribeMoveType)1){ReturnValue=1});
+   nested.TargetOrder(new TribeIssueOrderWithTargetEventArgs(EventHookPhase.Post,5,(TribeAICommand)command,134,6658,0){ReturnValue=1});
+   int seen=0;Rows(nested).Drain((key,row)=> {
+    seen++;Check(key.Command==command,"incoming order survives group and unit wrappers");
+    Check(row.First.OrderTarget1==134&&row.First.OrderTarget2==6658,"order target separate from movement coordinates");
+    Check(row.Unstable==0,"nested identity stable");
+    if(key.Stage!=MacemenStage.TargetOrder)Check(key.MoveType==1,"group move type preserved separately");
+    if(command==38)Check(key.Target==MacemenTarget.GateApproach&&key.Gate.Id==134,"38 is exact gate approach, not attack");
+   });Check(seen==4,"target/group/unit/search all counted");
+   if(command==38) {
+    published=new RouteTilePolicySnapshot(new byte[9][],43,gateIdentities:
+      new System.Collections.Generic.Dictionary<int,RouteTilePolicySnapshot.GateIdentity> {
+       {134,new RouteTilePolicySnapshot.GateIdentity(6658,1,2)} });
+    nested.TargetOrder(new TribeIssueOrderWithTargetEventArgs(EventHookPhase.Pre,5,(TribeAICommand)38,134,6658,0));
+    nested.TargetOrder(new TribeIssueOrderWithTargetEventArgs(EventHookPhase.Post,5,(TribeAICommand)38,134,6658,0));
+    Rows(nested).Drain((key,row)=>Check(key.Gate.Capturer==2,"functional capture publication observed"));
+   }
+   nested.End();nested.Begin(5);Check(nested.Observations==0&&nested.UnattributedGateComparisons==0,"epoch clears diagnosis");nested.End();
+  }
+  Console.WriteLine("PASS: nested orders 3/9/36/38, exact gate identity/capture, coverage and epoch; total checks="+checks);
   return 0;
  }
 }
