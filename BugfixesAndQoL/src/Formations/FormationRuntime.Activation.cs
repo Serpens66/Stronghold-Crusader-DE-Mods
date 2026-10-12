@@ -61,7 +61,6 @@ namespace BugfixesAndQoL.UnitCommands
             if (state == null)
                 return;
             ClearPreview();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Activation.cs:64", $"FORMATION_DRAG_ABORTED: {reason}.");
         }
 
         internal void DisableForProcess(string contract, Exception exception) => FailOpen(contract, exception);

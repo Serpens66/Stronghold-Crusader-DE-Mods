@@ -18,8 +18,6 @@ namespace BugfixesAndQoL
         private static PreviewSnapshot snapshot = PreviewSnapshot.Empty;
         private static ManualLogSource log;
         private static Canvas canvas;
-        private static int nextGeneration;
-        private static int renderedGeneration;
         private static bool missingHostLogged;
         private static bool renderFailureLogged;
         private static volatile bool showRoleMarkers = true;
@@ -52,7 +50,7 @@ namespace BugfixesAndQoL
         internal static void Publish(FormationPreviewPoint[] points, FormationDirectionIndicator direction)
         {
             lock (Sync)
-                snapshot = new PreviewSnapshot(points ?? Array.Empty<FormationPreviewPoint>(), direction, unchecked(++nextGeneration));
+                snapshot = new PreviewSnapshot(points ?? Array.Empty<FormationPreviewPoint>(), direction);
             Refresh();
         }
 
@@ -92,8 +90,6 @@ namespace BugfixesAndQoL
                 int pointCount = showRoleMarkers && current.Direction.ExplicitDirection
                     ? current.Points.Length : 0;
                 EnsurePointPool(host, pointCount);
-                int visible = 0;
-                int skipped = 0;
                 for (int index = 0; index < pointCount; index++)
                 {
                     Ellipse ellipse = PointPool[index];
@@ -101,7 +97,6 @@ namespace BugfixesAndQoL
                     if (!TryProject(camera, host, point.X, point.Y, out float x, out float y))
                     {
                         ellipse.Visibility = Visibility.Collapsed;
-                        skipped++;
                         continue;
                     }
                     float size = point.Role == FormationRole.Protected ? ProtectedPointSize : PointSize;
@@ -111,17 +106,11 @@ namespace BugfixesAndQoL
                     ellipse.Visibility = Visibility.Visible;
                     Canvas.SetLeft(ellipse, x - size * 0.5f);
                     Canvas.SetTop(ellipse, y - size * 0.5f);
-                    visible++;
                 }
                 for (int index = pointCount; index < PointPool.Count; index++)
                     PointPool[index].Visibility = Visibility.Collapsed;
 
                 RenderArrow(camera, host, current.Direction);
-                if (renderedGeneration != current.Generation)
-                {
-                    renderedGeneration = current.Generation;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/FormationPreviewOverlay.cs:123", $"FORMATION_OVERLAY_SUMMARY: generation={current.Generation}, roleMarkers={showRoleMarkers}, visible={visible}, skipped={skipped}, arrow={current.Direction.Visible}, explicitDirection={current.Direction.ExplicitDirection}.");
-                }
             }
             catch (Exception exception)
             {
@@ -300,16 +289,14 @@ namespace BugfixesAndQoL
 
         private sealed class PreviewSnapshot
         {
-            internal static readonly PreviewSnapshot Empty = new PreviewSnapshot(Array.Empty<FormationPreviewPoint>(), FormationDirectionIndicator.Hidden, 0);
-            internal PreviewSnapshot(FormationPreviewPoint[] points, FormationDirectionIndicator direction, int generation)
+            internal static readonly PreviewSnapshot Empty = new PreviewSnapshot(Array.Empty<FormationPreviewPoint>(), FormationDirectionIndicator.Hidden);
+            internal PreviewSnapshot(FormationPreviewPoint[] points, FormationDirectionIndicator direction)
             {
                 Points = points;
                 Direction = direction;
-                Generation = generation;
             }
             internal FormationPreviewPoint[] Points { get; }
             internal FormationDirectionIndicator Direction { get; }
-            internal int Generation { get; }
         }
     }
 

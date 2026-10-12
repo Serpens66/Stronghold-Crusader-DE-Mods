@@ -112,14 +112,6 @@ namespace BugfixesAndQoL.UnitCommands
                     return;
                 }
                 menuViewModel.PublishPreview(points, directionIndicator);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:115", $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
-                    $"density={previewKey.Density}, placement={previewKey.PlacementMode}, " +
-                    $"direction={previewKey.DirectionSector}, explicitDirection={previewKey.ExplicitDirection}, " +
-                    $"width={previewKey.Width}, " +
-                    $"rows={previewKey.Rows}, " +
-                    $"markers={new HashSet<int>(markerTiles).Count}, " +
-                    $"plan=0x{state.PreviewPlanHash:X16}, " +
-                    $"thread={Environment.CurrentManagedThreadId}.");
             }
             catch (Exception exception)
             {
@@ -152,14 +144,9 @@ namespace BugfixesAndQoL.UnitCommands
                     bool coherent = cursor != null && cursor->r_IsCursorInGame == 1 &&
                         cursor->r_MouseTileX == (uint)feedback.X &&
                         cursor->r_MouseTileY == (uint)feedback.Y;
-                    bool wasConfirmed = state.Authorization.IsConfirmed;
                     long generation = nativeFeedbackRunActive
                         ? nativeFeedbackRunGeneration : nativeFeedbackGeneration;
                     allowed = state.Authorization.Observe(feedback, generation, coherent);
-                    if (allowed && !wasConfirmed)
-                        LogDebugNoThrow($"FORMATION_MOVE_CONFIRMED: tribe={state.TribeId}, " +
-                            $"target={state.Target.NativeX},{state.Target.NativeY}, " +
-                            $"generation={generation}, hoveredUnit={feedback.HoveredUnit}.");
                 }
             }
             menuViewModel.SetPreviewAuthorization(allowed);

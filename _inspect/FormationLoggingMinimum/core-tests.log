@@ -1,0 +1,8 @@
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+  Formations.Core.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\Formations.Core.Tests\bin\Release\net10.0\Formations.Core.Tests.dll
+Testlauf für "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\Formations.Core.Tests\bin\Release\net10.0\Formations.Core.Tests.dll" (.NETCoreApp,Version=v10.0)
+Insgesamt 1 Testdateien stimmten mit dem angegebenen Muster überein.
+Ergebnisdatei: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\FormationLoggingMinimum\TestResults\Serpens66_PC-SERPW11_2026-10-12_15_02_46_net10.0.trx
+
+Bestanden!   : Fehler:     0, erfolgreich:    19, übersprungen:     0, gesamt:    19, Dauer: 431 ms - Formations.Core.Tests.dll (net10.0)

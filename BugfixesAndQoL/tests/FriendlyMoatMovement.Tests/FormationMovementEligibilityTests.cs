@@ -113,7 +113,9 @@ namespace BugfixesAndQoL.UnitCommands {
                 Check(command.SkippedTerminalCount==4&&command.ObservedTerminalCount==2,"Native skipped accounting");
                 Check(summary.Succeeded==1&&summary.TechnicalErrors==0,"Allowed fallback failed");
                 current.LogFormationOrderResult(command,1,summary);
-                Check(current.Logs.Last().Contains("vanillaSkipped=4"),"Skipped members hidden in diagnostics");
+                Check(current.Logs.Count==1&&current.Logs[0].Contains("FORMATION_FALLBACK_SUMMARY")&&
+                    current.Logs[0].Contains("succeeded=1")&&current.Logs[0].Contains("rejected=0"),
+                    "Expected one compact group summary without per-unit/skipped chatter");
             }
             foreach(string reason in new[]{"veto","missing-post","changed-args","success-different-target","unexpected-return"}) {
                 current=new EligibilityFixture();calls.Clear();var command=current.CreateCommand(22);

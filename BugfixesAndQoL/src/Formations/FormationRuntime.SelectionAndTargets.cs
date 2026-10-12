@@ -167,19 +167,6 @@ namespace BugfixesAndQoL.UnitCommands
                 (uint)tileId < (uint)tileManager.PathConnectionGrid.Length;
         }
 
-        private void LogTargetRejection(
-            APIShared.Internal.GroundMovePreviewRejection rejection,
-            GroundTarget target)
-        {
-            string reason = ToRejectionReason(rejection);
-            if (!loggedTargetRejections.Add(reason))
-                return;
-            LogDebugNoThrow(
-                $"FORMATION_DRAG_REJECTED: reason={reason}, " +
-                $"target={target.NativeX},{target.NativeY}; " +
-                "further occurrences of this reason are suppressed.");
-        }
-
         private static string ToRejectionReason(
             APIShared.Internal.GroundMovePreviewRejection rejection) =>
             rejection.ToString().ToLowerInvariant();

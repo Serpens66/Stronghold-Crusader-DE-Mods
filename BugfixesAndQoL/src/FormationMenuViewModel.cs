@@ -275,7 +275,6 @@ namespace BugfixesAndQoL
         private void SaveConfiguration(string setting, string value)
         {
             configFile.Save();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:278", $"FORMATION_MENU_CHANGED: setting={setting}, value={value}.");
         }
 
         private void ConfigurationChanged(object sender, System.EventArgs args)
@@ -327,7 +326,6 @@ namespace BugfixesAndQoL
             if (!value)
                 HideRollover();
             OnChanged(nameof(MenuVisible));
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:332", $"FORMATION_MENU_VISIBILITY: visible={value}.");
         }
 
         private void NotifySelectionsChanged()

@@ -104,8 +104,6 @@ namespace BugfixesAndQoL.UnitCommands
         private readonly ConfigEntry<RangedPlacementMode> placementModeConfig;
         private readonly IFormationPresentation menuViewModel;
         private readonly object stateSync = new object();
-        private readonly HashSet<string> loggedTargetRejections =
-            new HashSet<string>(StringComparer.Ordinal);
         private readonly IUnitCommandSettings settings;
         private readonly UnitCommandPathRuntime commandRuntime;
         private NativeGroundMoveFeedbackReader groundFeedbackReader;

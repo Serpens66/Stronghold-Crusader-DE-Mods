@@ -186,9 +186,6 @@ namespace BugfixesAndQoL.UnitCommands
             else if (changedRows != 0)
             {
                 menuViewModel.RememberSelectedRows(state.Kind, changedRows);
-                LogDebugNoThrow(
-                    $"FORMATION_ROWS_CHANGED: rows={changedRows}, " +
-                    $"thread={Environment.CurrentManagedThreadId}.");
             }
         }
 
@@ -198,7 +195,6 @@ namespace BugfixesAndQoL.UnitCommands
                 EvaluateCommandMode();
             if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
             {
-                LogTargetRejection(modeRejection, default);
                 return;
             }
             if (!HasValidMap() || markerRenderer == null ||
@@ -211,10 +207,8 @@ namespace BugfixesAndQoL.UnitCommands
                 return;
             if (!TryCaptureCommandTarget(
                     out GroundTarget target,
-                    out APIShared.Internal.GroundMovePreviewRejection targetRejection))
+                    out _))
             {
-                if (targetRejection != APIShared.Internal.GroundMovePreviewRejection.None)
-                    LogTargetRejection(targetRejection, target);
                 return;
             }
 
@@ -243,9 +237,6 @@ namespace BugfixesAndQoL.UnitCommands
                 drag = state;
                 PublishPreview(state, force: true);
             }
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs:248", $"FORMATION_DRAG_START: tribe={tribeId}, units={selection.Length}, " +
-                $"target={target.NativeX},{target.NativeY}, kind={state.Kind}, " +
-                $"density={state.Density}, placement={state.PlacementMode}.");
         }
 
         private static bool IsShiftHeld()

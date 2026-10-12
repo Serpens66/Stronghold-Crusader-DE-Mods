@@ -97,13 +97,6 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!releaseClaimed)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 ClearPreview();
-                LogDebugNoThrow(
-                    $"FORMATION_RELEASE_CLAIMED: tribe={state.TribeId}, " +
-                    $"button={state.CommandButton}, " +
-                    $"releaseEventSeen={state.ReleaseGate.ReleaseEventSeen}, " +
-                    $"left={inputState.LeftState}, rightDown={inputState.RightDown}, " +
-                    $"rightUp={inputState.RightUp}, stateRead={inputState.StateRead}, " +
-                    $"upPending={inputState.UpPending}.");
 
                 // The full release state was captured before dispatch. Once dispatch
                 // is accepted, no fallible reflection read may stand between
@@ -165,27 +158,12 @@ namespace BugfixesAndQoL.UnitCommands
                 releaseConsumptionWatch = new ReleaseConsumptionWatch(
                     packet.OperationId, state.TribeId, state.CommandButton, 2);
             }
-            LogDebugNoThrow(
-                $"FORMATION_RELEASE_CONSUMED: operation={packet.OperationId}, " +
-                $"tribe={state.TribeId}, button={state.CommandButton}, " +
-                $"left={originalState.LeftState}, rightDown={originalState.RightDown}, " +
-                $"rightUp={originalState.RightUp}, " +
-                $"stateRead={originalState.StateRead}, " +
-                $"upPending={originalState.UpPending}.");
 
             try
             {
                 formationConfig.Value = state.Kind;
                 densityConfig.Value = FormationModel.NormalizeDensity(state.Density);
                 placementModeConfig.Value = state.PlacementMode;
-                LogDebugNoThrow(
-                    $"FORMATION_ORDER_QUEUED: operation={packet.OperationId}, " +
-                    $"tribe={packet.TribeId}, target={packet.TargetX},{packet.TargetY}, " +
-                    $"kind={(FormationKind)packet.Formation}, density={packet.Density}, " +
-                    $"placement={(RangedPlacementMode)packet.PlacementMode}, direction={packet.DirectionSector}, " +
-                    $"width={packet.Width}, rows={packet.Rows}, " +
-                    $"units={packet.UnitCount}, " +
-                    $"plan=0x{packet.PlanHash:X16}.");
             }
             catch (Exception exception)
             {

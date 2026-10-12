@@ -65,7 +65,7 @@ namespace BugfixesAndQoL.UnitCommands {
         __FALLBACK__
         private static void Check(bool value,string message) {if(!value)throw new Exception(message);}
         private static FallbackFixture Scenario(int[] returns,int formationSucceeded=0,bool feedback=true,
-            bool throws=false,bool targetMatches=true,bool identity=true,bool available=true) {
+            bool throws=false,bool targetMatches=true,bool identity=true,bool available=true,int skipped=0) {
             var f=new FallbackFixture {IdentityMatches=identity};
             var unit=new GameUnit {r_TribeId=415};APIShared.UnitAccess.Unit=&unit;APIShared.UnitAccess.Available=available;
             int calls=0;
@@ -76,7 +76,7 @@ namespace BugfixesAndQoL.UnitCommands {
                 APIShared.UnitAccess.Unit->r_TargetTilePositionY=(ushort)y;
                 if(feedback)f.unitFallbackAttempt.Observe(returns[id-1]);
             };
-            var command=new ActiveFormationCommand {ExpectedCount=formationSucceeded+returns.Length,
+            var command=new ActiveFormationCommand {ExpectedCount=formationSucceeded+returns.Length+skipped,SkippedTerminalCount=skipped,
                 TerminalAttemptCount=formationSucceeded+returns.Length,
                 Requests=Enumerable.Range(1,returns.Length).Select(id=>new UnitFallbackRequest(id,1,0)).ToArray()};
             var summary=f.RunUnitFallbacks(command);
@@ -88,14 +88,17 @@ namespace BugfixesAndQoL.UnitCommands {
             Check((f.Warnings.Count>0)==technical,"Normal rejection warned, or technical error hidden");
             if(!technical) {
                 Check(summary.Succeeded==returns.Count(r=>r>0)&&summary.Failed==returns.Count(r=>r==0),"Fallback counts changed");
-                Check(f.Debug.Count==returns.Length+1,"Expected debug-only diagnostics missing");
+                Check(f.Debug.Count==(returns.Length==0?0:1),"Normal outcomes must emit at most one group summary");
+                Check(!f.Debug.Any(d=>d.Contains("FORMATION_UNIT_")),"Normal fallback emits per-unit logging");
             }
             if(!feedback||!available)Check(f.Warnings.Any(w=>w.Contains("missing-feedback")),"Missing return treated as native zero");
             if(feedback&&!throws&&identity&&available&&returns.Contains(0))
-                Check(f.Debug.Any(d=>d.Contains("observed=True")&&d.Contains("vanilla-rejected")),"Observed zero not identified");
+                Check(f.Debug.Any(d=>d.Contains("rejected="+returns.Count(r=>r==0))),"Observed refusal missing from group summary");
             return f;
         }
         public static void Run() {
+            Scenario(Array.Empty<int>(),76); // Successful group emits no completion log.
+            Scenario(Array.Empty<int>(),72,skipped:4); // Native skipped members do not create fallback noise.
             Scenario(new[]{0},68); // Original 68/69 warning case.
             Scenario(new[]{0,0,0}); // Fully immobile group.
             Scenario(new[]{1,1});Scenario(new[]{1,0},2);

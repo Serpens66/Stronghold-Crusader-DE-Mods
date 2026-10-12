@@ -88,28 +88,6 @@ namespace BugfixesAndQoL.UnitCommands
                         pendingCommand = null;
                         activeCommand = active;
                     }
-                    LogDebugNoThrow(
-                        $"FORMATION_ORDER_SCOPE_PRE: source={pending.Source}, " +
-                        $"operation={packet.OperationId}, tribe={packet.TribeId}, " +
-                        $"expected={units.Length}, kind={kind}, density={density}, direction={packet.DirectionSector}, " +
-                        $"plan=0x{actualPlanHash:X16}, " +
-                        $"thread={Environment.CurrentManagedThreadId}.");
-                    if (kind == FormationKind.Circle)
-                    {
-                        List<FormationPoint> desired = FormationModel.BuildRelativeSlots(
-                            kind, units.Length, packet.Rows, density, packet.DirectionSector);
-                        var targetSet = new HashSet<long>();
-                        foreach (FormationPoint point in desired)
-                            targetSet.Add(((long)(packet.TargetX + point.X) << 32) |
-                                (uint)(packet.TargetY + point.Y));
-                        int exact = 0;
-                        foreach (NativeDestination destination in destinations)
-                            if (targetSet.Remove(((long)destination.X << 32) | (uint)destination.Y))
-                                exact++;
-                        LogDebugNoThrow($"FORMATION_ORDER_GEOMETRY: operation={packet.OperationId}, " +
-                            $"kind={kind}, density={density}, direction={packet.DirectionSector}, " +
-                            $"planned={desired.Count}, exact={exact}, displaced={destinations.Length - exact}.");
-                    }
                 }
                 catch (Exception exception)
                 {
@@ -167,6 +145,13 @@ namespace BugfixesAndQoL.UnitCommands
             int successfulFormationTargets,
             UnitFallbackSummary fallbackSummary)
         {
+            if (fallbackSummary.TechnicalErrors == 0)
+            {
+                if (fallbackSummary.Succeeded != 0 || fallbackSummary.Failed != 0)
+                    LogDebugNoThrow($"FORMATION_FALLBACK_SUMMARY: operation={completed.Pending.Packet.OperationId}, " +
+                        $"succeeded={fallbackSummary.Succeeded}, rejected={fallbackSummary.Failed}.");
+                return;
+            }
             string common =
                 $"source={completed.Pending.Source}, " +
                 $"operation={completed.Pending.Packet.OperationId}, " +
@@ -184,10 +169,7 @@ namespace BugfixesAndQoL.UnitCommands
             string marker = successfulFormationTargets == completed.ExpectedCount
                 ? "FORMATION_ORDER_APPLIED" : successfulFormationTargets > 0
                     ? "FORMATION_ORDER_PARTIAL_FALLBACK" : "FORMATION_ORDER_FELL_BACK_TO_VANILLA";
-            if (fallbackSummary.TechnicalErrors != 0)
-                LogWarningNoThrow($"{marker}: {common}.");
-            else
-                LogDebugNoThrow($"{marker}: {common}.");
+            LogWarningNoThrow($"{marker}: {common}.");
         }
 
         private UnitFallbackSummary RunUnitFallbacks(ActiveFormationCommand command)
@@ -260,22 +242,20 @@ namespace BugfixesAndQoL.UnitCommands
                 bool technicalError = invocationFailed || !attempt.ReturnObserved ||
                     (attempt.ReturnValue != 0 && attempt.ReturnValue != 1) ||
                     (attempt.ReturnValue != 0 && !accepted);
-                string result = invocationFailed ? "exception" : !attempt.ReturnObserved
-                    ? "missing-feedback" : attempt.ReturnValue != 0 && attempt.ReturnValue != 1
-                        ? "unexpected-return" : accepted ? "accepted" : attempt.ReturnValue == 0
-                            ? "vanilla-rejected" : "target-unconfirmed";
-                string diagnostic =
-                    $"FORMATION_UNIT_FELL_BACK_TO_VANILLA: " +
-                    $"operation={command.Pending.Packet.OperationId}, unit={request.UnitId}, " +
-                    $"observed={attempt.ReturnObserved}, return={attempt.ReturnValue}, " +
-                    $"accepted={accepted}, result={result}.";
                 if (technicalError)
                 {
                     technicalErrors++;
-                    LogWarningNoThrow(diagnostic);
+                    string result = invocationFailed ? "exception" : !attempt.ReturnObserved
+                        ? "missing-feedback" : attempt.ReturnValue != 0 && attempt.ReturnValue != 1
+                            ? "unexpected-return" : accepted ? "accepted" : attempt.ReturnValue == 0
+                                ? "vanilla-rejected" : "target-unconfirmed";
+                    string diagnostic =
+                        $"FORMATION_UNIT_FELL_BACK_TO_VANILLA: " +
+                        $"operation={command.Pending.Packet.OperationId}, unit={request.UnitId}, " +
+                        $"observed={attempt.ReturnObserved}, return={attempt.ReturnValue}, " +
+                        $"accepted={accepted}, result={result}.";
+                        LogWarningNoThrow(diagnostic);
                 }
-                else
-                    LogDebugNoThrow(diagnostic);
             }
             return new UnitFallbackSummary(succeeded, failedCount, technicalErrors);
         }
