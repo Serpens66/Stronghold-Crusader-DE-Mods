@@ -1,9 +1,10 @@
 <Project>
-  <!-- Workspace consumers share the one local APIShared build. APIShared imports its own targets. -->
+  <!-- Explicit MSBuild global properties take precedence; otherwise inherit the driver's SDK selection. -->
   <PropertyGroup>
     <ModWorkspaceRoot>$([System.IO.Path]::GetDirectoryName('$(MSBuildThisFileFullPath)'))</ModWorkspaceRoot>
     <WorkspaceApiSharedRoot>$(MSBuildThisFileDirectory)APIShared</WorkspaceApiSharedRoot>
-    <ApiSharedDir>$(WorkspaceApiSharedRoot)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
+    <ApiSharedDir Condition="'$(SHCDE_API_SHARED_DIR)' != ''">$(SHCDE_API_SHARED_DIR)</ApiSharedDir>
+    <ApiSharedDir Condition="'$(SHCDE_API_SHARED_DIR)' == ''">$(WorkspaceApiSharedRoot)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Update="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>

@@ -40,6 +40,54 @@ try {
     $result = Assert-ApiConsumerPackage $fixture $package
     if ($result.Commit -cne $commit) { throw 'Published source provenance was replaced with the current commit.' }
     . (Join-Path $PSScriptRoot '../Release/Release.Common.ps1')
+    # Import the real workspace targets into an isolated workspace and exercise
+    # MSBuild property precedence plus its fresh PowerShell validation subprocess.
+    $workspaceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+    Copy-Item -LiteralPath (Join-Path $workspaceRoot 'Directory.Build.targets') -Destination (Join-Path $fixture 'Directory.Build.targets')
+    foreach ($relative in @('Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1','Shared/Tools/ApiSharedRepository/Test-ConsumerPackage.ps1','Shared/Tools/Steam/SteamPackPolicy.ps1')) {
+        $destination = Join-Path $fixture $relative
+        [void][IO.Directory]::CreateDirectory((Split-Path -Parent $destination))
+        Copy-Item -LiteralPath (Join-Path $workspaceRoot $relative) -Destination $destination
+    }
+    $localPackage = Join-Path $api 'BepInEx/plugins/APIShared_Serp'
+    Write-SdkFixture (Join-Path $localPackage 'APIShared.dll') 'local binary'
+    Write-SdkFixture (Join-Path $api 'tools/BuildProof.ps1') 'function Assert-ApiBuildProof { param([string]$Root,[switch]$Release) if ([IO.File]::ReadAllText((Join-Path $Root "BepInEx/plugins/APIShared_Serp/APIShared.dll")) -cne "local binary") { throw "Invalid fixture local package" }; return [pscustomobject]@{ Commit="local-fixture" } }'
+    $probe = Join-Path $fixture 'Consumer/nested/Probe.proj'
+    Write-SdkFixture $probe @'
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup><Reference Include="APIShared"><HintPath>obsolete-reference.dll</HintPath></Reference></ItemGroup>
+  <Import Project="../../Directory.Build.targets" />
+  <Target Name="Probe" DependsOnTargets="ValidateWorkspaceApiSharedPackage">
+    <Error Condition="'$(ApiSharedDir)' != '$(ExpectedSdk)'" Text="Wrong SDK property: $(ApiSharedDir)" />
+    <Error Condition="'%(Reference.HintPath)' != '$(ExpectedSdk)\APIShared.dll'" Text="Compiler and validation SDK differ: %(Reference.HintPath)" />
+    <Message Importance="high" Text="SDK_PROBE_OK $(ApiSharedDir)" />
+  </Target>
+</Project>
+'@
+    $parent = Join-Path $fixture 'Parent.proj'
+    Write-SdkFixture $parent '<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><Target Name="Probe"><MSBuild Projects="Consumer/nested/Probe.proj" Targets="Probe" /></Target></Project>'
+    $configuredMsBuild = (Get-ReleaseConfiguration).MSBuild
+    function Invoke-SdkMSBuild([string]$ExpectedSdk, [string]$ExplicitSdk, [bool]$ShouldPass) {
+        $arguments = @($parent,'/nologo','/t:Probe','/v:minimal',"/p:ExpectedSdk=$ExpectedSdk")
+        if ($ExplicitSdk) { $arguments += "/p:ApiSharedDir=$ExplicitSdk" }
+        $output = if (Test-Path -LiteralPath $configuredMsBuild -PathType Leaf) { @(& $configuredMsBuild @arguments 2>&1) } else { @(& dotnet msbuild @arguments 2>&1) }
+        $code = $LASTEXITCODE
+        if ($ShouldPass) {
+            if ($code -ne 0 -or ($output -join "`n") -notmatch 'SDK_PROBE_OK') { throw "SDK MSBuild regression failed: $($output -join '`n')" }
+        } elseif ($code -eq 0 -or ($output -join "`n") -notmatch 'SDK path does not match') { throw "MSBuild did not reject a mismatched SDK proof: $($output -join '`n')" }
+    }
+    $env:SHCDE_API_SHARED_RELEASE_PROOF = ''
+    $env:SHCDE_API_SHARED_DIR = ''
+    Invoke-SdkMSBuild $localPackage '' $true
+    $env:SHCDE_API_SHARED_RELEASE_PROOF = $proofPath
+    $env:SHCDE_API_SHARED_DIR = $package
+    Invoke-SdkMSBuild $package '' $true
+    # An explicit global property must win even over a conflicting environment value.
+    $env:SHCDE_API_SHARED_DIR = $localPackage
+    Invoke-SdkMSBuild $package $package $true
+    $env:SHCDE_API_SHARED_DIR = $package
+    Invoke-SdkMSBuild $localPackage $localPackage $false
+    Write-Host 'PASS: real nested MSBuild SDK selection, explicit/environment/default precedence, matching compiler references and strict release proof.'
     $env:SHCDE_API_SHARED_DIR = $package
     $consumer = Join-Path $fixture 'Consumer'
     Write-SdkFixture (Join-Path $consumer 'Consumer.csproj') '<Project><ItemGroup><Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath></Reference></ItemGroup></Project>'

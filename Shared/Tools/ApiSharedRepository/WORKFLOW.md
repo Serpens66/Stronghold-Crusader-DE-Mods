@@ -34,6 +34,8 @@ The SerpsMods Workshop driver instead selects the verified published APIShared p
 consumer and host builds when all release-relevant sources still match. Tests and maintainer
 tool changes do not require republishing APIShared. Each child build rechecks the release ZIP,
 complete file inventory, source equivalence, package identity and production/test separation.
+All nested MSBuild projects use the same selection: an explicit `/p:ApiSharedDir` takes
+precedence over inherited `SHCDE_API_SHARED_DIR`, then the local workspace package is used.
 The original release commit and DLL hashes remain in consumer provenance; local APIShared
 build outputs are not replaced. Changed runtime sources or shipped resources require an
 appropriate new APIShared release before preparing the modpack.
