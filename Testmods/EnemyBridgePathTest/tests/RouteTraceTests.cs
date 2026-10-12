@@ -18,12 +18,17 @@ namespace EnemyBridgePathTest
             var bridge=new BridgeRouteTrace.Bridge {Id=703,Global=2432893,Parent=600,ParentGlobal=2432853,ParentLink="unique-footprint-adjacency-candidate"};
             for(int x=601;x<=603;x++)bridge.Deck.Add(BridgeRouteTrace.Bridge.XY(x,474));
             var trace=new BridgeRouteTrace((kind,detail)=>output.Add(kind+","+detail),()=>new[]{bridge},()=>++captures);
+            Check(BridgeRouteTrace.Classify(bridge,true,false,603,474)=="deck-endpoint-approach","deck endpoint is approach, not lateral passage or attack");
+            Check(BridgeRouteTrace.Classify(bridge,false,false,603,474)=="incomplete","undecoded endpoint cannot prove approach");
+            Check(VirtualMeleeAccess.Evaluate(new[]{1,2},true,t=>t==2?VirtualReachability.Reachable:VirtualReachability.NoRoute)==VirtualReachability.Reachable,"alternative legal melee approach remains reachable");
+            Check(VirtualMeleeAccess.Evaluate(new[]{1},false,t=>VirtualReachability.NoRoute)==VirtualReachability.Unknown,"incomplete attack fields prohibit veto");
+            Check(VirtualMeleeAccess.Evaluate(new[]{1},true,t=>VirtualReachability.NoRoute)==VirtualReachability.NoRoute,"complete deck-only attack access can be rejected offline");
             trace.Begin(1);
             var track=new BridgeRouteTrace.Track {Unit=1145,Global=2416993,Player=8,Tribe=4364,Command=1320346,ParentEvent=1287021,PlanningRoot=1320345,CandidatePlan=1287038,Phase=6,Session=1};
             var h=new BridgeRouteTrace.Header(track.Global,600,474,600,474,4,0);
             byte[] bytes={0x22,0x22};
             trace.ObservePlan(track,h,bytes,0);trace.Flush();
-            Check(output.Single(x=>x.StartsWith("stored-route-definition-batch,")).Contains("703/2432893/0/2/600/474/604/474/deck-without-parent-footprint"),"sideways route intersects exact deck even when endpoints are outside");
+            Check(output.Single(x=>x.StartsWith("stored-route-definition-batch,")).Contains("703/2432893/0/2/600/474/604/474/deck-exit-without-gate-footprint"),"sideways route intersects exact deck even when endpoints are outside");
             Check(output.Single(x=>x.StartsWith("stored-route-definition-batch,")).Contains(":2222|")&&track.PlanningRoot==1320345,"stored route reconstructible; binding retains actual root separately");
             int firstOutputCount=output.Count;for(int i=0;i<10000;i++)trace.ObservePlan(track,h,bytes,0);
             Check(output.Count==firstOutputCount&&output.Count(x=>x.StartsWith("route-format,"))==1&&captures==1,"unchanged full paths do not capture or format again");
@@ -160,7 +165,12 @@ namespace EnemyBridgePathTest
                 var view=(GameUnitPathPlanView)ctor.Invoke(new object[]{Pointer.Box(unit,parameters[0].ParameterType),Pointer.Box((byte*)pathMemory,parameters[1].ParameterType)});
                 int lookups=0;bool fail=false;
                 var trace=new BridgeRouteTrace((kind,detail)=>output.Add(kind+","+detail),()=>new[]{bridge},()=>1,id=> {lookups++;if(fail&&id==1)throw new InvalidOperationException("fixture");return unitMemory;},id=>view);
-                trace.Begin(1);trace.Bind(0,99,8,4,1,0,2,3,4,6);trace.Observe(0,true);Check(lookups==0,"ID zero never looked up");
+                Check(BridgeRouteTrace.Classify(bridge,true,false,603,474)=="deck-endpoint-approach","deck endpoint is approach, not lateral passage or attack");
+            Check(BridgeRouteTrace.Classify(bridge,false,false,603,474)=="incomplete","undecoded endpoint cannot prove approach");
+            Check(VirtualMeleeAccess.Evaluate(new[]{1,2},true,t=>t==2?VirtualReachability.Reachable:VirtualReachability.NoRoute)==VirtualReachability.Reachable,"alternative legal melee approach remains reachable");
+            Check(VirtualMeleeAccess.Evaluate(new[]{1},false,t=>VirtualReachability.NoRoute)==VirtualReachability.Unknown,"incomplete attack fields prohibit veto");
+            Check(VirtualMeleeAccess.Evaluate(new[]{1},true,t=>VirtualReachability.NoRoute)==VirtualReachability.NoRoute,"complete deck-only attack access can be rejected offline");
+            trace.Begin(1);trace.Bind(0,99,8,4,1,0,2,3,4,6);trace.Observe(0,true);Check(lookups==0,"ID zero never looked up");
                 for(int id=1;id<=38;id++) {trace.Bind(id,99,8,4364,100+id,20,30,40,50,6);trace.Observe(id,true,true);}
                 Check(lookups==76&&trace.Summary().Contains("tracked=38"),"38 following-command chains use actual public packed views and production header getter");
                 trace.Flush();Check(Rows(output,"route-observations").Any(row=>row[10]=="0"),"unchanged old route is distinguished numerically from a newly built path");

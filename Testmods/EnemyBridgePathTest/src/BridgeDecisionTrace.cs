@@ -139,7 +139,7 @@ namespace EnemyBridgePathTest
         private readonly ManualLogSource log;
         private readonly ConcurrentQueue<Record> lines=new ConcurrentQueue<Record>();
         private readonly ConcurrentQueue<Record> background=new ConcurrentQueue<Record>();
-        private long backgroundQueued, backgroundOverflow, commandPre, commandPost, backgroundCalls, detailedCommands;
+        private long backgroundQueued, backgroundOverflow, commandPre, commandPost, commandSuppressed, backgroundCalls, detailedCommands;
         private readonly Dictionary<int,Arguments> plans=new Dictionary<int,Arguments>();
         private readonly Dictionary<int,Arguments> accessInputs=new Dictionary<int,Arguments>();
         private readonly Dictionary<int,long> accessResults=new Dictionary<int,long>();
@@ -189,6 +189,8 @@ namespace EnemyBridgePathTest
             public override bool Equals(object b) => b is TableReference other&&Equals(other);
             public override int GetHashCode() => unchecked(Parent.GetHashCode()*397^Definition.GetHashCode()*31^Plan.GetHashCode()^Rva^Slot^(Phase?.GetHashCode()??0));
         }
+        private readonly int[] structureTargets=new int[9];
+        private readonly uint[] structureTargetGlobals=new uint[9];
         private readonly Dictionary<int,BridgeProgress> bridgeProgress=new Dictionary<int,BridgeProgress>();
         private sealed class BridgeProgress
         {
@@ -278,7 +280,7 @@ namespace EnemyBridgePathTest
         [ThreadStatic] private static Scope free;
         internal BridgeDecisionTrace(ManualLogSource log,Func<int,AttackStamp> testStamp=null,Func<long> testCapture=null,Func<int,int> testRead=null,Func<int,IntPtr> testUnit=null)
         {this.log=log;VirtualShadow=testCapture==null?new BridgeVirtualShadow(Observe,Read,ArtifactObservation,focusedComparisons:true):null;this.testStamp=testStamp;this.testCapture=testCapture;this.testRead=testRead;this.testUnit=testUnit;
-            Routes=new BridgeRouteTrace((kind,detail)=>CriticalObservation(kind,detail),GetRouteGeometry,LiveState,evidence:RouteEvidence,unboundChange:UnboundRouteChange);}
+            Routes=new BridgeRouteTrace((kind,detail)=>CriticalObservation(kind,detail),GetRouteGeometry,LiveState,evidence:RouteEvidence,unboundChange:UnboundRouteChange,structureTarget:ReadStructureTarget);}
         private BridgePlanningCapture planningCapture;
         internal void SetNative(IntPtr value,int length)
         {
@@ -286,7 +288,7 @@ namespace EnemyBridgePathTest
             // Counter/route fixtures intentionally use non-dereferenceable dummy pointers.
             // Full capture is tested separately with the bounded private native image.
             if(testCapture!=null){planningCapture=null;return;}
-            planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex));
+            planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex),relevance:PlanningRelevance);
         }
         private string nativeUnavailable="initialization-not-completed";
         private long sessionNativeCalls,sessionNativeExits;
@@ -336,7 +338,7 @@ namespace EnemyBridgePathTest
             lock(attackGate) {plans.Clear();commands.Clear();accessInputs.Clear();accessResults.Clear();}
             lock(textGate){commandContexts.Clear();commandIdentities.Clear();commandPreRows.Clear();}
             lock(regionGate) eventCounts.Clear();
-            lock(captureGate) {tableImages.Clear();bridgeProgress.Clear();buildingIndex.Invalidate();}
+            lock(captureGate) {tableImages.Clear();bridgeProgress.Clear();Array.Clear(structureTargets,0,structureTargets.Length);Array.Clear(structureTargetGlobals,0,structureTargetGlobals.Length);buildingIndex.Invalidate();}
             planningMapIdentity=new object();Interlocked.Exchange(ref session,value);
             Interlocked.Exchange(ref sessionNativeCalls,0);Interlocked.Exchange(ref sessionNativeExits,0);
             VirtualShadow?.Begin(value);planningCapture?.Begin(value);Routes.Begin(value);routeGeometryBuild=-1;lock(decisionGate)Array.Clear(decisions,0,decisions.Length);
@@ -378,7 +380,7 @@ namespace EnemyBridgePathTest
                 ",incompleteCalls="+incompleteCalls+",captureFailures="+failures+",overflow="+overflow+",backgroundOverflow="+backgroundOverflow+",traceComplete="+(failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryPending="+(queued!=0)+",installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.OwnedCount+",sessionNativeCalls="+Interlocked.Read(ref sessionNativeCalls)+",sessionNativeExits="+Interlocked.Read(ref sessionNativeExits)+",nativeCoverageComplete="+(installed==BridgeNativeDefinition.OwnedCount&&APIShared.EnemyBridgeDiagnosticBridge.TopologyAvailable&&Interlocked.Read(ref sessionNativeCalls)>0&&Interlocked.Read(ref sessionNativeCalls)==Interlocked.Read(ref sessionNativeExits)&&capturedEntered==capturedExited&&capturedActive==0&&failures==0&&incompleteCalls==0)+",nativeUnavailable=["+nativeUnavailable+"]"+
                 ","+(planningCapture?.Status??"planningCapture=unavailable")+",physicalGeneration="+physical+",topologyGeneration="+topology+",fullCaptures="+captures+",indexBuilds="+buildingIndex.Builds+",indexBuildMs="+(buildingIndex.BuildTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+
                 ",coalesced="+coalesced+",invalidIds="+invalidIds+",pooledScopesCreated="+pooledScopes+",queue="+queued+
-                ",commandPre="+commandPre+",commandPost="+commandPost+",detailedCommands="+detailedCommands+",backgroundCalls="+backgroundCalls+
+                ",commandPre="+commandPre+",commandPost="+commandPost+",commandSuppressed="+commandSuppressed+",detailedCommands="+detailedCommands+",backgroundCalls="+backgroundCalls+
                 ",deliveryErrors="+deliveryErrors+",outputBytes="+outputBytes+",outputRecords="+outputRecords+",captureMs="+(captureTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+
                 ",drainMs="+(drainTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",siteCalls=["+sites+"]";
         }
@@ -551,6 +553,43 @@ namespace EnemyBridgePathTest
                 return Routes.Bind(unit,global,attacker,tribe,operation,parentEvent,consumer?.Id??0,root?.Id??0,plan,root==null?-1:root.PrePlan[1],player,root==null?0:DecisionFor(attacker,root.PrePlan));
             return false;
         }
+        private string PlanningRelevance(int player)
+        {
+            if(player<1||player>8)return null;
+            lock(captureGate)
+            {
+                buildingIndex.Refresh();string fallback=null,priorPath=null;
+                var buildings=GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                foreach(var bridge in buildingIndex.Entries)
+                {
+                    int slot=BridgeBuildingIndex.SpanIndex(bridge.Id,buildings.Length),parent=BridgeBuildingIndex.SpanIndex(bridge.ParentId,buildings.Length);
+                    if(slot<0||parent<0||buildings[slot].r_GlobalId!=bridge.Global||buildings[parent].r_GlobalId!=bridge.ParentGlobal||!BridgeSnapshot.Active(buildings[slot].r_AliveState)||!BridgeSnapshot.Active(buildings[parent].r_AliveState))continue;
+                    ref GameBuilding deck=ref buildings[slot];ref GameBuilding gate=ref buildings[parent];
+                    if(BridgeSnapshot.Allied(player,deck.r_PlayerIdOwner)||BridgeSnapshot.Allied(player,deck.r_CapturedByPlayerId)||BridgeSnapshot.Allied(player,gate.r_PlayerIdOwner)||BridgeSnapshot.Allied(player,gate.r_CapturedByPlayerId))continue;
+                    if(structureTargets[player]==bridge.ParentId&&structureTargetGlobals[player]==bridge.ParentGlobal)return "identity-checked-structure-target-at-prior-route-observation";
+                    if(bridgeProgress.TryGetValue(bridge.Id,out BridgeProgress prior)&&prior.Global==bridge.Global&&prior.StoredRouteRoots[player]!=0)priorPath="observed-deck-path-same-player";
+                    fallback="unallowed-coupled-bridge-candidate-not-route-proof";
+                }
+                return priorPath??fallback;
+            }
+        }
+        private string ReadStructureTarget(int tribe,int player)
+        {
+            if(tribe<1||tribe>=4500||native==IntPtr.Zero)return "structureTarget=unknown,reason=missing-native-tribe";
+            // 30E90 stores a building game ID at manager+tribe*688+64C,
+            // and its GlobalId at +650. This is not the unit-target field.
+            int at=checked(0x7CC6720+tribe*0x688+0x64c);
+            int id=Read(at)&65535;uint global=unchecked((uint)Read(at+4));
+            var buildings=GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            int slot=BridgeBuildingIndex.SpanIndex(id,buildings.Length);
+            if(slot<0)return "structureTarget=unknown,reason=missing-stored-building,storedBuildingRaw="+id+",storedGlobalRaw="+global;
+            ref GameBuilding building=ref buildings[slot];
+            if(global==0||building.r_GlobalId!=global||!BridgeSnapshot.Active(building.r_AliveState))return "structureTarget=unknown,reason=stale-building-identity";
+            int owner=building.r_PlayerIdOwner,capturer=building.r_CapturedByPlayerId;bool gate=BridgeSnapshot.IsGate(building.r_BuildingType);
+            if((Read(at)&65535)!=id||unchecked((uint)Read(at+4))!=global||building.r_GlobalId!=global)return "structureTarget=unknown,reason=changed-during-read";
+            if(player>=1&&player<=8)lock(captureGate){structureTargets[player]=id;structureTargetGlobals[player]=global;}
+            return "structureTarget="+id+"/g"+global+",structureIsGate="+gate+",structureOwner="+owner+",structureCapturer="+capturer;
+        }
         private BridgeRouteTrace.Bridge[] GetRouteGeometry()
         {
             lock(captureGate)
@@ -694,6 +733,7 @@ namespace EnemyBridgePathTest
         }
         private void FlushSearchRows(){lock(textGate){if(searchRowCount==0)return;Enqueue(new Record {Kind="search-result-batch",Detail="columns=seq/session/thread/tick/clock/physical/topology/eventOp/parent/sourceDefinition/nativeKnown/native/effective/nativeCalls/completed,rows=["+searchRows+"],envelopeTiming=batch-flush"});searchRows.Clear();searchRowCount=0;}}
         private void FlushCommandRows(){lock(textGate){if(commandRowCount==0)return;Enqueue(new Record {Kind="command-frame-batch",Detail="schema=2,postReferenceColumns=seq/session/thread/tick/clock/physical/topology/post/op/parentEvent/commandContext/preSeq/result/regions/searches/failed/followingUnitOp,columns=seq/session/thread/tick/clock/physical/topology/post/op/parentEvent/commandContext/identityDefinition/commandKind/tribe/player/command/x/y/startX/startY/sourcePcl/targetPcl/extra/result/regions/searches/failed/promoted/followingUnitOp/nearBridge/attribution,rows=["+commandRows+"],envelopeTiming=batch-flush"});commandRows.Clear();commandRowCount=0;}}
+        internal void CountSuppressedCommand(long op){Interlocked.Increment(ref commandSuppressed);Emit("command-suppressed","op="+op+",originalCalled=False,postExpected=False,source=verified-PreEvent-SkipOriginalFunction");}
         internal void CountCommand(bool pre) {if(pre) {Interlocked.Increment(ref commandPre);if(CurrentScope!=null)CurrentScope.Commands++;}else Interlocked.Increment(ref commandPost);}
         internal void TaskCommand(int unit,uint global,int tribe,int player,int command,long operation)
         {

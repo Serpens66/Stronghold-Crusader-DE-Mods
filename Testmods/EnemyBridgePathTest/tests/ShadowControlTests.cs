@@ -42,6 +42,7 @@ namespace EnemyBridgePathTest
         {
             object request=Create("Request");Set(request,"Id",1L);Set(request,"Op",40L);Set(request,"Stage","keep-access");Set(request,"Player",8);Set(request,"From",0);Set(request,"To",4);Set(request,"Native",native);Set(request,"Input",input);Set(request,"GatePolicy",policy);Set(request,"PolicyValidAtDecision",policy==null||policy.IsCurrent);return request;
         }
+        private static object RequestForPlayer(object input,int player){object request=Request(input,null);Set(request,"Player",player);return request;}
         private static List<string> Calculate(object request,bool invalidate=false)
         {
             var messages=new List<string>();var shadow=new BridgeVirtualShadow((kind,detail)=>messages.Add(kind+":"+detail),_=>throw new Exception("render read"));shadow.Begin(1);
@@ -135,7 +136,7 @@ namespace EnemyBridgePathTest
             Check(BridgePlanningImporter.TryRead(Path.Combine(folder,"planning.bin"),out plan,out reason),"frozen real plan imports");Check(BridgePlanningImporter.TryRead(Path.Combine(folder,"group.bin"),out group,out reason),"frozen linked group imports");
             Check(plan.Hash=="48EB96C1902815BC062B4C87777679A49FFCF6B38997AEA3F72FE5BCA373A552"&&group.Hash=="6E0437D565FCD4CA77D4F1CD1A56DA04F465EE3103D46FD3958893390C0BB461","real bytes remain exact");
             Check(BridgePlanningImporter.TryLinkGroup(plan,group,out reason),"real source decision retained across military frames");
-            Check(CopiedPlanningReplay.TryVariants(plan,out reason)&&reason.Contains("variant=none")&&reason.Contains("seedChanged=0,distanceChanged=0")&&reason.Contains("effectiveCount=132415")&&reason.Contains("variant=only703,cutCells=15")&&reason.Contains("keep=NoRoute,seedShortLimit=False")&&reason.Contains("variant=rebuild-only-control,cutCells=0,partitionEquivalentToRecorded=False")&&reason.Contains("seedChanged=4000,distanceChanged=34878")&&reason.Contains("negativeEligible=False")&&reason.Contains("newTargetChoice=Unknown-unrecorded-consumer"),"real continuous baseline and conditional virtual first branch, no fabricated target choice");
+            Check(CopiedPlanningReplay.TryVariants(plan,out reason)&&reason.Contains("variant=none")&&reason.Contains("seedChanged=0,distanceChanged=0")&&reason.Contains("effectiveCount=132415")&&reason.Contains("variant=single:703/g")&&reason.Contains("keep=NoRoute,seedShortLimit=False")&&reason.Contains("variant=rebuild-only-control,cutCells=0,partitionEquivalentToRecorded=False")&&reason.Contains("seedChanged=4000,distanceChanged=34878")&&reason.Contains("negativeEligible=False")&&reason.Contains("newTargetChoice=Unknown-unrecorded-consumer"),"real continuous baseline and conditional virtual first branch, no fabricated target choice");
             var copyMap=new VirtualBridgeMap(1,1,new ushort[320800],new byte[320800],new int[320800],new ushort[320800],new ushort[320800],new int[800],Array.Empty<VirtualConnection>(),true);
             var copyInput=new VirtualPlanningInput(new int[320800],new int[800],new int[6400],new ushort[320800],new ushort[320800],new short[320800],new byte[320800],new sbyte[25600],new byte[320800]);
             var rawBuildings=new byte[0x32c];var rawIds=new ushort[320800];
@@ -159,33 +160,44 @@ namespace EnemyBridgePathTest
             foreach(bool alternative in new[]{false,true})
             {
                 object input=Input(5,alternative);var policy=new Policy {Mask=Enumerable.Repeat((byte)255,alternative?10:5).ToArray()};object request=Request(input,policy);policy.Current=false;
-                var messages=Calculate(request,true);Check(messages.Count==3&&messages[0].Contains("noCut=Reachable")&&messages[0].Contains("only703="+(alternative?"Reachable":"NoRoute")),"historical policy/topology retained, alternatives and cut controls");
+                var messages=Calculate(request,true);Check(messages.Count==3&&messages[0].Contains("noCut=Reachable")&&messages[0].Contains("singleBridges=[703/g10/"+(alternative?"Reachable":"NoRoute")),"historical policy/topology retained, alternatives and cut controls");
                 Check(messages[0].Contains("macroMatchesNative=True")&&messages[1].Contains("geometryMatchesNative=True")&&messages[2].Contains("policyResult=Unknown"),"native direction baseline gates cut evidence and never enables policy");
                 messages=Calculate(Request(input,policy));Check(messages.Count==1&&messages[0].Contains("policyValidAtDecision=False"),"already stale policy at decision cannot become evidence");
                 messages=Calculate(Request(input,null,0));Check(messages[0].Contains("cutAssessment=blocked-baseline"),"baseline disagreement blocks interpretation");
             }
+            foreach(int attacker in new[]{1,2,3,4,5,6,7,8})
+            {
+                object translated=Input(5,false);object d=((Array)Get(translated,"Decks")).GetValue(0);int bridgeId=200+attacker;uint global=(uint)(900+attacker);
+                Set(d,"Id",bridgeId);Set(d,"Global",global);Set(d,"Owner",attacker==1?2:1);
+                var xs=(ushort[])Get(translated,"X");var ys=(ushort[])Get(translated,"Y");for(int i=0;i<xs.Length;i++){xs[i]+=137;ys[i]+=211;}
+                var shiftedRows=Enumerable.Repeat(-100000,800).ToArray();shiftedRows[211]=-137;Set(translated,"Rows",shiftedRows);
+                Set(translated,"Map",new VirtualBridgeMap(1,1,(ushort[])Get(translated,"Pcl"),(byte[])Get(translated,"Edges"),new int[5],xs,ys,shiftedRows,Array.Empty<VirtualConnection>(),true));
+                object request=Request(translated,null);Set(request,"Player",attacker);var outRows=Calculate(request);
+                Check(outRows[0].Contains("singleBridges=["+bridgeId+"/g"+global+"/NoRoute/1]")&&outRows[0].Contains("noCut=Reachable"),"renumbered player/bridge/global and translated coordinates preserve reachability");
+                Set(d,"Global",global+100);outRows=Calculate(RequestForPlayer(translated,attacker));Check(outRows[0].Contains("/g"+(global+100)+"/NoRoute/1"),"reused ID uses current immutable global");
+            }
             // Cutting only 703 leaves the second deck route; cutting both closes it.
             object multiple=Input(5,true);Array first=(Array)Get(multiple,"Decks");object other=Create("Deck");Set(other,"Id",720);Set(other,"Global",11u);Set(other,"Owner",1);Set(other,"Tiles",new[]{7});
             Array both=System.Array.CreateInstance(other.GetType(),2);both.SetValue(first.GetValue(0),0);both.SetValue(other,1);Set(multiple,"Decks",both);
-            var comparison=Calculate(Request(multiple,null));Check(comparison[0].Contains("only703=Reachable,allHostile=NoRoute")&&comparison[0].Contains("cutCells=0/1/2"),"single bridge distinction and alternate hostile bridge");
+            var comparison=Calculate(Request(multiple,null));Check(comparison[0].Contains("singleBridges=[703/g10/Reachable/1;720/g11/Reachable/1],allHostile=NoRoute")&&comparison[0].Contains("cutCells=0/1/1/2"),"single bridge distinction and alternate hostile bridge");
             foreach(string role in new[]{"owner","ally","capturer"})
             {
                 object roles=Input(5,false),d=((Array)Get(roles,"Decks")).GetValue(0);
                 if(role=="owner")Set(d,"Owner",8);else if(role=="capturer")Set(d,"Capturer",8);else ((bool[,])Get(roles,"Allies"))[8,1]=true;
-                Check(Calculate(Request(roles,null))[0].Contains("only703=Reachable,allHostile=Reachable,cutCells=0/0/0"),"role allows deck: "+role);
+                Check(Calculate(Request(roles,null))[0].Contains("singleBridges=[],allHostile=Reachable,cutCells=0/0"),"role allows deck: "+role);
             }
             object capturedGate=Input(5,false),gateDeck=((Array)Get(capturedGate,"Decks")).GetValue(0);
             Set(gateDeck,"Authorized",true);Set(gateDeck,"ParentId",600);Set(gateDeck,"ParentGlobal",123u);Set(gateDeck,"ParentOwner",1);Set(gateDeck,"ParentCapturer",8);
-            Check(Calculate(Request(capturedGate,null))[0].Contains("only703=Reachable,allHostile=Reachable,cutCells=0/0/0"),"rightful gate capturer retains confirmed coupled bridge");
+            Check(Calculate(Request(capturedGate,null))[0].Contains("singleBridges=[],allHostile=Reachable,cutCells=0/0"),"rightful gate capturer retains confirmed coupled bridge");
             Set(gateDeck,"Authorized",false);
-            Check(Calculate(Request(capturedGate,null))[0].Contains("only703=NoRoute,allHostile=NoRoute,cutCells=0/1/1"),"unconfirmed copied parent never grants invented access; policy stays Unknown");
+            Check(Calculate(Request(capturedGate,null))[0].Contains("singleBridges=[703/g10/NoRoute/1],allHostile=NoRoute,cutCells=0/1/1"),"unconfirmed copied parent never grants invented access; policy stays Unknown");
             object directed=Input(5,false);Array.Clear((byte[])Get(directed,"Edges"),0,5);for(int i=0;i<4;i++)((byte[])Get(directed,"Edges"))[i]=4;
             Set(directed,"Map",new VirtualBridgeMap(1,1,(ushort[])Get(directed,"Pcl"),(byte[])Get(directed,"Edges"),new int[5],(ushort[])Get(directed,"X"),(ushort[])Get(directed,"Y"),(int[])Get(directed,"Rows"),Array.Empty<VirtualConnection>(),true));
             comparison=Calculate(Request(directed,null));Check(comparison[0].Contains("noCut=Reachable")&&comparison[1].Contains("noCut=NoRoute")&&comparison[0].Contains("geometryMatchesNative=False,cutAssessment=blocked"),"directed mismatch blocks cut interpretation despite component equality");
             object unresolved=Input(5,false);Set(unresolved,"Records",new[]{new PathConnectionRecord(),new PathConnectionRecord {r_IsActive=1,r_IsEnabledOrOpen=1,r_ConnectionClass=(SHCDESE.Interop.Enums.PathConnectionClass)2,r_OwnerOrAccessPlayerId=8,r_EntryTileId=0,r_ExitTileId=4,r_PathComponentA=1,r_PathComponentB=1,r_PathComponentC=1}});Set(unresolved,"ConnectionLimit",2);
-            comparison=Calculate(Request(unresolved,null));Check(comparison.Any(v=>v.Contains("only703=Reachable")),"known A/B witness survives missing C endpoint");
+            comparison=Calculate(Request(unresolved,null));Check(comparison.Any(v=>v.Contains("703/g10/Reachable")),"known A/B witness survives missing C endpoint");
             var unresolvedRecords=(PathConnectionRecord[])Get(unresolved,"Records");unresolvedRecords[1].r_ExitTileId=1;
-            comparison=Calculate(Request(unresolved,null));Check(comparison.Any(v=>v.Contains("only703=Unknown")),"unresolved C still prevents negative proof without known A/B witness");
+            comparison=Calculate(Request(unresolved,null));Check(comparison.Any(v=>v.Contains("703/g10/Unknown")),"unresolved C still prevents negative proof without known A/B witness");
             Check(typeof(BridgeVirtualShadow).GetMethod("SameContent",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,new[]{Input(5,false),Input(5,false)}).Equals(true),"exact copied contents ignore observation metadata");
             foreach(string member in new[]{"Pcl","Edges","Flags","X","Y","Rows","SpecialIds","SpecialKinds","Owners","Capturers","Globals","UnitGlobals"})
             {
@@ -211,7 +223,7 @@ namespace EnemyBridgePathTest
             focused.GroupContext(77,4364,2416650,828295,12,6);focused.BridgeGroup(77,8);focused.BridgeGroup(77,8);
             Check((long)Get(promoted,"Id")>0&&(long)Get(promoted,"Decision")==12&&focusedMessages.Count(v=>v.StartsWith("virtual-shadow-input:"))==1,"proven group is promoted once with original decision context");
             while(Get(focused,"active")!=null||((System.Collections.ICollection)Get(focused,"pending")).Count>0)focused.Pump();
-            Set(focused,"keepArtifact",true);Set(focused,"planningBundleOp",10L);Set(focused,"planningBundleDefinition",100L);
+            Set(focused,"planningPlayer",8);Set(focused,"keepArtifact",true);Set(focused,"planningBundleOp",10L);Set(focused,"planningBundleDefinition",100L);
             focused.GroupContext(77,4364,2416650,828295,12,6,9);focused.BridgeGroup(77,8);
             Check(!(bool)Get(focused,"groupArtifact"),"different retained decision root cannot claim planning bundle");
             focused.GroupContext(77,4364,2416650,828295,12,6,10);focused.BridgeGroup(77,8);

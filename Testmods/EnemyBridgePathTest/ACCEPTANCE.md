@@ -123,3 +123,125 @@ Per-bridge decision-comparison and final comparison-coverage markers identify ac
 Frozen transport replay:4243980->3396576 bytes including prefixes (847404 saved), preserving all definitions and105 linked observations. This is a serialization regression, not proof of runtime volume or performance. Updated load fixture reproduces1695766 calls/34661 command pairs/93 rebuilds; separate unchanged/background-volume fixture includes prefixes. New graph design in Testmods/EnemyBridgePathTest/DECISION_FIX_DESIGN.md specifies virtual split-components with remapped macro endpoints and Gate authorization. It is not installed; native parent0, physical-closed boundary equivalence, special unit/mode semantics and same-save raised->lowered->raised remain prerequisites.
 
 Verification/install: the single prescribed elevated build.bat completed successfully with37731 Bridge assertions and0 warnings/0 errors. Existing3830 Gate assertions passed. Latest1695766-call/34661-command fixture emitted337855 bytes with per-record prefix allowance;75117 unchanged attacks emitted1324 bytes/four records. These are offline workload/serialization bounds, not measured in-game MB/min. Installed and local DLL SHA256 both AB5298051F3303584CE4819A38A316F81065AECFD757D742EDE7752F2CF3305F. Build transcript: _inspect/EnemyGateBuildingContextAudit/bridge-virtual-design-build.log. Runtime behavior remains passive; version0.1.0 and README unchanged. Controlled same-save raised->lowered->raised game validation remains pending; wait for session-delivered after each session.
+
+
+## Gate-front approach and sequential consumers (2026-10-12)
+
+Scope: passive diagnostics only. Behavior policy remains disabled. No new hook,
+public API, search, physical write, version change or external-mod modification.
+
+Latest frozen process: full.log SHA256
+DC30CEC51F99B5850069A17C5B6140AF5EDFA74AD594E22EFE94DCEC44C580DE.
+See historical-20261012-2316/provenance.json for exact process/session wire hashes.
+Session1 is delivered; session2 has neither end nor delivery marker. File lines
+are intact. Two session1 missing command Posts correspond to two suppressed
+originals in the same epoch's event summary; missingPost=0. The installed
+SkipOriginalFunction contract emits no Post for a suppressed original. New traces
+count commandSuppressed separately. Capture, event lifecycle and delivery are
+separate evidence.
+
+The two real consumer operations 644400 -> 644472 (root644375) and
+3743313 -> 3743381 (root3743288) were sequential, not nested. Recording now
+retains first consumer/* and second consumer2/* plus additive sequence version1
+and completed count. Each keeps its own Pre/Post operation, root, arguments and
+clock. Children inherit their own consumer parent. Identity, ordering and both
+consumer capacities are validated on import. A third consumer or real nesting
+rejects the bundle with an explicit coverage reason. Two attempts and one planning
+plus one group artifact remain the maximum. Legacy schemas remain readable.
+
+Private-memory native execution now runs two consumers consecutively with actual
+computed memory flowing between them. Capture/write/import and local handoff
+checks cover both. Productive local-stage reports explicitly do NOT claim full
+intervening military branch replay. Recorded outputs are comparison values, not
+substitutes for that missing computation. Policy remains Unknown.
+
+Structure audit: bridge-melee-audit.py checks 22 complete installed function bodies
+against the complete current hash, supplementing the 122-function decision audit.
+2C620/2C710 choose building IDs; 30E90 preserves/sets the target and GlobalId at
+native Tribe manager+tribe*688+64C/+650. 199C00 queues the contextual tribe order.
+This target is distinct from the unit-target field. The existing route publisher
+now observes the stored building target, validates alive/GlobalId twice and
+connects it to unit/global, binding, decision, path, endpoint, AIState and task
+field. No lookup is made for ID0; no pointer or span is retained. It only runs on
+existing bounded full-route observation scans, not every movement callback.
+
+Path classification is gate-footprint-observed, deck-endpoint-approach,
+deck-passage-without-parent-footprint, unknown-parent or incomplete. Ending on the
+deck is not lateral passage. None proves attack execution. Context/segment tiles
+are NOT claimed to be validated melee fields. New records explicitly retain
+attackEvidence=not-observed and permissionEvidence=requires-effective-gate-policy.
+The copied-only melee aggregate allows any proven reachable attack field,
+returns Unknown for missing fields/unknown routes and permits NoRoute only when
+the complete candidate set has no reachable alternative. It is not live policy.
+
+Resource errors: 178 occurrences of732351152 and10 of732350560. Installed
+BulkAIDetours and FixesAIDetours/Preferences were decompiled and retained. Known
+resource paths include hovel event player, siege callback player/target and
+preference lookup player. The Bridge source has no resource API call. Its audited
+V2/V3/R2/L3 wrappers forward original parameters/results unchanged; copied native
+fixtures include both invalid values and original-once exception isolation.
+There is no runtime caller stack in this log, so neither Bridge nor an external
+owner is causally identified. No resource values are replaced and no error is
+suppressed. External files remain unchanged.
+
+Realistic codec replay: all24697 original decoded trace envelopes/fields retained;
+24090 records packed. Warmed offline encode145.7ms, decode118.7ms total;
+max encode0.922ms, max decode0.963ms; GC0/1/2=67/4/2. This does not explain or
+exclude live 33ms publisher spikes; game scheduling, logger/I/O and GC remain
+unattributed. Existing render/64record/64KiB budgets and maxima remain. Current
+live volume0.44/0.37MB/min already satisfies the unchanged-background target.
+
+
+Next: see _inspect/BridgePlanningTests/MELEE_CAPTURE_20261012.md. The gate-front behavior fix is still disabled; the next run records the repaired sequence, not a behavior test.
+
+
+Validation and installation status (2026-10-13): 38130 policy assertions and
+150 private native cases/12257 checks pass. Actual installed assembly source
+compilation, fresh Windows PowerShell verify.ps1, workspace permanent-hook /
+UnitAccess / JSON / lifecycle / XAML preflight and explicit CRLF checks pass.
+Two prior original planning artifacts retain matching baseline and local handoffs.
+The prescribed elevated build.bat was invoked once. Its shared-boundary and
+APIShared-package gates passed; it aborted because the game is still running,
+before replacing the local package or installed Bridge DLL. Installation is
+pending game closure. Transcript: _inspect/BridgePlanningTests/melee-final-build.log.
+Versions, README, APIShared, Fixes and Script Extender remain unchanged.
+
+
+2026-10-13 general diagnosis preparation: all native AI players are eligible;
+bridge variants derive from immutable building/global identities, with precise
+selection cache keys and explicit capture/group coverage limits. See
+_inspect/BridgePlanningTests/GENERAL_DIAGNOSIS_20261013.md for hash-bound evidence.
+Both latest own consumers fully match native and production candidate/weight/
+availability/work replay. Intervening military branches, full building updater
+replay and actual melee target/attack proof remain Unknown. No behavior patch.
+
+Final offline validation (2026-10-13):38162 policy assertions;150 private native
+cases/12292 checks. Both latest own-consumer native comparisons and the strict
+production2/2 comparisons pass. Frozen982868-call geometry and1837071-call real
+planning/hash regressions pass with dynamic identity selections. Fresh
+powershell.exe preflight passes: workspace boundaries, UnitAccess, JSON,
+lifecycle/static publisher, permanent hooks, installed member contracts and
+CRLF. Canonical Fixes source remains v1.26.4; excluded owners unchanged.
+
+Installation BLOCKED before build: prescribed elevated Test-ConsumerPackage
+reports "APIShared package is stale. Run APIShared/build.bat /nopause first."
+Concurrent APIShared source is under modification and was not edited here.
+The Bridge-only memory compilation passes against installed APIShared and true
+Assembly-CSharp. The full source-API compilation fails in the concurrent audio
+work; it is not declared successful. No package-gate bypass or manual install.
+Bridge build remains pending the other chat's validated APIShared installation.
+Old installed Bridge DLL still contains its previous diagnostic selection.
+Versions and README remain unchanged; behavior fix remains disabled.
+
+Installation completed2026-10-13 01:36:05 after the other chat finished APIShared.
+The package-stale blocker above is resolved. APIShared source and installed
+assembly contract compilation passes again; package and installed APIShared
+hashes match. Prescribed elevated build.bat completed exit0 with0 errors and
+one existing CS0649 warning.38162 policy assertions and150 native cases pass.
+Local/installed Bridge DLL SHA256:
+79C36FD75D393CD37E676922E933B81D0849860B3AC08A51D52091E4003CEE5E.
+info.json hashes also match; Bridge version0.1.0 unchanged. Transcript:
+_inspect/BridgePlanningTests/general-diagnosis-build.log.
+General automatic diagnostic selection is now installed. Behavior fix remains
+disabled; military continuation, formation and Dirty negative-proof gaps above
+remain open. No further unchanged game start is needed for those offline gaps.

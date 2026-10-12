@@ -279,8 +279,26 @@ def analyze(raw):
                            association='retained-caller-state' if valid_decision else 'unresolved',position=v[3]+'/'+v[4]))
     ends=[f for _,f in records if f['kind']=='session-end']
     delivered={f['session']:f for _,f in records if f['kind']=='session-delivered'}
-    capture = bool(ends) and all(f.get('captureComplete')=='True' and ('entered' not in f or f['entered']==f.get('exited')) and ('commandPre' not in f or f['commandPre']==f.get('commandPost')) for f in ends)
-    delivery = bool(ends) and all(f['session'] in delivered and delivered[f['session']].get('deliveryComplete')=='True' for f in ends)
+    sessions={f['session'] for _,f in records if f.get('session') not in (None,'0',0)}
+    ended={f['session'] for f in ends}
+    historical_suppression={}
+    for line in text.splitlines():
+        match=re.search(r'bridge summary epoch=(\d+),',line)
+        if not match: continue
+        own=fields(line[match.start()+len('bridge summary '):])
+        try:
+            if int(own.get('pre',0))-int(own.get('post',0))==int(own.get('suppressed',0)) and int(own.get('missingPost',-1))==0:
+                historical_suppression[match[1]]=int(own['suppressed'])
+        except (ValueError,KeyError): pass
+    command_accounting={};previous_gap=0
+    for end in ends:
+        sid=end['session'];gap=int(end.get('commandPre',0))-int(end.get('commandPost',0))
+        known=int(end['commandSuppressed']) if 'commandSuppressed' in end else previous_gap+historical_suppression.get(sid,0)
+        command_accounting[sid]=dict(pre=int(end.get('commandPre',0)),post=int(end.get('commandPost',0)),suppressed=known,complete=gap==known,suppressionSource='trace-counter' if 'commandSuppressed' in end else 'same-epoch-event-summary' if sid in historical_suppression else 'unresolved')
+        previous_gap=gap
+    session_summary=[dict(session=v,ended=v in ended,delivered=v in delivered and delivered[v].get('deliveryComplete')=='True',commandAccounting=command_accounting.get(v,{'complete':False,'reason':'missing-session-end'})) for v in sorted(sessions,key=str)]
+    capture = bool(ends) and sessions<=ended and all(f.get('captureComplete')=='True' and ('entered' not in f or f['entered']==f.get('exited')) and ('commandPre' not in f or command_accounting[f['session']]['complete']) for f in ends)
+    delivery = bool(ends) and sessions<=ended and all(f['session'] in delivered and delivered[f['session']].get('deliveryComplete')=='True' for f in ends)
     file_complete=not torn and (not raw or raw.endswith(b'\n')) and '\ufffd' not in text
     tail=text.splitlines()[-1] if text.splitlines() else ''
     bridge_file_complete=not torn and ('bridge trace ' not in tail or raw.endswith(b'\n')) and not any('\ufffd' in line for line,_ in transport)
@@ -358,7 +376,7 @@ def analyze(raw):
                   selectedShadowComputationComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_unresolved,
                   shadowCoverageComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_deferred and not virtual_skipped,
                   usableGeometricResults=sum(f.get('geometricResult') in ('Reachable','NoRoute') for f in virtual_results.values()))
-    return dict(artifactSummary=artifact_summary,controlSummary=dict(records=len(controls),baselineAgreements=sum(f.get("macroMatchesNative")=="True" and f.get("geometryMatchesNative")=="True" for f in controls),blocked=sum(f.get("cutAssessment","").startswith("blocked") for f in controls)),coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
+    return dict(sessionSummary=session_summary,artifactSummary=artifact_summary,controlSummary=dict(records=len(controls),baselineAgreements=sum(f.get("macroMatchesNative")=="True" and f.get("geometryMatchesNative")=="True" for f in controls),blocked=sum(f.get("cutAssessment","").startswith("blocked") for f in controls)),coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
                 bridgeFileComplete=bridge_file_complete,bridgeComplete=capture and delivery and bridge_file_complete and not missing and not reconstruction,
                 fileComplete=file_complete,complete=capture and delivery and file_complete and not missing and not reconstruction,
                 reconstructionErrors=reconstruction,routeChains=chains,routeChainGroups=chain_groups,transportRecords=len(wire_transport),
@@ -377,6 +395,8 @@ def self_test():
     assert not analyze(raw+prefix.encode()+b'3,session=1,kin')['fileComplete']
     assert not analyze(raw+prefix.encode()+b'3,session=1,kin')['bridgeComplete']
     assert not analyze(raw.splitlines(keepends=True)[0])['deliveryComplete']
+    later=raw+(prefix+'3,session=2,kind=planning-capture-ready\r\n').encode()
+    assert not analyze(later)['deliveryComplete'] and not analyze(later)['captureComplete']
     assert not analyze(raw+ (prefix+'3,session=1,kind=native-enter,contextDefinition=99\r\n').encode())['complete']
     assert not analyze(raw.replace(b'captureComplete=True',b'captureComplete=False'))['captureComplete']
     nested=fields('kind=native-enter,session=1,context=[kind=wrong,session=2,rows=[1;]],state=3')
@@ -455,7 +475,7 @@ def main():
     if args.self_test:self_test()
     if not args.log:return
     result=analyze(Path(args.log).read_bytes())
-    for key in ('captureComplete','deliveryComplete','bridgeFileComplete','bridgeComplete','fileComplete','complete','coverage','definitions','missing','reconstructionErrors','routeChainGroups','movementSummary','uniqueBridgeCommands','uniqueBridgeUnits','virtualSummary','controlSummary','artifactSummary'):print(key,result[key])
+    for key in ('sessionSummary','captureComplete','deliveryComplete','bridgeFileComplete','bridgeComplete','fileComplete','complete','coverage','definitions','missing','reconstructionErrors','routeChainGroups','movementSummary','uniqueBridgeCommands','uniqueBridgeUnits','virtualSummary','controlSummary','artifactSummary'):print(key,result[key])
     print('records',len(result['records']),'torn',len(result['torn']),'traceBytesWithPrefixes',sum(result['volumes'].values()))
     print('volumeByKind',result['volumes'].most_common(12))
     print('bridgeRouteChains',len(result['routeChains']),'withDecision',sum(c.get('decisionMatches',False) for c in result['routeChains']))

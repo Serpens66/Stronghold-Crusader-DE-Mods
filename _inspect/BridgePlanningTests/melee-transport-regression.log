@@ -1,0 +1,2 @@
+Offline transport cost: encodeMs=145,6822,decodeMs=118,6876,maxEncodeMs=0,9223,maxDecodeMs=0,9628,GC0=67,GC1=4,GC2=2,gamePublisherCost=not-measured
+PASS production transport frozen replay:records=24697,packed=24090,bridgeBytesWithPrefixes=14477630->5467888,saved=8987404,offlineEncodeDecodeMs=345.763,gameCost=not-measured,output=../../_inspect/BridgePlanningTests/historical-20261012-2316/expanded.log.packed.log

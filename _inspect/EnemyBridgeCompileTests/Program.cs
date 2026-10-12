@@ -34,6 +34,9 @@ foreach (var hint in apiProject.Descendants().Where(e=>e.Name.LocalName=="HintPa
     if(File.Exists(path)) apiRefs[Path.GetFileName(path)]=path;
 }
 if(apiRefs.ContainsKey("Assembly-CSharp-publicized.dll")) apiRefs.Remove("Assembly-CSharp.dll");
+MetadataReference changedApi=MetadataReference.CreateFromFile(api);
+if(!args.Contains("--installed-api-only"))
+{
 var apiInput = EvaluateSources(Path.Combine(root,"APIShared","APIShared.csproj"));
 var apiTrees = apiInput.Paths.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path),
     CSharpParseOptions.Default.WithPreprocessorSymbols(apiInput.Symbols).WithDocumentationMode(DocumentationMode.Diagnose),path:path));
@@ -44,8 +47,10 @@ using var apiImage=new MemoryStream();
 using var apiXml=new MemoryStream();
 var apiResult=apiCompilation.Emit(apiImage,xmlDocumentationStream:apiXml);
 if(!apiResult.Success) { foreach(var d in apiResult.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)) Console.Error.WriteLine(d); return 1; }
-var changedApi=MetadataReference.CreateFromImage(apiImage.ToArray());
+changedApi=MetadataReference.CreateFromImage(apiImage.ToArray());
 Console.WriteLine("PASS: APIShared source and installed assembly visibility/signature contract (memory only, no DLL file emitted).");
+}
+else Console.WriteLine("PASS: using installed APIShared; concurrent source changes excluded from this consumer check.");
 foreach (string mod in args.Length > 1 ? args.Skip(1).Where(a=>!a.StartsWith("--")) : new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest", "EnemyBridgePathTest.PolicyTests" })
 {
     string projectDir = mod == "BugfixesAndQoL" ? Path.Combine(root,mod) : Path.Combine(root,"Testmods",mod.Replace(".PolicyTests",""));
@@ -75,7 +80,7 @@ foreach (string mod in args.Length > 1 ? args.Skip(1).Where(a=>!a.StartsWith("--
         foreach (var error in errors) Console.Error.WriteLine(error);
         if (errors.Length>0) return 1;
     }
-    Console.WriteLine("PASS: evaluated project sources compile against " + (args.Contains("--source-api-only") ? "source APIShared" : "source and installed APIShared") + ": " + mod + " (no runtime assembly emitted)");
+    Console.WriteLine("PASS: evaluated project sources compile against " + (args.Contains("--installed-api-only") ? "installed APIShared" : args.Contains("--source-api-only") ? "source APIShared" : "source and installed APIShared") + ": " + mod + " (no runtime assembly emitted)");
 }
 return 0;
 

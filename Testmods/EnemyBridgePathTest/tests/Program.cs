@@ -33,11 +33,19 @@ namespace EnemyBridgePathTest
                 {
                     BridgePlanningImporter.Artifact artifact;string reason;if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}bool known=CopiedPlanningReplay.TryConsumerInputClosure(artifact,out reason);Console.WriteLine(reason);return known?0:2;
                 }
-                if(args.Length==2&&args[0]=="--consumer-replay")
+                if(args.Length==2&&(args[0]=="--consumer-replay"||args[0]=="--consumer-replay-strict"))
                 {
                     BridgePlanningImporter.Artifact artifact;string report;
                     if(!BridgePlanningImporter.TryRead(args[1],out artifact,out report)){Console.WriteLine(report);return 2;}
-                    bool passed=CopiedPlanningReplay.TryConsumerStages(artifact,out report);Console.WriteLine(report);return passed?0:2;
+                    bool passed=CopiedPlanningReplay.TryConsumerStages(artifact,out report);if(args[0]=="--consumer-replay-strict") {string marker="fullCandidateBuildAndWeightReplay=Matched-computed-caller-candidates-weight-availability-work";int matches=report.Split(new[]{marker},StringSplitOptions.None).Length-1;passed&=matches==CopiedConsumerSequence.Count(artifact.Planning);Console.WriteLine("completeOwnConsumerComparisons="+matches+",required="+CopiedConsumerSequence.Count(artifact.Planning));}Console.WriteLine(report);return passed?0:2;
+                }
+                if(args.Length==3&&args[0]=="--planning-bridge")
+                {
+                    string[] id=args[2].Split('/');int building;uint global;
+                    if(id.Length!=2||!int.TryParse(id[0],out building)||building<=0||!uint.TryParse(id[1],out global)||global==0){Console.WriteLine("Unknown:explicit-building/global-required");return 2;}
+                    BridgePlanningImporter.Artifact artifact;string report;
+                    if(!BridgePlanningImporter.TryRead(args[1],out artifact,out report)){Console.WriteLine(report);return 2;}
+                    bool passed=CopiedPlanningReplay.TryVariants(artifact,out report,building,global);Console.WriteLine(report);return passed?0:2;
                 }
                 if(args.Length==2&&args[0]=="--planning-variants")
                 {

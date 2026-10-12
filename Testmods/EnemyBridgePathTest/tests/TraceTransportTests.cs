@@ -34,13 +34,14 @@ namespace EnemyBridgePathTest
         internal static int Replay(string path)
         {
             var output=new StringBuilder();long oldBytes=0,newBytes=0,saved=0;int records=0,packedRecords=0;
+            BridgeTraceTransport.WarmUp();long encodeTicks=0,decodeTicks=0,maxEncodeTicks=0,maxDecodeTicks=0;int gc0=GC.CollectionCount(0),gc1=GC.CollectionCount(1),gc2=GC.CollectionCount(2);
             var watch=Stopwatch.StartNew();var pending=new System.Collections.Generic.List<string>();int pendingBytes=0;
             void Flush()
             {
                 if(pending.Count==0)return;
-                string wire=BridgeTraceTransport.EncodeBatch(pending,out int original,out int reduction);
+                long started=Stopwatch.GetTimestamp();string wire=BridgeTraceTransport.EncodeBatch(pending,out int original,out int reduction);long elapsed=Stopwatch.GetTimestamp()-started;encodeTicks+=elapsed;maxEncodeTicks=Math.Max(maxEncodeTicks,elapsed);
                 if(wire!=null)
-                {if(!BridgeTraceTransport.DecodeLines(wire).SequenceEqual(pending))throw new Exception("frozen batch changed any byte or field");output.Append(wire).Append("\r\n");newBytes+=Encoding.UTF8.GetByteCount(wire)+2;packedRecords+=pending.Count;saved+=reduction;}
+                {started=Stopwatch.GetTimestamp();if(!BridgeTraceTransport.DecodeLines(wire).SequenceEqual(pending))throw new Exception("frozen batch changed any byte or field");elapsed=Stopwatch.GetTimestamp()-started;decodeTicks+=elapsed;maxDecodeTicks=Math.Max(maxDecodeTicks,elapsed);output.Append(wire).Append("\r\n");newBytes+=Encoding.UTF8.GetByteCount(wire)+2;packedRecords+=pending.Count;saved+=reduction;}
                 else foreach(string line in pending){output.Append(line).Append("\r\n");newBytes+=Encoding.UTF8.GetByteCount(line)+2;}
                 pending.Clear();pendingBytes=0;
             }
@@ -58,6 +59,7 @@ namespace EnemyBridgePathTest
             }
             Flush();
             string result=path+".packed.log";File.WriteAllText(result,output.ToString(),new UTF8Encoding(false));
+            Console.WriteLine("Offline transport cost: encodeMs="+(encodeTicks*1000.0/Stopwatch.Frequency)+",decodeMs="+(decodeTicks*1000.0/Stopwatch.Frequency)+",maxEncodeMs="+(maxEncodeTicks*1000.0/Stopwatch.Frequency)+",maxDecodeMs="+(maxDecodeTicks*1000.0/Stopwatch.Frequency)+",GC0="+(GC.CollectionCount(0)-gc0)+",GC1="+(GC.CollectionCount(1)-gc1)+",GC2="+(GC.CollectionCount(2)-gc2)+",gamePublisherCost=not-measured");
             Console.WriteLine("PASS production transport frozen replay:records="+records+",packed="+packedRecords+",bridgeBytesWithPrefixes="+oldBytes+"->"+newBytes+",saved="+saved+",offlineEncodeDecodeMs="+watch.Elapsed.TotalMilliseconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",gameCost=not-measured,output="+result);return 0;
         }
     }

@@ -35,7 +35,7 @@ namespace EnemyBridgePathTest
             internal int Unit,Player,Tribe,ControlRaw;
             internal uint Global;
             internal long Command,ParentEvent,Consumer,PlanningRoot,CandidatePlan,Session,Definition,LastProgress,LastScan,CommandStarted,Decision,Binding;
-            internal int Phase;
+            internal int Phase;internal string StructureTarget;
             internal bool HasHeader,HasPlan,Stall,Relevant,PreCaptured,ReturnKnown,CompareCommand,PathChangedByCommand;
             internal Header BeforeCommand, InvalidHeader;
             internal bool HasInvalidHeader, BindingPublished;
@@ -149,12 +149,20 @@ namespace EnemyBridgePathTest
         private readonly Action<long,int,long,long> unboundChange;
         private readonly Func<int,IntPtr> testUnit;
         private readonly Func<int,GameUnitPathPlanView> testView;
+        private readonly Func<int,int,string> structureTarget;
         private bool movementConfirmed;
         private long session,definition,calls,commandReturns,scans,changes,readTicks,bytesRead;
         private long lastCalls,lastCommandReturns,lastScans,lastChanges,lastReadTicks,lastBytes;
-        internal BridgeRouteTrace(Action<string,string> emit,Func<Bridge[]> geometry,Func<long> capture,Func<int,IntPtr> testUnit=null,Func<int,GameUnitPathPlanView> testView=null,Action<int,uint,int,long,long,long,long,bool> evidence=null,Action<long,int,long,long> unboundChange=null)
-        {this.emit=emit;this.geometry=geometry;this.capture=capture;this.testUnit=testUnit;this.testView=testView;this.evidence=evidence;this.unboundChange=unboundChange;}
+        internal BridgeRouteTrace(Action<string,string> emit,Func<Bridge[]> geometry,Func<long> capture,Func<int,IntPtr> testUnit=null,Func<int,GameUnitPathPlanView> testView=null,Action<int,uint,int,long,long,long,long,bool> evidence=null,Action<long,int,long,long> unboundChange=null,Func<int,int,string> structureTarget=null)
+        {this.emit=emit;this.geometry=geometry;this.capture=capture;this.testUnit=testUnit;this.testView=testView;this.evidence=evidence;this.unboundChange=unboundChange;this.structureTarget=structureTarget;}
         internal void ForceReobserve() {lock(gate)foreach(var track in tracks.Values)track.HasPlan=false;}
+        internal static string Classify(Bridge bridge,bool complete,bool gateSeen,int endX,int endY)
+        {
+            if(!complete)return "incomplete";
+            if(gateSeen)return "gate-footprint-observed";
+            if(bridge.Deck.Contains(Bridge.XY(endX,endY)))return "deck-endpoint-approach";
+            return bridge.Parent==0?"unknown-parent":"deck-exit-without-gate-footprint";
+        }
         internal void Begin(long value) {lock(gate) {Flush();tracks.Clear();contents.Clear();contentCount=0;session=value;movementConfirmed=false;emit("route-format","format=2,completeness=decoded-stored-transitions,consistency=single-copy-header-stability-only,bridgeColumns=building/global/firstStep/lastStep/entryX/entryY/exitX/exitY/classification,packedEncoding=low-nibble-first,parentAssociation=candidate-unless-native-link,execution=not-proven,coverage=stored-plan-only");}}
         internal string Summary() {lock(gate)return "movementCallbacks="+calls+",commandReturns="+commandReturns+",tracked="+tracks.Count+",pathScans="+scans+",pathChanges="+changes+",routeReadMs="+(readTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);}
         internal string Interval()
@@ -242,6 +250,12 @@ namespace EnemyBridgePathTest
                         if(commandReturn&&!bound&&prior!=track.Definition&&track.Content!=null&&track.Content.Relevant)
                             unboundChange?.Invoke(expectedCommand,unit,track.Definition,track.Command);
                     }
+                    if(track.Relevant&&structureTarget!=null&&scan)
+                    {
+                        string target=structureTarget(track.Tribe,track.Player);
+                        if(target!=track.StructureTarget)
+                        {track.StructureTarget=target;PublishBinding(track);emit("structure-approach",Link(track)+",pathDefinition="+track.Definition+",position="+h.X+"/"+h.Y+",contextTarget="+h.TargetX+"/"+h.TargetY+",segmentTarget="+h.SegmentX+"/"+h.SegmentY+",aiState="+value->r_AIState+",taskTile="+value->r_AI_ContextTargetBuildingTileId+","+target+",targetSource=stored-tribe-structure-order,attackEvidence=not-observed,permissionEvidence=requires-effective-gate-policy,approachFieldEvidence=stored-path-endpoint-not-a-validated-melee-field");}
+                    }
                     ObserveMovement(track,h,post,started);
                 }
                 catch(Exception error) {emit("route-capture-error",Link(track)+",type="+error.GetType().Name+",message="+error.Message);}
@@ -306,7 +320,7 @@ namespace EnemyBridgePathTest
                 }
                 if(first<0)continue;
                 t.Relevant=true;touched.Add(bridge);t.FirstDeck=Math.Min(t.FirstDeck,first);t.LastDeck=Math.Max(t.LastDeck,last);
-                intersections.Append(bridge.Id).Append('/').Append(bridge.Global).Append('/').Append(first).Append('/').Append(last).Append('/').Append(entryX).Append('/').Append(entryY).Append('/').Append(exitX).Append('/').Append(exitY).Append('/').Append(gateSeen?"gate-footprint-observed":bridge.Parent==0?"unknown-parent":full?"deck-without-parent-footprint":"incomplete").Append(';');
+                intersections.Append(bridge.Id).Append('/').Append(bridge.Global).Append('/').Append(first).Append('/').Append(last).Append('/').Append(entryX).Append('/').Append(entryY).Append('/').Append(exitX).Append('/').Append(exitY).Append('/').Append(Classify(bridge,full,gateSeen,decodedX,decodedY)).Append(';');
             }
             var directions=new StringBuilder();if(intersections.Length!=0||!complete)for(int i=0;i<(h.Length+1)/2;i++)directions.Append(packed[i].ToString("X2"));
             t.Content=new PathContent {Header=h,Bytes=packed.Slice(0,(h.Length+1)/2).ToArray(),Id=++definition,Geometry=geo,Complete=complete,Relevant=t.Relevant,First=t.FirstDeck,Last=t.LastDeck,Bridges=intersections.ToString(),Touched=touched.ToArray()};t.Definition=t.Content.Id;

@@ -196,7 +196,7 @@ namespace EnemyBridgePathTest
                 var skipped = frames[frames.Count - 1];
                 frames.RemoveAt(frames.Count - 1);
                 if(skipped.Epoch!=epoch) { boundaryPosts++; continue; }
-                suppressedCount++;
+                suppressedCount++;if(skipped.TraceId!=0)Trace.CountSuppressedCommand(skipped.TraceId);
                 Record(skipped, "event-suppressed", "original-skipped-no-post", skipped.Identity);
             }
         }

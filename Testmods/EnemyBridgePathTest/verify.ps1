@@ -114,16 +114,16 @@ $artifactSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeInput
 $componentSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/VirtualComponentControl.cs'))
 if ($shadowSource -match 'nextCapture|request.Input.Revision==revision|request.Input.Identity==identity|third=input.Anchors' -or
     $shadowSource -notmatch 'PolicyValidAtDecision=policyValid' -or
-    $shadowSource -notmatch 'request.Variant%3==1&&bridge.Id!=703' -or
-    $shadowSource -notmatch 'if\(\+\+active.Variant<6\)' -or
-    $shadowSource -notmatch 'sameCoordinates' -or $shadowSource -notmatch 'takeOwnership:true') { throw 'Historical input, exact coordinate reuse or six-control comparison regression' }
+    $shadowSource -notmatch 'single!=null&&\(bridge.Id!=single.Id\|\|bridge.Global!=single.Global\)' -or
+    $shadowSource -notmatch 'if\(\+\+active.Variant<active.VariantCount\)' -or
+    $shadowSource -notmatch 'sameCoordinates' -or $shadowSource -notmatch 'takeOwnership:true') { throw 'Historical input, exact coordinate reuse or dynamic-control comparison regression' }
 if ($componentSource -match 'SHCDESE|APIShared|Marshal|IntPtr' -or
     $artifactSource -match 'SHCDESE|FindNext|FindPath|Marshal|ThreadPool|Task.Run' -or
     $artifactSource -notmatch 'BlockLimit=65536' -or $artifactSource -notmatch 'count>=2' -or
     $artifactSource -notmatch 'BRGEND01' -or $artifactSource -notmatch 'File.Move\(active.Partial,active.Final\)' -or
     $traceSource -notmatch 'ArtifactPending\(ended\)' -or
     [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeDiagnostics.cs')) -notmatch 'PumpArtifacts\(\);Trace.Drain\(\)') { throw 'Copied-input control, bounded artifact writer or durable completion regression' }
-Write-Host 'PASS: historical copied inputs, no guessed third endpoint, six controls, max two artifacts and one 64KiB render block.'
+Write-Host 'PASS: historical copied inputs, no guessed third endpoint, dynamic controls, max two artifacts and one 64KiB render block.'
 
 # Partial macro knowledge must never manufacture C or discard verified A/B witnesses.
 if ($coreSource -notmatch 'if\(connection.ThirdEndpointUnknown\)uncertain=true' -or
@@ -181,10 +181,13 @@ foreach ($field in @('nativeWorkDirections64','nativeDirectionMasks8','nativeWor
 if ($collector -notmatch 'consumer-native-table-changed' -or $importer -notmatch 'consumer-native-table-changed') { throw 'Consumer native table pre/post stability missing' }
 $candidateInputs=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/CopiedCandidateInputs.cs'))
 if ($candidateInputs -notmatch 'missing-own-consumer-table' -or $candidateInputs -notmatch '!calculated.Complete' -or $candidateInputs -match 'ConstantBytes|CrusaderLibraryLoadContext|File.ReadAllBytes') { throw 'Copied candidate inputs may not substitute unrecorded tables' }
-foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualCandidateBuilder.cs|CopiedCandidateInputs.cs' }) {
+foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualCandidateBuilder.cs|CopiedCandidateInputs.cs|CopiedPlanningReplay.cs' }) {
     if ([IO.File]::ReadAllText($path) -match 'new VirtualCandidateBuilder|CopiedCandidateInputs\.TryCreate') { throw 'Dormant candidate continuation unexpectedly activated in a live callback' }
 }
-Write-Host 'PASS: bounded own consumer table capture, optional legacy import and dormant copied candidate continuation.'
+foreach ($path in $sources | Where-Object { $_ -notmatch 'CopiedPlanningReplay.cs' }) {
+    if ([IO.File]::ReadAllText($path) -match 'CopiedPlanningReplay\.TryConsumerStages|FullCandidateReplay\(') { throw 'Offline candidate replay became reachable from a live callback' }
+}
+Write-Host 'PASS: bounded own consumer table capture, optional legacy import and offline-only copied candidate continuation.'
 
 $definitionSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeNativeDefinition.cs'))
 if ($definitionSource -notmatch 'site.Rva != 0xE49D0 && site.Rva != 0x111C00' -or [regex]::Matches($hookSource,'if \(!BridgeNativeDefinition.OwnsEntry\(').Count -ne 2) {throw 'External topology/ladder owners must be excluded from validation and detour preparation'}
@@ -217,3 +220,23 @@ if(!$transportSource.Contains('WarmUp') -or !$commandText.Contains('maxEncodeMs'
 $deferredSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeDiagnostics.cs'))
 if(!$commandText.Contains('maxDeferredRenderMs') -or !$commandText.Contains('whole-deferred') -or !$commandText.Contains('System.Globalization.CultureInfo.InvariantCulture') -or !$deferredSource.Contains('Trace.RenderCost')){throw 'Whole publisher cost scope or invariant metrics missing'}
 Write-Host 'PASS: two own-entry full-manager attempts, identity/stability checks and additive legacy importer; synthetic publisher warmup and interval maxima.'
+
+$sequenceSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/CopiedPlanningBundle.cs'))
+if(!$entryCapture.Contains('consumerCount>=2') -or !$entryCapture.Contains('consumerPrefix') -or !$entryCapture.Contains('consumerSequence/count') -or $entryCapture.Contains('duplicate-or-nested-consumer') -or !$entryImporter.Contains('CopiedConsumerSequence.Validate') -or !$entryImporter.Contains('CopiedConsumerSequence.View')){throw 'Sequential own-consumer capture/import boundary missing'}
+if(!$sequenceSource.Contains('start<previousEnd') -or !$sequenceSource.Contains('consumer-sequence-child-boundary') -or !$commandText.Contains('commandSuppressed') -or !$deferredSource.Contains('CountSuppressedCommand')){throw 'Sequence ordering or suppressed-original command accounting missing'}
+$routeSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeRouteTrace.cs'))
+if(!$routeSource.Contains('deck-endpoint-approach') -or !$routeSource.Contains('attackEvidence=not-observed') -or !$routeSource.Contains('structureTarget!=null&&scan') -or !$commandText.Contains('checked(0x7CC6720+tribe*0x688+0x64c)')){throw 'Bounded, identity-checked structure approach evidence missing'}
+Write-Host 'PASS: at most two ordered own consumers, legacy import, suppression accounting and passive structure/deck endpoint evidence.'
+
+# Reject nonzero literal selection filters; zero neutrality and native bounds remain legal.
+$identityFilter='(?i)\b(?:player|attacker|bridge\.Id|bridge\.Global)\s*(?:==|!=|=(?!=))\s*[1-9][0-9]*\b|\ba\s*==\s*[1-8]\b|only703|player8|\b(?:225464|228518)\b'
+foreach($fixture in @('player==3','attacker!=8','bridge.Id==494','bridge.Global==17','Player=6')) {if($fixture -notmatch $identityFilter){throw ('Identity scanner missed fixture: '+$fixture)}}
+foreach($fixture in @('player>=1&&player<=8','player!=0','bridge.Id!=single.Id','int Capacity=320800')) {if($fixture -match $identityFilter){throw ('Identity scanner rejected native contract fixture: '+$fixture)}}
+foreach($generalSource in @('BridgePlanningCapture.cs','BridgeVirtualShadow.cs','CopiedPlanningReplay.cs','BridgeDecisionTrace.cs')) {
+    $generalText=[IO.File]::ReadAllText((Join-Path $PSScriptRoot ('src/'+$generalSource)))
+    # The audited complete one-based player iteration is a native bound, not a selection.
+    $selectionText=$generalText.Replace('for(int player=1;player<=8;player++)','for(allNativePlayers)')
+    if($selectionText -match $identityFilter) {throw ('Savegame-specific diagnostic filter: '+$generalSource)}
+}
+if(!$shadowSource.Contains('new QueryKey("prepared:"+selection') -or !$shadowSource.Contains('missingMatchingGroupArtifact') -or !$entryCapture.Contains('planningBudgetExhausted') -or !$entryCapture.Contains('relevance(attacker)')){throw 'Automatic selection, precise preparation key or explicit missing coverage contract absent'}
+Write-Host 'PASS: automatic relevant player/deck selection, identity-specific cut caches and explicit bounded capture coverage.'

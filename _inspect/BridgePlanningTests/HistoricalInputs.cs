@@ -11,6 +11,7 @@ namespace BridgePlanningTests
         private delegate int R3(IntPtr self,int a,int b);
         // Explicit original files, not an arbitrary-file bypass. Importer also verifies envelope.
         private static bool ApprovedPlanning(string hash) =>
+            hash=="B9DD0EA2FFA052B41D33B0C24F7103F35BCE19E22801E35083A8B3BEACDA7764" ||
             hash=="3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB" ||
             hash=="15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872" ||
             hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6" ||
@@ -34,15 +35,17 @@ namespace BridgePlanningTests
             {
                 // Reuse the production validator for coupling identities and all role checks.
                 if(!CopiedPlanningReplay.TryVariants(a,out reason))throw new Exception(reason);
-                var decks=ArrayValues<int>(a.Sections["decks"]);var parents=ArrayValues<int>(a.Sections["coupledParents5"]);var cut=new List<int>();
+                var decks=ArrayValues<int>(a.Sections["decks"]);var parents=ArrayValues<int>(a.Sections["coupledParents5"]);var cut=new List<int>();int singleId=0;uint singleGlobal=0;
                 bool Related(int p)=>p!=0&&(p==b.Attacker||a.Sections["allies"][b.Attacker*9+p]!=0);
                 for(int p=0;p<decks.Length;)
                 {
                     int id=decks[p],count=decks[p+7],parent=-1;for(int q=0;q<parents.Length;q+=5)if(parents[q]==id)parent=q;
                     if(parent<0)throw new Exception("missing coupling");
                     bool allowed=Related(decks[p+2])||Related(decks[p+3])||Related(parents[parent+3])||Related(parents[parent+4]);
-                    if(!allowed&&(variant==2||id==703))cut.AddRange(decks.Skip(p+8).Take(count));p+=8+count;
+                    if(!allowed){if(singleId==0){singleId=id;singleGlobal=unchecked((uint)decks[p+1]);}if(variant==2||id==singleId)cut.AddRange(decks.Skip(p+8).Take(count));}p+=8+count;
                 }
+                if(variant==1&&singleId==0)throw new Exception("Unknown:no-unallowed-single-bridge-in-own-input");
+                Console.WriteLine("cut-selection="+(variant==1?singleId+"/g"+singleGlobal:"all-unallowed")+",cutCells="+cut.Count);
                 int[] rr=ArrayValues<int>(Get("rowRecords")),ends=new int[800];for(int y=0;y<800;y++)ends[y]=rr[y*3+2];
                 var publication=new VirtualRaisedPlanning(input,map,cut.ToArray(),ends,Get("buildingRecords"),ArrayValues<ushort>(Get("buildingIds")));
                 while(!publication.Rebuild.Complete)publication.Step(4096);if(!publication.Rebuild.Proven)throw new Exception(publication.Rebuild.Reason);
@@ -72,12 +75,12 @@ namespace BridgePlanningTests
             return bytes;
         }
 
-        private static int HistoricalCandidates(string path,bool continuous=false,int variant=0,bool referenceTables=false)
+        private static int HistoricalCandidates(string path,bool continuous=false,int variant=0,bool referenceTables=false,int ordinal=0)
         {
             BridgePlanningImporter.Artifact a;string reason;
             if(!BridgePlanningImporter.TryRead(path,out a,out reason))throw new Exception(reason);
             if(!ApprovedPlanning(a.Hash)||a.Planning==null)throw new Exception("unapproved historical candidate input");
-            var b=a.Planning;
+            var originalBundle=a.Planning;var b=ordinal==0?originalBundle:CopiedConsumerSequence.View(originalBundle,ordinal);
             if(!CopiedPlanningReplay.TryBaseline(a,out reason))throw new Exception(reason);
             if(!CopiedPlanningReplay.TryConsumerInputClosure(a,out reason))throw new Exception(reason);
             byte[] Get(string name)=>CopiedPlanningBundle.Resolve(b,name);
@@ -220,7 +223,8 @@ namespace BridgePlanningTests
                     int castleResult=m.Function<R3>(0xCF360)(m.Ptr(0x366C210),b.Attacker,b.Target);
                     Check(predictedCastle==castleResult,"managed post-consumer castle decision");
                     Equal(managedCandidates.Bytes(Root,0xe0),m.Bytes(Root,0xe0),"complete managed castle-query controls");
-                    if(variant==0)Check(castleResult!=0,"recorded positive post-consumer castle decision");
+                    if(variant==0&&CopiedConsumerSequence.Count(originalBundle)==1)Check(castleResult!=0,"hash-approved historical positive post-consumer castle decision");
+                    if(CopiedConsumerSequence.Count(originalBundle)>1){Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native own consumer entire player output");Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",complete candidate/weight/availability/work outputs match;castle="+castleResult+";fullSequentialMilitary=Unknown:intervening-military-branches-not-replayed");return 0;}
                     Console.WriteLine("variant="+variant+",nativeCastleResult="+castleResult+",projectedTarget="+m.Int(0x379D968+b.Attacker*0x583c)+",militaryBranch="+(castleResult!=0?"4-to-6-return":"4-to-5-follow-up-required")+",fullMilitaryExecuted=False,policy=Unknown");
                     if(variant==0)Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native consumer entire player output");
                     int playerOffset=b.Attacker*0x583c;

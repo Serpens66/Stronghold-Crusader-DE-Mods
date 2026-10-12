@@ -18,7 +18,7 @@ for name,args in [('planning',['--planning-variants',str((folder/'planning.bin')
  c=subprocess.run([str(exe)]+args,cwd=mod,capture_output=True,text=True);assert c.returncode==0,(name,c.stdout,c.stderr);results[name]=c.stdout
  (folder/(name+'-result.txt')).write_bytes(c.stdout.replace('\r\n','\n').replace('\n','\r\n').encode())
 assert 'seedChanged=0,distanceChanged=0' in results['planning'] and 'effectiveCount=132415' in results['planning']
-assert 'variant=only703,cutCells=15' in results['planning'] and 'seedChanged=4000,distanceChanged=34878' in results['planning'] and 'firstChange=CF360-to-D95E0-R8' in results['planning']
+assert re.search(r'variant=single:703/g[0-9]+,cutCells=15',results['planning']) is not None and 'seedChanged=4000,distanceChanged=34878' in results['planning'] and 'firstChange=CF360-to-D95E0-R8' in results['planning']
 assert 'dirty=1' in results['geometry-plan'] and 'blocked-pending-topology' in results['geometry-plan'] and 'nativeRevision=43' in results['geometry-plan']
 assert 'dirty=0' in results['geometry-group'] and 'nativeRevision=46' in results['geometry-group']
 # Encode this historical command population using the new fixed numeric shape.

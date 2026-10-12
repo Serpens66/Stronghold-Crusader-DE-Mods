@@ -108,8 +108,11 @@ namespace EnemyBridgePathTest
                     if(a.Metadata.TryGetValue("planningConsumerCaptureVersion",out string consumerVersion)&&consumerVersion!="0"&&consumerVersion!="1"&&consumerVersion!="2")throw new InvalidDataException("consumer-version");
                     b.ConsumerVersion=string.IsNullOrEmpty(consumerVersion)?0:int.Parse(consumerVersion);
                     if((consumerVersion=="1"||consumerVersion=="2")&&!b.Sections.ContainsKey("consumer/pre/identity"))throw new InvalidDataException("missing-versioned-consumer");
-                    if(b.Sections.ContainsKey("consumer/pre/identity"))
+                    CopiedConsumerSequence.Validate(b);
+                    var sequenceBundle=b;
+                    for(int consumerOrdinal=0;consumerOrdinal<CopiedConsumerSequence.Count(sequenceBundle);consumerOrdinal++)
                     {
+                        b=CopiedConsumerSequence.View(sequenceBundle,consumerOrdinal);
                         foreach(string stage in new[]{"consumer/pre","consumer/post","consumer/build-pre","consumer/build-post","consumer/weight-pre","consumer/weight-post"})
                         {
                             byte[] identity=CopiedPlanningBundle.Resolve(b,stage+"/identity");int expected=stage=="consumer/pre"||stage=="consumer/post"?72:80;
@@ -149,6 +152,7 @@ namespace EnemyBridgePathTest
                         }
                         foreach(string state in new[]{"entryPlayer","exitPlayer"})if(CopiedPlanningBundle.Resolve(b,"military/"+state).Length!=0x583c)throw new InvalidDataException("military-player-extent");
                     }
+                    b=sequenceBundle;
                     if(b.Sections.ContainsKey("military/entryInputVersion")||b.References.ContainsKey("military/entryInputVersion"))CopiedMilitaryEntry.Validate(b);
                     else foreach(string key in new[]{"entryUnitManagerFull","entryTribesFull","entryPlayers9","entryQuota","entryEngineerCounters2"})
                         if(b.Sections.ContainsKey("military/"+key)||b.References.ContainsKey("military/"+key))throw new InvalidDataException("partial-own-entry-without-version");

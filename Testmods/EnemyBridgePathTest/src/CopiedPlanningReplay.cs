@@ -33,8 +33,10 @@ namespace EnemyBridgePathTest
             if(actual.Candidates.Count!=expected.Candidates.Count)throw new InvalidOperationException("baseline-candidate-count:"+stage);for(int i=0;i<actual.Candidates.Count;i++)if(actual.Candidates[i]!=expected.Candidates[i])throw new InvalidOperationException("baseline-candidate-order:"+stage);
             byte[] candidateCapacity=(byte[])CopiedPlanningBundle.Resolve(b,pre+"/candidateCapacity8").Clone();if(candidateCapacity.Length!=8000)throw new InvalidOperationException("candidate-capacity");for(int i=0;i<actual.Candidates.Count;i++)Buffer.BlockCopy(BitConverter.GetBytes(actual.Candidates[i]),0,candidateCapacity,i*8,4);Equal(candidateCapacity,CopiedPlanningBundle.Resolve(b,stage+"/candidateCapacity8"),stage+"/whole-candidate-table-preserved-second-column");
         }
-        internal static bool TryBaseline(BridgePlanningCapture.Bundle bundle,VirtualBridgeMap map,out string reason)
+        internal static bool TryBaseline(BridgePlanningCapture.Bundle bundle,VirtualBridgeMap map,out string reason) => TryBaseline(bundle,map,out reason,out _);
+        private static bool TryBaseline(BridgePlanningCapture.Bundle bundle,VirtualBridgeMap map,out string reason,out VirtualPlanningState calculated)
         {
+            calculated=null;
             reason="missing-historical-planning-values";if(bundle==null)return false;
             try
             {
@@ -66,14 +68,14 @@ namespace EnemyBridgePathTest
                     // Effective Fixes count is captured separately; no presumed equality to native.
                     selections++;
                 }
-                reason=selections==0?"baseline-fields-match;target-selection-not-observed":"continuous-caller-seed-distance-fields-and-native-selection-match;effective-fixes-count-separate";return true;
+                reason=selections==0?"baseline-fields-match;target-selection-not-observed":"continuous-caller-seed-distance-fields-and-native-selection-match;effective-fixes-count-separate";calculated=state;return true;
             }
             catch(Exception error){reason="baseline-not-proven:"+error.GetType().Name+":"+error.Message;return false;}
         }
 
         // One state from caller entry through computed seed/distance and observed
         // 2C5A0 projection. This does not invent an unrecorded 2C480 target choice.
-        internal static bool TryVariants(BridgePlanningImporter.Artifact artifact,out string report)
+        internal static bool TryVariants(BridgePlanningImporter.Artifact artifact,out string report,int selectedBridge=0,uint selectedGlobal=0)
         {
             report="missing-historical-planning-values";string baseline;
             if(!TryBaseline(artifact,out baseline)){report=baseline;return false;}
@@ -87,7 +89,7 @@ namespace EnemyBridgePathTest
                 if((uint)originTile>=320800||targetTile<0||players[b.Attacker*7+4]!=b.Target)throw new ArgumentException("caller-player-target-or-castle");
                 var lines=new List<string>();lines.Add("baseline="+baseline+",dirty="+b.Dirty+",nativeGeneration="+b.Revision+",planningClock="+b.Clock+",captureClock="+artifact.Metadata["captureClock"]+",observationClock="+artifact.Metadata["observationClock"]+",inputTiming="+artifact.Metadata["inputTiming"]+",negativeEligible=False,behaviorFix=disabled");
                 ValidateConnectionIdentities(artifact);
-                int[] parents=Values<int>(artifact,"coupledParents5",4),decks=Values<int>(artifact,"decks",4);var cutOne=new List<int>();var cutAll=new List<int>();
+                int[] parents=Values<int>(artifact,"coupledParents5",4),decks=Values<int>(artifact,"decks",4);var singles=new Dictionary<string,int[]>();var cutAll=new List<int>();
                 if(parents.Length%5!=0)throw new ArgumentException("coupling-definition-extent");
                 for(int p=0;p<decks.Length;)
                 {
@@ -99,13 +101,17 @@ namespace EnemyBridgePathTest
                     uint[] globals=Values<uint>(artifact,"globals",4);int[] owners=Values<int>(artifact,"owners",4),capturers=Values<int>(artifact,"capturers",4);
                     int gateId=parents[parent+1];if(id<1||gateId<1||id>globals.Length||gateId>globals.Length||globals[id-1]!=unchecked((uint)decks[p-7])||globals[gateId-1]!=unchecked((uint)parents[parent+2])||owners[id-1]!=owner||capturers[id-1]!=capturer||owners[gateId-1]!=parents[parent+3]||capturers[gateId-1]!=parents[parent+4])throw new ArgumentException("coupling-identity-role-mismatch");
                     bool allowed=Related(artifact,b.Attacker,owner)||Related(artifact,b.Attacker,capturer)||Related(artifact,b.Attacker,parents[parent+3])||Related(artifact,b.Attacker,parents[parent+4]);
-                    if(!allowed)for(int n=0;n<count;n++){cutAll.Add(decks[p+n]);if(id==703)cutOne.Add(decks[p+n]);}p+=count;
+                    if(!allowed){var cells=new int[count];Array.Copy(decks,p,cells,0,count);cutAll.AddRange(cells);uint global=unchecked((uint)decks[p-7]);if(selectedBridge==0||selectedBridge==id&&selectedGlobal==global)singles.Add(id+"/g"+global,cells);}p+=count;
                 }
-                for(int variant=0;variant<4;variant++)
+                if(selectedBridge!=0&&(selectedGlobal==0||singles.Count!=1))throw new ArgumentException("selected-bridge-missing-stale-or-authorized");
+                var variants=new List<KeyValuePair<string,int[]>> {new KeyValuePair<string,int[]>("none",Array.Empty<int>()),new KeyValuePair<string,int[]>("rebuild-only-control",Array.Empty<int>())};
+                foreach(var single in singles)variants.Add(new KeyValuePair<string,int[]>("single:"+single.Key,single.Value));
+                variants.Add(new KeyValuePair<string,int[]>("all-unallowed-coupled",cutAll.ToArray()));
+                for(int variant=0;variant<variants.Count;variant++)
                 {
                     VirtualPlanningInput input;VirtualPlanningState state;string reason;
                     if(!CopiedPlanningBundle.TryRead(b,map,"caller-pre",out input,out state,out reason))throw new ArgumentException(reason);
-                    VirtualBridgeMap topology=map;int[] counts=Histogram(map.Components);int[] cut=variant<=1?Array.Empty<int>():variant==2?cutOne.ToArray():cutAll.ToArray();
+                    VirtualBridgeMap topology=map;int[] counts=Histogram(map.Components);int[] cut=variants[variant].Value;
                     if(variant!=0)
                     {
                         var ends=new int[800];for(int i=0;i<ends.Length;i++)ends[i]=rr[i*3+2];
@@ -133,7 +139,7 @@ namespace EnemyBridgePathTest
                         if(variant==0&&selected.Count!=values[5])throw new InvalidOperationException("effective-Fixes-histogram-mismatch");
                         selection+=";observedSelectionTile="+args[2]+",computedSeed="+selected.Seed+",computedRegion="+selected.Region+",effectiveCount="+selected.Count+",capturedNativeCount="+values[7]+",capturedEffectiveCount="+values[5]+",targetCastleRegion="+selected.TargetCastleRegion;
                     }
-                    lines.Add("variant="+(variant==0?"none":variant==1?"rebuild-only-control":variant==2?"only703":"all-unallowed-coupled")+",cutCells="+cut.Length+",partitionEquivalentToRecorded="+EquivalentPartitions(map.Components,topology.Components)+",partitionDelta=["+PartitionDelta(map,topology.Components)+"],nativeDirection=target-to-attacker,keep="+(reachable.Value==0?"NoRoute":"Reachable")+",seedShortLimit="+call.SeedShortLimit+",origin="+origin+",destination="+destination+",candidateDistance="+call.CandidateDistance+",seedChanged="+seedChanged+",distanceChanged="+distanceChanged+",candidateTableCount="+state.Candidates.Count+",candidateProvenance="+(call.CandidateDistance==0?"inherited-no-new-D9190-candidates":"computed-plus-inherited")+",candidateSequence="+string.Join("/",state.Candidates)+selection+",firstChange="+(call.SeedShortLimit!=(seedNative[1]!=0)?"CF360-to-D95E0-R8":seedChanged!=0?"seed-fields":distanceChanged!=0?"distance-fields":"none")+",basis="+(b.Dirty!=0?"conditional-captured-physics-pending-native-topology":"copied-physics")+",newTargetChoice=Unknown-unrecorded-consumer,policy=Unknown");
+                    lines.Add("variant="+variants[variant].Key+",cutCells="+cut.Length+",partitionEquivalentToRecorded="+EquivalentPartitions(map.Components,topology.Components)+",partitionDelta=["+PartitionDelta(map,topology.Components)+"],nativeDirection=target-to-attacker,keep="+(reachable.Value==0?"NoRoute":"Reachable")+",seedShortLimit="+call.SeedShortLimit+",origin="+origin+",destination="+destination+",candidateDistance="+call.CandidateDistance+",seedChanged="+seedChanged+",distanceChanged="+distanceChanged+",candidateTableCount="+state.Candidates.Count+",candidateProvenance="+(call.CandidateDistance==0?"inherited-no-new-D9190-candidates":"computed-plus-inherited")+",candidateSequence="+string.Join("/",state.Candidates)+selection+",firstChange="+(call.SeedShortLimit!=(seedNative[1]!=0)?"CF360-to-D95E0-R8":seedChanged!=0?"seed-fields":distanceChanged!=0?"distance-fields":"none")+",basis="+(b.Dirty!=0?"conditional-captured-physics-pending-native-topology":"copied-physics")+",newTargetChoice=Unknown-unrecorded-consumer,policy=Unknown");
                 }
                 report=string.Join(Environment.NewLine,lines);return true;
             }
@@ -179,6 +185,19 @@ namespace EnemyBridgePathTest
         }
         internal static bool TryConsumerStages(BridgePlanningImporter.Artifact artifact,out string reason)
         {
+            reason="Unknown:missing-consumer-sequence";if(artifact?.Planning==null)return false;
+            try
+            {
+                CopiedConsumerSequence.Validate(artifact.Planning);int count=CopiedConsumerSequence.Count(artifact.Planning);if(count==0)return false;
+                var reports=new List<string>();
+                for(int n=0;n<count;n++)
+                {var own=new BridgePlanningImporter.Artifact {Schema=artifact.Schema,Hash=artifact.Hash,Planning=CopiedConsumerSequence.View(artifact.Planning,n)};foreach(var section in artifact.Sections)own.Sections.Add(section.Key,section.Value);foreach(var metadata in artifact.Metadata)own.Metadata.Add(metadata.Key,metadata.Value);if(!TrySingleConsumerStages(own,out string report)){reason="consumerOrdinal="+(n+1)+";"+report;return false;}reports.Add("consumerOrdinal="+(n+1)+";"+report);}
+                reason=string.Join(" | ",reports)+";sequentialFullReplay=Unknown:intervening-military-branches-not-replayed";return true;
+            }
+            catch(Exception error){reason="Unknown:consumer-sequence:"+error.Message;return false;}
+        }
+        private static bool TrySingleConsumerStages(BridgePlanningImporter.Artifact artifact,out string reason)
+        {
             reason="Unknown:missing-historical-consumer-inputs";var b=artifact?.Planning;if(b==null||!b.Sections.ContainsKey("consumer/pre/identity"))return false;
             try
             {
@@ -197,10 +216,35 @@ namespace EnemyBridgePathTest
                     byte[] values=CopiedPlanningBundle.Resolve(b,"consumer/weight-pre/gameModeValues");if(values.Length!=8)throw new ArgumentException("weight-mode-values-extent");int maximum=BitConverter.ToInt32(values,4)==0&&BitConverter.ToInt32(values,0)==28?150:70;
                     Equal(Weights(maximum),CopiedPlanningBundle.Resolve(b,"consumer/weight-post/candidates"),"full-weight-handoff");weight="Matched-actual-input-limit-"+maximum;
                 }
-                reason="captured-local-handoffs-match;fullWeightReplay="+weight+";fullCandidateBuildAndWeightReplay=Unknown;fullMilitaryConsumer=Unknown;behaviorFix=disabled";return true;
+                reason="captured-local-handoffs-match;fullWeightReplay="+weight+";fullCandidateBuildAndWeightReplay="+FullCandidateReplay(artifact)+";fullMilitaryConsumer=Unknown;behaviorFix=disabled";return true;
             }
             catch(Exception error){reason="Unknown:consumer-stage-mismatch:"+error.Message;return false;}
         }
+        private static string FullCandidateReplay(BridgePlanningImporter.Artifact artifact)
+        {
+            try
+            {
+                var b=artifact.Planning;byte[] Get(string key)=>CopiedPlanningBundle.Resolve(b,key);
+                var map=new VirtualBridgeMap(b.Session,b.Revision,Values<ushort>(artifact,"components",2),Values<byte>(artifact,"edges",1),Values<int>(artifact,"flags",4),Values<ushort>(artifact,"x",2),Values<ushort>(artifact,"y",2),Values<int>(artifact,"rows",4),Array.Empty<VirtualConnection>(),true,Values<ushort>(artifact,"specialIds",2),Values<short>(artifact,"specialKinds",2));
+                Equal(map.Components,Get("consumer/pre/components"),"consumer-own-geometry-components");Equal(map.Flags,Get("consumer/pre/flags"),"consumer-own-geometry-flags");Equal(map.Edges,Get("consumer/pre/edges"),"consumer-own-geometry-edges");
+                VirtualPlanningState state;string reason;
+                if(!TryBaseline(b,map,out reason,out state))return "Unknown:"+reason;
+                VirtualCandidateBuilder builder;
+                if(!CopiedCandidateInputs.TryCreate(b,state,map,Get("consumer/pre/macroRecords"),Histogram(map.Components),out builder,out reason))return reason;
+                Equal(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-pre/candidates"),"full-projection-unit-handoff");
+                builder.Run(b.Attacker,b.Target);
+                Equal(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-post/candidates"),"full-candidate-builder");Equal(builder.Bytes(0x535ef90,320800),Get("consumer/build-post/seeds"),"full-candidate-seeds");Equal(builder.Bytes(0x53ad4b0,320800),Get("consumer/build-post/selectionMask"),"full-candidate-mask");
+                var modes=Get("consumer/weight-pre/gameModeValues");int maximum=BitConverter.ToInt32(modes,4)==0&&BitConverter.ToInt32(modes,0)==28?150:70;
+                var weights=VirtualCandidateWeights.Run(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),b.Attacker,b.Target,Get("consumer/pre/players"),Raw(state.Distance),b.Bank,Get("consumer/pre/flags"),Get("consumer/pre/unitTiles"),Get("consumer/pre/unitManager"),Get("tileRows"),Get("directionOffsets"),maximum);
+                Equal(weights,Get("consumer/weight-post/candidates"),"full-computed-candidate-weights");
+                var available=VirtualCandidateConsumers.Availability(weights,b.Attacker,1);builder.Replace(VirtualCandidateConsumers.Root,available);builder.PostConsumer(b.Target);
+                Equal(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"),"full-computed-availability");
+                foreach(var range in new[]{Tuple.Create("workControls",0x60ad660,0xe0),Tuple.Create("workQueueControls",0x60ad660+0x155f38,0x34),Tuple.Create("workQueue",0x60ad660+0x155f6c,320800*4),Tuple.Create("workQueueRows",0x60ad660+0x28f3ec,320800*2),Tuple.Create("workQueueX",0x60ad660+0x32be2c,320800*2),Tuple.Create("workDistances",0x5225b10,320800*2),Tuple.Create("workVisits",0x52c2550,320800*2),Tuple.Create("workTargets",0x37f1edc,9*50*16)})Equal(builder.Bytes(range.Item2,range.Item3),Get("consumer/post/"+range.Item1),"full-computed-"+range.Item1);
+                return "Matched-computed-caller-candidates-weight-availability-work;computedCastle="+builder.Castle(b.Attacker,b.Target)+";militaryContinuation=Unknown";
+            }
+            catch(Exception error){return "Unknown:"+error.GetType().Name+":"+error.Message;}
+        }
+        private static byte[] Raw(Array values){var bytes=new byte[Buffer.ByteLength(values)];Buffer.BlockCopy(values,0,bytes,0,bytes.Length);return bytes;}
         internal static bool TryConsumerInputClosure(BridgePlanningImporter.Artifact artifact,out string reason)
         {
             var b=artifact?.Planning;if(b==null){reason="Unknown:missing-planning";return false;}

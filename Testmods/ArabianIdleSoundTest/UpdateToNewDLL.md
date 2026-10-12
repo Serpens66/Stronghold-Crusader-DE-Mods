@@ -26,3 +26,68 @@ Before accepting an update, re-audit the whole handler/dispatcher and other soun
 The first in-game test (2026-10-11 14:55:06.456) failed before hook publication: `ArgumentException: Invalid path`, caused by deriving installed file paths from GameMap.Assembly.Location. All binary paths now derive exclusively from BepInEx.Paths.GameRootPath. Test byte-loaded assemblies with empty Location and missing/wrong-hash files after changes to startup or hashing. Log the waiting state before subscribing because LibraryLoaded may replay synchronously.
 
 Runtime unit lookup uses APIShared.UnitAccess.TryGetById (dependency>=0.7.0) and preserves the exact audited type/state/context checks. No extra liveness filter is applied. Compile against the verified local APIShared package; never bundle it. The shared preflight owns the UnitAccess scan and must stop the build for direct SDK lookups or ignored checked results. Sound factor and testmod version remain 0.25 and0.1.0 while the listening test is pending.
+
+## APIShared ownership (2026-10-12)
+
+The test plugin is now a consumer of APIShared.Audio.SoundEvents, dependency
+0.7.2 during testing. Its own native/IL hook implementations have been replaced,
+not retained as a fallback. All binary, copied-backend, installed-member and IL
+tests now live in APIShared/tests/APISharedTests. The original audit above is
+historical evidence; APIShared/src/Audio owns the production contracts.
+
+The consumer only registers ArabianIdleSwordDraw -> MultiplyVolume(0.25f),
+retains Enabled, and reports first successful SFXManager submission. That marker
+is not a guarantee of audible playback. Additional custom clips, repeat limits
+and unit situations must be developed and tested here before becoming public
+APIShared contracts. Version remains0.1.0.
+
+`Tests.PlaybackProbe` defaults to Volume25. Optional ReplaceVanilla selects
+effect179, Suppress omits the managed call, and PanLeft sets panorama-1.
+All probes require the same audited ArabianIdleSwordDraw context and Enabled.
+These are hearing probes in the test consumer, never APIShared defaults.
+
+## Live ingame hearing settings (2026-10-12)
+
+The latest Unity run confirmed the migrated shared native callback at23:44:16.539
+and Volume25 dispatch at23:44:18.771: sound180, gain0.6876894 ->0.1719223.
+There were no Error/Fatal lines in that startup section. Other probes and map
+transitions are not inferable from the first-dispatch marker alone.
+
+The testmod now registers its own Script Extender modsettings page through the
+APIShared preset registration path. EnableMod and ProbeIndex are PresetLocal;
+setters immediately update the permanent sound registration's logical state.
+The old BepInEx cfg is left on disk but is no longer read. Preset persistence
+owns the replacement settings; defaults remain enabled and Volume25. Changes
+reset the bounded confirmation so each hearing probe can be checked in one run.
+No hooks, native context contracts or public APIShared behavior changed.
+
+## Custom clips and soldier source expansion (2026-10-13)
+
+The production hook owner remains APIShared. The old handler span above is
+historical and is no longer installed; current wrappers are 0x2960/0x2990 (15
+bytes each) plus the unchanged emitter. See APIShared/UpdateToNewDLL.md and its
+public audio catalog. The consumer adds CustomClip (private Sounds/APISharedTriad.wav:
+PCM16/44100 mono, three rising 440/660/880 Hz tones) and a local situation selector.
+Default is still the confirmed Arabian sword-draw quarter-volume rule. New
+source meanings are Inferred unless accepted for that exact source/type. Logs
+include source, situation, evidence, unit type, target, gain and final panorama.
+Read AUDIO_TEST_CLIP and AUDIO_TEST_DISPATCH together; a target Effect means the
+custom clip was not ready or playback fell back. Hearing and new source acceptance
+remain in-game tests. No clips or integer namespaces are bundled as global effects.
+
+## Consumer unit filter and repeat-window checks
+
+The unit selector contains all attributed catalog types, plus an all-types entry.
+It compares nullable Context.UnitType and does not perform a live native lookup.
+The 0–60000 ms setting is a local validated integer persisted through presets;
+its text property is only a UI projection, applied on focus loss. Defaults stay
+all types / 0 ms. A single monotonic Stopwatch window covers all matching
+requests, not individual units. Blocked requests do not extend it. Settings and
+APIShared mission start/end/initialization callbacks reset the window. The
+process-rooted mission publisher and sound registry survive startup cleanup.
+No new game member, native hook, file loading or Unity lifecycle callback is used.
+
+Verify interval boundaries with injected timestamps, exclusion without consuming
+the window, sharing across different sources/types, a pre-existing veto, reset
+and zero interval before changing DLL references. Validate real Unity rendering
+of the two new controls and the AUDIO_TEST_COOLDOWN marker in the next game test.

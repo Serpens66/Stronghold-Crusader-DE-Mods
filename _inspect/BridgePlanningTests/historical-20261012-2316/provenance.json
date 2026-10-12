@@ -1,0 +1,63 @@
+{
+  "source": "E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/LogOutput.log",
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "files": {
+    "full.log": {
+      "sha256": "DC30CEC51F99B5850069A17C5B6140AF5EDFA74AD594E22EFE94DCEC44C580DE",
+      "bytes": 9027910,
+      "derived": false
+    },
+    "process.log": {
+      "sha256": "DC30CEC51F99B5850069A17C5B6140AF5EDFA74AD594E22EFE94DCEC44C580DE",
+      "bytes": 9027910,
+      "derived": false
+    },
+    "expanded.log": {
+      "sha256": "6CD11A4753CE04F7D0D3D2DDDF3F7E088CEC3EAE8E5C6DFF9C902CC3172150B6",
+      "bytes": 17661276,
+      "derived": true
+    },
+    "session-1-wire.log": {
+      "sha256": "9AD74B52785D8B2448B3C2F151E69C37AA3F89B679E5141724DE350B04C9C625",
+      "bytes": 3037595,
+      "scope": "exact Bridge wire lines; intervening external logs remain in process.log"
+    },
+    "session-2-wire.log": {
+      "sha256": "30CEE45FA8194ACF67FB7E39965006F84DE46B3DC4E2C9A0FD00DEFBC689F0C1",
+      "bytes": 2806673,
+      "scope": "exact Bridge wire lines; intervening external logs remain in process.log"
+    }
+  },
+  "sessions": [
+    {
+      "session": "1",
+      "ended": true,
+      "delivered": true,
+      "commandAccounting": {
+        "pre": 56634,
+        "post": 56632,
+        "suppressed": 2,
+        "complete": true,
+        "suppressionSource": "same-epoch-event-summary"
+      }
+    },
+    {
+      "session": "2",
+      "ended": false,
+      "delivered": false,
+      "commandAccounting": {
+        "complete": false,
+        "reason": "missing-session-end"
+      }
+    }
+  ],
+  "captureComplete": false,
+  "deliveryComplete": false,
+  "bridgeFileComplete": true,
+  "resourceErrors": {
+    "732351152": 178,
+    "732350560": 10
+  },
+  "suppressionSource": "same-epoch-event-summary: session1 suppressed2,missingPost0",
+  "codecReplay": "all decoded envelopes ordinal-equal"
+}

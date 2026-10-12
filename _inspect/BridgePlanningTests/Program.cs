@@ -341,6 +341,16 @@ namespace BridgePlanningTests
             capture.Begin(3);capture.Observe(0x2D250,false,3,300,290,8,8,1,0,0,true);capture.Observe(0x2D250,false,3,301,300,8,8,1,0,0,true);Check(reasons.Any(v=>v.Contains("nested-planning-family")),"nested family isolated");
             capture.Begin(4);capture.Observe(0x2D250,false,4,400,390,8,8,1,0,0,true);capture.End();Check(reasons.Any(v=>v.Contains("map-ended-during-planning")),"map end explicitly terminates incomplete capture");
             var failed=new BridgePlanningCapture(m.Size,(r,n)=>{throw new InvalidOperationException("fixture-read-failure");},()=>token,v=>{throw new Exception("unexpected delivery");},(k,d)=>reasons.Add(d));failed.Begin(5);failed.Observe(0x2D250,false,5,500,490,8,8,1,0,0,true);Check(reasons.Any(v=>v.Contains("capture-error")),"copy exception isolated before original");
+            foreach(int player in new[]{1,2,3,4,5,6,7,8})
+            {
+                int reads=0;var general=new BridgePlanningCapture(m.Size,(r,n)=>{reads++;throw new InvalidOperationException("selection-fixture-read-boundary");},()=>token,v=>{throw new Exception("unexpected delivery");},(k,d)=>{},relevance:p=>p==player?"observed-relevant-fixture":null);
+                general.Begin(20+player);general.Observe(0x2D250,false,20+player,900,890,player,player,1,0,0,true);
+                Check(reads==1&&general.Status.Contains("planningCaptureAttempts=1"),"all valid attackers reach bounded own-input capture");
+                general.Begin(30+player);general.Observe(0x2D250,false,30+player,901,890,player,player,1,0,0,true,suitable:false);
+                Check(reads==1&&general.Status.Contains("planningCaptureAttempts=0"),"irrelevant phase consumes no copy or attempt");
+            }
+            int irrelevantReads=0;var irrelevant=new BridgePlanningCapture(m.Size,(r,n)=>{irrelevantReads++;throw new Exception("irrelevant must not read");},()=>token,v=>{},(k,d)=>{},relevance:p=>null);
+            irrelevant.Begin(50);irrelevant.Observe(0x2D250,false,50,950,940,2,2,1,0,0,true);Check(irrelevantReads==0&&irrelevant.Status.Contains("no-observed-bridge-relevance"),"no relevant bridge skips capture before memory reads");
             var unbound=new BridgePlanningCapture(m.Size,(r,n)=>{throw new Exception("unbound family must not read memory");},()=>token,v=>{throw new Exception("unbound delivery");},(k,d)=>reasons.Add(d),requireMilitaryRoot:true);unbound.Begin(6);unbound.Observe(0x2D250,false,6,600,590,8,8,1,0,0,true);Check(reasons.Any(v=>v.Contains("unresolved-military-parent"))&&unbound.ActiveFamily==0,"unresolved parent is distinct and makes no complete copy");
             m.Int(0x379D974+8*0x583c,4);int fullReads=0;
             var bounded=new BridgePlanningCapture(m.Size,(r,n)=>{if(r==0x67E8400&&n==BridgePlanningCapture.EntryUnitBytes)fullReads++;return m.Bytes(r,n);},()=>token,v=>{},(k,d)=>reasons.Add(d));
@@ -360,11 +370,33 @@ namespace BridgePlanningTests
             capture.Observe(0x10DF60,false,7,705,704,8,8,1,0,0,true,699);m.Function<V3>(0x10DF60)(m.Ptr(VirtualCandidateConsumers.Root),8,1);capture.Observe(0x10DF60,true,7,705,704,8,8,1,0,0,true,699);
             m.Int(0x379AFA4+0x583c,0);capture.Observe(0x115B10,false,7,706,704,8,1,8,0,0,true,699);m.Function<V3>(0x115B10)(m.Ptr(VirtualCandidateConsumers.Root),1,8);capture.Observe(0x115B10,true,7,706,704,8,1,8,0,0,true,699);
             foreach(int rva in new[]{0x112370,0x1123E0,0x112200,0x112450,0x112190})m.Function<V3>(rva)(m.Ptr(VirtualCandidateConsumers.Root),1,8);
-            capture.Observe(0x2C480,true,7,704,699,8,8,0,0,0,true,699);m.Int(0x379D974+8*0x583c,6);capture.Observe(0x3C2E0,true,7,699,690,8,8,0,0,0,true,0);
+            capture.Observe(0x2C480,true,7,704,699,8,8,0,0,0,true,699);
+            // A completed consumer is not nesting. Native memory carries the
+            // first computed outputs directly into the second consumer's input.
+            capture.Observe(0x2C480,false,7,714,699,8,8,0,0,0,true,699);m.Function<V2>(0x1126B0)(m.Ptr(VirtualCandidateConsumers.Root),8);
+            capture.Observe(0x10DF60,false,7,715,714,8,8,1,0,0,true,699);m.Function<V3>(0x10DF60)(m.Ptr(VirtualCandidateConsumers.Root),8,1);capture.Observe(0x10DF60,true,7,715,714,8,8,1,0,0,true,699);
+            capture.Observe(0x115B10,false,7,716,714,8,1,8,0,0,true,699);m.Function<V3>(0x115B10)(m.Ptr(VirtualCandidateConsumers.Root),1,8);capture.Observe(0x115B10,true,7,716,714,8,1,8,0,0,true,699);
+            foreach(int rva in new[]{0x112370,0x1123E0,0x112200,0x112450,0x112190})m.Function<V3>(rva)(m.Ptr(VirtualCandidateConsumers.Root),1,8);
+            capture.Observe(0x2C480,true,7,714,699,8,8,0,0,0,true,699);m.Int(0x379D974+8*0x583c,6);capture.Observe(0x3C2E0,true,7,699,690,8,8,0,0,0,true,0);
             Check(bundle!=null&&CopiedPlanningBundle.Resolve(bundle,"consumer/pre/unitManager").Length>=0x65c&&CopiedPlanningBundle.Resolve(bundle,"consumer/weight-post/candidates").Length==VirtualCandidateConsumers.Bytes&&BitConverter.ToInt32(bundle.Sections["military/exitPlayer"],0x379D974-0x379AE00)==6,"complete consumer inputs/outputs and own military phase boundary captured");
             Check(bundle!=null&&bundle.Sections["military/entryUpdateClasses11"].Length==88&&bundle.Sections["military/entryMoveClasses11"].Length==88&&bundle.Sections["military/entryLeaderIds9"].Length==18&&bundle.Sections["military/entryConfig5"].Length==20&&CopiedPlanningBundle.Resolve(bundle,"callerHeight").Length==N&&CopiedPlanningBundle.Resolve(bundle,"callerBaseHeight").Length==N,"own entry dependencies and decision-time heights captured independently");
             Check(bundle!=null&&bundle.Sections.ContainsKey("target/703/values8"),"target selection associated by actual frame and completed parent");byte[] selectionBytes=bundle.Sections["target/703/values8"];Check(BitConverter.ToInt32(selectionBytes,20)==912&&BitConverter.ToInt32(selectionBytes,28)==144,"synthetic effective and native counts kept separate");
             Check(CopiedPlanningReplay.TryBaseline(bundle,new VirtualBridgeMap(7,4,f.Component,f.Edge,f.Flag,gx,gy,f.Rows,Array.Empty<VirtualConnection>(),true),out replayReason),"productive complete baseline with captured selection: "+replayReason);
+            CopiedConsumerSequence.Validate(bundle);Check(CopiedConsumerSequence.Count(bundle)==2,"two sequential complete consumers preserved");
+            var secondConsumer=CopiedConsumerSequence.View(bundle,1);Equal(CopiedPlanningBundle.Resolve(bundle,"consumer/post/candidates"),CopiedPlanningBundle.Resolve(secondConsumer,"consumer/pre/candidates"),"first computed native outputs flow directly into second own input");
+            Check(BitConverter.ToInt64(CopiedPlanningBundle.Resolve(secondConsumer,"consumer/pre/identity"),16)==714,"second view retains its own operation identity");
+            byte[] validSecond=bundle.Sections["consumer2/pre/identity"];bundle.Sections["consumer2/pre/identity"]=(byte[])validSecond.Clone();Buffer.BlockCopy(BitConverter.GetBytes(704L),0,bundle.Sections["consumer2/pre/identity"],16,8);
+            bool sequenceRejected=false;try{CopiedConsumerSequence.Validate(bundle);}catch(ArgumentException){sequenceRejected=true;}Check(sequenceRejected,"same or nested operation cannot claim sequential completeness");bundle.Sections["consumer2/pre/identity"]=validSecond;
+            foreach(bool nested in new[]{false,true})
+            {
+                var badCapture=new BridgePlanningCapture(m.Size,m.Bytes,()=>token,v=>{throw new Exception("unexpected invalid consumer delivery");},(kind,detail)=>reasons.Add(detail));badCapture.Begin(7);
+                var flags=System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance;
+                typeof(BridgePlanningCapture).GetField("ready",flags).SetValue(badCapture,bundle);
+                typeof(BridgePlanningCapture).GetField("consumerCount",flags).SetValue(badCapture,nested?0:2);
+                typeof(BridgePlanningCapture).GetField("consumerOp",flags).SetValue(badCapture,nested?704L:0L);
+                badCapture.Observe(0x2C480,false,7,744,699,8,8,0,0,0,true,699);
+                Check(reasons.Any(v=>v.Contains(nested?"nested-consumer":"consumer-coverage-limit-two")),"genuine nesting and third consumer reject independently of completed sequential consumers");
+            }
             CopiedMilitaryEntry.Validate(bundle);
             Check(bundle.Sections["military/entryUnitManagerFull"].Length==BridgePlanningCapture.EntryUnitBytes&&bundle.Sections["military/entryTribesFull"].Length==BridgePlanningCapture.EntryTribeBytes,"own full military managers include all9999 search slots and tribe membership words");
             Check(BitConverter.ToInt32(bundle.Sections["military/entryQuota"],0)==m.Int(0x366C210+BitConverter.ToInt32(bundle.Sections["military/entryConfig5"],0)*0x5e4-0x380),"separate entry quota independent of formation count");
@@ -534,6 +566,7 @@ namespace BridgePlanningTests
             if(args.Length==2&&args[0]=="--historical-military"){try{return HistoricalMilitaryCoverage(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-table-hypothesis"){try{return HistoricalCandidates(args[1],true,int.Parse(args[2]),true);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-variant"){try{return HistoricalCandidates(args[1],true,int.Parse(args[2]));}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
+            if(args.Length==3&&args[0]=="--historical-consumer"){try{return HistoricalCandidates(args[1],true,0,false,int.Parse(args[2])-1);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==2&&args[0]=="--historical-consumers"){try{return HistoricalCandidates(args[1],true);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==2&&args[0]=="--historical-physical"){try{return HistoricalPhysical(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==2&&args[0]=="--historical-candidates"){try{return HistoricalCandidates(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}

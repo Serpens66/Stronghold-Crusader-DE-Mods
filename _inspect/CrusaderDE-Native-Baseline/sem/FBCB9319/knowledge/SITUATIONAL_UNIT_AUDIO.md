@@ -41,3 +41,186 @@ The repair resolves all three binary files from BepInEx.Paths.GameRootPath and r
 Both immediate unit lookups now use APIShared.UnitAccess.TryGetById with consumed boolean results and the existing type/state/context conditions. This changes no native identity, liveness, RNG or sound semantics. The mod declares APIShared>=0.7.0 and compiles against the verified fresh local package; APIShared sources are unchanged.
 
 The shared build preflight now invokes Test-UnitAccess with the selected mod scope. Scanner fixtures cover guarded calls, the central owner, forbidden SDK calls and ignored results. Exact production gate execution checks scope forwarding and nonzero-exit propagation; 18 existing build drivers no longer repeat the same check. A full workspace scan passed for 1074 runtime sources. The revised isolated audio tests passed 113 checks. Actual post-cleanup hook callbacks and reduced audible playback still require the next Unity game test.
+
+## 2026-10-12 shared audio integration
+
+The local Unity run on 2026-10-11 installed the repaired hooks at16:53:59.180,
+confirmed native invocation after startup cleanup at16:56:03.873 and submitted
+sound180 at16:56:23.569 with computed gain1.647522 ->0.4118806 (factor0.25).
+The user also reported the audible reduction. The log contains no testmod error.
+Unrelated-resource-lookup errors were already present in archived runs without
+the audio mod; their caller is not identified by those logs.
+
+APIShared/src/Audio now owns the same hash-bound native entries and GameMap IL
+sites. The marker transports Arabian context only. Ordered Pre rules run on
+Unity and compose gain, effect replacement, panorama or suppression.
+Post confirms presentation submission/suppression, not audible output.
+Sound IDs refer to the private validated SFXManager.fx_list effect table;
+Extender custom clip IDs index play_list and cannot be passed as effect IDs.
+Generic managed interception survives native-context unavailability. Unknown
+contexts carry no unit or player identity. The migrated integration still
+requires a new in-game hearing/activation/map-transition acceptance test.
+
+## Completed integration review (2026-10-12)
+
+The shared integration passed a second focused code review before final
+installation. Audio and gatehouse reservations share the process composition
+root's NativeOwnershipRegistry; isolated runtime instances retain separate
+registries. Logging failures cannot change audio availability or escape native
+callbacks. Test-consumer probe changes reset their bounded confirmation marker.
+No direct SDK unit lookup, transient Unity callback or published-hook teardown
+was introduced. Script Extender and canonical local Fixes targets remain
+nonoverlapping with the audited audio entries and managed call sites.
+
+Copied NativeX64 probes use the same UnitTick/Emit delegate types as production
+and validate Absolute scheme, displacement, target, entry, patch bytes, verbatim
+trampoline prologue and jump continuation before and after publication. Modified
+IL branches/switches entering a replaced call are rejected without mutation.
+The full APIShared build passed 275 tests (152 Core, 102 installed API, 21
+presets), all installed-member and Windows PowerShell 5.1 validation paths,
+plus standalone packaging/provenance and workspace permanent-hook checks.
+The consumer preflight passed UnitAccess scope/error propagation and its
+hook-free public-rule tests. Both elevated build.bat installations completed;
+all 14 APIShared payload files and 4 consumer payload files matched local
+outputs by SHA-256. The 10 publisher-tool files also matched.
+
+This is build/install evidence, not a new Unity listening test. New shared
+hook lifetime, Enabled comparison, optional replacement/suppression/pan probes,
+movement/combat and map transitions still require in-game acceptance.
+
+## Latest Unity log evidence (2026-10-12)
+
+The local LogOutput.log run initializes shared managed playback at23:16:14.313,
+publishes both native context hooks at23:16:14.656, and registers the consumer
+at23:16:15.753 with probe=Volume25 and context=Ready. At23:18:47.807,
+AUDIO_PLAYBACK_CONFIRMED proves the permanent shared GameMap dispatch runs
+after startup cleanup. The inspected log through23:33:36 contains no audio
+initialization/context/callback error, but also no audio unit-callback or
+consumer sword-draw playback confirmation. Thus this run proves managed hook
+lifetime, not yet the Arabian context capture or25-percent shared rule.
+All188 error lines are SHCDE-SE TryGetPlayerResourcesById range failures;
+they do not identify the caller and are not audio failure markers.
+
+## Shared Arabian playback confirmed (2026-10-12)
+
+The newer local startup installed shared audio at23:43:49.978/23:43:50.321,
+registered Volume25 at23:43:51.487 and reached the actual Arabian callback
+at23:44:16.539 (unit9/type75/state1/tile354,477). Shared managed dispatch ran
+at23:44:16.762, followed by the consumer's sound180 submission at23:44:18.771:
+gain0.6876894 ->0.1719223, suppressed=False. The startup section contains no
+Error/Fatal lines. This confirms context transport and quarter-volume dispatch
+through APIShared on Unity. Listening comparisons and other probe outcomes are
+not observable from these one-time markers alone; the user reports completing
+the tests possible within this startup.
+
+The consumer is being equipped with PresetLocal ingame settings to switch its
+logical enablement/probe without reinstalling or repatching. Every settings
+change resets its next-dispatch marker. Native/IL contracts remain unchanged.
+
+## Live settings replacement evidence (reviewed 2026-10-13)
+
+Latest local startup at2026-10-12 23:57 successfully registers the ingame
+settings page and the shared rule. At23:58:25.867 its callback reports
+probe=ReplaceVanilla, suppressed=False, final effect179 and unchanged computed
+gain1.365933. This demonstrates live mode publication and replacement dispatch,
+not an audible-output guarantee. No Error/Fatal lines occur in this section.
+The newest local log file write is23:58:39.
+
+The hash-bound managed SFXManager stronghold_main_list has effect179 mapped to
+fx/sheathin_01 and fx/sheathin_02 (FX_SHEATH_IN), while180 maps to
+fx/sheathout_01 and fx/sheathout_02 (FX_SHEATH_OUT). The replacement is therefore
+sword sheathing, not a categorically distinct test cue. The user reports no
+noticeable audible difference; distinguish dispatch proof from listening.
+
+## User listening acceptance (2026-10-13)
+
+The user reports testing the available hearing modes. Suppress produced no
+idle sword-draw sound, as intended: audible suppression is confirmed. With the
+replacement mode, the user heard a sound different from Vanilla but could not
+confidently identify it. Combined with the previous final-effect179 dispatch
+marker, this supports functioning replacement and an audible change; exact
+sheathin variant identification remains unconfirmed. Quarter-volume reduction
+was already reported as audible in the earlier test.
+
+The user cannot test stereo panorama. PanLeft remains covered by isolated
+contract tests only; presumed operation is not in-game acceptance evidence.
+No runtime/code change or version promotion follows from this report alone.
+
+## Additional live-mode log confirmation (2026-10-13)
+
+The same local startup now extends through00:02:35. In addition to replacement179
+at23:58:25.867, it reports Suppress at00:01:56.339 with suppressed=True and
+PanLeft at00:02:24.741 with suppressed=False. Both retain original effect180.
+Suppress retains the computed gain in Post because it omits the playback call,
+rather than changing gain to zero. PanLeft logs mode dispatch but this log does
+not print final panorama; stereo audibility remains untested. There are zero
+Error/Fatal lines in the latest startup section. These entries establish live
+settings-mode transitions without a new startup or hook publication.
+
+## Soldier source and custom clip expansion (2026-10-13)
+
+All 91 direct wrapper callsites from 28 soldier/military-support handlers are
+inventoried in SOLDIER_AUDIO_SOURCES.json. Full pseudocode and disassembly are
+retained under workspace _inspect/AudioExpansion/Unit*-*.txt. The healer handler
+has no direct wrapper calls. Workers and animals are excluded. The catalog
+records exact return PCs, unit type, effect sets (including 5/172, 65/66 and
+163/164), coordinates, pre-emission state-change counterexamples and confidence.
+New semantic interpretations remain Inferred, not gameplay confirmations.
+The Lord 0x15D2C1 source uses player coordinates and stays Unknown. Arabian
+0x1700CD/180 keeps source-specific InGameConfirmed from prior user acceptance;
+0x17012F/179 reachability is still unconfirmed.
+
+Complete wrappers 0x2960/0x2990 are 40 bytes; first 15 bytes are 4+3+8,
+without RIP operands, branches or external interior entries. Wrapper flag is
+0/1. They forward coordinates/effect to 0x1A41E0 and restore 0x38 stack bytes.
+The permanent intermediary captures the original native return PC before the
+managed transition, as argument five, using aligned Win64 shadow/argument space.
+No incoming flags/SIMD are used by these void integer-argument wrappers.
+Only the existing emitter writes negative context markers. Marker code is
+source ordinal*330+effect above short.MinValue, never -1; decoding checks effect,
+flag, pan sentinel and record type. Vanilla pending copy and all six tick buffers
+preserve the same 21-short representation; reuse overwrites volume with -1.
+
+Custom IDs are distinct: fx_list effects, play_list clips and API handles.
+Private play_list reflection and public sh1_sound.clip are exact-type validated.
+Public MyAudioManager.playSFX retains SFX/master gains, channel policy and SE clip
+replacement. It intentionally skips Vanilla effect variants/throttles. Extender
+owner-private GetModFileBinaryContent and public AudioClipExtensions decode on
+its rooted dispatcher. EnqueueStatic always defers; it has no unsafe immediate
+fallback. Decoder supports OGG and PCM16 44100 mono/stereo WAV. OnUnloadMap
+publishes both Pre and Post; APIShared handles only Pre. Borrowed imports capture
+references, never integer IDs, and are conservatively invalidated at map unload.
+Owned map objects are detached before deferred destruction; new registrations
+cannot be invalidated by that old destruction job. Process mod clips persist.
+
+Installed SE 2.14.1 commit 5908e1f12437deb7ef5f5b1dc2d64e301178fba3 and local
+Fixes 1.25.1 have no competing ownership of these wrapper/emitter entries. The
+custom playSFX call passes through the SE downstream override; no extra hook is
+installed there. New integration audio and provisional actions require game
+acceptance; prior hearing reports do not automatically confirm new source entries.
+
+Map clip lifetime also observes load/save-load/start Pre, because the installed
+Extender suppresses unload notifications inside map startup. Register map clips
+or imports after OnPostLoad Post; registrations during earlier loading phases
+may correctly become invalid at a subsequent startup boundary. All publisher
+callbacks isolate errors so the Extender cannot repeat Vanilla on an exception.
+Map-lifetime failure closes map clips only and is exposed by MapDiagnostic;
+process clips and generic events remain independent.
+
+### Abschließende Zweitprüfung der Clip-/Soldaten-Erweiterung (2026-10-13)
+
+- Release: 104 API-Tests bestanden, einschließlich vollständig kopierter Wrapperkörper, echter NativeX64-Intermediärbrücken, IL-Transformation, 91 Herkunftseinträge und Clip-Lebensdauer. Weitere bestehende Core-/Preset-Prüfungen werden vom abschließenden BAT-Build erneut ausgeführt.
+- Frischer Windows-PowerShell-Präflight gegen echte installierte Assemblies bestanden; gemeinsamer Präflight einschließlich UnitAccess-Scanner und permanenten Hooks bestanden. Verbrauchertests prüfen zusätzlich den fertigen Custom-Zielvertrag, einen noch nicht verfügbaren Clip und die Live-Situationsauswahl.
+- Zusatzlauf Debug: 102/104 bestanden; die beiden bestehenden ImGuiShutdownTests zur nativen Present-/Resize-Argumentweitergabe scheiterten (14 erwartet/5 erhalten bzw. 21/20). Die identischen Tests bestehen im vorgesehenen Release-Build. Dieser separate Debug-Befund ist nicht als Audiofehler oder als behobener Runtimefehler bewertet.
+- Map-Lebensdauer gegen die tatsächlichen Extender-Startpfade erneut geprüft: Da Entladebenachrichtigungen innerhalb mancher Startpfade unterdrückt werden, zählen auch Pre-Load, Pre-LoadSave und Pre-Start als konservative Generationengrenzen. Kartenclips nach OnPostLoad Post registrieren.
+- Neue Hörwirkung sowie zusätzliche inhaltliche Situationsbestätigungen bleiben bis zu den jeweiligen Spieltests offen.
+
+Abschluss: APIShared und ArabianIdleSoundTest jeweils einmal über ihre erhöhte build.bat gebaut und installiert (Exit 0). Der finale Release-Build besteht 152 Core-, 104 API- und 21 Preset-Tests. 24 API-/Publisher-Dateien und 27 Verbrauchermod-Dateien stimmen per gemeinsamem .NET-SHA-256-Helfer mit den installierten Ausgaben überein; private Test-WAV vorhanden, APIShared nicht im Verbraucher gebündelt. Veraltete Hörtest-Hilfetexte korrigiert und Verbraucherpräflight danach erneut bestanden. Versionen bleiben APIShared 0.7.2 und Testmod 0.1.0. Kein neuer Spieltest aus dieser Sitzung.
+
+### Spieltest und Freigabe 0.8.0 (2026-10-13)
+
+Der neueste lokale Startabschnitt (ab Logzeile 4047; eigene Zeitmarker 01:33:05 bis 01:34:37) bestätigt AUDIO_PLAYBACK_READY, AUDIO_CONTEXT_READY und den nach Startup-Cleanup ausgeführten nativen und verwalteten Callback. AUDIO_TEST_CLIP meldet Ready. CustomClip wurde für Unit75.Source04 (ArabianIdleSwordDraw), Unit70.Source01 und Unit22.Source03 (RangedWeaponFire) an die Clipwiedergabe übergeben. Die beiden Fernkampfaufträge liegen nach dem Save-Load-Abschluss um 01:34:23; der Prozessclip bleibt verfügbar. Keine Audiofehler, AUDIO_SOURCE_REJECTED oder AUDIO_MAP_CLIPS_DISABLED in diesem Startabschnitt.
+
+Der Nutzer bestätigt hörbare Wiedergabe des neuen Testtons. Das belegt den Custom-Clip-Pfad, aber keine bestimmte zusätzlich benannte Einheit-/Situationsdeutung: die beiden Fernkampfquellen bleiben Inferred. Kartenarchivclips, importierte Extender-Clips und alle weiteren Situationen erhalten dadurch keine automatische InGameConfirmed-Einstufung. Der separate Extender-Fehler TryGetPlayerResourcesById auf Thread15 mit Index -594294240/8 ist keinem Audiopfad zugeordnet; daraus wird kein Audiofehler abgeleitet.
+
+APIShared wird mit den dokumentierten Audioverträgen als 0.8.0 geführt. Native Hookstellen, Binärverträge und Runtimeverhalten bleiben gegenüber dem erfolgreich getesteten Stand unverändert.

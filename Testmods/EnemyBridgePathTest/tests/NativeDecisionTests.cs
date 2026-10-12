@@ -63,8 +63,8 @@ namespace EnemyBridgePathTest
             {
                 hooks[0].Enable();
                 var invoke=Marshal.GetDelegateForFunctionPointer<Leaf>(leaf);
-                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
-                Check(trace.Entered==6&&trace.Exited==6,"actual wrapper pairs exactly once");
+                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue,732351152,732350560}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
+                Check(trace.Entered==8&&trace.Exited==8,"actual wrapper pairs exactly once");
                 trace.MarkInstalled(BridgeNativeDefinition.OwnedCount);
                 Check(trace.NativeReadiness.Contains("topologyAvailable=False")&&!trace.Summary().Contains("nativeCoverageComplete=True"),"missing shared publisher cannot claim full coverage");
                 APIShared.EnemyBridgeDiagnosticBridge.PublishTopologyOwner();
@@ -172,15 +172,15 @@ namespace EnemyBridgePathTest
                     hooks[0].Enable();
                     var validate=(List<Action>)typeof(BridgeNativeHooks).GetField("validate",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(runtime);foreach(var action in validate)action();
                     Marshal.WriteInt32(data,8,0);
-                    for(int i=0;i<2;i++)
+                    for(int i=0;i<4;i++)
                     {
-                        fail=i==1;int a=i==0?int.MinValue:12345,b=i==0?int.MaxValue:-19;
+                        fail=i==1;int a=i==0?int.MinValue:i==1?12345:i==2?732351152:732350560,b=i==0?int.MaxValue:-19;
                         if(wide)Marshal.GetDelegateForFunctionPointer<BridgeNativeHooks.V3>(code)(data,a,b);
                         else Marshal.GetDelegateForFunctionPointer<BridgeNativeHooks.V2>(code)(data,a);
                         Check(Marshal.ReadInt32(data)==a&&(!wide||Marshal.ReadInt32(data,4)==b),"production void wrapper preserves native integer arguments");
                         Check(Marshal.ReadInt32(data,8)==i+1,"production void wrapper invokes original exactly once even on capture failure");
                     }
-                    Check(trace.Entered==2&&trace.Exited==2&&trace.Failures==2,"void wrapper capture exceptions preserve balanced native execution");
+                    Check(trace.Entered==4&&trace.Exited==4&&trace.Failures==2,"void wrapper capture exceptions preserve balanced native execution");
                 }
                 finally {hooks[0].Dispose();Marshal.FreeHGlobal(data);VirtualFree(code,UIntPtr.Zero,0x8000);GC.KeepAlive(runtime);}
             }

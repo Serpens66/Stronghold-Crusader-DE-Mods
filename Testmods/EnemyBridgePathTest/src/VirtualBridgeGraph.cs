@@ -4,6 +4,18 @@ using System.Collections.Generic;
 namespace EnemyBridgePathTest
 {
     internal enum VirtualReachability { Unknown, Reachable, NoRoute }
+    // Future policy prerequisite, never called to replace a live decision.
+    internal static class VirtualMeleeAccess
+    {
+        internal static VirtualReachability Evaluate(int[] verifiedAttackTiles,bool completeFields,Func<int,VirtualReachability> query)
+        {
+            if(verifiedAttackTiles==null||query==null)return VirtualReachability.Unknown;
+            bool unknown=!completeFields;
+            foreach(int tile in verifiedAttackTiles)
+            {if(tile<0){unknown=true;continue;}var result=query(tile);if(result==VirtualReachability.Reachable)return result;if(result!=VirtualReachability.NoRoute)unknown=true;}
+            return unknown?VirtualReachability.Unknown:VirtualReachability.NoRoute;
+        }
+    }
     // Owns copied input only. There is no native delegate, write or Vanilla search.
     internal sealed class VirtualBridgeMap
     {
