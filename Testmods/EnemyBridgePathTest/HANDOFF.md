@@ -320,3 +320,15 @@ _inspect/BridgePlanningTests/general-diagnosis-build.log.
 General automatic diagnostic selection is now installed. Behavior fix remains
 disabled; military continuation, formation and Dirty negative-proof gaps above
 remain open. No further unchanged game start is needed for those offline gaps.
+
+
+2026-10-13 offline continuation: see
+_inspect/BridgePlanningTests/OFFLINE_CONTINUATION_20261013.md. Deferred weak
+selection, remaining-deck promotion and reused writer buffer implemented.
+Native/managed EAB80 choice gate134/g6658 at404/491 matches group artifact;
+virtual135/149 cuts do not change this gate choice. Physical edge separation
+alone is insufficient for melee target selection. Player5 negative inter-consumer
+planning suffix matches native; active-role order/formation remains Unknown.
+Resource errors remain unattributed and are not claimed fixed. No behavior patch.
+
+Final validation/install2026-10-13 13:41:08:38294 policy assertions,150 private native differential cases; all four new own consumer comparisons and player5 computed negative inter-consumer planning suffix match. Frozen positive/stable regressions pass. Fresh PowerShell5.1 workspace/runtime/UnitAccess/package checks, real Assembly-CSharp compilation and hook/JSON/lifecycle/CRLF checks pass. Prescribed elevated build.bat exit0, one existing CS0649 warning, installed successfully. Local/installed DLL SHA256:6B828480278A6913C80D4750DB952619BD322D673BEFE61BC8E4D0773E91B44B. Transcript:_inspect/BridgePlanningTests/offline-continuation-build.log. Version0.1.0 and README unchanged. Resource faults remain unattributed/unfixed; active-role order/formation, effective Fixes selector policy and legal melee approach validation remain open. Behavior patch disabled.

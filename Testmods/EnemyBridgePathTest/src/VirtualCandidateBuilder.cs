@@ -220,6 +220,29 @@ namespace EnemyBridgePathTest
                 head++;if(head>=1000)head=0;
             }while(head!=tail);
         }
+        // Full EAB80 copied gatehouse selector, including its building-tile override.
+        // This returns a building ID; it does not issue an order or store30E90's target.
+        internal int FindEnemyGatehouse(int attacker,int x,int y,int maximum)
+        {
+            if(attacker<1||attacker>8||x<0||x>=800||y<0||y>=800||maximum<0)throw new ArgumentException("copied-gatehouse-selector-context");
+            const int root=0x60ad660,tiles=root+0x155f6c,rows=root+0x28f3ec,dist=0x5225b10,visit=0x52c2550;
+            I(root+0xa0,unchecked(I(root+0xa0)+1));I(root+4,unchecked(I(root+4)+1));if(I(root+4)>32000){I(root+4,1);Clear(visit,N*2);}
+            I(root+0x155f38,1);I(root+0x155f3c,0);I(root+0x155f44,1);S(rows,y);int start=I(0x402ff2c+y*12)+x;if((uint)start>=N)throw new ArgumentException("copied-gatehouse-selector-origin");I(tiles,start);S(dist+start*2,1);S(visit+start*2,I(root+4));long steps=0;
+            while(I(root+0x155f3c)!=I(root+0x155f44))
+            {
+                if(++steps>2000000)throw new InvalidOperationException("copied-gatehouse-selector-budget");int head=I(root+0x155f3c),tile=I(tiles+head*4);if((uint)tile>=N)return 0;int row=S(rows+head*2),level=S(dist+tile*2);I(root+0x155f38,level);if(maximum<level)return 0;
+                for(int direction=0;direction<8;direction++)
+                {
+                    int next=tile+I(0x405edb0+(row*8+direction)*4);if((uint)next>=N)throw new InvalidOperationException("copied-gatehouse-selector-neighbor");int id=S(0x4b6aa50+next*2);
+                    if((id==0&&(B(0x312620+direction)&B(0x51890d0+tile))==0)||S(visit+next*2)==I(root+4))continue;
+                    S(dist+next*2,level+1);S(visit+next*2,I(root+4));int tail=I(root+0x155f44);S(rows+tail*2,row+S(0x2d2e54+direction*8));I(tiles+tail*4,next);I(root+0x155f44,tail+1>=N?0:tail+1);
+                    if(id==0)continue;int building=BuildingRecord(id),owner=S(building+0x132),kind=S(building+0x12e),alive=S(building+0x12c);
+                    if(owner<0||owner>8)throw new ArgumentException("copied-gatehouse-selector-owner");if(I(0x37edf3c+attacker*4)!=I(0x37edf3c+owner*4)&&alive!=0&&alive!=3&&(kind==45||kind==46)&&S(building+0x31a)==0)return id;
+                }
+                int nextHead=I(root+0x155f3c)+1;I(root+0x155f3c,nextHead>=N?0:nextHead);
+            }
+            return 0;
+        }
         internal int Castle(int attacker,int target)
         {
             if(reachable==null)throw new InvalidOperationException("Unknown:candidate-regions-not-prepared");

@@ -129,6 +129,23 @@ namespace EnemyBridgePathTest
             focused.Begin(2);focused.Defer("second-session");focused.End();
             Check((long)Get(focused,"attempted")==1&&(long)Get(focused,"skippedComputations")==1,"session coverage resets independently of previous session totals");
         }
+        private static void DeferredPlanningEvidence()
+        {
+            var messages=new List<string>();var shadow=new BridgeVirtualShadow((k,d)=>messages.Add(k+":"+d),_=>throw new Exception("deferred fallback must use copied data"));shadow.Begin(1);
+            var bundle=new BridgePlanningCapture.Bundle {Session=1,Op=10,Root=9,Attacker=2,Complete=true,SelectionReason="unallowed-coupled-bridge-candidate-not-route-proof"};
+            var input=Input(5,false);var request=RequestForPlayer(input,2);Set(request,"Parent",10L);
+            Set(shadow,"planningRequest",request);Set(shadow,"decisionCaptured",input);Set(shadow,"decisionCaptureOp",10L);
+            Check(shadow.PlanningCompleted(bundle)&&shadow.HasDeferredPlanning&&!shadow.HasPublishedPlanning,"weak copied bundle consumes no published artifact slot");
+            var strong=new BridgePlanningCapture.Bundle {Session=1,Op=20,Root=19,Attacker=3,Complete=true,SelectionReason="observed-deck-path-same-player"};
+            var newer=Input(5,false);Set(newer,"Revision",2L);var next=RequestForPlayer(newer,3);Set(next,"Parent",20L);Set(next,"Id",2L);
+            Set(shadow,"planningRequest",next);Set(shadow,"decisionCaptured",newer);Set(shadow,"decisionCaptureOp",20L);
+            Check(shadow.PlanningCompleted(strong)&&!shadow.HasDeferredPlanning&&shadow.HasPublishedPlanning&&(int)Get(shadow,"planningPlayer")==3,"later stronger player displaces unpublished fallback");
+            Check(shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=1"),"only one planning artifact published after upgrade");shadow.End();
+            var fallback=new BridgeVirtualShadow((k,d)=>messages.Add(k+":"+d),_=>throw new Exception("map-end fallback cannot read current map"));fallback.Begin(1);
+            Set(fallback,"planningRequest",request);Set(fallback,"decisionCaptured",input);Set(fallback,"decisionCaptureOp",10L);Check(fallback.PlanningCompleted(bundle),"weak fallback retained");
+            Set(fallback,"decisionCaptured",newer);fallback.End();Check(fallback.ArtifactStatus(1).Contains("inputArtifactsRequested=1")&&!fallback.HasDeferredPlanning,"session-end publication uses retained own snapshot even after newer publication");
+            fallback.Begin(2);Check(!fallback.HasDeferredPlanning&&!fallback.HasPublishedPlanning,"map replacement cannot retain old fallback identity");fallback.End();
+        }
         private static void RealPlanningEvidence()
         {
             string folder=Path.GetFullPath(Path.Combine("..","..","_inspect","EnemyGateBuildingContextAudit","real-plan-20261007-151016"));
@@ -148,11 +165,26 @@ namespace EnemyBridgePathTest
             byte[] before=CopiedPlanningBundle.Resolve(plan.Planning,"caller-pre/distance");before[0]^=1;
             Check(!CopiedPlanningReplay.TryBaseline(plan,out reason),"computed baseline does not substitute recorded distance-pre/Post state");before[0]^=1;
         }
+        private static void LatestOwnPlanningEvidence()
+        {
+            string folder=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","..","..","..","_inspect","BridgePlanningTests","historical-20261013-1154"));
+            foreach(var entry in new[]{Tuple.Create("bridge-1-3.bin","BE7B97100EC6E84A16E2ECBF37DDD7645D55DE9B373F821C7C5CF94778472318"),Tuple.Create("bridge-2-13.bin","4EA2B9E111473C1DE57F901B7DCC911752E2F9CEF9C5D8A0309920337B8F79ED")})
+            {
+                BridgePlanningImporter.Artifact artifact;string reason;Check(BridgePlanningImporter.TryRead(Path.Combine(folder,entry.Item1),out artifact,out reason)&&artifact.Hash==entry.Item2,"latest complete original remains hash-bound");
+                Check(CopiedPlanningReplay.TryConsumerStages(artifact,out reason)&&reason.Split(new[]{"fullCandidateBuildAndWeightReplay=Matched-computed"},StringSplitOptions.None).Length==3,"both own complete consumers match");
+                if(artifact.Planning.Attacker==2)Check(reason.Contains("building=134/g6658;orderXY=404/491")&&reason.Contains("later-consumer-input-not-substituted"),"actual coordinate gatehouse selection retained without inventing formation");
+                else Check(reason.Contains("Matched-negative-branch-no-active-roles-and-computed-next-planning-inputs"),"computed inter-consumer negative suffix preserves actual second inputs");
+                Check(CopiedPlanningReplay.TryVariants(artifact,out reason)&&reason.Contains("firstConsumerContinuation=[computed-own-first-consumer")&&!reason.Contains("firstConsumerContinuation=[Unknown"),"each immutable bridge selection reaches complete first consumer");
+                if(artifact.Planning.Attacker==2)Check(reason.Split(new[]{"gateSelectorTarget=134"},StringSplitOptions.None).Length==6,"native building-grid override leaves gate choice unchanged even under single/all virtual cuts");
+            }
+        }
         internal static int Run()
         {
             checks=0;
             RemappedEndpointEvidence();
+            DeferredPlanningEvidence();
             RealPlanningEvidence();
+            LatestOwnPlanningEvidence();
             Check(VirtualComponentControl.Evaluate(1,1,0,Array.Empty<VirtualComponentLink>())==VirtualReachability.Reachable,"same component shortcut");
             Check(VirtualComponentControl.Evaluate(0,0,0,Array.Empty<VirtualComponentLink>())==VirtualReachability.NoRoute,"zero native result");
             var links=new[]{new VirtualComponentLink(1,2,3,1,true),new VirtualComponentLink(3,4,0,2,true)};

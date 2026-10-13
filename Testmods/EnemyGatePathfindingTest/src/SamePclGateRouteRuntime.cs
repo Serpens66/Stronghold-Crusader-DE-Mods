@@ -20,8 +20,8 @@ namespace EnemyGatePathfindingTest
     internal readonly struct SamePclCoverageSnapshot
     {
         internal SamePclCoverageSnapshot(bool installed, bool ownerConflict, long queries,
-            long preserved, long rejectedEdges, long detours, long noRoutes,
-            long humanDetours, long aiDetours, long attackEdges,
+            long preserved, long rejectedEdges, long successWithRejectedEdges, long negativeWithRejectedEdges,
+            long humanSuccessWithRejectedEdges, long aiSuccessWithRejectedEdges, long attackEdges,
             long buildingEdges, long candidateEdges, long cursorCommandEdges,
             long directCursorQueries, long directCursorEdges,
             long cursorPclChecks, long cursorPclWrapperCalls,
@@ -37,18 +37,22 @@ namespace EnemyGatePathfindingTest
             long cursorValidationMaxTicks,
             long missingContexts, long invalidPlayers, long scopeMismatches,
             long slotConflicts, long poolExhaustions, long exceptions,
-            long aiQueries, long aiNoRoutes, long attackQueries,
+            long aiQueries, long aiNegativeWithRejectedEdges, long attackQueries,
             long buildingApproachQueries, long buildingConsumerQueries,
             long alternateBuildingConsumerQueries, long candidateQueries,
             long aiTacticalTargetQueries, long aiTacticalBuildingEdges,
             long aiTacticalUnitEdges, long aiTacticalFallbackEdges,
             long aiTacticalInvalidPlayers, long aiTacticalScopeConflicts,
-            long aiTacticalExceptions, long cursorCommandQueries)
+            long aiTacticalExceptions, long cursorCommandQueries,
+            long negativeWithoutRejectedEdges, long aiNegativeWithoutRejectedEdges, long incompleteSearches)
         {
+            NegativeWithoutRejectedEdges = negativeWithoutRejectedEdges;
+            AiNegativeWithoutRejectedEdges = aiNegativeWithoutRejectedEdges;
+            IncompleteSearches = incompleteSearches;
             CursorCommandQueries = cursorCommandQueries;
             Installed = installed; OwnerConflict = ownerConflict; Queries = queries;
-            Preserved = preserved; RejectedEdges = rejectedEdges; Detours = detours;
-            NoRoutes = noRoutes; HumanDetours = humanDetours; AiDetours = aiDetours;
+            Preserved = preserved; RejectedEdges = rejectedEdges; SuccessWithRejectedEdges = successWithRejectedEdges;
+            NegativeWithRejectedEdges = negativeWithRejectedEdges; HumanSuccessWithRejectedEdges = humanSuccessWithRejectedEdges; AiSuccessWithRejectedEdges = aiSuccessWithRejectedEdges;
             AttackEdges = attackEdges; BuildingEdges = buildingEdges;
             CandidateEdges = candidateEdges; CursorCommandEdges = cursorCommandEdges;
             DirectCursorQueries = directCursorQueries; DirectCursorEdges = directCursorEdges;
@@ -70,7 +74,7 @@ namespace EnemyGatePathfindingTest
             MissingContexts = missingContexts; InvalidPlayers = invalidPlayers;
             ScopeMismatches = scopeMismatches; SlotConflicts = slotConflicts;
             PoolExhaustions = poolExhaustions; Exceptions = exceptions;
-            AiQueries = aiQueries; AiNoRoutes = aiNoRoutes;
+            AiQueries = aiQueries; AiNegativeWithRejectedEdges = aiNegativeWithRejectedEdges;
             AttackQueries = attackQueries; BuildingApproachQueries = buildingApproachQueries;
             BuildingConsumerQueries = buildingConsumerQueries;
             AlternateBuildingConsumerQueries = alternateBuildingConsumerQueries;
@@ -86,12 +90,15 @@ namespace EnemyGatePathfindingTest
         internal bool Installed { get; }
         internal bool OwnerConflict { get; }
         internal long Queries { get; }
+        internal long NegativeWithoutRejectedEdges { get; }
+        internal long AiNegativeWithoutRejectedEdges { get; }
+        internal long IncompleteSearches { get; }
         internal long Preserved { get; }
         internal long RejectedEdges { get; }
-        internal long Detours { get; }
-        internal long NoRoutes { get; }
-        internal long HumanDetours { get; }
-        internal long AiDetours { get; }
+        internal long SuccessWithRejectedEdges { get; }
+        internal long NegativeWithRejectedEdges { get; }
+        internal long HumanSuccessWithRejectedEdges { get; }
+        internal long AiSuccessWithRejectedEdges { get; }
         internal long AttackEdges { get; }
         internal long BuildingEdges { get; }
         internal long CandidateEdges { get; }
@@ -125,7 +132,7 @@ namespace EnemyGatePathfindingTest
         internal long PoolExhaustions { get; }
         internal long Exceptions { get; }
         internal long AiQueries { get; }
-        internal long AiNoRoutes { get; }
+        internal long AiNegativeWithRejectedEdges { get; }
         internal long AttackQueries { get; }
         internal long BuildingApproachQueries { get; }
         internal long BuildingConsumerQueries { get; }
@@ -286,8 +293,9 @@ namespace EnemyGatePathfindingTest
             new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length];
         private readonly HookHandle<X64InlineHook>[] tacticalEdgeHooks =
             new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas.Length];
-        private long queries, preserved, rejectedEdges, detours, noRoutes;
-        private long humanDetours, aiDetours, attackEdges, buildingEdges, candidateEdges;
+        private long queries, preserved, rejectedEdges, successWithRejectedEdges, negativeWithRejectedEdges;
+        private long negativeWithoutRejectedEdges, aiNegativeWithoutRejectedEdges, incompleteSearches;
+        private long humanSuccessWithRejectedEdges, aiSuccessWithRejectedEdges, attackEdges, buildingEdges, candidateEdges;
         private long cursorCommandQueries, cursorCommandEdges, directCursorQueries, directCursorEdges;
         private long cursorPclChecks, cursorPclWrapperCalls, cursorSamePclEligible,
             cursorDifferentPcl, cursorDifferentPclEligible,
@@ -299,7 +307,7 @@ namespace EnemyGatePathfindingTest
         private long cursorUnitPending, cursorValidationTicks, cursorValidationMaxTicks;
         private long missingContexts, invalidPlayers, scopeMismatches;
         private long slotConflicts, poolExhaustions, exceptions;
-        private long aiQueries, aiNoRoutes, attackQueries, buildingApproachQueries,
+        private long aiQueries, aiNegativeWithRejectedEdges, attackQueries, buildingApproachQueries,
             buildingConsumerQueries, alternateBuildingConsumerQueries, candidateQueries;
         private long aiTacticalTargetQueries, aiTacticalBuildingEdges,
             aiTacticalUnitEdges, aiTacticalFallbackEdges, aiTacticalInvalidPlayers,
@@ -710,7 +718,7 @@ namespace EnemyGatePathfindingTest
             {
                 QueryKind localKind = query.Diagnostic.Kind;
                 long touched = Complete(query, localKind,
-                    kind == EnemyGateSearchKind.Builder, completed && success);
+                    kind == EnemyGateSearchKind.Builder, success, completed);
                 MacemenDiagnostics?.EndSearch(completed, success, touched);
                 if (kind == EnemyGateSearchKind.Builder)
                 {
@@ -1134,8 +1142,8 @@ namespace EnemyGatePathfindingTest
 
         internal SamePclCoverageSnapshot GetCoverageSnapshot() =>
             new SamePclCoverageSnapshot(Installed, ownerConflict, Read(ref queries),
-                Read(ref preserved), Read(ref rejectedEdges), Read(ref detours), Read(ref noRoutes),
-                Read(ref humanDetours), Read(ref aiDetours), Read(ref attackEdges),
+                Read(ref preserved), Read(ref rejectedEdges), Read(ref successWithRejectedEdges), Read(ref negativeWithRejectedEdges),
+                Read(ref humanSuccessWithRejectedEdges), Read(ref aiSuccessWithRejectedEdges), Read(ref attackEdges),
                 Read(ref buildingEdges), Read(ref candidateEdges), Read(ref cursorCommandEdges),
                 Read(ref directCursorQueries), Read(ref directCursorEdges),
                 Read(ref cursorPclChecks), Read(ref cursorPclWrapperCalls),
@@ -1152,19 +1160,21 @@ namespace EnemyGatePathfindingTest
                 Read(ref cursorValidationMaxTicks),
                 Read(ref missingContexts), Read(ref invalidPlayers), Read(ref scopeMismatches),
                 Read(ref slotConflicts), Read(ref poolExhaustions), Read(ref exceptions),
-                Read(ref aiQueries), Read(ref aiNoRoutes), Read(ref attackQueries),
+                Read(ref aiQueries), Read(ref aiNegativeWithRejectedEdges), Read(ref attackQueries),
                 Read(ref buildingApproachQueries), Read(ref buildingConsumerQueries),
                 Read(ref alternateBuildingConsumerQueries), Read(ref candidateQueries),
                 Read(ref aiTacticalTargetQueries), Read(ref aiTacticalBuildingEdges),
                 Read(ref aiTacticalUnitEdges), Read(ref aiTacticalFallbackEdges),
                 Read(ref aiTacticalInvalidPlayers), Read(ref aiTacticalScopeConflicts),
-                Read(ref aiTacticalExceptions), Read(ref cursorCommandQueries));
+                Read(ref aiTacticalExceptions), Read(ref cursorCommandQueries),
+                Read(ref negativeWithoutRejectedEdges), Read(ref aiNegativeWithoutRejectedEdges), Read(ref incompleteSearches));
         internal void ResetCounters()
         {
             tribePlayers = TribePlayerSnapshot.Empty;
             Volatile.Write(ref nextPlayerRefresh, 0);
-            Reset(ref queries); Reset(ref preserved); Reset(ref rejectedEdges); Reset(ref detours);
-            Reset(ref noRoutes); Reset(ref humanDetours); Reset(ref aiDetours);
+            Reset(ref queries); Reset(ref preserved); Reset(ref rejectedEdges); Reset(ref successWithRejectedEdges);
+            Reset(ref negativeWithoutRejectedEdges); Reset(ref aiNegativeWithoutRejectedEdges); Reset(ref incompleteSearches);
+            Reset(ref negativeWithRejectedEdges); Reset(ref humanSuccessWithRejectedEdges); Reset(ref aiSuccessWithRejectedEdges);
             Reset(ref attackEdges); Reset(ref buildingEdges); Reset(ref candidateEdges);
             Reset(ref cursorCommandEdges); Reset(ref directCursorQueries); Reset(ref directCursorEdges);
             Reset(ref cursorPclChecks); Reset(ref cursorPclWrapperCalls);
@@ -1182,7 +1192,7 @@ namespace EnemyGatePathfindingTest
             Reset(ref scopeMismatches); Reset(ref slotConflicts); Reset(ref poolExhaustions);
             Reset(ref exceptions);
             Reset(ref cursorCommandQueries);
-            Reset(ref aiQueries); Reset(ref aiNoRoutes); Reset(ref attackQueries);
+            Reset(ref aiQueries); Reset(ref aiNegativeWithRejectedEdges); Reset(ref attackQueries);
             Reset(ref buildingApproachQueries); Reset(ref buildingConsumerQueries);
             Reset(ref alternateBuildingConsumerQueries); Reset(ref candidateQueries);
             Reset(ref aiTacticalTargetQueries); Reset(ref aiTacticalBuildingEdges);
@@ -1212,7 +1222,7 @@ namespace EnemyGatePathfindingTest
             catch { Interlocked.Increment(ref exceptions); throw; }
             finally
             {
-                long touched = Complete(scope, kind, true, completed && result > 0);
+                long touched = Complete(scope, kind, true, result > 0, completed);
                 MacemenDiagnostics?.EndSearch(completed, result > 0, touched);
                 try { attackOrderDiagnostics?.ObserveBuilder(player, scope.Diagnostic, completed, result > 0,
                     touched, scope.Snapshot.Fingerprint); }
@@ -1225,9 +1235,10 @@ namespace EnemyGatePathfindingTest
             Interlocked.Increment(ref attackQueries);
             CaptureScopeSample(QueryKind.Attack, player, player, -1, player);
             QueryScope scope = Enter(player);
-            try { originalAttack(manager, unused2, unused3, x, y, count, targetPcl, player); }
+            bool completed = false;
+            try { originalAttack(manager, unused2, unused3, x, y, count, targetPcl, player); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, QueryKind.Attack, false, false); }
+            finally { Complete(scope, QueryKind.Attack, false, false, completed); }
         }
         private void FilterBuilding(IntPtr manager, int tribe, int buildingId,
             int count, int targetPcl, int player)
@@ -1248,7 +1259,7 @@ namespace EnemyGatePathfindingTest
             {
                 try
                 {
-                    long touched = Complete(scope, QueryKind.BuildingApproach, false, false);
+                    long touched = Complete(scope, QueryKind.BuildingApproach, false, false, completed);
                     MacemenDiagnostics?.EndSearch(completed, false, touched);
                 }
                 finally
@@ -1272,7 +1283,7 @@ namespace EnemyGatePathfindingTest
             catch { Interlocked.Increment(ref exceptions); throw; }
             finally
             {
-                try { Complete(scope, QueryKind.BuildingApproach, false, false); }
+                try { Complete(scope, QueryKind.BuildingApproach, false, false, completed); }
                 finally
                 {
                     try { attackOrderDiagnostics?.EndNativeSearch("BuildingConsumer", completed, false); }
@@ -1294,7 +1305,7 @@ namespace EnemyGatePathfindingTest
             catch { Interlocked.Increment(ref exceptions); throw; }
             finally
             {
-                try { Complete(scope, QueryKind.AlternateBuildingApproach, false, false); }
+                try { Complete(scope, QueryKind.AlternateBuildingApproach, false, false, completed); }
                 finally
                 {
                     try { attackOrderDiagnostics?.EndNativeSearch("AlternateBuildingConsumer", completed, false); }
@@ -1308,10 +1319,11 @@ namespace EnemyGatePathfindingTest
             Interlocked.Increment(ref candidateQueries);
             CaptureScopeSample(QueryKind.CandidateSearch, player, player, -1, player);
             QueryScope scope = Enter(player);
+            bool completed = false;
             try { originalCandidateSearch(manager, startTileId, count,
-                    targetPcl, player, mode, candidateClass); }
+                    targetPcl, player, mode, candidateClass); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, QueryKind.CandidateSearch, false, false); }
+            finally { Complete(scope, QueryKind.CandidateSearch, false, false, completed); }
         }
         private void FilterAiTacticalTarget(IntPtr tribeManager, int tribe)
         {
@@ -1353,9 +1365,10 @@ namespace EnemyGatePathfindingTest
             CaptureScopeSample(QueryKind.CursorCommand, nativePlayer, nativePlayer,
                 tribePlayer, player);
             QueryScope scope = Enter(player);
-            try { originalCursor(manager, tribe, x, y, context, flags); }
+            bool completed = false;
+            try { originalCursor(manager, tribe, x, y, context, flags); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, QueryKind.CursorCommand, false, false); }
+            finally { Complete(scope, QueryKind.CursorCommand, false, false, completed); }
         }
 
         private int FilterDirectCursorSearch(IntPtr manager, int x, int y,
@@ -1373,7 +1386,7 @@ namespace EnemyGatePathfindingTest
                 return result;
             }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, QueryKind.DirectCursor, true, completed && result > 0); }
+            finally { Complete(scope, QueryKind.DirectCursor, true, result > 0, completed); }
         }
         private int ResolveTribePlayer(int tribeId) => tribePlayers.Resolve(tribeId);
 
@@ -1592,7 +1605,7 @@ namespace EnemyGatePathfindingTest
             Volatile.Write(ref tacticalEdgeSampleState[category], 2);
         }
 
-        private long Complete(QueryScope scope, QueryKind kind, bool hasResultContract, bool success)
+        private long Complete(QueryScope scope, QueryKind kind, bool hasResultContract, bool success, bool completed = true)
         {
             long touched = 0;
             if (scope.Slot != null)
@@ -1606,6 +1619,21 @@ namespace EnemyGatePathfindingTest
             }
             lock (maskGate) scope.Snapshot.Readers--;
             routePolicySource.Leave(scope.RouteQuery);
+            if (kind != QueryKind.CursorPreview)
+            {
+                try { attackOrderDiagnostics?.ObserveScopeResult(scope.PlayerId, kind.ToString(), hasResultContract, completed, success, touched); }
+                catch { Interlocked.Increment(ref exceptions); }
+            }
+            // Reference/preview calls have their own proof counters. Void calls have no route verdict.
+            if (hasResultContract && kind != QueryKind.CursorPreview)
+            {
+                if (!completed) Interlocked.Increment(ref incompleteSearches);
+                else if (!success && touched == 0)
+                {
+                    Interlocked.Increment(ref negativeWithoutRejectedEdges);
+                    if (kind == QueryKind.AiBuilder) Interlocked.Increment(ref aiNegativeWithoutRejectedEdges);
+                }
+            }
             if (touched == 0)
             {
                 if (kind != QueryKind.CursorPreview)
@@ -1633,17 +1661,18 @@ namespace EnemyGatePathfindingTest
             }
             if (kind == QueryKind.DirectCursor)
                 Interlocked.Add(ref directCursorEdges, touched);
+            if (!completed) return touched;
             if (!success)
             {
-                Interlocked.Increment(ref noRoutes);
-                if (kind == QueryKind.AiBuilder) Interlocked.Increment(ref aiNoRoutes);
+                Interlocked.Increment(ref negativeWithRejectedEdges);
+                if (kind == QueryKind.AiBuilder) Interlocked.Increment(ref aiNegativeWithRejectedEdges);
                 return touched;
             }
-            Interlocked.Increment(ref detours);
+            Interlocked.Increment(ref successWithRejectedEdges);
             switch (kind)
             {
-                case QueryKind.AiBuilder: Interlocked.Increment(ref aiDetours); break;
-                case QueryKind.HumanBuilder: Interlocked.Increment(ref humanDetours); break;
+                case QueryKind.AiBuilder: Interlocked.Increment(ref aiSuccessWithRejectedEdges); break;
+                case QueryKind.HumanBuilder: Interlocked.Increment(ref humanSuccessWithRejectedEdges); break;
             }
             return touched;
         }

@@ -63,8 +63,8 @@ namespace EnemyBridgePathTest
             {
                 hooks[0].Enable();
                 var invoke=Marshal.GetDelegateForFunctionPointer<Leaf>(leaf);
-                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue,732351152,732350560}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
-                Check(trace.Entered==8&&trace.Exited==8,"actual wrapper pairs exactly once");
+                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue,732351152,732350560,1389546720,1389546128}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
+                Check(trace.Entered==10&&trace.Exited==10,"actual wrapper pairs exactly once");
                 trace.MarkInstalled(BridgeNativeDefinition.OwnedCount);
                 Check(trace.NativeReadiness.Contains("topologyAvailable=False")&&!trace.Summary().Contains("nativeCoverageComplete=True"),"missing shared publisher cannot claim full coverage");
                 APIShared.EnemyBridgeDiagnosticBridge.PublishTopologyOwner();
@@ -75,7 +75,33 @@ namespace EnemyBridgePathTest
             finally { hooks[0].Dispose(); VirtualFree(leaf,UIntPtr.Zero,0x8000); GC.KeepAlive(runtime); }
             ExerciseVoidWrappers();
             ExerciseAccessWrapper();
+            ExerciseStackWrapper();
             return checks;
+        }
+        private static void ExerciseStackWrapper()
+        {
+            IntPtr code=VirtualAlloc(IntPtr.Zero,(UIntPtr)4096,0x3000,0x40),data=Marshal.AllocHGlobal(48);
+            Check(code!=IntPtr.Zero,"stack native fixture allocation");
+            byte[] body={0x89,0x11,0x44,0x89,0x41,0x04,0x44,0x89,0x49,0x08,0x8B,0x44,0x24,0x28,0x89,0x41,0x0C,0x8B,0x44,0x24,0x30,0x89,0x41,0x10,0x8B,0x44,0x24,0x38,0x89,0x41,0x14,0xFF,0x41,0x18,0x48,0x89,0x49,0x20,0x8B,0xC2};
+            var bytes=new byte[64];for(int i=0;i<bytes.Length;i++)bytes[i]=0x90;Array.Copy(body,bytes,body.Length);bytes[63]=0xC3;Marshal.Copy(bytes,0,code,bytes.Length);
+            var trace=new BridgeDecisionTrace(null,_=>default,()=>1);trace.StartSession(1);var runtime=new BridgeNativeHooks(trace);
+            typeof(BridgeNativeHooks).GetField("libraryBase",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(runtime,unchecked((ulong)code.ToInt64()));
+            var site=new BridgeNativeDefinition.Site(0,"fixture-R7","R7","891144894104448949088B442428",64);
+            typeof(BridgeNativeHooks).GetMethod("AddR7",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(runtime,new object[]{site});
+            var hooks=(List<IHook>)typeof(BridgeNativeHooks).GetField("permanent",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(runtime);
+            try
+            {
+                hooks[0].Enable();var call=Marshal.GetDelegateForFunctionPointer<BridgeNativeHooks.R7>(code);Marshal.WriteInt32(data,24,0);int calls=0;
+                foreach(int player in new[]{1,2,3,4,5,6,7,8,1389546720,1389546128,int.MinValue,int.MaxValue})
+                {
+                    Check(call(data,player,-19,27,int.MinValue,int.MaxValue,123456)==player,"actual R7 native return");
+                    int[] values={player,-19,27,int.MinValue,int.MaxValue,123456};for(int i=0;i<values.Length;i++)Check(Marshal.ReadInt32(data,i*4)==values[i],"actual R7 register/stack argument preserved");
+                    Check(Marshal.ReadInt64(data,32)==data.ToInt64(),"full pointer never substituted for player");Check(Marshal.ReadInt32(data,24)==++calls,"R7 original exactly once");
+                }
+                Check(trace.Entered==calls&&trace.Exited==calls,"R7 original and observation balanced");
+                Console.WriteLine("PASS production R7 exact NativeX64 arguments/pointer/return; players1..8, recorded invalid values and signed stack boundaries; no resource lookup");
+            }
+            finally {hooks[0].Dispose();Marshal.FreeHGlobal(data);VirtualFree(code,UIntPtr.Zero,0x8000);GC.KeepAlive(runtime);}
         }
         private static void ReproducePatchedSelection(byte[] image)
         {

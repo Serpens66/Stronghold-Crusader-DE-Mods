@@ -61,6 +61,7 @@ namespace EnemyGatePathfindingTest
         private readonly long[] queryPlayers = new long[9];
         private readonly long[] preservedOriginalZf = new long[2];
         private readonly long[] foreignOriginalZf = new long[2];
+        private long nativeRejectionPreserved, permittedComparisonPreserved;
         private long untrackedPolicyClear;
         private long untrackedRemovedRecord;
         private long untrackedUnexpectedGate;
@@ -274,7 +275,7 @@ namespace EnemyGatePathfindingTest
             if (temporaryAcceptance != null && samePclRouteRuntime != null)
             {
                 SamePclCoverageSnapshot same = samePclRouteRuntime.GetCoverageSnapshot();
-                temporaryAcceptance.CompareBuilderTotals(same.AiQueries, same.AiNoRoutes);
+                temporaryAcceptance.CompareBuilderTotals(same.AiQueries, same.AiNegativeWithRejectedEdges);
             }
             temporaryAcceptance?.End();
             macemen?.End();
@@ -590,6 +591,12 @@ namespace EnemyGatePathfindingTest
                 Interlocked.Increment(ref preservedOriginalZf[originalZero ? 1 : 0]);
             if (decision == NativeGateSnapshotDecision.ExcludeForeignCapture)
                 Interlocked.Increment(ref foreignOriginalZf[originalZero ? 1 : 0]);
+            if ((int)decision <= (int)NativeGateSnapshotDecision.ExcludeForeignCapture)
+            {
+                if (originalZero && finalZero) Interlocked.Increment(ref nativeRejectionPreserved);
+                if (GateSearchEvidence.Comparison(originalZero, finalZero, decision) == "permitted-acceptance-preserved")
+                    Interlocked.Increment(ref permittedComparisonPreserved);
+            }
             if (decision == NativeGateSnapshotDecision.UntrackedConnection)
             {
                 NativeGateAccessSnapshot live = gateAccess;
@@ -605,7 +612,7 @@ namespace EnemyGatePathfindingTest
             if (macemen != null)
                 macemen.GateComparison(queryPlayerId, buildingId, subjectGlobalId, originalZero, finalZero,
                     site, nativeOwner, nativeCaptured);
-            if (detailedDiagnostics && builderPrecheck)
+            if (detailedDiagnostics)
             {
                 try
                 {
@@ -613,7 +620,7 @@ namespace EnemyGatePathfindingTest
                         ? buildingId : 0;
                     attackOrderDiagnostics?.ObserveGatePrecheck(queryPlayerId, buildingId,
                         exactGateId,
-                        originalZero, finalZero, decision, nativeOwner, nativeCaptured, subjectGlobalId);
+                        originalZero, finalZero, decision, nativeOwner, nativeCaptured, subjectGlobalId, builderPrecheck);
                 }
                 catch (Exception ex) { TryLogDiagnosticFailure(ex); }
             }
@@ -695,6 +702,8 @@ namespace EnemyGatePathfindingTest
             Array.Clear(queryPlayers, 0, queryPlayers.Length);
             Array.Clear(preservedOriginalZf, 0, preservedOriginalZf.Length);
             Array.Clear(foreignOriginalZf, 0, foreignOriginalZf.Length);
+            Interlocked.Exchange(ref nativeRejectionPreserved, 0);
+            Interlocked.Exchange(ref permittedComparisonPreserved, 0);
             Reset(ref untrackedPolicyClear);
             Reset(ref untrackedRemovedRecord);
             Reset(ref untrackedUnexpectedGate);
@@ -759,9 +768,10 @@ namespace EnemyGatePathfindingTest
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate Same-PCL checkpoint: kind={kind}, installed={same.Installed}," +
                 $"sharedHookOwner={same.OwnerConflict},queries={same.Queries}," +
-                $"nativeRoutePreserved={same.Preserved},edgeRejected={same.RejectedEdges}," +
-                $"vanillaDetours={same.Detours},policyNoRoute={same.NoRoutes}," +
-                $"humanBuilderDetour={same.HumanDetours},aiDetour={same.AiDetours}," +
+                $"searchWithoutRejectedEdges={same.Preserved},edgeRejected={same.RejectedEdges}," +
+                $"successWithRejectedEdges={same.SuccessWithRejectedEdges},negativeWithRejectedEdges={same.NegativeWithRejectedEdges}," +
+                $"negativeWithoutRejectedEdges={same.NegativeWithoutRejectedEdges},incompleteSearches={same.IncompleteSearches}," +
+                $"humanSuccessWithRejectedEdges={same.HumanSuccessWithRejectedEdges},aiSuccessWithRejectedEdges={same.AiSuccessWithRejectedEdges}," +
                 $"attackEdgesFiltered={same.AttackEdges},buildingEdgesFiltered={same.BuildingEdges}," +
                 $"candidateEdgesFiltered={same.CandidateEdges},cursorCommandEdgesFiltered={same.CursorCommandEdges}," +
                 $"directCursorEdgesFiltered={same.DirectCursorEdges}," +
@@ -787,7 +797,8 @@ namespace EnemyGatePathfindingTest
                 $"missingContext={same.MissingContexts},invalidPlayer={same.InvalidPlayers}," +
                 $"scopeMismatch={same.ScopeMismatches},threadSlotConflict={same.SlotConflicts}," +
                 $"snapshotPoolExhaustion={same.PoolExhaustions},exceptions={same.Exceptions}," +
-                $"aiQueries={same.AiQueries},aiNoRoute={same.AiNoRoutes}," +
+                $"aiQueries={same.AiQueries},aiNegativeWithRejectedEdges={same.AiNegativeWithRejectedEdges}," +
+                $"aiNegativeWithoutRejectedEdges={same.AiNegativeWithoutRejectedEdges},counterfactualVanillaRoute=not-measured," +
                 $"attackApproachQueries={same.AttackQueries},buildingApproachQueries={same.BuildingApproachQueries}," +
                 $"buildingConsumerQueries={same.BuildingConsumerQueries}," +
                 $"alternateBuildingConsumerQueries={same.AlternateBuildingConsumerQueries}," +
@@ -843,7 +854,10 @@ namespace EnemyGatePathfindingTest
             {
                 Shared.DebugLogHelper.LogInfo(log,
                     $"Enemy-gate map completed: epoch={topologyProvider?.DiagnosticEpoch}, reason={reason}, " +
-                    $"queries={same.Queries}, aiQueries={same.AiQueries}, aiNoRoute={same.AiNoRoutes}, " +
+                    $"queries={same.Queries}, aiQueries={same.AiQueries}, aiNegativeWithRejectedEdges={same.AiNegativeWithRejectedEdges}, " +
+                    $"aiNegativeWithoutRejectedEdges={same.AiNegativeWithoutRejectedEdges}, incompleteSearches={same.IncompleteSearches}, " +
+                    $"nativeRejectionPreserved={Read(ref nativeRejectionPreserved)}, foreignCaptureAcceptanceRejected={Read(ref foreignOriginalZf[0])}, " +
+                    $"permittedComparisonPreserved={Read(ref permittedComparisonPreserved)}, " +
                     $"edgeRejected={same.RejectedEdges}, cursorBlocks={same.CursorResultForcedZero}, " +
                     $"capture=[{topologyProvider?.CaptureDiagnostics.Summary ?? "unavailable"}], " +
                     $"errors=[{(runtimeFailed ? DescribeIntegrityErrors(same, topology) : "none")}], " +
@@ -859,9 +873,12 @@ namespace EnemyGatePathfindingTest
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate acceptance verdict: " +
-                $"hookExecution={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity, false)}," +
+                $"hookExecution={EnemyGatePathfindingPolicy.ObservationVerdict(hookActivity ? 1 : 0)}," +
                 $"runtimeIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity || same.Queries > 0, runtimeFailed)}," +
-                $"uncapturedGate={EnemyGatePathfindingPolicy.ObservationVerdict(uncaptured)}," +
+                $"uncapturedGateObserved={EnemyGatePathfindingPolicy.ObservationVerdict(uncaptured)}," +
+                $"nativeRejectionPreserved={Read(ref nativeRejectionPreserved)}," +
+                $"foreignCaptureAcceptanceRejected={Read(ref foreignOriginalZf[0])},permittedComparisonPreserved={Read(ref permittedComparisonPreserved)}," +
+                "counterfactualVanillaRoute=not-measured,observedIsNotFunctionalPass=true," +
                 $"capturedGate={EnemyGatePathfindingPolicy.ObservationVerdict(topology.PeakCaptured)}," +
                 $"ownerAtHook={DiagnosticVerdict.NOT_APPLICABLE}," +
                 $"ownerAllyAtHook={DiagnosticVerdict.NOT_APPLICABLE}," +
@@ -881,14 +898,14 @@ namespace EnemyGatePathfindingTest
                 $"cursorPreviewPolicyBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPolicyBlocked)}," +
                 $"cursorPreviewReachable={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorReachable)}," +
                 $"samePclHookExecution={sameHookVerdict}," +
-                $"nativeRoutePreserved={EnemyGatePathfindingPolicy.ObservationVerdict(same.Preserved)}," +
+                $"searchWithoutRejectedEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.Preserved)}," +
                 $"edgeRejected={EnemyGatePathfindingPolicy.ObservationVerdict(same.RejectedEdges)}," +
-                $"vanillaDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.Detours)}," +
-                $"policyNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.NoRoutes)}," +
-                $"humanBuilderDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.HumanDetours)}," +
-                $"aiDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiDetours)}," +
+                $"successWithRejectedEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.SuccessWithRejectedEdges)}," +
+                $"negativeWithRejectedEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.NegativeWithRejectedEdges)}," +
+                $"humanSuccessWithRejectedEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.HumanSuccessWithRejectedEdges)}," +
+                $"aiSuccessWithRejectedEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiSuccessWithRejectedEdges)}," +
                 $"aiQuery={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiQueries)}," +
-                $"aiNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiNoRoutes)}," +
+                $"aiNegativeWithRejectedEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiNegativeWithRejectedEdges)}," +
                 $"plannerState0x419Execution={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalTargetQueries)}," +
                 $"plannerState0x419InteriorEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalBuildingEdges + same.AiTacticalUnitEdges)}," +
                 $"plannerState0x419FallbackEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalFallbackEdges)}," +
@@ -897,7 +914,7 @@ namespace EnemyGatePathfindingTest
                 $"candidateEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.CandidateEdges)}," +
                 $"cursorCommandEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorCommandEdges)}," +
                 $"threadSlotIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(same.Queries > 0, same.SlotConflicts > 0)}," +
-                $"drawbridgeTopology={(topology.DrawbridgeObserved ? DiagnosticVerdict.PASS : DiagnosticVerdict.NOT_OBSERVED)}," +
+                $"drawbridgeAssociation={EnemyGatePathfindingPolicy.ObservationVerdict(topology.DrawbridgeObserved ? 1 : 0)}," +
                 $"lifecycle={DiagnosticVerdict.PASS}," +
                 $"captureTransitions={topology.CaptureTransitions},recaptureTransitions={topology.RecaptureTransitions}," +
                 $"untrackedTransitionCalls={DecisionTotal(NativeGateSnapshotDecision.UntrackedConnection)}," +

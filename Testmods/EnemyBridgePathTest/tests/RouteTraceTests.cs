@@ -54,6 +54,14 @@ namespace EnemyBridgePathTest
             trace.ObservePlan(odd,one,new byte[]{0xA2},0);Check(captures==before,"inactive high nibble ignored");
             for(int raw=0;raw<8;raw++) {int x=10,y=10;Check(BridgeRouteTrace.Step(raw,ref x,ref y)&&Math.Abs(x-10)<=1&&Math.Abs(y-10)<=1,"audited compass direction");}
             int bx=0,by=0;Check(!BridgeRouteTrace.Step(7,ref bx,ref by),"coordinate bounds fail closed");
+            BridgeRouteTrace.Bridge earlier=new BridgeRouteTrace.Bridge {Id=31,Global=41},later=new BridgeRouteTrace.Bridge {Id=32,Global=42};earlier.Deck.Add(BridgeRouteTrace.Bridge.XY(2,1));later.Deck.Add(BridgeRouteTrace.Bridge.XY(4,1));
+            var split=new BridgeRouteTrace.Track {Global=7,HasPlan=true,Content=new BridgeRouteTrace.PathContent {Complete=true,Touched=new[]{earlier,later},LastSteps=new[]{0,3}}};
+            var cursor=new BridgeRouteTrace.Header(7,3,1,1,1,5,2);
+            Check(!BridgeRouteTrace.RemainingDeck(split,cursor,31,41)&&BridgeRouteTrace.RemainingDeck(split,cursor,32,42),"per-bridge consumed sections cannot steal later bridge relevance");
+            Check(!BridgeRouteTrace.RemainingDeck(split,cursor,32,999),"changed bridge global is not remaining-route proof");
+            Check(!BridgeRouteTrace.RemainingDeck(split,new BridgeRouteTrace.Header(7,5,1,1,1,5,4)),"all deck steps behind cursor do not promote group");
+            Check(BridgeRouteTrace.RemainingDeck(split,new BridgeRouteTrace.Header(7,4,1,1,1,5,4)),"current deck position remains authoritative despite advanced cursor");
+            split.HasPlan=false;Check(!BridgeRouteTrace.RemainingDeck(split,cursor),"replaced or incomplete plan cannot claim remaining deck");
             ProductionView(output,bridge);
             DecisionPersistence();
             CommandAgeAndCursor();

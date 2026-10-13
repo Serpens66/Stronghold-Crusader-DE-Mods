@@ -17,6 +17,8 @@ namespace EnemyGatePathfindingTest
         private readonly GateTopologySnapshotProvider topology;
         // TEMP_GATE_ROUTE_ACCEPTANCE: generic counters remain, new focused rows carry evidence.
         private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate { TemporaryCountsOnly = true };
+        // No unit IDs or coordinates in evidence keys; all repetitions are counted.
+        private readonly GateEvidenceAggregate evidence = new GateEvidenceAggregate();
         internal TemporaryGateRouteAcceptance TemporaryAcceptance;
         [ThreadStatic] private static List<Frame> active;
         [ThreadStatic] private static List<HashSet<int>> searches;
@@ -32,6 +34,7 @@ namespace EnemyGatePathfindingTest
             internal long Builders, BuilderSuccess, BuilderFailure, RejectedEdges;
             internal string FirstBuilderCategory, LastBuilderCategory;
             internal long BuilderCategoryChanges;
+            internal GateOrderEvidence Evidence;
         }
 
         internal AttackOrderCorrelationDiagnostics(ManualLogSource log,
@@ -41,6 +44,7 @@ namespace EnemyGatePathfindingTest
         internal void Reset()
         {
             totals.Reset();
+            evidence.Reset();
             Interlocked.Exchange(ref errors, 0);
             Interlocked.Exchange(ref unattributedPlayers, 0);
             Interlocked.Exchange(ref scopeMismatches, 0);
@@ -133,11 +137,26 @@ namespace EnemyGatePathfindingTest
 
         internal void ObserveGatePrecheck(int player, int buildingId, int exactGateId,
             bool vanillaExcluded,
-            bool policyExcluded, NativeGateSnapshotDecision decision, int owner, int captured, uint globalId)
+            bool policyExcluded, NativeGateSnapshotDecision decision, int owner, int captured, uint globalId,
+            bool builderPrecheck)
         {
             int gateId = exactGateId > 0 ? exactGateId : 0;
             if (gateId == 0) Interlocked.Increment(ref unattributedPrechecks);
             Frame frame = Current();
+            if (frame != null && frame.Player != player) frame = null;
+            NativeFrame native = nativeFrames != null && nativeFrames.Count > 0 ? nativeFrames[nativeFrames.Count - 1] : null;
+            if (native != null && native.Player != player) native = null;
+            bool individual = builderPrecheck || frame?.Kind == "unit" || native?.Source == "Builder";
+            bool upstream = !individual && (frame?.Kind == "target" || frame?.Kind == "move" ||
+                native?.Source == "BuildingApproach" || native?.Source == "BuildingConsumer" || native?.Source == "AlternateBuildingConsumer");
+            if (gateId > 0 && frame != null)
+                frame.Evidence.Comparison(!vanillaExcluded && policyExcluded, individual, upstream);
+            evidence.Record(player, gateId, builderPrecheck ? "builder-gate-comparison" : "graph-gate-comparison",
+                (gateId > 0 ? GateSearchEvidence.Comparison(vanillaExcluded, policyExcluded, decision) : "gate-identity-unattributed") +
+                    "/searchStage=" + (individual ? "individual-route" : upstream ? "upstream-query" : "unknown") +
+                    "/gateGlobal=" + globalId + "/owner=" + owner + "/capturer=" + captured,
+                frame?.Command ?? 0, frame?.Tribe ?? 0, frame?.Target1 ?? 0, frame?.Target2 ?? 0,
+                "gateGlobal=" + globalId + ",decision=" + decision + ",comparisonOnly=true");
             if (frame != null && frame.Player == player && gateId > 0)
                 frame.Gates.Add(gateId);
             if (gateId > 0 && searches != null && searches.Count > 0)
@@ -178,6 +197,7 @@ namespace EnemyGatePathfindingTest
                 if (completed && success) frame.BuilderSuccess++;
                 else frame.BuilderFailure++;
                 frame.RejectedEdges += rejectedEdges;
+                if (rejectedEdges > 0) frame.Evidence.IndividualFilteredSearches++;
             }
             totals.Record(player, 0, "builder",
                 !completed ? "exception" : success ? "positive" : "no-route",
@@ -312,6 +332,10 @@ namespace EnemyGatePathfindingTest
             { ObserveBuildingException(0, 0, "native-context-pair:" + source); return; }
             NativeFrame frame = nativeFrames[nativeFrames.Count - 1];
             nativeFrames.RemoveAt(nativeFrames.Count - 1);
+            evidence.Record(frame.Player, 0, "native-context", source + (completed ? "/completed" : "/incomplete"),
+                frame.Order?.Command ?? 0, frame.Tribe > 0 ? frame.Tribe : frame.Order?.Tribe ?? 0,
+                frame.Order?.Target1 ?? 0, frame.Order?.Target2 ?? 0,
+                "building=" + frame.Building + ",nativeReturnBasis=active-hooks,noRegionCallDoesNotProveSkip=true");
             if (nativeFrames.Count > 0) nativeFrames[nativeFrames.Count - 1].AssassinBuilders += frame.AssassinBuilders;
             if (frame.AssassinBuilders == 0 && source == "Builder") return;
             totals.Record(frame.Player, 0, "native-search-context",
@@ -459,10 +483,13 @@ namespace EnemyGatePathfindingTest
                 if (!IsAi(player)) return;
                 Frame frame = Current();
                 if (frame != null && frame.Player != player) frame = null;
-                string stage = sourceComponentId > 0 && sourceComponentId == destinationComponentId
-                    ? "same-pcl" : "regions";
+                if (frame != null) frame.Evidence.Region(sourceComponentId, destinationComponentId);
+                string stage = GateSearchEvidence.Region(sourceComponentId, destinationComponentId);
+                evidence.Record(player, 0, "region-query", stage + ",nativeWithActiveHooks=" + Result(vanillaResult) +
+                    ",effective=" + Result(effectiveResult), frame?.Command ?? 0, frame?.Tribe ?? 0,
+                    sourceComponentId, destinationComponentId, "source=" + source + ",queryMode=" + queryMode);
                 totals.Record(player, 0, "region-pair",
-                    "searchStage=" + stage + ",source=" + source + ",vanilla=" + Result(vanillaResult) +
+                    "searchStage=" + stage + ",source=" + source + ",nativeWithActiveHooks=" + Result(vanillaResult) +
                     ",effective=" + Result(effectiveResult),
                     frame?.Command ?? 0, frame?.Tribe ?? 0,
                     sourceComponentId, destinationComponentId,
@@ -484,6 +511,18 @@ namespace EnemyGatePathfindingTest
             Interlocked.Increment(ref errors);
             totals.Record(0, 0, "diagnostic-error", "unexpected-phase:" + phase,
                 0, 0, 0, 0, source);
+        }
+
+        internal void ObserveScopeResult(int player, string source, bool hasResult, bool completed, bool success, long rejected)
+        {
+            Frame frame = Current();
+            if (frame != null && frame.Player != player) frame = null;
+            evidence.Record(player, 0, "search-" + source,
+                hasResult ? GateSearchEvidence.Search(completed, success, rejected) : !completed ? "incomplete" :
+                    rejected > 0 ? "void-search-with-rejected-edges" : "void-search-without-rejected-edges",
+                frame?.Command ?? 0, frame?.Tribe ?? 0, frame?.Target1 ?? 0, frame?.Target2 ?? 0,
+                "orderSource=" + (frame?.Kind ?? "unknown") + ",rejectedEdges=" + rejected +
+                ",nativeReturnBasis=active-hooks,gateCauseProven=false");
         }
 
         private void ObserveUnattributedPlayer(string source, int id)
@@ -513,6 +552,11 @@ namespace EnemyGatePathfindingTest
                 return;
             }
             active.RemoveAt(active.Count - 1);
+            evidence.Record(frame.Player, 0, "order-" + frame.Kind, frame.Evidence.Classification +
+                ",return=" + Result(returnValue), frame.Command, frame.Tribe, frame.Target1, frame.Target2,
+                "id=" + id + ",unitIdentity=" + frame.UnitIdentity +
+                ",commandMeaning=" + (frame.Kind == "unit" ? "stored-unit-command" : frame.Kind == "move" ? "group-move-type" : "incoming-target-command") +
+                "," + frame.Evidence.Describe());
             string category = frame.Gates.Count == 0 ? "none" :
                 frame.Gates.Count == 1 ? "one:" + FirstGate(frame.Gates) :
                 "multiple:" + JoinGates(frame.Gates);
@@ -537,6 +581,7 @@ namespace EnemyGatePathfindingTest
                 parent.BuilderSuccess += frame.BuilderSuccess;
                 parent.BuilderFailure += frame.BuilderFailure;
                 parent.RejectedEdges += frame.RejectedEdges;
+                parent.Evidence.Merge(frame.Evidence);
             }
         }
 
@@ -603,6 +648,8 @@ namespace EnemyGatePathfindingTest
         internal void ProcessDeferred() { }
         internal string DescribeCheckpoint()
         {
+            foreach (var row in evidence.Drain())
+                Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE decision-evidence: " + row + ".");
             for (int player = 1; player <= 8; player++)
                 ObserveGateStates(player, "checkpoint", 0, 0, 0, 0);
             AiGateDecisionAggregate.RowSnapshot[] rows = totals.Drain(out var definitions);

@@ -66,3 +66,21 @@ Trace has6863 records/3546622 bytes including prefixes in98.189seconds. Measured
 Production captures now read reusable numeric arrays, compare numeric keys and format only new physical/planning/state definitions. Immutable dictionary keys are copied only for new definitions. Physical cells use columns tile/pcl/moat/flags/direction (flags hex; directions decimal), first grid*grid rows are occupied fields and remaining rows the immediate coordinate ring described by bounds. Invalid tile raw values remain visible without dereference. Planning columns remain tile/seed/field/distance16; missing distance is not-captured. Definition captureClock is original definition observation; referring operation Clock is its current synchronous observation. Separate interval read/compare/format costs and definition counts are emitted. These timers cover bridge fragments and candidate observations, not all wrapper cost; interval outputBytes excludes logger prefixes.
 
 Unchanged candidate-table references are batched32 per record, preserving parent/rva/slot/definition/plan/phase/count. Exact repetitions coalesce before enqueueing. New planning provenance and reservation changes still produce evidence. Native entry contracts, original-once forwarding, public APIs and owners remain unchanged. Session-end is one immediate bounded record with captureComplete/deliveryComplete and critical/background pending; queued records continue through the existing process-rooted render publisher at64 records/2ms target. Immediate process exit can still leave output pending and must never be described as complete.
+
+Copied gatehouse selection extension,2026-10-13 (offline only):
+- Feature: EAB80 selection inside3B8D0->1140C0. Full native body649 bytes,
+  SHA256069B44D62A1D36DF2B2E749A6AE7F5F3454BC9FB22EA81F5579A26D5D6D384B2,
+  reference nativeFBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+- Runtime never calls/hook-installs EAB80. Private reference verifies complete
+  body hash; copied kernel uses recorded grids/direction tables/building data.
+- NativeBuilding record manager64CCBB0+id*32C; type12E, alive12C, owner132,
+  global134, fire31A.1140C0 order coordinates are2BC/2BE, not1BC/1BE.
+- Root60AD660 statisticsA0, generation4, queue155F38/155F6C/28F3EC;
+  full source inputs already captured. Unknown extents or owner IDs abort.
+- Original EAB80 permits building-grid neighbors independently of directions;
+  raised physical edges alone do not exclude a gatehouse candidate.
+- 30E90 stored target64C/650 is independent of this coordinate-only selection.
+- Fixes owns interior EAB80 patches (EAD8C plus owner-check window). This step
+  adds no competing hook, and unpatched private results are Vanilla evidence,
+  not a complete reproduction of every effective Fixes option.
+- Unknown hash/layout/data remains Unknown; no PE table defaults for live values.

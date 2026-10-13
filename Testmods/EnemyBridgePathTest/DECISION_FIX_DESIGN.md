@@ -772,3 +772,13 @@ observer contract; versions unchanged. Driver checks this APIShared minimum too.
 Final code review, runtime preflights, native reference and 38101 Bridge assertions
 passed. Live startup/feature-on/off acceptance remains the next game test;
 consumer fixtures preserve the supplied original/effective results unchanged.
+
+
+2026-10-13 offline continuation: see
+_inspect/BridgePlanningTests/OFFLINE_CONTINUATION_20261013.md. Deferred weak
+selection, remaining-deck promotion and reused writer buffer implemented.
+Native/managed EAB80 choice gate134/g6658 at404/491 matches group artifact;
+virtual135/149 cuts do not change this gate choice. Physical edge separation
+alone is insufficient for melee target selection. Player5 negative inter-consumer
+planning suffix matches native; active-role order/formation remains Unknown.
+Resource errors remain unattributed and are not claimed fixed. No behavior patch.

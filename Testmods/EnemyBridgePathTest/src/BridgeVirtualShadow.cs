@@ -59,6 +59,9 @@ namespace EnemyBridgePathTest
         private BridgeBuildingIndex decisionIndex;
         private long planningBundleOp,planningBundleDefinition,expectedPlanningFamily;
         private int planningPlayer;
+        private BridgePlanningCapture.Bundle fallbackBundle;private Request fallbackRequest;
+        internal bool HasDeferredPlanning {get {lock(gate)return fallbackBundle!=null;}}
+        internal bool HasPublishedPlanning {get {lock(gate)return keepArtifact;}}
         internal void ExpectPlanningFamily(long op) {lock(gate)expectedPlanningFamily=op;}
         internal object PlanningInputToken {get {lock(gate)return captured?.Token;}}
         internal bool PreparePlanning(BridgePlanningCapture.Bundle bundle,BridgeBuildingIndex index,bool decisionOnly=false)
@@ -81,17 +84,33 @@ namespace EnemyBridgePathTest
                 var request=planningRequest;
                 if(keepArtifact||!bundle.Complete||request==null||request.Parent!=bundle.Op||decisionCaptureOp!=bundle.Op||decisionCaptured==null||decisionCaptured.Session!=bundle.Session)
                 {emit("planning-artifact-unresolved","op="+bundle.Op+",reason=no-matching-historical-keep-input");return false;}
-                request=request.ArtifactCopy();request.Input=decisionCaptured;request.InputReason="own-decision-copy-pending-topology-"+bundle.Dirty;keepArtifact=artifacts.Enqueue(bundle.Session,request.Id,Artifact(request,bundle),2);
-                if(keepArtifact)
+                request=request.ArtifactCopy();request.Input=decisionCaptured;request.InputReason="own-decision-copy-pending-topology-"+bundle.Dirty;
+                bool weak=bundle.SelectionReason=="unallowed-coupled-bridge-candidate-not-route-proof";
+                Request linked=LinkedGroup(bundle);
+                if(weak&&linked==null)
                 {
-                    planningBundleOp=bundle.Root;planningBundleDefinition=request.Id;planningPlayer=bundle.Attacker;
-                    Request first=null;foreach(var group in groups.Values)if(group.BridgeRelevant&&group.Player==bundle.Attacker&&group.Input!=null&&group.PolicyValidAtDecision&&(group.PlanningRoot==planningBundleOp||group.DecisionRoot==planningBundleOp)&&(first==null||group.Clock<first.Clock))first=group;
-                    if(first!=null)groupArtifact=artifacts.Enqueue(first.Input.Session,first.Id,Artifact(first),2);
+                    if(fallbackBundle!=null){emit("planning-artifact-unresolved","op="+bundle.Op+",reason=weak-fallback-already-retained");planningRequest=null;return false;}
+                    fallbackBundle=bundle;fallbackRequest=request;planningRequest=null;
+                    emit("planning-artifact-deferred","op="+bundle.Op+",root="+bundle.Root+",player="+bundle.Attacker+",reason=weak-candidate-awaiting-linked-remaining-path-or-stronger-plan,fallbackLimit=1,inputRetained=True,liveInputReplacement=False");return true;
                 }
-                emit("planning-artifact-selected","op="+bundle.Op+",definition="+request.Id+",complete="+bundle.Complete+",accepted="+keepArtifact+",captureMs="+(bundle.Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture));
-                planningRequest=null;
-                return keepArtifact;
+                bool accepted=PublishPlanning(bundle,request,weak?"linked-remaining-deck-path":bundle.SelectionReason);
+                planningRequest=null;return accepted;
             }
+        }
+        private Request LinkedGroup(BridgePlanningCapture.Bundle bundle)
+        {
+            Request first=null;foreach(var group in groups.Values)if(group.BridgeRelevant&&group.Player==bundle.Attacker&&group.Input!=null&&group.Input.Session==bundle.Session&&group.PolicyValidAtDecision&&(group.PlanningRoot==bundle.Root||group.DecisionRoot==bundle.Root)&&(first==null||group.Clock<first.Clock))first=group;return first;
+        }
+        private bool PublishPlanning(BridgePlanningCapture.Bundle bundle,Request request,string reason)
+        {
+            bool accepted=artifacts.Enqueue(bundle.Session,request.Id,Artifact(request,bundle),2);
+            if(accepted)
+            {
+                keepArtifact=true;planningBundleOp=bundle.Root;planningBundleDefinition=request.Id;planningPlayer=bundle.Attacker;
+                var first=LinkedGroup(bundle);if(first!=null)groupArtifact=artifacts.Enqueue(first.Input.Session,first.Id,Artifact(first),2);
+                fallbackBundle=null;fallbackRequest=null;
+            }
+            emit("planning-artifact-selected","op="+bundle.Op+",definition="+request.Id+",complete="+bundle.Complete+",accepted="+accepted+",selectionEvidence="+reason+",captureMs="+(bundle.Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture));return accepted;
         }
         internal bool ArtifactPending(long value) {lock(gate)return artifacts.Pending(value);}
         internal void PumpArtifacts() {lock(gate)artifacts.Pump();}
@@ -147,12 +166,18 @@ namespace EnemyBridgePathTest
             string folder=artifactDirectory??System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(BridgeVirtualShadow).Assembly.Location),"..","..","diagnostics","EnemyBridgePathTest",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff")));
             artifacts=new BridgeInputArtifact(folder,artifactEmit??((_,kind,detail)=>emit(kind,detail)));
         }
-        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;coordinateX=coordinateY=null;coordinateRows=null;missingInput="awaiting-observed-rebuild";skippedComputations=0;skippedReasons.Clear();pending.Clear();active=null;repeats.Clear();groups.Clear();preparations.Clear();lastContent=null;workspace=null;keepArtifact=groupArtifact=false;planningPlayer=0;planningRequest=null;decisionCaptured=null;decisionCaptureOp=0;decisionIndex=null;planningBundleOp=planningBundleDefinition=expectedPlanningFamily=0;identity++;decisionCaptureTicks=decisionCaptures=lastDecisionCaptureTicks=lastDecisionCaptures=0;completedQueries=captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;attempted=backgroundDeferred=prepareTicks=searchTicks=formatTicks=comparisonTicks=preparationHits=contentReused=validationTicks=retainedGroupEvictions=unresolvedGroupLinks=0;lastPrepareTicks=lastSearchTicks=lastFormatTicks=lastComparisonTicks=lastPreparationHits=lastContentReused=lastDeferred=lastValidationTicks=0;}}
+        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;coordinateX=coordinateY=null;coordinateRows=null;missingInput="awaiting-observed-rebuild";skippedComputations=0;skippedReasons.Clear();pending.Clear();active=null;repeats.Clear();groups.Clear();preparations.Clear();lastContent=null;workspace=null;keepArtifact=groupArtifact=false;planningPlayer=0;planningRequest=null;fallbackBundle=null;fallbackRequest=null;decisionCaptured=null;decisionCaptureOp=0;decisionIndex=null;planningBundleOp=planningBundleDefinition=expectedPlanningFamily=0;identity++;decisionCaptureTicks=decisionCaptures=lastDecisionCaptureTicks=lastDecisionCaptures=0;completedQueries=captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;attempted=backgroundDeferred=prepareTicks=searchTicks=formatTicks=comparisonTicks=preparationHits=contentReused=validationTicks=retainedGroupEvictions=unresolvedGroupLinks=0;lastPrepareTicks=lastSearchTicks=lastFormatTicks=lastComparisonTicks=lastPreparationHits=lastContentReused=lastDeferred=lastValidationTicks=0;}}
         internal void Invalidate() {lock(gate) {identity++;captured=null;missingInput="identity-or-physical-invalidation-awaiting-rebuild";}}
         internal void End()
         {
             lock(gate)
             {
+                if(!keepArtifact&&fallbackBundle!=null)
+                {
+                    if(fallbackBundle.Session==session&&fallbackRequest?.Input?.Session==session)PublishPlanning(fallbackBundle,fallbackRequest,"weak-fallback-at-session-end-not-route-proof");
+                    else emit("planning-artifact-unresolved","reason=fallback-session-identity-mismatch");
+                    fallbackBundle=null;fallbackRequest=null;
+                }
                 FlushRepeats();
                 var cancelled=new System.Text.StringBuilder();if(active!=null)cancelled.Append(active.Id).Append(';');foreach(var request in pending)cancelled.Append(request.Id).Append(';');
                 emit("virtual-shadow-end","decisionInputCopies="+decisionCaptures+",decisionInputCopyMs="+Ms(decisionCaptureTicks)+",shadowSession="+session+",captureCount="+captures+",completedQueries="+completedQueries+",captureMs="+Ms(captureTicks)+",computeMs="+Ms(computeTicks)+",prepareMs="+Ms(prepareTicks)+",searchMs="+Ms(searchTicks)+",formatMs="+Ms(formatTicks)+",validationMs="+Ms(validationTicks)+",retainedGroupEvictions="+retainedGroupEvictions+",unresolvedGroupLinks="+unresolvedGroupLinks+",contentCompareMs="+Ms(comparisonTicks)+",preparationHits="+preparationHits+",contentReused="+contentReused+",attempted="+attempted+",backgroundDeferred="+backgroundDeferred+",comparisonScope=fresh-keeps-selected-targets-proven-bridge-groups,coalesced="+coalesced+",rejected="+rejected+",pending="+(pending.Count+(active==null?0:1))+",pendingOutcome=cancelled-at-session-end,cancelledDefinitions=["+cancelled+"],keepArtifactSelected="+keepArtifact+",bridgeGroupArtifactSelected="+groupArtifact+",missingMatchingGroupArtifact="+(keepArtifact&&!groupArtifact)+","+artifacts.Status(session)+",behavior=unchanged");
@@ -338,6 +363,7 @@ namespace EnemyBridgePathTest
             {
                 if(player<1||player>8)return;
                 groups.TryGetValue(groupOp,out Request request);
+                if(request!=null&&request.PolicyValidAtDecision&&fallbackBundle!=null&&fallbackBundle.Session==session&&player==fallbackBundle.Attacker&&(request.PlanningRoot==fallbackBundle.Root||request.DecisionRoot==fallbackBundle.Root))PublishPlanning(fallbackBundle,fallbackRequest,"weak-fallback-promoted-by-linked-remaining-path");
                 if(request!=null&&request.Input==null&&player==planningPlayer&&keepArtifact&&!groupArtifact&&decisionIndex!=null&&(request.PlanningRoot==planningBundleOp||request.DecisionRoot==planningBundleOp))
                 {
                     var planInput=decisionCaptured;decisionCaptured=null;Rebuilt(session,revision,decisionIndex,true);var groupInput=decisionCaptured;decisionCaptured=planInput;
@@ -567,7 +593,7 @@ namespace EnemyBridgePathTest
                 long now=Stopwatch.GetTimestamp();if(costClock==0) {costClock=now;return;}
                 double seconds=(now-costClock)/(double)Stopwatch.Frequency;if(seconds<10)return;
                 FlushRepeats();
-                emit("interval-virtual-cost","decisionInputCopies="+(decisionCaptures-lastDecisionCaptures)+",decisionInputCopyMs="+Ms(decisionCaptureTicks-lastDecisionCaptureTicks)+",seconds="+seconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",captures="+(captures-lastCaptures)+",captureMs="+Ms(captureTicks-lastCaptureTicks)+",computeMs="+Ms(computeTicks-lastComputeTicks)+",prepareMs="+Ms(prepareTicks-lastPrepareTicks)+",searchMs="+Ms(searchTicks-lastSearchTicks)+",formatMs="+Ms(formatTicks-lastFormatTicks)+",validationMs="+Ms(validationTicks-lastValidationTicks)+",contentCompareMs="+Ms(comparisonTicks-lastComparisonTicks)+",preparationHits="+(preparationHits-lastPreparationHits)+",contentReused="+(contentReused-lastContentReused)+",backgroundDeferred="+(backgroundDeferred-lastDeferred)+",coalesced="+(coalesced-lastCoalesced)+",rejected="+(rejected-lastRejected)+",pending="+(pending.Count+(active==null?0:1))+",activeRevision="+revision+",retainedSnapshot="+(captured!=null)+",artifactBytes="+(artifacts.Bytes-lastArtifactBytes)+",formatScope=result-control-records,computeIncludesPrepareSearchFormat=True,captureIncludesContentCompare=True,artifactWriteMs="+Ms(artifacts.Ticks-lastArtifactTicks));
+                emit("interval-virtual-cost","decisionInputCopies="+(decisionCaptures-lastDecisionCaptures)+",decisionInputCopyMs="+Ms(decisionCaptureTicks-lastDecisionCaptureTicks)+",seconds="+seconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",captures="+(captures-lastCaptures)+",captureMs="+Ms(captureTicks-lastCaptureTicks)+",computeMs="+Ms(computeTicks-lastComputeTicks)+",prepareMs="+Ms(prepareTicks-lastPrepareTicks)+",searchMs="+Ms(searchTicks-lastSearchTicks)+",formatMs="+Ms(formatTicks-lastFormatTicks)+",validationMs="+Ms(validationTicks-lastValidationTicks)+",contentCompareMs="+Ms(comparisonTicks-lastComparisonTicks)+",preparationHits="+(preparationHits-lastPreparationHits)+",contentReused="+(contentReused-lastContentReused)+",backgroundDeferred="+(backgroundDeferred-lastDeferred)+",coalesced="+(coalesced-lastCoalesced)+",rejected="+(rejected-lastRejected)+",pending="+(pending.Count+(active==null?0:1))+",activeRevision="+revision+",retainedSnapshot="+(captured!=null)+",artifactBytes="+(artifacts.Bytes-lastArtifactBytes)+",formatScope=result-control-records,computeIncludesPrepareSearchFormat=True,captureIncludesContentCompare=True,artifactWriteMs="+Ms(artifacts.Ticks-lastArtifactTicks)+","+artifacts.IntervalCosts());
                 costClock=now;lastDecisionCaptures=decisionCaptures;lastDecisionCaptureTicks=decisionCaptureTicks;lastValidationTicks=validationTicks;lastPrepareTicks=prepareTicks;lastSearchTicks=searchTicks;lastFormatTicks=formatTicks;lastComparisonTicks=comparisonTicks;lastPreparationHits=preparationHits;lastContentReused=contentReused;lastDeferred=backgroundDeferred;lastCaptures=captures;lastCaptureTicks=captureTicks;lastComputeTicks=computeTicks;lastCoalesced=coalesced;lastRejected=rejected;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;
             }
         }

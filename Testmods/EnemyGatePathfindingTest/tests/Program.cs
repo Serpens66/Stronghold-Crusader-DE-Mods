@@ -18,6 +18,7 @@ namespace EnemyGatePathfindingTest
                 assertions += GateRoutePolicyTests.Run();
                 assertions += CompactDiagnosticTests.Run();
                 assertions += MacemenDiagnosticTests.Run();
+                assertions += GateEvidenceTests.Run();
                 assertions += TemporaryGateAcceptanceTests.Run();
                 UncapturedEnemyPreservesVanillaExclusion();
                 OwnAndAlliedOwnersRemainEligible();
@@ -822,8 +823,8 @@ namespace EnemyGatePathfindingTest
 
         private static void AcceptanceVerdictsAreMachineReadable()
         {
-            Assert(EnemyGatePathfindingPolicy.ObservationVerdict(1) == DiagnosticVerdict.PASS,
-                "observed acceptance case passes");
+            Assert(EnemyGatePathfindingPolicy.ObservationVerdict(1) == DiagnosticVerdict.OBSERVED,
+                "observed coverage does not prove functional success");
             Assert(EnemyGatePathfindingPolicy.ObservationVerdict(0) ==
                     DiagnosticVerdict.NOT_OBSERVED,
                 "missing acceptance case is explicit");
@@ -1809,7 +1810,7 @@ namespace EnemyGatePathfindingTest
                 "1232E0 and DC3C0 have explicit query scopes");
             Assert(source.IndexOf("Interlocked.Increment(ref aiQueries)",
                         StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("Interlocked.Increment(ref aiNoRoutes)",
+                    source.IndexOf("Interlocked.Increment(ref aiNegativeWithRejectedEdges)",
                         StringComparison.Ordinal) >= 0 &&
                     source.IndexOf("Interlocked.Increment(ref attackQueries)",
                         StringComparison.Ordinal) >= 0 &&

@@ -240,3 +240,9 @@ foreach($generalSource in @('BridgePlanningCapture.cs','BridgeVirtualShadow.cs',
 }
 if(!$shadowSource.Contains('new QueryKey("prepared:"+selection') -or !$shadowSource.Contains('missingMatchingGroupArtifact') -or !$entryCapture.Contains('planningBudgetExhausted') -or !$entryCapture.Contains('relevance(attacker)')){throw 'Automatic selection, precise preparation key or explicit missing coverage contract absent'}
 Write-Host 'PASS: automatic relevant player/deck selection, identity-specific cut caches and explicit bounded capture coverage.'
+
+if(!$collector.Contains('ReleaseForStrongerAttempt') -or !$shadowSource.Contains('fallbackBundle=null;fallbackRequest=null') -or !$shadowSource.Contains('weak-fallback-at-session-end-not-route-proof') -or !$commandText.Contains('prior.StoredRemaining[player]')) {throw 'Bounded deferred fallback/stronger selection contract missing'}
+if(!$routeSource.Contains('RemainingDeck') -or !$routeSource.Contains('LastSteps=lastSteps.ToArray()') -or !$deferredSource.Contains('Trace.Routes.HasRemainingDeck(Current.Id)')) {throw 'Per-bridge remaining-path promotion missing'}
+$artifactSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeInputArtifact.cs'))
+if(!$artifactSource.Contains('var block=outputBlock') -or !$artifactSource.Contains('artifactMaxSourceMs') -or !$shadowSource.Contains('artifacts.IntervalCosts()')){throw 'Bounded reused publisher buffer or separate source/write costs missing'}
+Write-Host 'PASS: one deferred fallback, stronger attempt, remaining deck only; reused64KiB writer and separate nested cost scopes.'

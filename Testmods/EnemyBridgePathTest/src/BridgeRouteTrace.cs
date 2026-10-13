@@ -53,7 +53,7 @@ namespace EnemyBridgePathTest
         {
             internal Header Header; internal byte[] Bytes; internal long Id,Geometry;
             internal bool Complete,Relevant; internal int First=-1,Last=-1;
-            internal string Bridges; internal Bridge[] Touched;
+            internal string Bridges; internal Bridge[] Touched;internal int[] LastSteps;
         }
         private readonly Dictionary<long,List<PathContent>> contents=new Dictionary<long,List<PathContent>>();
         private int contentCount;
@@ -79,6 +79,18 @@ namespace EnemyBridgePathTest
             if(bindingCount==0)return;
             emit("route-bindings","columns=binding/unit/global/player/controlRaw/tribe/commandOp/parentEvent/consumer/planningRoot/entryPhase/candidatePlan/decisionState/commandClock,rows=["+bindingRows+"],candidateLink=chronological-only,decisionLink=retained-completed-caller-state");bindingRows.Clear();bindingCount=0;
         }
+        internal static bool RemainingDeck(Track track,Header header,int bridgeId=0,uint bridgeGlobal=0)
+        {
+            var content=track.Content;if(!track.HasPlan||content==null||!content.Complete||header.Global!=track.Global||header.Cursor<0||header.Cursor>header.Length||(header.Flags&2)==0||content.LastSteps==null||content.Touched==null||content.LastSteps.Length!=content.Touched.Length)return false;
+            for(int i=0;i<content.Touched.Length;i++)
+            {
+                var bridge=content.Touched[i];if(bridgeId!=0&&(bridge.Id!=bridgeId||bridge.Global!=bridgeGlobal))continue;
+                if(bridge.Deck.Contains(Bridge.XY(header.X,header.Y))||header.Cursor<=content.LastSteps[i])return true;
+            }
+            return false; // A cursor boundary alone does not prove future use.
+        }
+        internal bool HasRemainingDeck(int unit)
+        {lock(gate)return session!=0&&tracks.TryGetValue(unit,out Track track)&&track.Session==session&&track.HasObservation&&RemainingDeck(track,track.ObservedHeader);}
         private static int ProgressClass(Track t,Header h,Bridge[] bridges)
         {
             if(!t.Relevant)return 0;
@@ -93,6 +105,7 @@ namespace EnemyBridgePathTest
             bool context=t.HasObservation&&(h.Command!=t.ObservedHeader.Command||h.TargetX!=t.ObservedHeader.TargetX||h.TargetY!=t.ObservedHeader.TargetY);
             if(!changed&&!context&&progress==t.LastProgressClass) {if(t.Repeats++==0) {t.FirstRepeatClock=now;t.FirstRepeatCursor=h.Cursor;}t.LastRepeatClock=now;t.LastRepeatCursor=h.Cursor;return;}
             FlushRepeats(t);t.LastProgressClass=progress;t.HasObservation=true;t.ObservedHeader=h;
+            if(t.Content.Complete)foreach(var bridge in t.Content.Touched)evidence?.Invoke(bridge.Id,bridge.Global,t.Player,t.CandidatePlan,t.PlanningRoot,t.Command,t.Decision,false,RemainingDeck(t,h,bridge.Id,bridge.Global));
             long state=t.Relevant||!t.Content.Complete?capture():0;
             observationRows.Append(t.Binding).Append('/').Append(t.Definition).Append('/').Append(now).Append('/').Append(h.X).Append('/').Append(h.Y).Append('/').Append(h.Cursor).Append('/').Append(h.Flags).Append('/').Append(h.Substep).Append('/').Append(t.ReturnKnown?1:0).Append('/').Append(t.ReturnRaw).Append('/').Append(t.PreCaptured&&t.ReturnKnown?(t.PathChangedByCommand?1:0):-1).Append('/').Append(state).Append('/').Append(progress).Append('/').Append(h.Command).Append('/').Append(h.TargetX).Append('/').Append(h.TargetY).Append(';');
             if(++observationCount==32)Flush();
@@ -145,7 +158,7 @@ namespace EnemyBridgePathTest
         private readonly Action<string,string> emit;
         private readonly Func<Bridge[]> geometry;
         private readonly Func<long> capture;
-        private readonly Action<int,uint,int,long,long,long,long,bool> evidence;
+        private readonly Action<int,uint,int,long,long,long,long,bool,bool> evidence;
         private readonly Action<long,int,long,long> unboundChange;
         private readonly Func<int,IntPtr> testUnit;
         private readonly Func<int,GameUnitPathPlanView> testView;
@@ -153,7 +166,7 @@ namespace EnemyBridgePathTest
         private bool movementConfirmed;
         private long session,definition,calls,commandReturns,scans,changes,readTicks,bytesRead;
         private long lastCalls,lastCommandReturns,lastScans,lastChanges,lastReadTicks,lastBytes;
-        internal BridgeRouteTrace(Action<string,string> emit,Func<Bridge[]> geometry,Func<long> capture,Func<int,IntPtr> testUnit=null,Func<int,GameUnitPathPlanView> testView=null,Action<int,uint,int,long,long,long,long,bool> evidence=null,Action<long,int,long,long> unboundChange=null,Func<int,int,string> structureTarget=null)
+        internal BridgeRouteTrace(Action<string,string> emit,Func<Bridge[]> geometry,Func<long> capture,Func<int,IntPtr> testUnit=null,Func<int,GameUnitPathPlanView> testView=null,Action<int,uint,int,long,long,long,long,bool,bool> evidence=null,Action<long,int,long,long> unboundChange=null,Func<int,int,string> structureTarget=null)
         {this.emit=emit;this.geometry=geometry;this.capture=capture;this.testUnit=testUnit;this.testView=testView;this.evidence=evidence;this.unboundChange=unboundChange;this.structureTarget=structureTarget;}
         internal void ForceReobserve() {lock(gate)foreach(var track in tracks.Values)track.HasPlan=false;}
         internal static string Classify(Bridge bridge,bool complete,bool gateSeen,int endX,int endY)
@@ -300,13 +313,13 @@ namespace EnemyBridgePathTest
             if(known!=null)
             {
                 t.Content=known;t.Definition=known.Id;t.Relevant=known.Relevant;t.FirstDeck=known.First;t.LastDeck=known.Last;
-                Observation(t,h,now,true,bridges);if(known.Complete&&ProgressClass(t,h,known.Touched)!=4)foreach(var bridge in known.Touched)evidence?.Invoke(bridge.Id,bridge.Global,t.Player,t.CandidatePlan,t.PlanningRoot,t.Command,t.Decision,false);return;
+                Observation(t,h,now,true,bridges);return;
             }
             int x=h.OriginX,y=h.OriginY;bool complete=true;
             for(int i=0;i<h.Length;i++)if(!Step((packed[i>>1]>>((i&1)*4))&15,ref x,ref y)) {complete=false;break;}
             int decodedX=x,decodedY=y;
             string endpointMatch=!ValidXY(h.SegmentX,h.SegmentY)?"unobserved":(!complete?"undecodable":(decodedX==h.SegmentX&&decodedY==h.SegmentY).ToString());
-            var intersections=new StringBuilder();var touched=new List<Bridge>();t.FirstDeck=int.MaxValue;t.LastDeck=-1;
+            var intersections=new StringBuilder();var touched=new List<Bridge>();var lastSteps=new List<int>();t.FirstDeck=int.MaxValue;t.LastDeck=-1;
             foreach(Bridge bridge in bridges)
             {
                 x=h.OriginX;y=h.OriginY;int first=-1,last=-1,entryX=x,entryY=y,exitX=x,exitY=y;bool gateSeen=bridge.Gate.Contains(Bridge.XY(x,y));bool full=true;
@@ -319,11 +332,11 @@ namespace EnemyBridgePathTest
                     else if(last==i-1) {exitX=x;exitY=y;}
                 }
                 if(first<0)continue;
-                t.Relevant=true;touched.Add(bridge);t.FirstDeck=Math.Min(t.FirstDeck,first);t.LastDeck=Math.Max(t.LastDeck,last);
+                t.Relevant=true;touched.Add(bridge);lastSteps.Add(last);t.FirstDeck=Math.Min(t.FirstDeck,first);t.LastDeck=Math.Max(t.LastDeck,last);
                 intersections.Append(bridge.Id).Append('/').Append(bridge.Global).Append('/').Append(first).Append('/').Append(last).Append('/').Append(entryX).Append('/').Append(entryY).Append('/').Append(exitX).Append('/').Append(exitY).Append('/').Append(Classify(bridge,full,gateSeen,decodedX,decodedY)).Append(';');
             }
             var directions=new StringBuilder();if(intersections.Length!=0||!complete)for(int i=0;i<(h.Length+1)/2;i++)directions.Append(packed[i].ToString("X2"));
-            t.Content=new PathContent {Header=h,Bytes=packed.Slice(0,(h.Length+1)/2).ToArray(),Id=++definition,Geometry=geo,Complete=complete,Relevant=t.Relevant,First=t.FirstDeck,Last=t.LastDeck,Bridges=intersections.ToString(),Touched=touched.ToArray()};t.Definition=t.Content.Id;
+            t.Content=new PathContent {Header=h,Bytes=packed.Slice(0,(h.Length+1)/2).ToArray(),Id=++definition,Geometry=geo,Complete=complete,Relevant=t.Relevant,First=t.FirstDeck,Last=t.LastDeck,Bridges=intersections.ToString(),Touched=touched.ToArray(),LastSteps=lastSteps.ToArray()};t.Definition=t.Content.Id;
             if(contentCount>=4096) {contents.Clear();contentCount=0;bucket=null;}if(bucket==null) {bucket=new List<PathContent>();contents[hash]=bucket;}bucket.Add(t.Content);contentCount++;
             // Relevant and undecodable paths retain full reconstructible definitions.
             // Background paths previously carried no bytes; retain all their numeric
@@ -340,7 +353,6 @@ namespace EnemyBridgePathTest
             }
             else emit("stored-route","format=2,definition="+t.Definition+",captureClock="+now+",origin="+h.OriginX+"/"+h.OriginY+",length="+h.Length+",cursor="+h.Cursor+",flags="+h.Flags+",substep="+h.Substep+",complete="+complete+",decodedEndpoint="+decodedX+"/"+decodedY+",nativeSegmentTarget="+h.SegmentX+"/"+h.SegmentY+",endpointMatchesTarget="+endpointMatch+",bridges=["+intersections+"],packedHex="+directions );
             Observation(t,h,now,true,bridges);
-            if(complete&&ProgressClass(t,h,t.Content.Touched)!=4)foreach(var bridge in touched)evidence?.Invoke(bridge.Id,bridge.Global,t.Player,t.CandidatePlan,t.PlanningRoot,t.Command,t.Decision,false);
             if(!complete)emit("route-unresolved",Link(t)+",reason=invalid-direction-or-coordinate,definition="+t.Definition);
         }
         internal void ObserveMovement(Track t,Header h,bool post,long now)
@@ -353,7 +365,7 @@ namespace EnemyBridgePathTest
                 foreach(Bridge b in geometry())
                 {
                     bool inside=b.Deck.Contains(Bridge.XY(h.X,h.Y)),was=b.Deck.Contains(Bridge.XY(t.Last.X,t.Last.Y));
-                    if(inside||was) {if(adjacent)evidence?.Invoke(b.Id,b.Global,t.Player,t.CandidatePlan,t.PlanningRoot,t.Command,t.Decision,true);emit("bridge-movement",Link(t)+",definition="+t.Definition+",building="+b.Id+"/g"+b.Global+",from="+t.Last.X+"/"+t.Last.Y+",to="+h.X+"/"+h.Y+",stage="+(inside&&!was?"enter":was&&!inside?"exit":"deck-step")+",eventPhase="+(post?"post":"pre")+",cursor="+h.Cursor+",transition="+(adjacent?"adjacent-tile-step":"non-adjacent-position-change")+",execution=observed-positions");}
+                    if(inside||was) {if(adjacent)evidence?.Invoke(b.Id,b.Global,t.Player,t.CandidatePlan,t.PlanningRoot,t.Command,t.Decision,true,RemainingDeck(t,h,b.Id,b.Global));emit("bridge-movement",Link(t)+",definition="+t.Definition+",building="+b.Id+"/g"+b.Global+",from="+t.Last.X+"/"+t.Last.Y+",to="+h.X+"/"+h.Y+",stage="+(inside&&!was?"enter":was&&!inside?"exit":"deck-step")+",eventPhase="+(post?"post":"pre")+",cursor="+h.Cursor+",transition="+(adjacent?"adjacent-tile-step":"non-adjacent-position-change")+",execution=observed-positions");}
                 }
             }
             if(t.HasHeader&&t.Content!=null&&!t.Stall&&(t.Relevant||h.Length>h.Cursor)&&now-t.LastProgress>=5*Stopwatch.Frequency&&now-t.CommandStarted>=5*Stopwatch.Frequency)

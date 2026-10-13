@@ -11,6 +11,8 @@ namespace BridgePlanningTests
         private delegate int R3(IntPtr self,int a,int b);
         // Explicit original files, not an arbitrary-file bypass. Importer also verifies envelope.
         private static bool ApprovedPlanning(string hash) =>
+            hash=="BE7B97100EC6E84A16E2ECBF37DDD7645D55DE9B373F821C7C5CF94778472318" ||
+            hash=="4EA2B9E111473C1DE57F901B7DCC911752E2F9CEF9C5D8A0309920337B8F79ED" ||
             hash=="B9DD0EA2FFA052B41D33B0C24F7103F35BCE19E22801E35083A8B3BEACDA7764" ||
             hash=="3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB" ||
             hash=="15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872" ||
@@ -22,7 +24,7 @@ namespace BridgePlanningTests
         private static T[] ArrayValues<T>(byte[] bytes) where T:struct
         {var result=new T[bytes.Length/System.Runtime.InteropServices.Marshal.SizeOf(typeof(T))];Buffer.BlockCopy(bytes,0,result,0,bytes.Length);return result;}
         private static int Changed(byte[] actual,byte[] expected){Check(actual.Length==expected.Length,"changed-buffer extent");int count=0;for(int i=0;i<actual.Length;i++)if(actual[i]!=expected[i])count++;return count;}
-        private static VirtualPlanningState ComputedVariant(BridgePlanningImporter.Artifact a,int variant,out VirtualBridgeMap physical,out int[] counts)
+        private static VirtualPlanningState ComputedVariant(BridgePlanningImporter.Artifact a,int variant,out VirtualBridgeMap physical,out int[] counts,int selectedBridge=0,uint selectedGlobal=0)
         {
             if(variant<0||variant>2)throw new ArgumentException("variant");
             var b=a.Planning;byte[] Get(string name)=>CopiedPlanningBundle.Resolve(b,name);
@@ -34,8 +36,8 @@ namespace BridgePlanningTests
             if(variant!=0)
             {
                 // Reuse the production validator for coupling identities and all role checks.
-                if(!CopiedPlanningReplay.TryVariants(a,out reason))throw new Exception(reason);
-                var decks=ArrayValues<int>(a.Sections["decks"]);var parents=ArrayValues<int>(a.Sections["coupledParents5"]);var cut=new List<int>();int singleId=0;uint singleGlobal=0;
+                if(!CopiedPlanningReplay.TryVariants(a,out reason,selectedBridge,selectedGlobal))throw new Exception(reason);
+                var decks=ArrayValues<int>(a.Sections["decks"]);var parents=ArrayValues<int>(a.Sections["coupledParents5"]);var cut=new List<int>();int singleId=selectedBridge;uint singleGlobal=selectedGlobal;
                 bool Related(int p)=>p!=0&&(p==b.Attacker||a.Sections["allies"][b.Attacker*9+p]!=0);
                 for(int p=0;p<decks.Length;)
                 {
@@ -75,7 +77,7 @@ namespace BridgePlanningTests
             return bytes;
         }
 
-        private static int HistoricalCandidates(string path,bool continuous=false,int variant=0,bool referenceTables=false,int ordinal=0)
+        private static int HistoricalCandidates(string path,bool continuous=false,int variant=0,bool referenceTables=false,int ordinal=0,int selectedBridge=0,uint selectedGlobal=0)
         {
             BridgePlanningImporter.Artifact a;string reason;
             if(!BridgePlanningImporter.TryRead(path,out a,out reason))throw new Exception(reason);
@@ -93,7 +95,7 @@ namespace BridgePlanningTests
                 else if(!referenceTables)throw new Exception("Unknown:missing-own-consumer-native-table:"+key+",rva="+table.Item2.ToString("X")+",bytes="+table.Item3+";PE-initial-values-are-not-historical-inputs");
             }
             Console.WriteLine("historical-table-coverage="+tableInputs.Count+"/3,reference-table-hypothesis="+referenceTables+",negativePolicyEligible=False");
-            var variantState=ComputedVariant(a,variant,out var physical,out var counts);
+            var variantState=ComputedVariant(a,variant,out var physical,out var counts,selectedBridge,selectedGlobal);
             using(var m=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv")))
             {
                 foreach(var table in tableInputs)m.Put(table.Key,table.Value);
@@ -223,8 +225,41 @@ namespace BridgePlanningTests
                     int castleResult=m.Function<R3>(0xCF360)(m.Ptr(0x366C210),b.Attacker,b.Target);
                     Check(predictedCastle==castleResult,"managed post-consumer castle decision");
                     Equal(managedCandidates.Bytes(Root,0xe0),m.Bytes(Root,0xe0),"complete managed castle-query controls");
+                    if(CopiedConsumerSequence.Count(originalBundle)>1&&ordinal==0)
+                    {
+                        var players=m.Bytes(0x379AE00,9*0x583c);int offset=b.Attacker*0x583c,role=BitConverter.ToInt16(players,offset+0x4886);var tribes=Get("consumer/pre/tribes");
+                        if(role>0&&role<4500&&BitConverter.ToUInt32(tribes,role*0x688+0x34)==BitConverter.ToUInt32(players,offset+0x4af4))
+                        {
+                            int leader=BitConverter.ToInt16(tribes,role*0x688+0x5a);if(leader>0)
+                            {
+                                var units=Get("consumer/pre/unitManager");int x=BitConverter.ToInt16(units,leader*0x490+0x71c),y=BitConverter.ToInt16(units,leader*0x490+0x71e);
+                                foreach(int gateRadius in new[]{80,200})
+                                {
+                                    int predicted=managedCandidates.FindEnemyGatehouse(b.Attacker,x,y,gateRadius),actual=m.Function<R5>(0xEAB80)(m.Ptr(Root),b.Attacker,x,y,gateRadius);Check(predicted==actual,"native/managed complete EAB80 gatehouse selection");
+                                    foreach(var range in new[]{Tuple.Create(Root,0xe0),Tuple.Create(Root+0x155f38,0x34),Tuple.Create(Root+0x155f6c,N*4),Tuple.Create(Root+0x28f3ec,N*2),Tuple.Create(0x5225b10,N*2),Tuple.Create(Visits,N*2)})Equal(managedCandidates.Bytes(range.Item1,range.Item2),m.Bytes(range.Item1,range.Item2),"native/managed EAB80 entire buffer");
+                                    Console.WriteLine("PASS actual EAB80 gatehouse selector radius="+gateRadius+",variant="+variant+",targetBuilding="+actual+",full native/managed controls/queues/distance/visits match;movement=not-executed");
+                                    if(actual!=0)break;
+                                }
+                            }
+                        }
+                    }
                     if(variant==0&&CopiedConsumerSequence.Count(originalBundle)==1)Check(castleResult!=0,"hash-approved historical positive post-consumer castle decision");
-                    if(CopiedConsumerSequence.Count(originalBundle)>1){Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native own consumer entire player output");Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",complete candidate/weight/availability/work outputs match;castle="+castleResult+";fullSequentialMilitary=Unknown:intervening-military-branches-not-replayed");return 0;}
+                    if(CopiedConsumerSequence.Count(originalBundle)>1){if(variant==0)Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native own consumer entire player output");
+                    if(variant==0&&ordinal==0)
+                    {
+                        string bridge=CopiedPlanningReplay.BetweenConsumers(a,out var calculatedBetween);
+                        if(calculatedBetween!=null)
+                        {
+                            m.Int(0x379D974+b.Attacker*0x583c,5);foreach(int wrapper in new[]{0x3C150,0x3B8D0,0x2B2C0})m.Function<V2>(wrapper)(m.Ptr(0x366C210),b.Attacker);
+                            m.Function<V3>(0x2D250)(m.Ptr(0x366C210),b.Attacker,0);
+                            var next=CopiedConsumerSequence.View(originalBundle,1);
+                            foreach(var range in new[]{Tuple.Create("players",0x379AE00,9*0x583c),Tuple.Create("seeds",Seeds,N),Tuple.Create("workControls",Root,0xe0),Tuple.Create("workQueueControls",Root+0x155f38,0x34),Tuple.Create("workQueue",Root+0x155f6c,N*4),Tuple.Create("workQueueRows",Root+0x28f3ec,N*2),Tuple.Create("workVisits",Visits,N*2)})Equal(m.Bytes(range.Item2,range.Item3),CopiedPlanningBundle.Resolve(next,"consumer/pre/"+range.Item1),"native actual inter-consumer "+range.Item1);
+                            Equal(m.Bytes(Distances+b.Bank*N*2,N*2),Bytes(calculatedBetween.Distance),"native inter-consumer full distance bank vs calculated managed");
+                            Console.WriteLine("PASS native/managed negative-branch wrappers and full repeated2D250 fields;"+bridge);
+                        }
+                        else Console.WriteLine("inter-consumer="+bridge);
+                    }
+                    Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",variant="+variant+",complete candidate/weight/availability/work native-managed outputs match;candidateChangedBytes="+Changed(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"))+";castle="+castleResult+";fullSequentialMilitary=Unknown:intervening-military-branches-not-replayed");return 0;}
                     Console.WriteLine("variant="+variant+",nativeCastleResult="+castleResult+",projectedTarget="+m.Int(0x379D968+b.Attacker*0x583c)+",militaryBranch="+(castleResult!=0?"4-to-6-return":"4-to-5-follow-up-required")+",fullMilitaryExecuted=False,policy=Unknown");
                     if(variant==0)Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native consumer entire player output");
                     int playerOffset=b.Attacker*0x583c;

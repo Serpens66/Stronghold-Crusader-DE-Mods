@@ -15,7 +15,7 @@ namespace EnemyBridgePathTest
             internal int Attacker,Target,Mode,Bank,Thread,Revision,Dirty;
             internal int ConsumerVersion=2;
             internal bool NegativeEligible => false; // Capture completeness never authorizes the dormant policy.
-            internal string Reason="pending";
+            internal string Reason="pending",SelectionReason="legacy-unspecified";
             internal readonly Dictionary<string,byte[]> Sections=new Dictionary<string,byte[]>();
             internal readonly Dictionary<string,string> References=new Dictionary<string,string>();
             internal readonly List<int> Stages=new List<int>();
@@ -25,7 +25,7 @@ namespace EnemyBridgePathTest
                 foreach(var pair in Sections)foreach(var block in BridgeInputArtifact.Section("plan/"+pair.Key,pair.Value,1))yield return block;
                 foreach(var pair in References)foreach(var block in BridgeInputArtifact.Section("plan/ref/"+pair.Key,System.Text.Encoding.UTF8.GetBytes(pair.Value),1))yield return block;
             }
-            internal string Metadata => "planningSession="+Session+"\nplanningBundleOp="+Op+"\nplanningParent="+Parent+"\nplanningBundleRoot="+Root+"\nplanningCaptureClock="+Clock+"\nplanningRevision="+Revision+"\nplanningDirty="+Dirty+"\nplanningNegativeEligible="+NegativeEligible+"\nplanningComplete="+Complete+"\nplanningReason="+Reason+"\nplanningAttacker="+Attacker+"\nplanningTarget="+Target+"\nplanningConsumerCaptureVersion="+(Sections.ContainsKey("consumer/pre/identity")?ConsumerVersion:0)+"\nplanningMode="+Mode+"\nplanningBank="+Bank+"\nplanningThread="+Thread+"\nplanningConsumerCopyMs="+(ConsumerTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\nplanningCaptureMs="+(Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
+            internal string Metadata => "planningSession="+Session+"\nplanningBundleOp="+Op+"\nplanningParent="+Parent+"\nplanningBundleRoot="+Root+"\nplanningCaptureClock="+Clock+"\nplanningRevision="+Revision+"\nplanningDirty="+Dirty+"\nplanningNegativeEligible="+NegativeEligible+"\nplanningComplete="+Complete+"\nplanningSelectionReason="+SelectionReason+"\nplanningReason="+Reason+"\nplanningAttacker="+Attacker+"\nplanningTarget="+Target+"\nplanningConsumerCaptureVersion="+(Sections.ContainsKey("consumer/pre/identity")?ConsumerVersion:0)+"\nplanningMode="+Mode+"\nplanningBank="+Bank+"\nplanningThread="+Thread+"\nplanningConsumerCopyMs="+(ConsumerTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\nplanningCaptureMs="+(Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
         }
         private const int N=320800,Root=0x60AD660;
         private readonly Func<int,int,byte[]> read;
@@ -37,6 +37,7 @@ namespace EnemyBridgePathTest
         private readonly Func<Bundle,bool> prepare;
         private readonly Func<int,string> relevance;
         private string selectionReason="not-selected";
+        internal void ReleaseForStrongerAttempt(){selected=false;lastReason="weak-bundle-retained-awaiting-stronger-relevance";}
         private Bundle current;
         private Bundle ready;
         private readonly Dictionary<long,int[]> targetFrames=new Dictionary<long,int[]>();
@@ -87,7 +88,7 @@ namespace EnemyBridgePathTest
                 {
                     militaryEntry=null;militaryInputs=null;militaryEntryOp=0;
                     long entryClock=Stopwatch.GetTimestamp();
-                    if(Int(0x379D974+a*0x583c)==4&&!string.IsNullOrEmpty(selectionReason=relevance==null?"fixture-unrestricted":relevance(a)))
+                    if(Int(0x379D974+a*0x583c)==4&&Int(0x379D0D0+a*0x583c)!=0&&!string.IsNullOrEmpty(selectionReason=relevance==null?"fixture-unrestricted":relevance(a)))
                     {
                         if(entryAttempts>=2){emit("planning-military-entry-incomplete","op="+op+",reason=entry-attempt-limit,attemptLimit=2");return;}
                         entryAttempts++;entryStart=Stopwatch.GetTimestamp();object ownToken=token();if(ownToken==null)throw new InvalidOperationException("military-missing-map-identity");
@@ -155,7 +156,7 @@ namespace EnemyBridgePathTest
                     if(token()==null){skipped++;lastReason="missing-map-identity-at-decision";if(skipped==1)emit("planning-capture-skipped","op="+op+",reason="+lastReason);return;}
                     attempts++;attemptStarted=true;int target=Int(0x379D9A8+attacker*0x583c);
                     if(target<1||target>8){lastReason="unresolved-target-player";rejected++;emit("planning-capture-incomplete","op="+op+",reason=unresolved-target-player");return;}
-                    identity=token();current=new Bundle {Session=run,Op=op,Parent=parent,Root=root,Attacker=attacker,Target=target,Mode=b,Bank=target,Clock=start,Thread=Thread.CurrentThread.ManagedThreadId,Revision=Int(Root+0x74),Dirty=Int(Root+0x6c)};
+                    identity=token();current=new Bundle {Session=run,Op=op,Parent=parent,Root=root,Attacker=attacker,Target=target,Mode=b,Bank=target,Clock=start,Thread=Thread.CurrentThread.ManagedThreadId,Revision=Int(Root+0x74),Dirty=Int(Root+0x6c),SelectionReason=selectionReason};
                     if(root!=0&&root==militaryEntryOp&&militaryEntry!=null)
                     {
                         current.Sections.Add("military/entryPlayer",(byte[])militaryEntry.Clone());

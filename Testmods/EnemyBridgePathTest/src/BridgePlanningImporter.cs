@@ -67,6 +67,7 @@ namespace EnemyBridgePathTest
                 if(a.Schema==2&&a.Metadata.TryGetValue("planningComplete",out string complete)&&complete=="True")
                 {
                     var b=new BridgePlanningCapture.Bundle {Complete=true,Reason="validated-file",Op=Number(a,"planningBundleOp"),Parent=Number(a,"planningParent"),Root=Number(a,"planningBundleRoot"),Clock=Number(a,"planningCaptureClock"),Session=a.Metadata.ContainsKey("planningSession")?Number(a,"planningSession"):Number(a,"session"),Attacker=checked((int)Number(a,"planningAttacker")),Target=checked((int)Number(a,"planningTarget")),Mode=checked((int)Number(a,"planningMode")),Bank=checked((int)Number(a,"planningBank")),Thread=checked((int)Number(a,"planningThread")),Revision=a.Metadata.ContainsKey("planningRevision")?checked((int)Number(a,"planningRevision")):0,Dirty=a.Metadata.ContainsKey("planningDirty")?checked((int)Number(a,"planningDirty")):0};
+                    if(a.Metadata.TryGetValue("planningSelectionReason",out string selectionReason))b.SelectionReason=selectionReason;
                     if(b.Session<=0||b.Op<=0||b.Attacker<1||b.Attacker>8||b.Target<1||b.Target>8||b.Bank!=b.Target)throw new InvalidDataException("planning-identity");
                     if(a.Metadata.ContainsKey("session")&&Number(a,"session")!=b.Session)throw new InvalidDataException("planning-source-session");
                     foreach(var pair in a.Sections)

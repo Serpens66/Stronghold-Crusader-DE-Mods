@@ -224,3 +224,26 @@ Der neueste lokale Startabschnitt (ab Logzeile 4047; eigene Zeitmarker 01:33:05 
 Der Nutzer bestätigt hörbare Wiedergabe des neuen Testtons. Das belegt den Custom-Clip-Pfad, aber keine bestimmte zusätzlich benannte Einheit-/Situationsdeutung: die beiden Fernkampfquellen bleiben Inferred. Kartenarchivclips, importierte Extender-Clips und alle weiteren Situationen erhalten dadurch keine automatische InGameConfirmed-Einstufung. Der separate Extender-Fehler TryGetPlayerResourcesById auf Thread15 mit Index -594294240/8 ist keinem Audiopfad zugeordnet; daraus wird kein Audiofehler abgeleitet.
 
 APIShared wird mit den dokumentierten Audioverträgen als 0.8.0 geführt. Native Hookstellen, Binärverträge und Runtimeverhalten bleiben gegenüber dem erfolgreich getesteten Stand unverändert.
+
+### Nachfrage-/Dispatch-Optimierung (2026-10-13)
+
+Vor dem Eingriff wurden native, verwaltete und NativeX64-Dateiidentitäten erneut
+gegen den vollständigen 91-Quellen-Audit geprüft: alle unverändert. Wrapper-
+Intermediärbrücken, verdrängte Bereiche, Marker und Pufferverträge bleiben gleich.
+Nur logische Nachfrageprüfungen, Emit-Prüfreihenfolge und verwaltete Dispatch-
+Verwaltung ändern sich. Audio-Nachfrage ist ein von den Registrierungs-Handles
+vollständig gepflegter Zähler; seltene Änderungen dürfen konservative positive
+Nachfrage liefern, nie eine falsche Null für ein aktiviertes Handle. Begin erfasst
+weiterhin die tatsächlichen aktiven Registrierungen für Pre/Post.
+
+Die isolierte CLR-Prüfung führt Klone der tatsächlich kompilierten Einstiegsmethoden
+mit Recorder statt Unity-Originalwiedergabe aus: 0 zusätzliche Byte je warmem
+Rückweg ohne aktive Verbraucher und mit 16 deaktivierten Verbrauchern. IL vor
+Originalrückweg enthält keine Heapallokation; native Übergangskosten und Unity-
+Audioausgabe sind dadurch nicht vermessen. Vergleichsmessungen stehen in
+APIShared/ARCHITECTURE.md. Öffentliche Typen/Member/Defaults/Konstanten wurden
+gegen die installierte Vorfassung abgeglichen (2020 Einträge, keine Änderung).
+NativeX64-, IL-, Herkunfts-, Clip- und Broker-Verhaltenstests sind weiterhin
+maßgeblich; der erneute Ingame-Vergleich dieser Fassung ist noch offen.
+
+Abschluss der Optimierungsprüfung: Release-Build über die erhöhte APIShared build.bat erfolgreich (Exit 0), 153 Core-, 113 API- und 21 Preset-Tests bestanden. Frische Windows-PowerShell-Präflights für Runtime, echte Assemblies, gemeinsame UnitAccess-/Hook-Grenzen und Dokumentation bestanden. 24 installierte API-/Publisher-Dateien stimmen per gemeinsamem .NET-SHA-256-Helfer mit dem Paket überein. Der unveränderte Testmod wurde gegen die neue API geprüft. Versionsstände bleiben APIShared 0.8.0 und Testmod 0.1.0; der Live-Vergleich dieser Optimierungsfassung ist noch offen.

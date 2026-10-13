@@ -18,7 +18,10 @@ namespace EnemyBridgePathTest
         private readonly Dictionary<long,int> accepted=new Dictionary<long,int>();
         private Job active;
         private readonly HashSet<long> failures=new HashSet<long>();
-        private long writtenTicks,writtenBytes;
+        private long writtenTicks,writtenBytes,maxPumpTicks,maxSourceTicks,maxWriteTicks;
+        private readonly byte[] outputBlock=new byte[BlockLimit];
+        private static string Ms(long ticks)=>(ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
+        internal string IntervalCosts(){string text="artifactMaxPumpMs="+Ms(maxPumpTicks)+",artifactMaxSourceMs="+Ms(maxSourceTicks)+",artifactMaxWriteHashMs="+Ms(maxWriteTicks)+",artifactCostScopes=nested-source-and-write-in-pump";maxPumpTicks=maxSourceTicks=maxWriteTicks=0;return text;}
         private sealed class Job
         {
             internal long Session,Id,Bytes;
@@ -51,13 +54,14 @@ namespace EnemyBridgePathTest
             try
             {
                 if(active==null) {if(jobs.Count==0)return;active=jobs.Dequeue();Directory.CreateDirectory(directory);active.Stream=new FileStream(active.Partial,FileMode.CreateNew,FileAccess.Write,FileShare.Read,4096);}
-                var block=new byte[BlockLimit];int length=0;
+                var block=outputBlock;int length=0;
                 while(length<block.Length&&(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency<2)
                 {
                     if(active.Piece==null||active.Offset==active.Piece.Length)
                     {
                         if(active.Footer)break;
-                        if(active.Source.MoveNext()) {active.Piece=active.Source.Current;active.Offset=0;}
+                        long sourceStart=Stopwatch.GetTimestamp();bool more=active.Source.MoveNext();maxSourceTicks=Math.Max(maxSourceTicks,Stopwatch.GetTimestamp()-sourceStart);
+                        if(more) {active.Piece=active.Source.Current;active.Offset=0;}
                         else
                         {
                             active.Payload.TransformFinalBlock(Array.Empty<byte>(),0,0);
@@ -72,7 +76,7 @@ namespace EnemyBridgePathTest
                     if(!active.Footer) {active.Payload.TransformBlock(active.Piece,active.Offset,count,null,0);active.Bytes+=count;}
                     active.Offset+=count;length+=count;
                 }
-                if(length!=0) {active.Stream.Write(block,0,length);active.Whole.TransformBlock(block,0,length,null,0);writtenBytes+=length;}
+                if(length!=0) {long writeStart=Stopwatch.GetTimestamp();active.Stream.Write(block,0,length);active.Whole.TransformBlock(block,0,length,null,0);writtenBytes+=length;maxWriteTicks=Math.Max(maxWriteTicks,Stopwatch.GetTimestamp()-writeStart);}
                 if(active.Footer&&active.Offset==active.Piece.Length)
                 {
                     active.Whole.TransformFinalBlock(Array.Empty<byte>(),0,0);active.Stream.Close();active.Stream=null;
@@ -84,7 +88,7 @@ namespace EnemyBridgePathTest
             {
                 if(active!=null) {failures.Add(active.Session);try {active.Stream?.Close();}catch {}emit(active.Session,"input-artifact-failed","definition="+active.Id+",complete=False,reason="+error.GetType().Name);active=null;}
             }
-            finally {writtenTicks+=Stopwatch.GetTimestamp()-start;}
+            finally {long elapsed=Stopwatch.GetTimestamp()-start;writtenTicks+=elapsed;maxPumpTicks=Math.Max(maxPumpTicks,elapsed);}
         }
         internal static string Hex(byte[] value) => BitConverter.ToString(value).Replace("-","");
         internal static IEnumerable<byte[]> Section(string name,Array data,int width)

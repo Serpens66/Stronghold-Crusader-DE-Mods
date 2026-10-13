@@ -198,6 +198,7 @@ namespace EnemyBridgePathTest
             internal long PhysicalDefinition, Changes;
             internal bool Pending;
             internal readonly long[] Plans=new long[9], PlanDefinitions=new long[9];
+            internal readonly bool[] StoredRemaining=new bool[9];
             internal readonly long[] StoredRoutePlans=new long[9],ExecutedRoutePlans=new long[9],StoredRouteRoots=new long[9],ExecutedRouteRoots=new long[9],StoredRouteDecisions=new long[9],ExecutedRouteDecisions=new long[9];
             internal readonly long[] Decisions=new long[9],DecisionPhysical=new long[9],StoredRoutePhysical=new long[9];
             internal readonly bool[] AccessObserved=new bool[9];
@@ -288,7 +289,7 @@ namespace EnemyBridgePathTest
             // Counter/route fixtures intentionally use non-dereferenceable dummy pointers.
             // Full capture is tested separately with the bounded private native image.
             if(testCapture!=null){planningCapture=null;return;}
-            planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex),relevance:PlanningRelevance);
+            planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");else if(VirtualShadow.HasDeferredPlanning)planningCapture?.ReleaseForStrongerAttempt();},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex),relevance:PlanningRelevance);
         }
         private string nativeUnavailable="initialization-not-completed";
         private long sessionNativeCalls,sessionNativeExits;
@@ -555,7 +556,8 @@ namespace EnemyBridgePathTest
         }
         private string PlanningRelevance(int player)
         {
-            if(player<1||player>8)return null;
+            if(player<1||player>8||VirtualShadow!=null&&VirtualShadow.HasPublishedPlanning)return null;
+            bool deferred=VirtualShadow!=null&&VirtualShadow.HasDeferredPlanning;
             lock(captureGate)
             {
                 buildingIndex.Refresh();string fallback=null,priorPath=null;
@@ -567,10 +569,10 @@ namespace EnemyBridgePathTest
                     ref GameBuilding deck=ref buildings[slot];ref GameBuilding gate=ref buildings[parent];
                     if(BridgeSnapshot.Allied(player,deck.r_PlayerIdOwner)||BridgeSnapshot.Allied(player,deck.r_CapturedByPlayerId)||BridgeSnapshot.Allied(player,gate.r_PlayerIdOwner)||BridgeSnapshot.Allied(player,gate.r_CapturedByPlayerId))continue;
                     if(structureTargets[player]==bridge.ParentId&&structureTargetGlobals[player]==bridge.ParentGlobal)return "identity-checked-structure-target-at-prior-route-observation";
-                    if(bridgeProgress.TryGetValue(bridge.Id,out BridgeProgress prior)&&prior.Global==bridge.Global&&prior.StoredRouteRoots[player]!=0)priorPath="observed-deck-path-same-player";
+                    if(bridgeProgress.TryGetValue(bridge.Id,out BridgeProgress prior)&&prior.Global==bridge.Global&&prior.StoredRouteRoots[player]!=0&&prior.StoredRemaining[player])priorPath="observed-deck-path-same-player";
                     fallback="unallowed-coupled-bridge-candidate-not-route-proof";
                 }
-                return priorPath??fallback;
+                return priorPath??(deferred?null:fallback);
             }
         }
         private string ReadStructureTarget(int tribe,int player)
@@ -582,7 +584,7 @@ namespace EnemyBridgePathTest
             int id=Read(at)&65535;uint global=unchecked((uint)Read(at+4));
             var buildings=GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             int slot=BridgeBuildingIndex.SpanIndex(id,buildings.Length);
-            if(slot<0)return "structureTarget=unknown,reason=missing-stored-building,storedBuildingRaw="+id+",storedGlobalRaw="+global;
+            if(slot<0)return "structureTarget=unknown,reason=missing-stored-building,source=30E90-stored-target-only,coordinate-selected-gatehouse-not-excluded=True,storedBuildingRaw="+id+",storedGlobalRaw="+global;
             ref GameBuilding building=ref buildings[slot];
             if(global==0||building.r_GlobalId!=global||!BridgeSnapshot.Active(building.r_AliveState))return "structureTarget=unknown,reason=stale-building-identity";
             int owner=building.r_PlayerIdOwner,capturer=building.r_CapturedByPlayerId;bool gate=BridgeSnapshot.IsGate(building.r_BuildingType);
@@ -627,11 +629,11 @@ namespace EnemyBridgePathTest
             if(root!=null) {if(!CurrentScope.Detailed)Entry(CurrentScope,false);PromoteCommandChain?.Invoke(operation);}
             Emit("route-unbound-update","commandOp="+operation+",unitId="+unit+",pathDefinition="+path+",priorBoundCommand="+priorCommand+",planningRoot="+(root?.Id??0)+",decisionState="+(root==null?0:DecisionFor(root.PlanningPlayer,root.PrePlan))+",association=observed-post-state,preBytes=not-captured-for-this-command,causality=unresolved");
         }
-        private void RouteEvidence(int id,uint global,int player,long plan,long root,long command,long decision,bool moved)
+        private void RouteEvidence(int id,uint global,int player,long plan,long root,long command,long decision,bool moved,bool remaining)
         {
             if(player<1||player>8)return;
             Scope activeRoot=CurrentScope;while(activeRoot!=null&&activeRoot.Site.Rva!=0x3C2E0)activeRoot=activeRoot.Parent;
-            if(!moved&&root!=0&&activeRoot!=null&&activeRoot.Id==root)
+            if(!moved&&remaining&&root!=0&&activeRoot!=null&&activeRoot.Id==root)
             {
                 if(!CurrentScope.Detailed)Entry(CurrentScope,false);
                 PromoteCommandChain?.Invoke(command);
@@ -642,7 +644,7 @@ namespace EnemyBridgePathTest
                 long[] values=moved?bridge.ExecutedRoutePlans:bridge.StoredRoutePlans;
                 var roots=moved?bridge.ExecutedRouteRoots:bridge.StoredRouteRoots;var states=moved?bridge.ExecutedRouteDecisions:bridge.StoredRouteDecisions;
                 bool changed=values[player]!=plan||roots[player]!=root||states[player]!=decision;values[player]=plan;roots[player]=root;states[player]=decision;
-                if(!moved)bridge.StoredRoutePhysical[player]=bridge.PhysicalDefinition;
+                if(!moved){bridge.StoredRoutePhysical[player]=bridge.PhysicalDefinition;bridge.StoredRemaining[player]=remaining;}
                 if(changed)Emit("route-comparison","building="+id+"/g"+global+",player="+player+",candidatePlan="+plan+",planningRoot="+root+",commandOp="+command+",decisionState="+decision+",decisionLink="+(decision==0?"unresolved":"retained-completed-caller-state")+",stage="+(moved?"observed-deck-movement":"stored-deck-route")+",physicalDefinition="+bridge.PhysicalDefinition+",topologySettled="+!bridge.Pending+",candidateLink=chronological-unless-reservation-proven");
             }
         }

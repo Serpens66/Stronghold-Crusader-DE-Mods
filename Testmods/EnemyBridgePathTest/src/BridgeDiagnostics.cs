@@ -291,9 +291,10 @@ namespace EnemyBridgePathTest
             if(frames==null)return;
             // Unit and group frames are retained through the passive Post capture.
             // Emit frozen Pre fields only, never fabricate an entry capture.
+            bool remaining=Current!=null&&Current.Kind=="unit"&&Trace.Routes.HasRemainingDeck(Current.Id);
             foreach(var frame in frames)
             {
-                if(frame.Epoch==epoch&&frame.Kind!="unit")Trace.VirtualShadow?.BridgeGroup(frame.TraceId,frame.Player);
+                if(remaining&&frame.Epoch==epoch&&frame.Kind!="unit")Trace.VirtualShadow?.BridgeGroup(frame.TraceId,frame.Player);
                 if(frame.Epoch==epoch&&!frame.Detailed)
                 {
                     frame.Detailed=true;

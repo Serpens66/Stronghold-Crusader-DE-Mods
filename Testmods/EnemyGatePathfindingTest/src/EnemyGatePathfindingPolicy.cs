@@ -37,7 +37,8 @@ namespace EnemyGatePathfindingTest
         PASS,
         FAIL,
         NOT_OBSERVED,
-        NOT_APPLICABLE
+        NOT_APPLICABLE,
+        OBSERVED
     }
 
     internal enum CaptureTransitionKind
@@ -297,7 +298,7 @@ namespace EnemyGatePathfindingTest
     internal static class EnemyGatePathfindingPolicy
     {
         internal static DiagnosticVerdict ObservationVerdict(long count) => count > 0
-            ? DiagnosticVerdict.PASS
+            ? DiagnosticVerdict.OBSERVED
             : DiagnosticVerdict.NOT_OBSERVED;
 
         internal static DiagnosticVerdict IntegrityVerdict(bool observed, bool failed) => failed

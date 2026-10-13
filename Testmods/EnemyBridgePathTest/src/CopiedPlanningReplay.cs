@@ -139,7 +139,8 @@ namespace EnemyBridgePathTest
                         if(variant==0&&selected.Count!=values[5])throw new InvalidOperationException("effective-Fixes-histogram-mismatch");
                         selection+=";observedSelectionTile="+args[2]+",computedSeed="+selected.Seed+",computedRegion="+selected.Region+",effectiveCount="+selected.Count+",capturedNativeCount="+values[7]+",capturedEffectiveCount="+values[5]+",targetCastleRegion="+selected.TargetCastleRegion;
                     }
-                    lines.Add("variant="+variants[variant].Key+",cutCells="+cut.Length+",partitionEquivalentToRecorded="+EquivalentPartitions(map.Components,topology.Components)+",partitionDelta=["+PartitionDelta(map,topology.Components)+"],nativeDirection=target-to-attacker,keep="+(reachable.Value==0?"NoRoute":"Reachable")+",seedShortLimit="+call.SeedShortLimit+",origin="+origin+",destination="+destination+",candidateDistance="+call.CandidateDistance+",seedChanged="+seedChanged+",distanceChanged="+distanceChanged+",candidateTableCount="+state.Candidates.Count+",candidateProvenance="+(call.CandidateDistance==0?"inherited-no-new-D9190-candidates":"computed-plus-inherited")+",candidateSequence="+string.Join("/",state.Candidates)+selection+",firstChange="+(call.SeedShortLimit!=(seedNative[1]!=0)?"CF360-to-D95E0-R8":seedChanged!=0?"seed-fields":distanceChanged!=0?"distance-fields":"none")+",basis="+(b.Dirty!=0?"conditional-captured-physics-pending-native-topology":"copied-physics")+",newTargetChoice=Unknown-unrecorded-consumer,policy=Unknown");
+                    string continuation=VariantContinuation(b,state,topology,map);
+                    lines.Add("variant="+variants[variant].Key+",cutCells="+cut.Length+",partitionEquivalentToRecorded="+EquivalentPartitions(map.Components,topology.Components)+",partitionDelta=["+PartitionDelta(map,topology.Components)+"],nativeDirection=target-to-attacker,keep="+(reachable.Value==0?"NoRoute":"Reachable")+",seedShortLimit="+call.SeedShortLimit+",origin="+origin+",destination="+destination+",candidateDistance="+call.CandidateDistance+",seedChanged="+seedChanged+",distanceChanged="+distanceChanged+",candidateTableCount="+state.Candidates.Count+",candidateProvenance="+(call.CandidateDistance==0?"inherited-no-new-D9190-candidates":"computed-plus-inherited")+",candidateSequence="+string.Join("/",state.Candidates)+selection+",firstChange="+(call.SeedShortLimit!=(seedNative[1]!=0)?"CF360-to-D95E0-R8":seedChanged!=0?"seed-fields":distanceChanged!=0?"distance-fields":"none")+",basis="+(b.Dirty!=0?"conditional-captured-physics-pending-native-topology":"copied-physics")+",newTargetChoice=Unknown-unrecorded-consumer,firstConsumerContinuation=["+continuation+"],sequentialMilitaryContinuation=Unknown,policy=Unknown");
                 }
                 report=string.Join(Environment.NewLine,lines);return true;
             }
@@ -192,7 +193,7 @@ namespace EnemyBridgePathTest
                 var reports=new List<string>();
                 for(int n=0;n<count;n++)
                 {var own=new BridgePlanningImporter.Artifact {Schema=artifact.Schema,Hash=artifact.Hash,Planning=CopiedConsumerSequence.View(artifact.Planning,n)};foreach(var section in artifact.Sections)own.Sections.Add(section.Key,section.Value);foreach(var metadata in artifact.Metadata)own.Metadata.Add(metadata.Key,metadata.Value);if(!TrySingleConsumerStages(own,out string report)){reason="consumerOrdinal="+(n+1)+";"+report;return false;}reports.Add("consumerOrdinal="+(n+1)+";"+report);}
-                reason=string.Join(" | ",reports)+";sequentialFullReplay=Unknown:intervening-military-branches-not-replayed";return true;
+                reason=string.Join(" | ",reports)+";interveningReplay="+BetweenConsumers(artifact)+";fullMilitaryEntryAndFormation=Unknown";return true;
             }
             catch(Exception error){reason="Unknown:consumer-sequence:"+error.Message;return false;}
         }
@@ -220,8 +221,10 @@ namespace EnemyBridgePathTest
             }
             catch(Exception error){reason="Unknown:consumer-stage-mismatch:"+error.Message;return false;}
         }
-        private static string FullCandidateReplay(BridgePlanningImporter.Artifact artifact)
+        private static string FullCandidateReplay(BridgePlanningImporter.Artifact artifact) => FullCandidateReplay(artifact,out _,out _,out _);
+        private static string FullCandidateReplay(BridgePlanningImporter.Artifact artifact,out VirtualCandidateBuilder computed,out VirtualPlanningState computedState,out int computedCastle)
         {
+            computed=null;computedState=null;computedCastle=-1;
             try
             {
                 var b=artifact.Planning;byte[] Get(string key)=>CopiedPlanningBundle.Resolve(b,key);
@@ -240,9 +243,91 @@ namespace EnemyBridgePathTest
                 var available=VirtualCandidateConsumers.Availability(weights,b.Attacker,1);builder.Replace(VirtualCandidateConsumers.Root,available);builder.PostConsumer(b.Target);
                 Equal(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"),"full-computed-availability");
                 foreach(var range in new[]{Tuple.Create("workControls",0x60ad660,0xe0),Tuple.Create("workQueueControls",0x60ad660+0x155f38,0x34),Tuple.Create("workQueue",0x60ad660+0x155f6c,320800*4),Tuple.Create("workQueueRows",0x60ad660+0x28f3ec,320800*2),Tuple.Create("workQueueX",0x60ad660+0x32be2c,320800*2),Tuple.Create("workDistances",0x5225b10,320800*2),Tuple.Create("workVisits",0x52c2550,320800*2),Tuple.Create("workTargets",0x37f1edc,9*50*16)})Equal(builder.Bytes(range.Item2,range.Item3),Get("consumer/post/"+range.Item1),"full-computed-"+range.Item1);
-                return "Matched-computed-caller-candidates-weight-availability-work;computedCastle="+builder.Castle(b.Attacker,b.Target)+";militaryContinuation=Unknown";
+                computedCastle=builder.Castle(b.Attacker,b.Target);computed=builder;computedState=state;
+                return "Matched-computed-caller-candidates-weight-availability-work;computedCastle="+computedCastle+";militaryContinuation=Unknown";
             }
             catch(Exception error){return "Unknown:"+error.GetType().Name+":"+error.Message;}
+        }
+        private static string BetweenConsumers(BridgePlanningImporter.Artifact artifact) => BetweenConsumers(artifact,out _);
+        internal static string BetweenConsumers(BridgePlanningImporter.Artifact artifact,out VirtualPlanningState calculated)
+        {
+            calculated=null;
+            try
+            {
+                var b=artifact.Planning;if(CopiedConsumerSequence.Count(b)<2)return "not-observed";
+                string first=FullCandidateReplay(artifact,out var prior,out var earlier,out int castle);
+                if(prior==null)return "Unknown:first-consumer-not-reproduced:"+first;
+                if(castle!=0)return "Unknown:positive-castle-would-return-before-second-consumer";
+                byte[] players=prior.Bytes(0x379ae00,9*0x583c),tribes=CopiedPlanningBundle.Resolve(b,"consumer/pre/tribes");int offset=b.Attacker*0x583c;
+                foreach(var role in new[]{Tuple.Create(0x4888,0x4af8,"3C150->DA590/F2CB0/11B520"),Tuple.Create(0x4886,0x4af4,"3B8D0->1140C0/113AB0"),Tuple.Create(0x488a,0x4afc,"2B2C0->122B40")})
+                {
+                    int id=BitConverter.ToInt16(players,offset+role.Item1);if(id==0)continue;if(id<1||id>=4500)throw new ArgumentException("intervening-role-tribe-id");int at=id*0x688;
+                    if(at+0x5c>tribes.Length)throw new ArgumentException("intervening-role-tribe-extent");
+                    if(BitConverter.ToUInt32(tribes,at+0x34)==BitConverter.ToUInt32(players,offset+role.Item2)&&BitConverter.ToInt16(tribes,at+0x5a)!=0)
+                    {
+                        string selection="not-this-role";
+                        if(role.Item1==0x4886)
+                        {
+                            int leader=BitConverter.ToInt16(tribes,at+0x5a);var units=CopiedPlanningBundle.Resolve(b,"consumer/pre/unitManager");int unit=leader*0x490;if(leader<1||unit+0x720>units.Length)throw new ArgumentException("active-role-leader-extent");int x=BitConverter.ToInt16(units,unit+0x71c),y=BitConverter.ToInt16(units,unit+0x71e);
+                            int target=prior.FindEnemyGatehouse(b.Attacker,x,y,80);if(target==0)target=prior.FindEnemyGatehouse(b.Attacker,x,y,200);
+                            var buildings=CopiedPlanningBundle.Resolve(b,"consumer/pre/buildingRecords");int record=(target-1)*0x32c;
+                            selection=target==0?"no-gatehouse":"building="+target+"/g"+BitConverter.ToUInt32(buildings,record+0x134)+";orderXY="+BitConverter.ToInt16(buildings,record+0x2bc)+"/"+BitConverter.ToInt16(buildings,record+0x2be);
+                        }
+                        return "Unknown:active-role-requires-"+role.Item3+";tribe="+id+";copiedGateSelection=["+selection+"];stored30E90TargetIsIndependent=True;later-consumer-input-not-substituted";
+                    }
+                }
+                Buffer.BlockCopy(BitConverter.GetBytes(5),0,players,offset+0x2b74,4);prior.Replace(0x379ae00,players);
+                var next=CopiedConsumerSequence.View(b,1);byte[] Get(string key)=>CopiedPlanningBundle.Resolve(next,key);
+                Equal(players,Get("consumer/pre/players"),"intervening-calculated-players");
+                foreach(string stable in new[]{"unitManager","tribes","flags","components","edges","height","baseHeight","unitTiles","buildingIds","terrainOwner"})Equal(CopiedPlanningBundle.Resolve(b,"consumer/pre/"+stable),Get("consumer/pre/"+stable),"intervening-unchanged-"+stable);
+                Equal(prior.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/pre/candidates"),"intervening-computed-candidates");
+                var map=new VirtualBridgeMap(b.Session,b.Revision,Values<ushort>(artifact,"components",2),Values<byte>(artifact,"edges",1),Values<int>(artifact,"flags",4),Values<ushort>(artifact,"x",2),Values<ushort>(artifact,"y",2),Values<int>(artifact,"rows",4),Array.Empty<VirtualConnection>(),true,Values<ushort>(artifact,"specialIds",2),Values<short>(artifact,"specialKinds",2));
+                VirtualPlanningInput input;VirtualPlanningState state;string reason;if(!CopiedPlanningBundle.TryRead(b,map,"caller-pre",out input,out state,out reason))return "Unknown:"+reason;
+                // Every mutable planning input comes from our prior computation.
+                Buffer.BlockCopy(prior.Bytes(0x535ef90,320800),0,state.Seeds,0,320800);Buffer.BlockCopy(Raw(earlier.Distance),0,state.Distance,0,320800*2);Buffer.BlockCopy(prior.Bytes(0x52c2550,320800*2),0,state.Visit,0,320800*2);Buffer.BlockCopy(prior.Bytes(0x60ad660+0x155f6c,320800*4),0,state.Queue,0,320800*4);Buffer.BlockCopy(prior.Bytes(0x60ad660+0x28f3ec,320800*2),0,state.QueueY,0,320800*2);
+                state.Candidates.Clear();state.Candidates.AddRange(earlier.Candidates);int[] control=Ints(prior.Bytes(0x60ad660,0xe0)),queue=Ints(prior.Bytes(0x60ad660+0x155f38,0x34));state.Generation=control[1];state.MaxDistance=control[0x8c/4];state.Level=queue[0];state.Head=queue[1];state.BatchStart=queue[2];state.Tail=queue[3];state.BatchEnd=queue[4];
+                int[] scalars=Ints(CopiedPlanningBundle.Resolve(b,"playerScalars7"));int tile=input.Rows[scalars[b.Target*7+2]]+scalars[b.Target*7+1],origin=map.Components[scalars[b.Attacker*7+3]],destination=map.Components[tile];
+                Func<int,int,int?> keep,regions;if(!CopiedPlanningRegions.TryCreate(b,"caller-pre",false,b.Attacker,0,out keep,out reason)||!CopiedPlanningRegions.TryCreate(b,"distance-pre",true,b.Attacker,0,out regions,out reason))return "Unknown:"+reason;
+                int? reachable=keep(destination,origin);if(!reachable.HasValue)return "Unknown:intervening-region";
+                if(origin!=0&&destination!=0&&origin!=destination&&scalars[b.Attacker*7]!=0&&scalars[b.Target*7]!=0){control[0xc4/4]=unchecked(control[0xc4/4]+1);control[0xc0/4]=reachable.Value!=0?0:1;}
+                var call=new VirtualPlanningCall(b.Attacker,b.Target,0,scalars[b.Target*7+5],origin,reachable.Value!=0);if(!VirtualPlanningCaller.Run(input,state,call,tile,scalars[b.Target*7]!=0,regions))return "Unknown:"+state.Reason;
+                control[1]=state.Generation;control[0x8c/4]=state.MaxDistance;queue[0]=state.Level;queue[1]=state.Head;queue[2]=state.BatchStart;queue[3]=state.Tail;queue[4]=state.BatchEnd;
+                Equal(state.Seeds,Get("consumer/pre/seeds"),"intervening-next-computed-seeds");Equal(state.Visit,Get("consumer/pre/workVisits"),"intervening-next-computed-visits");Equal(state.Queue,Get("consumer/pre/workQueue"),"intervening-next-computed-queue");Equal(state.QueueY,Get("consumer/pre/workQueueRows"),"intervening-next-computed-queue-rows");Equal(control,Get("consumer/pre/workControls"),"intervening-next-computed-controls");Equal(queue,Get("consumer/pre/workQueueControls"),"intervening-next-computed-queue-controls");
+                calculated=state;return "Matched-negative-branch-no-active-roles-and-computed-next-planning-inputs;phase=4-to-5;entryAndFormation=Unknown;secondDistanceBankNotDirectlyCaptured=True";
+            }
+            catch(Exception error){return "Unknown:"+error.GetType().Name+":"+error.Message;}
+        }
+        private static string VariantContinuation(BridgePlanningCapture.Bundle b,VirtualPlanningState state,VirtualBridgeMap map,VirtualBridgeMap original)
+        {
+            try {return FirstConsumerVariant(b,state,map,RemapCandidateConnections(CopiedPlanningBundle.Resolve(b,"consumer/pre/macroRecords"),original,map.Components));}
+            catch(Exception error){return "Unknown:"+error.GetType().Name+":"+error.Message;}
+        }
+        private static byte[] RemapCandidateConnections(byte[] recorded,VirtualBridgeMap original,ushort[] components)
+        {
+            if(recorded.Length%0x204!=0)throw new ArgumentException("candidate-macro-extent");var copy=(byte[])recorded.Clone();
+            for(int at=0;at<copy.Length;at+=0x204)
+            {
+                if(BitConverter.ToInt32(copy,at)!=1||BitConverter.ToInt32(copy,at+24)==0)continue;
+                int entry=BitConverter.ToInt32(copy,at+36),exit=BitConverter.ToInt32(copy,at+48),c=BitConverter.ToInt32(copy,at+0x1e8),third=0;
+                if((uint)entry>=components.Length||(uint)exit>=components.Length||original.Components[entry]!=BitConverter.ToInt32(copy,at+52)||original.Components[exit]!=BitConverter.ToInt32(copy,at+56))throw new ArgumentException("unproved-candidate-macro-endpoints");
+                if(c!=0&&!VirtualGateEndpoint.TryResolve(original,BitConverter.ToInt32(copy,at+4),entry,exit,c,out third))throw new ArgumentException("unproved-candidate-third-endpoint");
+                Buffer.BlockCopy(BitConverter.GetBytes((int)components[entry]),0,copy,at+52,4);Buffer.BlockCopy(BitConverter.GetBytes((int)components[exit]),0,copy,at+56,4);if(c!=0)Buffer.BlockCopy(BitConverter.GetBytes((int)components[third]),0,copy,at+0x1e8,4);
+            }
+            return copy;
+        }
+        private static string FirstConsumerVariant(BridgePlanningCapture.Bundle b,VirtualPlanningState state,VirtualBridgeMap map,byte[] macro)
+        {
+            byte[] Get(string key)=>CopiedPlanningBundle.Resolve(b,key);VirtualCandidateBuilder builder;string reason;
+            if(!CopiedCandidateInputs.TryCreate(b,state,map,macro,Histogram(map.Components),out builder,out reason))return reason;
+            builder.Run(b.Attacker,b.Target);int candidates=Differences(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-post/candidates"),4);
+            var modes=Get("consumer/weight-pre/gameModeValues");if(modes.Length!=8)throw new ArgumentException("weight-mode-extent");int maximum=BitConverter.ToInt32(modes,4)==0&&BitConverter.ToInt32(modes,0)==28?150:70;
+            var weighted=VirtualCandidateWeights.Run(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),b.Attacker,b.Target,Get("consumer/pre/players"),Raw(state.Distance),b.Bank,Raw(map.Flags),Get("consumer/pre/unitTiles"),Get("consumer/pre/unitManager"),Get("tileRows"),Get("directionOffsets"),maximum);
+            int weights=Differences(weighted,Get("consumer/weight-post/candidates"),4);var available=VirtualCandidateConsumers.Availability(weighted,b.Attacker,1);builder.Replace(VirtualCandidateConsumers.Root,available);builder.PostConsumer(b.Target);
+            int availability=Differences(available,Get("consumer/post/candidates"),4),castle=builder.Castle(b.Attacker,b.Target);int gateTarget=0;
+            var players=Get("consumer/pre/players");var tribes=Get("consumer/pre/tribes");int offset=b.Attacker*0x583c,role=BitConverter.ToInt16(players,offset+0x4886);
+            if(castle==0&&role>0&&role<4500&&BitConverter.ToUInt32(tribes,role*0x688+0x34)==BitConverter.ToUInt32(players,offset+0x4af4))
+            {int leader=BitConverter.ToInt16(tribes,role*0x688+0x5a);var units=Get("consumer/pre/unitManager");if(leader>0&&leader*0x490+0x720<=units.Length){int x=BitConverter.ToInt16(units,leader*0x490+0x71c),y=BitConverter.ToInt16(units,leader*0x490+0x71e);gateTarget=builder.FindEnemyGatehouse(b.Attacker,x,y,80);if(gateTarget==0)gateTarget=builder.FindEnemyGatehouse(b.Attacker,x,y,200);}}
+            return "computed-own-first-consumer;gateSelectorTarget="+gateTarget+";candidatesChangedInt32="+candidates+";weightsChangedInt32="+weights+";availabilityChangedInt32="+availability+";castle="+castle+";firstChangedStage="+(candidates!=0?"candidate-building":weights!=0?"weights":availability!=0?"availability":"none")+";nextMilitaryBranch="+(castle==0?"4-to-5-follow-up-required":"4-to-6-return")+";recordedPostUsedOnlyForComparison=True";
         }
         private static byte[] Raw(Array values){var bytes=new byte[Buffer.ByteLength(values)];Buffer.BlockCopy(values,0,bytes,0,bytes.Length);return bytes;}
         internal static bool TryConsumerInputClosure(BridgePlanningImporter.Artifact artifact,out string reason)

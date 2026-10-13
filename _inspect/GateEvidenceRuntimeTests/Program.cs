@@ -1,0 +1,26 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Reflection;
+string root = Path.GetFullPath(args[0]);
+string mod = Path.Combine(root, "Testmods/EnemyGatePathfindingTest");
+var parsed = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(mod, "src/AttackOrderCorrelationDiagnostics.cs"))).GetRoot();
+var methods = new[] { "Push", "Finish", "Current", "FirstGate", "JoinGates", "Result", "ObserveGatePrecheck", "ObserveRegionPair", "ObserveScopeResult" };
+string actual = string.Join("\n", parsed.DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m => methods.Contains(m.Identifier.ValueText)).Select(m => m.ToFullString()));
+actual += string.Join("\n", parsed.DescendantNodes().OfType<ClassDeclarationSyntax>().Where(c => c.Identifier.ValueText is "Frame" or "NativeFrame").Select(c => c.ToFullString()));
+var aggregate = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(mod, "src/TemporaryGateAcceptanceAggregate.cs"))).GetRoot();
+aggregate = aggregate.RemoveNode(aggregate.DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "RouteVerdict"), SyntaxRemoveOptions.KeepNoTrivia)!;
+var policy = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(mod, "src/EnemyGatePathfindingPolicy.cs"))).GetRoot();
+string enums = "namespace EnemyGatePathfindingTest {" + policy.DescendantNodes().OfType<EnumDeclarationSyntax>().Single(e => e.Identifier.ValueText == "NativeGateSnapshotDecision").ToFullString() + "}";
+string fixture = File.ReadAllText(Path.Combine(root, "_inspect/GateEvidenceRuntimeTests/Fixture.cs")).Replace("/* ACTUAL */", actual);
+var runtime = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(mod, "src/SamePclGateRouteRuntime.cs"))).GetRoot();
+fixture = fixture.Replace("/* COMPLETE */", runtime.DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Complete").ToFullString());
+var emitter = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(mod, "src/DirectionFilterAdapterEmitter.cs"))).GetRoot();
+fixture += "namespace EnemyGatePathfindingTest { static class DirectionFilterAdapterEmitter {" +
+    string.Join("\n", emitter.DescendantNodes().OfType<FieldDeclarationSyntax>().Where(f => f.Modifiers.Any(SyntaxKind.ConstKeyword)).Select(f => f.ToFullString())) + "}}";
+var sources = new[] { fixture, enums, aggregate.ToFullString(), File.ReadAllText(Path.Combine(mod, "src/GateSearchEvidence.cs")), File.ReadAllText(Path.Combine(root, "Shared/Runtime/Gameplay/PathDecisionAggregate.cs")) };
+var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator).Select(p => MetadataReference.CreateFromFile(p));
+var compilation = CSharpCompilation.Create("GateEvidenceActual", sources.Select(s => CSharpSyntaxTree.ParseText(s)), refs, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+using var output = new MemoryStream(); var result = compilation.Emit(output);
+if (!result.Success) throw new Exception(string.Join(Environment.NewLine, result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+Assembly.Load(output.ToArray()).GetType("EnemyGatePathfindingTest.Fixture", true)!.GetMethod("Run")!.Invoke(null, null);

@@ -96,6 +96,8 @@ namespace EnemyGatePathfindingTest
             foreach (string row in counts.Drain()) Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE aggregate emittedUtc=" + DateTime.UtcNow.ToString("O") + "," + row);
             Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE summary epoch=" + epoch + ",final=" + final +
                 ",observations=" + counts.Total + ",checked=" + checkedRoutes + ",violated=" + violated +
+                ",checkedAllowedRoutes=" + (checkedRoutes - violated) + ",confirmedGroundViolations=" + violated +
+                ",counterfactualVanillaRoute=not-measured,nativeReturnBasis=active-hooks" +
                 ",unclear=" + unclear + ",unobservedPublications=" + unobservedPublications +
                 ",aiBuilderResults=" + aiBuilderResults + ",aiBuilderNegative=" + aiBuilderNegative + ",aiBuilderFilteredNegative=" + aiBuilderFilteredNegative +
                 ",builderCounterAgreement=" + (expectedAiBuilders < 0 ? "not-compared" : expectedAiBuilders == aiBuilderResults && expectedFilteredNegative == aiBuilderFilteredNegative ? "PASS" : "FAIL") +

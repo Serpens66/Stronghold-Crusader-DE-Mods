@@ -354,12 +354,12 @@ namespace BridgePlanningTests
             var unbound=new BridgePlanningCapture(m.Size,(r,n)=>{throw new Exception("unbound family must not read memory");},()=>token,v=>{throw new Exception("unbound delivery");},(k,d)=>reasons.Add(d),requireMilitaryRoot:true);unbound.Begin(6);unbound.Observe(0x2D250,false,6,600,590,8,8,1,0,0,true);Check(reasons.Any(v=>v.Contains("unresolved-military-parent"))&&unbound.ActiveFamily==0,"unresolved parent is distinct and makes no complete copy");
             m.Int(0x379D974+8*0x583c,4);int fullReads=0;
             var bounded=new BridgePlanningCapture(m.Size,(r,n)=>{if(r==0x67E8400&&n==BridgePlanningCapture.EntryUnitBytes)fullReads++;return m.Bytes(r,n);},()=>token,v=>{},(k,d)=>reasons.Add(d));
-            bounded.Begin(6);for(int op=601;op<=603;op++)bounded.Observe(0x3C2E0,false,6,op,590,8,8,0,0,0,true);
+            m.Int(0x379D0D0+8*0x583c,1);bounded.Begin(6);for(int op=601;op<=603;op++)bounded.Observe(0x3C2E0,false,6,op,590,8,8,0,0,0,true);
             Check(fullReads==4&&reasons.Any(v=>v.Contains("entry-attempt-limit")),"at most two complete own-entry attempts, no repeat full manager scan");
             bounded.Begin(7);bounded.Observe(0x3C2E0,false,7,604,590,8,8,0,0,0,true);Check(fullReads==6,"own-entry attempt budget resets on map change");
             int changedReads=0;var unstableEntry=new BridgePlanningCapture(m.Size,(r,n)=>{var bytes=m.Bytes(r,n);if(r==0x67E8400&&n==BridgePlanningCapture.EntryUnitBytes&&++changedReads==2)bytes[bytes.Length-1]^=1;return bytes;},()=>token,v=>{},(k,d)=>reasons.Add(d));
             unstableEntry.Begin(8);unstableEntry.Observe(0x3C2E0,false,8,605,590,8,8,0,0,0,true);Check(reasons.Any(v=>v.Contains("military-own-entry-changed-during-copy")),"last unit slot mutation isolates and rejects own-entry capture");
-            f.Install(m);m.Int(0x379D9A8+8*0x583c,1);m.Int(Root+0x6c,dirty);m.Int(Root+0x74,4);m.Int(Root+0xe0+4,144);capture.Begin(7);bundle=null;m.Int(0x379D974+8*0x583c,4);capture.Observe(0x3C2E0,false,7,699,690,8,8,0,0,0,true);
+            f.Install(m);m.Int(0x379D9A8+8*0x583c,1);m.Int(Root+0x6c,dirty);m.Int(Root+0x74,4);m.Int(Root+0xe0+4,144);capture.Begin(7);bundle=null;m.Int(0x379D0D0+8*0x583c,1);m.Int(0x379D974+8*0x583c,4);capture.Observe(0x3C2E0,false,7,699,690,8,8,0,0,0,true);
             capture.Observe(0x2D250,false,7,700,699,8,8,1,0,0,true,699);
             m.Int(0x2EA70DC+8*0x177bc,1); // Same audited caller ordering for selected-artifact fixture.
             capture.Observe(0xD95E0,false,7,701,700,8,1,1,1,0,true,699);m.Function<V4>(0xD95E0)(m.Ptr(Root),1,1,1);capture.Observe(0xD95E0,true,7,701,700,8,1,1,1,0,true,699);
@@ -565,6 +565,8 @@ namespace BridgePlanningTests
         {
             if(args.Length==2&&args[0]=="--historical-military"){try{return HistoricalMilitaryCoverage(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-table-hypothesis"){try{return HistoricalCandidates(args[1],true,int.Parse(args[2]),true);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
+            if(args.Length==3&&args[0]=="--historical-bridge")
+            {try {var selected=args[2].Split('/');if(selected.Length!=2)throw new ArgumentException("explicit-building/global-required");return HistoricalCandidates(args[1],true,1,false,0,int.Parse(selected[0]),uint.Parse(selected[1]));}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-variant"){try{return HistoricalCandidates(args[1],true,int.Parse(args[2]));}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-consumer"){try{return HistoricalCandidates(args[1],true,0,false,int.Parse(args[2])-1);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==2&&args[0]=="--historical-consumers"){try{return HistoricalCandidates(args[1],true);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
