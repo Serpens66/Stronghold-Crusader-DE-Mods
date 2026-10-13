@@ -19696,6 +19696,164 @@ C22CD c3 ret
 C22CE 33c0 xor eax, eax
 C22D0 c3 ret
 
+Decoded 295/295 bytes; remaining raw body=
+
+E4E90 FUN_1800e4e90 295
+
+/* FUNCTION FUN_1800e4e90 VA=0x1800E4E90 RVA=0xE4E90 */
+
+void FUN_1800e4e90(longlong param_1)
+
+{
+  char *pcVar1;
+  uint uVar2;
+  longlong lVar3;
+  uint uVar4;
+  byte *pbVar5;
+  byte bVar6;
+  ulonglong uVar7;
+  longlong lVar8;
+  uint uVar9;
+  byte bVar10;
+  byte bVar11;
+  longlong lVar12;
+
+  uVar2 = *(uint *)(param_1 + 0x155f68);
+  uVar9 = 0;
+  if (1 < (int)uVar2) {
+    uVar7 = (ulonglong)((uVar2 - 2 >> 1) + 1);
+    do {
+      uVar2 = uVar2 - 1;
+      uVar4 = uVar9;
+      if ((int)uVar9 < 0) {
+        uVar4 = uVar9 + 1;
+      }
+      lVar3 = *(longlong *)(param_1 + 0x155f60);
+      lVar12 = (longlong)((int)uVar4 >> 1);
+      bVar10 = *(byte *)(lVar3 + lVar12);
+      bVar11 = bVar10 & 0xf;
+      if ((uVar9 & 1) != 0) {
+        bVar11 = (char)bVar10 >> 4;
+      }
+      lVar8 = (longlong)((int)uVar2 / 2);
+      bVar6 = *(byte *)(lVar8 + lVar3) & 0xf;
+      if ((uVar2 & 1) != 0) {
+        bVar6 = (char)*(byte *)(lVar8 + lVar3) >> 4;
+      }
+      if ((uVar9 & 1) == 0) {
+        bVar10 = bVar10 & 0xf0;
+      }
+      else {
+        bVar10 = bVar10 & 0xf;
+        bVar6 = bVar6 << 4;
+      }
+      *(byte *)(lVar3 + lVar12) = bVar10;
+      pcVar1 = (char *)(*(longlong *)(param_1 + 0x155f60) + lVar12);
+      *pcVar1 = *pcVar1 + bVar6;
+      pbVar5 = (byte *)(*(longlong *)(param_1 + 0x155f60) + lVar8);
+      if ((uVar2 & 1) == 0) {
+        *pbVar5 = *pbVar5 & 0xf0;
+      }
+      else {
+        *pbVar5 = *pbVar5 & 0xf;
+        bVar11 = bVar11 << 4;
+      }
+      uVar9 = uVar9 + 1;
+      pcVar1 = (char *)(*(longlong *)(param_1 + 0x155f60) + lVar8);
+      *pcVar1 = *pcVar1 + bVar11;
+      uVar7 = uVar7 - 1;
+    } while (uVar7 != 0);
+  }
+  return;
+}
+
+
+
+
+
+E4E90 4056 push rsi
+E4E92 4883ec10 sub rsp, 0x10
+E4E96 8b81685f1500 mov eax, dword ptr [rcx + 0x155f68]
+E4E9C 4533c0 xor r8d, r8d
+E4E9F 4c8bc9 mov r9, rcx
+E4EA2 8d70ff lea esi, [rax - 1]
+E4EA5 83f801 cmp eax, 1
+E4EA8 0f8e03010000 jle 0xe4fb1
+E4EAE 48895c2420 mov qword ptr [rsp + 0x20], rbx
+E4EB3 83c0fe add eax, -2
+E4EB6 48896c2428 mov qword ptr [rsp + 0x28], rbp
+E4EBB 48897c2430 mov qword ptr [rsp + 0x30], rdi
+E4EC0 4c89642438 mov qword ptr [rsp + 0x38], r12
+E4EC5 d1e8 shr eax, 1
+E4EC7 4c89742408 mov qword ptr [rsp + 8], r14
+E4ECC 4c893c24 mov qword ptr [rsp], r15
+E4ED0 8d6801 lea ebp, [rax + 1]
+E4ED3 0f1f4000 nop dword ptr [rax]
+E4ED7 660f1f840000000000 nop word ptr [rax + rax]
+E4EE0 418bd8 mov ebx, r8d
+E4EE3 418bc0 mov eax, r8d
+E4EE6 83e301 and ebx, 1
+E4EE9 4585c0 test r8d, r8d
+E4EEC 7904 jns 0xe4ef2
+E4EEE 418d4001 lea eax, [r8 + 1]
+E4EF2 498b89605f1500 mov rcx, qword ptr [r9 + 0x155f60]
+E4EF9 448be6 mov r12d, esi
+E4EFC d1f8 sar eax, 1
+E4EFE 4c63f0 movsxd r14, eax
+E4F01 460fbe1431 movsx r10d, byte ptr [rcx + r14]
+E4F06 4e8d3c31 lea r15, [rcx + r14]
+E4F0A 458bda mov r11d, r10d
+E4F0D 418bc2 mov eax, r10d
+E4F10 c1f804 sar eax, 4
+E4F13 4183e30f and r11d, 0xf
+E4F17 85db test ebx, ebx
+E4F19 440f45d8 cmovne r11d, eax
+E4F1D 8bc6 mov eax, esi
+E4F1F 99 cdq
+E4F20 2bc2 sub eax, edx
+E4F22 d1f8 sar eax, 1
+E4F24 4863f8 movsxd rdi, eax
+E4F27 0fbe0c0f movsx ecx, byte ptr [rdi + rcx]
+E4F2B 8bc1 mov eax, ecx
+E4F2D 80e10f and cl, 0xf
+E4F30 c1f804 sar eax, 4
+E4F33 4183e401 and r12d, 1
+E4F37 0fb6d1 movzx edx, cl
+E4F3A 0fb6c0 movzx eax, al
+E4F3D 0f45d0 cmovne edx, eax
+E4F40 85db test ebx, ebx
+E4F42 7506 jne 0xe4f4a
+E4F44 4180e2f0 and r10b, 0xf0
+E4F48 eb07 jmp 0xe4f51
+E4F4A 4180e20f and r10b, 0xf
+E4F4E c0e204 shl dl, 4
+E4F51 458817 mov byte ptr [r15], r10b
+E4F54 498b81605f1500 mov rax, qword ptr [r9 + 0x155f60]
+E4F5B 42001430 add byte ptr [rax + r14], dl
+E4F5F 498b89605f1500 mov rcx, qword ptr [r9 + 0x155f60]
+E4F66 4803cf add rcx, rdi
+E4F69 4585e4 test r12d, r12d
+E4F6C 7505 jne 0xe4f73
+E4F6E 8021f0 and byte ptr [rcx], 0xf0
+E4F71 eb07 jmp 0xe4f7a
+E4F73 80210f and byte ptr [rcx], 0xf
+E4F76 41c0e304 shl r11b, 4
+E4F7A 498b81605f1500 mov rax, qword ptr [r9 + 0x155f60]
+E4F81 41ffc0 inc r8d
+E4F84 ffce dec esi
+E4F86 44001c38 add byte ptr [rax + rdi], r11b
+E4F8A 4883ed01 sub rbp, 1
+E4F8E 0f854cffffff jne 0xe4ee0
+E4F94 4c8b3c24 mov r15, qword ptr [rsp]
+E4F98 4c8b742408 mov r14, qword ptr [rsp + 8]
+E4F9D 4c8b642438 mov r12, qword ptr [rsp + 0x38]
+E4FA2 488b7c2430 mov rdi, qword ptr [rsp + 0x30]
+E4FA7 488b6c2428 mov rbp, qword ptr [rsp + 0x28]
+E4FAC 488b5c2420 mov rbx, qword ptr [rsp + 0x20]
+E4FB1 4883c410 add rsp, 0x10
+E4FB5 5e pop rsi
+E4FB6 c3 ret
+
 Decoded 44/44 bytes; remaining raw body=
 
 181E00 FUN_180181e00 44
@@ -19800,4 +19958,4 @@ undefined8 FUN_180117c70(longlong param_1,int param_2)
 117D0D b801000000 mov eax, 1
 117D12 ebde jmp 0x117cf2
 
-Unsupported branch target guards: ['0x2990', '0x7140', '0x77c0', '0x1ce80', '0x297a0', '0x298c0', '0x29a20', '0x2a600', '0x2b080', '0x2b340', '0x2b5f0', '0x2b6c0', '0x2c620', '0x2c710', '0x2cb10', '0x2d500', '0x2d600', '0x2fef0', '0x304b0', '0x30550', '0x3b820', '0x3b980', '0x3ba10', '0x3bb80', '0x3bc90', '0x3bfa0', '0x3c0a0', '0x3c9c0', '0x3ccd0', '0x3d020', '0x3d260', '0x3d3e0', '0x3d560', '0x3d6e0', '0x3fb80', '0x3fc40', '0xc3b20', '0xc3e50', '0xc4080', '0xcf400', '0xdaa50', '0xdafd0', '0xdf720', '0xe2f60', '0xe32b0', '0xe4e90', '0xe7c40', '0xe9d90', '0xea3d0', '0xf2cb0', '0xf3060', '0xf4630', '0x107970', '0x113ab0', '0x113f60', '0x1140c0', '0x1178d0', '0x11b520', '0x122b40', '0x199c00', '0x1a6a4c']
+Unsupported branch target guards: ['0x2990', '0x7140', '0x77c0', '0x1ce80', '0x297a0', '0x298c0', '0x29a20', '0x2a600', '0x2b080', '0x2b340', '0x2b5f0', '0x2b6c0', '0x2c620', '0x2c710', '0x2cb10', '0x2d500', '0x2d600', '0x2fef0', '0x304b0', '0x30550', '0x3b820', '0x3b980', '0x3ba10', '0x3bb80', '0x3bc90', '0x3bfa0', '0x3c0a0', '0x3c9c0', '0x3ccd0', '0x3d020', '0x3d260', '0x3d3e0', '0x3d560', '0x3d6e0', '0x3fb80', '0x3fc40', '0xc3b20', '0xc3e50', '0xc4080', '0xcf400', '0xdaa50', '0xdafd0', '0xdf720', '0xe2f60', '0xe32b0', '0xe7c40', '0xe9d90', '0xea3d0', '0xf2cb0', '0xf3060', '0xf4630', '0x107970', '0x113ab0', '0x113f60', '0x1140c0', '0x1178d0', '0x11b520', '0x122b40', '0x199c00', '0x1a6a4c']

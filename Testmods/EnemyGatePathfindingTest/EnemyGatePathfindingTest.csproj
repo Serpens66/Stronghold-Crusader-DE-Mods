@@ -93,7 +93,7 @@
   <ItemGroup><Compile Include="src\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\MacemenDiagnosticAggregate.cs" /><Compile Include="src\MacemenCommandDiagnostics.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\GateSearchEvidence.cs" /></ItemGroup>
-<ItemGroup><Compile Include="src\NativeAssassinTrace.cs" /><Compile Include="src\NativeTraceAdapterEmitter.cs" /><Compile Include="src\NativeAssassinDiagnosticHooks.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\NativeAssassinTrace.cs" /><Compile Include="src\NativeCallbackAdapterEmitter.cs" /><Compile Include="src\NativeAssassinDiagnosticHooks.cs" /></ItemGroup>
 <ItemGroup><Compile Include="src\NativeAssassinMovementDiagnostics.cs" /><Compile Include="src\NativeAssassinMovementDiagnostics.Read.cs" /></ItemGroup>
 <ItemGroup><Compile Include="src\AssassinGateDescentRule.cs" /><Compile Include="src\AssassinGateDescentAdapter.cs" /><Compile Include="src\AssassinGateDescentRuntime.cs" /></ItemGroup>
 </Project>

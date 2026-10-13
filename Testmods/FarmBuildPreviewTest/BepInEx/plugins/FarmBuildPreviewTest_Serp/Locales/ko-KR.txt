@@ -1,5 +1,0 @@
-Ground.Coverage=식생
-Ground.Green=녹지
-Ground.Stone=석재 칸
-Ground.Iron=철 칸
-Ground.Pitch=역청 칸

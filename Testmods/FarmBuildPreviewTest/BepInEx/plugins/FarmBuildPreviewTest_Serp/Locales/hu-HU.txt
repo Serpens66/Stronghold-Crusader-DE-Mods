@@ -1,5 +1,0 @@
-Ground.Coverage=Növényzet
-Ground.Green=Zöld
-Ground.Stone=Kőmezők
-Ground.Iron=Vasmezők
-Ground.Pitch=Szurokmezők

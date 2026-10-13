@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Cirkel
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Begroeiing
+Ground.Green=Groen
+Ground.Stone=Steenvelden
+Ground.Iron=IJzervelden
+Ground.Pitch=Pekvelden
+BugfixesAndQoL.ImprovedBuildPreview=Bodemeisen tonen tijdens het bouwen
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Markeert ongeschikte grond rood en toont vereiste tegelaantallen in de bouwtooltip. Alleen lokaal; bouwregels blijven ongewijzigd.

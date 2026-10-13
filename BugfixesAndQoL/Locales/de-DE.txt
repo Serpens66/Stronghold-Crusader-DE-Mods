@@ -417,3 +417,11 @@ BugfixesAndQoL.LineupCircle=Kreis
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Zugbrücken bei Torhaus-Schaden erhalten
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Verhindert, dass direkte Angriffe auf noch lebende Steintorhäuser ihre verbundenen Zugbrücken zerstören. Beim Zusammenbruch oder Abriss des Torhauses werden die Zugbrücken weiterhin regulär entfernt.
+
+Ground.Coverage=Bewuchs
+Ground.Green=Grün
+Ground.Stone=Steinfelder
+Ground.Iron=Eisenfelder
+Ground.Pitch=Pechfelder
+BugfixesAndQoL.ImprovedBuildPreview=Bodenanforderungen beim Bauen anzeigen
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Markiert ungeeigneten Boden rot und zeigt Flächenzahlen im Bautooltip. Nur lokal; Bauregeln bleiben unverändert.

@@ -23,6 +23,7 @@ namespace EnemyBridgePathTest
                 if(artifact.Sections.ContainsKey("structure/pre/lineMode"))Put("lineMode",0x2f7a690,4);
                 if(artifact.Sections.ContainsKey("structure/pre/lineBuildingClasses336"))Put("lineBuildingClasses336",0x2e68d0,1344);
                 if(artifact.Sections.ContainsKey("structure/pre/lineBlockGrid"))Put("lineBlockGrid",0x51d75f0,320800);
+                if(artifact.Sections.ContainsKey("structure/pre/pathDirectionMasks8"))Put("pathDirectionMasks8",0x312620,8);
                 Put("tribe",checked(0x7cc6720+(int)fields[6]*0x688),0x688);Put("buildingRecords",0x64ccbb0+0x32c);Put("target",checked(0x64ccbb0+(int)fields[9]*0x32c),0x32c);Put("macroRecords",0x60ad660+0x2228);
                 b.Put(0x67e8380,new byte[8]); // C0270 writes both values before every read.
                 foreach(var pair in artifact.Sections)if(pair.Key.StartsWith("structure/pre/unit-",StringComparison.Ordinal))
@@ -42,6 +43,7 @@ namespace EnemyBridgePathTest
                 int type=BitConverter.ToInt16(builder.Bytes(record+0x6e6,2),0);if(type<0||type>=90)throw new ArgumentException("unknown-unit-type");
                 builder.Bytes(0x322540+type*4,4);
                 int mode=BitConverter.ToInt32(builder.Bytes(0x2f7a690,4),0);
+                builder.Bytes(0x312620,8); // Exact mode1 reconstruction masks, own command Pre.
                 builder.Bytes(0x51d75f0,320800); // Normal flood fallback is independent of line mode.
                 builder.Bytes(0x2e68d0,1344);
                 reason="own-command-input-closure=initial-profile-line-and-normal-flood-inputs-only;fullCommandReplay=Unknown;postUsedOnlyForComparison=True;behaviorFix=disabled";return true;

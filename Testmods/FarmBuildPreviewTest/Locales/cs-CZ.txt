@@ -1,5 +1,0 @@
-Ground.Coverage=Porost
-Ground.Green=Zeleň
-Ground.Stone=Kamenná pole
-Ground.Iron=Železná pole
-Ground.Pitch=Smolná pole

@@ -1,5 +1,0 @@
-Ground.Coverage=植生
-Ground.Green=緑地
-Ground.Stone=石のマス
-Ground.Iron=鉄のマス
-Ground.Pitch=ピッチのマス

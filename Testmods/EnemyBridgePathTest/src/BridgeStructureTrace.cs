@@ -88,7 +88,7 @@ namespace EnemyBridgePathTest
                 }
                 if(building==0)return null;
                 Scope root=CurrentScope;while(root!=null&&root.Site.Rva!=0x3C2E0)root=root.Parent;long rootId=root!=null&&root.Session==session&&root.PlanningPlayer==player?root.Id:0;
-                var input=structureCapture.Capture(op,rootId,player,tribe,global,command,building,targetGlobal,explicitTarget,startX,startY,tx,ty,unitId,unitGlobal,unitTargetTile,kind==4?"ongoing-unit-state-snapshot":kind==3?"unit-command-pre":"group-command-pre",targetEvidence,kind==4);
+                var input=structureCapture.Capture(op,rootId,player,tribe,global,command,building,targetGlobal,explicitTarget,startX,startY,tx,ty,unitId,unitGlobal,unitTargetTile,kind==4?"ongoing-unit-state-snapshot":kind==3?"unit-command-pre":"group-command-pre",targetEvidence,kind==4,kind!=4&&(planningCapture?.HasOwnFrame(session,rootId,player)==true||VirtualShadow?.HasPlanningFrame(session,rootId,player)==true));
                 if(input!=null)
                 {
                     // Original event arguments are separate from the resolved gate anchor.
@@ -99,7 +99,7 @@ namespace EnemyBridgePathTest
                         input.Sections.Add("unitCommandArguments7",raw);
                     }
                     // This is an actual building argument only for command38.
-                    if(explicitTarget)lock(captureGate){structureTargets[player]=building;structureTargetGlobals[player]=targetGlobal;}
+                    if(explicitTarget||targetEvidence.StartsWith("native-unit-context",StringComparison.Ordinal))lock(captureGate){structureTargets[player]=building;structureTargetGlobals[player]=targetGlobal;}
                     var caller=new long[]{CurrentId,CurrentScope?.Site.Rva??0};var callerBytes=new byte[16];Buffer.BlockCopy(caller,0,callerBytes,0,16);input.Sections.Add("nativeCaller2",callerBytes);
                     CompareGroupShadow(op,parent,player,startX,startY,kind==3||kind==4?x:tx,kind==3||kind==4?y:ty,tribe,global,kind==4?"group-formation-ongoing-unit-state-hypothesis":kind==3?"group-formation-unit-command-hypothesis":"group-formation");
                     VirtualShadow?.RetainStructureCommand(input,buildingIndex);
@@ -118,10 +118,10 @@ namespace EnemyBridgePathTest
             var input=BeginStructureCommand(NewOperation(),0,4,unit->r_ControllableForPlayerId,unit->r_TribeId,unit->r_GlobalId,unit->r_AI_LastIssuedTribeCommand,unit->r_ContextTargetTileX,unit->r_ContextTargetTileY,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,unitId);
             if(input!=null)EndStructureCommand(input,false);
         }
-        internal void EndStructureCommand(BridgeStructureCapture.Input input,bool originalCalled)
+        internal void EndStructureCommand(BridgeStructureCapture.Input input,bool originalCalled,long? observedPostReturn=null)
         {
             if(input==null)return;
-            try{var complete=structureCapture?.Complete(input,originalCalled);if(complete!=null)VirtualShadow?.CompleteStructureCommand(complete);}
+            try{if(observedPostReturn.HasValue&&!input.SnapshotOnly&&input.Unit>0){input.Sections.Add("commandPostReturn8",BitConverter.GetBytes(observedPostReturn.Value));input.Sections.Add("commandReturnTiming",System.Text.Encoding.UTF8.GetBytes("mutable-post-event-at-bridge-subscriber;not-raw-native-or-final-publisher-result"));}var complete=structureCapture?.Complete(input,originalCalled);if(complete!=null)VirtualShadow?.CompleteStructureCommand(complete);}
             catch(Exception error){Observe("structure-command-incomplete","op="+input.Op+",reason="+error.Message);}
         }
     }

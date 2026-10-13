@@ -13,7 +13,7 @@ namespace EnemyGatePathfindingTest
         {
             internal int Unit, Player, State, Command, X, Y, TX, TY, Length, Index, PathState, Direction, NextDirection;
             internal int InvocationMode; // 0 regular 1855A0, 1 speculative 1855A0, 2 physical dispatcher
-            internal int Gate, GateOwner, Capturer, GateState, GateContextRaw, Mode;
+            internal int Gate, GateOwner, Capturer, GateState, GateContextRaw;
             internal uint Global, GateGlobal;
             internal ulong Buffer;
             internal long Mono, Epoch, Generation;

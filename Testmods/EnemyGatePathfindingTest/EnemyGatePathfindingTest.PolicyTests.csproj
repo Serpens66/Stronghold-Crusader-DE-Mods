@@ -75,7 +75,7 @@
   <ItemGroup><Compile Include="src\MacemenDiagnosticAggregate.cs" /><Compile Include="tests\MacemenDiagnosticTests.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\GateSearchEvidence.cs" /></ItemGroup>
   <ItemGroup><Compile Include="tests\GateEvidenceTests.cs" /></ItemGroup>
-<ItemGroup><Compile Include="src\NativeAssassinTrace.cs" /><Compile Include="src\NativeTraceAdapterEmitter.cs" /><Compile Include="tests\NativeAssassinTraceTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\NativeAssassinTrace.cs" /><Compile Include="src\NativeCallbackAdapterEmitter.cs" /><Compile Include="tests\NativeAssassinTraceTests.cs" /></ItemGroup>
 <ItemGroup><Compile Include="tests\NativeTraceContractTests.cs" /></ItemGroup>
 <ItemGroup><Compile Include="src\NativeAssassinMovementDiagnostics.cs" /><Compile Include="tests\NativeMovementTests.cs" /></ItemGroup>
 <ItemGroup><Compile Include="src\AssassinGateDescentRule.cs" /><Compile Include="src\AssassinGateDescentAdapter.cs" /></ItemGroup>

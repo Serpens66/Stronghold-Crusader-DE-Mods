@@ -325,7 +325,7 @@ namespace EnemyBridgePathTest
             Interlocked.Increment(ref postCount);Trace.CountCommand(false);
             if (frame == null || frame.Kind != kind || frame.Id != id)
             { Interlocked.Increment(ref errors); Record(frame, "diagnostic-error", "pre-post-mismatch", "post=" + kind + "/" + id); return; }
-            if(frame.StructureInput!=null)Trace.EndStructureCommand(frame.StructureInput,frame.PreEvent!=null&&!frame.PreEvent.SkipOriginalFunction&&StructureArgumentsStable(frame));
+            if(frame.StructureInput!=null)Trace.EndStructureCommand(frame.StructureInput,frame.PreEvent!=null&&!frame.PreEvent.SkipOriginalFunction&&StructureArgumentsStable(frame),kind=="unit"?(long?)result:null);
             if(kind=="unit")Trace.Routes.Observe(id,true,true,result,frame.TraceId,frame.RouteBound);
             frames.RemoveAt(frames.Count - 1);
             Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind=="target"?1:kind=="move"?2:3,frame.Player,frame.Command,result,false,frame.Global!=0&&frame.Player>=1&&frame.Player<=8));

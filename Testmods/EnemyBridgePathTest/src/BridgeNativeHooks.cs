@@ -20,7 +20,7 @@ namespace EnemyBridgePathTest
         private readonly List<Delegate> callbacks = new List<Delegate>();
         private ulong libraryBase;
         private bool publicationStarted;
-        internal static int ScanLimit(BridgeNativeDefinition.Site site) => site.Rva==0x3C2E0?site.Bytes.Length:site.Size;
+        internal static int ScanLimit(BridgeNativeDefinition.Site site) => site.Rva==0x3C2E0||site.Rva==0x2C5A0?site.Bytes.Length:site.Size;
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void V0();
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void V2(IntPtr p, int a);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void V3(IntPtr p, int a, int b);

@@ -189,8 +189,8 @@ namespace EnemyGatePathfindingTest
             hook.Generate((a, instructions, ret) => {
                 ulong cb = (ulong)Marshal.GetFunctionPointerForDelegate(callback).ToInt64();
                 if (descent) AssassinGateDescentAdapter.Emit(a, instructions, cb, (ulong)enabled.ToInt64(), (ulong)page.ToInt64() + (uint)offset + 14, cb, cb, (ulong)noDiagnostics.ToInt64(), 0);
-                else if (execution) NativeTraceAdapterEmitter.EmitExecution(a, instructions, cb, cb, (ulong)enabled.ToInt64(), (ulong)module.ToInt64(), true);
-                else NativeTraceAdapterEmitter.Emit(a, instructions, cb, (ulong)enabled.ToInt64());
+                else if (execution) NativeCallbackAdapterEmitter.EmitExecution(a, instructions, cb, cb, (ulong)enabled.ToInt64(), (ulong)module.ToInt64(), true);
+                else NativeCallbackAdapterEmitter.Emit(a, instructions, cb, (ulong)enabled.ToInt64());
             });
             Require(hook.DisplacedByteCount == 14, "trace backend exact displacement");
             hook.Enable(); Hooks.Add(hook);

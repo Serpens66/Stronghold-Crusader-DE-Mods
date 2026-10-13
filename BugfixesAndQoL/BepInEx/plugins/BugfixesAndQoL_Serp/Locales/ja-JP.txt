@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=円
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=植生
+Ground.Green=緑地
+Ground.Stone=石のマス
+Ground.Iron=鉄のマス
+Ground.Pitch=ピッチのマス
+BugfixesAndQoL.ImprovedBuildPreview=建設時に地面の条件を表示
+BugfixesAndQoL.ImprovedBuildPreviewHelp=不適切な地面を赤く表示し、建設ツールチップに必要なタイル数を表示します。ローカルのみ。建設ルールは変わりません。

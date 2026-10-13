@@ -139,8 +139,8 @@ namespace EnemyBridgePathTest
             var strong=new BridgePlanningCapture.Bundle {Session=1,Op=20,Root=19,Attacker=3,Complete=true,SelectionReason="observed-deck-path-same-player"};
             var newer=Input(5,false);Set(newer,"Revision",2L);var next=RequestForPlayer(newer,3);Set(next,"Parent",20L);Set(next,"Id",2L);
             Set(shadow,"planningRequest",next);Set(shadow,"decisionCaptured",newer);Set(shadow,"decisionCaptureOp",20L);
-            Check(shadow.PlanningCompleted(strong)&&!shadow.HasDeferredPlanning&&shadow.HasPublishedPlanning&&(int)Get(shadow,"planningPlayer")==3,"later stronger player displaces unpublished fallback");
-            Check(shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=1"),"only one planning artifact published after upgrade");shadow.End();
+            Check(shadow.PlanningCompleted(strong)&&shadow.HasDeferredPlanning&&!shadow.HasPublishedPlanning&&shadow.HasPlanningFrame(1,19,3),"later stronger player replaces fallback without reserving artifact slot");
+            Check(shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=0"),"unpaired plan remains unpublished until session end");shadow.End();Check(shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=1"),"only selected independent planning fallback published at session end");
             var fallback=new BridgeVirtualShadow((k,d)=>messages.Add(k+":"+d),_=>throw new Exception("map-end fallback cannot read current map"));fallback.Begin(1);
             Set(fallback,"planningRequest",request);Set(fallback,"decisionCaptured",input);Set(fallback,"decisionCaptureOp",10L);Check(fallback.PlanningCompleted(bundle),"weak fallback retained");
             Set(fallback,"decisionCaptured",newer);fallback.End();Check(fallback.ArtifactStatus(1).Contains("inputArtifactsRequested=1")&&!fallback.HasDeferredPlanning,"session-end publication uses retained own snapshot even after newer publication");
@@ -211,6 +211,7 @@ namespace EnemyBridgePathTest
                 var plan=RequestForPlayer(physical,actor);Set(plan,"Id",1L);Set(plan,"Parent",10L);Set(shadow,"planningRequest",plan);Set(shadow,"decisionCaptured",physical);Set(shadow,"decisionCaptureOp",10L);
                 var bundle=new BridgePlanningCapture.Bundle{Session=1,Root=9,Op=10,Attacker=actor,Complete=true,SelectionReason="unallowed-coupled-bridge-candidate-not-route-proof"};
                 Check(shadow.PlanningCompleted(bundle),"matching root is selected or explicitly held as fallback");
+                Check(!shadow.HasPublishedPlanning&&!shadow.HasPublishedGroup,"matching pair waits for military original completion");shadow.MilitaryClosed(1,9,true);
                 if(identity)
                 {
                     Check(shadow.HasPublishedPlanning&&shadow.HasPublishedGroup&&shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=2"),"native unit context promotes exact root atomically without a castle-positive claim");
@@ -225,9 +226,22 @@ namespace EnemyBridgePathTest
             }
             var failed=new BridgeVirtualShadow((_,__)=>{},_=>0);failed.Begin(1);failed.MilitaryOpened(1,9,2);failed.MilitaryClosed(1,9,false);Check(!failed.HasPublishedGroup,"failed root without own command fabricates no artifact");failed.End();
         }
+        private static void DelayedMatchingPair()
+        {
+            var shadow=new BridgeVirtualShadow((_,__)=>{},_=>throw new Exception("pair selection cannot scan native memory"),structureIdentity:_=>true);shadow.Begin(1);
+            var physical=Input(5,false);
+            void Plan(long op,long root,string evidence){var r=RequestForPlayer(physical,7);Set(r,"Id",op);Set(r,"Parent",op);Set(shadow,"planningRequest",r);Set(shadow,"decisionCaptured",physical);Set(shadow,"decisionCaptureOp",op);Check(shadow.PlanningCompleted(new BridgePlanningCapture.Bundle{Session=1,Root=root,Op=op,Attacker=7,Complete=true,SelectionReason=evidence}),"plan accepted for bounded unpublished selection");}
+            void Command(long op,long root){var r=RequestForPlayer(physical,7);Set(r,"Id",op);Set(r,"Op",op);Set(r,"PlanningRoot",root);var own=new BridgeStructureCapture.Input{Session=1,Root=root,Op=op,Player=7,Complete=true,Unit=180,UnitGlobal=71,TargetEvidence="native-unit-context-building-tile-not-attack-execution-proof"};Set(shadow,"structureInput",own);Set(shadow,"structureRequest",r);shadow.CompleteStructureCommand(own);}
+            Plan(10,9,"unallowed-coupled-bridge-candidate-not-route-proof");shadow.MilitaryOpened(1,19,7);Command(20,19);shadow.MilitaryClosed(1,19,true);
+            Check(!shadow.HasPublishedPlanning&&!shadow.HasPublishedGroup&&shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=0"),"unrelated completed command cannot consume follow slot");
+            Plan(30,29,"native-structure-task-same-player");Check(shadow.HasPlanningFrame(1,29,7)&&!shadow.HasPlanningFrame(2,29,7)&&!shadow.HasPlanningFrame(1,29,2),"matching frame requires session and actual attacker");
+            Command(40,29);Check(shadow.HasPublishedPlanning&&shadow.HasPublishedGroup&&shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=2"),"later exact root command seals two artifacts atomically");
+            shadow.End();Check(shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=2"),"session end cannot publish independent fallback after sealed pair");
+        }
         internal static int Run()
         {
             checks=0;
+            DelayedMatchingPair();
             OwnRootPairing();
             RemappedEndpointEvidence();
             DeferredPlanningEvidence();

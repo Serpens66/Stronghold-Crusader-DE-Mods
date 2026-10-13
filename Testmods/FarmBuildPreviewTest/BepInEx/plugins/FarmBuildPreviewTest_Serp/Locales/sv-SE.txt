@@ -1,5 +1,0 @@
-Ground.Coverage=Växtlighet
-Ground.Green=Grönt
-Ground.Stone=Stenrutor
-Ground.Iron=Järnrutor
-Ground.Pitch=Beckrutor

@@ -1,7 +1,37 @@
 using System;
 using System.Threading;
 namespace EnemyGatePathfindingTest { unsafe class Reader {
-internal ulong module; internal int* active; internal Func<RouteTilePolicySnapshot> policy;
+internal ulong module; internal int* active, diagnostics; internal Func<RouteTilePolicySnapshot> policy;
+private Action<IntPtr,bool> observeClear; private Action<int> observeException;
+private long allowed,preserved,errors,observerErrors;
+        internal void SetActive(bool value, Action<IntPtr, bool> clearObserver, Action<int> exceptionObserver)
+        {
+            observeClear = clearObserver; observeException = exceptionObserver;
+            if (value) allowed = preserved = errors = observerErrors = 0;
+            Volatile.Write(ref *diagnostics, value && (observeClear != null || observeException != null) ? 1 : 0);
+            Volatile.Write(ref *active, value ? 1 : 0);
+        }
+        internal string Summary => "Assassin gate descent: exceptionsGranted=" + Interlocked.Read(ref allowed) +
+            ",nativeAbortPreserved=" + Interlocked.Read(ref preserved) + ",guardErrors=" + Interlocked.Read(ref errors) +
+            ",observerErrors=" + Interlocked.Read(ref observerErrors);
+        internal void ObserveClear(IntPtr pointer, bool completed)
+        {
+            try { if (Volatile.Read(ref *diagnostics) != 0) observeClear?.Invoke(pointer, completed); }
+            catch (Exception) { Interlocked.Increment(ref observerErrors); }
+        }
+        internal void Decide(IntPtr pointer)
+        {
+            var c = (X64SmartCPUContext*)pointer; c->R11 = 0;
+            try
+            {
+                if (!Allows(c)) { Interlocked.Increment(ref preserved); return; }
+                c->R11 = 1; Interlocked.Increment(ref allowed);
+            }
+            catch (Exception) { Interlocked.Increment(ref errors); return; }
+            // Observation failure must not revoke a functional permission.
+            try { if (Volatile.Read(ref *diagnostics) != 0) observeException?.Invoke((int)c->RBX); }
+            catch (Exception) { Interlocked.Increment(ref observerErrors); }
+        }
         internal bool Allows(X64SmartCPUContext* c)
         {
             int id = (int)c->RBX, direction = (int)c->R14;

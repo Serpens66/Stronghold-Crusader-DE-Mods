@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Cirkel
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Växtlighet
+Ground.Green=Grönt
+Ground.Stone=Stenrutor
+Ground.Iron=Järnrutor
+Ground.Pitch=Beckrutor
+BugfixesAndQoL.ImprovedBuildPreview=Visa markkrav vid byggande
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Markerar olämplig mark röd och visar antalet nödvändiga rutor i byggtipsen. Endast lokalt; byggreglerna förblir oförändrade.

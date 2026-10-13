@@ -17,7 +17,7 @@ enum eChimps : short { CHIMP_TYPE_ARAB_ASSASIN=73 }
 [FieldOffset(0x2BC)] internal ushort r_AIState;
 }
 struct GameBuilding { internal uint r_GlobalId; internal ushort r_PlayerIdOwner,r_CapturedByPlayerId; internal byte r_GateState; }
-struct X64SmartCPUContext { internal ulong RBX,R14,RDI,R12,RBP,RDX,R9; }
+struct X64SmartCPUContext { internal ulong RBX,R14,RDI,R12,RBP,RDX,R9,R11; }
 sealed class RouteTilePolicySnapshot { internal Dictionary<int,Identity> GateIdentities=new(); internal struct Identity { internal uint Global; internal ushort Owner,Capturer; } }
 static unsafe class UnitAccess { internal static GameUnit* Unit; internal static bool Alive=true, Lookup=true;
 internal static bool TryGetById(int id,out GameUnit* u,out int x) { u=Unit;x=0;return Lookup; }
@@ -33,11 +33,11 @@ static int Main() { try { Run(); return 0; } catch(Exception e) { Console.Error.
 static void Run() {
 string root=System.IO.Directory.GetCurrentDirectory();
 string runtime=System.IO.File.ReadAllText(System.IO.Path.Combine(root,"Testmods/EnemyGatePathfindingTest/src/AssassinGateDescentRuntime.cs")).Replace("\r\n","\n");
-string body=runtime.Substring(runtime.IndexOf("        private bool Allows(")); body=body.Substring(0,body.LastIndexOf("\n    }")).Replace("private bool Allows","internal bool Allows");
+string body=runtime.Substring(runtime.IndexOf("        internal void SetActive(")); body=body.Substring(0,body.LastIndexOf("\n    }")).Replace("private bool Allows","internal bool Allows").Replace("private void Decide","internal void Decide").Replace("private void ObserveClear","internal void ObserveClear");
 Check(System.IO.File.ReadAllText(System.IO.Path.Combine(root,"_inspect/AssassinDescentRuntimeTests/ProductionReader.cs")).Replace("\r\n","\n").Contains(body.Replace("\r\n","\n")),"fixture reader is exactly current production source");
-byte* m=(byte*)NativeMemory.AllocZeroed(0x6800000); int active=1;
+byte* m=(byte*)NativeMemory.AllocZeroed(0x6800000); int active=1, diagnostics=0;
 try {
-var r=new Reader { module=(ulong)m, active=&active };
+var r=new Reader { module=(ulong)m, active=&active, diagnostics=&diagnostics };
 var snapshot=new RouteTilePolicySnapshot(); snapshot.GateIdentities.Add(1,new RouteTilePolicySnapshot.Identity{Global=100,Owner=1});
 r.policy=()=>snapshot;
 GameBuilding b=new(){r_GlobalId=100,r_PlayerIdOwner=1,r_GateState=2}; GameBuildingManagerAPI.Building=&b;
@@ -48,6 +48,16 @@ r_CurrentPathPlanIndex=16,r_PathPlanLength=19,r_AIState=101 };
 *(uint*)(m+0x48F71B0+4)=0x100;
 X64SmartCPUContext* cp=stackalloc X64SmartCPUContext[1]; *cp=new(){RBX=1,RDI=(ulong)m+0x67E8400,R12=0x490};
 Check(r.Allows(cp),"actual production reader authorizes verified descent");
+int observed=0;
+r.SetActive(true,null,null); r.Decide((IntPtr)cp); Check(cp->R11==1,"no diagnostic provider grants same descent");
+r.SetActive(true,(p,c)=>observed++,id=>observed++); r.Decide((IntPtr)cp); r.ObserveClear((IntPtr)cp,false);r.ObserveClear((IntPtr)cp,true);
+Check(cp->R11==1 && observed==3,"optional callbacks preserve permission");
+r.SetActive(true,(p,c)=>throw new Exception("observer"),id=>throw new Exception("observer"));
+r.Decide((IntPtr)cp);r.ObserveClear((IntPtr)cp,false);r.ObserveClear((IntPtr)cp,true);
+Check(cp->R11==1 && r.Summary.Contains("observerErrors=3") && r.Summary.Contains("guardErrors=0"),"observer exceptions cannot revoke permission or escape native callback");
+r.SetActive(false,null,null);r.Decide((IntPtr)cp);Check(cp->R11==0,"inactive guard preserves original branch");
+r.SetActive(true,null,null);
+
 void Reject(Action change,Action restore,string why) { change();Check(!r.Allows(cp),why);restore();Check(r.Allows(cp),why+" restored"); }
 // No substitute player or fabricated identities.
 Reject(()=>u->r_ControllableForPlayerId=0,()=>u->r_ControllableForPlayerId=2,"zero control");

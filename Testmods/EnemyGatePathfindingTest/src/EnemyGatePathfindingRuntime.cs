@@ -277,7 +277,9 @@ namespace EnemyGatePathfindingTest
             samePclRouteRuntime?.SetBuildingMapMode(editor);
             attackOrderDiagnostics?.Reset();
             temporaryAcceptance?.Begin();
-            assassinDescent?.SetActive(true, temporaryAcceptance?.NativeDiagnostics);
+            assassinDescent?.SetActive(true,
+                temporaryAcceptance?.NativeDiagnostics == null ? (Action<IntPtr, bool>)null : temporaryAcceptance.NativeDiagnostics.ObserveClosedGate,
+                temporaryAcceptance?.NativeDiagnostics == null ? (Action<int>)null : temporaryAcceptance.NativeDiagnostics.ObserveDescentException);
             topologyProvider?.BeginExplicitEpoch(reason);
             macemen?.Begin(topologyProvider?.DiagnosticEpoch ?? 0);
             Shared.DebugLogHelper.LogInfo(log,
@@ -291,7 +293,9 @@ namespace EnemyGatePathfindingTest
             bool hadActiveEpoch = Interlocked.CompareExchange(ref mapActive, 0, 1) == 1;
             if (!hadActiveEpoch)
                 return;
-            assassinDescent?.SetActive(false, temporaryAcceptance?.NativeDiagnostics);
+            assassinDescent?.SetActive(false,
+                temporaryAcceptance?.NativeDiagnostics == null ? (Action<IntPtr, bool>)null : temporaryAcceptance.NativeDiagnostics.ObserveClosedGate,
+                temporaryAcceptance?.NativeDiagnostics == null ? (Action<int>)null : temporaryAcceptance.NativeDiagnostics.ObserveDescentException);
             if (assassinDescent != null) Shared.DebugLogHelper.LogInfo(log, assassinDescent.Summary);
             LogDiagnosticCheckpoint("final", reason);
             // TEMP_GATE_ROUTE_ACCEPTANCE: validate complete AI result attribution against functional counters.
@@ -896,7 +900,7 @@ namespace EnemyGatePathfindingTest
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate acceptance verdict: " +
-                $"hookExecution={EnemyGatePathfindingPolicy.ObservationVerdict(hookActivity ? 1 : 0)}," +
+                $"capturerComparisonExecution={EnemyGatePathfindingPolicy.ObservationVerdict(hookActivity ? 1 : 0)}," +
                 $"runtimeIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity || same.Queries > 0, runtimeFailed)}," +
                 $"uncapturedGateObserved={EnemyGatePathfindingPolicy.ObservationVerdict(uncaptured)}," +
                 $"nativeRejectionPreserved={Read(ref nativeRejectionPreserved)}," +

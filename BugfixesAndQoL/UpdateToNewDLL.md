@@ -602,3 +602,54 @@ bridge captures and 3 lethal removals (both stone gate sizes), no errors or
 pending follow-ups. This confirms the testmod, not main-mod or multiplayer
 acceptance. Main-mod testing must include two bridges and bridge states,
 option/mod disabled, demolition, projectile/area damage and multiplayer.
+
+## Improved building preview (local QoL)
+
+#### Native contract
+
+Feature: local presentation only. Reference native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Script Extender source commit 5908e1f12437deb7ef5f5b1dc2d64e301178fba3, tree c238441ea12db35ee36c5c5668d3c8fce0897295; installed enums and farm scales checked independently.
+
+### Audited data flow
+
+Input 0x90CD0 recentres the cursor by scale/2, passes the native manager, player, top-left XY, signed short mapper, scale and preview-mode byte to 0x77E60. Game and delayed construction 0x6D580 perform the same validator before any creation. This mod changes neither path.
+0x619C0 generates square XY offsets 0..scale-1; 0x69850 reads them, changes footprint count and rotation-dependent sprite indices. Wheat/hops use 9x9; apple/cattle use 10x10. The validator reads logic at manager+0x898400 and terrain at +0x9D2500; River excludes a tile from coverage, otherwise OasisGrass, ThickFoliage and Foliage each add one separately. Coverage must reach scale squared. The independent green counter counts OasisGrass and ThickFoliage once each, never Foliage, and requires >=50; River excludes both counters (0x787C7..0x78878, final comparisons at 0x79898). Combined flags may compensate a zero-contribution tile; do not assume a simple percentage.
+Native validity uses image+0x3A11EA4[y*800+x]; packed indices use image+0x402FF2C[y*3]+x. Coordinates are not packed indices. Layer capacity is 320800, including packed index zero. Manager image RVA 0x405EDB0.
+
+0x5DD70 builds preview graphics. Input ABI void(manager pointer, int x, int y, signed short mapper, int scale). Capture manager+0x204E6FC before Vanilla (0 valid, 1 blocked, 2 out-of-map); +0x204E7EC is the one-shot alternate preview override, cleared by Vanilla. Alternate/queued preview calls from 0x63FB0 must not acquire markings. In the blocked path 0x7B060 tests collision, height, ownership and object blockers but not farm ground coverage. For farm types, it writes palette token 55 (red) or 62 (dark) to manager+0x3B3200. Valid placement instead builds the farm sprite/plot preview. Only replace existing 62 after Original, and only if the corresponding full-footprint requirement is deficient. Failed green coverage marks zero-green contributors; union the failed farm requirements.
+Renderer 0x41D60 reads image+0x4411FB0 (manager+0x3B3200); 0x1A2D90 transports the colour at short record index 7 of 21. Director.Update consumes the exact frame buffer; GameMap.processTestMap copies floatColour and gameTile applies TilemapManager.tileColRed for token 55. Renderer clears consumed construction entries. Terrain, geometry, creation, costs and chores remain Vanilla.
+These contracts are confirmed statically against the installed native image, disassembly and Managed/Extender sources. The user confirmed the first-stage red dirt/sand markings in-game. The user subsequently confirmed expanded counters and the shared tooltip layout in-game. The integrated local setting still needs a game test.
+
+### Permanent detour
+
+Entry RVA 0x5DD70; function range [0x5DD70,0x60CAC). Entry bytes: 48 89 5C 24 20 / 55; continuation RVA 0x5DD76 (push rsi).
+Installed RedBird NativeX64 1.5.0.0: Indirect needs six bytes, displaced instructions are exactly the five-byte rbx shadow-space store and one-byte rbp push. They have no branches or RIP-relative operands; the trampoline must execute both and jump to entry+6. ABI-preserved registers/flags and stack follow Vanilla; no context callback, SIMD clobber, custom assembly or Rflags interpretation is used.
+Allow only Indirect, refuse chaining, follow neither jumps nor calls. Confirm Scheme, DisplacedByteCount, target, copied trampoline bytes, continuation, FF25 patch, signed RIP pointer-slot displacement and pointed-to HookEntryPoint both before and after installation. Full body/direct-branch decoding plus baseline xrefs checks prohibit outside entries into (0x5DD70,0x5DD76).
+Resolver first checks reference RVA/signature, then an executable-section unique pattern fallback. The fallback does not authorize changed manager/field layouts: this entire feature remains hash-bound and the resolved function must still match the audited RVA. Unknown hash, backend or conflicting hook disables only the feature with Error-level diagnostics; initialization candidates may roll back before publication.
+Published hooks never disable, dispose or repatch. Logical active state is atomic; an inactive wrapper calls Original exactly once. Runtime, logger, callback and hook are static and outlive startup component destruction. A single Debug callback marker with milliseconds proves execution after startup cleanup; install/wait/first-mark Info reports were removed.
+
+### Updating
+
+Repeat the complete input/validator/footprint/preview/render/reset/construction audit; verify changed source and installed Extender/Fixes ownership; regenerate all references together. Native marker numbers are palette protocol tokens rather than terrain enums. Runtime uses named Extender domain enums. No semantic fallback exists for fixed native data offsets.
+
+### Resource and tooltip extension, 2026-10-13
+
+0x77E60 counts HasStone (bit 17), HasIron (bit 19), IsPitch (bit 31) before River exclusion. Quarry mapper 56 uses 6x6 and >=8; iron mapper 90 uses 4x4 and >=4; pitch mapper 91 uses 4x4 and >=1. No percentage or texture inference. The existing preview hook also captures suitable placements, without invoking another validator. Trees, rocks and Killingpit already receive Vanilla red; clearly visible buildings keep their deliberately omitted preview tokens. No additional missing object class was demonstrated.
+
+Immutable snapshots carry mission SessionId, mapper and native top-left XY. Native workers never touch Noesis. APIShared BuildingRollover/GuiChecks Post observers are process-lived, use the Awake-confirmed Unity thread, and render only matching snapshots. MainControls map coordinates are converted through GameMapTile.gameMapX/Y and scale/2, matching 0x90CD0. Cancel, mission end/initialization and invalid/changed selections discard old snapshots. Pending camera rotation and GUI hover use minimum values. No time-based expiry, so pause remains supported.
+
+The real Assembly-CSharp hash BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789 is checked before builds. Private HUD_Main HoverStruct/SelectedStruct/SelectedString/OtherVisible/OtherHighestPri are read only through validated reflection; HoverString is public. Public MainViewModel.Instance/HUDmain/RolloverBuilding_TooltipVis, MainControls.instance/CurrentAction/CurrentSubAction/overGUI/isOffWorld/getMouseMapTilePosition, GameMap.instance/pendingRotationtriggered/getMapTile and GameMapTile.gameMapX/gameMapY are compiled against the real assembly. Actual public signatures are additionally asserted by managed-contract checks.
+
+Vanilla FatControler.setupText exposes 21 locale identifiers, matching BuildingCosts/BuildingLimit's 21 files; the plan's count of 22 was inaccurate. All 21 receive five labels. Arabic numeric fragments use Unicode LTR isolates inside the inherited RTL flow; both shared controls wrap within 440px. APIShared inserts its shared hosts immediately before the original cost rows in both variants, preserving BuildingCosts replacements and BuildingLimit contributions. Each patch Content has one root. Shared publisher usage and optional dependency ordering avoid competing HUD hooks; Fixes does not hook this preview entry.
+
+### Shared tooltip layout, 2026-10-13
+
+The user confirmed the expanded counters and markings work in-game, but rejected the prior split/moved tooltip layout. APIShared 0.9.0 now owns plain-text contribution hosts before both cost rows. Farm contributes Ground with maximum sort order, so ordinary contributions (including BuildingLimit) sit above it. Private HUD selection reflection moved to APIShared; the farm's native snapshot/cursor/session rules and permanent hook remain unchanged. BuildingCosts keeps cost/icon rendering but preserves the original left anchor. The old farm XAML patch and view model were replaced; installation removes that exact stale patch from local/installed packages.
+
+### Local QoL migration, 2026-10-13
+
+BugfixesAndQoL owns the preview detour and the Ground contribution. [PresetLocal] EnableImprovedBuildPreview defaults true, persists through the existing preset service and is gated by EnableClientFeatures. APIShared minimum is 0.9.0. Shared tooltip/public contracts are unchanged; optional consumers need no GUID-specific integration.
+
+BuildPreviewStateStore atomically publishes immutable activation, generation, session and snapshot together. Activation/session changes increment the generation and clear actual counts. A captured producer can only compare/exchange against the same generation/session, so a late callback cannot republish into a newer activation. Unchanged snapshot values reuse the state and snapshot; soil and temporary preview buffers are still checked on every eligible native callback. The diagnostic eligible-tile traversal has been removed.
+
+Native regression and full-image incoming-edge checks: tests/BuildPreview.Tests. Real Assembly-CSharp signatures, hash, installed NativeX64 Indirect scheme, six bytes, trampoline, pointer-slot and HookEntryPoint remain covered by Test-BuildPreviewPreflight.ps1 and the machine tests. Acceptance evidence and pending integrated-switch checks live in tests/BuildPreview.Tests/ACCEPTANCE.md. No allocation/FPS claim is made beyond the isolated production state publication path.

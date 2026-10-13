@@ -20,7 +20,8 @@ namespace BridgePlanningTests
             hash=="E1FDDAD75696C89749BCD02D7707CCE06CB2A0C95B852F28715268FC182A474E" ||
             hash=="C129673AA1F7982F7732A456421AA801FB9EAC4B5B45092C3EB48A60039420D2" ||
             hash=="B82464117A2AC2E8DB26A73583AD84FF5108B9346944738924A5B1F60BA9F780" ||
-            hash=="9DA9CD5D88D89ED60D94608AC811E937D2E741FC8FB4B7A5D84615F728A74257";
+            hash=="9DA9CD5D88D89ED60D94608AC811E937D2E741FC8FB4B7A5D84615F728A74257" ||
+            hash=="BE5DD2EE439851427A26B444ADC78D729F640903BE47740599D4A8F98E0EC525";
 
         private static byte[] Bytes(Array data){var bytes=new byte[Buffer.ByteLength(data)];Buffer.BlockCopy(data,0,bytes,0,bytes.Length);return bytes;}
         private static T[] ArrayValues<T>(byte[] bytes) where T:struct
@@ -273,7 +274,7 @@ namespace BridgePlanningTests
                     int entryPhase=originalBundle.Sections.TryGetValue("military/entryPlayer",out var entryPlayer)?BitConverter.ToInt32(entryPlayer,0x379d974-0x379ae00):-1;
                     if(entryPhase!=4)
                     {
-                        Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",variant="+variant+",nativeCastleResult="+castleResult+",candidateChangedBytes="+Changed(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"))+",entryPhase="+entryPhase+",militaryContinuation=Unknown:not-a-phase4-suffix,phase5Requires=3665FB8-control-before-own-entry,postValuesUsedOnlyForComparison=True,behaviorFix=disabled");return 0;
+                        Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",variant="+variant+",nativeCastleResult="+castleResult+",candidateChangedBytes="+Changed(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"))+",entryPhase="+entryPhase+",militaryContinuation=Unknown:not-a-phase4-suffix,phase5Controls="+(originalBundle.Sections.ContainsKey("military/entryPhase5Controls")?"own-entry-present":"Unknown-missing-own-entry-controls")+",phase5Continuation=not-yet-replayed,postValuesUsedOnlyForComparison=True,behaviorFix=disabled");return 0;
                     }
                     Console.WriteLine("variant="+variant+",nativeCastleResult="+castleResult+",projectedTarget="+m.Int(0x379D968+b.Attacker*0x583c)+",militaryBranch="+(castleResult!=0?"4-to-6-return":"4-to-5-follow-up-required")+",fullMilitaryExecuted=False,policy=Unknown");
                     if(variant==0)Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native consumer entire player output");

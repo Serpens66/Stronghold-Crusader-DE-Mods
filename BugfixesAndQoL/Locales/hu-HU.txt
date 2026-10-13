@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Kör
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Növényzet
+Ground.Green=Zöld
+Ground.Stone=Kőmezők
+Ground.Iron=Vasmezők
+Ground.Pitch=Szurokmezők
+BugfixesAndQoL.ImprovedBuildPreview=Talajkövetelmények megjelenítése építéskor
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Pirosan jelöli az alkalmatlan talajt, és megjeleníti a szükséges mezők számát a súgóban. Csak helyi; az építési szabályok nem változnak.

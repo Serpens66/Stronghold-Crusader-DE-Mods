@@ -89,6 +89,12 @@ if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GatehouseLivingCapturePreflight.ps1" -RunTests
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-BuildPreviewPreflight.ps1" -ExtenderDir "%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
+"%MSBUILD%" "%PROJECT_DIR%tests\BuildPreview.Tests\BuildPreview.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\BuildPreview.Tests\bin\BuildPreview.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step

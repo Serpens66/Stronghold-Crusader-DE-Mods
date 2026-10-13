@@ -63,8 +63,8 @@ namespace EnemyBridgePathTest
             {
                 hooks[0].Enable();
                 var invoke=Marshal.GetDelegateForFunctionPointer<Leaf>(leaf);
-                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue,732351152,732350560,1389546720,1389546128}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
-                Check(trace.Entered==10&&trace.Exited==10,"actual wrapper pairs exactly once");
+                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue,732351152,732350560,1389546720,1389546128,-50148752,-50149344}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
+                Check(trace.Entered==12&&trace.Exited==12,"actual wrapper pairs exactly once");
                 trace.MarkInstalled(BridgeNativeDefinition.OwnedCount);
                 Check(trace.NativeReadiness.Contains("topologyAvailable=False")&&!trace.Summary().Contains("nativeCoverageComplete=True"),"missing shared publisher cannot claim full coverage");
                 APIShared.EnemyBridgeDiagnosticBridge.PublishTopologyOwner();
@@ -107,14 +107,19 @@ namespace EnemyBridgePathTest
         {
             var site=Array.Find(BridgeNativeDefinition.Sites,s=>s.Rva==0x2C5A0);
             byte[] bytes=new byte[site.Size];Array.Copy(image,Offset(image,site.Rva),bytes,0,bytes.Length);
-            IntPtr copy=Marshal.AllocHGlobal(bytes.Length),stub=Marshal.AllocHGlobal(32);NativeDetour<Leaf> hook=null;Leaf callback=(_,a)=>a;
+            IntPtr copy=Marshal.AllocHGlobal(bytes.Length),stub=Marshal.AllocHGlobal(32);NativeDetour<BridgeNativeHooks.V3> hook=null;BridgeNativeHooks.V3 callback=(_,a,b)=>{};
             try
             {
                 int patch=0x2C5E1-site.Rva;bytes[patch]=0xff;bytes[patch+1]=0x25;Array.Clear(bytes,patch+2,4);Array.Copy(BitConverter.GetBytes(stub.ToInt64()),0,bytes,patch+6,8);Marshal.Copy(bytes,0,copy,bytes.Length);
-                var request=new DetourRequest<Leaf>{Name="copied Fixes-owned target-count body",TargetAddress=unchecked((ulong)copy.ToInt64()),Callback=callback};
-                hook=(NativeDetour<Leaf>)BridgeNativeHooks.CreateBackend(site.Size).CreateDetour(in request);
-                BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));hook.Enable();BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));
-                Console.WriteLine("PASS exact installed NativeX64 backend on copied Fixes-patched 2C5A0 body");
+                var request=new DetourRequest<BridgeNativeHooks.V3>{Name="copied Fixes-owned target-count body",TargetAddress=unchecked((ulong)copy.ToInt64()),Callback=callback};
+                for(int pointer=0;pointer<32;pointer++)
+                {
+                    Array.Copy(BitConverter.GetBytes(0x000002028E77188CL+pointer*0x13579),0,bytes,patch+6,8);Marshal.Copy(bytes,0,copy,bytes.Length);
+                    hook=(NativeDetour<BridgeNativeHooks.V3>)BridgeNativeHooks.CreateBackend(BridgeNativeHooks.ScanLimit(site)).CreateDetour(in request);
+                    BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));hook.Enable();BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));
+                    Check(hook.DisplacedByteCount==17,"Fixes pointer bytes cannot extend audited selector entry");hook.Dispose();hook=null;
+                }
+                Console.WriteLine("PASS exact installed NativeX64 backend on 32 copied Fixes-patched 2C5A0 pointer bodies, entry=17, continuation=2C5B1");
             }
             finally {hook?.Dispose();Marshal.FreeHGlobal(copy);Marshal.FreeHGlobal(stub);GC.KeepAlive(callback);}
         }

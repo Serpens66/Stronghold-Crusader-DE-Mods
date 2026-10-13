@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Круг
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Растительность
+Ground.Green=Зелень
+Ground.Stone=Клетки камня
+Ground.Iron=Клетки железа
+Ground.Pitch=Клетки смолы
+BugfixesAndQoL.ImprovedBuildPreview=Показывать требования к земле при строительстве
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Отмечает неподходящую землю красным и показывает число нужных клеток в подсказке. Только локально; правила строительства не меняются.

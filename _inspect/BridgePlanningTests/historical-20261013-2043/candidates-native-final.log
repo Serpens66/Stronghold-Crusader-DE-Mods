@@ -1,0 +1,2 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+PASS own consumer ordinal=1,variant=0,nativeCastleResult=0,candidateChangedBytes=0,entryPhase=5,militaryContinuation=Unknown:not-a-phase4-suffix,phase5Controls=own-entry-present,phase5Continuation=not-yet-replayed,postValuesUsedOnlyForComparison=True,behaviorFix=disabled

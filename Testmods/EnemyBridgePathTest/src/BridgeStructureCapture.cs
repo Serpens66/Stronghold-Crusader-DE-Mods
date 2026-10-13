@@ -18,18 +18,18 @@ namespace EnemyBridgePathTest
         private readonly Func<int,int,byte[]> read;private readonly Func<object> token;private readonly Action<string,string> emit;
         private readonly object gate=new object();private long session;private int attempts;private Input pending,retained;
         internal BridgeStructureCapture(Func<int,int,byte[]> read,Func<object> token,Action<string,string> emit){this.read=read;this.token=token;this.emit=emit;}
-        internal bool Available {get {lock(gate)return session!=0&&attempts<2&&pending==null&&(retained==null||retained.RelevanceRank<4);}}
+        internal bool Available {get {lock(gate)return session!=0&&attempts<2&&pending==null;}}
         internal bool CanCaptureRank(int rank){lock(gate)return Available&&(retained==null||rank>retained.RelevanceRank);}
         internal void Begin(long value){lock(gate){session=value;attempts=0;pending=retained=null;emit("structure-capture-ready","selection=dynamic-coupled-target-or-coordinate-candidate,attemptLimit=2,requires=own-command-pre-post,selectorAndAttackProof=separate,behavior=unchanged");}}
         internal void End(){lock(gate){if(pending!=null)emit("structure-command-incomplete","op="+pending.Op+",reason=map-ended-before-command-post");pending=null;emit("structure-capture-end","attempts="+attempts+",complete="+(retained?.Complete??false)+",missing="+(retained==null?"own-relevant-structure-command":"selector-and-executed-attack-remain-separate")+",behavior=unchanged");session=0;}}
         private int Int(int a)=>BitConverter.ToInt32(read(a,4),0);
         private static uint Global(byte[] unit)=>BitConverter.ToUInt32(unit,0x6f0);
-        internal Input Capture(long op,long root,int player,int tribe,uint tribeGlobal,int command,int building,uint buildingGlobal,bool explicitBuilding,int fromX,int fromY,int orderX,int orderY,int unit=0,uint unitGlobal=0,uint unitTargetTile=0,string origin="group-command-pre",string targetEvidence="legacy",bool snapshotOnly=false)
-        {lock(gate)return CaptureCore(op,root,player,tribe,tribeGlobal,command,building,buildingGlobal,explicitBuilding,fromX,fromY,orderX,orderY,unit,unitGlobal,unitTargetTile,origin,targetEvidence,snapshotOnly);}
-        private Input CaptureCore(long op,long root,int player,int tribe,uint tribeGlobal,int command,int building,uint buildingGlobal,bool explicitBuilding,int fromX,int fromY,int orderX,int orderY,int unit,uint unitGlobal,uint unitTargetTile,string origin,string targetEvidence,bool snapshotOnly)
+        internal Input Capture(long op,long root,int player,int tribe,uint tribeGlobal,int command,int building,uint buildingGlobal,bool explicitBuilding,int fromX,int fromY,int orderX,int orderY,int unit=0,uint unitGlobal=0,uint unitTargetTile=0,string origin="group-command-pre",string targetEvidence="legacy",bool snapshotOnly=false,bool matchingPlanningFrame=false)
+        {lock(gate)return CaptureCore(op,root,player,tribe,tribeGlobal,command,building,buildingGlobal,explicitBuilding,fromX,fromY,orderX,orderY,unit,unitGlobal,unitTargetTile,origin,targetEvidence,snapshotOnly,matchingPlanningFrame);}
+        private Input CaptureCore(long op,long root,int player,int tribe,uint tribeGlobal,int command,int building,uint buildingGlobal,bool explicitBuilding,int fromX,int fromY,int orderX,int orderY,int unit,uint unitGlobal,uint unitTargetTile,string origin,string targetEvidence,bool snapshotOnly,bool matchingPlanningFrame)
         {
             int rank=explicitBuilding?4:targetEvidence.StartsWith("native-unit-context",StringComparison.Ordinal)?(snapshotOnly?2:3):1;
-            if(retained!=null&&rank<=retained.RelevanceRank)return null;
+            if(retained!=null&&rank<=retained.RelevanceRank&&!(rank==retained.RelevanceRank&&matchingPlanningFrame&&!snapshotOnly&&root>0&&root!=retained.Root))return null;
             if(!Available||token()==null||player<1||player>8||tribe<1||tribe>=4500||building<1||building>4000||tribeGlobal==0||buildingGlobal==0||(uint)fromX>=800||(uint)fromY>=800||(uint)orderX>=800||(uint)orderY>=800)return null;
             attempts++;long start=Stopwatch.GetTimestamp();
             try
@@ -44,7 +44,7 @@ namespace EnemyBridgePathTest
                 Copy("permissions540",0x32BDB0,90*6*4);
                 Copy("lineMode",0x2f7a690,4);
                 Copy("lineBuildingClasses336",0x2e68d0,336*4);
-                Copy("lineBlockGrid",0x51d75f0,320800); // DAAC0 fallback reads this even when F32B0 line mode is zero.
+                Copy("lineBlockGrid",0x51d75f0,320800);Copy("pathDirectionMasks8",0x312620,8); // DAAC0 fallback reads this even when F32B0 line mode is zero.
                 input.Sections.Add("pre/pathInputCoverage4",BitConverter.GetBytes(1));
                 Copy("unitManagerFull",0x67e8400,BridgePlanningCapture.EntryUnitBytes);Copy("tribesFull",0x7cc6720,BridgePlanningCapture.EntryTribeBytes);
                 Copy("tribe",0x7cc6720+tribe*0x688,0x688);Copy("target",0x64ccbb0+building*0x32c,0x32c);
@@ -72,7 +72,7 @@ namespace EnemyBridgePathTest
         internal Input Complete(Input input,bool originalCalled){lock(gate)return CompleteCore(input,originalCalled);}
         private void CheckOwnTables(Input input)
         {
-            foreach(var field in new[]{Tuple.Create("profiles90",0x322540),Tuple.Create("permissions540",0x32BDB0),Tuple.Create("lineMode",0x2f7a690),Tuple.Create("lineBuildingClasses336",0x2e68d0)})
+            foreach(var field in new[]{Tuple.Create("profiles90",0x322540),Tuple.Create("permissions540",0x32BDB0),Tuple.Create("lineMode",0x2f7a690),Tuple.Create("lineBuildingClasses336",0x2e68d0),Tuple.Create("pathDirectionMasks8",0x312620)})
             {
                 var before=input.Sections["pre/"+field.Item1];var now=read(field.Item2,before.Length);
                 if(now==null||now.Length!=before.Length)throw new InvalidOperationException("command-table-short-copy");
@@ -91,6 +91,12 @@ namespace EnemyBridgePathTest
                 input.Sections.Add("post/unitManagerFull",read(0x67e8400,BridgePlanningCapture.EntryUnitBytes));input.Sections.Add("post/tribesFull",read(0x7cc6720,BridgePlanningCapture.EntryTribeBytes));
                 input.Sections.Add("post/tribe",read(0x7cc6720+input.Tribe*0x688,0x688));input.Sections.Add("post/approaches501",read(0x60ad660+0x1b344,501*12));input.Sections.Add("post/workControls",read(0x60ad660,0xe0));
                 foreach(var key in new List<string>(input.Sections.Keys))if(key.StartsWith("pre/unit-",StringComparison.Ordinal)){int id=int.Parse(key.Substring(9),System.Globalization.CultureInfo.InvariantCulture);input.Sections.Add("post/unit-"+id,read(0x67e8400+id*0x490,0xb00));if(Global(input.Sections[key])!=Global(input.Sections["post/unit-"+id]))throw new InvalidOperationException("command-post-unit-reused");}
+                if(input.Unit>0&&!input.SnapshotOnly)
+                {
+                    input.Sections.Add("post/workQueueControls",read(0x60ad660+0x155f38,0x34));
+                    input.Sections.Add("post/pathBank1000",read(checked(0x67e8400+0xb4fe78+input.Unit*1000),1000));
+                    long[] binding={input.Session,input.Op,input.Unit,input.UnitGlobal,Stopwatch.GetTimestamp()};var bytes=new byte[40];Buffer.BlockCopy(binding,0,bytes,0,40);input.Sections.Add("post/pathBankIdentity5",bytes);
+                }
                 input.Sections.Add("post/topology",read(0x60ad660+0x6c,12));
                 input.PostClock=Stopwatch.GetTimestamp();input.Complete=true;retained=input;emit("structure-command-complete","op="+input.Op+",building="+input.Building+"/g"+input.BuildingGlobal+",originalCalled="+originalCalled+",timing="+input.Origin+",freshDecisionProof=False,postCopyMs="+((input.PostClock-postStarted)*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",actualAttack=not-observed,selectorResult=not-directly-observed");return input;
             }

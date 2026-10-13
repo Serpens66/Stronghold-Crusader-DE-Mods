@@ -1,5 +1,0 @@
-Ground.Coverage=Végétation
-Ground.Green=Verdure
-Ground.Stone=Cases de pierre
-Ground.Iron=Cases de fer
-Ground.Pitch=Cases de poix

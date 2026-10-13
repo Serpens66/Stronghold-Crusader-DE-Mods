@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Krąg
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Roślinność
+Ground.Green=Zieleń
+Ground.Stone=Pola kamienia
+Ground.Iron=Pola żelaza
+Ground.Pitch=Pola smoły
+BugfixesAndQoL.ImprovedBuildPreview=Pokazuj wymagania terenu podczas budowy
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Oznacza nieodpowiedni teren na czerwono i pokazuje wymaganą liczbę pól w podpowiedzi. Tylko lokalnie; zasady budowy pozostają bez zmian.

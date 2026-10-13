@@ -36,3 +36,13 @@ Write-Host 'PASS installed public effective count view, input capacities and nor
 $decision=[IO.File]::ReadAllText((Join-Path $mod 'src/BridgeDecisionTrace.cs'))
 if($decision -notmatch 'effectiveCounts:\(\)=>GamePathingManagerAPI.Instance.GetNativeComponentTileCounts\(\).ToArray\(\)'){throw 'Relocated counts must use installed public live view at selector Pre'}
 Write-Host 'PASS existing observer invokes public count provider without a new hook or live write'
+
+$return=$event.GetProperty('ReturnValue')
+if(!$return -or !$return.GetMethod.IsPublic -or $return.PropertyType -ne [long]){throw 'Installed mutable Post return signature changed'}
+if($capture -notmatch 'post/pathBank1000' -or $capture -notmatch '0xb4fe78\+input.Unit\*1000'){throw 'Immediate native output bank capture missing'}
+if($shadow -notmatch 'unpaired-command-retained-until-session-end' -or $shadow -notmatch 'awaiting-exact-follow-up'){throw 'Unpaired artifact reserves slots before session end'}
+if($capture -notmatch 'rank==retained.RelevanceRank&&matchingPlanningFrame'){throw 'Verified equal rank replacement missing'}
+Write-Host 'PASS installed mutable Post return, bounded own path bank, deferred pair slots and exact-frame equal-rank replacement'
+
+if($capture -notmatch 'Copy\("pathDirectionMasks8",0x312620,8\)' -or $capture -notmatch 'post/workQueueControls'){throw 'Own reconstruction input/output coverage missing'}
+Write-Host 'PASS copied eight native mode1 direction masks and minimal Post search controls; legacy files remain readable'

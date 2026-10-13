@@ -57,7 +57,8 @@ namespace EnemyGatePathfindingTest
                 var context = (RedBird.X64.Assembly.X64SmartCPUContext*)p;
                 context->R11 = 0; decisions++;
                 try { if (throwDecision) throw new InvalidOperationException();
-                    if (permit && AssassinGateDescentRule.Allows((int)context->R14, 0, 16, 19,
+                    if (permit && AssassinGateDescentRule.Allows((int)context->R14, 0,
+                        *(ushort*)(context->RDI + context->R12 + 0x752), *(ushort*)(context->RDI + context->R12 + 0x754),
                         (int)context->RDX, (ushort)context->R9, 0, 101, true, 0,0,1,16,0x100,0)) context->R11 = 1;
                 } catch (InvalidOperationException) { context->R11 = 0; }
             }; Roots.Add(guard);
@@ -137,8 +138,8 @@ namespace EnemyGatePathfindingTest
                     hook.Generate((a, original, ret) => {
                         ulong cb = (ulong)Marshal.GetFunctionPointerForDelegate(callback).ToInt64();
                         if (i == 10) AssassinGateDescentAdapter.Emit(a, original, cb, (ulong)enabled.ToInt64(), 0x185934, cb, cb, (ulong)enabled.ToInt64(), 0x180000000);
-                        else if (i < 10) NativeTraceAdapterEmitter.Emit(a, original, cb, (ulong)enabled.ToInt64());
-                        else NativeTraceAdapterEmitter.EmitExecution(a, original, cb, i == 18 ? 0UL : cb,
+                        else if (i < 10) NativeCallbackAdapterEmitter.Emit(a, original, cb, (ulong)enabled.ToInt64());
+                        else NativeCallbackAdapterEmitter.EmitExecution(a, original, cb, i == 18 ? 0UL : cb,
                             (ulong)enabled.ToInt64(), 0x180000000, i == 14 || i == 15 || i == 17 || i == 18);
                     });
                     // Unpublished probe: generate/assemble through the installed real backend, never enable.
@@ -148,8 +149,8 @@ namespace EnemyGatePathfindingTest
                 while (decoder.IP < (ulong)(sites[i] + expected.Length)) originalInstructions.Add(decoder.Decode());
                 var assembler = new Assembler(64);
                 if (i == 10) AssassinGateDescentAdapter.Emit(assembler, originalInstructions.ToArray(), 0x1000000, 0x2000000, 0x185934, 0x1000000, 0x1000010, 0x2000000, 0x180000000);
-                else if (i < 10) NativeTraceAdapterEmitter.Emit(assembler, originalInstructions.ToArray(), 0x1000000, 0x2000000);
-                else NativeTraceAdapterEmitter.EmitExecution(assembler, originalInstructions.ToArray(), 0x1000000, i == 18 ? 0UL : 0x1000010UL, 0x2000000, 0x180000000, i == 14 || i == 15 || i == 17 || i == 18);
+                else if (i < 10) NativeCallbackAdapterEmitter.Emit(assembler, originalInstructions.ToArray(), 0x1000000, 0x2000000);
+                else NativeCallbackAdapterEmitter.EmitExecution(assembler, originalInstructions.ToArray(), 0x1000000, i == 18 ? 0UL : 0x1000010UL, 0x2000000, 0x180000000, i == 14 || i == 15 || i == 17 || i == 18);
                 using (var output = new MemoryStream())
                 {
                     assembler.Assemble(new StreamCodeWriter(output), 0x3000000);

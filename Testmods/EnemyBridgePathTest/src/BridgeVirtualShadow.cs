@@ -57,6 +57,9 @@ namespace EnemyBridgePathTest
         private Request planningRequest;
         private BridgeStructureCapture.Input structureInput;
         private Request structureRequest;
+        private BridgeStructureCapture.Input commandFallbackInput;
+        private Request commandFallbackRequest;
+        internal bool HasPlanningFrame(long run,long root,int player){lock(gate)return fallbackBundle!=null&&fallbackBundle.Session==run&&fallbackBundle.Root==root&&fallbackBundle.Attacker==player;}
         private readonly Dictionary<long,int> militaryRoots=new Dictionary<long,int>();
         private readonly Func<BridgeStructureCapture.Input,bool> structureIdentity;
         internal void MilitaryOpened(long run,long root,int player)
@@ -67,14 +70,14 @@ namespace EnemyBridgePathTest
             {
                 if(run!=session||!militaryRoots.Remove(root))return;
                 if(structureInput?.Complete!=true||structureInput.Root!=root||groupArtifact)return;
-                if(!originalCompleted){if(fallbackBundle?.Root==root){fallbackBundle=null;fallbackRequest=null;}emit("structure-pair-unresolved","op="+structureInput.Op+",root="+root+",reason=military-original-failed,association=unresolved");}
-                CompleteStructureCommand(structureInput,true);
+                if(!originalCompleted){structureInput.Sections["militaryRootFailed"]=new byte[]{1};if(fallbackBundle?.Root==root){fallbackBundle=null;fallbackRequest=null;}emit("structure-pair-unresolved","op="+structureInput.Op+",root="+root+",reason=military-original-failed,association=unresolved");}
+                CompleteStructureCommand(structureInput,false);
             }
         }
         private bool StructureMatches(BridgePlanningCapture.Bundle bundle)
         {
             var s=structureInput;
-            if(s==null||structureRequest?.Input==null||!s.Complete||s.SnapshotOnly||s.Session!=bundle.Session||s.Root<=0||s.Root!=bundle.Root||s.Player!=bundle.Attacker||structureRequest.PlanningRoot!=s.Root)return false;
+            if(s==null||structureRequest?.Input==null||!s.Complete||s.SnapshotOnly||s.Sections.ContainsKey("militaryRootFailed")||s.Session!=bundle.Session||s.Root<=0||s.Root!=bundle.Root||s.Player!=bundle.Attacker||structureRequest.PlanningRoot!=s.Root)return false;
             bool evidence=s.ExplicitBuilding||s.Unit>0&&s.UnitGlobal>0&&s.TargetEvidence.StartsWith("native-unit-context",StringComparison.Ordinal)||structureRequest.BridgeRelevant;
             if(!evidence||structureIdentity==null)return false;
             try{return structureIdentity(s);}catch(Exception error){emit("structure-pair-unresolved","op="+s.Op+",root="+s.Root+",reason=identity-validation-"+error.GetType().Name);return false;}
@@ -128,9 +131,14 @@ namespace EnemyBridgePathTest
         {
             Request first=null;foreach(var group in groups.Values)if((group.BridgeRelevant&&group.PolicyValidAtDecision||structureInput!=null&&structureInput.Complete&&structureInput.ExplicitBuilding&&structureInput.Op==group.Op)&&group.Player==bundle.Attacker&&group.Input!=null&&group.Input.Session==bundle.Session&&(group.PlanningRoot==bundle.Root||group.DecisionRoot==bundle.Root)&&(first==null||group.Clock<first.Clock))first=group;return first;
         }
-        private bool PublishPlanning(BridgePlanningCapture.Bundle bundle,Request request,string reason)
+        private bool PublishPlanning(BridgePlanningCapture.Bundle bundle,Request request,string reason,bool finalFallback=false)
         {
             if(keepArtifact)return false;
+            if(militaryRoots.ContainsKey(bundle.Root))
+            {
+                fallbackBundle=bundle;fallbackRequest=request.ArtifactCopy();
+                emit("planning-artifact-deferred","op="+bundle.Op+",root="+bundle.Root+",reason=awaiting-military-root-completion,artifactSlotReserved=False");return true;
+            }
             if(StructureMatches(bundle)&&!groupArtifact)
             {
                 var command=structureRequest.ArtifactCopy();var own=structureInput;
@@ -138,6 +146,18 @@ namespace EnemyBridgePathTest
                 if(pairAccepted){keepArtifact=groupArtifact=pairedArtifacts=true;planningBundleOp=bundle.Root;planningBundleDefinition=request.Id;planningPlayer=bundle.Attacker;fallbackBundle=null;fallbackRequest=null;}
                 emit("planning-command-pair-selected","op="+bundle.Op+",commandOp="+own.Op+",root="+bundle.Root+",accepted="+pairAccepted+",association=same-parent-root,positiveAccessProof=not-implied,newTargetChoice=not-implied,identityCheckedAt=root-completion");
                 return pairAccepted;
+            }
+            var linked=LinkedGroup(bundle);
+            if(linked!=null&&!groupArtifact&&linked.Input?.Session==bundle.Session)
+            {
+                bool paired=artifacts.EnqueuePair(bundle.Session,request.Id,ArtifactCore(request.ArtifactCopy(),bundle,request.Id,bundle.Root),linked.Id,ArtifactCore(linked.ArtifactCopy(),null,request.Id,bundle.Root));
+                if(paired){keepArtifact=groupArtifact=pairedArtifacts=true;planningBundleOp=bundle.Root;planningBundleDefinition=request.Id;planningPlayer=bundle.Attacker;fallbackBundle=null;fallbackRequest=null;}
+                emit("planning-group-pair-selected","op="+bundle.Op+",groupOp="+linked.Op+",root="+bundle.Root+",accepted="+paired+",association=observed-group-parent-or-retained-decision,positiveAccessProof=not-implied");return paired;
+            }
+            if(!finalFallback&&LinkedGroup(bundle)==null)
+            {
+                fallbackBundle=bundle;fallbackRequest=request.ArtifactCopy();
+                emit("planning-artifact-deferred","op="+bundle.Op+",root="+bundle.Root+",player="+bundle.Attacker+",reason=awaiting-exact-follow-up,fallbackLimit=1,inputRetained=True,artifactSlotReserved=False");return true;
             }
             bool accepted=artifacts.Enqueue(bundle.Session,request.Id,Artifact(request,bundle),2);
             if(accepted)
@@ -202,15 +222,16 @@ namespace EnemyBridgePathTest
             string folder=artifactDirectory??System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(BridgeVirtualShadow).Assembly.Location),"..","..","diagnostics","EnemyBridgePathTest",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff")));
             artifacts=new BridgeInputArtifact(folder,artifactEmit??((_,kind,detail)=>emit(kind,detail)));
         }
-        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;coordinateX=coordinateY=null;coordinateRows=null;missingInput="awaiting-observed-rebuild";skippedComputations=0;skippedReasons.Clear();pending.Clear();active=null;repeats.Clear();groups.Clear();militaryRoots.Clear();preparations.Clear();lastContent=null;workspace=null;keepArtifact=groupArtifact=pairedArtifacts=false;planningPlayer=0;planningRequest=null;structureInput=null;structureRequest=null;fallbackBundle=null;fallbackRequest=null;decisionCaptured=null;decisionCaptureOp=0;decisionIndex=null;planningBundleOp=planningBundleDefinition=expectedPlanningFamily=0;identity++;decisionCaptureTicks=decisionCaptures=lastDecisionCaptureTicks=lastDecisionCaptures=0;completedQueries=captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;attempted=backgroundDeferred=prepareTicks=searchTicks=formatTicks=comparisonTicks=preparationHits=contentReused=validationTicks=retainedGroupEvictions=unresolvedGroupLinks=0;lastPrepareTicks=lastSearchTicks=lastFormatTicks=lastComparisonTicks=lastPreparationHits=lastContentReused=lastDeferred=lastValidationTicks=0;}}
+        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;coordinateX=coordinateY=null;coordinateRows=null;missingInput="awaiting-observed-rebuild";skippedComputations=0;skippedReasons.Clear();pending.Clear();active=null;repeats.Clear();groups.Clear();militaryRoots.Clear();preparations.Clear();lastContent=null;workspace=null;keepArtifact=groupArtifact=pairedArtifacts=false;planningPlayer=0;planningRequest=null;structureInput=null;structureRequest=null;commandFallbackInput=null;commandFallbackRequest=null;fallbackBundle=null;fallbackRequest=null;decisionCaptured=null;decisionCaptureOp=0;decisionIndex=null;planningBundleOp=planningBundleDefinition=expectedPlanningFamily=0;identity++;decisionCaptureTicks=decisionCaptures=lastDecisionCaptureTicks=lastDecisionCaptures=0;completedQueries=captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;attempted=backgroundDeferred=prepareTicks=searchTicks=formatTicks=comparisonTicks=preparationHits=contentReused=validationTicks=retainedGroupEvictions=unresolvedGroupLinks=0;lastPrepareTicks=lastSearchTicks=lastFormatTicks=lastComparisonTicks=lastPreparationHits=lastContentReused=lastDeferred=lastValidationTicks=0;}}
         internal void Invalidate() {lock(gate) {identity++;captured=null;missingInput="identity-or-physical-invalidation-awaiting-rebuild";}}
         internal void End()
         {
             lock(gate)
             {
+                if(!groupArtifact&&structureInput?.Complete!=true&&commandFallbackInput?.Complete==true){structureInput=commandFallbackInput;structureRequest=commandFallbackRequest;}
                 if(!keepArtifact&&fallbackBundle!=null)
                 {
-                    if(fallbackBundle.Session==session&&fallbackRequest?.Input?.Session==session)PublishPlanning(fallbackBundle,fallbackRequest,"weak-fallback-at-session-end-not-route-proof");
+                    if(fallbackBundle.Session==session&&fallbackRequest?.Input?.Session==session)PublishPlanning(fallbackBundle,fallbackRequest,"independent-fallback-at-session-end-not-route-proof",true);
                     else emit("planning-artifact-unresolved","reason=fallback-session-identity-mismatch");
                     fallbackBundle=null;fallbackRequest=null;
                 }
@@ -219,7 +240,7 @@ namespace EnemyBridgePathTest
                 var cancelled=new System.Text.StringBuilder();if(active!=null)cancelled.Append(active.Id).Append(';');foreach(var request in pending)cancelled.Append(request.Id).Append(';');
                 emit("virtual-shadow-end","decisionInputCopies="+decisionCaptures+",decisionInputCopyMs="+Ms(decisionCaptureTicks)+",shadowSession="+session+",captureCount="+captures+",completedQueries="+completedQueries+",captureMs="+Ms(captureTicks)+",computeMs="+Ms(computeTicks)+",prepareMs="+Ms(prepareTicks)+",searchMs="+Ms(searchTicks)+",formatMs="+Ms(formatTicks)+",validationMs="+Ms(validationTicks)+",retainedGroupEvictions="+retainedGroupEvictions+",unresolvedGroupLinks="+unresolvedGroupLinks+",contentCompareMs="+Ms(comparisonTicks)+",preparationHits="+preparationHits+",contentReused="+contentReused+",attempted="+attempted+",backgroundDeferred="+backgroundDeferred+",comparisonScope=fresh-keeps-selected-targets-proven-bridge-groups,coalesced="+coalesced+",rejected="+rejected+",pending="+(pending.Count+(active==null?0:1))+",pendingOutcome=cancelled-at-session-end,cancelledDefinitions=["+cancelled+"],keepArtifactSelected="+keepArtifact+",bridgeGroupArtifactSelected="+groupArtifact+",planningCommandPairComplete="+pairedArtifacts+",missingMatchingGroupArtifact="+(keepArtifact&&(!groupArtifact||structureInput!=null&&!pairedArtifacts))+","+artifacts.Status(session)+",behavior=unchanged");
                 emit("virtual-computation-coverage","attempted="+attempted+",completed="+completedQueries+",skipped="+skippedComputations+",rejected="+rejected+",cancelled="+(pending.Count+(active==null?0:1))+",skipReasons=["+string.Join(";",skippedReasons)+"],deliveryDoesNotProveComputationCoverage=True");
-                session=0;captured=lastContent=null;pending.Clear();groups.Clear();militaryRoots.Clear();preparations.Clear();repeats.Clear();workspace=null;active=null;
+                session=0;commandFallbackInput=null;commandFallbackRequest=null;captured=lastContent=null;pending.Clear();groups.Clear();militaryRoots.Clear();preparations.Clear();repeats.Clear();workspace=null;active=null;
             }
         }
         private static string Ms(long ticks) => (ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
@@ -570,7 +591,9 @@ namespace EnemyBridgePathTest
         {
             lock(gate)
             {
-                if(input.Session!=session)return;structureInput=input;structureRequest=null;
+                if(input.Session!=session)return;
+                if(structureInput?.Complete==true&&structureRequest!=null&&!groupArtifact){commandFallbackInput=structureInput;commandFallbackRequest=structureRequest;}
+                structureInput=input;structureRequest=null;
                 if(!groups.TryGetValue(input.Op,out Request request))return;
                 // Own command entry is independent of a dirty shadow publication.
                 // Preserve this historical copy even if a later rebuild occurs.
@@ -596,10 +619,12 @@ namespace EnemyBridgePathTest
             {
                 if(!ReferenceEquals(input,structureInput)||!input.Complete||input.Session!=session)return;
                 Request group=structureRequest;if(group==null&&!groups.TryGetValue(input.Op,out group))return;
-                if(!finalFallback&&input.Root>0&&(militaryRoots.ContainsKey(input.Root)||!keepArtifact))
+                if(!finalFallback&&input.Root>0&&militaryRoots.ContainsKey(input.Root))
                 {emit("structure-command-artifact-deferred","op="+input.Op+",root="+input.Root+",reason=awaiting-own-military-root-completion,association=not-yet-published");return;}
                 if(input.SnapshotOnly&&input.RelevanceRank==1&&!finalFallback){emit("structure-command-artifact-deferred","op="+input.Op+",reason=weak-ongoing-route-candidate-awaiting-stronger-own-input,publicationAtSessionEnd=bounded-fallback,actualAttack=not-proven");return;}
                 if(fallbackBundle!=null&&StructureMatches(fallbackBundle))PublishPlanning(fallbackBundle,fallbackRequest,"own-structure-command-same-military-root");
+                if(!finalFallback&&!groupArtifact)
+                {emit("structure-command-artifact-deferred","op="+input.Op+",root="+input.Root+",reason=unpaired-command-retained-until-session-end,artifactSlotReserved=False");return;}
                 if(!groupArtifact&&group.Input!=null)
                 {groupArtifact=artifacts.Enqueue(input.Session,group.Id,ArtifactCore(group.ArtifactCopy(),null,0,0,input),2);emit("structure-command-artifact-selected","op="+input.Op+",accepted="+groupArtifact+",planningAssociation="+"unresolved-own-command-only"+",policyResult=Unknown,behavior=unchanged");}
                 else emit("structure-command-artifact-unresolved","op="+input.Op+",reason=no-exact-planning-and-command-input-link,captureComplete=True,deliveryDoesNotProveSelectorOrAttack=True");

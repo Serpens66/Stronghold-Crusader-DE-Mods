@@ -86,6 +86,14 @@ namespace EnemyBridgePathTest
                     }
                     foreach(var section in a.Sections)if(section.Key.StartsWith("structure/pre/unit-",StringComparison.Ordinal)){if(section.Value.Length!=0xb00||!a.Sections.TryGetValue(section.Key.Replace("/pre/","/post/"),out byte[] after)||after.Length!=0xb00||BitConverter.ToUInt32(section.Value,0x6f0)!=BitConverter.ToUInt32(after,0x6f0))throw new InvalidDataException("structure-unit-input");}
                     foreach(var table in new[]{Tuple.Create("profiles90",360),Tuple.Create("permissions540",2160)})if(a.Sections.TryGetValue("structure/pre/"+table.Item1,out byte[] ownTable)&&ownTable.Length!=table.Item2)throw new InvalidDataException("structure-command-table-extent:"+table.Item1);
+                    if(a.Sections.TryGetValue("structure/pre/pathDirectionMasks8",out var masks)&&masks.Length!=8)throw new InvalidDataException("command-path-direction-mask-extent");
+                    if(a.Sections.TryGetValue("structure/post/workQueueControls",out var postQueue)&&postQueue.Length!=0x34)throw new InvalidDataException("command-post-queue-control-extent");
+                    if(a.Sections.TryGetValue("structure/commandPostReturn8",out var observedReturn)&&(observedReturn.Length!=8||!a.Sections.ContainsKey("structure/commandReturnTiming")))throw new InvalidDataException("command-post-return-extent");
+                    if(a.Sections.TryGetValue("structure/post/pathBank1000",out var pathBank))
+                    {
+                        if(pathBank.Length!=1000||!a.Sections.TryGetValue("structure/post/pathBankIdentity5",out var binding)||binding.Length!=40||!a.Sections.TryGetValue("structure/unitCommandArguments7",out var args))throw new InvalidDataException("command-post-path-extent");
+                        for(int i=0;i<4;i++)if(BitConverter.ToInt64(binding,i*8)!=BitConverter.ToInt64(args,i*8))throw new InvalidDataException("command-post-path-binding");
+                    }
                     if(a.Sections.TryGetValue("structure/pre/pathInputCoverage4",out var coverage))
                     {if(coverage.Length!=4||BitConverter.ToInt32(coverage,0)!=1||!a.Sections.TryGetValue("structure/pre/lineBlockGrid",out var normalGrid)||normalGrid.Length!=320800)throw new InvalidDataException("normal-flood-grid-input-missing");}
                     if(a.Sections.TryGetValue("structure/pre/lineMode",out var lineMode))

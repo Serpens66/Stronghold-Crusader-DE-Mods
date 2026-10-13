@@ -1,0 +1,4 @@
+line-probe native=0,managed=0,native-count=2,managed-count=2,nativeBytes=11-00-00-00-00-00-00-00,managedBytes=11-00-00-00-00-00-00-00
+isolatedF32B0NativeManaged=Matched;lineResult=0;origin=443/371;target=588/326;fullCommandReplay=Unknown;no-recorded-post-used
+isolatedDAAC0NativeManaged=Matched;result=1;limit=44402;radiusSource=audited-79C0-max-axis-plus4;fullCommandReplay=Unknown;native-entry-not-executed
+nativeCommandExecution=refused;productiveCommandExecution=Unknown;Unknown:own-command-input-closure:Unknown:uncopied-candidate-memory:312620:8;time=unit-command-pre-before-196280;post-substitution=False;fullNativeHashValidated=True;behaviorFix=disabled

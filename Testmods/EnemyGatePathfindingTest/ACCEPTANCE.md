@@ -1,16 +1,12 @@
 # Gatehouse acceptance after bridge split
 
-> Current status: 2026-10-13, native-only editor comparison18:13:06--18:14:55 observed passed. Integration remains withheld pending the final native-output assessment. The new optional reconstruction probes below supersede the old statement that existing publication observers alone resolve the remaining native movement ambiguity.
+## Current conclusion (2026-10-13)
 
-EnemyGatePathfindingTest 0.1.6 remains the gatepolicy provider. Existing mainmod hooks consume its optional policy. Independent bridge traversal is excluded. No mainmod integration has taken place.
+The defined gatehouse scope is accepted on the combined technical and observed evidence below. No known unresolved current functional defect requires another game test. Mainmod integration has NOT been performed and requires a separate implementation/review step. Bridges remain outside scope. This is not a claim that all possible native routes or all mod combinations have been observed.
 
-## Native-only comparison and new reconstruction evidence (2026-10-13)
+The final editor epoch20:41:02.625--20:42:06.650 kept large gate1/global1 closed and uncaptured. Exceptions at20:41:48.282 and20:42:01.746 permitted the two directions; completed descents and ground arrivals followed (arrivals20:41:50.214 and20:42:04.269). Two fully assigned native outputs contain30ground and4climb edges, no unknown movement or confirmed forbidden ground passage. Zero repeated closed-gate aborts, guard/scope/observer errors. Complete84-edge mask. Weighted search was disabled; no weighted replacement or secondary ground pass was observed. User confirms uninterrupted completion without a second command.
 
-The18:13:06--18:14:55 editor epoch has weightedConfigured=False, effectiveWeighted=False and no exact weighted publication. User reports expected behavior. Seven final outputs checked, no confirmed ground violation, four further native overlaps movement-unproven, six positive target searches without weighted materialization. Those six are search results, not six defective routes. No missing gate mask, Error/Fatal, scope, snapshot or callback exception; paired commands. A later process without Gate is not this epoch. Historical overlaps remain unclassified.
-
-TEMP_GATE_ROUTE_ACCEPTANCE now has testmod-only read-only probes around F4930 and E1640: actual secondary DB650 call/fallback, reconstruction entry, eligible/improving candidates, selected edge, success/failure epilogue. Only full reverse selected-edge correspondence to the final packed output, stable snapshot and explicit native final origin permit native movement evidence. Replaced weighted output cannot inherit it. Nested reuse of the shared manager invalidates outer evidence, even for identical direction bytes. Unknown wall-to-wall branches remain unknown rather than invented climb directions. Physical execution is still not inferred from reconstruction.
-
-The targeted fixture executes the production native callback and production final-output observer for ground, climb, secondary overwrite, fallback, nesting, snapshot change, failure and changed output. The machine harness uses installed RedBird, incoming ZF branches, GPR/XMM/stack checks and an actual displaced call executed exactly once. No functional Gatepolicy or mainmod source was changed. See TARGETED_TESTS.md for the one short follow-up session; do not repeat Raid or ordinary-soldier regressions.
+The functional descent guard now owns its expected bytes and uses NativeCallbackAdapterEmitter, which is functional infrastructure, not disposable TEMP code. Optional callbacks have no diagnostic type dependency and exceptions cannot revoke permission. The same sole185D55 hook, continuation185934, consumed direction and native calls remain. capturerComparisonExecution describes only the original capturer adapters; the separate descent summary reports guard and observer errors.
 
 ## Consolidated evidence matrix
 
@@ -23,7 +19,7 @@ The targeted fixture executes the production native callback and production fina
 | Small and large gatehouse ground masks | Editor17:41:43--17:43:30:60/84 directed restrictions, current/peak missing masks0; user confirms both work | Observed passed; do not repeat the weighted-mode gate-size acceptance |
 | Weighted Assassin route, cache and climb | Existing checked paths; actual validator/publication fixtures pass; exact weighted packed publication has correlated transition evidence | Supported; no blanket verdict for native fallback outputs |
 | Physical Assassin ascent before capture | Explicit user confirmation in editor | Observed passed; do not repeat merely to prove climbing exists |
-| Native Assassin fallback / secondary ground output | Log_311 publication486: mode94 changes 0/1, native final output, overlap128161->127446 at edge12 | Movement branch unproven; no confirmed ground violation; remaining acceptance boundary |
+| Native Assassin output and secondary ground output | Current native reconstruction/output fixtures; actual weighted handoff mode94 guard; observed fully assigned native routes | Current code technically covered; secondary output not triggered in latest game. Historical Log_311 publication486 remains unclassified, not retroactively passed |
 | Own keep/gate, cursor and formation | Earlier user observations and exact-key/reference-policy regressions | Existing passed evidence retained |
 | Captured gate and later arrivals | Gate134 capture publication and observed normal passage of later Assassins | Observed passed |
 | Actual recapture then new original-owner ground order | Explicit user confirmation: recapture by units, fresh normal-soldier ground command works | Observed passed; older missing-evidence requests withdrawn |
@@ -33,15 +29,19 @@ The targeted fixture executes the production native callback and production fina
 | Extended play / other modifications | Existing multi-Lord runs, no universal behavior claim | Historical native ambiguities remain open; no random endurance run requested |
 | Independent drawbridge passage | EnemyBridgePathTest | Outside this acceptance |
 
-## Finalization gate - integration blocked
+| Closed defended gate: complete Assassin descent | Editor20:41:02--20:42:06, two opposite-direction permissions, two descents and two arrivals; gate1/global1 closed and uncaptured | Observed passed; no repeat required |
 
-The quarry question is closed for the tested layout: internal attack requests existed, fresh candidate results rejected them, and the existing Raid fix selected other targets. A repeated quarry comparison is unnecessary. The 286 route observations do not create a persistent target-to-route history.
+## Technical scope and remaining historical uncertainty
 
-The native ordinary building consumer performs a real reachability field before command9 assigns movement. The friendly-moat fallback checks Gatepolicy per edge. The separate ladder restoration preserves region-proven candidates; its region proof is not a full individual-route certificate. A generic later failure after a valid candidate remains possible without proving a gatepolicy bug. No new retarget logic or stronger reachability promise is introduced.
+The +0x94 guard preserves native output when a secondary normal search/reconstruction can replace the Assassin output. Productive handoff fixtures cover mode94, failed validation, cache, nested calls and observer/no-observer equivalence. Productive native-observer fixtures distinguish actual secondary execution, overwritten reconstruction, fallback, snapshot changes and incomplete association. Controlled native inputs are fixtures, not game observations. The latest game did not execute this branch. Historical packed directions without contemporaneous branch evidence remain unclassified and are not presented as passed routes.
 
-Remaining native Assassin outputs cannot be accepted from post-hoc surface classification. Exact weighted output and unclassified native output must remain separate. The +0x94 publication guard remains unchanged. Historical overlaps are neither newly confirmed violations nor retroactively passed routes.
+The complete installed native audit covers60 search/climb and21 planning/output bodies. Machine tests execute installed native closed-gate predicate, route clear, DCE60 and actual RedBird adapters; the caller's speculative restore is simulated and unrelated198ED0 cleanup is stubbed. These boundaries are documented rather than represented as complete native gameplay simulation.
 
-The follow-up native-only Assassin test is now prepared using the existing publication observer and one isolated visual command. DetailedDiagnostics=true, MacemenDiagnostics=false, improved Assassin pathfinding=false, direct gatehouse climbing=true. See TARGETED_TESTS.md for the exact open/closed setup and restore instructions. No runtime code changed and no build is needed. The test is not blanket proof of every historical +0x94 output.
+No repeat Raid, detour, capture/recapture, ordinary-soldier or Assassin game test is currently requested. See TARGETED_TESTS.md for the sole current action status. Further runtime tests require a concrete new regression or integration change.
+
+## Historical record (superseded instructions)
+
+The sections below preserve dated evidence and past limitations. Their old next-test/integration-blocker statements are historical; the current matrix and conclusion above supersede them. Unknown historical route instances remain unknown.
 
 ## 2026-10-04: gate-only game regression after bridge split
 

@@ -78,8 +78,8 @@ namespace EnemyGatePathfindingTest
                 transaction.AddInline(hooks[i], HookTarget.FromAddress(module + (uint)Sites[i]),
                     (a, original, ret) =>
                     {
-                        if (site < 10) NativeTraceAdapterEmitter.Emit(a, original, callback, (ulong)enabled);
-                        else NativeTraceAdapterEmitter.EmitExecution(a, original, callback, site == 18 ? 0 : after,
+                        if (site < 10) NativeCallbackAdapterEmitter.Emit(a, original, callback, (ulong)enabled);
+                        else NativeCallbackAdapterEmitter.EmitExecution(a, original, callback, site == 18 ? 0 : after,
                             (ulong)enabled, module, site == 14 || site == 15 || site == 17 || site == 18);
                     }, Bytes[i].Length / 2);
             }

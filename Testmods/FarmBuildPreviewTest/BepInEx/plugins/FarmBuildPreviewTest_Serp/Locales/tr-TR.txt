@@ -1,5 +1,0 @@
-Ground.Coverage=Bitki örtüsü
-Ground.Green=Yeşil
-Ground.Stone=Taş alanları
-Ground.Iron=Demir alanları
-Ground.Pitch=Zift alanları

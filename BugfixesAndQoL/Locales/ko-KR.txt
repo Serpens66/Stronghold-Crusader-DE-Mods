@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=원형
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=식생
+Ground.Green=녹지
+Ground.Stone=석재 칸
+Ground.Iron=철 칸
+Ground.Pitch=역청 칸
+BugfixesAndQoL.ImprovedBuildPreview=건설 시 지면 요구 조건 표시
+BugfixesAndQoL.ImprovedBuildPreviewHelp=부적합한 지면을 빨간색으로 표시하고 건설 툴팁에 필요한 타일 수를 표시합니다. 로컬 전용이며 건설 규칙은 바뀌지 않습니다.

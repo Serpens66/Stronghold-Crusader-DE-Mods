@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Коло
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Рослинність
+Ground.Green=Зелень
+Ground.Stone=Клітинки каменю
+Ground.Iron=Клітинки заліза
+Ground.Pitch=Клітинки смоли
+BugfixesAndQoL.ImprovedBuildPreview=Показувати вимоги до землі під час будівництва
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Позначає непридатну землю червоним і показує кількість потрібних клітинок у підказці. Лише локально; правила будівництва не змінюються.

@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=วงกลม
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=พืชพรรณ
+Ground.Green=พื้นที่สีเขียว
+Ground.Stone=ช่องหิน
+Ground.Iron=ช่องเหล็ก
+Ground.Pitch=ช่องยางมะตอย
+BugfixesAndQoL.ImprovedBuildPreview=แสดงข้อกำหนดของพื้นดินขณะก่อสร้าง
+BugfixesAndQoL.ImprovedBuildPreviewHelp=ทำเครื่องหมายพื้นดินที่ไม่เหมาะสมเป็นสีแดง และแสดงจำนวนช่องที่ต้องการในคำแนะนำการก่อสร้าง มีผลเฉพาะเครื่องนี้ ไม่เปลี่ยนกฎการก่อสร้าง

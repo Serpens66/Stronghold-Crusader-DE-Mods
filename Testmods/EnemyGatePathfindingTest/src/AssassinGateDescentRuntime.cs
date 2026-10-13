@@ -25,13 +25,14 @@ namespace EnemyGatePathfindingTest
         private readonly CapturerComparisonCallback decide, before, after;
         private readonly HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> hook = new HookHandle<X64InlineHook>();
-        private NativeAssassinDiagnosticHooks observer;
-        private long allowed, preserved, errors;
+        private Action<IntPtr, bool> observeClear;
+        private Action<int> observeException;
+        private long allowed, preserved, errors, observerErrors;
         internal AssassinGateDescentRuntime(CrusaderLibraryLoadContext context, Func<RouteTilePolicySnapshot> policy)
         {
             module = (ulong)context.ModuleHandle.ToInt64(); this.policy = policy;
             *active = *diagnostics = 0;
-            byte[] expected = NativeAssassinDiagnosticHooks.Hex(NativeAssassinDiagnosticHooks.Bytes[10]);
+            byte[] expected = { 0x8b, 0xd3, 0x48, 0x8b, 0xcf, 0xe8, 0x71, 0x31, 0x01, 0x00, 0x8b, 0xd3, 0x48, 0x8b, 0xcf, 0xe8, 0xe7, 0x1b, 0x01, 0x00 };
             for (int i = 0; i < Length; i++) if (context.Memory[Site + i] != expected[i]) throw new InvalidOperationException("Gate descent abort bytes changed");
             // Continuation begins by checking the unchanged special-step register R9w.
             byte[] next = { 0x66, 0x45, 0x85, 0xc9 };
@@ -39,8 +40,8 @@ namespace EnemyGatePathfindingTest
             using (var probe = new X64InlineHook(module + Site, Length))
                 if (probe.DisplacedByteCount != Length) throw new InvalidOperationException("Gate descent displacement changed");
             decide = Decide;
-            before = p => observer?.ObserveClosedGate(p, false);
-            after = p => observer?.ObserveClosedGate(p, true);
+            before = p => ObserveClear(p, false);
+            after = p => ObserveClear(p, true);
             transaction = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                 new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = false });
             transaction.AddInline(hook, HookTarget.FromAddress(module + Site), (a, original, ret) =>
@@ -53,15 +54,21 @@ namespace EnemyGatePathfindingTest
             lock (Roots) Roots.Add(this);
         }
         private static ulong Address(Delegate d) => (ulong)Marshal.GetFunctionPointerForDelegate(d).ToInt64();
-        internal void SetActive(bool value, NativeAssassinDiagnosticHooks diagnosticObserver)
+        internal void SetActive(bool value, Action<IntPtr, bool> clearObserver, Action<int> exceptionObserver)
         {
-            observer = diagnosticObserver;
-            if (value) allowed = preserved = errors = 0;
-            Volatile.Write(ref *diagnostics, value && observer != null ? 1 : 0);
+            observeClear = clearObserver; observeException = exceptionObserver;
+            if (value) allowed = preserved = errors = observerErrors = 0;
+            Volatile.Write(ref *diagnostics, value && (observeClear != null || observeException != null) ? 1 : 0);
             Volatile.Write(ref *active, value ? 1 : 0);
         }
         internal string Summary => "Assassin gate descent: exceptionsGranted=" + Interlocked.Read(ref allowed) +
-            ",nativeAbortPreserved=" + Interlocked.Read(ref preserved) + ",guardErrors=" + Interlocked.Read(ref errors);
+            ",nativeAbortPreserved=" + Interlocked.Read(ref preserved) + ",guardErrors=" + Interlocked.Read(ref errors) +
+            ",observerErrors=" + Interlocked.Read(ref observerErrors);
+        private void ObserveClear(IntPtr pointer, bool completed)
+        {
+            try { if (Volatile.Read(ref *diagnostics) != 0) observeClear?.Invoke(pointer, completed); }
+            catch (Exception) { Interlocked.Increment(ref observerErrors); }
+        }
         private void Decide(IntPtr pointer)
         {
             var c = (X64SmartCPUContext*)pointer; c->R11 = 0;
@@ -69,10 +76,11 @@ namespace EnemyGatePathfindingTest
             {
                 if (!Allows(c)) { Interlocked.Increment(ref preserved); return; }
                 c->R11 = 1; Interlocked.Increment(ref allowed);
-                // Optional observation must never change the functional result.
-                if (Volatile.Read(ref *diagnostics) != 0) observer?.ObserveDescentException((int)c->RBX);
             }
-            catch (Exception) { c->R11 = 0; Interlocked.Increment(ref errors); }
+            catch (Exception) { Interlocked.Increment(ref errors); return; }
+            // Observation failure must not revoke a functional permission.
+            try { if (Volatile.Read(ref *diagnostics) != 0) observeException?.Invoke((int)c->RBX); }
+            catch (Exception) { Interlocked.Increment(ref observerErrors); }
         }
         private bool Allows(X64SmartCPUContext* c)
         {

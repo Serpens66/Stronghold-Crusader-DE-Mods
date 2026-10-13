@@ -107,6 +107,7 @@ namespace BugfixesAndQoL
         private const int HealthBarControlMask = 1 << 17;
         private const int HealthBarShiftMask = 1 << 18;
         private const int DefaultHealthBarHotkey = (int)KeyCode.H | HealthBarAltMask;
+        private bool enableImprovedBuildPreview = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
         private bool isCapturingHealthBarHotkey;
@@ -362,6 +363,8 @@ namespace BugfixesAndQoL
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
         public string ShowForeignTroopHudText => SerpLocalization.Get("BugfixesAndQoL.ShowForeignTroopHud");
         public string ShowForeignTroopHudHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowForeignTroopHudHelp");
+        public string ImprovedBuildPreviewText => SerpLocalization.Get("BugfixesAndQoL.ImprovedBuildPreview");
+        public string ImprovedBuildPreviewHelpText => SerpLocalization.Get("BugfixesAndQoL.ImprovedBuildPreviewHelp");
         public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
         public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
@@ -632,6 +635,13 @@ namespace BugfixesAndQoL
         {
             get => showForeignTroopHud.Value;
             set => SetPlayerSetting(showForeignTroopHud, value, nameof(ShowForeignTroopHud));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableImprovedBuildPreview
+        {
+            get => enableImprovedBuildPreview;
+            set => SetSetting(ref enableImprovedBuildPreview, value, nameof(EnableImprovedBuildPreview));
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1503,6 +1513,7 @@ namespace BugfixesAndQoL
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
             ShowForeignTroopHud = true;
+            EnableImprovedBuildPreview = true;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;
             ShowCountdownTimers = true;

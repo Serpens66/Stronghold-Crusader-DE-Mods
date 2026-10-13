@@ -1,5 +1,0 @@
-Ground.Coverage=Рослинність
-Ground.Green=Зелень
-Ground.Stone=Клітинки каменю
-Ground.Iron=Клітинки заліза
-Ground.Pitch=Клітинки смоли

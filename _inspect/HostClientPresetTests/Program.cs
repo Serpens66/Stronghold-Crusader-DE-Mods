@@ -130,6 +130,7 @@ internal static class Program
             TestArrayPerPlayerSetting();
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
+            TestBuildPreviewLocalIntegration();
             TestDoNotPersistPresetExclusion();
             TestPersonalBundledExternalPresetSaveLoad();
             TestCastlePlannerBlueprintHudPolicies();
@@ -4422,6 +4423,34 @@ internal static class Program
             "market-order getter exposed mutable persisted state");
     }
 
+    private static void TestBuildPreviewLocalIntegration()
+    {
+        string pluginPath=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"BuildPreviewPresetProbe.dll");
+        string settingsPath=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"LobbyModSettings","BuildPreviewPresetProbe.msgpack");
+        if(File.Exists(settingsPath)) File.Delete(settingsPath);
+        GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
+        var vm=new BuildPreviewPresetProbe();
+        vm.PreparePresets(null,pluginPath,"BuildPreviewPresetProbe");vm.ActivatePresets();
+        Check(vm.EnableImprovedBuildPreview,"Build preview defaults to enabled");
+        var manager=GameXAMLManagerAPI.Instance;manager.ResetRoutingProbe();
+        manager.RegisterLobbyModSettings(new BepInEx.BaseUnityPlugin(),"BuildPreviewPresetProbe",vm,"unused.xaml");
+        vm.EnableImprovedBuildPreview=false;
+        Check(manager.BroadcastCount==0 && manager.SaveCount==0,"Build preview bypasses Extender network/host protocol");
+        Check(!vm.System_CreateDisabledMissionPresetSnapshot().ContainsKey(nameof(vm.EnableImprovedBuildPreview)),"Build preview excluded from host mission snapshot");
+        string path=vm.System_SavePersonalPreset("preview-off","Preview off","local probe",new[] { new PresetSaveSelection { PropertyName=nameof(vm.EnableImprovedBuildPreview), Mode=PublishedPresetValueMode.Fixed } },overwrite:true);
+        vm.EnableImprovedBuildPreview=true;
+        var saved=vm.System_TestPublishedPresets.Single(item=>item.Id=="preview-off");
+        vm.System_TestLoadPreset(saved.StableId);
+        Check(!vm.EnableImprovedBuildPreview,"Local build preview follows preset selection");
+        GameNetworkAPI.LocalHost=false;vm.System_RefreshSettingsAccess();
+        vm.EnableImprovedBuildPreview=true;
+        Check(vm.EnableImprovedBuildPreview,"Client can independently enable build preview");
+        vm.EnableImprovedBuildPreview=false;
+        var restored=new BuildPreviewPresetProbe();restored.PreparePresets(null,pluginPath,"BuildPreviewPresetProbe");restored.ActivatePresets();
+        Check(!restored.EnableImprovedBuildPreview,"Local build preview persists across restart");
+        GameNetworkAPI.LocalHost=true;
+    }
+
     private static void TestPresetLocalRoundTrip()
     {
         string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PresetLocalRoundTrip.dll");
@@ -6853,5 +6882,21 @@ namespace APIShared.Internal
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { }
+    }
+}
+
+internal sealed class BuildPreviewPresetProbe : PresetLobbyModSettingsViewModel
+{
+    private bool enableImprovedBuildPreview=true;
+    [PresetLocal]
+    public bool EnableImprovedBuildPreview
+    {
+        get=>enableImprovedBuildPreview;
+        set
+        {
+            if(!CanMutateSetting(nameof(EnableImprovedBuildPreview)) || enableImprovedBuildPreview==value) return;
+            enableImprovedBuildPreview=value;
+            OnPropertyChanged(nameof(EnableImprovedBuildPreview));
+        }
     }
 }

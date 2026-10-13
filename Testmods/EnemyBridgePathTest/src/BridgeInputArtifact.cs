@@ -82,12 +82,16 @@ namespace EnemyBridgePathTest
             try
             {
                 if(active==null) {if(jobs.Count==0)return;active=jobs.Dequeue();Directory.CreateDirectory(directory);active.Stream=new FileStream(active.Partial,FileMode.CreateNew,FileAccess.Write,FileShare.Read,4096);}
-                var block=outputBlock;int length=0;
+                var block=outputBlock;int length=0,sourceAdvances=0;
                 while(length<block.Length&&(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency<2)
                 {
                     if(active.Piece==null||active.Offset==active.Piece.Length)
                     {
                         if(active.Footer)break;
+                        // Bound iterator preparation independently of output bytes.
+                        // Leave time for the single write/hash operation below.
+                        if(sourceAdvances>=8||(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency>=1)break;
+                        sourceAdvances++;
                         long sourceStart=Stopwatch.GetTimestamp();bool more=active.Source.MoveNext();maxSourceTicks=Math.Max(maxSourceTicks,Stopwatch.GetTimestamp()-sourceStart);
                         if(more) {active.Piece=active.Source.Current;active.Offset=0;}
                         else
@@ -124,8 +128,8 @@ namespace EnemyBridgePathTest
             byte[] label=Encoding.UTF8.GetBytes(name);var header=new byte[12+label.Length];
             Buffer.BlockCopy(BitConverter.GetBytes(label.Length),0,header,0,4);Buffer.BlockCopy(label,0,header,4,label.Length);
             Buffer.BlockCopy(BitConverter.GetBytes(data.Length),0,header,4+label.Length,4);Buffer.BlockCopy(BitConverter.GetBytes(width),0,header,8+label.Length,4);yield return header;
-            int bytes=checked(data.Length*width);for(int offset=0;offset<bytes;offset+=32768)
-            {var block=new byte[Math.Min(32768,bytes-offset)];Buffer.BlockCopy(data,offset,block,0,block.Length);yield return block;}
+            int bytes=checked(data.Length*width);for(int offset=0;offset<bytes;offset+=8192)
+            {var block=new byte[Math.Min(8192,bytes-offset)];Buffer.BlockCopy(data,offset,block,0,block.Length);yield return block;}
         }
         internal static byte[] Header(string metadata,int schema=1)
         {

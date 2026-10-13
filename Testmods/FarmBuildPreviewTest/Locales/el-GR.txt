@@ -1,5 +1,0 @@
-Ground.Coverage=Βλάστηση
-Ground.Green=Πράσινο
-Ground.Stone=Πέτρα
-Ground.Iron=Σίδηρος
-Ground.Pitch=Πίσσα

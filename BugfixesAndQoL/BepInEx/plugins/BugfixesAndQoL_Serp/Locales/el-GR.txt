@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Κύκλος
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Βλάστηση
+Ground.Green=Πράσινο
+Ground.Stone=Πέτρα
+Ground.Iron=Σίδηρος
+Ground.Pitch=Πίσσα
+BugfixesAndQoL.ImprovedBuildPreview=Εμφάνιση απαιτήσεων εδάφους κατά την κατασκευή
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Σημαίνει το ακατάλληλο έδαφος με κόκκινο και εμφανίζει τα απαιτούμενα πλακίδια στην επεξήγηση. Τοπικό· δεν αλλάζει τους κανόνες δόμησης.

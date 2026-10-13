@@ -52,6 +52,7 @@ namespace EnemyBridgePathTest
         private bool selected;
         private int attempts;
         internal long ActiveFamily => current?.Op??0;
+        internal bool HasOwnFrame(long run,long root,int player){var b=current??ready;return b!=null&&b.Session==run&&b.Root==root&&b.Attacker==player&&root>0;}
         private NativePathfindingTableCopy tablesAtStart;
         private long skipped,rejected,completedBundles,lastTicks,effectiveCountTicks,effectiveCountReads;
         private string lastReason="awaiting-fresh-relevant-planning";

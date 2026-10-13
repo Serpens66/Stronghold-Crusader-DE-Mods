@@ -276,6 +276,68 @@ namespace EnemyBridgePathTest
             }
             throw new ArgumentException("line-step-bound");
         }
+        // DAAC0/DA590 consume copied scratch banks only. This deliberately stops
+        // before E1640 reconstruction and its additional continuation.
+        internal int CommandFlood(int sx,int sy,int tx,int ty,int limit,int continuation,bool blocked)
+        {
+            if((uint)sx>=800||(uint)sy>=800||B(0x3a11ea4+sy*800+sx)==0)return 0;
+            if(tx!=-1&&((uint)tx>=800||(uint)ty>=800||B(0x3a11ea4+ty*800+tx)==0)&&limit>500)limit=500;
+            int origin=I(0x402ff2c+sy*12)+sx,goal=tx==-1?0:checked(I(0x402ff2c+ty*12)+tx);
+            int gen=I(Root+4),head,tail,processed;
+            if(continuation==0){gen=unchecked(gen+1);I(Root+4,gen);if(gen>32000){gen=1;I(Root+4,1);Clear(0x52c2550,N*2);}head=0;tail=1;processed=0;}
+            else{head=I(Root+0x155f3c);tail=I(Root+0x155f44);processed=I(Root+0x155f58);}
+            I(Root+0x155f6c,origin);S(Root+0x28f3ec,sy);S(0x5225b10+origin*2,1);S(0x52c2550+origin*2,gen);
+            int[] order={6,2,0,7,1,4,5,3};int result=0;
+            while(head!=tail&&processed<limit)
+            {
+                if((uint)head>=N||(uint)tail>N)throw new InvalidOperationException("Unknown:flood-queue-bound");
+                int tile=I(Root+0x155f6c+head*4),row=S(Root+0x28f3ec+head*2);processed=unchecked(processed+1);
+                if(tile==goal){result=1;break;}
+                if((uint)tile>=N||(uint)row>=800)throw new InvalidOperationException("Unknown:flood-packed-field");
+                int distance=S(0x5225b10+tile*2),mask=B(0x51890d0+tile);
+                foreach(int dir in order)
+                {
+                    if((mask&(1<<dir))==0)continue;
+                    int next=checked(tile+I(0x405edb0+(row*8+dir)*4));
+                    if((uint)next>=N)throw new InvalidOperationException("Unknown:flood-edge-outside-copy");
+                    if(S(0x52c2550+next*2)==unchecked((short)gen)||blocked&&B(0x51d75f0+next)!=0)continue;
+                    if((uint)tail>=N)throw new InvalidOperationException("Unknown:flood-queue-capacity");
+                    S(0x5225b10+next*2,unchecked(distance+((dir&1)==0?1:2)));S(0x52c2550+next*2,gen);
+                    I(Root+0x155f6c+tail*4,next);S(Root+0x28f3ec+tail*2,row+VirtualBridgeMap.Dy[dir]);tail++;
+                }
+                head++;
+            }
+            I(Root+0x155f3c,head);I(Root+0x155f44,tail);I(Root+0x155f58,processed);return result;
+        }
+        internal void CommandReconstruct(int sx,int sy,int tx,int ty,byte[] path)
+        {
+            if((uint)sx>=800||(uint)sy>=800||(uint)tx>=800||(uint)ty>=800||B(0x3a11ea4+sy*800+sx)==0||B(0x3a11ea4+ty*800+tx)==0)return;
+            int origin=I(0x402ff2c+sy*12)+sx,tile=I(0x402ff2c+ty*12)+tx,row=ty,count=I(Root+0x155f68),distance=S(0x5225b10+tile*2),stamp=S(0x52c2550+tile*2);
+            I(Root+0x94,0);
+            while(tile!=origin&&count<2000)
+            {
+                int chosen=8,next=0,best=distance,mask=B(0x51890d0+tile);
+                for(int dir=0;dir<8;dir++)
+                {
+                    if((B(0x312620+dir)&mask)==0)continue;int adjacent=checked(tile+I(0x405edb0+(row*8+dir)*4));
+                    if((uint)adjacent>=N)throw new InvalidOperationException("Unknown:reconstruction-edge-outside-copy");
+                    int candidate=S(0x5225b10+adjacent*2);
+                    if(S(0x52c2550+adjacent*2)==stamp&&candidate>=best-2&&candidate<best){best=candidate;next=adjacent;chosen=dir;}
+                }
+                if(chosen==8)throw new InvalidOperationException("Unknown:E1640-native-repair-continuation-required");
+                row=unchecked(row+I(0x2d2e54+chosen*8));if((uint)row>=800)throw new InvalidOperationException("Unknown:reconstruction-row");
+                if((Flag(next)&0x10000100)!=0&&(Flag(next)&2)==0){int building=Building(next);if(building==0||I(0x2e68d0+S(BuildingRecord(building)+0x12e)*4)==0)Inc(Root+0x94);}
+                int direction=(chosen+4)&7,at=count/2;if((uint)at>=path.Length)throw new InvalidOperationException("Unknown:reconstruction-bank-capacity");
+                if((count&1)==0)path[at]=(byte)direction;else path[at]=(byte)((path[at]&15)|(direction<<4));count++;I(Root+0x155f68,count);tile=next;distance=best;
+            }
+            // Complete E4E90: reverse nibbles, preserving unused high nibble.
+            for(int left=0,right=count-1;left<right;left++,right--)
+            {
+                int a=(path[left/2]>>((left&1)*4))&15,b=(path[right/2]>>((right&1)*4))&15;
+                path[left/2]=(byte)((path[left/2]&~(15<<((left&1)*4)))|(b<<((left&1)*4)));
+                path[right/2]=(byte)((path[right/2]&~(15<<((right&1)*4)))|(a<<((right&1)*4)));
+            }
+        }
         internal void SelectAndUnitTargets(int attacker,int target,int[] effectiveCounts)
         {
             int tile=I(0x379d968+attacker*0x583c),region=Component(tile);

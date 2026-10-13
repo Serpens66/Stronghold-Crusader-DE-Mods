@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=圆形
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=植被
+Ground.Green=绿地
+Ground.Stone=石料格
+Ground.Iron=铁矿格
+Ground.Pitch=沥青格
+BugfixesAndQoL.ImprovedBuildPreview=建造时显示地面要求
+BugfixesAndQoL.ImprovedBuildPreviewHelp=用红色标记不合适的地面，并在建造提示中显示所需地块数。仅本地生效，不改变建造规则。

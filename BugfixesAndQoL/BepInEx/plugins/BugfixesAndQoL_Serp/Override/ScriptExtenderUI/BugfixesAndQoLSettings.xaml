@@ -151,6 +151,11 @@
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.client-qol" shared:ModSettingsSearch.Title="{Binding QolTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding QolTitleText}"><TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-qol-interface" shared:ModSettingsSearch.SectionTitle="{Binding InterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding InterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.improved-build-preview" shared:ModSettingsSearch.Title="{Binding ImprovedBuildPreviewText}" shared:ModSettingsSearch.ToolTipText="{Binding ImprovedBuildPreviewHelpText}">
+        <CheckBox IsChecked="{Binding EnableImprovedBuildPreview, Mode=TwoWay}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedBuildPreviewHelpText}">
+          <TextBlock Text="{Binding ImprovedBuildPreviewText}" Foreground="White" TextWrapping="Wrap"/>
+        </CheckBox>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-vanilla-maps-in-editor" shared:ModSettingsSearch.Title="{Binding ShowLoadSaveDialogControlsText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowLoadSaveDialogControlsHelpText}"><CheckBox IsChecked="{Binding ShowLoadSaveDialogControls, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowLoadSaveDialogControlsHelpText}"

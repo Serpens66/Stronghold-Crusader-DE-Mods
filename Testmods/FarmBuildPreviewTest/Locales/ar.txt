@@ -1,5 +1,0 @@
-Ground.Coverage=الغطاء النباتي
-Ground.Green=الخضرة
-Ground.Stone=حقول الحجر
-Ground.Iron=حقول الحديد
-Ground.Pitch=حقول القار

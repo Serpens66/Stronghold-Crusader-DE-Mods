@@ -111,7 +111,7 @@ if ($shadowSource -match 'TryGetBuildingById|TryGetUnitById|FindNext|FindPath|Ma
 if ($shadowSource -notmatch 'pending.Count>=32' -or $shadowSource -notmatch 'request.Authorization=prepared.Authorized&&prepared.Boundary&&prepared.Deck.Length==0' -or $shadowSource -notmatch 'read\(0x60AD6CC\)!=dirty\|\|read\(0x60AD6D4\)!=nativeRevision') { throw 'Virtual coherence/negative-policy gate regression' }
 if ($shadowSource -notmatch '!decisionOnly&&dirty!=0' -or $shadowSource -notmatch 'if\(decisionOnly\)\{result.Token=new object\(\);decisionCaptured=result;return;' -or $shadowSource -notmatch 'request.Input.Dirty!=0') { throw 'Decision copy must not publish dirty negative topology' }
 Write-Host 'PASS: virtual public copy/member contracts, bounded shadow queue and unvalidated policy fail-open.'
-if ($hookSource -notmatch 'site.Rva==0x3C2E0\?site.Bytes.Length:site.Size' -or
+if ($hookSource -notmatch 'site.Rva==0x3C2E0\|\|site.Rva==0x2C5A0\?site.Bytes.Length:site.Size' -or
     $hookSource -notmatch 'ValidateAttackBody\(context.Memory.Slice' -or
     $hookSource -notmatch 'Tuple.Create\(0x2F,18\),Tuple.Create\(0xF9,36\)' -or
     $hookSource -notmatch 'Unknown attack-body change') { throw 'Audited patched attack-body scanner contract changed' }
@@ -248,7 +248,7 @@ foreach($generalSource in @('BridgePlanningCapture.cs','BridgeVirtualShadow.cs',
 if(!$shadowSource.Contains('new QueryKey("prepared:"+selection') -or !$shadowSource.Contains('missingMatchingGroupArtifact') -or !$entryCapture.Contains('planningBudgetExhausted') -or !$entryCapture.Contains('relevance(attacker)')){throw 'Automatic selection, precise preparation key or explicit missing coverage contract absent'}
 Write-Host 'PASS: automatic relevant player/deck selection, identity-specific cut caches and explicit bounded capture coverage.'
 
-if(!$collector.Contains('ReleaseForStrongerAttempt') -or !$shadowSource.Contains('fallbackBundle=null;fallbackRequest=null') -or !$shadowSource.Contains('weak-fallback-at-session-end-not-route-proof') -or !$commandText.Contains('prior.StoredRemaining[player]')) {throw 'Bounded deferred fallback/stronger selection contract missing'}
+if(!$collector.Contains('ReleaseForStrongerAttempt') -or !$shadowSource.Contains('fallbackBundle=null;fallbackRequest=null') -or !$shadowSource.Contains('independent-fallback-at-session-end-not-route-proof') -or !$commandText.Contains('prior.StoredRemaining[player]')) {throw 'Bounded deferred fallback/stronger selection contract missing'}
 if(!$routeSource.Contains('RemainingDeck') -or !$routeSource.Contains('LastSteps=lastSteps.ToArray()') -or !$deferredSource.Contains('Trace.Routes.HasRemainingDeck(Current.Id)')) {throw 'Per-bridge remaining-path promotion missing'}
 $artifactSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeInputArtifact.cs'))
 if(!$artifactSource.Contains('var block=outputBlock') -or !$artifactSource.Contains('artifactMaxSourceMs') -or !$shadowSource.Contains('artifacts.IntervalCosts()')){throw 'Bounded reused publisher buffer or separate source/write costs missing'}
@@ -269,3 +269,6 @@ foreach($path in $sources | Where-Object { $_ -notmatch 'CopiedStructureInput.cs
     if([IO.File]::ReadAllText($path) -match 'CopiedStructureInput\.TryCreate|\.FindAttackObject\(|\.BuildMeleeApproaches\('){throw 'Offline structure computation became reachable from a live callback'}
 }
 Write-Host 'PASS: copied structure/approach adapter is offline-only; live callbacks capture/read evidence without extra searches.'
+
+if(!([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeNativeHooks.cs'))).Contains('site.Rva==0x3C2E0||site.Rva==0x2C5A0?site.Bytes.Length:site.Size')){throw 'Audited inline-pointer scan exclusion missing'}
+Write-Host 'PASS: selector entry remains exact17 bytes; Fixes count-hook inline pointer is excluded from instruction scan.'

@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.188",
+  "Version": "1.0.190",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.7.0"
+      "MinimumVersion": "0.9.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.190",
+      "Changes": ["Rename the local ground-requirements setting in all supported languages and document its tile counts and red ground markings."]
+    },
+    {
+      "Version": "1.0.189",
+      "Changes": ["Add a default-on local improved building preview: required ground counts and red unsuitable tiles for farms, quarry, iron mine and pitch rig; shared APIShared tooltips preserve other contributions."]
+    },
     {
       "Version": "1.0.188",
       "Changes": [

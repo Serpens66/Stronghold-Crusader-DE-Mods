@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=دائرة
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=الغطاء النباتي
+Ground.Green=الخضرة
+Ground.Stone=حقول الحجر
+Ground.Iron=حقول الحديد
+Ground.Pitch=حقول القار
+BugfixesAndQoL.ImprovedBuildPreview=عرض متطلبات الأرض أثناء البناء
+BugfixesAndQoL.ImprovedBuildPreviewHelp=تمييز الأرض غير المناسبة بالأحمر وعرض عدد البلاطات المطلوبة في تلميح البناء. محلي؛ لا يغير قواعد البناء.

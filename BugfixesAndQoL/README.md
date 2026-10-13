@@ -132,6 +132,9 @@ Gatehouses now measure the distance to enemy based on their center, not based on
 
 ## Quality-of-life features
 
+### Show ground requirements when building
+This enabled-by-default local option shows current and required ground-tile counts in building tooltips for farms, quarries, iron mines and pitch rigs, and marks unsuitable tiles red when a ground requirement prevents placement. It can be toggled without restarting; building rules remain unchanged.
+
 ### Send the nearest water carrier to each fire
 The enabled-by-default host option assigns each burning building or connected building compound to one water carrier from a well or water pot. An idle carrier that is strictly closer may take over from one that is still walking, while a carrier already extinguishing the fire keeps the assignment. Other carriers choose a different reachable fire or wait.
 

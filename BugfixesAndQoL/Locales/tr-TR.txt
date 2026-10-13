@@ -412,3 +412,11 @@ BugfixesAndQoL.LineupCircle=Çember
 
 BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
 BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.
+
+Ground.Coverage=Bitki örtüsü
+Ground.Green=Yeşil
+Ground.Stone=Taş alanları
+Ground.Iron=Demir alanları
+Ground.Pitch=Zift alanları
+BugfixesAndQoL.ImprovedBuildPreview=İnşa sırasında zemin gereksinimlerini göster
+BugfixesAndQoL.ImprovedBuildPreviewHelp=Uygunsuz zemini kırmızı işaretler ve yapı ipucunda gereken karo sayılarını gösterir. Yalnızca yerel; inşa kuralları değişmez.
