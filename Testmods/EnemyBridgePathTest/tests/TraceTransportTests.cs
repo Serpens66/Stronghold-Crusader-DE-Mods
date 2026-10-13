@@ -23,8 +23,20 @@ namespace EnemyBridgePathTest
             int frames=0;while(writer.Pending(1)&&frames++<20)writer.Pump();if(writer.Pending(1)||!File.Exists(Path.Combine(folder,"bridge-1-1.bin"))||!File.Exists(Path.Combine(folder,"bridge-1-2.bin")))throw new Exception("bounded pair delivery");
             if(!writer.Enqueue(2,5,MinimalArtifact(),1)||writer.EnqueuePair(2,6,MinimalArtifact(),7,MinimalArtifact(),1)||!writer.Status(2).Contains("inputArtifactsRequested=1"))throw new Exception("existing independent slot cannot partially accept a pair");
         }
+        private static void ReusableSectionChunks()
+        {
+            var data=new byte[25000];for(int i=0;i<data.Length;i++)data[i]=(byte)((i*37+i/8192)%251);
+            using(var e=BridgeInputArtifact.Section("test",data,1,true).GetEnumerator())
+            {if(!e.MoveNext()||!e.MoveNext())throw new Exception("missing section chunks");var first=e.Current;var copy=(byte[])first.Clone();if(!e.MoveNext()||!ReferenceEquals(first,e.Current)||copy.SequenceEqual(e.Current))throw new Exception("stream buffer is reused only after consumption, with new exact content");}
+            string dir=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"reusable-artifact-"+Guid.NewGuid().ToString("N"));var writer=new BridgeInputArtifact(dir,(_,__,___)=>{});
+            System.Collections.Generic.IEnumerable<byte[]> Source(){yield return BridgeInputArtifact.Header("fixture=True\n",1);foreach(var b in BridgeInputArtifact.Section("test",data,1,true))yield return b;}
+            if(!writer.Enqueue(1,1,Source(),1))throw new Exception("reusable fixture enqueue");int pumps=0;while(writer.Pending(1)&&pumps++<100)writer.Pump();if(writer.Pending(1))throw new Exception("reused buffers delivery incomplete");var raw=File.ReadAllBytes(Path.Combine(dir,"bridge-1-1.bin"));int start=16+BitConverter.ToInt32(raw,12)+16;
+            if(!data.SequenceEqual(raw.Skip(start).Take(data.Length)))throw new Exception("reused streaming blocks corrupt file bytes");
+            using(var sha=System.Security.Cryptography.SHA256.Create()){var hash=sha.ComputeHash(raw,0,raw.Length-48);if(!hash.SequenceEqual(raw.Skip(raw.Length-48).Take(32)))throw new Exception("reused chunks change payload hash");}
+        }
         internal static int Run()
         {
+            ReusableSectionChunks();
             PairReservation();
             if(BridgeTraceTransport.WarmUp()<0||BridgeTraceTransport.WarmUp()!=0)throw new Exception("publisher warmup must be once and synthetic");
             string prefix="[Info : bridge] bridge trace seq=1,session=9,thread=15,tick=2,clock=9223372036854775807,physical=3,topology=4,";

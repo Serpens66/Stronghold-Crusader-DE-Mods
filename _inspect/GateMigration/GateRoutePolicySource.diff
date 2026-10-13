@@ -1,0 +1,33 @@
+--- 
+
++++ 
+
+@@ -37,4 +37,5 @@
+
+             if (playerId < 1 || playerId > 8) return false;
+             Publication publication = Volatile.Read(ref current);
++            if (publication.RulesVersion != GateAccessRules.Version) return false;
+             bool unmasked = false;
+             Query query = activeQuery;
+@@ -67,4 +68,5 @@
+
+             {
+                 Policy = policy;
++                RulesVersion = ReferenceEquals(policy, RouteTilePolicySnapshot.Empty) ? GateAccessRules.Version : policy.RulesVersion;
+                 for (int player = 1; player <= 8; player++)
+                 {
+@@ -73,4 +75,5 @@
+
+                 }
+             }
++            internal readonly long RulesVersion;
+             internal readonly RouteTilePolicySnapshot Policy;
+             internal readonly IEnemyGateRoutePolicySnapshot[] Filtered = new IEnemyGateRoutePolicySnapshot[9];
+@@ -98,5 +101,5 @@
+
+             }
+             public int PlayerId { get; }
+-            public bool IsCurrent => ReferenceEquals(Volatile.Read(ref source.current), publication);
++            public bool IsCurrent => publication.RulesVersion == GateAccessRules.Version && ReferenceEquals(Volatile.Read(ref source.current), publication);
+             public bool IsDirectionAllowed(int tileId, int direction) =>
+                 unmasked || publication.Policy.IsDirectionAllowed(PlayerId, tileId, direction);

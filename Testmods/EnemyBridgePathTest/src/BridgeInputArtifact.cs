@@ -12,6 +12,9 @@ namespace EnemyBridgePathTest
     internal sealed class BridgeInputArtifact
     {
         internal const int BlockLimit=65536;
+        [ThreadStatic] private static string currentSection;
+        private string maxSourceSection="none";
+        private long sourceGc0,sourceGc1,sourceGc2;
         private Queue<Job> jobs=new Queue<Job>();
         private readonly Action<long,string,string> emit;
         private readonly string directory;
@@ -21,7 +24,7 @@ namespace EnemyBridgePathTest
         private long writtenTicks,writtenBytes,maxPumpTicks,maxSourceTicks,maxWriteTicks,maxIoTicks,maxHashTicks,maxFinishTicks,pumpOverBudget;
         private readonly byte[] outputBlock=new byte[BlockLimit];
         private static string Ms(long ticks)=>(ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
-        internal string IntervalCosts(){string text="artifactMaxPumpMs="+Ms(maxPumpTicks)+",artifactMaxSourceMs="+Ms(maxSourceTicks)+",artifactMaxWriteHashMs="+Ms(maxWriteTicks)+",artifactMaxIoMs="+Ms(maxIoTicks)+",artifactMaxWholeHashMs="+Ms(maxHashTicks)+",artifactMaxFinishMs="+Ms(maxFinishTicks)+",artifactPumpOverBudget="+pumpOverBudget+",artifactCostScopes=nested-source-write-whole-hash-finish-in-pump";maxPumpTicks=maxSourceTicks=maxWriteTicks=maxIoTicks=maxHashTicks=maxFinishTicks=pumpOverBudget=0;return text;}
+        internal string IntervalCosts(){string text="artifactMaxPumpMs="+Ms(maxPumpTicks)+",artifactMaxSourceMs="+Ms(maxSourceTicks)+",artifactMaxSourceSection=["+maxSourceSection+"],artifactSourceGc0="+sourceGc0+",artifactSourceGc1="+sourceGc1+",artifactSourceGc2="+sourceGc2+",artifactMaxWriteHashMs="+Ms(maxWriteTicks)+",artifactMaxIoMs="+Ms(maxIoTicks)+",artifactMaxWholeHashMs="+Ms(maxHashTicks)+",artifactMaxFinishMs="+Ms(maxFinishTicks)+",artifactPumpOverBudget="+pumpOverBudget+",artifactCostScopes=nested-source-write-whole-hash-finish-in-pump";maxSourceSection="none";sourceGc0=sourceGc1=sourceGc2=0;maxPumpTicks=maxSourceTicks=maxWriteTicks=maxIoTicks=maxHashTicks=maxFinishTicks=pumpOverBudget=0;return text;}
         private sealed class Job
         {
             internal long Session,Id,Bytes;
@@ -92,7 +95,10 @@ namespace EnemyBridgePathTest
                         // Leave time for the single write/hash operation below.
                         if(sourceAdvances>=8||(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency>=1)break;
                         sourceAdvances++;
-                        long sourceStart=Stopwatch.GetTimestamp();bool more=active.Source.MoveNext();maxSourceTicks=Math.Max(maxSourceTicks,Stopwatch.GetTimestamp()-sourceStart);
+                        int gc0=GC.CollectionCount(0),gc1=GC.CollectionCount(1),gc2=GC.CollectionCount(2);currentSection=null;
+                        long sourceStart=Stopwatch.GetTimestamp();bool more=active.Source.MoveNext();long sourceTicks=Stopwatch.GetTimestamp()-sourceStart;
+                        sourceGc0+=GC.CollectionCount(0)-gc0;sourceGc1+=GC.CollectionCount(1)-gc1;sourceGc2+=GC.CollectionCount(2)-gc2;
+                        if(sourceTicks>maxSourceTicks){maxSourceTicks=sourceTicks;maxSourceSection=currentSection??"metadata-or-unclassified-iterator";}
                         if(more) {active.Piece=active.Source.Current;active.Offset=0;}
                         else
                         {
@@ -123,13 +129,16 @@ namespace EnemyBridgePathTest
             finally {long elapsed=Stopwatch.GetTimestamp()-start;writtenTicks+=elapsed;maxPumpTicks=Math.Max(maxPumpTicks,elapsed);if(elapsed*1000.0/Stopwatch.Frequency>2)pumpOverBudget++;}
         }
         internal static string Hex(byte[] value) => BitConverter.ToString(value).Replace("-","");
-        internal static IEnumerable<byte[]> Section(string name,Array data,int width)
+        internal static IEnumerable<byte[]> Section(string name,Array data,int width,bool transientBuffers=false)
         {
             byte[] label=Encoding.UTF8.GetBytes(name);var header=new byte[12+label.Length];
             Buffer.BlockCopy(BitConverter.GetBytes(label.Length),0,header,0,4);Buffer.BlockCopy(label,0,header,4,label.Length);
-            Buffer.BlockCopy(BitConverter.GetBytes(data.Length),0,header,4+label.Length,4);Buffer.BlockCopy(BitConverter.GetBytes(width),0,header,8+label.Length,4);yield return header;
-            int bytes=checked(data.Length*width);for(int offset=0;offset<bytes;offset+=8192)
-            {var block=new byte[Math.Min(8192,bytes-offset)];Buffer.BlockCopy(data,offset,block,0,block.Length);yield return block;}
+            Buffer.BlockCopy(BitConverter.GetBytes(data.Length),0,header,4+label.Length,4);Buffer.BlockCopy(BitConverter.GetBytes(width),0,header,8+label.Length,4);currentSection=name;yield return header;
+            // Private streaming contract: Current is consumed in full before MoveNext.
+            // A writer never retains a yielded chunk after advancing this iterator.
+            int bytes=checked(data.Length*width);byte[] block=null;
+            for(int offset=0;offset<bytes;offset+=8192)
+            {int length=Math.Min(8192,bytes-offset);if(!transientBuffers||block==null||block.Length!=length)block=new byte[length];Buffer.BlockCopy(data,offset,block,0,length);currentSection=name;yield return block;}
         }
         internal static byte[] Header(string metadata,int schema=1)
         {

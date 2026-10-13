@@ -1,0 +1,22 @@
+PASS: 10,000 native trace chains; overwritten outputs, recovery, exact edge correspondence and bounded call-local storage.
+PASS: real installed closed predicate, 197950 clear and DCE60 descent; functional guard and diagnostics independently on/off; rejection/exception preserves clear; simulated caller restore; 198ED0 unrelated cleanup fixture stubbed.
+PASS: 19 installed native spans, actual RedBird preparation, full stub decoding and all four complete containing bodies/incoming branches.
+PASS: physical execution observer: paired branches, identity/policy changes, nested calls, 100000 events and bounded aggregate history.
+PASS: Macemen aggregate 200000 observations,64 rows; elapsedMs=25,37
+TEMP_GATE_ROUTE_ACCEPTANCE: 6757 assertions, 576000 events across 120 minute windows
+PASS controlled graph comparison: owner1/capturer3/query2 native=accept, policy=reject; query3=accept. Full AI order not measured.
+PASS controlled builder comparison: owner1/capturer3/query2 native=accept, policy=reject; query3=accept. Full AI order not measured.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.
+PASS: migrated NativeX64 Indirect detours: 6/6/10 bytes, pointer slots, prologues, one callback and one original execution.
+IntegratedGatePathfindingPolicy: 157367 assertions passed.
+PASS: 12 actual feature orchestration checks; native runtime/SDK are isolated doubles, no hook execution in this fixture.
+PASS: 50 production-reader assertions; native data, SDK fixture boundaries, identities/control/state, owned/captured, maps and publication changes.
+PASS: 273 actual Raid classifier/retry assertions with final-route observation; native returns/candidate order simulated.
+PASS: 757 actual diagnostic path assertions; no moat-plan helper present in fixture.
+PASS: actual native Observe callback + actual publication observer; ground/climb, secondary overwrite/fallback, nesting, snapshot/failure and different output.
+PASS: actual gate diagnostic, actual packed-publication helper and production weighted-edge loop; isolated SDK fixtures, no game hooks.
+PASS: integrated gate geometry, scopes, adapters, access extensions, route and observation regression.

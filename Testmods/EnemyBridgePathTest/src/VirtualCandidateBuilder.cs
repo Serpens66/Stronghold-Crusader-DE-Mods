@@ -194,12 +194,12 @@ namespace EnemyBridgePathTest
                 I(Root+0x155f3c,head+1==N?0:head+1);
             }while(I(Root+0x155f3c)!=I(Root+0x155f44));
         }
-        private void MarkWorkRegion(int x,int y)
+        private void MarkWorkRegion(int x,int y,int maximum=100)
         {
             if((uint)x>=800||(uint)y>=800||B(0x3a11ea4+y*800+x)==0)return;
             Inc(Root+0xa4);var tiles=new int[1000];var rows=new int[1000];var columns=new int[1000];
             tiles[0]=I(0x402ff2c+y*12)+x;rows[0]=y;columns[0]=x;
-            int head=0,tail=1,limit=100,budget=N;
+            int head=0,tail=1,limit=maximum,budget=N;
             do
             {
                 if(--budget<0)throw new InvalidOperationException("Unknown:work-region-limit");
@@ -219,6 +219,28 @@ namespace EnemyBridgePathTest
                 }
                 head++;if(head>=1000)head=0;
             }while(head!=tail);
+        }
+        // Complete EA4E0, with output coordinates supplied by the private caller.
+        // Return count identifies written pairs; untouched entries are not evidence.
+        internal int FormationTargets(int target,int maximum,int[] coordinates)
+        {
+            if(coordinates==null||coordinates.Length!=40||target<1||target>8)throw new ArgumentException("formation-output-extent");
+            int threshold=Math.Min(maximum,100),count=0,budget=N;I(Root+0x155f3c,0);
+            if(I(Root+0x155f44)==0)return 0;
+            do
+            {
+                if(--budget<0)throw new InvalidOperationException("Unknown:formation-queue-bound");
+                int head=I(Root+0x155f3c),tile=I(Root+0x155f6c+head*4);if((uint)tile>=N)throw new InvalidOperationException("Unknown:formation-packed-field");
+                int strategic=S(0x5759230+target*N*2+tile*2);
+                if(strategic!=0)
+                {
+                    if(threshold<=strategic&&strategic<=unchecked(threshold+10)&&S(0x5225b10+tile*2)!=100)
+                    {int y=S(Root+0x28f3ec+head*2),x=tile-I(0x402ff2c+y*12);MarkWorkRegion(x,y,200);coordinates[count*2]=x;coordinates[count*2+1]=y;count++;}
+                    if(count>=20)return count;
+                }
+                I(Root+0x155f3c,head+1==N?0:head+1);
+            }while(I(Root+0x155f3c)!=I(Root+0x155f44));
+            return count;
         }
         // Full EAB80 copied gatehouse selector, including its building-tile override.
         // This returns a building ID; it does not issue an order or store30E90's target.
@@ -253,7 +275,7 @@ namespace EnemyBridgePathTest
         }
         // Complete F32B0 over private copied state. The caller supplies a private
         // output bank as E62D0 would; this is not a full 196280 replay.
-        internal int CommandLine(int sx,int sy,int tx,int ty,byte[] path)
+        internal int CommandLine(int sx,int sy,int tx,int ty,byte[] path,bool relaxedSurface=false)
         {
             if((uint)sx>=800||(uint)sy>=800||(uint)tx>=800||(uint)ty>=800||B(0x3a11ea4+sy*800+sx)==0||B(0x3a11ea4+ty*800+tx)==0)return 0;
             int generation=unchecked(I(Root+4)+1);I(Root+4,generation);
@@ -269,15 +291,63 @@ namespace EnemyBridgePathTest
                 if(direction<0||(B(0x51890d0+tile)&(1<<direction))==0){I(Root+0x155f68,count);return 0;}
                 tile=checked(tile+I(0x405edb0+(sy*8+direction)*4));sx=unchecked(sx+I(0x2d2e50+direction*8));sy=unchecked(sy+I(0x2d2e54+direction*8));
                 if((uint)tile>=N)throw new ArgumentException("line-next-packed-field");
-                if((Flag(tile)&0x10000100)!=0&&(Flag(tile)&2)==0)
+                if(!relaxedSurface&&(Flag(tile)&0x10000100)!=0&&(Flag(tile)&2)==0)
                 {int building=Building(tile);if(building==0||I(0x2e68d0+S(BuildingRecord(building)+0x12e)*4)==0)return 0;}
                 int at=count/2;if((uint)at>=path.Length)throw new ArgumentException("line-output-capacity");
                 if((count&1)==0)path[at]=(byte)direction;else path[at]|=(byte)(direction<<4);count=unchecked(count+1);
             }
             throw new ArgumentException("line-step-bound");
         }
-        // DAAC0/DA590 consume copied scratch banks only. This deliberately stops
-        // before E1640 reconstruction and its additional continuation.
+        // Complete111330 selection on copied candidate and own unit inputs;
+        // this isolated helper does not imply a replay of the military callers.
+        internal int SelectStructureTask(int unit)
+        {
+            int u=UnitRecord(unit),actor=S(u+0x6ee),shift=actor*0x177bc;if(actor<1||actor>8)throw new InvalidOperationException("Unknown:selector-player");
+            int index=-1,tries=0;bool building=false,choiceBuilding=false;
+            while(true)
+            {
+                int best=1000;
+                for(int n=0;n<I(0x2ea70e4+shift);n++)
+                {
+                    if(n>=1000)throw new InvalidOperationException("Unknown:selector-unit-table-capacity");int r=0x2ea70ec+shift+n*16,weight=I(r+8);if(weight>=9999||I(r+12)!=0)continue;
+                    int tile=I(r+4),y=S(0x3aae2a4+tile*2),x=tile-I(0x402ff2c+y*12),score=unchecked(Math.Max(Math.Abs(S(u+0x71c)-x),Math.Abs(S(u+0x71e)-y))+weight*8);
+                    if(score<best){I(0x2e76f10,x);I(0x2e76f14,y);I(0x2e76f18,I(r));best=score;index=n;}choiceBuilding=building;
+                }
+                for(int n=0;n<I(0x2eb2cc8+shift);n++)
+                {
+                    if(n>=1000)throw new InvalidOperationException("Unknown:selector-building-table-capacity");int r=0x2eb2cd0+shift+n*16;if(I(r+8)>=5999||I(r+12)!=0)continue;
+                    int tile=I(r+4),y=S(0x3aae2a4+tile*2),x=tile-I(0x402ff2c+y*12),metric=Math.Max(Math.Abs(S(u+0x71c)-x),Math.Abs(S(u+0x71e)-y));
+                    if(unchecked(metric+5)<best){I(0x2e76f10,x);I(0x2e76f14,y);I(0x2e76f18,I(r));building=true;best=metric;index=n;}choiceBuilding=building;
+                }
+                if(index>=0){int r=(choiceBuilding?0x2eb2cd0:0x2ea70ec)+shift+index*16;I(r+12,unit);return I(r+4);}
+                for(int n=0;n<I(0x2eb2cc8+shift);n++){if(n>=1000)throw new InvalidOperationException("Unknown:selector-reset-capacity");I(0x2eb2cdc+shift+n*16,0);}
+                for(int n=0;n<I(0x2ea70e4+shift);n++){if(n>=1000)throw new InvalidOperationException("Unknown:selector-reset-capacity");I(0x2ea70f8+shift+n*16,0);}
+                if(++tries>1)return 0;
+            }
+        }
+        internal void CopyInputsTo(Action<int,byte[]> destination){foreach(var s in segments)destination(s.Start,(byte[])s.Data.Clone());}
+        // Complete positive196280/F4930 same-region, mode0 branch. Other branches
+        // explicitly require their own continuation instead of guessed results.
+        internal int OwnSameRegionCommand(int unit,int tx,int ty,int unknown,byte[] path)
+        {
+            int u=UnitRecord(unit),tile=I(u+0x72c),row=S(0x3aae2a4+tile*2),x=tile-I(0x402ff2c+row*12);
+            if(unknown!=0||x!=S(u+0x71c)||row!=S(u+0x71e))throw new InvalidOperationException("Unknown:command-mode-or-coordinate-repair");
+            if((uint)tx>=800||(uint)ty>=800||B(0x3a11ea4+ty*800+tx)==0)throw new InvalidOperationException("Unknown:command-invalid-destination-branch");
+            int sx=S(u+(S(u+0x74e)==0&&S(u+0x750)==8?0x71c:0x738)),sy=S(u+(S(u+0x74e)==0&&S(u+0x750)==8?0x71e:0x73a));
+            int dest=I(0x402ff2c+ty*12)+tx,type=S(u+0x6e6),profile=I(0x322540+type*4);
+            if(Component(I(0x402ff2c+sy*12)+sx)!=Component(dest)||(Flag(dest)&0x30)!=0||profile==0&&(Flag(dest)&0x10000100)!=0||((uint)Flag(tile)>>30&1)!=0||I(Root+0x84)!=0||I(Root+0x88)!=0||S(u+0x8fc)==0||S(u+0x6e8)!=0||sx==tx&&sy==ty)throw new InvalidOperationException("Unknown:command-other-region-profile-or-zero-distance-branch");
+            S(u+0x8ec,0);S(u+0x744,tx);S(u+0x746,ty);S(u+0xa4c,0);S(u+0x900,Component(dest));
+            Replace(0x67e8400+0x658,Bytes(u+0x658,0x490));Array.Clear(path,0,path.Length);I(Root+8,sx);I(Root+12,sy);I(Root+16,tx);I(Root+20,ty);I(Root+0x7c,1);I(Root+0x155f68,0);
+            if(CommandLine(sx,sy,tx,ty,path,profile!=0)!=0)Inc(Root+0xa8);
+            else
+            {
+                Inc(Root+0xac);I(Root+0x7c,0);I(Root+0x155f68,0);int dx=sx<=tx?tx-sx:sx-tx,dy=sy<=ty?ty-sy:sy-ty;
+                int radius=unchecked(Math.Max(dx,dy)+4),limit=unchecked(radius*radius*2);
+                if(CommandFlood(sx,sy,tx,ty,limit,0,true)==0&&CommandFlood(sx,sy,tx,ty,400000,0,false)==0)throw new InvalidOperationException("Unknown:command-NoRoute-cleanup-required");
+                CommandReconstruct(sx,sy,tx,ty,path);if(profile==0&&I(Root+0x94)!=0)throw new InvalidOperationException("Unknown:command-obstacle-DB650-continuation");
+            }
+            int count=I(Root+0x155f68);I(Root+0x80,0);S(u+0x754,count);S(u+0x74e,2);S(u+0x752,0);S(u+0x720,tx);S(u+0x722,ty);I(u+0x730,dest);S(u+0x726,S(u+0x71e));S(u+0x724,S(u+0x71c));I(u+0x734,I(0x402ff2c+S(u+0x71e)*12)+S(u+0x71c));S(u+0x9c8,I(Root+0x84)!=0?1:0);I(Root+0x84,0);I(Root+0x88,0);I(u+0xad0,0);I(u+0xad4,0);return 1;
+        }
         internal int CommandFlood(int sx,int sy,int tx,int ty,int limit,int continuation,bool blocked)
         {
             if((uint)sx>=800||(uint)sy>=800||B(0x3a11ea4+sy*800+sx)==0)return 0;

@@ -21,13 +21,13 @@ namespace BridgePlanningTests
             hash=="C129673AA1F7982F7732A456421AA801FB9EAC4B5B45092C3EB48A60039420D2" ||
             hash=="B82464117A2AC2E8DB26A73583AD84FF5108B9346944738924A5B1F60BA9F780" ||
             hash=="9DA9CD5D88D89ED60D94608AC811E937D2E741FC8FB4B7A5D84615F728A74257" ||
-            hash=="BE5DD2EE439851427A26B444ADC78D729F640903BE47740599D4A8F98E0EC525";
+            hash=="BE5DD2EE439851427A26B444ADC78D729F640903BE47740599D4A8F98E0EC525"||hash=="214299972AE0696E412D1AF0FD688ED89B5E5F957CBECF2D921752B02E9979BE";
 
         private static byte[] Bytes(Array data){var bytes=new byte[Buffer.ByteLength(data)];Buffer.BlockCopy(data,0,bytes,0,bytes.Length);return bytes;}
         private static T[] ArrayValues<T>(byte[] bytes) where T:struct
         {var result=new T[bytes.Length/System.Runtime.InteropServices.Marshal.SizeOf(typeof(T))];Buffer.BlockCopy(bytes,0,result,0,bytes.Length);return result;}
         private static int Changed(byte[] actual,byte[] expected){Check(actual.Length==expected.Length,"changed-buffer extent");int count=0;for(int i=0;i<actual.Length;i++)if(actual[i]!=expected[i])count++;return count;}
-        private static VirtualPlanningState ComputedVariant(BridgePlanningImporter.Artifact a,int variant,out VirtualBridgeMap physical,out int[] counts,int selectedBridge=0,uint selectedGlobal=0)
+        private static VirtualPlanningState ComputedVariant(BridgePlanningImporter.Artifact a,int variant,out VirtualBridgeMap physical,out int[] counts,int selectedBridge=0,uint selectedGlobal=0,bool phase5Suffix=false,string sensitivityCommand=null)
         {
             if(variant<0||variant>2)throw new ArgumentException("variant");
             var b=a.Planning;byte[] Get(string name)=>CopiedPlanningBundle.Resolve(b,name);
@@ -81,7 +81,7 @@ namespace BridgePlanningTests
             return bytes;
         }
 
-        private static int HistoricalCandidates(string path,bool continuous=false,int variant=0,bool referenceTables=false,int ordinal=0,int selectedBridge=0,uint selectedGlobal=0)
+        private static int HistoricalCandidates(string path,bool continuous=false,int variant=0,bool referenceTables=false,int ordinal=0,int selectedBridge=0,uint selectedGlobal=0,bool phase5Suffix=false,string sensitivityCommand=null)
         {
             BridgePlanningImporter.Artifact a;string reason;
             if(!BridgePlanningImporter.TryRead(path,out a,out reason))throw new Exception(reason);
@@ -105,7 +105,16 @@ namespace BridgePlanningTests
                 foreach(var table in tableInputs)m.Put(table.Key,table.Value);
                 void Put(string name,int address)=>m.Put(address,Get(name));
                 Put(continuous?"consumer/pre/candidates":"consumer/build-pre/candidates",VirtualCandidateConsumers.Root);
-                Put("consumer/pre/players",0x379AE00);Put("consumer/pre/unitManager",0x67E8400);
+                                Put("consumer/pre/players",0x379AE00);
+                if(phase5Suffix)
+                {
+                    CopiedMilitaryEntry.Validate(b);var units=(byte[])Get("military/entryUnitManagerFull").Clone();
+                    CopiedMilitaryEntry.ResetMembership(Get("military/entryPlayer"),ArrayValues<int>(Get("military/entryUpdateClasses11")),Get("military/entryTribesFull"),units);
+                    var boundary=Get("consumer/pre/unitManager");
+                    for(int q=0x658;q<boundary.Length;q++)Check(boundary[q]==units[q],"calculated own-entry unit state at consumer boundary:"+q);
+                    m.Put(0x67e8400,units);Console.WriteLine("whole9999-slot-input=own-entry-plus-calculated-membership;entire-observed-slot-prefix-matches=True;PE-tail-defaults-not-used=True");
+                }
+                Put("consumer/pre/unitManager",0x67E8400);
                 Put("consumer/pre/unitTiles",0x4C559B0);Put("consumer/pre/flags",Flags);
                 Put("consumer/pre/components",Pcl);Put("consumer/pre/edges",Edges);
                 Put("consumer/pre/height",0x4DDD350);Put("consumer/pre/baseHeight",0x4E2B870);
@@ -226,7 +235,43 @@ namespace BridgePlanningTests
                         if(variant==0)Equal(m.Bytes(pair.Item2,pair.Item3),Get("consumer/post/"+pair.Item1),"continuous final "+pair.Item1);
                         else Console.WriteLine("variant="+variant+",field="+pair.Item1+",changedBytes="+Changed(m.Bytes(pair.Item2,pair.Item3),Get("consumer/post/"+pair.Item1)));
                     }
-                    int predictedCastle=managedCandidates.Castle(b.Attacker,b.Target);
+                                        if(phase5Suffix)
+                    {
+                        // Begins at the calculated consumer output. This is a suffix
+                        // probe, not a fabricated full-entry replay or later-command input.
+                        m.Put(0x7cc6720,Get("consumer/pre/tribes"));
+                        int lord=m.Int(0x379d0d0+b.Attacker*0x583c);
+                        m.Put(0x366c210+(lord-1)*0x5e4,Get("military/entryLordConfigRow"));
+                        m.Put(0x3665fb8,Get("military/entryPhase5Controls"));
+                        m.Put(0x322540,Get("profiles90"));m.Put(0x32bdb0,Get("permissions540"));
+                        // Only complete interior pages: native page protection must
+                        // not accidentally deny adjacent captured work-distance bytes.
+                                                if(sensitivityCommand==null&&CopiedMilitaryEntry.TryContinuationInputs(b,out var continuationInputs,out var continuationReason))
+                        {foreach(var value in continuationInputs)m.Put(value.Key,value.Value);Console.WriteLine(continuationReason);}
+                        else if(sensitivityCommand==null)
+                        {
+                            m.DenyMissingData(0x51d8000,0x5225000-0x51d8000);
+                            m.DenyMissingData(0x2f7a000,4096);
+                        }
+                        else
+                        {
+                            if(!BridgePlanningImporter.TryRead(sensitivityCommand,out var later,out var why)||later.Hash!="553EBBD51E274B0F5ADB9D7C7BC63F457D6C10BF2BD98B290387189A834735C5"||!BridgePlanningImporter.TryLinkGroup(a,later,out why))throw new Exception("invalid-sensitivity-pair:"+why);
+                            m.Put(0x2f7a690,later.Sections["structure/pre/lineMode"]);m.Put(0x51d75f0,later.Sections["structure/pre/lineBlockGrid"]);
+                            Console.WriteLine("SENSITIVITY-ONLY:later-command-line-inputs;NOT-historical-baseline;releaseBlocked=True");
+                        }
+                        foreach(int step in new[]{0x3c9c0,0x3fe50,0x3b980,0x3bfa0,0x3cdc0,0x3bb80,0x3ccd0,0x3c0a0,0x3b820,0x3ce40})
+                        {
+                            if(step==0x3bb80)m.Short(0x379e78c+b.Attacker*0x583c,0);
+                            Console.WriteLine("phase5-suffix-enter="+step.ToString("X")+";consumerOutputCalculated=True;laterCommandBytesNotUsed="+(sensitivityCommand==null));
+                            m.Function<V2>(step)(m.Ptr(0x366c210),b.Attacker);
+                            Console.WriteLine("phase5-suffix-exit="+step.ToString("X"));
+                        }
+                                                int mode0=m.Function<R3>(0xCF360)(m.Ptr(0x366c210),b.Attacker,b.Target),mode1=mode0!=0?-1:m.Function<R3>(0xCF400)(m.Ptr(0x366c210),b.Attacker,b.Target);
+                        if(mode0!=0||mode1>0)m.Int(0x379d974+b.Attacker*0x583c,6);
+                        var expectedExit=Get("military/exitPlayer");int playerChanges=Changed(m.Bytes(0x379ae00+b.Attacker*0x583c,0x583c),expectedExit);
+                        Console.WriteLine("phase5-suffix-native-completed=True;fullEntry=False;managedSuffix=not-yet-replayed;castleMode0="+mode0+";castleMode1="+mode1+";ownPlayerExitDifferentBytes="+playerChanges+";historicalBaseline="+(sensitivityCommand==null?"own-input-candidate":"NOT-accepted-later-input-sensitivity")+";policy=Unknown");return 0;
+                    }
+int predictedCastle=managedCandidates.Castle(b.Attacker,b.Target);
                     int castleResult=m.Function<R3>(0xCF360)(m.Ptr(0x366C210),b.Attacker,b.Target);
                     Check(predictedCastle==castleResult,"managed post-consumer castle decision");
                     Equal(managedCandidates.Bytes(Root,0xe0),m.Bytes(Root,0xe0),"complete managed castle-query controls");
@@ -272,6 +317,25 @@ namespace BridgePlanningTests
                     }
                     Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",variant="+variant+",complete candidate/weight/availability/work native-managed outputs match;candidateChangedBytes="+Changed(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"))+";castle="+castleResult+";fullSequentialMilitary=Unknown:intervening-military-branches-not-replayed");return 0;}
                     int entryPhase=originalBundle.Sections.TryGetValue("military/entryPlayer",out var entryPlayer)?BitConverter.ToInt32(entryPlayer,0x379d974-0x379ae00):-1;
+                    if(entryPhase==5&&a.Hash=="214299972AE0696E412D1AF0FD688ED89B5E5F957CBECF2D921752B02E9979BE")
+                    {
+                        // Isolated selector starts from the calculated candidate output, before the separate castle-probe scratch writes; not a full military-order claim.
+                        m.Put(VirtualCandidateConsumers.Root,managedCandidates.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes));var selectorNativePre=m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes);var selectorManagedPre=managedCandidates.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes);const int observedUnit=180;int nativeSelection=m.Function<R2>(0x111330)(m.Ptr(0x2e76f10),observedUnit),managedSelection=managedCandidates.SelectStructureTask(observedUnit);
+                        Check(nativeSelection==managedSelection,"actual paired unit structure selector native="+nativeSelection+",managed="+managedSelection);var selectorNativePost=m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes);var selectorManagedPost=managedCandidates.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes);for(int si=0;si<selectorNativePost.Length;si++)if(selectorNativePre[si]!=selectorNativePost[si]||selectorManagedPre[si]!=selectorManagedPost[si])Check(selectorNativePre[si]==selectorManagedPre[si]&&selectorNativePost[si]==selectorManagedPost[si],"selector exact changed byte:"+si);
+                        Console.WriteLine("PASS paired111330 selection="+nativeSelection+";coordinates="+m.Int(0x2e76f10)+"/"+m.Int(0x2e76f14)+";entireNativeManagedReservations=True;variant="+variant+";sameRootConsumerSubsetNotFullMilitary=True");
+                    }
+                    if(entryPhase==5)
+                    {
+                        int po=b.Attacker*0x583c,px=m.Int(0x379D970+po),py=m.Int(0x379D96C+po),pt=m.Int(0x402ff2c+py*12)+px;
+                        var special=ArrayValues<ushort>(a.Sections["specialIds"]);if(special[pt]!=0)throw new Exception("Unknown:phase5-formation-needs-complete-own-special-record:"+special[pt]);
+                        m.Put(0x4ace010,a.Sections["specialIds"]);var pairs=Enumerable.Repeat(-700001,40).ToArray();m.Put(0x37f139c+b.Attacker*320,pairs);
+                        int lord=m.Int(0x379D0D0+po),formationMaximum=unchecked((lord==8?8:20)+m.Int(0x2eaaf7c+b.Attacker*0x177bc));
+                        m.Function<V2>(0x3BB80)(m.Ptr(0x366C210),b.Attacker);managedCandidates.CommandFlood(px,py,-1,-1,10000,0,false);int written=managedCandidates.FormationTargets(b.Target,formationMaximum,pairs);
+                        Console.WriteLine("formation-comparison origin="+px+"/"+py+",lord="+lord+",maximum="+formationMaximum+",written="+written+",nativePairs="+string.Join("/",m.Ints(0x37f139c+b.Attacker*320,8))+",managedPairs="+string.Join("/",pairs.Take(8)));
+                        for(int q=0;q<written*2;q++)Check(m.Int(0x37f139c+b.Attacker*320+q*4)==pairs[q],"native/managed calculated formation coordinate");
+                        foreach(var range in new[]{Tuple.Create(Root+0x155f3c,4),Tuple.Create(Root+0x155f44,4),Tuple.Create(Root+0x155f58,4),Tuple.Create(0x5225b10,N*2),Tuple.Create(Visits,N*2),Tuple.Create(Root+0x155f6c,N*4),Tuple.Create(Root+0x28f3ec,N*2)})Equal(managedCandidates.Bytes(range.Item1,range.Item2),m.Bytes(range.Item1,range.Item2),"phase5 isolated formation flood/mark outputs");
+                        Console.WriteLine("PASS phase5 isolated3BB80-EA4E0 native/managed;writtenPairs="+written+";first3Positions="+(written>=3?"computed-before-3CCD0-read":"Unknown-requires-own-prior-row")+";interveningUnitConsumersNotReplayed=True;no-recorded-post-used");
+                    }
                     if(entryPhase!=4)
                     {
                         Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",variant="+variant+",nativeCastleResult="+castleResult+",candidateChangedBytes="+Changed(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"))+",entryPhase="+entryPhase+",militaryContinuation=Unknown:not-a-phase4-suffix,phase5Controls="+(originalBundle.Sections.ContainsKey("military/entryPhase5Controls")?"own-entry-present":"Unknown-missing-own-entry-controls")+",phase5Continuation=not-yet-replayed,postValuesUsedOnlyForComparison=True,behaviorFix=disabled");return 0;

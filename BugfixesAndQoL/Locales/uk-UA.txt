@@ -420,3 +420,8 @@ Ground.Iron=Клітинки заліза
 Ground.Pitch=Клітинки смоли
 BugfixesAndQoL.ImprovedBuildPreview=Показувати вимоги до землі під час будівництва
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Позначає непридатну землю червоним і показує кількість потрібних клітинок у підказці. Лише локально; правила будівництва не змінюються.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Арабські мечники: гучність у спокої
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Локальна гучність лише виймання меча під час анімації спокою арабських мечників усіх гравців. 0%: без звуку; 100%: звичайна гучність; типово: 25%. Звуки бою не змінюються. Без обмеження повторів.

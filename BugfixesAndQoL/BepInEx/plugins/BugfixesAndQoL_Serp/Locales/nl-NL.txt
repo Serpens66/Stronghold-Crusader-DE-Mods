@@ -420,3 +420,8 @@ Ground.Iron=IJzervelden
 Ground.Pitch=Pekvelden
 BugfixesAndQoL.ImprovedBuildPreview=Bodemeisen tonen tijdens het bouwen
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Markeert ongeschikte grond rood en toont vereiste tegelaantallen in de bouwtooltip. Alleen lokaal; bouwregels blijven ongewijzigd.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Arabische zwaardvechters: rustvolume
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Lokaal volume alleen voor het trekken van het zwaard tijdens de rustanimatie van Arabische zwaardvechters van alle spelers. 0%: stil; 100%: normaal volume; standaard: 25%. Gevechtsgeluiden blijven gelijk. Geen herhalingslimiet.

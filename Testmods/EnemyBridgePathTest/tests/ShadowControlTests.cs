@@ -226,6 +226,20 @@ namespace EnemyBridgePathTest
             }
             var failed=new BridgeVirtualShadow((_,__)=>{},_=>0);failed.Begin(1);failed.MilitaryOpened(1,9,2);failed.MilitaryClosed(1,9,false);Check(!failed.HasPublishedGroup,"failed root without own command fabricates no artifact");failed.End();
         }
+        private static void LatestExactCountPair()
+        {
+            string dir=Path.GetFullPath(Path.Combine("..","..","_inspect","BridgePlanningTests","historical-20261013-2129"));string reason;
+            Check(BridgePlanningImporter.TryRead(Path.Combine(dir,"planning.bin"),out var plan,out reason)&&BridgePlanningImporter.TryRead(Path.Combine(dir,"command.bin"),out var command,out reason),"latest original pair imports");
+            // Declare separately for definite assignment; corrupted inputs never fill from Post.
+            Check(BridgePlanningImporter.TryRead(Path.Combine(dir,"command.bin"),out var own,out reason),"own command imports independently");
+            Check(BridgePlanningImporter.TryLinkGroup(plan,own,out reason),"latest exact military frame pair verified");
+            Check(CopiedPlanningReplay.TryVariants(plan,out reason)&&reason.Contains("effectiveCount=117914")&&reason.Contains("variant=none")&&reason.Contains("candidatesChangedInt32=0;weightsChangedInt32=0;availabilityChangedInt32=0")&&reason.Contains("negativeEligible=False"),"historical own Fixes input drives complete uncut baseline, not histogram");
+            Check(own.Sections["structure/pre/pathDirectionMasks8"].Length==8&&own.Sections["structure/post/pathBank1000"].Length==1000&&BitConverter.ToInt64(own.Sections["structure/commandPostReturn8"],0)==1,"same-frame actual Post outputs retained, no raw-return claim");
+            Check(CopiedStructureInput.TryCreate(own,out var memory,out reason),"own command Pre restored without Post substitution");
+            var args=own.Sections["structure/unitCommandArguments7"];int unit=checked((int)BitConverter.ToInt64(args,16));var path=new byte[1000];
+            int result=memory.OwnSameRegionCommand(unit,checked((int)BitConverter.ToInt64(args,32)),checked((int)BitConverter.ToInt64(args,40)),checked((int)BitConverter.ToInt64(args,48)),path);
+            Check(result==1&&path.SequenceEqual(own.Sections["structure/post/pathBank1000"])&&memory.Bytes(0x67e8400+unit*0x490,0xb00).SequenceEqual(own.Sections["structure/post/unit-"+unit]),"complete calculated own command matches entire immediate Post unit and path, mutable return remains separate");
+        }
         private static void DelayedMatchingPair()
         {
             var shadow=new BridgeVirtualShadow((_,__)=>{},_=>throw new Exception("pair selection cannot scan native memory"),structureIdentity:_=>true);shadow.Begin(1);
@@ -241,6 +255,7 @@ namespace EnemyBridgePathTest
         internal static int Run()
         {
             checks=0;
+            LatestExactCountPair();
             DelayedMatchingPair();
             OwnRootPairing();
             RemappedEndpointEvidence();

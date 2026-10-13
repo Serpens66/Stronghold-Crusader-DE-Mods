@@ -115,6 +115,7 @@ int[] rows=Values<int>(artifact,"rows",4),flags=Values<int>(artifact,"flags",4);
                     VirtualPlanningInput input;VirtualPlanningState state;string reason;
                     if(!CopiedPlanningBundle.TryRead(b,map,"caller-pre",out input,out state,out reason))throw new ArgumentException(reason);
                     VirtualBridgeMap topology=map;int[] counts=Histogram(map.Components);int[] cut=variants[variant].Value;
+                    if(variant==0&&(b.Sections.ContainsKey("consumer/pre/identity")||b.References.ContainsKey("consumer/pre/identity"))&&!TryEffectiveCounts(b,components,out counts,out reason))throw new InvalidOperationException(reason);
                     if(variant!=0)
                     {
                         var ends=new int[800];for(int i=0;i<ends.Length;i++)ends[i]=rr[i*3+2];
@@ -139,10 +140,10 @@ int[] rows=Values<int>(artifact,"rows",4),flags=Values<int>(artifact,"flags",4);
                     {
                         string prefix=pair.Key.Substring(0,pair.Key.Length-7);int[] values=Ints(pair.Value),args=Ints(CopiedPlanningBundle.Resolve(b,prefix+"argumentsAndTiles4"));
                         var selected=new VirtualTargetSelection(input,state,args[2],args[3],counts);
-                        if(variant==0&&selected.Count!=values[5])throw new InvalidOperationException("effective-Fixes-histogram-mismatch");
+                        if(variant==0&&selected.Count!=values[5])throw new InvalidOperationException("effective-Fixes-own-input-mismatch");
                         selection+=";observedSelectionTile="+args[2]+",computedSeed="+selected.Seed+",computedRegion="+selected.Region+",effectiveCount="+selected.Count+",capturedNativeCount="+values[7]+",capturedEffectiveCount="+values[5]+",targetCastleRegion="+selected.TargetCastleRegion;
                     }
-                    string continuation=VariantContinuation(b,state,topology,map);
+                    string continuation=VariantContinuation(b,state,topology,map,counts);
                     lines.Add("variant="+variants[variant].Key+",cutCells="+cut.Length+",partitionEquivalentToRecorded="+EquivalentPartitions(map.Components,topology.Components)+",partitionDelta=["+PartitionDelta(map,topology.Components)+"],nativeDirection=target-to-attacker,keep="+(reachable.Value==0?"NoRoute":"Reachable")+",seedShortLimit="+call.SeedShortLimit+",origin="+origin+",destination="+destination+",candidateDistance="+call.CandidateDistance+",seedChanged="+seedChanged+",distanceChanged="+distanceChanged+",candidateTableCount="+state.Candidates.Count+",candidateProvenance="+(call.CandidateDistance==0?"inherited-no-new-D9190-candidates":"computed-plus-inherited")+",candidateSequence="+string.Join("/",state.Candidates)+selection+",firstChange="+(call.SeedShortLimit!=(seedNative[1]!=0)?"CF360-to-D95E0-R8":seedChanged!=0?"seed-fields":distanceChanged!=0?"distance-fields":"none")+",basis="+(b.Dirty!=0?"conditional-captured-physics-pending-native-topology":"copied-physics")+",newTargetChoice=Unknown-unrecorded-consumer,firstConsumerContinuation=["+continuation+"],sequentialMilitaryContinuation=Unknown,policy=Unknown");
                 }
                 report=string.Join(Environment.NewLine,lines);return true;
@@ -302,9 +303,9 @@ int[] rows=Values<int>(artifact,"rows",4),flags=Values<int>(artifact,"flags",4);
             }
             catch(Exception error){return "Unknown:"+error.GetType().Name+":"+error.Message;}
         }
-        private static string VariantContinuation(BridgePlanningCapture.Bundle b,VirtualPlanningState state,VirtualBridgeMap map,VirtualBridgeMap original)
+        private static string VariantContinuation(BridgePlanningCapture.Bundle b,VirtualPlanningState state,VirtualBridgeMap map,VirtualBridgeMap original,int[] effectiveCounts)
         {
-            try {return FirstConsumerVariant(b,state,map,RemapCandidateConnections(CopiedPlanningBundle.Resolve(b,"consumer/pre/macroRecords"),original,map.Components));}
+            try {return FirstConsumerVariant(b,state,map,RemapCandidateConnections(CopiedPlanningBundle.Resolve(b,"consumer/pre/macroRecords"),original,map.Components),effectiveCounts);}
             catch(Exception error){return "Unknown:"+error.GetType().Name+":"+error.Message;}
         }
         private static byte[] RemapCandidateConnections(byte[] recorded,VirtualBridgeMap original,ushort[] components)
@@ -320,10 +321,10 @@ int[] rows=Values<int>(artifact,"rows",4),flags=Values<int>(artifact,"flags",4);
             }
             return copy;
         }
-        private static string FirstConsumerVariant(BridgePlanningCapture.Bundle b,VirtualPlanningState state,VirtualBridgeMap map,byte[] macro)
+        private static string FirstConsumerVariant(BridgePlanningCapture.Bundle b,VirtualPlanningState state,VirtualBridgeMap map,byte[] macro,int[] effectiveCounts)
         {
             byte[] Get(string key)=>CopiedPlanningBundle.Resolve(b,key);VirtualCandidateBuilder builder;string reason;
-            if(!CopiedCandidateInputs.TryCreate(b,state,map,macro,Histogram(map.Components),out builder,out reason))return reason;
+            if(!CopiedCandidateInputs.TryCreate(b,state,map,macro,effectiveCounts,out builder,out reason))return reason;
             builder.Run(b.Attacker,b.Target);int candidates=Differences(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-post/candidates"),4);
             var modes=Get("consumer/weight-pre/gameModeValues");if(modes.Length!=8)throw new ArgumentException("weight-mode-extent");int maximum=BitConverter.ToInt32(modes,4)==0&&BitConverter.ToInt32(modes,0)==28?150:70;
             var weighted=VirtualCandidateWeights.Run(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),b.Attacker,b.Target,Get("consumer/pre/players"),Raw(state.Distance),b.Bank,Raw(map.Flags),Get("consumer/pre/unitTiles"),Get("consumer/pre/unitManager"),Get("tileRows"),Get("directionOffsets"),maximum);

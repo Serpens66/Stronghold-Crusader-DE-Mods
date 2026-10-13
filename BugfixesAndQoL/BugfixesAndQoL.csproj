@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.190.0</AssemblyVersion>
-    <FileVersion>1.0.190.0</FileVersion>
+    <AssemblyVersion>1.0.191.0</AssemblyVersion>
+    <FileVersion>1.0.191.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -183,7 +183,8 @@
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
     <Compile Include="src\DisplayResolutionPersistenceHook.cs" />
     <Compile Include="src\DisplayResolutionFocusState.cs" />
-    <Compile Include="src\BugfixesAndQoLPlugin.cs" /><Compile Include="src\UnitCommandImports.cs" />
+    <Compile Include="src\BugfixesAndQoLPlugin.cs" />
+    <Compile Include="src\ArabianIdleSoundRuntime.cs" /><Compile Include="src\UnitCommandImports.cs" />
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />
     <Compile Include="src\WaterboyReservationLedger.cs" />
@@ -358,4 +359,40 @@
     <Error Condition="!Exists('$(ExtenderDir)\RedBird.Backends.NativeX64.dll')" Text="RedBird.Backends.NativeX64.dll was not found: $(ExtenderDir)" />
   </Target>
   <ItemGroup><Compile Include="..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs"><Link>Shared\TemporaryPackedRouteInspection.cs</Link></Compile></ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="src\GateRouting\AssassinGateDescentRule.cs" />
+    <Compile Include="src\GateRouting\AssassinGateDescentRuntime.cs" />
+    <Compile Include="src\GateRouting\AttackOrderCorrelationDiagnostics.cs" />
+    <Compile Include="src\GateRouting\BuildingSearchPlayerResolver.cs" />
+    <Compile Include="src\GateRouting\CaptureTransitionDiagnostics.cs" />
+    <Compile Include="src\GateRouting\ConnectedGateFootprint.cs" />
+    <Compile Include="src\GateRouting\CursorPreviewCache.cs" />
+    <Compile Include="src\GateRouting\DeferredGateDiagnosticErrors.cs" />
+    <Compile Include="src\GateRouting\EnemyGatePathfindingPolicy.cs" />
+    <Compile Include="src\GateRouting\EnemyGatePathfindingRuntime.cs" />
+    <Compile Include="src\GateRouting\FunctionalGatePolicyAdapter.cs" />
+    <Compile Include="src\GateRouting\GateDiagnosticClassification.cs" />
+    <Compile Include="src\GateRouting\GateEdgeOwnership.cs" />
+    <Compile Include="src\GateRouting\GatePassageMask.cs" />
+    <Compile Include="src\GateRouting\GateRoutePolicySource.cs" />
+    <Compile Include="src\GateRouting\GateSearchEvidence.cs" />
+    <Compile Include="src\GateRouting\GateTopologySnapshotProvider.cs" />
+    <Compile Include="src\GateRouting\MacemenCommandDiagnostics.cs" />
+    <Compile Include="src\GateRouting\MacemenDiagnosticAggregate.cs" />
+    <Compile Include="src\GateRouting\NativeAssassinDiagnosticHooks.cs" />
+    <Compile Include="src\GateRouting\NativeAssassinMovementDiagnostics.cs" />
+    <Compile Include="src\GateRouting\NativeAssassinMovementDiagnostics.Read.cs" />
+    <Compile Include="src\GateRouting\NativeAssassinTrace.cs" />
+    <Compile Include="src\GateRouting\PathfindingGlobalsBaseline.cs" />
+    <Compile Include="src\GateRouting\RouteTilePolicySnapshot.cs" />
+    <Compile Include="src\GateRouting\SamePclGateRouteRuntime.cs" />
+    <Compile Include="src\GateRouting\SparseBuildingFootprint.cs" />
+    <Compile Include="src\GateRouting\TemporaryGateAcceptanceAggregate.cs" />
+    <Compile Include="src\GateRouting\TemporaryGateCaptureTimeline.cs" />
+    <Compile Include="src\GateRouting\TemporaryGateRouteAcceptance.cs" />
+    <Compile Include="src\GateRouting\PathDecisionAggregate.cs" />
+    <Compile Include="..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" />
+  </ItemGroup>
+<ItemGroup><Compile Include="src\GateRouting\GateRoutingFeature.cs" /></ItemGroup>
 </Project>

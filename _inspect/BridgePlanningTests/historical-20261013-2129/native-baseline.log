@@ -1,0 +1,5 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+PASS paired111330 selection=107117;coordinates=588/326;entireNativeManagedReservations=True;variant=0;sameRootConsumerSubsetNotFullMilitary=True
+formation-comparison origin=446/370,lord=4,maximum=10020,written=20,nativePairs=446/370/443/366/441/370/446/375,managedPairs=446/370/443/366/441/370/446/375
+PASS phase5 isolated3BB80-EA4E0 native/managed;writtenPairs=20;first3Positions=computed-before-3CCD0-read;interveningUnitConsumersNotReplayed=True;no-recorded-post-used
+PASS own consumer ordinal=1,variant=0,nativeCastleResult=0,candidateChangedBytes=255,entryPhase=5,militaryContinuation=Unknown:not-a-phase4-suffix,phase5Controls=own-entry-present,phase5Continuation=not-yet-replayed,postValuesUsedOnlyForComparison=True,behaviorFix=disabled

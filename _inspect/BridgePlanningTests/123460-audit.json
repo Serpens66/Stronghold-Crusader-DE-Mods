@@ -1,0 +1,189 @@
+[
+  {
+    "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "address": "0x180123460",
+    "rva": "0x123460",
+    "name": "FUN_180123460",
+    "confidence": "candidate",
+    "size": 517,
+    "signature": "undefined FUN_180123460(void)",
+    "comment": null,
+    "raw_hash": "25949FC9F790FDB4C194B13847CC441E9148B2F36044221B5D6F45EE28733959",
+    "normalized_hash": "6CE867657D4389E0F06A52AFC7E8CF9C70AF4071DCCEF96A36860769D58DFE0E",
+    "block_count": 23,
+    "pseudocode": "/* FUNCTION FUN_180123460 VA=0x180123460 RVA=0x123460 */\n\nvoid FUN_180123460(longlong param_1,int param_2,int param_3)\n\n{\n  longlong lVar1;\n  short sVar2;\n  short sVar3;\n  bool bVar4;\n  int iVar5;\n  int iVar6;\n  longlong lVar7;\n  longlong lVar8;\n  longlong lVar9;\n  int iVar10;\n  undefined2 uVar11;\n  \n  iVar10 = 0;\n  lVar9 = (longlong)param_2 * 0x688 + param_1;\n  if (*(short *)(lVar9 + 0x5c) < 0x28) {\n    *(undefined4 *)(param_1 + 0x736b0c) = 0;\n    FUN_180007490(&DAT_1860ad648,0x9c44,0,param_1 + 0x72cec8);\n    iVar5 = 0;\n    if (0 < *(short *)(lVar9 + 0x5c)) {\n      do {\n        iVar6 = FUN_180119f90(param_1,param_2,iVar5);\n        lVar8 = (longlong)iVar6;\n        if (((&DAT_1867e8ae4)[lVar8 * 0x248] == 2) && ((&DAT_1867e8cf8)[lVar8 * 0x248] == 0)) {\n          *(int *)(param_1 + 0x736b0c) = *(int *)(param_1 + 0x736b0c) + 1;\n          *(short *)(param_1 + 0x72cec8 + (longlong)iVar5 * 4) = (short)iVar6;\n          if (param_3 == 0) {\n            *(undefined2 *)(param_1 + 0x72ceca + (longlong)iVar5 * 4) =\n                 *(undefined2 *)(&DAT_1867e8d3a + lVar8 * 0x490);\n          }\n        }\n        iVar5 = iVar5 + 1;\n      } while (iVar5 < *(short *)(lVar9 + 0x5c));\n    }\n    iVar5 = *(int *)(param_1 + 0x736b0c);\n    do {\n      bVar4 = false;\n      iVar6 = 0;\n      if (iVar5 + -1 < 1) break;\n      do {\n        lVar7 = (longlong)iVar6;\n        uVar11 = *(undefined2 *)(param_1 + (lVar7 + 0x1cb3b2) * 4);\n        lVar9 = param_1 + lVar7 * 4;\n        lVar8 = param_1 + lVar7 * 4;\n        sVar2 = *(short *)(lVar8 + 0x72ceca);\n        lVar1 = param_1 + lVar7 * 4;\n        sVar3 = *(short *)(lVar1 + 0x72cece);\n        if ((param_3 == 0) && (sVar3 < sVar2)) {\n          bVar4 = true;\n          *(undefined2 *)(param_1 + (lVar7 + 0x1cb3b2) * 4) = *(undefined2 *)(lVar9 + 0x72cecc);\n          *(undefined2 *)(lVar9 + 0x72cecc) = uVar11;\n          *(short *)(lVar8 + 0x72ceca) = sVar3;\n          *(short *)(lVar1 + 0x72cece) = sVar2;\n        }\n        iVar5 = *(int *)(param_1 + 0x736b0c);\n        iVar6 = iVar6 + 1;\n      } while (iVar6 < iVar5 + -1);\n    } while (bVar4);\n    if (0 < iVar5) {\n      do {\n        *(short *)(&DAT_1867e8d38 +\n                  (longlong)*(short *)(param_1 + 0x72cec8 + (longlong)iVar10 * 4) * 0x490) =\n             (short)iVar10;\n        iVar10 = iVar10 + 1;\n      } while (iVar10 < *(int *)(param_1 + 0x736b0c));\n    }\n  }\n  else {\n    do {\n      uVar11 = 199;\n      if (iVar10 < 199) {\n        uVar11 = (short)iVar10;\n      }\n      iVar5 = FUN_180119f90(param_1,param_2,iVar10);\n      iVar10 = iVar10 + 1;\n      *(undefined2 *)(&DAT_1867e8d38 + (longlong)iVar5 * 0x490) = uVar11;\n    } while (iVar10 < *(short *)(lVar9 + 0x5c));\n  }\n  return;\n}\n\n\n\n",
+    "semanticClaims": [],
+    "classifications": [],
+    "strings": [],
+    "dataReferences": [
+      {
+        "target_rva": "0x60AD648"
+      },
+      {
+        "target_rva": "0x67E8400"
+      },
+      {
+        "target_rva": "0x67E8AE4"
+      },
+      {
+        "target_rva": "0x67E8CF8"
+      },
+      {
+        "target_rva": "0x67E8D38"
+      },
+      {
+        "target_rva": "0x67E8D3A"
+      }
+    ],
+    "callees": [
+      {
+        "callee_rva": "0x7490",
+        "callee_name": "FUN_180007490"
+      },
+      {
+        "callee_rva": "0x119F90",
+        "callee_name": "FUN_180119f90"
+      }
+    ],
+    "callers": [
+      {
+        "caller_rva": "0x11B520"
+      }
+    ],
+    "managedCallers": [],
+    "globals": [
+      {
+        "address": "0x1801234B0",
+        "rva": "0x1234B0",
+        "name": "LAB_1801234b0",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801234EB",
+        "rva": "0x1234EB",
+        "name": "LAB_1801234eb",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180123520",
+        "rva": "0x123520",
+        "name": "LAB_180123520",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180123576",
+        "rva": "0x123576",
+        "name": "LAB_180123576",
+        "data_type": null,
+        "reference_count": 3
+      },
+      {
+        "address": "0x180123580",
+        "rva": "0x123580",
+        "name": "LAB_180123580",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180123590",
+        "rva": "0x123590",
+        "name": "LAB_180123590",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801235A0",
+        "rva": "0x1235A0",
+        "name": "LAB_1801235a0",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1801235FF",
+        "rva": "0x1235FF",
+        "name": "LAB_1801235ff",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x180123617",
+        "rva": "0x123617",
+        "name": "LAB_180123617",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180123620",
+        "rva": "0x123620",
+        "name": "LAB_180123620",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180123646",
+        "rva": "0x123646",
+        "name": "LAB_180123646",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x1860AD648",
+        "rva": "0x60AD648",
+        "name": "DAT_1860ad648",
+        "data_type": null,
+        "reference_count": 312
+      },
+      {
+        "address": "0x1867E8400",
+        "rva": "0x67E8400",
+        "name": "DAT_1867e8400",
+        "data_type": "undefined4",
+        "reference_count": 2910
+      },
+      {
+        "address": "0x1867E8AE4",
+        "rva": "0x67E8AE4",
+        "name": "DAT_1867e8ae4",
+        "data_type": "undefined2",
+        "reference_count": 358
+      },
+      {
+        "address": "0x1867E8CF8",
+        "rva": "0x67E8CF8",
+        "name": "DAT_1867e8cf8",
+        "data_type": "undefined2",
+        "reference_count": 143
+      },
+      {
+        "address": "0x1867E8D38",
+        "rva": "0x67E8D38",
+        "name": "DAT_1867e8d38",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x1867E8D3A",
+        "rva": "0x67E8D3A",
+        "name": "DAT_1867e8d3a",
+        "data_type": null,
+        "reference_count": 3
+      }
+    ],
+    "types": [],
+    "versionMatches": [
+      {
+        "old_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+        "new_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+        "old_rva": "0x122580",
+        "new_rva": "0x123460",
+        "confidence": "confirmed",
+        "reason": "unique-normalized-hash-and-cfg",
+        "score": 1.0,
+        "changed": 1
+      }
+    ]
+  }
+]

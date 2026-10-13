@@ -5,8 +5,8 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
-        // The normal BugfixesAndQoL path does no gate work. The optional provider is
-        // published only after the test mod has installed its disjoint inline adapters.
+        // The optional gate provider is published only after APIShared installs its
+        // disjoint adapters. Without a mask these existing wrappers preserve their path.
         internal IEnemyGatePathPolicy BeginEnemyGateSearch(
             int playerId, EnemyGateSearchKind kind, out object scope)
         {

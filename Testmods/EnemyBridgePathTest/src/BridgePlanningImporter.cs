@@ -199,6 +199,7 @@ namespace EnemyBridgePathTest
                     if(b.Sections.ContainsKey("military/entryInputVersion")||b.References.ContainsKey("military/entryInputVersion"))CopiedMilitaryEntry.Validate(b);
                     else foreach(string key in new[]{"entryUnitManagerFull","entryTribesFull","entryPlayers9","entryQuota","entryEngineerCounters2"})
                         if(b.Sections.ContainsKey("military/"+key)||b.References.ContainsKey("military/"+key))throw new InvalidDataException("partial-own-entry-without-version");
+                    CopiedMilitaryEntry.ValidateContinuation(b);
                     b.Stages.AddRange(new[]{0,1,2,3});a.Planning=b;
                 }
                 artifact=a;reason=a.Planning==null?"missing-historical-planning-values":"validated-planning-artifact";return true;

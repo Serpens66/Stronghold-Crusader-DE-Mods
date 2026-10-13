@@ -23,7 +23,7 @@ namespace BridgePlanningTests
             {
                 int code=Marshal.ReadInt32(Marshal.ReadIntPtr(pointers));
                 if(code==unchecked((int)0xC000001D)||code==unchecked((int)0xC0000005))
-                {var context=Marshal.ReadIntPtr(pointers,8);long rip=Marshal.ReadInt64(context,0xf8);Console.Error.WriteLine("private-native-exception code="+unchecked((uint)code).ToString("X8")+",rva="+(rip-observedBase).ToString("X"));}
+                {var context=Marshal.ReadIntPtr(pointers,8);long rip=Marshal.ReadInt64(context,0xf8);var record=Marshal.ReadIntPtr(pointers);string access=code==unchecked((int)0xC0000005)?",accessOperation="+Marshal.ReadInt64(record,32)+",accessRva="+(Marshal.ReadInt64(record,40)-observedBase).ToString("X"):"";Console.Error.WriteLine("private-native-exception code="+unchecked((uint)code).ToString("X8")+",rva="+(rip-observedBase).ToString("X")+access);}
             }
             catch{}return 0; // Observe only; never catches or resumes an unknown native branch.
         }

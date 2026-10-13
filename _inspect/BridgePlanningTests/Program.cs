@@ -294,15 +294,21 @@ namespace BridgePlanningTests
             var f=new Fixture(12,12);f.Install(m);m.Int(0x405B4F8,12345);m.Int(0x379D9A8+8*0x583c,1);m.Int(Root+0x6c,dirty);m.Int(Root+0x74,4);
             object token=new object();object discardedShadow=new object();BridgePlanningCapture.Bundle bundle=null;var reasons=new List<string>();int originalCalls=0;
             var capture=new BridgePlanningCapture(m.Size,m.Bytes,()=>token,v=>bundle=v,(k,d)=>reasons.Add(k+":"+d),effectiveCounts:()=>{var counts=new int[4000];counts[1]=912;return counts;});
-            capture.Begin(1);capture.Observe(0x2D250,false,1,100,90,8,8,1,0,0,true);
+                        m.Int(0x379D0D0+8*0x583c,1);m.Int(0x379D974+8*0x583c,4);
+            m.Int(0x2f7a690,dirty==0?0:-917714848);var ownBlocks=new byte[N];ownBlocks[100*W+103]=231;m.Put(0x51d75f0,ownBlocks);m.Int(0x7cc6720+0x736b10,int.MaxValue);
+            capture.Begin(1);capture.Observe(0x3C2E0,false,1,90,0,8,8,0,0,0,true,90);
+            capture.Observe(0x2D250,false,1,100,90,8,8,1,0,0,true,90);
             discardedShadow=null;Check(discardedShadow==null&&capture.ActiveFamily==100,"discarded shadow publication does not discard own map-bound planning family");
             m.Int(0x2EA70DC+8*0x177bc,1); // Audited 2D250 bank write precedes both child calls.
             capture.Observe(0xD95E0,false,1,101,100,8,1,1,1,0,true);originalCalls++;m.Function<V4>(0xD95E0)(m.Ptr(Root),1,1,1);capture.Observe(0xD95E0,true,1,101,100,8,1,1,1,0,true);
             m.Int(0x2EA70DC+8*0x177bc,1);
             capture.Observe(0xD9190,false,1,102,100,8,110,50,1,8,true);originalCalls++;m.Function<V5>(0xD9190)(m.Ptr(Root),110,50,1,8);capture.Observe(0xD9190,true,1,102,100,8,110,50,1,8,true);
             capture.Observe(0x2D250,true,1,100,90,8,8,1,0,0,true);
+            capture.Observe(0x3C2E0,true,1,90,0,8,8,0,0,0,true,90); // simulated observer root completion; no full native root claim
             Check(originalCalls==2&&bundle!=null&&bundle.Complete&&bundle.Stages.Count==4,"production capture wraps originals exactly once and completes four stages: "+string.Join(";",reasons));
             Check(bundle.Dirty==dirty&&bundle.Revision==4&&!bundle.NegativeEligible,"dirty decision capture separate from negative proof eligibility");
+            Check(CopiedMilitaryEntry.TryContinuationInputs(bundle,out var movementInputs,out var movementReason),"own entry continuation capture validated:"+movementReason);
+            Equal(movementInputs[0x51d75f0],ownBlocks,"own block grid has exact nonboolean bytes and immutable source");Check(BitConverter.ToInt32(movementInputs[0x2f7a690],0)==(dirty==0?0:-917714848)&&BitConverter.ToInt32(movementInputs[0x7cc6720+0x736b10],0)==int.MaxValue,"raw signed line mode/counter preserved without player coercion");
             Check(bundle.Sections.ContainsKey("permissions540")&&bundle.Sections["permissions540"].Length==2160,"complete current native permission rows");
             Check(bundle.References.Count>0&&bundle.References.All(v=>bundle.Sections.ContainsKey(v.Value)),"exact deduplicated stage definitions");
             var gx=new ushort[N];var gy=new ushort[N];for(int t=0;t<N;t++){gx[t]=(ushort)(t%W);gy[t]=(ushort)(t/W);}
@@ -324,6 +330,9 @@ namespace BridgePlanningTests
             string artifactPath=Path.Combine(folder,"bridge-1-100.bin");
             Check(BridgePlanningImporter.TryRead(artifactPath,out imported,out importReason)&&imported.Planning!=null,"productive schema2 disk importer: "+importReason);
             Check(imported.Planning.Dirty==dirty&&imported.Planning.Revision==4,"dirty and native revision survive disk import");
+            Check(CopiedMilitaryEntry.TryContinuationInputs(imported.Planning,out var replayMovement,out importReason),"productive written continuation import:"+importReason);Equal(replayMovement[0x51d75f0],ownBlocks,"movement grid roundtrips disk writer/importer");
+            byte[] version=imported.Planning.Sections["military/entryContinuationVersion"];imported.Planning.Sections.Remove("military/entryContinuationVersion");Check(!CopiedMilitaryEntry.TryContinuationInputs(imported.Planning,out _,out importReason),"partial continuation without version rejected");imported.Planning.Sections["military/entryContinuationVersion"]=version;
+            var exitGrid=CopiedPlanningBundle.Resolve(imported.Planning,"military/exitBlockGrid");var changedGrid=(byte[])exitGrid.Clone();changedGrid[100*W+103]^=1;imported.Planning.References.Remove("military/exitBlockGrid");imported.Planning.Sections["military/exitBlockGrid"]=changedGrid;Check(!CopiedMilitaryEntry.TryContinuationInputs(imported.Planning,out _,out importReason)&&importReason.Contains("changed-at:military-exit"),"changed historical exit grid is not a stable entry input");imported.Planning.Sections["military/exitBlockGrid"]=exitGrid;
             foreach(var pair in bundle.Sections)Equal(pair.Value,CopiedPlanningBundle.Resolve(imported.Planning,pair.Key),"disk section "+pair.Key);
             foreach(var pair in bundle.References)Equal(CopiedPlanningBundle.Resolve(bundle,pair.Key),CopiedPlanningBundle.Resolve(imported.Planning,pair.Key),"disk definition reference "+pair.Key);
             string replayReason;Check(CopiedPlanningReplay.TryBaseline(imported.Planning,geometry,out replayReason),"productive whole disk baseline: "+replayReason);
@@ -332,6 +341,14 @@ namespace BridgePlanningTests
             Check(CopiedPlanningBundle.TryRead(imported.Planning,geometry,"seed-pre",out copiedInput,out copiedState,out copiedReason)&&VirtualBridgePlanning.Seed(copiedInput,copiedState,f.SeedTile,true,true),"productive seed replay from disk");
             Equal(copiedState.Seeds.Select(v=>(byte)v).ToArray(),CopiedPlanningBundle.Resolve(imported.Planning,"seed-post/seeds"),"disk seed complete output");
             Check(CopiedPlanningBundle.TryRead(imported.Planning,geometry,"distance-pre",out copiedInput,out copiedState,out copiedReason)&&VirtualBridgePlanning.Distance(copiedInput,copiedState,110,50,1,(c,d)=>c==d?d:0),"productive distance replay from disk");Compare(m,copiedState,false,1);
+                        var continuationVersion=bundle.Sections["military/entryContinuationVersion"];bundle.Sections.Remove("military/entryContinuationVersion");
+            var partialBlocks=new List<byte[]>{BridgeInputArtifact.Header("fixture=True\n"+bundle.Metadata,2)};partialBlocks.AddRange(bundle.Serialize());
+            foreach(var pair in new[]{new KeyValuePair<string,Array>("components",f.Component),new KeyValuePair<string,Array>("edges",f.Edge),new KeyValuePair<string,Array>("flags",f.Flag),new KeyValuePair<string,Array>("x",gx),new KeyValuePair<string,Array>("y",gy),new KeyValuePair<string,Array>("rows",f.Rows)})partialBlocks.AddRange(BridgeInputArtifact.Section(pair.Key,pair.Value,pair.Value is byte[]?1:pair.Value is ushort[]?2:4));
+            Check(writer.Enqueue(1,101,partialBlocks,2),"valid-hash partial continuation fixture written through productive publisher");while(writer.Pending(1))writer.Pump();
+            Check(!BridgePlanningImporter.TryRead(Path.Combine(folder,"bridge-1-101.bin"),out _,out importReason),"disk importer rejects partial movement group even with valid payload/file hashes");bundle.Sections["military/entryContinuationVersion"]=continuationVersion;
+            int blockReads=0;var entryReasons=new List<string>();var unstable=new BridgePlanningCapture(m.Size,(address,length)=>{var bytes=m.Bytes(address,length);if(address==0x51d75f0&&++blockReads==2)bytes[0]^=1;return bytes;},()=>token,_=>{throw new Exception("unstable own entry published");},(k,d)=>entryReasons.Add(d),requireMilitaryRoot:true);
+            unstable.Begin(99);unstable.Observe(0x3C2E0,false,99,990,0,8,8,0,0,0,true,990);unstable.Observe(0x2D250,false,99,991,990,8,8,1,0,0,true,990);
+            Check(entryReasons.Any(v=>v.Contains("military-own-continuation-input-changed:military/entryBlockGrid"))&&unstable.ActiveFamily==0,"changed grid rejected at own-entry copy, without silently borrowing future bytes");
             byte[] corrupt=File.ReadAllBytes(artifactPath);corrupt[20]^=1;string broken=Path.Combine(folder,"broken.bin");File.WriteAllBytes(broken,corrupt);Check(!BridgePlanningImporter.TryRead(broken,out imported,out importReason),"modified payload rejected");
             File.WriteAllBytes(broken,corrupt.Take(corrupt.Length-1).ToArray());Check(!BridgePlanningImporter.TryRead(broken,out imported,out importReason),"truncated delivery rejected");
             Check(!BridgePlanningImporter.TryRead(Path.Combine(folder,"bridge-1-100.partial"),out imported,out importReason),"unfinished publisher file rejected");
@@ -572,6 +589,8 @@ namespace BridgePlanningTests
         }
         private static int Main(string[] args)
         {
+            if(args.Length==3&&args[0]=="--phase5-later-input-sensitivity"){try{return HistoricalCandidates(args[1],true,0,false,0,0,0,true,args[2]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
+            if(args.Length==2&&args[0]=="--historical-phase5-suffix"){try{return HistoricalCandidates(args[1],true,0,false,0,0,0,true);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==2&&args[0]=="--historical-own-command"){try{return HistoricalOwnCommand(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==2&&args[0]=="--historical-military"){try{return HistoricalMilitaryCoverage(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-table-hypothesis"){try{return HistoricalCandidates(args[1],true,int.Parse(args[2]),true);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}

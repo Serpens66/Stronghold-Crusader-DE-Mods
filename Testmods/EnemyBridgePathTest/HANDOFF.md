@@ -405,3 +405,32 @@ own unit-command or explicitly ongoing-state follow input, bridge-loss field/sta
 records, later gate damage if it occurs, completed topology and both artifact/
 session delivery markers. It is a capture run, not behavior-fix acceptance.
 Validation and installation complete2026-10-13 16:21:58:38362 assertions and166 private native differential cases/12629 checks passed. Fresh installed-member/runtime/lifecycle/JSON/hook/CRLF and shared-boundary checks passed. Prescribed elevated build.bat exit0; one existing CS0649 warning, zero errors. Local/installed DLL SHA25624C82CE422A5F359568E7D7351D7F6B03AB2FEF72EF70F87E18900D88811DE90 match; info SHA256789D252F6D04422F8E53735E2734EA77C4149DE1B357909B493E3660A0DBA602 unchanged. Version0.1.0/README/external mods unchanged. Transcript:_inspect/BridgePlanningTests/bridge-loss-build.log. No behavior fix activated. Real own decision/attack reproduction remains pending the specified targeted capture.
+
+## 2026-10-13 matched pair offline verification
+
+See _inspect/BridgePlanningTests/historical-20261013-2129/RESULTS.md and native logs. Own effective Pre count117914 now drives uncut variants, not histogram117923. Full own196280 native/managed unit and path outputs match immediate Post; profile1 selectsF3060. Isolated111330 selects588/326 uncut,615/462 with494 cut,none with both cuts; complete phase5 ordering is not yet reproduced. Full physical control agrees native/managed but differs from Dirty publication by seven occupied fields. Negative policy remains Unknown. No new capture requirement is proven. Streaming publisher chunk reuse is explicit and hash-checked; section/GC peak costs recorded. Resource caller remains unproven. Behavior disabled.
+
+Prescribed elevated build completed2026-10-13 22:58:49 exit0; package/installed DLL,PDB,info match:
+EnemyBridgePathTest.dll f3e405338fcefa3f3376b2989cd577880655f5616c0f5b702c6f804d2691196d
+EnemyBridgePathTest.pdb 9900e3204f27d2c8e8dc677910373a3074e16403849cf8bf971f1017d52108eb
+info.json 789d252f6d04422f8e53735e2734ea77c4149de1b357909b493e3660a0dba602
+Regression totals38475 policy assertions,326 synthetic native comparisons81090 checks; one existingCS0649 warning, zero errors. Behavior disabled; full phase5 root remains pending offline. No new game start requested.
+
+## 2026-10-13 phase5 continuation input closure
+
+Private full-body reference now125 functions, exact installed FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; no new live hooks.3C9C0/3FE50/3B980 complete before the first relevant3BFA0 unit continuation. Strict own-input execution stops atF313B, read2F7A690: historical planning did not capture line mode. Previous probe reaches DACCC reading the absent51D75F0 grid. The later command captures both, but its timestamp cannot substitute for military entry.
+
+Sensitivity run using those two EXPLICITLY LATER inputs completes the native phase5 suffix through3CE40 and both CF360/CF400 negative branches, with zero differing own-player exit bytes. This is NOT accepted historical baseline, NOT full entry, NOT managed suffix approval and NOT a behavior-fix release. Entire9999-slot entry unit data plus calculated3CF20 membership matches the complete captured consumer slot prefix; PE tail defaults are no longer used in this probe.
+
+Full11B520 additionally increments tribe-manager counter at7CC6720+736B10=83FD230, outside the4500-slot snapshot. Its initial four bytes are a required side-effect input. Sorting scratch72CEC8..736B0C is cleared/written before reads and does not justify another historical input copy.
+
+All identified runtime additions bundled: own military entryContinuationVersion1, entryLineMode4 (2F7A690/4), entryBlockGrid (51D75F0/320800), entryFormationCounter4 (83FD230/4). Entry copy stability is rechecked. Own consumer Pre/Post line mode/grid and military exit mode/grid/counter are retained using exact definition reuse. Budgets remain two attempts and one published pair, with automatic players/identities. No fixed save IDs or positions. No permission coercion, live topology write or extra Vanilla query.
+
+Importer rejects partial/versionless continuation groups even if file/payload hashes are valid. Legacy recordings stay readable and Unknown for the missing own entry fields. Productive adapter checks observed boundary equality; it explicitly does not claim that unobserved intermediate changes were absent. Synthetic write/import tests preserve arbitrary nonboolean grid bytes, signed modes and counter extremes; changed entry and exit copies are rejected. Counter changes remain recorded side effects, not a reachability claim.
+
+Next required capture: one fresh military planning/attack in the existing gate-only-access situation, bridge permanently lowered, gatehouse closed, Gate/Fixes/manual bridge feature and main destruction protection enabled, no own moat work. Fresh decisions and unit command matter; destruction optional. Wait after map end for both artifact completion records and session-delivered. The purpose is own-timestamp continuation inputs; behavior fix still disabled. Dirty1 remains Unknown for negative topology. Resource errors still lack proven caller; no external edit, replacement player or suppression.
+Continuation build installed2026-10-13 23:27:17,exit0. Package/installed hashes match:
+EnemyBridgePathTest.dll d4cd4cb2f412609cad9fd8ab07e375125562311677bca7c9981e33815987f973
+EnemyBridgePathTest.pdb 5a88a3043582e92f4cd92391b9ca2e92783eb5b53adee8d56eed028f78e841c0
+info.json 789d252f6d04422f8e53735e2734ea77c4149de1b357909b493e3660a0dba602
+326 synthetic native comparisons/81820 checks;38475 policy assertions; strict old-input probe rejects missing line mode; later-input sensitivity explicitly non-baseline. Fresh PS5.1 source/member/lifecycle/JSON/hook/CRLF/SharedBoundaries tests pass. ExistingCS0649 warning only. No runtime edits after build. Versions/README/external mods unchanged. One targeted own-timestamp capture now required; no behavior-fix test yet.

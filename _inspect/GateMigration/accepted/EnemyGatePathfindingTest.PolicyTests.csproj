@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{4A893741-1634-489A-85C9-72C09067CD8D}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>EnemyGatePathfindingTest</RootNamespace>
+    <AssemblyName>EnemyGatePathfindingTest.PolicyTests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <OutputPath>tests\bin\</OutputPath>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''">
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+  <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll was not found: $(ExtenderDir)" />
+  </Target>
+  <ItemGroup>
+    <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs"><Link>EnemyGatePathfindingNativeDefinition.cs</Link></Compile>
+    <Compile Include="src\CursorPreviewCache.cs" />
+    <Compile Include="src\FunctionalGatePolicyAdapter.cs" />
+    <Compile Include="src\DeferredGateDiagnosticErrors.cs" />
+    <Compile Include="src\BuildingSearchPlayerResolver.cs" />
+    <Compile Include="src\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
+    <Compile Include="src\GatePassageMask.cs" />
+    <Compile Include="src\ConnectedGateFootprint.cs" />
+    <Compile Include="src\SparseBuildingFootprint.cs"><Link>SparseBuildingFootprint.cs</Link></Compile>
+    <Compile Include="src\PathfindingGlobalsBaseline.cs"><Link>PathfindingGlobalsBaseline.cs</Link></Compile>
+    <Compile Include="src\DirectionFilterAdapterEmitter.cs"><Link>DirectionFilterAdapterEmitter.cs</Link></Compile>
+    <Compile Include="src\AiTacticalTargetAdapterEmitter.cs"><Link>AiTacticalTargetAdapterEmitter.cs</Link></Compile>
+    <Compile Include="src\RouteTilePolicySnapshot.cs" />
+    <Compile Include="src\GateRoutePolicySource.cs" />
+    <Compile Include="src\GateEdgeOwnership.cs" />
+    <Compile Include="..\..\Shared\Runtime\Gameplay\PathDecisionAggregate.cs"><Link>AiGateDecisionAggregate.cs</Link></Compile>
+    <Compile Include="src\GateDiagnosticClassification.cs" />
+    <Compile Include="src\CaptureTransitionDiagnostics.cs" />
+    <Compile Include="src\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
+    <Compile Include="src\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
+    <Compile Include="tests\CapturerAdapterMachineTests.cs" />
+    <Compile Include="tests\LargeGateFootprintTests.cs" />
+    <Compile Include="tests\Program.cs" /><Compile Include="tests\CompactDiagnosticTests.cs" /><Compile Include="tests\TemporaryGateAcceptanceTests.cs" /><Compile Include="src\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
+    <Compile Include="tests\GateRoutePolicyTests.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\TemporaryGateRouteAcceptanceBridge.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\Assassin\AssassinGateTransitionPolicy.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
+<ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\MacemenDiagnosticAggregate.cs" /><Compile Include="tests\MacemenDiagnosticTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\GateSearchEvidence.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="tests\GateEvidenceTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\NativeAssassinTrace.cs" /><Compile Include="src\NativeCallbackAdapterEmitter.cs" /><Compile Include="tests\NativeAssassinTraceTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="tests\NativeTraceContractTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\NativeAssassinMovementDiagnostics.cs" /><Compile Include="tests\NativeMovementTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\AssassinGateDescentRule.cs" /><Compile Include="src\AssassinGateDescentAdapter.cs" /></ItemGroup>
+</Project>

@@ -1,0 +1,186 @@
+--- 
+
++++ 
+
+@@ -27,4 +27,5 @@
+
+     internal sealed unsafe class EnemyGatePathfindingRuntime
+     {
++        private GateRoutingNativeHooks nativeHooks;
+         private const int SiteCount = 2;
+         private static readonly int DecisionCount =
+@@ -45,9 +46,4 @@
+
+         private SamePclGateRouteRuntime samePclRouteRuntime;
+         private AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
+-        private HookTransaction transaction;
+-        private CapturerComparisonCallback rootedPclComparison;
+-        private CapturerComparisonCallback rootedBuilderComparison;
+-        private readonly HookHandle<X64InlineHook> pclGraphCapturedByFilterHook = new HookHandle<X64InlineHook>();
+-        private readonly HookHandle<X64InlineHook> builderPrecheckCapturedByFilterHook = new HookHandle<X64InlineHook>();
+         private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
+         private volatile NativeGateAccessSnapshot previousStableGateAccess = NativeGateAccessSnapshot.Empty;
+@@ -63,4 +59,5 @@
+
+         private readonly long[] preservedOriginalZf = new long[2];
+         private readonly long[] foreignOriginalZf = new long[2];
++        private readonly long[] accessRuleOriginalZf = new long[2];
+         private long nativeRejectionPreserved, permittedComparisonPreserved;
+         private long untrackedPolicyClear;
+@@ -153,50 +150,7 @@
+
+             }
+ 
+-            // Our adapter executes CMP once, saves inequality in R11b, and TESTs
+-            // that Boolean after callback cleanup. The real R11 is preserved.
+-            rootedPclComparison = FilterUnrelatedCapturedEnemyGatePclGraph;
+-            rootedBuilderComparison = FilterUnrelatedCapturedEnemyGateBuilderPrecheck;
+-            ulong pclCallback = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(rootedPclComparison).ToInt64());
+-            ulong builderCallback = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(rootedBuilderComparison).ToInt64());
+-            CapturerComparisonAdapterEmitter.AssembleAndValidate(
+-                memory.Slice(pclGraphFilterRva, 20).ToArray(), libraryBase + (ulong)pclGraphFilterRva,
+-                pclCallback, libraryBase + 0x02200000UL);
+-            CapturerComparisonAdapterEmitter.AssembleAndValidate(
+-                memory.Slice(builderPrecheckFilterRva, 20).ToArray(), libraryBase + (ulong)builderPrecheckFilterRva,
+-                builderCallback, libraryBase + 0x02200000UL);
+-            transaction = new HookTransaction(
+-                context.Region,
+-                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+-                new HookTransactionOptions
+-                {
+-                    FailureMode = TransactionFailureMode.RollbackAndThrow,
+-                    OwnsHooks = false
+-                });
+-            transaction.AddInline(
+-                pclGraphCapturedByFilterHook,
+-                HookTarget.FromAddress(libraryBase + unchecked((ulong)pclGraphFilterRva)),
+-                (asm, original, returnAddress) => CapturerComparisonAdapterEmitter.Emit(asm, original, pclCallback),
+-                hookSize: EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength);
+-            transaction.AddInline(
+-                builderPrecheckCapturedByFilterHook,
+-                HookTarget.FromAddress(libraryBase + unchecked((ulong)builderPrecheckFilterRva)),
+-                (asm, original, returnAddress) => CapturerComparisonAdapterEmitter.Emit(asm, original, builderCallback),
+-                hookSize: EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength);
+-            CommitResult commitResult = transaction.Commit();
+-            if (!commitResult.IsCompleteSuccess ||
+-                !pclGraphCapturedByFilterHook.Success ||
+-                !builderPrecheckCapturedByFilterHook.Success)
+-                throw new InvalidOperationException(
+-                    $"both snapshot-based captured-player filters were not installed atomically: {commitResult}");
+-            if (pclGraphCapturedByFilterHook.Hook.DisplacedByteCount !=
+-                    EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength ||
+-                builderPrecheckCapturedByFilterHook.Hook.DisplacedByteCount !=
+-                    EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength)
+-            {
+-                // This object has not been published yet, so rollback is safe and mandatory.
+-                transaction.DisableAll();
+-                throw new InvalidOperationException(
+-                    "RedBird committed an unexpected captured-player hook span; both hooks were rolled back.");
+-            }
++            if (!GateRoutingNativeHooks.TryRequest(BugfixesAndQoLPlugin.PluginGuid, "gate-routing", context, log, out nativeHooks, out string nativeReason))
++                throw new InvalidOperationException(nativeReason);
++            nativeHooks.InstallComparisons(FilterUnrelatedCapturedEnemyGatePclGraph,FilterUnrelatedCapturedEnemyGateBuilderPrecheck);
+ 
+             bool friendlyMoatHookOwnerLoaded =
+@@ -206,13 +160,10 @@
+
+                 samePclRouteRuntime = new SamePclGateRouteRuntime(
+                     log, memory, context.Region, libraryBase, friendlyMoatHookOwnerLoaded,
+-                    attackOrderDiagnostics, deferredErrors);
++                    attackOrderDiagnostics, nativeHooks, deferredErrors);
+                 samePclRouteRuntime.MacemenDiagnostics = macemen;
+             }
+             catch (Exception ex)
+             {
+-                samePclRouteRuntime = null;
+-                Shared.DebugLogHelper.LogWarning(log,
+-                    "Active Same-PCL builder correction could not be initialized; " +
+-                    $"Vanilla remains active for that path: {ex.GetType().Name}: {ex.Message}");
++                throw new InvalidOperationException("Integrated gate routing requires its complete Same-PCL path", ex);
+             }
+             if (samePclRouteRuntime != null && temporaryAcceptance != null)
+@@ -220,5 +171,5 @@
+
+             topologyProvider.SetRoutePolicyConsumer(updated =>
+                 samePclRouteRuntime?.UpdatePolicy(updated));
+-            assassinDescent = new AssassinGateDescentRuntime(context,
++            assassinDescent = new AssassinGateDescentRuntime(context, nativeHooks,
+                 () => samePclRouteRuntime?.MacemenDiagnosticSnapshot ?? RouteTilePolicySnapshot.Empty);
+             Shared.DebugLogHelper.LogInfo(log, "Assassin gate descent guard installed: rva=0x185D55,displaced=20,continuation=0x185934,independentOfDetailedDiagnostics=true");
+@@ -248,9 +199,9 @@
+
+                 $"({pclGraphCompareResolution.Method}+0x" +
+                 $"{EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern:X}), " +
+-                $"pclGraphDisplaced={pclGraphCapturedByFilterHook.Hook.DisplacedByteCount}, " +
++                $"pclGraphDisplaced={EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength}, " +
+                 $"builderPrecheckCapturerFilter=0x{builderPrecheckFilterRva:X} " +
+                 $"({builderPrecheckCompareResolution.Method}+0x" +
+                 $"{EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern:X}), " +
+-                $"builderPrecheckDisplaced={builderPrecheckCapturedByFilterHook.Hook.DisplacedByteCount}, " +
++                $"builderPrecheckDisplaced={EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength}, " +
+                 $"redBird={redBirdVersion}, " +
+                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
+@@ -488,4 +439,5 @@
+
+             bool builderPrecheck)
+         {
++            if (Volatile.Read(ref mapActive)==0) return;
+             X64SmartCPUContext* registers = null;
+             bool originalZeroKnown = false;
+@@ -563,5 +515,5 @@
+
+                     catch { Interlocked.Increment(ref callbackWarnings); }
+                 }
+-                if (decision == NativeGateSnapshotDecision.ExcludeForeignCapture)
++                if ((decision == NativeGateSnapshotDecision.ExcludeForeignCapture || decision == NativeGateSnapshotDecision.ExcludeAccessRule))
+                 {
+                     registers->R11 &= ~0xFFUL;
+@@ -571,5 +523,5 @@
+
+                     firstPcl, secondPcl, thirdPcl, snapshotRecord,
+                     unchecked((ushort)registers->RAX), originalZero,
+-                    decision == NativeGateSnapshotDecision.ExcludeForeignCapture || originalZero,
++                    (decision == NativeGateSnapshotDecision.ExcludeForeignCapture || decision == NativeGateSnapshotDecision.ExcludeAccessRule) || originalZero,
+                     current.TopologyFingerprint, subjectGlobalId);
+             }
+@@ -619,5 +571,7 @@
+
+             if (decision == NativeGateSnapshotDecision.ExcludeForeignCapture)
+                 Interlocked.Increment(ref foreignOriginalZf[originalZero ? 1 : 0]);
+-            if ((int)decision <= (int)NativeGateSnapshotDecision.ExcludeForeignCapture)
++            if (decision == NativeGateSnapshotDecision.ExcludeAccessRule)
++                Interlocked.Increment(ref accessRuleOriginalZf[originalZero ? 1 : 0]);
++            if ((int)decision <= (int)NativeGateSnapshotDecision.ExcludeAccessRule)
+             {
+                 if (originalZero && finalZero) Interlocked.Increment(ref nativeRejectionPreserved);
+@@ -730,4 +684,5 @@
+
+             Array.Clear(preservedOriginalZf, 0, preservedOriginalZf.Length);
+             Array.Clear(foreignOriginalZf, 0, foreignOriginalZf.Length);
++            Array.Clear(accessRuleOriginalZf, 0, accessRuleOriginalZf.Length);
+             Interlocked.Exchange(ref nativeRejectionPreserved, 0);
+             Interlocked.Exchange(ref permittedComparisonPreserved, 0);
+@@ -884,5 +839,5 @@
+
+                     $"queries={same.Queries}, aiQueries={same.AiQueries}, aiNegativeWithRejectedEdges={same.AiNegativeWithRejectedEdges}, " +
+                     $"aiNegativeWithoutRejectedEdges={same.AiNegativeWithoutRejectedEdges}, incompleteSearches={same.IncompleteSearches}, " +
+-                    $"nativeRejectionPreserved={Read(ref nativeRejectionPreserved)}, foreignCaptureAcceptanceRejected={Read(ref foreignOriginalZf[0])}, " +
++                    $"nativeRejectionPreserved={Read(ref nativeRejectionPreserved)}, foreignCaptureAcceptanceRejected={Read(ref foreignOriginalZf[0])},accessRuleAcceptanceRejected={Read(ref accessRuleOriginalZf[0])}, " +
+                     $"permittedComparisonPreserved={Read(ref permittedComparisonPreserved)}, " +
+                     $"edgeRejected={same.RejectedEdges}, cursorBlocks={same.CursorResultForcedZero}, " +
+@@ -905,5 +860,5 @@
+
+                 $"uncapturedGateObserved={EnemyGatePathfindingPolicy.ObservationVerdict(uncaptured)}," +
+                 $"nativeRejectionPreserved={Read(ref nativeRejectionPreserved)}," +
+-                $"foreignCaptureAcceptanceRejected={Read(ref foreignOriginalZf[0])},permittedComparisonPreserved={Read(ref permittedComparisonPreserved)}," +
++                $"foreignCaptureAcceptanceRejected={Read(ref foreignOriginalZf[0])},accessRuleAcceptanceRejected={Read(ref accessRuleOriginalZf[0])},permittedComparisonPreserved={Read(ref permittedComparisonPreserved)}," +
+                 "counterfactualVanillaRoute=not-measured,observedIsNotFunctionalPass=true," +
+                 $"capturedGate={EnemyGatePathfindingPolicy.ObservationVerdict(topology.PeakCaptured)}," +
+@@ -980,5 +935,5 @@
+
+                     coverage.Append(":NOT_APPLICABLE");
+                 else if (total == 0 &&
+-                    decision <= (int)NativeGateSnapshotDecision.ExcludeForeignCapture)
++                    decision <= (int)NativeGateSnapshotDecision.ExcludeAccessRule)
+                     coverage.Append(":NOT_OBSERVED");
+             }

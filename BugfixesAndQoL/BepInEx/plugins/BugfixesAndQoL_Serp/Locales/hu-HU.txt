@@ -420,3 +420,8 @@ Ground.Iron=Vasmezők
 Ground.Pitch=Szurokmezők
 BugfixesAndQoL.ImprovedBuildPreview=Talajkövetelmények megjelenítése építéskor
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Pirosan jelöli az alkalmatlan talajt, és megjeleníti a szükséges mezők számát a súgóban. Csak helyi; az építési szabályok nem változnak.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Arab kardforgatók: nyugalmi hangerő
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Helyi hangerő csak az összes játékos arab kardforgatóinak nyugalmi animációja alatti kardrántásra. 0%: néma; 100%: normál hangerő; alapérték: 25%. A harci hangok változatlanok. Nincs ismétlési korlát.

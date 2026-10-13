@@ -420,3 +420,8 @@ Ground.Iron=Клетки железа
 Ground.Pitch=Клетки смолы
 BugfixesAndQoL.ImprovedBuildPreview=Показывать требования к земле при строительстве
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Отмечает неподходящую землю красным и показывает число нужных клеток в подсказке. Только локально; правила строительства не меняются.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Арабские мечники: громкость в покое
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Локальная громкость только обнажения меча в анимации покоя арабских мечников всех игроков. 0%: без звука; 100%: обычная громкость; по умолчанию: 25%. Звуки боя не меняются. Без ограничения повторов.

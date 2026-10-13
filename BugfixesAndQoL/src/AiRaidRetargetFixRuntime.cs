@@ -274,7 +274,7 @@ namespace BugfixesAndQoL
                 ? "searchObserved=False,searchAssociation=missingPre,decision=[unavailable]"
                 : pre.Evidence.Describe(pairMatches, snapshot);
             // TEMP_GATE_ROUTE_ACCEPTANCE: already associated decision, never changes classification.
-            if (APIShared.TemporaryGateRouteAcceptanceBridge.Current != null)
+            if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
             {
                 CandidateRecord diagnosticFirst = snapshot.Records.Length == 0 ? default : snapshot.Records[0];
                 APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(raidPlayer, raidGroup, args.TribeId, tribeGlobalId, args.TargetValue1, targetGlobalId,
@@ -857,7 +857,7 @@ namespace BugfixesAndQoL
             int storedId = 0, uint storedGlobalId = 0)
         {
             // TEMP_GATE_ROUTE_ACCEPTANCE: counts every completion, independent of warning suppression.
-            if (APIShared.TemporaryGateRouteAcceptanceBridge.Current != null)
+            if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
                 APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(retry.PlayerId, retry.Group, retry.TribeId, retry.TribeGlobalId,
                 selectedId, selectedGlobalId, "raid-retarget", outcome.Split(':')[0].Split(';')[0],
                 "original=" + retry.OriginalFailedId + "/" + retry.OriginalFailedGlobalId + ",attempts=" + retry.Attempts.Count + ",reason=" + outcome);

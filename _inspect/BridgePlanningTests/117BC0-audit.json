@@ -1,0 +1,133 @@
+[
+  {
+    "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "address": "0x180117BC0",
+    "rva": "0x117BC0",
+    "name": "FUN_180117bc0",
+    "confidence": "candidate",
+    "size": 173,
+    "signature": "undefined FUN_180117bc0(void)",
+    "comment": null,
+    "raw_hash": "22F2A1110140E18C7337E6098937E483A98C3BF0D1DCC36BF6B33DD2EFA7FDC8",
+    "normalized_hash": "1880A3B17DAE0599BBF211AC63431346BC182B317B456746465F8DCC802A1DB3",
+    "block_count": 9,
+    "pseudocode": "/* FUNCTION FUN_180117bc0 VA=0x180117BC0 RVA=0x117BC0 */\n\nint FUN_180117bc0(longlong param_1,int param_2)\n\n{\n  short sVar1;\n  int iVar2;\n  int iVar3;\n  longlong lVar4;\n  \n  iVar3 = 0;\n  sVar1 = *(short *)((longlong)param_2 * 0x688 + 0x5c + param_1);\n  if (0 < sVar1) {\n    do {\n      iVar2 = FUN_180119f90(param_1,param_2,iVar3);\n      lVar4 = (longlong)iVar2;\n      iVar3 = iVar3 + 1;\n      if ((((&DAT_1867e8ae4)[lVar4 * 0x248] == 2) && ((&DAT_1867e8cf8)[lVar4 * 0x248] == 0)) &&\n         (((&DAT_1848f71b0)[(int)(&DAT_1867e8b2c)[lVar4 * 0x124]] & 0x40000000) != 0)) {\n        return iVar2;\n      }\n    } while (iVar3 < sVar1);\n  }\n  return 0;\n}\n\n\n\n",
+    "semanticClaims": [],
+    "classifications": [],
+    "strings": [],
+    "dataReferences": [
+      {
+        "target_rva": "0x0"
+      },
+      {
+        "target_rva": "0x48F71B0"
+      },
+      {
+        "target_rva": "0x67E8AE4"
+      },
+      {
+        "target_rva": "0x67E8B2C"
+      },
+      {
+        "target_rva": "0x67E8CF8"
+      }
+    ],
+    "callees": [
+      {
+        "callee_rva": "0x119F90",
+        "callee_name": "FUN_180119f90"
+      }
+    ],
+    "callers": [
+      {
+        "caller_rva": "0x11B520"
+      }
+    ],
+    "managedCallers": [],
+    "globals": [
+      {
+        "address": "0x180000000",
+        "rva": "0x0",
+        "name": "IMAGE_DOS_HEADER_180000000",
+        "data_type": "IMAGE_DOS_HEADER",
+        "reference_count": 2612
+      },
+      {
+        "address": "0x180117C00",
+        "rva": "0x117C00",
+        "name": "LAB_180117c00",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180117C47",
+        "rva": "0x117C47",
+        "name": "LAB_180117c47",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x180117C4B",
+        "rva": "0x117C4B",
+        "name": "LAB_180117c4b",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180117C4D",
+        "rva": "0x117C4D",
+        "name": "LAB_180117c4d",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180117C68",
+        "rva": "0x117C68",
+        "name": "LAB_180117c68",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1848F71B0",
+        "rva": "0x48F71B0",
+        "name": "DAT_1848f71b0",
+        "data_type": "undefined4",
+        "reference_count": 564
+      },
+      {
+        "address": "0x1867E8AE4",
+        "rva": "0x67E8AE4",
+        "name": "DAT_1867e8ae4",
+        "data_type": "undefined2",
+        "reference_count": 358
+      },
+      {
+        "address": "0x1867E8B2C",
+        "rva": "0x67E8B2C",
+        "name": "DAT_1867e8b2c",
+        "data_type": "undefined4",
+        "reference_count": 167
+      },
+      {
+        "address": "0x1867E8CF8",
+        "rva": "0x67E8CF8",
+        "name": "DAT_1867e8cf8",
+        "data_type": "undefined2",
+        "reference_count": 143
+      }
+    ],
+    "types": [],
+    "versionMatches": [
+      {
+        "old_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+        "new_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+        "old_rva": "0x116CE0",
+        "new_rva": "0x117BC0",
+        "confidence": "confirmed",
+        "reason": "unique-normalized-hash-and-cfg",
+        "score": 1.0,
+        "changed": 1
+      }
+    ]
+  }
+]

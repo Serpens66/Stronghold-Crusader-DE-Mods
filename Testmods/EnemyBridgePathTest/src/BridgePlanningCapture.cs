@@ -20,10 +20,10 @@ namespace EnemyBridgePathTest
             internal readonly Dictionary<string,string> References=new Dictionary<string,string>();
             internal readonly List<int> Stages=new List<int>();
             internal bool Complete;
-            internal IEnumerable<byte[]> Serialize()
+            internal IEnumerable<byte[]> Serialize(bool transientBuffers=false)
             {
-                foreach(var pair in Sections)foreach(var block in BridgeInputArtifact.Section("plan/"+pair.Key,pair.Value,1))yield return block;
-                foreach(var pair in References)foreach(var block in BridgeInputArtifact.Section("plan/ref/"+pair.Key,System.Text.Encoding.UTF8.GetBytes(pair.Value),1))yield return block;
+                foreach(var pair in Sections)foreach(var block in BridgeInputArtifact.Section("plan/"+pair.Key,pair.Value,1,transientBuffers))yield return block;
+                foreach(var pair in References)foreach(var block in BridgeInputArtifact.Section("plan/ref/"+pair.Key,System.Text.Encoding.UTF8.GetBytes(pair.Value),1,transientBuffers))yield return block;
             }
             internal string Metadata => "planningSession="+Session+"\nplanningBundleOp="+Op+"\nplanningParent="+Parent+"\nplanningBundleRoot="+Root+"\nplanningCaptureClock="+Clock+"\nplanningRevision="+Revision+"\nplanningDirty="+Dirty+"\nplanningNegativeEligible="+NegativeEligible+"\nplanningComplete="+Complete+"\nplanningSelectionReason="+SelectionReason+"\nplanningReason="+Reason+"\nplanningAttacker="+Attacker+"\nplanningTarget="+Target+"\nplanningConsumerCaptureVersion="+(Sections.ContainsKey("consumer/pre/identity")?ConsumerVersion:0)+"\nplanningMode="+Mode+"\nplanningBank="+Bank+"\nplanningThread="+Thread+"\nplanningConsumerCopyMs="+(ConsumerTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\nplanningCaptureMs="+(Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
         }
@@ -106,7 +106,7 @@ namespace EnemyBridgePathTest
         {if(at<0||bytes<0||(long)at+bytes>moduleLength)throw new InvalidOperationException("planning-read-outside-module");byte[] b=read(at,bytes);if(b==null||b.Length!=bytes)throw new InvalidOperationException("short-planning-copy");return b;}
         private int Int(int at)=>BitConverter.ToInt32(Read(at,4),0);
         internal static bool IsDecisionCapturePhase(int phase)=>phase==4||phase==5;
-        internal void Begin(long value){if(current!=null)Reject("map-changed-during-planning");current=ready=null;targetFrames.Clear();identity=consumerIdentity=null;consumerOp=militaryEntryOp=0;consumerCount=0;consumerPrefix="consumer";militaryEntry=null;militaryInputs=null;session=value;selectionReason="not-selected";selected=false;attempts=entryAttempts=0;entrySkipped=0;entryReason="not-observed";terminalReason="none";entryCopyTicks=0;skipped=rejected=completedBundles=lastTicks=0;lastReason="awaiting-fresh-relevant-planning";effectiveCountTicks=effectiveCountReads=0;emit("planning-capture-ready","attacker=automatic,attemptLimit=2,planningArtifactLimit=1,groupArtifactLimit=1,requires=stable-map-and-military-parent,dirtyCaptureAllowed=True,requiredEntryPhases=4/5,entryInputVersion=1,entryAttemptLimit=2,fullUnitAndTribeManagers=True,negativePolicyRequiresCompletedTopology=True,behavior=unchanged");}
+        internal void Begin(long value){if(current!=null)Reject("map-changed-during-planning");current=ready=null;targetFrames.Clear();identity=consumerIdentity=null;consumerOp=militaryEntryOp=0;consumerCount=0;consumerPrefix="consumer";militaryEntry=null;militaryInputs=null;session=value;selectionReason="not-selected";selected=false;attempts=entryAttempts=0;entrySkipped=0;entryReason="not-observed";terminalReason="none";entryCopyTicks=0;skipped=rejected=completedBundles=lastTicks=0;lastReason="awaiting-fresh-relevant-planning";effectiveCountTicks=effectiveCountReads=0;emit("planning-capture-ready","attacker=automatic,attemptLimit=2,planningArtifactLimit=1,groupArtifactLimit=1,requires=stable-map-and-military-parent,dirtyCaptureAllowed=True,requiredEntryPhases=4/5,entryInputVersion=1,entryContinuationVersion=1,ownLineModeAndBlockGrid=True,ownFormationCounter=True,entryAttemptLimit=2,fullUnitAndTribeManagers=True,negativePolicyRequiresCompletedTopology=True,behavior=unchanged");}
         internal void End(){if(current!=null)Reject("map-ended-during-planning");if(ready!=null){emit("planning-capture-incomplete","op="+ready.Op+",reason=map-ended-before-military-root-completed");ready=null;targetFrames.Clear();}emit("planning-capture-end",Status+",historicalMissingValues=unknown,behavior=unchanged");session=0;militaryInputs=null;militaryEntry=null;militaryEntryOp=0;}
         private void Reject(string reason)
         {if(current==null)return;lastReason=terminalReason=reason;rejected++;lastTicks=current.Ticks;current.Reason=reason;current.Complete=false;emit("planning-capture-incomplete","op="+current.Op+",reason="+reason+",behavior=unchanged");current=null;identity=null;}
@@ -163,6 +163,12 @@ namespace EnemyBridgePathTest
                         var bytes=new byte[32];Buffer.BlockCopy(context,0,bytes,0,32);
                         copied.Add("military/entryIdentity4",bytes);
                         copied.Add("military/entryInputVersion",BitConverter.GetBytes(1));
+                        // Audited F3060/F32B0/DAAC0 and11B520 inputs. The latter
+                        // counter lies beyond the copied4500 tribe-slot view.
+                        copied.Add("military/entryContinuationVersion",BitConverter.GetBytes(1));
+                        copied.Add("military/entryLineMode4",Read(0x2f7a690,4));
+                        copied.Add("military/entryBlockGrid",Read(0x51d75f0,N));
+                        copied.Add("military/entryFormationCounter4",Read(0x7cc6720+0x736b10,4));
                         copied.Add("military/entryUnitManagerFull",Read(0x67E8400,EntryUnitBytes));
                         copied.Add("military/entryTribesFull",Read(0x7CC6720,EntryTribeBytes));
                         copied.Add("military/entryPlayers9",Read(0x379AE00,9*0x583c));
@@ -181,7 +187,9 @@ namespace EnemyBridgePathTest
                         foreach(var table in new[]{Tuple.Create("military/entryLeaderIds9",0x3A0F9F0),Tuple.Create("military/entryLeaderGlobals9",0x3A0FA04),Tuple.Create("military/entryUpdateClasses11",0x2C8040),Tuple.Create("military/entryMoveClasses11",0x2C80E0)})
                             if(!Same(copied[table.Item1],Read(table.Item2,copied[table.Item1].Length)))throw new InvalidOperationException("military-own-entry-table-changed");
                         if(lord!=0&&(config[1]!=Int(checked(0x366C210+lord*0x5e4-0x3d8))||config[2]!=Int(checked(0x366C210+lord*0x5e4-0x2f8))||config[3]!=Read(checked(0x366C210+lord*0x5e4-0x2f0),1)[0])||config[4]!=Int(0x3665FBC)||BitConverter.ToInt32(counters,0)!=Int(checked(0x2EB2CCC+a*0x177bc))||BitConverter.ToInt32(counters,4)!=Int(checked(0x2EBAA04+a*0x177bc)))throw new InvalidOperationException("military-own-entry-controls-changed");
-                        if(!Same(copied["military/entryLordConfigRow"],Read(checked(0x366C210+(lord-1)*0x5e4),0x5e4))||!Same(copied["military/entryPhase5Controls"],Read(0x3665fb8,8)))throw new InvalidOperationException("military-own-entry-phase5-controls-changed");militaryInputs=copied;militaryEntryOp=op;
+                        if(!Same(copied["military/entryLordConfigRow"],Read(checked(0x366C210+(lord-1)*0x5e4),0x5e4))||!Same(copied["military/entryPhase5Controls"],Read(0x3665fb8,8)))throw new InvalidOperationException("military-own-entry-phase5-controls-changed");                        foreach(var value in new[]{Tuple.Create("military/entryLineMode4",0x2f7a690),Tuple.Create("military/entryBlockGrid",0x51d75f0),Tuple.Create("military/entryFormationCounter4",0x7cc6720+0x736b10)})
+                            if(!Same(copied[value.Item1],Read(value.Item2,copied[value.Item1].Length)))throw new InvalidOperationException("military-own-continuation-input-changed:"+value.Item1);
+                        militaryInputs=copied;militaryEntryOp=op;
                     }
                     else entrySkipped++;
                 }
@@ -321,6 +329,7 @@ namespace EnemyBridgePathTest
                 else if(!completed||consumerOp!=op||!ReferenceEquals(consumerIdentity,token()))throw new InvalidOperationException("consumer-frame-or-map-changed");
                 if(post&&BitConverter.ToInt32(ready.Sections[consumerPrefix+"/projectionCoverage4"],0)==0)ready.Sections[consumerPrefix+"/projectionCoverage4"]=BitConverter.GetBytes(2);
                 string stage=consumerPrefix+(post?"/post":"/pre");
+                if(ready.Sections.ContainsKey("military/entryContinuationVersion")){ConsumerCopy(stage,"commandLineMode4",0x2f7a690,4);ConsumerCopy(stage,"commandBlockGrid",0x51d75f0,N);}
                 long[] context={run,root,op,parent,player,ready.Target,Stopwatch.GetTimestamp(),Int(Root+0x6c),Int(Root+0x74)};var identityBytes=new byte[context.Length*8];Buffer.BlockCopy(context,0,identityBytes,0,identityBytes.Length);ready.Sections.Add(stage+"/identity",identityBytes);
                 ConsumerCopy(stage,"candidates",VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes);
                 ConsumerCopy(stage,"players",0x379AE00,9*0x583c);
@@ -371,6 +380,7 @@ namespace EnemyBridgePathTest
                         if(!ready.Sections.ContainsKey("military/entryPlayer"))throw new InvalidOperationException("missing-own-military-entry");
                     }
                     ready.Sections.Add("military/exitPlayer",Read(0x379AE00+ready.Attacker*0x583c,0x583c));
+                    if(ready.Sections.ContainsKey("military/entryContinuationVersion")){ConsumerCopy("military","exitLineMode4",0x2f7a690,4);ConsumerCopy("military","exitBlockGrid",0x51d75f0,N);ConsumerCopy("military","exitFormationCounter4",0x7cc6720+0x736b10,4);}
                     emit("planning-consumer-coverage","op="+ready.Op+",root="+ready.Root+",hasConsumer="+ready.Sections.ContainsKey("consumer/post/identity")+",hasMilitaryEntry="+ready.Sections.ContainsKey("military/entryPlayer"));
                     if(targetFrames.Count!=0)throw new InvalidOperationException("unfinished-target-selection-frame");
                     Bundle done=ready;lastTicks=done.Ticks;ready=null;completedBundles++;emit("planning-target-coverage","op="+done.Op+",root="+done.Root+",targetRecords="+TargetRecordCount(done)+",missingTargetOutcome="+(TargetRecordCount(done)==0));deliver(done);return;

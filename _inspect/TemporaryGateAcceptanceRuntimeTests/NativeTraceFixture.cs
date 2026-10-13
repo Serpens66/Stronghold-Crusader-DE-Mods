@@ -2,11 +2,11 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Collections.Generic;
-using EnemyGatePathfindingTest;
+using BugfixesAndQoL.GateRouting;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using APIShared;
-namespace EnemyGatePathfindingTest
+namespace BugfixesAndQoL.GateRouting
 {
     internal unsafe struct X64SmartCPUContext { internal ulong RAX,RBX,RCX,RDX,RSI,RDI,RBP,RSP,R8,R9,R10,R11,R12,R13,R14,R15,Rflags; }
     internal class NativeAssassinMovementDiagnostics { internal struct Sample { internal long Epoch,Generation; internal object Snapshot; } internal string[] Drain()=>new string[0]; }

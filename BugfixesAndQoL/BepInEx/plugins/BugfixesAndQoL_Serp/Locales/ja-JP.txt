@@ -420,3 +420,8 @@ Ground.Iron=鉄のマス
 Ground.Pitch=ピッチのマス
 BugfixesAndQoL.ImprovedBuildPreview=建設時に地面の条件を表示
 BugfixesAndQoL.ImprovedBuildPreviewHelp=不適切な地面を赤く表示し、建設ツールチップに必要なタイル数を表示します。ローカルのみ。建設ルールは変わりません。
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=アラビア剣士：待機音量
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=全プレイヤーのアラビア剣士が待機動作中に剣を抜く音だけのローカル音量です。0%：無音、100%：通常音量、初期値：25%。戦闘音は変更しません。繰り返し制限はありません。

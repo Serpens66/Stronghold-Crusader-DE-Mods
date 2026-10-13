@@ -420,3 +420,8 @@ Ground.Iron=حقول الحديد
 Ground.Pitch=حقول القار
 BugfixesAndQoL.ImprovedBuildPreview=عرض متطلبات الأرض أثناء البناء
 BugfixesAndQoL.ImprovedBuildPreviewHelp=تمييز الأرض غير المناسبة بالأحمر وعرض عدد البلاطات المطلوبة في تلميح البناء. محلي؛ لا يغير قواعد البناء.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=مبارزو السيوف العرب: مستوى صوت الخمول
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=مستوى صوت محلي لسحب السيف أثناء حركة الخمول للمبارزين العرب لدى جميع اللاعبين فقط. 0%: صامت؛ 100%: المستوى العادي؛ الافتراضي: 25%. لا تتغير أصوات القتال. لا يوجد حد للتكرار.

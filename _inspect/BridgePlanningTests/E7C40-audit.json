@@ -1,0 +1,267 @@
+[
+  {
+    "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "address": "0x1800E7C40",
+    "rva": "0xE7C40",
+    "name": "FUN_1800e7c40",
+    "confidence": "candidate",
+    "size": 786,
+    "signature": "undefined FUN_1800e7c40(void)",
+    "comment": null,
+    "raw_hash": "F9D60FF1F604C911CC421C2F30C06BA9C7345C79A5AD1844A15202EE42C7F91E",
+    "normalized_hash": "F91A0945DAF087E06D91855731C8702B9E01DA6D8043D058D3AFBCB70BC06B2D",
+    "block_count": 25,
+    "pseudocode": "/* FUNCTION FUN_1800e7c40 VA=0x1800E7C40 RVA=0xE7C40 */\n\nint FUN_1800e7c40(longlong param_1,undefined4 param_2,undefined4 param_3,uint param_4,uint param_5)\n\n{\n  short sVar1;\n  short sVar2;\n  short sVar3;\n  uint uVar4;\n  uint uVar5;\n  char cVar6;\n  int iVar7;\n  longlong lVar8;\n  longlong lVar9;\n  int iVar10;\n  short *psVar11;\n  int iVar12;\n  \n  *(undefined8 *)(param_1 + 0x48) = 0;\n  *(undefined4 *)(param_1 + 0x44) = 0;\n  if (((param_4 < 800) && (param_5 < 800)) &&\n     ((&DAT_183a11ea4)[(longlong)(int)param_5 * 800 + (longlong)(int)param_4] != '\\0')) {\n    *(int *)(param_1 + 4) = *(int *)(param_1 + 4) + 1;\n    if (32000 < *(int *)(param_1 + 4)) {\n      *(undefined4 *)(param_1 + 4) = 1;\n      FUN_180007490(&DAT_1860ad648,0x9ca40,0,&DAT_1852c2550);\n      FUN_180007490(&DAT_1860ad648,2000,0,param_1 + 0x1084);\n    }\n    *(undefined8 *)(param_1 + 0x155f38) = 1;\n    *(undefined4 *)(param_1 + 0x155f44) = 1;\n    *(short *)(param_1 + 0x28f3ec) = (short)param_5;\n    *(short *)(param_1 + 0x32be2c) = (short)param_4;\n    iVar10 = (&DAT_18402ff2c)[(longlong)(int)param_5 * 3];\n    *(uint *)(param_1 + 0x155f6c) = iVar10 + param_4;\n    *(undefined2 *)(&DAT_185225b10 + (longlong)(int)(iVar10 + param_4) * 2) = 1;\n    *(undefined2 *)(&DAT_1852c2550 + (longlong)*(int *)(param_1 + 0x155f6c) * 2) =\n         *(undefined2 *)(param_1 + 4);\n    iVar10 = *(int *)(param_1 + 0x155f3c);\n    if (iVar10 != *(int *)(param_1 + 0x155f44)) {\n      do {\n        iVar12 = 0;\n        lVar8 = (longlong)iVar10;\n        uVar4 = *(uint *)(param_1 + 0x155f6c + lVar8 * 4);\n        if (0x4e51f < uVar4) {\n          return 0;\n        }\n        sVar1 = *(short *)(param_1 + 0x28f3ec + lVar8 * 2);\n        psVar11 = &DAT_1802d2e54;\n        sVar2 = *(short *)(param_1 + 0x32be2c + lVar8 * 2);\n        *(int *)(param_1 + 0x155f38) = (int)*(short *)(&DAT_185225b10 + (longlong)(int)uVar4 * 2);\n        iVar10 = sVar1 * 8;\n        do {\n          iVar7 = *(int *)(&DAT_18405edb0 + (longlong)iVar10 * 4);\n          lVar9 = (longlong)(int)(iVar7 + uVar4);\n          lVar8 = lVar9 * 2;\n          if ((int)*(short *)(&DAT_1852c2550 + lVar8) != *(int *)(param_1 + 4)) {\n            uVar5 = (&DAT_1848f71b0)[lVar9];\n            if ((uVar5 >> 0x1e & 1) != 0) {\n              sVar3 = psVar11[-2];\n              *(short *)(&DAT_185225b10 + lVar8) = *(short *)(param_1 + 0x155f38) + 1;\n              *(undefined2 *)(&DAT_1852c2550 + lVar8) = *(undefined2 *)(param_1 + 4);\n              *(short *)(param_1 + 0x32be2c + (longlong)*(int *)(param_1 + 0x155f44) * 2) =\n                   sVar2 + sVar3;\n              *(short *)(param_1 + 0x28f3ec + (longlong)*(int *)(param_1 + 0x155f44) * 2) =\n                   sVar1 + *psVar11;\n              *(uint *)(param_1 + 0x155f6c + (longlong)*(int *)(param_1 + 0x155f44) * 4) =\n                   iVar7 + uVar4;\n              *(int *)(param_1 + 0x155f44) = *(int *)(param_1 + 0x155f44) + 1;\n              iVar7 = *(int *)(param_1 + 0x155f44);\n              if (0x4e51f < *(int *)(param_1 + 0x155f44)) {\n                iVar7 = 0;\n              }\n              *(int *)(param_1 + 0x155f44) = iVar7;\n            }\n            if (((uVar5 & 0x4a5014b1) == 0) ||\n               (((uVar5 >> 0xc & 1) != 0 && (cVar6 = FUN_180107160(&DAT_1832de440), cVar6 != '\\0')))\n               ) {\n              sVar3 = (&DAT_1850ec690)[lVar9];\n              if (*(int *)(param_1 + 0x1084 + (longlong)sVar3 * 4) != *(int *)(param_1 + 4)) {\n                *(int *)(param_1 + 0x1084 + (longlong)sVar3 * 4) = *(int *)(param_1 + 4);\n                iVar7 = c_game_get_next_reachable_pcl_to_destination_for_player\n                                  (param_1,param_2,(int)sVar3,param_3,0);\n                if (iVar7 != 0) {\n                  *(int *)(param_1 + 0x18) =\n                       (int)sVar2 + *(int *)(&DAT_1802d2e50 + (longlong)iVar12 * 4);\n                  *(int *)(param_1 + 0x1c) =\n                       (int)sVar1 + *(int *)(&DAT_1802d2e54 + (longlong)iVar12 * 4);\n                  return (int)sVar3;\n                }\n              }\n            }\n          }\n          iVar12 = iVar12 + 1;\n          iVar10 = iVar10 + 1;\n          psVar11 = psVar11 + 4;\n        } while ((longlong)psVar11 < 0x1802d2e94);\n        *(int *)(param_1 + 0x155f3c) = *(int *)(param_1 + 0x155f3c) + 1;\n        iVar10 = *(int *)(param_1 + 0x155f3c);\n        if (0x4e51f < iVar10) {\n          *(undefined4 *)(param_1 + 0x155f3c) = 0;\n          iVar10 = 0;\n        }\n      } while (iVar10 != *(int *)(param_1 + 0x155f44));\n    }\n  }\n  return 0;\n}\n\n\n\n",
+    "semanticClaims": [],
+    "classifications": [],
+    "strings": [],
+    "dataReferences": [
+      {
+        "target_rva": "0x0"
+      },
+      {
+        "target_rva": "0x2D2E50"
+      },
+      {
+        "target_rva": "0x2D2E54"
+      },
+      {
+        "target_rva": "0x2D2E58"
+      },
+      {
+        "target_rva": "0x2D2E94"
+      },
+      {
+        "target_rva": "0x32DE440"
+      },
+      {
+        "target_rva": "0x3A11EA4"
+      },
+      {
+        "target_rva": "0x402FF2C"
+      },
+      {
+        "target_rva": "0x405EDB0"
+      },
+      {
+        "target_rva": "0x48F71B0"
+      },
+      {
+        "target_rva": "0x50EC690"
+      },
+      {
+        "target_rva": "0x5225B10"
+      },
+      {
+        "target_rva": "0x52C2550"
+      },
+      {
+        "target_rva": "0x60AD648"
+      }
+    ],
+    "callees": [
+      {
+        "callee_rva": "0x7490",
+        "callee_name": "FUN_180007490"
+      },
+      {
+        "callee_rva": "0xE2610",
+        "callee_name": "c_game_get_next_reachable_pcl_to_destination_for_player"
+      },
+      {
+        "callee_rva": "0x107160",
+        "callee_name": "FUN_180107160"
+      }
+    ],
+    "callers": [
+      {
+        "caller_rva": "0x69D60"
+      },
+      {
+        "caller_rva": "0x8C5F0"
+      },
+      {
+        "caller_rva": "0x11B520"
+      },
+      {
+        "caller_rva": "0x18E1E0"
+      },
+      {
+        "caller_rva": "0x196280"
+      }
+    ],
+    "managedCallers": [],
+    "globals": [
+      {
+        "address": "0x180000000",
+        "rva": "0x0",
+        "name": "IMAGE_DOS_HEADER_180000000",
+        "data_type": "IMAGE_DOS_HEADER",
+        "reference_count": 2612
+      },
+      {
+        "address": "0x1802D2E50",
+        "rva": "0x2D2E50",
+        "name": "DAT_1802d2e50",
+        "data_type": "undefined2",
+        "reference_count": 126
+      },
+      {
+        "address": "0x1802D2E54",
+        "rva": "0x2D2E54",
+        "name": "DAT_1802d2e54",
+        "data_type": "undefined2",
+        "reference_count": 190
+      },
+      {
+        "address": "0x1802D2E58",
+        "rva": "0x2D2E58",
+        "name": "DAT_1802d2e58",
+        "data_type": "undefined4",
+        "reference_count": 49
+      },
+      {
+        "address": "0x1802D2E94",
+        "rva": "0x2D2E94",
+        "name": "DAT_1802d2e94",
+        "data_type": "undefined4",
+        "reference_count": 53
+      },
+      {
+        "address": "0x1832DE440",
+        "rva": "0x32DE440",
+        "name": "DAT_1832de440",
+        "data_type": "undefined4",
+        "reference_count": 150
+      },
+      {
+        "address": "0x183A11EA4",
+        "rva": "0x3A11EA4",
+        "name": "DAT_183a11ea4",
+        "data_type": "undefined1",
+        "reference_count": 255
+      },
+      {
+        "address": "0x18402FF2C",
+        "rva": "0x402FF2C",
+        "name": "DAT_18402ff2c",
+        "data_type": "undefined4",
+        "reference_count": 1039
+      },
+      {
+        "address": "0x18405EDB0",
+        "rva": "0x405EDB0",
+        "name": "DAT_18405edb0",
+        "data_type": null,
+        "reference_count": 1136
+      },
+      {
+        "address": "0x1848F71B0",
+        "rva": "0x48F71B0",
+        "name": "DAT_1848f71b0",
+        "data_type": "undefined4",
+        "reference_count": 564
+      },
+      {
+        "address": "0x1850EC690",
+        "rva": "0x50EC690",
+        "name": "DAT_1850ec690",
+        "data_type": "undefined2",
+        "reference_count": 259
+      },
+      {
+        "address": "0x185225B10",
+        "rva": "0x5225B10",
+        "name": "DAT_185225b10",
+        "data_type": null,
+        "reference_count": 413
+      },
+      {
+        "address": "0x1852C2550",
+        "rva": "0x52C2550",
+        "name": "DAT_1852c2550",
+        "data_type": null,
+        "reference_count": 586
+      },
+      {
+        "address": "0x1860AD648",
+        "rva": "0x60AD648",
+        "name": "DAT_1860ad648",
+        "data_type": null,
+        "reference_count": 312
+      },
+      {
+        "address": "0x1800E7CFC",
+        "rva": "0xE7CFC",
+        "name": "LAB_1800e7cfc",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E7D60",
+        "rva": "0xE7D60",
+        "name": "LAB_1800e7d60",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E7DB0",
+        "rva": "0xE7DB0",
+        "name": "LAB_1800e7db0",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E7E5C",
+        "rva": "0xE7E5C",
+        "name": "LAB_1800e7e5c",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E7E86",
+        "rva": "0xE7E86",
+        "name": "LAB_1800e7e86",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E7ECC",
+        "rva": "0xE7ECC",
+        "name": "LAB_1800e7ecc",
+        "data_type": null,
+        "reference_count": 4
+      },
+      {
+        "address": "0x1800E7F08",
+        "rva": "0xE7F08",
+        "name": "LAB_1800e7f08",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E7F14",
+        "rva": "0xE7F14",
+        "name": "LAB_1800e7f14",
+        "data_type": null,
+        "reference_count": 5
+      },
+      {
+        "address": "0x1800E7F16",
+        "rva": "0xE7F16",
+        "name": "LAB_1800e7f16",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E7F27",
+        "rva": "0xE7F27",
+        "name": "LAB_1800e7f27",
+        "data_type": null,
+        "reference_count": 1
+      }
+    ],
+    "types": [],
+    "versionMatches": []
+  }
+]

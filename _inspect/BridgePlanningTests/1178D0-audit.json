@@ -1,0 +1,123 @@
+[
+  {
+    "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "address": "0x1801178D0",
+    "rva": "0x1178D0",
+    "name": "FUN_1801178d0",
+    "confidence": "candidate",
+    "size": 172,
+    "signature": "undefined FUN_1801178d0(void)",
+    "comment": null,
+    "raw_hash": "4C73840BD9071F002033E0699FBA6E24B1811511D94B8E943E190560BDF70305",
+    "normalized_hash": "E95F2AEB0274D7D1137D91F770950517A86E6AF69B40CCC6910FBDFEC88AA9C4",
+    "block_count": 9,
+    "pseudocode": "/* FUNCTION FUN_1801178d0 VA=0x1801178D0 RVA=0x1178D0 */\n\nundefined8 FUN_1801178d0(longlong param_1,int param_2)\n\n{\n  int iVar1;\n  int iVar2;\n  \n  iVar2 = 0;\n  if (0 < *(short *)((longlong)param_2 * 0x688 + 0x5c + param_1)) {\n    do {\n      iVar1 = FUN_180119f90(param_1,param_2,iVar2);\n      iVar2 = iVar2 + 1;\n      if ((((&DAT_1867e8ae4)[(longlong)iVar1 * 0x248] == 2) &&\n          ((&DAT_1867e8cf8)[(longlong)iVar1 * 0x248] == 0)) &&\n         (iVar1 = FUN_180188340(&DAT_1867e8400,iVar1), iVar1 == 0)) {\n        return 0;\n      }\n    } while (iVar2 < *(short *)((longlong)param_2 * 0x688 + 0x5c + param_1));\n  }\n  return 1;\n}\n\n\n\n",
+    "semanticClaims": [],
+    "classifications": [],
+    "strings": [],
+    "dataReferences": [
+      {
+        "target_rva": "0x67E8400"
+      },
+      {
+        "target_rva": "0x67E8AE4"
+      },
+      {
+        "target_rva": "0x67E8CF8"
+      }
+    ],
+    "callees": [
+      {
+        "callee_rva": "0x119F90",
+        "callee_name": "FUN_180119f90"
+      },
+      {
+        "callee_rva": "0x188340",
+        "callee_name": "FUN_180188340"
+      }
+    ],
+    "callers": [
+      {
+        "caller_rva": "0x3CAC0"
+      },
+      {
+        "caller_rva": "0x10AA20"
+      },
+      {
+        "caller_rva": "0x11A980"
+      }
+    ],
+    "managedCallers": [],
+    "globals": [
+      {
+        "address": "0x180117910",
+        "rva": "0x117910",
+        "name": "LAB_180117910",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011794F",
+        "rva": "0x11794F",
+        "name": "LAB_18011794f",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x180117958",
+        "rva": "0x117958",
+        "name": "LAB_180117958",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011795D",
+        "rva": "0x11795D",
+        "name": "LAB_18011795d",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x180117978",
+        "rva": "0x117978",
+        "name": "LAB_180117978",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1867E8400",
+        "rva": "0x67E8400",
+        "name": "DAT_1867e8400",
+        "data_type": "undefined4",
+        "reference_count": 2910
+      },
+      {
+        "address": "0x1867E8AE4",
+        "rva": "0x67E8AE4",
+        "name": "DAT_1867e8ae4",
+        "data_type": "undefined2",
+        "reference_count": 358
+      },
+      {
+        "address": "0x1867E8CF8",
+        "rva": "0x67E8CF8",
+        "name": "DAT_1867e8cf8",
+        "data_type": "undefined2",
+        "reference_count": 143
+      }
+    ],
+    "types": [],
+    "versionMatches": [
+      {
+        "old_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+        "new_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+        "old_rva": "0x1169F0",
+        "new_rva": "0x1178D0",
+        "confidence": "confirmed",
+        "reason": "unique-normalized-hash-and-cfg",
+        "score": 1.0,
+        "changed": 1
+      }
+    ]
+  }
+]

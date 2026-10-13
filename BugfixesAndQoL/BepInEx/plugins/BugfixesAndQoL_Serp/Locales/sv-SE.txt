@@ -420,3 +420,8 @@ Ground.Iron=Järnrutor
 Ground.Pitch=Beckrutor
 BugfixesAndQoL.ImprovedBuildPreview=Visa markkrav vid byggande
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Markerar olämplig mark röd och visar antalet nödvändiga rutor i byggtipsen. Endast lokalt; byggreglerna förblir oförändrade.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Arabiska svärdsmän: volym i vila
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Lokal volym endast för att dra svärdet under vilanimationen hos alla spelares arabiska svärdsmän. 0%: tyst; 100%: normal volym; standard: 25%. Stridsljud ändras inte. Ingen upprepningsgräns.

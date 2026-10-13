@@ -1,0 +1,17 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+cut-selection=all-unallowed,cutCells=30
+variant=2,nativeCandidateChangedBytes=685
+variant=2,nativeWeightChangedBytes=810
+variant=2,nativeConsumerChangedBytes=812
+variant=2,field=workControls,changedBytes=1
+variant=2,field=workQueueControls,changedBytes=0
+variant=2,field=workQueue,changedBytes=0
+variant=2,field=workQueueRows,changedBytes=0
+variant=2,field=workQueueX,changedBytes=0
+variant=2,field=workDistances,changedBytes=0
+variant=2,field=workVisits,changedBytes=0
+variant=2,field=workTargets,changedBytes=0
+PASS paired111330 selection=0;coordinates=0/0;entireNativeManagedReservations=True;variant=2;sameRootConsumerSubsetNotFullMilitary=True
+formation-comparison origin=446/370,lord=4,maximum=10020,written=20,nativePairs=446/370/443/366/441/370/446/375,managedPairs=446/370/443/366/441/370/446/375
+PASS phase5 isolated3BB80-EA4E0 native/managed;writtenPairs=20;first3Positions=computed-before-3CCD0-read;interveningUnitConsumersNotReplayed=True;no-recorded-post-used
+PASS own consumer ordinal=1,variant=2,nativeCastleResult=0,candidateChangedBytes=932,entryPhase=5,militaryContinuation=Unknown:not-a-phase4-suffix,phase5Controls=own-entry-present,phase5Continuation=not-yet-replayed,postValuesUsedOnlyForComparison=True,behaviorFix=disabled

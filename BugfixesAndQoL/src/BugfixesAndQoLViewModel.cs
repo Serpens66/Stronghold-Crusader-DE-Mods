@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         private bool enableAiStoneReserveFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
+        private bool enableEnemyGatePathfindingFix = true;
         private bool enableDrawbridgeDestructionFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
         private bool enableAssassinGatehouseClimbFix = true;
@@ -107,6 +108,7 @@ namespace BugfixesAndQoL
         private const int HealthBarControlMask = 1 << 17;
         private const int HealthBarShiftMask = 1 << 18;
         private const int DefaultHealthBarHotkey = (int)KeyCode.H | HealthBarAltMask;
+        private int arabianIdleSoundVolumePercent = 25;
         private bool enableImprovedBuildPreview = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
@@ -284,6 +286,8 @@ namespace BugfixesAndQoL
         }
         public string EnableAiStoneReserveFixText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFix);
         public string EnableAiStoneReserveFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFixHelp);
+        public string EnableEnemyGatePathfindingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFix");
+        public string EnableEnemyGatePathfindingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp");
         public string EnableAiRaidRetargetFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFix");
         public string EnableAiRaidRetargetFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFixHelp");
         public string EnableAiDefensePatrolFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFix");
@@ -637,6 +641,18 @@ namespace BugfixesAndQoL
             set => SetPlayerSetting(showForeignTroopHud, value, nameof(ShowForeignTroopHud));
         }
 
+        public string ArabianIdleSoundVolumeText => SerpLocalization.Get("BugfixesAndQoL.ArabianIdleSoundVolume");
+        public string ArabianIdleSoundVolumeHelpText => SerpLocalization.Get("BugfixesAndQoL.ArabianIdleSoundVolumeHelp");
+        public string ArabianIdleSoundVolumeValueText => ArabianIdleSoundVolumePercent + " %";
+
+        [APIShared.ModSettings.PresetLocal]
+        public int ArabianIdleSoundVolumePercent
+        {
+            get => arabianIdleSoundVolumePercent;
+            set => SetBoundedIntSetting(ref arabianIdleSoundVolumePercent, value, 0, 100,
+                nameof(ArabianIdleSoundVolumePercent), nameof(ArabianIdleSoundVolumeValueText));
+        }
+
         [APIShared.ModSettings.PresetLocal]
         public bool EnableImprovedBuildPreview
         {
@@ -929,6 +945,13 @@ namespace BugfixesAndQoL
         {
             get => enableAiStoneReserveFix;
             set => SetSetting(ref enableAiStoneReserveFix, value, nameof(EnableAiStoneReserveFix));
+        }
+
+        [SyncHostOnly]
+        public bool EnableEnemyGatePathfindingFix
+        {
+            get => enableEnemyGatePathfindingFix;
+            set => SetSetting(ref enableEnemyGatePathfindingFix,value,nameof(EnableEnemyGatePathfindingFix));
         }
 
         [SyncHostOnly]
@@ -1431,6 +1454,7 @@ namespace BugfixesAndQoL
                 EnableAiStoneReserveFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
+                EnableEnemyGatePathfindingFix = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableGatehouseLivingCaptureFix = true;
                 EnableAssassinGatehouseClimbFix = true;

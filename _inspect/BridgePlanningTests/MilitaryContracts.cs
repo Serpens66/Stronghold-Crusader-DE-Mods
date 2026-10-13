@@ -228,6 +228,7 @@ namespace BridgePlanningTests
                 if(ownManagers)
                 {
                     CopiedMilitaryEntry.Validate(b);
+                    if(!CopiedMilitaryEntry.TryContinuationInputs(b,out _,out var continuationReason))Console.WriteLine(continuationReason+";required=entryLineMode4@2F7A690/4,entryBlockGrid@51D75F0/320800,entryFormationCounter4@83FD230/4;later-command-timing-not-authoritative");
                     var units=CopiedPlanningBundle.Resolve(b,"military/entryUnitManagerFull");
                     var tribes=CopiedPlanningBundle.Resolve(b,"military/entryTribesFull");
                     var expected=(byte[])units.Clone();

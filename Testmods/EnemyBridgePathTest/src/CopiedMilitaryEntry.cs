@@ -27,6 +27,42 @@ namespace EnemyBridgePathTest
                BitConverter.ToInt64(identity,24)!=b.Thread)throw new ArgumentException("entry-source-identity");
             for(int i=0;i<own.Length;i++)if(own[i]!=players[b.Attacker*0x583c+i])throw new ArgumentException("entry-own-player-mismatch");
         }
+        // Optional additive schema2 group. Legacy files remain importable but
+        // cannot authorize a full military continuation from later command data.
+        internal static void ValidateContinuation(BridgePlanningCapture.Bundle b)
+        {
+            bool Has(string name)=>b.Sections.ContainsKey(name)||b.References.ContainsKey(name);
+            bool present=false;foreach(string name in new[]{"entryContinuationVersion","entryLineMode4","entryBlockGrid","entryFormationCounter4","exitLineMode4","exitBlockGrid","exitFormationCounter4"})present|=Has("military/"+name);
+            for(int i=0;i<CopiedConsumerSequence.Count(b);i++)foreach(string stage in new[]{"pre","post"})foreach(string name in new[]{"commandLineMode4","commandBlockGrid"})present|=Has((i==0?"consumer":"consumer2")+"/"+stage+"/"+name);
+            if(!present)return;
+            if(!Has("military/entryInputVersion"))throw new ArgumentException("continuation-without-own-entry-provenance");
+            byte[] Get(string name,int length){var value=CopiedPlanningBundle.Resolve(b,name);if(value.Length!=length)throw new ArgumentException("continuation-extent:"+name);return value;}
+            if(BitConverter.ToInt32(Get("military/entryContinuationVersion",4),0)!=1)throw new ArgumentException("continuation-version");
+            Get("military/entryLineMode4",4);Get("military/entryBlockGrid",320800);Get("military/entryFormationCounter4",4);
+            Get("military/exitLineMode4",4);Get("military/exitBlockGrid",320800);Get("military/exitFormationCounter4",4);
+            for(int i=0;i<CopiedConsumerSequence.Count(b);i++)foreach(string stage in new[]{"pre","post"})
+            {string prefix=(i==0?"consumer":"consumer2")+"/"+stage+"/";Get(prefix+"commandLineMode4",4);Get(prefix+"commandBlockGrid",320800);}
+        }
+        internal static bool TryContinuationInputs(BridgePlanningCapture.Bundle b,out System.Collections.Generic.Dictionary<int,byte[]> inputs,out string reason)
+        {
+            inputs=null;reason="Unknown:missing-own-military-continuation-inputs";
+            try
+            {
+                if(b==null||!b.Complete)return false;ValidateContinuation(b);
+                var mode=CopiedPlanningBundle.Resolve(b,"military/entryLineMode4");var grid=CopiedPlanningBundle.Resolve(b,"military/entryBlockGrid");
+                bool Same(byte[] a,byte[] c){if(a.Length!=c.Length)return false;for(int i=0;i<a.Length;i++)if(a[i]!=c[i])return false;return true;}
+                for(int i=0;i<CopiedConsumerSequence.Count(b);i++)foreach(string stage in new[]{"pre","post"})
+                {
+                    string prefix=(i==0?"consumer":"consumer2")+"/"+stage+"/";
+                    if(!Same(mode,CopiedPlanningBundle.Resolve(b,prefix+"commandLineMode4"))||!Same(grid,CopiedPlanningBundle.Resolve(b,prefix+"commandBlockGrid")))throw new InvalidOperationException("continuation-input-changed-at:"+prefix);
+                }
+                if(!Same(mode,CopiedPlanningBundle.Resolve(b,"military/exitLineMode4"))||!Same(grid,CopiedPlanningBundle.Resolve(b,"military/exitBlockGrid")))throw new InvalidOperationException("continuation-input-changed-at:military-exit");
+                // Audited native RVAs, not player/building/savegame identifiers.
+                inputs=new System.Collections.Generic.Dictionary<int,byte[]>{{0x2f7a690,(byte[])mode.Clone()},{0x51d75f0,(byte[])grid.Clone()},{0x7cc6720+0x736b10,(byte[])CopiedPlanningBundle.Resolve(b,"military/entryFormationCounter4").Clone()}};
+                reason="own-entry-continuation-inputs;observed-boundaries-stable;intermediate-modification-not-proven-absent;negativeEligible=False";return true;
+            }
+            catch(Exception error){reason="Unknown:"+error.Message;inputs=null;return false;}
+        }
         internal static int Member(byte[] tribes,int tribe,int ordinal)
         {
             if(tribes.Length!=BridgePlanningCapture.EntryTribeBytes||tribe<1||tribe>=4500)throw new ArgumentException("tribe-extent");

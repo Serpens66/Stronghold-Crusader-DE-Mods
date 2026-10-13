@@ -118,7 +118,7 @@ namespace BugfixesAndQoL.UnitCommands
                 }
                 return count;
             }, controlPlayer, speedDelay,
-                TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver
+                TemporaryGateRouteAcceptanceBridge.CurrentRequested is ITemporaryAssassinGateObserver
                     ? (Action<string, string, string>)((stage, result, detail) => ReportTemporaryAssassinStage(stage, result, detail)) : null);
         }
 

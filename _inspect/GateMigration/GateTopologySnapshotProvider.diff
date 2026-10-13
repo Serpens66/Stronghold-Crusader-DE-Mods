@@ -1,0 +1,104 @@
+--- 
+
++++ 
+
+@@ -514,4 +514,5 @@
+
+         private void RefreshGateAccess()
+         {
++            long rulesRevision = APIShared.GateAccessRules.Version;
+             ulong fingerprint = ComputeGateAccessFingerprint(out int recordCapacity);
+             Interlocked.Increment(ref accessScans);
+@@ -521,4 +522,5 @@
+
+ 
+             NativeGateAccessSnapshot rebuilt = BuildGateAccessSnapshot(fingerprint, recordCapacity);
++            if (rulesRevision != APIShared.GateAccessRules.Version) return;
+             NativeGateAccessSnapshot previous = lastStableAccessSnapshot;
+             bool policyChanged = !previous.PolicyEquals(rebuilt);
+@@ -578,4 +580,5 @@
+
+                     ref nextSnapshotAt, now + TopologySafetyInterval, due) != due)
+                 return;
++            long rulesRevision = APIShared.GateAccessRules.Version;
+             ulong signature = ComputeTopologySignature(lastStableAccessSnapshot.TopologyFingerprint);
+             bool changed = signature != lastTopologySignature;
+@@ -596,4 +599,5 @@
+
+                 }
+                 TopologySnapshot rebuilt = BuildTopologySnapshot(detailedDiagnostics && firstBuild, previous);
++                if (rulesRevision != APIShared.GateAccessRules.Version) return;
+                 snapshot = rebuilt;
+                 lastStableTopologySnapshot = rebuilt;
+@@ -667,5 +671,5 @@
+
+                 ? new string[Enum.GetValues(typeof(TopologyDiagnosticDisposition)).Length]
+                 : null;
+-            ulong fingerprint = 1469598103934665603UL;
++            ulong fingerprint = 1469598103934665603UL ^ unchecked((ulong)APIShared.GateAccessRules.Version);
+ 
+             // Script Extender 2.4 exposes the authoritative macro-connection records.
+@@ -743,5 +747,5 @@
+
+                 int[] relevantPcls = CollectRelevantPcls(gateTiles);
+                 bool[] unrelatedByPlayer = BuildUnrelatedPlayers(
+-                    gateSnapshot.r_PlayerIdOwner, gateSnapshot.r_CapturedByPlayerId);
++                    gateSnapshot.r_PlayerIdOwner, gateSnapshot.r_CapturedByPlayerId, gateId, gateSnapshot.r_GlobalId);
+                 var gateInfo = new GateBridgeInfo(
+                     gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
+@@ -798,5 +802,5 @@
+
+                 }
+                 bool[] unrelatedByPlayer = BuildUnrelatedPlayers(
+-                    gate.r_PlayerIdOwner, gate.r_CapturedByPlayerId);
++                    gate.r_PlayerIdOwner, gate.r_CapturedByPlayerId, gateId, gate.r_GlobalId);
+                 var fallbackInfo = new GateBridgeInfo(
+                     gateId, gate.r_GlobalId, gate.r_PlayerIdOwner,
+@@ -930,5 +934,5 @@
+
+             recordCapacity = buildings.GetBuildingsAsSpan().Length + 1;
+             var entries = GamePathingManagerAPI.Instance.GetPathConnectionArray();
+-            ulong fingerprint = 1469598103934665603UL;
++            ulong fingerprint = 1469598103934665603UL ^ unchecked((ulong)APIShared.GateAccessRules.Version);
+             for (int index = 0; index < entries.Length; index++)
+             {
+@@ -989,9 +993,11 @@
+
+                     gate->r_GlobalId == 0 || gate->r_GlobalId != entry->r_SubjectGlobalId)
+                     continue;
++                ushort effective = BuildEffectiveMask(entry->r_BuildingId,gate->r_GlobalId,gate->r_PlayerIdOwner,gate->r_CapturedByPlayerId);
++                ushort baseline = BuildUnrelatedPlayerMask(gate->r_PlayerIdOwner,gate->r_CapturedByPlayerId);
+                 records[entry->r_BuildingId] = new NativeGateAccessRecord(
+                     true, gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId,
+                     BuildRelatedPlayerMask(gate->r_PlayerIdOwner),
+                     BuildRelatedPlayerMask(gate->r_CapturedByPlayerId),
+-                    BuildUnrelatedPlayerMask(gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId));
++                    effective, unchecked((ushort)(baseline ^ effective)));
+             }
+             return new NativeGateAccessSnapshot(records, fingerprint, gateGlobals);
+@@ -1487,13 +1493,21 @@
+
+         }
+ 
+-        private static bool[] BuildUnrelatedPlayers(int owner, int captured)
++        private static bool[] BuildUnrelatedPlayers(int owner, int captured, int gateId=0, uint global=0)
+         {
+             bool[] unrelated = new bool[9];
+             for (int player = 1; player <= 8; player++)
+             {
+-                unrelated[player] = EnemyGatePathfindingPolicy.IsUnrelatedGateCombination(
+-                    player, owner, captured, IsValidPlayer, AreAllied);
++                unrelated[player] = GateRoutingFeature.IsBlocked(player,gateId,global,owner,captured,
++                    EnemyGatePathfindingPolicy.IsUnrelatedGateCombination(player, owner, captured, IsValidPlayer, AreAllied));
+             }
+             return unrelated;
++        }
++
++        private static ushort BuildEffectiveMask(int gate,uint global,int owner,int captured)
++        {
++            ushort mask=0;
++            for(int player=1;player<=8;player++)if(GateRoutingFeature.IsBlocked(player,gate,global,owner,captured,
++                EnemyGatePathfindingPolicy.IsUnrelatedGateCombination(player,owner,captured,IsValidPlayer,AreAllied)))mask|=(ushort)(1<<player);
++            return mask;
+         }
+ 

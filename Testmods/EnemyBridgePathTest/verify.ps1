@@ -272,3 +272,12 @@ Write-Host 'PASS: copied structure/approach adapter is offline-only; live callba
 
 if(!([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeNativeHooks.cs'))).Contains('site.Rva==0x3C2E0||site.Rva==0x2C5A0?site.Bytes.Length:site.Size')){throw 'Audited inline-pointer scan exclusion missing'}
 Write-Host 'PASS: selector entry remains exact17 bytes; Fixes count-hook inline pointer is excluded from instruction scan.'
+
+# Exact missing-input bundle identified by the private phase5 continuation.
+$entryAdapter=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/CopiedMilitaryEntry.cs'))
+foreach ($name in @('entryContinuationVersion','entryLineMode4','entryBlockGrid','entryFormationCounter4','exitLineMode4','exitBlockGrid','exitFormationCounter4')) {
+    if($collector -notmatch $name -or $entryAdapter -notmatch $name){throw ('Own continuation input coverage missing: '+$name)}
+}
+if($collector -notmatch 'Read\(0x51d75f0,N\)' -or $collector -notmatch 'Read\(0x2f7a690,4\)' -or $collector -notmatch '0x7cc6720\+0x736b10' -or $collector -notmatch 'military-own-continuation-input-changed') {throw 'Continuation RVA/capacity/stability contract changed'}
+if($importer -notmatch 'CopiedMilitaryEntry.ValidateContinuation' -or $entryAdapter -notmatch 'continuation-without-own-entry-provenance' -or $entryAdapter -notmatch 'continuation-input-changed-at') {throw 'Partial/changed continuation import gate missing'}
+Write-Host 'PASS: own line-mode/block-grid/formation-counter capture; bounded exact source, optional strict import and preserved Unknown policy.'

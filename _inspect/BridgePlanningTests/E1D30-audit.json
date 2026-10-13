@@ -1,0 +1,158 @@
+[
+  {
+    "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "address": "0x1800E1D30",
+    "rva": "0xE1D30",
+    "name": "FUN_1800e1d30",
+    "confidence": "candidate",
+    "size": 319,
+    "signature": "undefined FUN_1800e1d30(void)",
+    "comment": null,
+    "raw_hash": "A68568DFD586FF2DDD7476CA66BA4B98167584E1D9D48780CF37CC9D084596A2",
+    "normalized_hash": "3C22E110CAA778B3C903922B8215A5C9A2DA52675B508D8D1ADDDA3C8900A87E",
+    "block_count": 10,
+    "pseudocode": "/* FUNCTION FUN_1800e1d30 VA=0x1800E1D30 RVA=0xE1D30 */\n\n/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */\n\nvoid FUN_1800e1d30(longlong param_1,int param_2,int param_3,int param_4)\n\n{\n  short sVar1;\n  int iVar2;\n  longlong lVar3;\n  uint uVar4;\n  uint uVar5;\n  uint uVar6;\n  uint uVar7;\n  int *piVar8;\n  ulonglong uVar9;\n  ulonglong uVar10;\n  \n  uVar9 = (ulonglong)DAT_187cc6734;\n  piVar8 = (int *)(param_1 + (uVar9 + 0x557db) * 4);\n  uVar10 = uVar9;\n  while( true ) {\n    iVar2 = *piVar8;\n    lVar3 = (longlong)iVar2 * 2;\n    if (((0 < *(short *)(&DAT_185225b10 + lVar3)) &&\n        (uVar6 = (short)(&DAT_183aae2a4)[iVar2] - param_4,\n        uVar7 = (iVar2 - (&DAT_18402ff2c)[(longlong)(short)(&DAT_183aae2a4)[iVar2] * 3]) - param_3,\n        uVar4 = (int)uVar7 >> 0x1f, uVar5 = (int)uVar6 >> 0x1f,\n        (int)(((uVar6 ^ uVar5) - uVar5) + ((uVar7 ^ uVar4) - uVar4)) % param_2 == 0)) &&\n       (DAT_187cc6734 = (int)uVar10, *(short *)(&DAT_185225b10 + lVar3) < 4000)) break;\n    uVar10 = (ulonglong)((int)uVar10 + 1);\n    uVar9 = uVar9 + 1;\n    piVar8 = piVar8 + 1;\n    DAT_187cc6734 = 0;\n    if ((4000 < (longlong)uVar9) ||\n       (*(short *)(&DAT_1852c2550 + lVar3) !=\n        *(short *)(&DAT_1852c2550 + (longlong)*(int *)(param_1 + 0x155f6c) * 2))) break;\n  }\n  sVar1 = *(short *)(param_1 + 0x28f3ec + (longlong)DAT_187cc6734 * 2);\n  _DAT_187cc6730 = (int)sVar1;\n  _DAT_187cc672c =\n       *(int *)(param_1 + 0x155f6c + (longlong)DAT_187cc6734 * 4) -\n       (&DAT_18402ff2c)[(longlong)sVar1 * 3];\n  return;\n}\n\n\n\n",
+    "semanticClaims": [],
+    "classifications": [],
+    "strings": [],
+    "dataReferences": [
+      {
+        "target_rva": "0x0"
+      },
+      {
+        "target_rva": "0x3AAE2A4"
+      },
+      {
+        "target_rva": "0x402FF2C"
+      },
+      {
+        "target_rva": "0x5225B10"
+      },
+      {
+        "target_rva": "0x52C2550"
+      },
+      {
+        "target_rva": "0x7CC672C"
+      },
+      {
+        "target_rva": "0x7CC6730"
+      },
+      {
+        "target_rva": "0x7CC6734"
+      }
+    ],
+    "callees": [],
+    "callers": [
+      {
+        "caller_rva": "0x11B520"
+      }
+    ],
+    "managedCallers": [],
+    "globals": [
+      {
+        "address": "0x180000000",
+        "rva": "0x0",
+        "name": "IMAGE_DOS_HEADER_180000000",
+        "data_type": "IMAGE_DOS_HEADER",
+        "reference_count": 2612
+      },
+      {
+        "address": "0x183AAE2A4",
+        "rva": "0x3AAE2A4",
+        "name": "DAT_183aae2a4",
+        "data_type": "undefined2",
+        "reference_count": 240
+      },
+      {
+        "address": "0x18402FF2C",
+        "rva": "0x402FF2C",
+        "name": "DAT_18402ff2c",
+        "data_type": "undefined4",
+        "reference_count": 1039
+      },
+      {
+        "address": "0x185225B10",
+        "rva": "0x5225B10",
+        "name": "DAT_185225b10",
+        "data_type": null,
+        "reference_count": 413
+      },
+      {
+        "address": "0x1852C2550",
+        "rva": "0x52C2550",
+        "name": "DAT_1852c2550",
+        "data_type": null,
+        "reference_count": 586
+      },
+      {
+        "address": "0x187CC672C",
+        "rva": "0x7CC672C",
+        "name": "DAT_187cc672c",
+        "data_type": null,
+        "reference_count": 4
+      },
+      {
+        "address": "0x187CC6730",
+        "rva": "0x7CC6730",
+        "name": "DAT_187cc6730",
+        "data_type": null,
+        "reference_count": 4
+      },
+      {
+        "address": "0x187CC6734",
+        "rva": "0x7CC6734",
+        "name": "DAT_187cc6734",
+        "data_type": "undefined4",
+        "reference_count": 8
+      },
+      {
+        "address": "0x1800E1D90",
+        "rva": "0xE1D90",
+        "name": "LAB_1800e1d90",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E1DEB",
+        "rva": "0xE1DEB",
+        "name": "LAB_1800e1deb",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E1DF2",
+        "rva": "0xE1DF2",
+        "name": "LAB_1800e1df2",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E1E17",
+        "rva": "0xE1E17",
+        "name": "LAB_1800e1e17",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x1800E1E1A",
+        "rva": "0xE1E1A",
+        "name": "LAB_1800e1e1a",
+        "data_type": null,
+        "reference_count": 2
+      }
+    ],
+    "types": [],
+    "versionMatches": [
+      {
+        "old_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+        "new_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+        "old_rva": "0xE0EE0",
+        "new_rva": "0xE1D30",
+        "confidence": "confirmed",
+        "reason": "unique-normalized-hash-and-cfg",
+        "score": 1.0,
+        "changed": 1
+      }
+    ]
+  }
+]

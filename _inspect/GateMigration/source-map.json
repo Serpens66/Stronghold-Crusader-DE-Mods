@@ -1,0 +1,230 @@
+[
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\AiTacticalTargetAdapterEmitter.cs",
+    "current": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\AiTacticalTargetAdapterEmitter.cs",
+    "oldSha256": "a8cd14f62b197d28c4ee871a12a49752020fe6c22619a19e04400c26dece9ad7",
+    "newSha256": "3f32cfcc87e7dcd275e1bef534e803603c4b18f1b5d627d8b28b643dbdc4d31b"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\AssassinGateDescentAdapter.cs",
+    "current": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\AssassinGateDescentAdapter.cs",
+    "oldSha256": "671b5dbed07966efdf60e3d0859fce06575df06cce529511b8cceb98ddbf1b2c",
+    "newSha256": "83553feae6bbb2a2e3cce17cbb307030923f95c1936a1f9a6a46621be6983154"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\AssassinGateDescentRule.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\AssassinGateDescentRule.cs",
+    "oldSha256": "6776fb146da90039f56e8bf0a37c90bb73087d747358af2cb72269fc714c7149",
+    "newSha256": "d61ee1b493f04d4c4489889c4ef48f31aadf6ad34709ddad953c1846f6b9b446"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\AssassinGateDescentRuntime.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\AssassinGateDescentRuntime.cs",
+    "oldSha256": "037850775a1b8165ee1b1694d2fbbe8b8a504de8ee86b4dac9323042f40c1b43",
+    "newSha256": "4dc56d1fe690f3b16de895a71dbc3f692d3c0c2f903c2f5d09b7e8a11a17be22"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\AttackOrderCorrelationDiagnostics.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\AttackOrderCorrelationDiagnostics.cs",
+    "oldSha256": "348f90abebea15fc70b13408e538d442e3e36dd0586e8cb60889e6646b5a18b7",
+    "newSha256": "0eb457dbe9ddf4f28e3b8019c940b66fdc8821988edf56497605a09650ee6e3d"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\BuildingSearchPlayerResolver.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\BuildingSearchPlayerResolver.cs",
+    "oldSha256": "440ae28705f88b755d8ded6495559bf85eb838749a7f61451e496ebbdfe904d5",
+    "newSha256": "02bb447cde2b1bd7bad17bbfba3825ef1c05b47393e11e424f997bd54f87474c"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\CapturerComparisonAdapterEmitter.cs",
+    "current": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\CapturerComparisonAdapterEmitter.cs",
+    "oldSha256": "49237009c16adc28d1961d16dae7814f864f9776de54bed26ff4dac77343a10e",
+    "newSha256": "584010c791012187cd6671f68d0c467d40ddffbc14bea3f37f0fe4da8d360391"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\CaptureTransitionDiagnostics.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\CaptureTransitionDiagnostics.cs",
+    "oldSha256": "e879ab79fa0ddc3b65c3c66b607db4f3e31543cd2707540b90c8895fc867c95f",
+    "newSha256": "a44ea0e20967e43243f329fe134cd95c3e9f711b4f68cd44a2caf2e8e31c16a1"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\ConnectedGateFootprint.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\ConnectedGateFootprint.cs",
+    "oldSha256": "e6cfc1208969d6261f94cb718f99d681fc1f4a92e8668bbe7d47ce2a3b2fcebc",
+    "newSha256": "41cdf15c9a1a493ecc092d8a5d2beb4be9bfceaf2b2ee98cf383da6d8877ba97"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\CursorPreviewCache.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\CursorPreviewCache.cs",
+    "oldSha256": "90b671a4c31c70f05cb9b6e90c8191c69946c7d135b24a37e54a94ad47ea26a4",
+    "newSha256": "7f59283310ebb0ffa7625be667feb2f4b87a9c3762a79c4dba4ef76a04741f71"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\DeferredGateDiagnosticErrors.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\DeferredGateDiagnosticErrors.cs",
+    "oldSha256": "aec0c7798b22dcf5517fbf2bc74d43b40ea36995ebd3f011b72aacb1735ee5ed",
+    "newSha256": "650cc72bce697aaa00cf017b7c1b7c94d8d1d9c7021f6931493896fe98be7859"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\DirectCursorCallAdapterEmitter.cs",
+    "current": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\DirectCursorCallAdapterEmitter.cs",
+    "oldSha256": "5956120f00a21f2ceb28f65eb758ae61e2640186efbdafa926c3429de3b931c2",
+    "newSha256": "cdc3d9550e43147719ca1e8ec68ab18fb8dffde72107e17a45750cea3359fcd1"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\DirectionFilterAdapterEmitter.cs",
+    "current": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\DirectionFilterAdapterEmitter.cs",
+    "oldSha256": "12c346410cf9c069604bfd0fa10654c11d30f28e131b2162ef037b0b1a06180d",
+    "newSha256": "ddfc5c05599061aa7c882f8d194bcf574703821755056496bcf7f967c56cd136"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\EnemyGatePathfindingNativeDefinition.cs",
+    "current": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\EnemyGatePathfindingNativeDefinition.cs",
+    "oldSha256": "6285955c728765cda4c6b2cc0f5d3d9c660b7e34b0a6b65e3656eebb17a45db6",
+    "newSha256": "cac5bc2d371fd5d4249e19b1f2bcb212913c879c82599be778f232d5a28c4a3f"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\EnemyGatePathfindingPolicy.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\EnemyGatePathfindingPolicy.cs",
+    "oldSha256": "8ae2aa4cd624559cee33532e77b6c54810798970345410031734320c9c760ce7",
+    "newSha256": "8484bac828d25e6ad482dfac785cb4b388f9f8e27bcf36d0506693be36d148fc"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\EnemyGatePathfindingRuntime.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\EnemyGatePathfindingRuntime.cs",
+    "oldSha256": "01d727c53ae7f3c8e51802dae5b932a9d6badb9be886bf5efe710c6c00f56520",
+    "newSha256": "2f5fedad14aa6c9ac45be46d52ff4cf8241031138d4b78d99c0fb22efd77ebcb"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\EnemyGatePathfindingTestPlugin.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\GateRoutingFeature.cs",
+    "oldSha256": "de3d888e120a9f81fe145b9da98e08712c404ffa8d9e92e9a4d561dbd6b3ce21",
+    "newSha256": "278e6a873bb981767029486e31153601d24beec7ea048faa337795f3617d010d"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\FunctionalGatePolicyAdapter.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\FunctionalGatePolicyAdapter.cs",
+    "oldSha256": "bd1970f165c048a50479dc5380d1cd462579b62ba1878533eac185ed0c3aadbe",
+    "newSha256": "32e5968bff59976a358ee7b501ec9be04e5f9f11c238717bef163b61caa00b6a"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\GateDiagnosticClassification.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\GateDiagnosticClassification.cs",
+    "oldSha256": "a9184d108de01b620dc202f65dd89cd443ef7b16884b23f17239a5e976258aec",
+    "newSha256": "d6d81003047d1e9c7814058f9a824f586f5c3fe81d972e0145728ef4b01a6eae"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\GateEdgeOwnership.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\GateEdgeOwnership.cs",
+    "oldSha256": "b86c941cf7e6d638c589b4b48f09886b84e06f247cdb60c5ff2329c4b04df96a",
+    "newSha256": "8cf5baacefdb5e0de7b17909f9373880022c712dda4291a55b37319225afc227"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\GatePassageMask.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\GatePassageMask.cs",
+    "oldSha256": "6b3826224b5fa8a21b1eead8588742654e87d94070b8571122164725ddfdf1a3",
+    "newSha256": "eb96e0968142434fd4886467679aee313aa8fc0e653606bf7754109d744ea9e5"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\GateRoutePolicySource.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\GateRoutePolicySource.cs",
+    "oldSha256": "223d0542246c9a2fa58c66619656590523cd0686ced340ee68d285ad8cff36b8",
+    "newSha256": "c5c0158c4b42f6822bc84b48b4049b0e15924205f7ecf44350072edfea3fcbf4"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\GateSearchEvidence.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\GateSearchEvidence.cs",
+    "oldSha256": "07d652a4576f3549fbba4ebf6d2196cc56c7b9bc78f3b5523e6bfce09448e546",
+    "newSha256": "2cfd0b74de498e557bfb0c9039222ef1d8e0884d4c8743ef4841c155929b434f"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\GateTopologySnapshotProvider.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\GateTopologySnapshotProvider.cs",
+    "oldSha256": "2708e236f59910a06ef9cea86182fe03fdff38f1d9eeab264c083499a68d9665",
+    "newSha256": "a220ac370b1a2e5032b8f6eb2b6cfa0a5f64a6a712ebab94b1ae1ca82780f2c6"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\MacemenCommandDiagnostics.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\MacemenCommandDiagnostics.cs",
+    "oldSha256": "b1cdd8f02e361e2c15394a117ba82d829dc1bd73d71df583fc4afccf0bd1b702",
+    "newSha256": "7f01d55bc32d26333b4038ab8ae30b377bf44eb2adc5e6f1ef2e204f9ba09db1"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\MacemenDiagnosticAggregate.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\MacemenDiagnosticAggregate.cs",
+    "oldSha256": "a0c335a1b02cc8d3ed440c19c95b230e2fe50dda63f3bb69c0b5c501e6211a30",
+    "newSha256": "e117d65a41ac33bc2ccfa5e4b5f0650d48892b3cd045076f37d4ffd3e91e54c5"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\NativeAssassinDiagnosticHooks.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\NativeAssassinDiagnosticHooks.cs",
+    "oldSha256": "8c2f7365b87ed2c9b7017eecc940c706dae2b7d16c28835f46d3c1a18fbd1352",
+    "newSha256": "d85cc1b21659be9c1ee0b9ff245ff3566fe1d19f2790bb7017975d6c606b47ce"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\NativeAssassinMovementDiagnostics.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\NativeAssassinMovementDiagnostics.cs",
+    "oldSha256": "ddb1e1f70a98bff9fa20d8196489662bfdefdb54aa5ea8da56ff51092def2109",
+    "newSha256": "d940f660dbcb3adb7cf47a76bdb16c9cf438590035143fe8c4b2d50aa4852fd9"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\NativeAssassinMovementDiagnostics.Read.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\NativeAssassinMovementDiagnostics.Read.cs",
+    "oldSha256": "c4abcee008e19973499ca18a94af406bb77da8dff0097f8947ed26d2d480c4b0",
+    "newSha256": "014ecb96275a47bbcea8b5ff5108792b4d0b26107db031421e2fd92fbd7f55fa"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\NativeAssassinTrace.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\NativeAssassinTrace.cs",
+    "oldSha256": "f71649a47ec03813f1b095f314c93e383e0cf3de21eb4d41b351aa1f4df1e879",
+    "newSha256": "73c6bdbc78e75bb25f63c9e8f96371229e93c389ea4d142c2f4df4e9dd1ecb43"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\NativeCallbackAdapterEmitter.cs",
+    "current": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\NativeCallbackAdapterEmitter.cs",
+    "oldSha256": "2d74056b04a7ecf1810474907353074f11a6c11aa23f00def9f8e03341590a53",
+    "newSha256": "c201f6fffe08649c6ca8e7e2dd492c16002405512a63ee3878d29b96675068c5"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\PathfindingGlobalsBaseline.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\PathfindingGlobalsBaseline.cs",
+    "oldSha256": "98c1df4f00e1f1c7a8afc66ee044519509a8c6aece5167c5590bb219a2b33a86",
+    "newSha256": "1fd673ec0abc3be1c057c472a3516b3231edb3cadaf5d9d48937782e5ae8ec82"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\RouteTilePolicySnapshot.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\RouteTilePolicySnapshot.cs",
+    "oldSha256": "02aa4830a0935a8b831b72ee862d464911e0f73cedb3286e8170894f0b632b49",
+    "newSha256": "0560cc5b9bee32b0a766dfe786fdbbf5591d744a9a566c8b7bed952cdeeb25b1"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\SamePclGateRouteRuntime.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\SamePclGateRouteRuntime.cs",
+    "oldSha256": "6b112be52a647533518b67cc6a7967de156fda2a0725dfea8ac1245448b50630",
+    "newSha256": "8557d16f886dab373da0f188c3518164049b8b28fbd7bc407fac0c061b766fc8"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\SparseBuildingFootprint.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\SparseBuildingFootprint.cs",
+    "oldSha256": "303e970c23dff349e9178eb62ae2cc2b9775dff91b64d82e9e4bb7b39e01b1d1",
+    "newSha256": "e9d86f342d3fff1954debe66ea07b1cb9aca01126a452137cf915ad8aacb3466"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\TemporaryGateAcceptanceAggregate.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\TemporaryGateAcceptanceAggregate.cs",
+    "oldSha256": "b66d82d460576c87cb39c3cd604ba5980629c3cf5bc7a26876327130a1208876",
+    "newSha256": "ef4ae16ec1ce5574616e41e9cbb56632ba7f5d39e87f17ed877d8745ba2166f4"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\TemporaryGateCaptureTimeline.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\TemporaryGateCaptureTimeline.cs",
+    "oldSha256": "d8f6abcd69ba914479a99d0c5d2259cd6a684189a3d48f3625ed4aaa0b447f38",
+    "newSha256": "e960bdadb7d56161164de6bb47be13ce318879bb9c5ba685ab4e83f58d642e44"
+  },
+  {
+    "old": "_inspect\\GateMigration\\accepted\\src\\TemporaryGateRouteAcceptance.cs",
+    "current": "BugfixesAndQoL\\src\\GateRouting\\TemporaryGateRouteAcceptance.cs",
+    "oldSha256": "fe432482d45acfdf5f0cb85434d7477cea406bfafbdbad0f2f4f826320c8e65a",
+    "newSha256": "a1aeaef4fff358ec3cf7b2ce30a57ded0c93b582abc35976a9db510de4204f64"
+  }
+]

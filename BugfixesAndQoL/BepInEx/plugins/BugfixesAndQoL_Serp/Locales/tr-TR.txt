@@ -420,3 +420,8 @@ Ground.Iron=Demir alanları
 Ground.Pitch=Zift alanları
 BugfixesAndQoL.ImprovedBuildPreview=İnşa sırasında zemin gereksinimlerini göster
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Uygunsuz zemini kırmızı işaretler ve yapı ipucunda gereken karo sayılarını gösterir. Yalnızca yerel; inşa kuralları değişmez.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Arap kılıçlılar: bekleme ses düzeyi
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Tüm oyuncuların Arap kılıçlılarının bekleme animasyonundaki kılıç çekme sesi için yerel ses düzeyi. %0: sessiz; %100: normal ses; varsayılan: %25. Savaş sesleri değişmez. Tekrar sınırı yoktur.

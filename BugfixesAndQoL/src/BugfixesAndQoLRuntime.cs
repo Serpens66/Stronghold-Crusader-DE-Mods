@@ -440,6 +440,7 @@ namespace BugfixesAndQoL
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
             TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
+            TryInitializePersistentFeature("enemy gate routing", () => GateRouting.GateRoutingFeature.Initialize(context,isFixedLayoutHashValidated));
             TryInitializePersistentFeature("drawbridge destruction fix", () =>
             {
                 if (drawbridgeDestructionFixInitializationAttempted) return;

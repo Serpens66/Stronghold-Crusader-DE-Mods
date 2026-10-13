@@ -1,0 +1,1305 @@
+[
+  {
+    "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "address": "0x18011B520",
+    "rva": "0x11B520",
+    "name": "FUN_18011b520",
+    "confidence": "candidate",
+    "size": 3317,
+    "signature": "undefined FUN_18011b520(void)",
+    "comment": null,
+    "raw_hash": "D101952A3003865D0A84B63412C6F2142AC8B0509A9CD65C22869F72FABCACDB",
+    "normalized_hash": "092D113F51417C28DB54506B229F0CC803D7CED90E1AF784432472FC0791F213",
+    "block_count": 180,
+    "pseudocode": "/* FUNCTION FUN_18011b520 VA=0x18011B520 RVA=0x11B520 */\n\nundefined8\nFUN_18011b520(longlong param_1,int param_2,uint param_3,uint param_4,undefined4 param_5,int param_6,\n             int param_7)\n\n{\n  short sVar1;\n  short sVar2;\n  short sVar3;\n  short sVar4;\n  short sVar5;\n  bool bVar6;\n  bool bVar7;\n  int iVar8;\n  int iVar9;\n  int iVar10;\n  undefined8 uVar11;\n  longlong lVar12;\n  longlong lVar13;\n  longlong lVar14;\n  undefined4 uVar15;\n  longlong lVar16;\n  int iVar17;\n  uint uVar18;\n  undefined4 uVar19;\n  int iVar20;\n  int iVar21;\n  ulonglong uVar22;\n  bool bVar23;\n  bool bVar24;\n  int local_6c;\n  undefined4 local_58;\n  \n  iVar10 = 1000;\n  bVar6 = false;\n  local_6c = 0;\n  local_58 = 0;\n  bVar24 = false;\n  if (param_3 == 0) {\n    if (param_4 == 0) {\n      return 0;\n    }\n  }\n  else if (799 < param_3) {\n    return 0;\n  }\n  if ((param_4 < 800) &&\n     ((&DAT_183a11ea4)[(longlong)(int)param_4 * 800 + (longlong)(int)param_3] != '\\0')) {\n    lVar13 = (longlong)param_2 * 0x688;\n    sVar1 = *(short *)(lVar13 + 0x5a + param_1);\n    uVar22 = (ulonglong)sVar1;\n    lVar14 = lVar13 + param_1;\n    sVar2 = (&DAT_1867e8b1c)[uVar22 * 0x248];\n    sVar3 = (&DAT_1867e8b1e)[uVar22 * 0x248];\n    sVar4 = (&DAT_1850ec690)[(&DAT_18402ff2c)[(longlong)sVar3 * 3] + (int)sVar2];\n    iVar20 = (int)sVar4;\n    iVar8 = (&DAT_18402ff2c)[(longlong)(int)param_4 * 3] + param_3;\n    sVar5 = (&DAT_1850ec690)[iVar8];\n    iVar17 = (int)sVar5;\n    if ((*(byte *)(&DAT_1848f71b0 + iVar8) & 0x30) == 0) {\n      DAT_1860ad6f8 = 0;\n      *(int *)(param_1 + 0x736b10) = *(int *)(param_1 + 0x736b10) + 1;\n      iVar9 = FUN_180117bc0(param_1,param_2);\n      if (sVar1 == iVar9) {\n        iVar20 = FUN_1800e7c40(&DAT_1860ad660,*(undefined4 *)(lVar14 + 0x2c),iVar17,\n                               (int)(short)(&DAT_1867e8b1c)[uVar22 * 0x248],\n                               (int)(short)(&DAT_1867e8b1e)[uVar22 * 0x248]);\n        if (iVar20 == 0) {\nLAB_18011b6a3:\n          uVar11 = FUN_180118e00(param_1,param_2,param_3,param_4,param_5,param_6);\n          return uVar11;\n        }\n        uVar22 = (ulonglong)(uint)(int)*(short *)(lVar14 + 0x5a);\n        bVar6 = true;\n      }\n      else if (sVar4 == 0) goto LAB_18011b6a3;\n      if (0 < sVar5) {\n        iVar9 = FUN_180117820(param_1,param_2);\n        bVar7 = false;\n        iVar21 = (int)uVar22;\n        if (iVar9 == 0) {\n          if (iVar17 != iVar20) {\n            uVar15 = FUN_180117c70(param_1,param_2);\n            iVar17 = c_game_get_next_reachable_pcl_to_destination_for_player\n                               (&DAT_1860ad660,*(undefined4 *)(lVar14 + 0x2c),iVar20,iVar17,uVar15);\n            if (iVar17 == 0) {\n              iVar20 = FUN_1800e9d90(&DAT_1860ad660);\n              if (iVar20 == 0) {\n                return 0;\n              }\n              iVar20 = FUN_1800e9ff0(&DAT_1860ad660,uVar22 & 0xffffffff,param_3,param_4);\n              if (iVar20 == 0) {\n                return 0;\n              }\n              local_6c = DAT_1860ad694;\n              local_58 = DAT_1860ad6ac;\n              bVar7 = true;\n            }\n            else {\n              bVar7 = false;\n              iVar20 = FUN_1800df720(&DAT_1860ad660,uVar22 & 0xffffffff,iVar20,iVar17);\n              if (iVar20 == 0) {\n                return 0;\n              }\n            }\n          }\n        }\n        else {\n          bVar24 = true;\n        }\n        bVar23 = false;\n        if (param_6 != 0) {\n          *(undefined2 *)(lVar14 + 0x582) = (undefined2)param_5;\n          *(undefined2 *)(lVar14 + 0x5b4) = (&DAT_1867e8b1c)[(longlong)iVar21 * 0x248];\n          *(undefined2 *)(lVar14 + 0x5b6) = (&DAT_1867e8b1e)[(longlong)iVar21 * 0x248];\n          *(short *)(lVar14 + 0x5b8) = (short)param_3;\n          *(short *)(lVar14 + 0x5ba) = (short)param_4;\n          *(undefined4 *)(lVar14 + 0x5dc) = 0x20001;\n          *(undefined2 *)(lVar14 + 0x58e) = 0;\n        }\n        *(undefined8 *)(param_1 + 0x14) = 0;\n        uVar18 = (uint)(&DAT_1848f71b0)[iVar8] >> 8 & 1;\n        if (((uint)(&DAT_1848f71b0)[iVar8] >> 0x1c & 1) != 0) {\n          uVar18 = 1;\n        }\n        FUN_1800079c0(&DAT_1834a9f50,param_3,param_4,\n                      (int)(short)(&DAT_1867e8b1c)[(longlong)iVar21 * 0x248],\n                      (int)(short)(&DAT_1867e8b1e)[(longlong)iVar21 * 0x248]);\n        if (0x2d < DAT_1834a9f5c) {\n          iVar10 = (DAT_1834a9f5c * DAT_1834a9f5c) / 2;\n        }\n        if (bVar24) {\n          FUN_1800d9c40();\n        }\n        else if (bVar6) {\n          FUN_1800dafd0();\n        }\n        else {\n          FUN_1800da590(&DAT_1860ad660,param_3,param_4,0xffffffff,0xffffffff,iVar10,0);\n        }\n        iVar8 = FUN_180124740(param_1,param_2,DAT_1860ad664);\n        uVar15 = 1;\n        uVar19 = DAT_186203598;\n        while (DAT_186203598 = uVar19, iVar8 == 0) {\n          iVar10 = iVar10 + 5000;\n          if (0x4e51f < iVar10) {\n            iVar10 = 0x4e520;\n          }\n          if (bVar24) {\n            FUN_1800d9c40();\n          }\n          else if (bVar6) {\n            FUN_1800dafd0();\n          }\n          else {\n            FUN_1800da590(&DAT_1860ad660,param_3,param_4,0xffffffff,0xffffffff,iVar10,1);\n          }\n          if (0x4e51f < iVar10) {\n            if (DAT_1860ad6f8 == 0) {\n              if (bVar24) {\n                iVar10 = FUN_1800d9c40();\n              }\n              else {\n                if (!bVar6) {\n                  iVar10 = FUN_1800da590(&DAT_1860ad660,param_3,param_4,(int)sVar2,(int)sVar3,100000\n                                         ,0);\n                  if (iVar10 == 0) {\n                    return 0;\n                  }\n                  goto LAB_18011be26;\n                }\n                iVar10 = FUN_1800dafd0();\n              }\n              if (iVar10 == 0) {\n                return 0;\n              }\n            }\nLAB_18011be26:\n            FUN_180119e30(param_1,param_2);\n            goto LAB_18011b9ca;\n          }\n          iVar8 = FUN_180124740(param_1,param_2,DAT_1860ad664);\n          uVar15 = uVar19;\n          uVar19 = DAT_186203598;\n        }\n        FUN_180119ee0(param_1,param_2);\n        uVar19 = uVar15;\nLAB_18011b9ca:\n        if (0 < *(short *)(lVar14 + 0x5c)) {\n          iVar10 = 0;\n          do {\n            iVar8 = FUN_180119f90(param_1,param_2,iVar10);\n            lVar12 = (longlong)iVar8;\n            lVar16 = lVar12 * 0x490;\n            iVar10 = iVar10 + 1;\n            if ((((((&DAT_1867e8ae4)[lVar12 * 0x248] == 2) &&\n                  ((&DAT_1867e8cf8)[lVar12 * 0x248] == 0)) &&\n                 (*(short *)(&DAT_1867e8cf6 + lVar16) == 0)) &&\n                (((&DAT_1867e8e6b)[lVar16] == '\\0' && (*(short *)(&DAT_1867e8d18 + lVar16) != 0xcf))\n                )) && (((*(short *)(&DAT_1867e8e84 + lVar16) == 0 &&\n                        ((*(short *)(&DAT_1867e8aec + lVar16) != 1 &&\n                         (sVar1 = (&DAT_1867e8ae6)[lVar12 * 0x248], 1 < (ushort)(sVar1 - 0x28U)))))\n                       && (sVar1 != 0x3d)))) {\n              if (sVar1 == 0x27) {\n                if ((&DAT_1867e8e0c)[lVar12 * 0x248] == 2) {\nLAB_18011baac:\n                  if (sVar1 != 0x3a) goto LAB_18011be4f;\n                  if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 4) goto LAB_18011bb76;\n                  goto LAB_18011bac5;\n                }\n              }\n              else {\n                if (sVar1 != 0x4d) goto LAB_18011baac;\n                if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 2) goto LAB_18011bb76;\nLAB_18011be4f:\n                if (sVar1 == 0x3b) {\n                  if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 4) goto LAB_18011bb76;\n                }\n                else {\nLAB_18011bac5:\n                  if ((sVar1 == 0x3c) && ((&DAT_1867e8e0c)[lVar12 * 0x248] != 1))\n                  goto LAB_18011bb76;\n                  if (sVar1 == 0x1e) {\n                    (&DAT_1867e8e1c)[lVar16] = 0;\n                  }\n                }\n                if (bVar24) {\n                  if (uVar18 == 0) {\n                    if (bVar23) {\n                      uVar15 = 3;\n                    }\n                    else {\n                      iVar8 = FUN_1800e0970(&DAT_1860ad660,3,param_3,param_4);\n                      *(int *)(param_1 + 0x14) = *(int *)(param_1 + 0x14) + 1;\n                      if (iVar8 != 0) goto LAB_18011bb4d;\n                      *(undefined4 *)(param_1 + 0x14) = 0;\n                      bVar23 = true;\n                      uVar15 = 3;\n                    }\n                    goto LAB_18011bb38;\n                  }\n                  if (bVar23) {\nLAB_18011bb33:\n                    uVar15 = 1;\n                    goto LAB_18011bb38;\n                  }\n                  iVar8 = FUN_1800e0ac0(&DAT_1860ad660,1,param_3,param_4,uVar19);\n                  *(int *)(param_1 + 0x14) = *(int *)(param_1 + 0x14) + 1;\n                  if (iVar8 == 0) {\n                    *(undefined4 *)(param_1 + 0x14) = 0;\n                    bVar23 = true;\n                    goto LAB_18011bb33;\n                  }\n                }\n                else {\n                  if (*(short *)(lVar14 + 0x5f8) == 0) {\n                    if ((uVar18 != 0) || (bVar6)) goto LAB_18011bb33;\n                    if ((0x26 < (ushort)(sVar1 - 0x27U)) ||\n                       (uVar15 = 4,\n                       (0x4000380001U >> ((ulonglong)(ushort)(sVar1 - 0x27U) & 0x3f) & 1) == 0)) {\n                      uVar15 = 2;\n                    }\n                  }\n                  else {\n                    uVar15 = 3;\n                  }\nLAB_18011bb38:\n                  FUN_1800e1d30(&DAT_1860ad660,uVar15,param_3,param_4);\n                  *(int *)(param_1 + 0x14) = *(int *)(param_1 + 0x14) + 1;\n                }\nLAB_18011bb4d:\n                if (3999 < *(int *)(param_1 + 0x14)) break;\n                (&DAT_1867e8d34)[lVar12 * 0x248] = *(undefined2 *)(param_1 + 0xc);\n                (&DAT_1867e8d36)[lVar12 * 0x248] = *(undefined2 *)(param_1 + 0x10);\n              }\n            }\nLAB_18011bb76:\n          } while (iVar10 < *(short *)(lVar14 + 0x5c));\n        }\n        iVar10 = 0;\n        if (0 < *(short *)(param_1 + 0x5c + lVar13)) {\n          do {\n            iVar8 = FUN_180119f90(param_1,param_2,iVar10);\n            lVar12 = (longlong)iVar8;\n            lVar14 = lVar12 * 0x490;\n            iVar10 = iVar10 + 1;\n            if (((((&DAT_1867e8ae4)[lVar12 * 0x248] == 2) && ((&DAT_1867e8cf8)[lVar12 * 0x248] == 0)\n                 ) && (*(short *)(&DAT_1867e8cf6 + lVar14) == 0)) &&\n               (((((&DAT_1867e8e6b)[lVar14] == '\\0' &&\n                  (sVar1 = *(short *)(&DAT_1867e8d18 + lVar14), sVar1 != 0xcf)) &&\n                 ((*(short *)(&DAT_1867e8e84 + lVar14) == 0 &&\n                  ((*(short *)(&DAT_1867e8aec + lVar14) != 1 &&\n                   (sVar2 = (&DAT_1867e8ae6)[lVar12 * 0x248], 1 < (ushort)(sVar2 - 0x28U))))))) &&\n                (sVar2 != 0x3d)))) {\n              if ((sVar2 == 0x27) || (sVar2 == 0x4d)) {\n                bVar23 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 2;\nLAB_18011bc66:\n                if (bVar23) {\nLAB_18011bc68:\n                  if ((sVar2 != 0x3c) || ((&DAT_1867e8e0c)[lVar12 * 0x248] == 1))\n                  goto LAB_18011bf63;\n                }\n              }\n              else {\n                if (sVar2 == 0x3a) {\n                  bVar23 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 4;\n                  goto LAB_18011bc66;\n                }\n                if (sVar2 != 0x3b) goto LAB_18011bc68;\n                if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 4) goto LAB_18011bc8e;\nLAB_18011bf63:\n                if (sVar1 == 0x6a) {\n                  *(short *)(&DAT_1867e8d2a + lVar12 * 0x490) =\n                       *(short *)(&DAT_1867e8da4 + lVar12 * 0x490) * -4;\n                }\n                lVar14 = lVar12 * 0x490;\n                *(undefined2 *)(&DAT_1867e8d18 + lVar14) = 0x65;\n                *(undefined2 *)(&DAT_1867e8d9e + lVar14) = 0;\n                (&DAT_1867e8e00)[lVar12 * 0x124] = 0;\n                DAT_1860ad6e8 = 0;\n                if (bVar24) {\n                  DAT_1860ad6e8 = 1;\n                }\n                else if ((bVar6) || (DAT_182f7a690 != 0)) {\n                  DAT_1860ad6e0 = 0;\n                }\n                else {\n                  DAT_1860ad6e0 = 1;\n                }\n                *(undefined4 *)(&DAT_1867e8b48 + lVar12 * 0x248) = 0;\n                if ((((sVar1 == 0x6a) ||\n                     ((&DAT_1867e8d34)[lVar12 * 0x248] != (&DAT_1867e8b20)[lVar12 * 0x248])) ||\n                    ((&DAT_1867e8d36)[lVar12 * 0x248] != (&DAT_1867e8b22)[lVar12 * 0x248])) ||\n                   (*(short *)(&DAT_1867e8b4e + lVar14) != 2)) {\n                  iVar20 = FUN_180196280(&DAT_1867e8400,iVar8,\n                                         (int)(short)(&DAT_1867e8d34)[lVar12 * 0x248],\n                                         (int)(short)(&DAT_1867e8d36)[lVar12 * 0x248],0);\n                  if (iVar20 == 0) {\n                    if ((bVar7) &&\n                       (((&DAT_1848f71b0)[(int)(&DAT_1867e8b2c)[lVar12 * 0x124]] & 0x10000100) != 0)\n                       ) {\n                      FUN_180196280(&DAT_1867e8400,iVar8,\n                                    local_6c -\n                                    (&DAT_18402ff2c)\n                                    [(longlong)(short)(&DAT_183aae2a4)[local_6c] * 3],\n                                    (longlong)(short)(&DAT_183aae2a4)[local_6c],0);\n                      *(undefined2 *)(&DAT_1867e8d18 + lVar14) = 0x7a;\n                      *(undefined4 *)(&DAT_1867e8df8 + lVar14) = local_58;\n                      if (param_7 != 0) {\n                        *(undefined2 *)(&DAT_1867e8ad4 + lVar14) = 0x10;\n                      }\n                    }\n                  }\n                  else {\n                    if (param_7 != 0) {\n                      *(undefined2 *)(&DAT_1867e8ad4 + lVar14) = 0x10;\n                    }\n                    if ((((&DAT_1867e8ae6)[lVar12 * 0x248] == 0x55) && (sVar1 == 0x82)) &&\n                       ((&DAT_188574bcc)[(short)(&DAT_1867e8aee)[lVar12 * 0x248]] != -1)) {\n                      *(undefined2 *)(&DAT_1867e8eba + lVar14) = 200;\n                    }\n                  }\n                }\n                else {\n                  *(undefined2 *)(&DAT_1867e8ad4 + lVar14) = 0x10;\n                }\n                DAT_1860ad6e0 = 0;\n                if (DAT_1860ad6dc == 0) {\n                  *(int *)(param_1 + 0x18) = *(int *)(param_1 + 0x18) + 1;\n                }\n                else {\n                  *(int *)(param_1 + 0x18) = *(int *)(param_1 + 0x18) + -1;\n                }\n              }\n            }\nLAB_18011bc8e:\n          } while (iVar10 < *(short *)(param_1 + 0x5c + lVar13));\n        }\n        FUN_180123460(param_1,param_2,0);\n        iVar10 = 0;\n        *(undefined2 *)(param_1 + 0x63c + lVar13) = 0;\n        if (0 < *(short *)(param_1 + 0x5c + lVar13)) {\n          do {\n            iVar8 = FUN_180119f90(param_1,param_2,iVar10);\n            lVar12 = (longlong)iVar8;\n            lVar14 = lVar12 * 0x490;\n            iVar10 = iVar10 + 1;\n            if (((((((&DAT_1867e8ae4)[lVar12 * 0x248] == 2) &&\n                   ((&DAT_1867e8cf8)[lVar12 * 0x248] == 0)) &&\n                  (*(short *)(&DAT_1867e8cf6 + lVar14) == 0)) &&\n                 (((&DAT_1867e8e6b)[lVar14] == '\\0' && (*(short *)(&DAT_1867e8d18 + lVar14) != 0xcf)\n                  ))) && ((*(short *)(&DAT_1867e8e84 + lVar14) == 0 &&\n                          ((*(short *)(&DAT_1867e8aec + lVar14) != 1 &&\n                           (*(short *)(&DAT_1867e8e9e + lVar14) != 0)))))) &&\n               ((sVar1 = (&DAT_1867e8ae6)[lVar12 * 0x248], 1 < (ushort)(sVar1 - 0x28U) &&\n                (sVar1 != 0x3d)))) {\n              if (sVar1 == 0x27) {\n                bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 2;\nLAB_18011c1c7:\n                if (!bVar24) goto LAB_18011c1fd;\n              }\n              else {\n                if (sVar1 == 0x4d) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 2;\n                  goto LAB_18011c1c7;\n                }\n                if (sVar1 == 0x3a) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 4;\n                  goto LAB_18011c1c7;\n                }\n                if (sVar1 == 0x3b) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 4;\n                  goto LAB_18011c1c7;\n                }\n                if (sVar1 == 0x3c) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 1;\n                  goto LAB_18011c1c7;\n                }\n              }\n              lVar12 = lVar12 * 0x490;\n              *(undefined2 *)(&DAT_1867e8ce6 + lVar12) = 0;\n              *(undefined2 *)(&DAT_1867e8b4c + lVar12) = 0;\n              *(undefined2 *)(&DAT_1867e8e7c + lVar12) = 0;\n              *(undefined2 *)(&DAT_1867e8df4 + lVar12) = 3;\n            }\nLAB_18011c1fd:\n          } while (iVar10 < *(short *)(param_1 + 0x5c + lVar13));\n        }\n        return 1;\n      }\n    }\n  }\n  return 0;\n}\n\n\n\n",
+    "semanticClaims": [],
+    "classifications": [],
+    "strings": [],
+    "dataReferences": [
+      {
+        "target_rva": "0x0"
+      },
+      {
+        "target_rva": "0x2F7A690"
+      },
+      {
+        "target_rva": "0x34A9F50"
+      },
+      {
+        "target_rva": "0x34A9F5C"
+      },
+      {
+        "target_rva": "0x3A11EA4"
+      },
+      {
+        "target_rva": "0x3AAE2A4"
+      },
+      {
+        "target_rva": "0x402FF2C"
+      },
+      {
+        "target_rva": "0x48F71B0"
+      },
+      {
+        "target_rva": "0x50EC690"
+      },
+      {
+        "target_rva": "0x60AD660"
+      },
+      {
+        "target_rva": "0x60AD664"
+      },
+      {
+        "target_rva": "0x60AD694"
+      },
+      {
+        "target_rva": "0x60AD6AC"
+      },
+      {
+        "target_rva": "0x60AD6DC"
+      },
+      {
+        "target_rva": "0x60AD6E0"
+      },
+      {
+        "target_rva": "0x60AD6E8"
+      },
+      {
+        "target_rva": "0x60AD6F8"
+      },
+      {
+        "target_rva": "0x6203598"
+      },
+      {
+        "target_rva": "0x67E8400"
+      },
+      {
+        "target_rva": "0x67E8AD4"
+      },
+      {
+        "target_rva": "0x67E8AE4"
+      },
+      {
+        "target_rva": "0x67E8AE6"
+      },
+      {
+        "target_rva": "0x67E8AEC"
+      },
+      {
+        "target_rva": "0x67E8AEE"
+      },
+      {
+        "target_rva": "0x67E8B1C"
+      },
+      {
+        "target_rva": "0x67E8B1E"
+      },
+      {
+        "target_rva": "0x67E8B20"
+      },
+      {
+        "target_rva": "0x67E8B22"
+      },
+      {
+        "target_rva": "0x67E8B2C"
+      },
+      {
+        "target_rva": "0x67E8B48"
+      },
+      {
+        "target_rva": "0x67E8B4C"
+      },
+      {
+        "target_rva": "0x67E8B4E"
+      },
+      {
+        "target_rva": "0x67E8CE6"
+      },
+      {
+        "target_rva": "0x67E8CF6"
+      },
+      {
+        "target_rva": "0x67E8CF8"
+      },
+      {
+        "target_rva": "0x67E8D18"
+      },
+      {
+        "target_rva": "0x67E8D2A"
+      },
+      {
+        "target_rva": "0x67E8D34"
+      },
+      {
+        "target_rva": "0x67E8D36"
+      },
+      {
+        "target_rva": "0x67E8D9E"
+      },
+      {
+        "target_rva": "0x67E8DA4"
+      },
+      {
+        "target_rva": "0x67E8DF4"
+      },
+      {
+        "target_rva": "0x67E8DF8"
+      },
+      {
+        "target_rva": "0x67E8E00"
+      },
+      {
+        "target_rva": "0x67E8E0C"
+      },
+      {
+        "target_rva": "0x67E8E1C"
+      },
+      {
+        "target_rva": "0x67E8E6B"
+      },
+      {
+        "target_rva": "0x67E8E7C"
+      },
+      {
+        "target_rva": "0x67E8E84"
+      },
+      {
+        "target_rva": "0x67E8E9E"
+      },
+      {
+        "target_rva": "0x67E8EBA"
+      },
+      {
+        "target_rva": "0x8574BCC"
+      }
+    ],
+    "callees": [
+      {
+        "callee_rva": "0x79C0",
+        "callee_name": "FUN_1800079c0"
+      },
+      {
+        "callee_rva": "0xD9C40",
+        "callee_name": "FUN_1800d9c40"
+      },
+      {
+        "callee_rva": "0xDA590",
+        "callee_name": "FUN_1800da590"
+      },
+      {
+        "callee_rva": "0xDAFD0",
+        "callee_name": "FUN_1800dafd0"
+      },
+      {
+        "callee_rva": "0xDF720",
+        "callee_name": "FUN_1800df720"
+      },
+      {
+        "callee_rva": "0xE0970",
+        "callee_name": "FUN_1800e0970"
+      },
+      {
+        "callee_rva": "0xE0AC0",
+        "callee_name": "FUN_1800e0ac0"
+      },
+      {
+        "callee_rva": "0xE1D30",
+        "callee_name": "FUN_1800e1d30"
+      },
+      {
+        "callee_rva": "0xE2610",
+        "callee_name": "c_game_get_next_reachable_pcl_to_destination_for_player"
+      },
+      {
+        "callee_rva": "0xE7C40",
+        "callee_name": "FUN_1800e7c40"
+      },
+      {
+        "callee_rva": "0xE9D90",
+        "callee_name": "FUN_1800e9d90"
+      },
+      {
+        "callee_rva": "0xE9FF0",
+        "callee_name": "FUN_1800e9ff0"
+      },
+      {
+        "callee_rva": "0x117820",
+        "callee_name": "FUN_180117820"
+      },
+      {
+        "callee_rva": "0x117BC0",
+        "callee_name": "FUN_180117bc0"
+      },
+      {
+        "callee_rva": "0x117C70",
+        "callee_name": "FUN_180117c70"
+      },
+      {
+        "callee_rva": "0x118E00",
+        "callee_name": "FUN_180118e00"
+      },
+      {
+        "callee_rva": "0x119E30",
+        "callee_name": "FUN_180119e30"
+      },
+      {
+        "callee_rva": "0x119EE0",
+        "callee_name": "FUN_180119ee0"
+      },
+      {
+        "callee_rva": "0x119F90",
+        "callee_name": "FUN_180119f90"
+      },
+      {
+        "callee_rva": "0x123460",
+        "callee_name": "FUN_180123460"
+      },
+      {
+        "callee_rva": "0x124740",
+        "callee_name": "FUN_180124740"
+      },
+      {
+        "callee_rva": "0x196280",
+        "callee_name": "FUN_180196280"
+      }
+    ],
+    "callers": [
+      {
+        "caller_rva": "0x3B450"
+      },
+      {
+        "caller_rva": "0x3C150"
+      },
+      {
+        "caller_rva": "0x3CAC0"
+      },
+      {
+        "caller_rva": "0x3CCD0"
+      },
+      {
+        "caller_rva": "0x3D020"
+      },
+      {
+        "caller_rva": "0x3D260"
+      },
+      {
+        "caller_rva": "0x3D3E0"
+      },
+      {
+        "caller_rva": "0x3D6E0"
+      },
+      {
+        "caller_rva": "0x3D840"
+      },
+      {
+        "caller_rva": "0x3E070"
+      },
+      {
+        "caller_rva": "0x3FE50"
+      },
+      {
+        "caller_rva": "0xABB90"
+      },
+      {
+        "caller_rva": "0xF82B0"
+      },
+      {
+        "caller_rva": "0x1045F0"
+      },
+      {
+        "caller_rva": "0x10AA20"
+      },
+      {
+        "caller_rva": "0x10C970"
+      },
+      {
+        "caller_rva": "0x1133B0"
+      },
+      {
+        "caller_rva": "0x1136E0"
+      },
+      {
+        "caller_rva": "0x113AB0"
+      },
+      {
+        "caller_rva": "0x113BC0"
+      },
+      {
+        "caller_rva": "0x113E00"
+      },
+      {
+        "caller_rva": "0x113F60"
+      },
+      {
+        "caller_rva": "0x1140C0"
+      },
+      {
+        "caller_rva": "0x1141D0"
+      },
+      {
+        "caller_rva": "0x114960"
+      },
+      {
+        "caller_rva": "0x114A80"
+      },
+      {
+        "caller_rva": "0x11A980"
+      },
+      {
+        "caller_rva": "0x11D7C0"
+      },
+      {
+        "caller_rva": "0x11D8D0"
+      },
+      {
+        "caller_rva": "0x11DD10"
+      },
+      {
+        "caller_rva": "0x11E960"
+      },
+      {
+        "caller_rva": "0x124890"
+      },
+      {
+        "caller_rva": "0x124B90"
+      },
+      {
+        "caller_rva": "0x124E80"
+      },
+      {
+        "caller_rva": "0x125290"
+      },
+      {
+        "caller_rva": "0x1256A0"
+      },
+      {
+        "caller_rva": "0x1259D0"
+      },
+      {
+        "caller_rva": "0x125D00"
+      },
+      {
+        "caller_rva": "0x196100"
+      }
+    ],
+    "managedCallers": [],
+    "globals": [
+      {
+        "address": "0x180000000",
+        "rva": "0x0",
+        "name": "IMAGE_DOS_HEADER_180000000",
+        "data_type": "IMAGE_DOS_HEADER",
+        "reference_count": 2612
+      },
+      {
+        "address": "0x18011B574",
+        "rva": "0x11B574",
+        "name": "LAB_18011b574",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B580",
+        "rva": "0x11B580",
+        "name": "LAB_18011b580",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B6A3",
+        "rva": "0x11B6A3",
+        "name": "LAB_18011b6a3",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B6D3",
+        "rva": "0x11B6D3",
+        "name": "LAB_18011b6d3",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B6E2",
+        "rva": "0x11B6E2",
+        "name": "LAB_18011b6e2",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B6E7",
+        "rva": "0x11B6E7",
+        "name": "LAB_18011b6e7",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B727",
+        "rva": "0x11B727",
+        "name": "LAB_18011b727",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B7B3",
+        "rva": "0x11B7B3",
+        "name": "LAB_18011b7b3",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B7DA",
+        "rva": "0x11B7DA",
+        "name": "LAB_18011b7da",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B7DD",
+        "rva": "0x11B7DD",
+        "name": "LAB_18011b7dd",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011B84B",
+        "rva": "0x11B84B",
+        "name": "LAB_18011b84b",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B8C1",
+        "rva": "0x11B8C1",
+        "name": "LAB_18011b8c1",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B8F6",
+        "rva": "0x11B8F6",
+        "name": "LAB_18011b8f6",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B906",
+        "rva": "0x11B906",
+        "name": "LAB_18011b906",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B914",
+        "rva": "0x11B914",
+        "name": "LAB_18011b914",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B919",
+        "rva": "0x11B919",
+        "name": "LAB_18011b919",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011B940",
+        "rva": "0x11B940",
+        "name": "LAB_18011b940",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B985",
+        "rva": "0x11B985",
+        "name": "LAB_18011b985",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B993",
+        "rva": "0x11B993",
+        "name": "LAB_18011b993",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B998",
+        "rva": "0x11B998",
+        "name": "LAB_18011b998",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011B9BF",
+        "rva": "0x11B9BF",
+        "name": "LAB_18011b9bf",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B9CA",
+        "rva": "0x11B9CA",
+        "name": "LAB_18011b9ca",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011B9E3",
+        "rva": "0x11B9E3",
+        "name": "LAB_18011b9e3",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BAAC",
+        "rva": "0x11BAAC",
+        "name": "LAB_18011baac",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BAC5",
+        "rva": "0x11BAC5",
+        "name": "LAB_18011bac5",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BADA",
+        "rva": "0x11BADA",
+        "name": "LAB_18011bada",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BAE8",
+        "rva": "0x11BAE8",
+        "name": "LAB_18011bae8",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011BB33",
+        "rva": "0x11BB33",
+        "name": "LAB_18011bb33",
+        "data_type": null,
+        "reference_count": 3
+      },
+      {
+        "address": "0x18011BB38",
+        "rva": "0x11BB38",
+        "name": "LAB_18011bb38",
+        "data_type": null,
+        "reference_count": 5
+      },
+      {
+        "address": "0x18011BB4D",
+        "rva": "0x11BB4D",
+        "name": "LAB_18011bb4d",
+        "data_type": null,
+        "reference_count": 4
+      },
+      {
+        "address": "0x18011BB76",
+        "rva": "0x11BB76",
+        "name": "LAB_18011bb76",
+        "data_type": null,
+        "reference_count": 14
+      },
+      {
+        "address": "0x18011BB88",
+        "rva": "0x11BB88",
+        "name": "LAB_18011bb88",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BB8D",
+        "rva": "0x11BB8D",
+        "name": "LAB_18011bb8d",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BBB0",
+        "rva": "0x11BBB0",
+        "name": "LAB_18011bbb0",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BC5C",
+        "rva": "0x11BC5C",
+        "name": "LAB_18011bc5c",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BC66",
+        "rva": "0x11BC66",
+        "name": "LAB_18011bc66",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BC68",
+        "rva": "0x11BC68",
+        "name": "LAB_18011bc68",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BC8C",
+        "rva": "0x11BC8C",
+        "name": "LAB_18011bc8c",
+        "data_type": null,
+        "reference_count": 11
+      },
+      {
+        "address": "0x18011BC8E",
+        "rva": "0x11BC8E",
+        "name": "LAB_18011bc8e",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011BCA2",
+        "rva": "0x11BCA2",
+        "name": "LAB_18011bca2",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BCD0",
+        "rva": "0x11BCD0",
+        "name": "LAB_18011bcd0",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BDAF",
+        "rva": "0x11BDAF",
+        "name": "LAB_18011bdaf",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BDEE",
+        "rva": "0x11BDEE",
+        "name": "LAB_18011bdee",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BDF2",
+        "rva": "0x11BDF2",
+        "name": "LAB_18011bdf2",
+        "data_type": null,
+        "reference_count": 10
+      },
+      {
+        "address": "0x18011BDF4",
+        "rva": "0x11BDF4",
+        "name": "LAB_18011bdf4",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011BE0F",
+        "rva": "0x11BE0F",
+        "name": "LAB_18011be0f",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BE1D",
+        "rva": "0x11BE1D",
+        "name": "LAB_18011be1d",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BE26",
+        "rva": "0x11BE26",
+        "name": "LAB_18011be26",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011BE36",
+        "rva": "0x11BE36",
+        "name": "LAB_18011be36",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BE4F",
+        "rva": "0x11BE4F",
+        "name": "LAB_18011be4f",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BE6D",
+        "rva": "0x11BE6D",
+        "name": "LAB_18011be6d",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BE7C",
+        "rva": "0x11BE7C",
+        "name": "LAB_18011be7c",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BEB3",
+        "rva": "0x11BEB3",
+        "name": "LAB_18011beb3",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BEC6",
+        "rva": "0x11BEC6",
+        "name": "LAB_18011bec6",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BEDF",
+        "rva": "0x11BEDF",
+        "name": "LAB_18011bedf",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BF16",
+        "rva": "0x11BF16",
+        "name": "LAB_18011bf16",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BF20",
+        "rva": "0x11BF20",
+        "name": "LAB_18011bf20",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BF3F",
+        "rva": "0x11BF3F",
+        "name": "LAB_18011bf3f",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BF5C",
+        "rva": "0x11BF5C",
+        "name": "LAB_18011bf5c",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BF63",
+        "rva": "0x11BF63",
+        "name": "LAB_18011bf63",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BF89",
+        "rva": "0x11BF89",
+        "name": "LAB_18011bf89",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BFC6",
+        "rva": "0x11BFC6",
+        "name": "LAB_18011bfc6",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011BFE1",
+        "rva": "0x11BFE1",
+        "name": "LAB_18011bfe1",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011BFE7",
+        "rva": "0x11BFE7",
+        "name": "LAB_18011bfe7",
+        "data_type": null,
+        "reference_count": 2
+      },
+      {
+        "address": "0x18011C03C",
+        "rva": "0x11C03C",
+        "name": "LAB_18011c03c",
+        "data_type": null,
+        "reference_count": 4
+      },
+      {
+        "address": "0x18011C0F7",
+        "rva": "0x11C0F7",
+        "name": "LAB_18011c0f7",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C111",
+        "rva": "0x11C111",
+        "name": "LAB_18011c111",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C14F",
+        "rva": "0x11C14F",
+        "name": "LAB_18011c14f",
+        "data_type": null,
+        "reference_count": 8
+      },
+      {
+        "address": "0x18011C16C",
+        "rva": "0x11C16C",
+        "name": "LAB_18011c16c",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C176",
+        "rva": "0x11C176",
+        "name": "LAB_18011c176",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C189",
+        "rva": "0x11C189",
+        "name": "LAB_18011c189",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C19C",
+        "rva": "0x11C19C",
+        "name": "LAB_18011c19c",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C1AF",
+        "rva": "0x11C1AF",
+        "name": "LAB_18011c1af",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C1C7",
+        "rva": "0x11C1C7",
+        "name": "LAB_18011c1c7",
+        "data_type": null,
+        "reference_count": 4
+      },
+      {
+        "address": "0x18011C1C9",
+        "rva": "0x11C1C9",
+        "name": "LAB_18011c1c9",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x18011C1FD",
+        "rva": "0x11C1FD",
+        "name": "LAB_18011c1fd",
+        "data_type": null,
+        "reference_count": 11
+      },
+      {
+        "address": "0x18011C20B",
+        "rva": "0x11C20B",
+        "name": "LAB_18011c20b",
+        "data_type": null,
+        "reference_count": 1
+      },
+      {
+        "address": "0x182F7A690",
+        "rva": "0x2F7A690",
+        "name": "DAT_182f7a690",
+        "data_type": "undefined4",
+        "reference_count": 6
+      },
+      {
+        "address": "0x1834A9F50",
+        "rva": "0x34A9F50",
+        "name": "DAT_1834a9f50",
+        "data_type": null,
+        "reference_count": 201
+      },
+      {
+        "address": "0x1834A9F5C",
+        "rva": "0x34A9F5C",
+        "name": "DAT_1834a9f5c",
+        "data_type": "undefined4",
+        "reference_count": 87
+      },
+      {
+        "address": "0x183A11EA4",
+        "rva": "0x3A11EA4",
+        "name": "DAT_183a11ea4",
+        "data_type": "undefined1",
+        "reference_count": 255
+      },
+      {
+        "address": "0x183AAE2A4",
+        "rva": "0x3AAE2A4",
+        "name": "DAT_183aae2a4",
+        "data_type": "undefined2",
+        "reference_count": 240
+      },
+      {
+        "address": "0x18402FF2C",
+        "rva": "0x402FF2C",
+        "name": "DAT_18402ff2c",
+        "data_type": "undefined4",
+        "reference_count": 1039
+      },
+      {
+        "address": "0x1848F71B0",
+        "rva": "0x48F71B0",
+        "name": "DAT_1848f71b0",
+        "data_type": "undefined4",
+        "reference_count": 564
+      },
+      {
+        "address": "0x1850EC690",
+        "rva": "0x50EC690",
+        "name": "DAT_1850ec690",
+        "data_type": "undefined2",
+        "reference_count": 259
+      },
+      {
+        "address": "0x1860AD660",
+        "rva": "0x60AD660",
+        "name": "DAT_1860ad660",
+        "data_type": null,
+        "reference_count": 477
+      },
+      {
+        "address": "0x1860AD664",
+        "rva": "0x60AD664",
+        "name": "DAT_1860ad664",
+        "data_type": "undefined4",
+        "reference_count": 7
+      },
+      {
+        "address": "0x1860AD694",
+        "rva": "0x60AD694",
+        "name": "DAT_1860ad694",
+        "data_type": "undefined4",
+        "reference_count": 8
+      },
+      {
+        "address": "0x1860AD6AC",
+        "rva": "0x60AD6AC",
+        "name": "DAT_1860ad6ac",
+        "data_type": "undefined4",
+        "reference_count": 14
+      },
+      {
+        "address": "0x1860AD6DC",
+        "rva": "0x60AD6DC",
+        "name": "DAT_1860ad6dc",
+        "data_type": "undefined4",
+        "reference_count": 1
+      },
+      {
+        "address": "0x1860AD6E0",
+        "rva": "0x60AD6E0",
+        "name": "DAT_1860ad6e0",
+        "data_type": "undefined4",
+        "reference_count": 24
+      },
+      {
+        "address": "0x1860AD6E8",
+        "rva": "0x60AD6E8",
+        "name": "DAT_1860ad6e8",
+        "data_type": "undefined4",
+        "reference_count": 15
+      },
+      {
+        "address": "0x1860AD6F8",
+        "rva": "0x60AD6F8",
+        "name": "DAT_1860ad6f8",
+        "data_type": "undefined4",
+        "reference_count": 5
+      },
+      {
+        "address": "0x186203598",
+        "rva": "0x6203598",
+        "name": "DAT_186203598",
+        "data_type": "undefined4",
+        "reference_count": 1
+      },
+      {
+        "address": "0x1867E8400",
+        "rva": "0x67E8400",
+        "name": "DAT_1867e8400",
+        "data_type": "undefined4",
+        "reference_count": 2910
+      },
+      {
+        "address": "0x1867E8AD4",
+        "rva": "0x67E8AD4",
+        "name": "DAT_1867e8ad4",
+        "data_type": null,
+        "reference_count": 5
+      },
+      {
+        "address": "0x1867E8AE4",
+        "rva": "0x67E8AE4",
+        "name": "DAT_1867e8ae4",
+        "data_type": "undefined2",
+        "reference_count": 358
+      },
+      {
+        "address": "0x1867E8AE6",
+        "rva": "0x67E8AE6",
+        "name": "DAT_1867e8ae6",
+        "data_type": "undefined2",
+        "reference_count": 170
+      },
+      {
+        "address": "0x1867E8AEC",
+        "rva": "0x67E8AEC",
+        "name": "DAT_1867e8aec",
+        "data_type": null,
+        "reference_count": 7
+      },
+      {
+        "address": "0x1867E8AEE",
+        "rva": "0x67E8AEE",
+        "name": "DAT_1867e8aee",
+        "data_type": "undefined2",
+        "reference_count": 482
+      },
+      {
+        "address": "0x1867E8B1C",
+        "rva": "0x67E8B1C",
+        "name": "DAT_1867e8b1c",
+        "data_type": "undefined2",
+        "reference_count": 549
+      },
+      {
+        "address": "0x1867E8B1E",
+        "rva": "0x67E8B1E",
+        "name": "DAT_1867e8b1e",
+        "data_type": "undefined2",
+        "reference_count": 556
+      },
+      {
+        "address": "0x1867E8B20",
+        "rva": "0x67E8B20",
+        "name": "DAT_1867e8b20",
+        "data_type": "undefined2",
+        "reference_count": 11
+      },
+      {
+        "address": "0x1867E8B22",
+        "rva": "0x67E8B22",
+        "name": "DAT_1867e8b22",
+        "data_type": "undefined2",
+        "reference_count": 18
+      },
+      {
+        "address": "0x1867E8B2C",
+        "rva": "0x67E8B2C",
+        "name": "DAT_1867e8b2c",
+        "data_type": "undefined4",
+        "reference_count": 167
+      },
+      {
+        "address": "0x1867E8B48",
+        "rva": "0x67E8B48",
+        "name": "DAT_1867e8b48",
+        "data_type": "undefined2",
+        "reference_count": 29
+      },
+      {
+        "address": "0x1867E8B4C",
+        "rva": "0x67E8B4C",
+        "name": "DAT_1867e8b4c",
+        "data_type": null,
+        "reference_count": 7
+      },
+      {
+        "address": "0x1867E8B4E",
+        "rva": "0x67E8B4E",
+        "name": "DAT_1867e8b4e",
+        "data_type": null,
+        "reference_count": 23
+      },
+      {
+        "address": "0x1867E8CE6",
+        "rva": "0x67E8CE6",
+        "name": "DAT_1867e8ce6",
+        "data_type": null,
+        "reference_count": 131
+      },
+      {
+        "address": "0x1867E8CF6",
+        "rva": "0x67E8CF6",
+        "name": "DAT_1867e8cf6",
+        "data_type": null,
+        "reference_count": 20
+      },
+      {
+        "address": "0x1867E8CF8",
+        "rva": "0x67E8CF8",
+        "name": "DAT_1867e8cf8",
+        "data_type": "undefined2",
+        "reference_count": 143
+      },
+      {
+        "address": "0x1867E8D18",
+        "rva": "0x67E8D18",
+        "name": "DAT_1867e8d18",
+        "data_type": null,
+        "reference_count": 1874
+      },
+      {
+        "address": "0x1867E8D2A",
+        "rva": "0x67E8D2A",
+        "name": "DAT_1867e8d2a",
+        "data_type": null,
+        "reference_count": 15
+      },
+      {
+        "address": "0x1867E8D34",
+        "rva": "0x67E8D34",
+        "name": "DAT_1867e8d34",
+        "data_type": "undefined2",
+        "reference_count": 43
+      },
+      {
+        "address": "0x1867E8D36",
+        "rva": "0x67E8D36",
+        "name": "DAT_1867e8d36",
+        "data_type": "undefined2",
+        "reference_count": 42
+      },
+      {
+        "address": "0x1867E8D9E",
+        "rva": "0x67E8D9E",
+        "name": "DAT_1867e8d9e",
+        "data_type": null,
+        "reference_count": 36
+      },
+      {
+        "address": "0x1867E8DA4",
+        "rva": "0x67E8DA4",
+        "name": "DAT_1867e8da4",
+        "data_type": null,
+        "reference_count": 129
+      },
+      {
+        "address": "0x1867E8DF4",
+        "rva": "0x67E8DF4",
+        "name": "DAT_1867e8df4",
+        "data_type": null,
+        "reference_count": 219
+      },
+      {
+        "address": "0x1867E8DF8",
+        "rva": "0x67E8DF8",
+        "name": "DAT_1867e8df8",
+        "data_type": null,
+        "reference_count": 98
+      },
+      {
+        "address": "0x1867E8E00",
+        "rva": "0x67E8E00",
+        "name": "DAT_1867e8e00",
+        "data_type": "undefined4",
+        "reference_count": 203
+      },
+      {
+        "address": "0x1867E8E0C",
+        "rva": "0x67E8E0C",
+        "name": "DAT_1867e8e0c",
+        "data_type": "undefined2",
+        "reference_count": 210
+      },
+      {
+        "address": "0x1867E8E1C",
+        "rva": "0x67E8E1C",
+        "name": "DAT_1867e8e1c",
+        "data_type": null,
+        "reference_count": 6
+      },
+      {
+        "address": "0x1867E8E6B",
+        "rva": "0x67E8E6B",
+        "name": "DAT_1867e8e6b",
+        "data_type": null,
+        "reference_count": 27
+      },
+      {
+        "address": "0x1867E8E7C",
+        "rva": "0x67E8E7C",
+        "name": "DAT_1867e8e7c",
+        "data_type": null,
+        "reference_count": 26
+      },
+      {
+        "address": "0x1867E8E84",
+        "rva": "0x67E8E84",
+        "name": "DAT_1867e8e84",
+        "data_type": null,
+        "reference_count": 20
+      },
+      {
+        "address": "0x1867E8E9E",
+        "rva": "0x67E8E9E",
+        "name": "DAT_1867e8e9e",
+        "data_type": null,
+        "reference_count": 3
+      },
+      {
+        "address": "0x1867E8EBA",
+        "rva": "0x67E8EBA",
+        "name": "DAT_1867e8eba",
+        "data_type": null,
+        "reference_count": 9
+      },
+      {
+        "address": "0x188574BCC",
+        "rva": "0x8574BCC",
+        "name": "DAT_188574bcc",
+        "data_type": "undefined4",
+        "reference_count": 226
+      }
+    ],
+    "types": [],
+    "versionMatches": [
+      {
+        "old_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+        "new_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+        "old_rva": "0x11A640",
+        "new_rva": "0x11B520",
+        "confidence": "confirmed",
+        "reason": "unique-normalized-hash-and-cfg",
+        "score": 1.0,
+        "changed": 1
+      }
+    ]
+  }
+]

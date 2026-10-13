@@ -19,6 +19,10 @@ This enabled-by-default host fix makes AI melee raiding groups try another build
 ### Restore the tannery rack fade
 The enabled-by-default host fix makes the tannery rack animation fade in smoothly instead of remaining almost invisible during its first phase.
 
+### Reduce Arabian swordsmen's idle sound
+
+A local slider under **Fixes?** adjusts only the idle sword-draw sound from **0-100%**, defaulting to **25%**. Zero silences it; combat sounds remain unchanged.
+
 ### Optional baker and miller breaks
 The off-by-default host option under **Fixes?** lets bakers and all three mill workers occasionally take a positive-fear break after delivering bread or flour, even when more ingredients are available. It uses the game's existing break decision and destination. This Vanilla difference may be intentional, so the option is separate from the established fixes. Wheat and hops farmers retain their Vanilla behavior.
 

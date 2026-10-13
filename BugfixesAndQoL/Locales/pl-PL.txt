@@ -420,3 +420,8 @@ Ground.Iron=Pola żelaza
 Ground.Pitch=Pola smoły
 BugfixesAndQoL.ImprovedBuildPreview=Pokazuj wymagania terenu podczas budowy
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Oznacza nieodpowiedni teren na czerwono i pokazuje wymaganą liczbę pól w podpowiedzi. Tylko lokalnie; zasady budowy pozostają bez zmian.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Arabscy szermierze: głośność w spoczynku
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Lokalna głośność wyłącznie dobywania miecza podczas animacji spoczynku arabskich szermierzy wszystkich graczy. 0%: cisza; 100%: normalna głośność; domyślnie: 25%. Odgłosy walki pozostają bez zmian. Bez limitu powtórzeń.

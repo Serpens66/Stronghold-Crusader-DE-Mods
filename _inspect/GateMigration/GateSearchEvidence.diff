@@ -1,0 +1,25 @@
+--- 
+
++++ 
+
+@@ -34,7 +34,9 @@
+
+ 
+         internal static string Comparison(bool nativeReject, bool effectiveReject,
+-            NativeGateSnapshotDecision decision) => (int)decision > (int)NativeGateSnapshotDecision.ExcludeForeignCapture
++            NativeGateSnapshotDecision decision) => (int)decision > (int)NativeGateSnapshotDecision.ExcludeAccessRule
+                 ? "comparison-unclassified" : nativeReject && effectiveReject
+                 ? "native-rejection-preserved"
++                : !nativeReject && effectiveReject && decision == NativeGateSnapshotDecision.ExcludeAccessRule
++                    ? "access-rule-acceptance-rejected"
+                 : !nativeReject && effectiveReject && decision == NativeGateSnapshotDecision.ExcludeForeignCapture
+                     ? "foreign-capture-acceptance-rejected"
+@@ -43,5 +45,6 @@
+
+                        decision == NativeGateSnapshotDecision.PreserveOwnerAlly ||
+                        decision == NativeGateSnapshotDecision.PreserveCapturer ||
+-                       decision == NativeGateSnapshotDecision.PreserveCapturerAlly)
++                       decision == NativeGateSnapshotDecision.PreserveCapturerAlly ||
++                       decision == NativeGateSnapshotDecision.PreserveAccessRule)
+                         ? "permitted-acceptance-preserved" : "comparison-unclassified";
+ 

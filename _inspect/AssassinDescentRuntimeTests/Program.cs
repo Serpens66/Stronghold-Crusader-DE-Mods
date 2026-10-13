@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-namespace EnemyGatePathfindingTest {
+namespace BugfixesAndQoL.GateRouting {
 // SDK lookup/liveness and configuration calls are controlled fixture boundaries.
 // The complete production Allows body and pure transition rule are compiled unchanged.
 enum eChimps : short { CHIMP_TYPE_ARAB_ASSASIN=73 }
@@ -32,7 +32,7 @@ static int checks; static void Check(bool ok,string why) { checks++;if(!ok)throw
 static int Main() { try { Run(); return 0; } catch(Exception e) { Console.Error.WriteLine(e); return 1; } }
 static void Run() {
 string root=System.IO.Directory.GetCurrentDirectory();
-string runtime=System.IO.File.ReadAllText(System.IO.Path.Combine(root,"Testmods/EnemyGatePathfindingTest/src/AssassinGateDescentRuntime.cs")).Replace("\r\n","\n");
+string runtime=System.IO.File.ReadAllText(System.IO.Path.Combine(root,"BugfixesAndQoL/src/GateRouting/AssassinGateDescentRuntime.cs")).Replace("\r\n","\n");
 string body=runtime.Substring(runtime.IndexOf("        internal void SetActive(")); body=body.Substring(0,body.LastIndexOf("\n    }")).Replace("private bool Allows","internal bool Allows").Replace("private void Decide","internal void Decide").Replace("private void ObserveClear","internal void ObserveClear");
 Check(System.IO.File.ReadAllText(System.IO.Path.Combine(root,"_inspect/AssassinDescentRuntimeTests/ProductionReader.cs")).Replace("\r\n","\n").Contains(body.Replace("\r\n","\n")),"fixture reader is exactly current production source");
 byte* m=(byte*)NativeMemory.AllocZeroed(0x6800000); int active=1, diagnostics=0;

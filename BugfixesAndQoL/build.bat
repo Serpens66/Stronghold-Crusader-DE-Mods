@@ -80,6 +80,9 @@ if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
 pushd "%PROJECT_DIR%"
+echo [%date% %time%] Integrated gate routing migration regression
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GateRouting.ps1"
+if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] Gatehouse target-marker height contracts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GatehouseTargetMarkerHeight.ps1"
 if errorlevel 1 goto build_failed_popd
@@ -132,6 +135,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Tanne
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1"
+if errorlevel 1 goto build_failed_popd
+echo [%date% %time%] Arabian idle volume consumer tests
+"%MSBUILD%" "%PROJECT_DIR%tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\ArabianIdleSound.Tests\bin\ArabianIdleSoundVolume.Tests.exe" "%GAME_DIR%" "%PROJECT_DIR%.."
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" /p:Configuration=Debug
@@ -224,6 +232,8 @@ if not exist "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 
 if "%NO_INSTALL%"=="1" goto prepared_no_install
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Disable-LegacyGateTest.ps1" -GameDirectory "%GAME_DIR%"
+if errorlevel 1 goto copy_failed
 if exist "%GAME_PLUGIN_DIR%\" (
   rem Keep player-created lobby settings while replacing all packaged files.
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (

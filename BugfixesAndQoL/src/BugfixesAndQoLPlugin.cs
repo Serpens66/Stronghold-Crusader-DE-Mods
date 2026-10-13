@@ -43,7 +43,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.190";
+        public const string PluginVersion = "1.0.191";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -93,7 +93,9 @@ namespace BugfixesAndQoL
             steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
+            ArabianIdleSoundRuntime.Configure(Logger, Settings);
             FormationFeature.Configure(Logger, Config, Settings);
+            GateRouting.GateRoutingFeature.Configure(Logger, Config, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
                 Settings,

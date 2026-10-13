@@ -63,8 +63,8 @@ namespace EnemyBridgePathTest
             {
                 hooks[0].Enable();
                 var invoke=Marshal.GetDelegateForFunctionPointer<Leaf>(leaf);
-                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue,732351152,732350560,1389546720,1389546128,-50148752,-50149344}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
-                Check(trace.Entered==12&&trace.Exited==12,"actual wrapper pairs exactly once");
+                foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue,732351152,732350560,1389546720,1389546128,-50148752,-50149344,-917714848,-917715440}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
+                Check(trace.Entered==14&&trace.Exited==14,"actual wrapper pairs exactly once");
                 trace.MarkInstalled(BridgeNativeDefinition.OwnedCount);
                 Check(trace.NativeReadiness.Contains("topologyAvailable=False")&&!trace.Summary().Contains("nativeCoverageComplete=True"),"missing shared publisher cannot claim full coverage");
                 APIShared.EnemyBridgeDiagnosticBridge.PublishTopologyOwner();

@@ -1,0 +1,54 @@
+using System;
+using System.Collections.Generic;
+using BugfixesAndQoL;
+using BugfixesAndQoL.GateRouting;
+using APIShared;
+class Program {
+ static int checks;static void Check(bool b,string why){checks++;if(!b)throw new Exception(why);}
+ static void Main(){
+ var vm=new BugfixesAndQoLViewModel();
+ GateRoutingFeature.Configure(new BepInEx.Logging.ManualLogSource(),new BepInEx.Configuration.ConfigFile(),vm);
+ GateRoutingFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext(),true);
+ Check(EnemyGatePathfindingRuntime.Created==0,"inactive menu does not initialize native service");
+ Shared.GameplaySessionLifecycle.Start.Fire(new Shared.Session{IsEditor=true});
+ Check(GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.Created==1&&EnemyGatePathfindingRuntime.Begin==1,"editor starts once");
+ Check(GateRoutingFeature.IsBlocked(2,1,42,1,0,true),"default own rule restricts");
+ vm.EnableEnemyGatePathfindingFix=false;vm.Changed(nameof(vm.EnableEnemyGatePathfindingFix));
+ Check(!GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.End==1,"off clears runtime");
+ int ticks=EnemyGatePathfindingRuntime.Ticks;SHCDESE.API.GameTimeManagerAPI.Instance.Tick();
+ UnityEngine.Application.Render();Check(EnemyGatePathfindingRuntime.Ticks==ticks,"inactive does no publisher work");
+ vm.EnableEnemyGatePathfindingFix=true;vm.Changed(nameof(vm.EnableEnemyGatePathfindingFix));
+ Check(GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.Created==1&&EnemyGatePathfindingRuntime.Begin==2,"reactivation reuses hooks");
+ var decision=GateAccessDecision.Allow;
+ GateAccessRules.TryRegister("foreign.mod","gate",q=>decision,out _);
+ SHCDESE.API.GameTimeManagerAPI.Instance.Tick();
+ Check(!GateRoutingFeature.IsBlocked(2,1,42,1,0,true),"contributor removes added restriction");
+ decision=GateAccessDecision.Deny;GateAccessRules.Invalidate("foreign.mod","gate");
+ SHCDESE.API.GameTimeManagerAPI.Instance.Tick();
+ Check(GateRoutingFeature.IsBlocked(1,1,42,1,0,false),"invalidation changes own access");
+ vm.EnableEnemyGatePathfindingFix=false;vm.Changed(nameof(vm.EnableEnemyGatePathfindingFix));
+ Check(GateRoutingFeature.IsActive,"explicit consumer still served with own rule off");
+ vm.EnableMod=false;vm.Changed(nameof(vm.EnableMod));Check(!GateRoutingFeature.IsActive,"whole mod off is authoritative");
+ vm.EnableMod=true;vm.Changed(nameof(vm.EnableMod));
+ Shared.MissionEvents.Ended.Fire(0);Check(!GateRoutingFeature.IsActive,"map end inactive");
+ Shared.GameplaySessionLifecycle.Start.Fire(new Shared.Session());Check(GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.Created==1,"map reload no repatch");
+ Console.WriteLine("PASS: "+checks+" actual feature orchestration checks; native runtime/SDK are isolated doubles, no hook execution in this fixture.");
+ }
+}
+class EmptyDisposable:IDisposable{public void Dispose(){}}
+public class Stream<T>{public IDisposable Subscribe(Action<T> f){Event+=f;return new EmptyDisposable();}event Action<T> Event;public void Fire(T v)=>Event?.Invoke(v);}
+namespace R3 {}
+namespace SHCDESE.EventAPI {}
+namespace SHCDESE.EventAPI.Buildings {static class BuildingR3EventHooks{internal static class OnBuildingCapture{internal static Stream<int> Observable=new Stream<int>();}}}
+namespace SHCDESE.EventAPI.Tribes {static class TribeR3EventHooks{internal static class OnTribeIssueOrderWithTarget{internal static Stream<int> Observable=new Stream<int>();}internal static class OnTribeIssueOrderMoveHere{internal static Stream<int> Observable=new Stream<int>();}}}
+namespace SHCDESE.EventAPI.Units {static class UnitR3EventHooks{internal static class OnUnitMoveHere{internal static Stream<int> Observable=new Stream<int>();}}}
+namespace BepInEx.Logging{class ManualLogSource{}}
+namespace BepInEx.Configuration{class ConfigEntry<T>{internal T Value;}class ConfigFile{internal ConfigEntry<T> Bind<T>(string a,string b,T v,string d)=>new ConfigEntry<T>{Value=v};}}
+namespace BepInEx.Bootstrap{static class Chainloader{internal static Dictionary<string,object> PluginInfos=new Dictionary<string,object>();}}
+namespace SHCDESE.API.LowLevel{class CrusaderLibraryLoadContext{}}
+namespace SHCDESE.API{class GameTimeManagerAPI{internal static GameTimeManagerAPI Instance=new GameTimeManagerAPI();internal event Action<int> OnTick;internal void Tick()=>OnTick?.Invoke(1);}}
+namespace UnityEngine{static class Time{internal static int frameCount;}static class Application{internal static event Action onBeforeRender;internal static void Render(){Time.frameCount++;onBeforeRender?.Invoke();}}}
+namespace Shared{class Session{internal bool IsEditor;}static class GameplaySessionLifecycle{internal static Stream<Session> Start=new Stream<Session>();internal static IDisposable SubscribeStarted(object l,Action<Session> a)=>Start.Subscribe(a);}static class MissionEvents{internal static Stream<int> Ended=new Stream<int>();}static class DebugLogHelper{internal static void LogError(object l,string s){throw new Exception(s);}internal static void LogInfo(object l,string s){}}}
+namespace BugfixesAndQoL{class BugfixesAndQoLViewModel{internal bool EnableMod=true,EnableEnemyGatePathfindingFix=true;internal event Action<string> SettingChanged;internal void Changed(string n)=>SettingChanged?.Invoke(n);}}
+namespace BugfixesAndQoL.UnitCommands{class Hook{internal bool Committed=true;}class Owner{internal bool disposed=false;internal Hook pathBuilderDetour=new Hook(),attackApproachFloodBuilderDetour=new Hook(),buildingApproachBuilderDetour=new Hook(),buildingCandidateConsumerDetour=new Hook(),cursorMoveStagerDetour=new Hook(),regionPairReachabilityDetour=new Hook();}static class UnitCommandPathAPI{internal static Owner Runtime=new Owner();}}
+namespace BugfixesAndQoL.GateRouting{class EnemyGatePathfindingRuntime{internal static int Created,Begin,End,Ticks;internal EnemyGatePathfindingRuntime(object l,bool d,bool m){Created++;}internal void InitializeNative(object c,bool v){}internal void BeginMap(bool e){Begin++;}internal void EndMap(string s){End++;}internal void OnGameTick(){Ticks++;}internal void ProcessDeferredDiagnostics(){}internal void ObserveBuildingCapture(int a){}internal void ObserveTargetOrder(int a){}internal void ObserveTribeMove(int a){}internal void ObserveUnitMove(int a){}}}

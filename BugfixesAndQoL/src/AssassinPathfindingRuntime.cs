@@ -870,7 +870,7 @@ namespace BugfixesAndQoL
             int edgeIndex = -1, int fromNode = -1, int toNode = -1, int direction = -1, int fromTile = -1, int toTile = -1,
             int totalCost = -1, int groundEdges = -1, int climbEdges = -1)
         {
-            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return result;
+            if (!(TemporaryGateRouteAcceptanceBridge.CurrentRequested is ITemporaryAssassinGateObserver)) return result;
             try
             {
                 string category = result ? "passed" : reason == "route-summary"

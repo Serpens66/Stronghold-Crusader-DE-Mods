@@ -425,3 +425,8 @@ Ground.Iron=Eisenfelder
 Ground.Pitch=Pechfelder
 BugfixesAndQoL.ImprovedBuildPreview=Bodenanforderungen beim Bauen anzeigen
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Markiert ungeeigneten Boden rot und zeigt Flächenzahlen im Bautooltip. Nur lokal; Bauregeln bleiben unverändert.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Feindliche Torhausdurchgänge vermeiden
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Spieler und KI planen keine Bodenwege durch feindliche, nicht berechtigt eroberte Torhäuser. Eigene, verbündete und berechtigt eroberte Zugänge sowie erlaubtes Assassin-Klettern und Torangriffe bleiben möglich. Eigenständige Zugbrückenpassagen sind nicht enthalten.
+BugfixesAndQoL.ArabianIdleSoundVolume=Arabische Schwertkaempfer: Idle-Lautstaerke
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Lokale Lautstaerke nur fuer das Schwertziehen waehrend der Ruheanimation arabischer Schwertkaempfer aller Spieler. 0 %: stumm; 100 %: normale Lautstaerke; Standard: 25 %. Kampfgeraeusche bleiben unveraendert. Keine Wiederholungsbegrenzung.

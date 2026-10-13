@@ -420,3 +420,8 @@ Ground.Iron=Campos de ferro
 Ground.Pitch=Campos de piche
 BugfixesAndQoL.ImprovedBuildPreview=Mostrar requisitos do terreno ao construir
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Marca o terreno inadequado em vermelho e mostra os ladrilhos necessários na dica. Apenas local; não altera as regras de construção.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Espadachins árabes: volume em repouso
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Volume local apenas ao sacar a espada na animação de repouso dos espadachins árabes de todos os jogadores. 0%: silencioso; 100%: volume normal; padrão: 25%. Os sons de combate não mudam. Sem limite de repetição.

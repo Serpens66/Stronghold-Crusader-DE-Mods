@@ -14,6 +14,13 @@ known.extend([0x119F90,0x126020]) # complete membership enumeration and entry si
 known.extend([0x196280,0x19B1B0,0x196840,0xF4930,0xF32B0,0xDAAC0,0xDA590,0xE62D0,0xE1640,0x199CD0]) # full own-command/line/fallback reference bodies
 known.extend([0xDA020,0xEAB80,0xEDF30,0xEC880,0x18BE50,0xC0270,0xE2CA0,0x117820,0xD9C40,0xC2280]) # existing structure differential suite, complete bodies
 known.extend([0xE4E90]) # complete private packed-direction reversal; E1640 failure repair remains guarded
+known.extend([0x3C9C0,0x3B980,0x3BFA0,0x3BB80,0x3CCD0,0x3C0A0,0x3B820,0xEA4E0,0xCF400,0x122B40]) # full phase5 suffix dispatch/formation bodies; unknown unit continuations stay guarded
+known.extend([0x7140,0x1A8EE0]) # complete standard memory-copy wrapper/body for own unit entry reference
+known.extend([0xF3060]) # complete profile-enabled line search used by196280->F4930
+known.extend([0x111330]) # complete reservation selector and retry loop for paired structure consumer
+known.extend([0x1946A0]) # full own-state proximity continuation;197950 side effects stay guarded
+known.extend([0x11B520,0x117BC0,0xE7C40,0x124740,0x119E30,0x119EE0,0x123460]) # full group formation body and bounded membership/calculated-work consumers;other branches guarded
+known.extend([0xE1D30,0xE0970,0xE0AC0]) # full queue-based formation slot assignment bodies
 lines=[c['currentNativeHash']];evidence=[str(n),c['currentNativeHash']];guards=set()
 for a in known+references:
  row=d.execute('select * from functions where binary_hash=? and rva=?',(c['currentNativeHash'],f'0x{a:X}')).fetchone();assert row and row['pseudocode'],hex(a)

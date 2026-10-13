@@ -37,6 +37,7 @@ internal static class Program
             {
                 FearFactorPresetTests.Run();
             AssassinCapturedGatePresetTests.Run();
+            EnemyGateRoutingPresetTests.Run();
                 return 0;
             }
 
@@ -75,6 +76,7 @@ internal static class Program
 
             FearFactorPresetTests.Run();
             AssassinCapturedGatePresetTests.Run();
+            EnemyGateRoutingPresetTests.Run();
             TestLobbySettingsRouting();
             TestPresetRegistrationWithoutExtenderPersistence();
             TestSharedPerPlayerLobbyConvergence();

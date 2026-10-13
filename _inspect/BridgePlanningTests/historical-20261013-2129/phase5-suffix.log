@@ -1,0 +1,13 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+phase5-suffix-enter=3C9C0;consumerOutputCalculated=True;laterCommandBytesNotUsed=True
+phase5-suffix-exit=3C9C0
+phase5-suffix-enter=3FE50;consumerOutputCalculated=True;laterCommandBytesNotUsed=True
+phase5-suffix-exit=3FE50
+phase5-suffix-enter=3B980;consumerOutputCalculated=True;laterCommandBytesNotUsed=True
+phase5-suffix-exit=3B980
+phase5-suffix-enter=3BFA0;consumerOutputCalculated=True;laterCommandBytesNotUsed=True
+private-native-exception code=C0000005,rva=F313B,accessOperation=0,accessRva=2F7A690
+
+Unbehandelte Ausnahme: System.AccessViolationException: Es wurde versucht, im geschützten Speicher zu lesen oder zu schreiben. Dies ist häufig ein Hinweis darauf, dass anderer Speicher beschädigt ist.
+   bei BridgePlanningTests.Program.HistoricalCandidates(String path, Boolean continuous, Int32 variant, Boolean referenceTables, Int32 ordinal, Int32 selectedBridge, UInt32 selectedGlobal, Boolean phase5Suffix)
+   bei BridgePlanningTests.Program.Main(String[] args)

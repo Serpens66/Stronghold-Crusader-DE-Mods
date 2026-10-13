@@ -1,0 +1,595 @@
+--- 
+
++++ 
+
+@@ -1,2 +1,3 @@
+
++using static APIShared.GateRouting.Native.GateRoutingNativeHooks;
+ using BepInEx.Logging;
+ using APIShared;
+@@ -155,44 +156,10 @@
+
+         IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, IEnemyGateRoutePolicyProvider, ITemporaryAssassinGateObserver
+     {
++        private readonly GateRoutingNativeHooks nativeHooks;
+         private const int ThreadSlotStride = 32;
+         private const int NativeSnapshotPoolSize = 4;
+         private static readonly long CursorRefreshInterval = Math.Max(
+             1L, Stopwatch.Frequency / 5L);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate int PathBuilderDelegate(IntPtr manager, int playerId, int profile);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate void AttackApproachDelegate(IntPtr manager, int tribeId,
+-            int targetContext, uint x, uint y, int resultCount, int region, int movementClass);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate void BuildingApproachDelegate(IntPtr manager, int tribeId,
+-            int buildingId, int resultCount, int region, int movementClass);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate void BuildingConsumerDelegate(IntPtr tribeManager, int tribeId, int variant);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate void CursorMoveDelegate(IntPtr unitManager, int tribeId,
+-            int targetX, int targetY, int targetContext, int actionFlags);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate void CandidateSearchDelegate(IntPtr manager, int startTileId,
+-            int resultCount, int targetPcl, int playerId, int mode, int candidateClass);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate int DirectTileSearchDelegate(IntPtr manager, int x, int y,
+-            int argument4, int argument5, int argument6);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate int PclReachabilityDelegate(IntPtr manager, int player,
+-            int targetPcl, int sourcePcl, int mode);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate int CursorPclDecisionDelegate(IntPtr manager, int player,
+-            int targetPcl, int sourcePcl, int mode, int unitId);
+-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+-        private delegate void AiTacticalTargetDelegate(IntPtr tribeManager, int tribeId);
+-
+-        private sealed class DetourCandidate<T> where T : Delegate
+-        {
+-            internal readonly DetourHandle<T> Handle = new DetourHandle<T>();
+-            internal readonly ulong Address;
+-            internal DetourCandidate(ulong address) { Address = address; }
+-            internal bool Committed => Handle.Success && Handle.IsInstalled &&
+-                Handle.Failure == null && Handle.ResolvedAddress == Address;
+-        }
++
+ 
+         private sealed class PlayerKindSnapshot
+@@ -254,5 +221,4 @@
+
+         private readonly IntPtr threadSlots;
+         private readonly IntPtr tacticalThreadSlots;
+-        private HookTransaction transaction;
+         private readonly ScanRegion region;
+         private readonly ulong libraryBase;
+@@ -267,31 +233,9 @@
+
+         private volatile TribePlayerSnapshot tribePlayers = TribePlayerSnapshot.Empty;
+         private readonly bool ownerConflict;
+-        private DetourCandidate<PathBuilderDelegate> builder;
+-        private DetourCandidate<AttackApproachDelegate> attack;
+-        private DetourCandidate<BuildingApproachDelegate> building;
+-        private DetourCandidate<BuildingConsumerDelegate> consumer;
+-        private DetourCandidate<BuildingConsumerDelegate> alternateConsumer;
+-        private DetourCandidate<CursorMoveDelegate> cursor;
+-        private DetourCandidate<CandidateSearchDelegate> candidateSearch;
+-        private DetourCandidate<AiTacticalTargetDelegate> aiTacticalTarget;
+-        private PathBuilderDelegate originalBuilder, rootedBuilder;
+-        private AttackApproachDelegate originalAttack, rootedAttack;
+-        private BuildingApproachDelegate originalBuilding, rootedBuilding;
+-        private BuildingConsumerDelegate originalConsumer, rootedConsumer;
+-        private BuildingConsumerDelegate originalAlternateConsumer, rootedAlternateConsumer;
+-        private CursorMoveDelegate originalCursor, rootedCursor;
+-        private CandidateSearchDelegate originalCandidateSearch, rootedCandidateSearch;
+-        private AiTacticalTargetDelegate originalAiTacticalTarget, rootedAiTacticalTarget;
++        private BuildingConsumerDelegate originalAlternateConsumer;
++        private CandidateSearchDelegate originalCandidateSearch;
++        private AiTacticalTargetDelegate originalAiTacticalTarget;
+         private readonly DirectTileSearchDelegate originalDirectTileSearch;
+-        private readonly DirectTileSearchDelegate rootedDirectCursorSearch;
+         private readonly PclReachabilityDelegate originalPclReachability;
+-        private readonly CursorPclDecisionDelegate rootedCursorPclDecision;
+-        private readonly HookHandle<X64InlineHook> directCursorHook = new HookHandle<X64InlineHook>();
+-        private readonly HookHandle<X64InlineHook> cursorPclDecisionHook =
+-            new HookHandle<X64InlineHook>();
+-        private readonly HookHandle<X64InlineHook>[] edgeHooks =
+-            new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length];
+-        private readonly HookHandle<X64InlineHook>[] tacticalEdgeHooks =
+-            new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas.Length];
+         private long queries, preserved, rejectedEdges, successWithRejectedEdges, negativeWithRejectedEdges;
+         private long negativeWithoutRejectedEdges, aiNegativeWithoutRejectedEdges, incompleteSearches;
+@@ -348,6 +292,7 @@
+
+         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
+             ScanRegion region, ulong libraryBase, bool existingHookOwner,
+-            AttackOrderCorrelationDiagnostics attackOrderDiagnostics, DeferredGateDiagnosticErrors deferredErrors = null)
+-        {
++            AttackOrderCorrelationDiagnostics attackOrderDiagnostics, GateRoutingNativeHooks nativeHooks, DeferredGateDiagnosticErrors deferredErrors = null)
++        {
++            this.nativeHooks = nativeHooks;
+             this.log = log ?? throw new ArgumentNullException(nameof(log));
+             this.region = region;
+@@ -368,202 +313,16 @@
+
+                 new IntPtr(unchecked((long)(libraryBase +
+                     EnemyGatePathfindingNativeDefinition.PclReachabilityRva))));
+-            rootedDirectCursorSearch = FilterDirectCursorSearch;
+-            rootedCursorPclDecision = FilterCursorPclDecision;
+-            threadSlots = Marshal.AllocHGlobal(
+-                DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride);
+-            for (int index = 0;
+-                 index < DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride;
+-                 index++)
+-                ((byte*)threadSlots)[index] = 0;
+-            tacticalThreadSlots = Marshal.AllocHGlobal(
+-                AiTacticalTargetAdapterEmitter.ThreadSlotCount *
+-                AiTacticalTargetAdapterEmitter.ThreadSlotStride);
+-            for (int index = 0;
+-                 index < AiTacticalTargetAdapterEmitter.ThreadSlotCount *
+-                    AiTacticalTargetAdapterEmitter.ThreadSlotStride;
+-                 index++)
+-                ((byte*)tacticalThreadSlots)[index] = 0;
++            threadSlots = GateNativeSearchScopes.Allocate(DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride);
++            tacticalThreadSlots = GateNativeSearchScopes.Allocate(AiTacticalTargetAdapterEmitter.ThreadSlotCount * AiTacticalTargetAdapterEmitter.ThreadSlotStride);
+         }
+ 
+         private void InstallHooks()
+         {
+-            transaction = new HookTransaction(region,
+-                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+-                new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = false });
+-            if (!ownerConflict)
+-            {
+-                builder = AddDetour(EnemyGatePathfindingNativeDefinition.PathBuilderRva,
+-                    rootedBuilder = FilterBuilder, libraryBase);
+-                attack = AddDetour(EnemyGatePathfindingNativeDefinition.AttackApproachRva,
+-                    rootedAttack = FilterAttack, libraryBase);
+-                building = AddDetour(EnemyGatePathfindingNativeDefinition.BuildingApproachRva,
+-                    rootedBuilding = FilterBuilding, libraryBase);
+-                consumer = AddDetour(EnemyGatePathfindingNativeDefinition.BuildingConsumerRva,
+-                    rootedConsumer = FilterConsumer, libraryBase);
+-            }
+-            alternateConsumer = AddDetour(
+-                EnemyGatePathfindingNativeDefinition.AlternateBuildingConsumerRva,
+-                rootedAlternateConsumer = FilterAlternateConsumer, libraryBase);
+-            if (!ownerConflict)
+-                cursor = AddDetour(EnemyGatePathfindingNativeDefinition.CursorMoveStagerRva,
+-                    rootedCursor = FilterCursor, libraryBase);
+-            candidateSearch = AddDetour(
+-                EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva,
+-                rootedCandidateSearch = FilterCandidateSearch, libraryBase);
+-            aiTacticalTarget = AddDetour(
+-                EnemyGatePathfindingNativeDefinition.AiTacticalTargetSelectionRva,
+-                rootedAiTacticalTarget = FilterAiTacticalTarget, libraryBase);
+-            ulong directCursorWrapper = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(
+-                rootedDirectCursorSearch).ToInt64());
+-            DirectCursorCallAdapterEmitter.AssembleAndValidate(
+-                EnemyGatePathfindingNativeDefinition.GetDirectCursorSearchBlockBytes(),
+-                libraryBase + EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockRva,
+-                directCursorWrapper, libraryBase + 0x02100000UL);
+-            using (var probe = new X64InlineHook(
+-                libraryBase + EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockRva,
+-                EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength))
+-                if (probe.DisplacedByteCount !=
+-                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength)
+-                    throw new InvalidOperationException(
+-                        $"RedBird direct-cursor span was {probe.DisplacedByteCount}, expected " +
+-                        EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength + ".");
+-            transaction.AddInline(directCursorHook,
+-                HookTarget.FromAddress(libraryBase +
+-                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockRva),
+-                (asm, original, returnAddress) => DirectCursorCallAdapterEmitter.Emit(
+-                    asm, original, directCursorWrapper),
+-                hookSize: EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength);
+-            ulong cursorPclWrapper = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(
+-                rootedCursorPclDecision).ToInt64());
+-            CursorPclCallAdapterEmitter.AssembleAndValidate(
+-                EnemyGatePathfindingNativeDefinition.GetCursorPclDecisionBytes(),
+-                libraryBase + EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
+-                cursorPclWrapper, libraryBase + 0x02200000UL);
+-            using (var probe = new X64InlineHook(
+-                libraryBase + EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
+-                EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength))
+-                if (probe.DisplacedByteCount !=
+-                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength)
+-                    throw new InvalidOperationException(
+-                        $"RedBird cursor-PCL span was {probe.DisplacedByteCount}, expected " +
+-                        EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength + ".");
+-            transaction.AddInline(cursorPclDecisionHook,
+-                HookTarget.FromAddress(libraryBase +
+-                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva),
+-                (asm, original, returnAddress) => CursorPclCallAdapterEmitter.Emit(
+-                    asm, original, cursorPclWrapper),
+-                hookSize: EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength);
+-            for (int index = 0; index < edgeHooks.Length; index++)
+-            {
+-                edgeHooks[index] = new HookHandle<X64InlineHook>();
+-                int captured = index;
+-                int rva = EnemyGatePathfindingNativeDefinition.DirectionFilterRvas[index];
+-                int length = EnemyGatePathfindingNativeDefinition.DirectionFilterLengths[index];
+-                DirectionFilterAdapterEmitter.AssembleAndValidate(
+-                    EnemyGatePathfindingNativeDefinition.GetDirectionFilterBytes(index),
+-                    libraryBase + unchecked((ulong)rva), index,
+-                    unchecked((ulong)threadSlots.ToInt64()),
+-                    libraryBase + 0x02000000UL + unchecked((ulong)(index * 0x1000)));
+-                using (var probe = new X64InlineHook(libraryBase + unchecked((ulong)rva), 14))
+-                    if (probe.DisplacedByteCount != length)
+-                        throw new InvalidOperationException(
+-                            $"RedBird direction-filter span {index} was {probe.DisplacedByteCount}, expected {length}.");
+-                transaction.AddInline(edgeHooks[index],
+-                    HookTarget.FromAddress(libraryBase + unchecked((ulong)rva)),
+-                    (asm, original, returnAddress) => DirectionFilterAdapterEmitter.Emit(
+-                        asm, original, captured, unchecked((ulong)threadSlots.ToInt64())), hookSize: 14);
+-            }
+-            for (int index = 0; index < tacticalEdgeHooks.Length; index++)
+-            {
+-                tacticalEdgeHooks[index] = new HookHandle<X64InlineHook>();
+-                int captured = index;
+-                int rva = EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas[index];
+-                int length = EnemyGatePathfindingNativeDefinition.AiTacticalFilterLengths[index];
+-                ulong reject = libraryBase + unchecked((ulong)
+-                    EnemyGatePathfindingNativeDefinition.AiTacticalRejectRvas[index]);
+-                AiTacticalTargetAdapterEmitter.AssembleAndValidate(
+-                    EnemyGatePathfindingNativeDefinition.GetAiTacticalFilterBytes(index),
+-                    libraryBase + unchecked((ulong)rva), index,
+-                    unchecked((ulong)tacticalThreadSlots.ToInt64()), reject,
+-                    libraryBase + 0x02300000UL + unchecked((ulong)(index * 0x1000)));
+-                using (var probe = new X64InlineHook(libraryBase + unchecked((ulong)rva), length))
+-                    if (probe.DisplacedByteCount != length)
+-                        throw new InvalidOperationException(
+-                            $"RedBird AI tactical-filter span {index} was " +
+-                            $"{probe.DisplacedByteCount}, expected {length}.");
+-                transaction.AddInline(tacticalEdgeHooks[index],
+-                    HookTarget.FromAddress(libraryBase + unchecked((ulong)rva)),
+-                    (asm, original, returnAddress) => AiTacticalTargetAdapterEmitter.Emit(
+-                        asm, original, captured,
+-                        unchecked((ulong)tacticalThreadSlots.ToInt64()),
+-                        libraryBase + unchecked((ulong)
+-                            EnemyGatePathfindingNativeDefinition.AiTacticalRejectRvas[captured])),
+-                    hookSize: length);
+-            }
+-            CommitResult result = transaction.Commit();
+-            if (!result.IsCompleteSuccess ||
+-                (!ownerConflict && (!builder.Committed || !attack.Committed ||
+-                    !building.Committed || !consumer.Committed || !cursor.Committed)) ||
+-                !alternateConsumer.Committed || !candidateSearch.Committed || !aiTacticalTarget.Committed ||
+-                !directCursorHook.Success || !directCursorHook.IsInstalled ||
+-                directCursorHook.Failure != null ||
+-                !cursorPclDecisionHook.Success || !cursorPclDecisionHook.IsInstalled ||
+-                cursorPclDecisionHook.Failure != null ||
+-                directCursorHook.Hook.DisplacedByteCount !=
+-                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength ||
+-                cursorPclDecisionHook.Hook.DisplacedByteCount !=
+-                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength)
+-            {
+-                transaction.DisableAll();
+-                throw new InvalidOperationException($"Vanilla Gate-Filter was not installed atomically: {result}");
+-            }
+-            for (int index = 0; index < edgeHooks.Length; index++)
+-            {
+-                if (!edgeHooks[index].Success || !edgeHooks[index].IsInstalled ||
+-                    edgeHooks[index].Failure != null || edgeHooks[index].Hook.DisplacedByteCount !=
+-                        EnemyGatePathfindingNativeDefinition.DirectionFilterLengths[index])
+-                {
+-                    transaction.DisableAll();
+-                    throw new InvalidOperationException($"Direction-filter hook {index} failed its committed contract.");
+-                }
+-            }
+-            for (int index = 0; index < tacticalEdgeHooks.Length; index++)
+-            {
+-                if (!tacticalEdgeHooks[index].Success || !tacticalEdgeHooks[index].IsInstalled ||
+-                    tacticalEdgeHooks[index].Failure != null ||
+-                    tacticalEdgeHooks[index].Hook.DisplacedByteCount !=
+-                        EnemyGatePathfindingNativeDefinition.AiTacticalFilterLengths[index])
+-                {
+-                    transaction.DisableAll();
+-                    throw new InvalidOperationException(
+-                        $"AI tactical-filter hook {index} failed its committed contract.");
+-                }
+-            }
+-            if (!ownerConflict)
+-            {
+-                originalBuilder = builder.Handle.Original; originalAttack = attack.Handle.Original;
+-                originalBuilding = building.Handle.Original; originalConsumer = consumer.Handle.Original;
+-                originalCursor = cursor.Handle.Original;
+-            }
+-            originalAlternateConsumer = alternateConsumer.Handle.Original;
+-            originalCandidateSearch = candidateSearch.Handle.Original;
+-            originalAiTacticalTarget = aiTacticalTarget.Handle.Original;
+-            hooksInstalled = true;
+-            if (DetailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+-                "Vanilla player-aware gate filter installed: " +
+-                $"sharedHookOwner={ownerConflict}, " +
+-                "scopes=builder/attack/building/consumer/alternateConsumer/candidateSearch/" +
+-                "cursorCommand/directCursorDB650/cursorPclCallAdapter/aiTacticalTarget, " +
+-                "directionAdapters=11, tacticalAdapters=3, " +
+-                "cursorPclCallAdapter=" +
+-                $"0x{EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva:X}/" +
+-                $"{EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength}, directCursorCallsite=" +
+-                $"0x{EnemyGatePathfindingNativeDefinition.DirectCursorSearchCallRva:X}, " +
+-                "nativeSnapshotPool=4, managedNodeCallbacks=0, managedCursorSearches=0, " +
+-                "managedReplacementSearches=0, cursorCacheTtlMs=200, cursorCacheEntries=32, cursorValidation=on-demand, representativeUnits=1, " +
+-                "globalDirectionGridWrites=0, tileBounds=unsigned<" +
+-                EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive + ", contracts=[" +
+-                DirectionFilterAdapterEmitter.DescribeContracts() + "], tacticalContracts=[" +
+-                AiTacticalTargetAdapterEmitter.DescribeContracts() + "].");
++            nativeHooks.InstallMovement(threadSlots,tacticalThreadSlots,FilterAlternateConsumer,
++                FilterCandidateSearch,FilterAiTacticalTarget,FilterDirectCursorSearch,FilterCursorPclDecision);
++            originalAlternateConsumer=nativeHooks.OriginalAlternateConsumer;
++            originalCandidateSearch=nativeHooks.OriginalCandidateSearch;
++            originalAiTacticalTarget=nativeHooks.OriginalAiTacticalTarget;
++            hooksInstalled=true;
+         }
+ 
+@@ -766,11 +525,5 @@
+
+             }
+         }
+-        private DetourCandidate<T> AddDetour<T>(int rva, T callback, ulong libraryBase) where T : Delegate
+-        {
+-            ulong address = libraryBase + unchecked((ulong)rva);
+-            var candidate = new DetourCandidate<T>(address);
+-            transaction.AddDetour(candidate.Handle, HookTarget.FromAddress(address), callback);
+-            return candidate;
+-        }
++
+ 
+         internal void UpdatePolicy(RouteTilePolicySnapshot policy)
+@@ -854,4 +607,5 @@
+
+             int vanillaResult = originalPclReachability(
+                 manager, player, targetPcl, sourcePcl, mode);
++            if (!GateRoutingFeature.IsActive) return vanillaResult;
+             int finalResult = vanillaResult;
+             Interlocked.Increment(ref cursorPclWrapperCalls);
+@@ -1100,5 +854,6 @@
+
+             lock (maskGate)
+             {
+-                if (generation != policyGeneration || !ReferenceEquals(policy, pendingPolicy)) return;
++                if (generation != policyGeneration || !ReferenceEquals(policy, pendingPolicy) ||
++                    (!ReferenceEquals(policy, RouteTilePolicySnapshot.Empty) && policy.RulesVersion != APIShared.GateAccessRules.Version)) return;
+                 for (int index = 0; index < maskPool.Length; index++)
+                 {
+@@ -1123,5 +878,6 @@
+
+                 {
+                     slot.Filling = false;
+-                    if (generation != policyGeneration || !ReferenceEquals(policy, pendingPolicy)) return;
++                    if (generation != policyGeneration || !ReferenceEquals(policy, pendingPolicy) ||
++                    (!ReferenceEquals(policy, RouteTilePolicySnapshot.Empty) && policy.RulesVersion != APIShared.GateAccessRules.Version)) return;
+                     currentMasks = slot;
+                     publishedPolicy = policy;
+@@ -1210,88 +966,11 @@
+
+         }
+ 
+-        private int FilterBuilder(IntPtr manager, int player, int profile)
+-        {
+-            QueryKind kind = playerKinds.IsAi(player) ? QueryKind.AiBuilder : QueryKind.HumanBuilder;
+-            if (kind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
+-            CaptureScopeSample(kind, player, player, -1, player);
+-            QueryScope scope = Enter(player, diagnosticKind: kind); int result = 0; bool completed = false;
+-            MacemenDiagnostics?.BeginSearch(player, (int)EnemyGateSearchKind.Builder);
+-            try { attackOrderDiagnostics?.BeginBuilder(); }
+-            catch { Interlocked.Increment(ref exceptions); }
+-            try { result = originalBuilder(manager, player, profile); completed = true; return result; }
+-            catch { Interlocked.Increment(ref exceptions); throw; }
+-            finally
+-            {
+-                long touched = Complete(scope, kind, true, result > 0, completed);
+-                MacemenDiagnostics?.EndSearch(completed, result > 0, touched);
+-                try { attackOrderDiagnostics?.ObserveBuilder(player, scope.Diagnostic, completed, result > 0,
+-                    touched, scope.Snapshot.Fingerprint); }
+-                catch { Interlocked.Increment(ref exceptions); }
+-            }
+-        }
+-        private void FilterAttack(IntPtr manager, int unused2, int unused3, uint x, uint y,
+-            int count, int targetPcl, int player)
+-        {
+-            Interlocked.Increment(ref attackQueries);
+-            CaptureScopeSample(QueryKind.Attack, player, player, -1, player);
+-            QueryScope scope = Enter(player);
+-            bool completed = false;
+-            try { originalAttack(manager, unused2, unused3, x, y, count, targetPcl, player); completed = true; }
+-            catch { Interlocked.Increment(ref exceptions); throw; }
+-            finally { Complete(scope, QueryKind.Attack, false, false, completed); }
+-        }
+-        private void FilterBuilding(IntPtr manager, int tribe, int buildingId,
+-            int count, int targetPcl, int player)
+-        {
+-            Interlocked.Increment(ref buildingApproachQueries);
+-            int tribePlayer = ResolveTribePlayer(tribe);
+-            int used = ResolveBuildingMovementPlayer(player, tribe);
+-            CaptureScopeSample(QueryKind.BuildingApproach, player, player, tribePlayer, used);
+-            QueryScope scope = Enter(used);
+-            bool completed = false;
+-            // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
+-            MacemenDiagnostics?.BeginSearch(used, (int)EnemyGateSearchKind.BuildingApproach);
+-            try { attackOrderDiagnostics?.BeginNativeSearch("BuildingApproach", used); }
+-            catch { Interlocked.Increment(ref exceptions); }
+-            try { originalBuilding(manager, tribe, buildingId, count, targetPcl, player); completed = true; }
+-            catch { Interlocked.Increment(ref exceptions); throw; }
+-            finally
+-            {
+-                try
+-                {
+-                    long touched = Complete(scope, QueryKind.BuildingApproach, false, false, completed);
+-                    MacemenDiagnostics?.EndSearch(completed, false, touched);
+-                }
+-                finally
+-                {
+-                    try { attackOrderDiagnostics?.EndNativeSearch("BuildingApproach", completed, false); }
+-                    catch { Interlocked.Increment(ref exceptions); }
+-                }
+-            }
+-        }
+-        private void FilterConsumer(IntPtr tribeManager, int tribe, int variant)
+-        {
+-            Interlocked.Increment(ref buildingConsumerQueries);
+-            int player = ResolveTribePlayer(tribe);
+-            CaptureScopeSample(QueryKind.BuildingApproach, tribe, -1, player, player);
+-            QueryScope scope = Enter(player);
+-            bool completed = false;
+-            // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
+-            try { attackOrderDiagnostics?.BeginNativeSearch("BuildingConsumer", player); }
+-            catch { Interlocked.Increment(ref exceptions); }
+-            try { originalConsumer(tribeManager, tribe, variant); completed = true; }
+-            catch { Interlocked.Increment(ref exceptions); throw; }
+-            finally
+-            {
+-                try { Complete(scope, QueryKind.BuildingApproach, false, false, completed); }
+-                finally
+-                {
+-                    try { attackOrderDiagnostics?.EndNativeSearch("BuildingConsumer", completed, false); }
+-                    catch { Interlocked.Increment(ref exceptions); }
+-                }
+-            }
+-        }
++
++
++
++
+         private void FilterAlternateConsumer(IntPtr tribeManager, int tribe, int variant)
+         {
++            if (!GateRoutingFeature.IsActive) { originalAlternateConsumer(tribeManager,tribe,variant);return; }
+             Interlocked.Increment(ref alternateBuildingConsumerQueries);
+             int player = ResolveTribePlayer(tribe);
+@@ -1317,4 +996,5 @@
+
+             int targetPcl, int player, int mode, int candidateClass)
+         {
++            if (!GateRoutingFeature.IsActive) { originalCandidateSearch(manager,startTileId,count,targetPcl,player,mode,candidateClass);return; }
+             Interlocked.Increment(ref candidateQueries);
+             CaptureScopeSample(QueryKind.CandidateSearch, player, player, -1, player);
+@@ -1328,4 +1008,5 @@
+
+         private void FilterAiTacticalTarget(IntPtr tribeManager, int tribe)
+         {
++            if (!GateRoutingFeature.IsActive) { originalAiTacticalTarget(tribeManager,tribe);return; }
+             Interlocked.Increment(ref aiTacticalTargetQueries);
+             int snapshotPlayer = ResolveTribePlayer(tribe);
+@@ -1356,23 +1037,10 @@
+
+             finally { CompleteTactical(scope); }
+         }
+-        private void FilterCursor(IntPtr manager, int tribe, int x, int y, int context, int flags)
+-        {
+-            Interlocked.Increment(ref cursorCommandQueries);
+-            int nativePlayer = *(int*)(libraryBase +
+-                EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+-            int tribePlayer = ResolveTribePlayer(tribe);
+-            int player = ValidateExplicitPlayer(nativePlayer, tribePlayer, "cursor-command");
+-            CaptureScopeSample(QueryKind.CursorCommand, nativePlayer, nativePlayer,
+-                tribePlayer, player);
+-            QueryScope scope = Enter(player);
+-            bool completed = false;
+-            try { originalCursor(manager, tribe, x, y, context, flags); completed = true; }
+-            catch { Interlocked.Increment(ref exceptions); throw; }
+-            finally { Complete(scope, QueryKind.CursorCommand, false, false, completed); }
+-        }
++
+ 
+         private int FilterDirectCursorSearch(IntPtr manager, int x, int y,
+             int argument4, int argument5, int argument6)
+         {
++            if (!GateRoutingFeature.IsActive) { return originalDirectTileSearch(manager,x,y,argument4,argument5,argument6); }
+             int player = *(int*)(libraryBase +
+                 EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+@@ -1488,5 +1156,5 @@
+
+                 routePublication = routePolicySource.Current;
+                 snapshot.Readers++;
+-                mask = !unmasked && player > 0 && player < snapshot.PlayerMasks.Length
++                mask = routePublication.RulesVersion == APIShared.GateAccessRules.Version && !unmasked && player > 0 && player < snapshot.PlayerMasks.Length
+                     ? snapshot.PlayerMasks[player] : IntPtr.Zero;
+             }
+@@ -1496,24 +1164,9 @@
+
+                 Interlocked.Increment(ref missingContexts);
+             }
+-            uint thread = GetCurrentThreadId();
+-            byte* slot = (byte*)threadSlots + ((thread &
+-                (DirectionFilterAdapterEmitter.ThreadSlotCount - 1)) * ThreadSlotStride);
+-            int owner = Volatile.Read(ref *(int*)(slot + DirectionFilterAdapterEmitter.SlotOwnerOffset));
+-            if (owner != 0 && owner != unchecked((int)thread))
+-            {
+-                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player, diagnosticKind,
+-                    routePolicySource.Enter(player, unmasked, false, routePublication));
+-            }
+-            if (owner == 0 && Interlocked.CompareExchange(
+-                    ref *(int*)(slot + DirectionFilterAdapterEmitter.SlotOwnerOffset), unchecked((int)thread), 0) != 0)
+-            {
+-                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player, diagnosticKind,
+-                    routePolicySource.Enter(player, unmasked, false, routePublication));
+-            }
+-            IntPtr previous = *(IntPtr*)(slot + DirectionFilterAdapterEmitter.SlotMaskOffset);
+-            long previousTouched = *(long*)(slot + DirectionFilterAdapterEmitter.SlotTouchedOffset);
+-            (*(int*)(slot + DirectionFilterAdapterEmitter.SlotDepthOffset))++;
+-            *(IntPtr*)(slot + DirectionFilterAdapterEmitter.SlotMaskOffset) = mask;
+-            *(long*)(slot + DirectionFilterAdapterEmitter.SlotTouchedOffset) = 0;
++            byte* slot=GateNativeSearchScopes.Enter(threadSlots,mask,out IntPtr previous,out long previousTouched);
++            if(slot==null) {
++                Interlocked.Increment(ref slotConflicts);return new QueryScope(snapshot,null,IntPtr.Zero,0,player,diagnosticKind,
++                    routePolicySource.Enter(player,unmasked,false,routePublication));
++            }
+             return new QueryScope(snapshot, slot, previous, previousTouched, player, diagnosticKind,
+                 routePolicySource.Enter(player, unmasked, true, routePublication));
+@@ -1528,25 +1181,9 @@
+
+                 snapshot = currentMasks;
+                 snapshot.Readers++;
+-                mask = player > 0 && player < snapshot.PlayerMasks.Length
++                mask = routePolicySource.Current.RulesVersion == APIShared.GateAccessRules.Version && player > 0 && player < snapshot.PlayerMasks.Length
+                     ? snapshot.PlayerMasks[player] : IntPtr.Zero;
+             }
+-            uint thread = GetCurrentThreadId();
+-            byte* slot = (byte*)tacticalThreadSlots + ((thread &
+-                (AiTacticalTargetAdapterEmitter.ThreadSlotCount - 1)) *
+-                AiTacticalTargetAdapterEmitter.ThreadSlotStride);
+-            int owner = Volatile.Read(ref *(int*)(slot +
+-                AiTacticalTargetAdapterEmitter.SlotOwnerOffset));
+-            if (owner != 0 || (owner == 0 && Interlocked.CompareExchange(
+-                    ref *(int*)(slot + AiTacticalTargetAdapterEmitter.SlotOwnerOffset),
+-                    unchecked((int)thread), 0) != 0))
+-            {
+-                Interlocked.Increment(ref aiTacticalScopeConflicts);
+-                return new TacticalQueryScope(snapshot, null);
+-            }
+-            *(IntPtr*)(slot + AiTacticalTargetAdapterEmitter.SlotMaskOffset) = mask;
+-            *(long*)(slot + AiTacticalTargetAdapterEmitter.SlotBuildingTouchedOffset) = 0;
+-            *(long*)(slot + AiTacticalTargetAdapterEmitter.SlotUnitTouchedOffset) = 0;
+-            *(long*)(slot + AiTacticalTargetAdapterEmitter.SlotFallbackTouchedOffset) = 0;
+-            *(int*)(slot + AiTacticalTargetAdapterEmitter.SlotDepthOffset) = 1;
++            byte* slot = GateNativeSearchScopes.EnterTactical(tacticalThreadSlots, mask);
++            if (slot == null) { Interlocked.Increment(ref aiTacticalScopeConflicts); return new TacticalQueryScope(snapshot, null); }
+             return new TacticalQueryScope(snapshot, slot);
+         }
+@@ -1586,8 +1223,5 @@
+
+                         AiTacticalTargetAdapterEmitter.SlotFallbackDirectionOffset);
+                 }
+-                *(IntPtr*)(scope.Slot + AiTacticalTargetAdapterEmitter.SlotMaskOffset) = IntPtr.Zero;
+-                *(int*)(scope.Slot + AiTacticalTargetAdapterEmitter.SlotDepthOffset) = 0;
+-                Volatile.Write(ref *(int*)(scope.Slot +
+-                    AiTacticalTargetAdapterEmitter.SlotOwnerOffset), 0);
++                GateNativeSearchScopes.LeaveTactical(scope.Slot);
+             }
+             lock (maskGate) scope.Snapshot.Readers--;
+@@ -1608,14 +1242,5 @@
+
+         private long Complete(QueryScope scope, QueryKind kind, bool hasResultContract, bool success, bool completed = true)
+         {
+-            long touched = 0;
+-            if (scope.Slot != null)
+-            {
+-                touched = *(long*)(scope.Slot + DirectionFilterAdapterEmitter.SlotTouchedOffset);
+-                *(IntPtr*)(scope.Slot + DirectionFilterAdapterEmitter.SlotMaskOffset) = scope.PreviousMask;
+-                *(long*)(scope.Slot + DirectionFilterAdapterEmitter.SlotTouchedOffset) = scope.PreviousTouched;
+-                int depth = --(*(int*)(scope.Slot + DirectionFilterAdapterEmitter.SlotDepthOffset));
+-                if (depth == 0)
+-                    Volatile.Write(ref *(int*)(scope.Slot + DirectionFilterAdapterEmitter.SlotOwnerOffset), 0);
+-            }
++            long touched=GateNativeSearchScopes.Leave(scope.Slot,scope.PreviousMask,scope.PreviousTouched);
+             lock (maskGate) scope.Snapshot.Readers--;
+             routePolicySource.Leave(scope.RouteQuery);

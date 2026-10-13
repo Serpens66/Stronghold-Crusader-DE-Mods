@@ -1,0 +1,9 @@
+--- 
+
++++ 
+
+@@ -1,2 +1,3 @@
+
++// TEMP_GATE_MIGRATION_DIAGNOSTICS: retained for old/new acceptance; see removal inventory.
+ // TEMP_MACEMEN_GATE_DIAGNOSTICS: synchronous, read-only command evidence. No unit polling.
+ using System;

@@ -1,0 +1,6 @@
+line-probe native=0,managed=0,native-count=2,managed-count=2,nativeBytes=11-00-00-00-00-00-00-00,managedBytes=11-00-00-00-00-00-00-00
+isolatedF32B0NativeManaged=Matched;lineResult=0;origin=443/371;target=588/326;fullCommandReplay=Unknown;no-recorded-post-used
+isolatedDAAC0NativeManaged=Matched;result=1;limit=44402;radiusSource=audited-79C0-max-axis-plus4;fullCommandReplay=Unknown;native-entry-not-executed
+ownMode1NativeManaged=Matched;count=185;obstacles=0;scope=computed-line-flood-reconstruction-not-full196280
+ownComputedPathVsImmediatePost=Matched;usedBytes=93;unusedBankTailNotAssumedZero=True;mutablePostReturn=1
+PASS complete own196280 same-region/mode0 native-managed return=1;entireUnitWindowAndPathBankMatchImmediatePost=True;mutablePostReturnNotAssumedRaw=True;otherBranches=Unknown;phase5Root=not-replayed

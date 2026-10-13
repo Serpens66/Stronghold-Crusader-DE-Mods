@@ -636,22 +636,22 @@ namespace EnemyBridgePathTest
         {
             var input=request.Input;
             yield return BridgeInputArtifact.Header((planning==null?"planningBundleDefinition="+bundleDefinition+"\nplanningBundleRoot="+bundleRoot+"\nplanningAssociation="+(bundleRoot!=0&&request.PlanningRoot==bundleRoot?"same-parent-root":bundleRoot!=0&&request.DecisionRoot==bundleRoot?"retained-decision-root":"unresolved")+"\n":planning.Metadata+"\n")+"nativeHash="+BridgeNativeDefinition.NativeHash+"\nbackendHash="+BridgeNativeDefinition.BackendHash+"\nsession="+input.Session+"\nrevision="+input.Revision+"\nnativeRevision="+input.NativeRevision+"\ndirty="+input.Dirty+"\nnegativeEligible=False\ninputTiming="+request.InputReason+"\nidentity="+input.Identity+"\ncaptureClock="+input.Clock+"\nobservationClock="+request.Clock+"\ndefinition="+request.Id+"\nop="+request.Op+"\nquerySourceOp="+request.QuerySourceOp+"\nparent="+request.Parent+"\ntribe="+request.Tribe+"\ntribeGlobal="+request.TribeGlobal+"\nplanningRoot="+request.PlanningRoot+"\ndecision="+request.Decision+"\ndecisionRoot="+request.DecisionRoot+"\nphase="+request.Phase+"\nstage="+request.Stage+"\nplayer="+request.Player+"\nfrom="+request.From+"\nto="+request.To+"\nmode="+request.Mode+"\nnativeBoolean="+request.Native+"\nconnectionLimit="+input.ConnectionLimit+"\npolicyValidAtDecision="+request.PolicyValidAtDecision+"\nnativeDirection="+(request.Stage=="keep-access"?"target-to-attacker":"not-observed")+"\nmovementDirection=attacker-to-target\nvariants=none,each-unallowed-bridge,all-hostile\ngateFilter="+(request.GatePolicy==null?"absent":"immutable-player-direction-mask"),2);
-            if(planning!=null)foreach(var block in planning.Serialize())yield return block;
-            if(structure!=null){foreach(var pair in structure.Sections)foreach(var block in BridgeInputArtifact.Section("structure/"+pair.Key,pair.Value,1))yield return block;foreach(var block in BridgeInputArtifact.Section("structure/postClock",BitConverter.GetBytes(structure.PostClock),1))yield return block;}
-            foreach(var block in BridgeInputArtifact.Section("components",input.Pcl,2))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("edges",input.Edges,1))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("flags",input.Flags,4))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("x",input.X,2))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("y",input.Y,2))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("rows",input.Rows,4))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("specialIds",input.SpecialIds,2))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("specialKinds",input.SpecialKinds,2))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("owners",input.Owners,4))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("capturers",input.Capturers,4))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("globals",input.Globals,4))yield return block;
-            foreach(var block in BridgeInputArtifact.Section("unitGlobals",input.UnitGlobals,4))yield return block;
+            if(planning!=null)foreach(var block in planning.Serialize(true))yield return block;
+            if(structure!=null){foreach(var pair in structure.Sections)foreach(var block in BridgeInputArtifact.Section("structure/"+pair.Key,pair.Value,1,true))yield return block;foreach(var block in BridgeInputArtifact.Section("structure/postClock",BitConverter.GetBytes(structure.PostClock),1,true))yield return block;}
+            foreach(var block in BridgeInputArtifact.Section("components",input.Pcl,2,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("edges",input.Edges,1,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("flags",input.Flags,4,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("x",input.X,2,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("y",input.Y,2,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("rows",input.Rows,4,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("specialIds",input.SpecialIds,2,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("specialKinds",input.SpecialKinds,2,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("owners",input.Owners,4,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("capturers",input.Capturers,4,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("globals",input.Globals,4,true))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("unitGlobals",input.UnitGlobals,4,true))yield return block;
             var allies=new byte[81];for(int a=0;a<9;a++)for(int b=0;b<9;b++)allies[a*9+b]=(byte)(input.Allies[a,b]?1:0);
-            foreach(var block in BridgeInputArtifact.Section("allies",allies,1))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("allies",allies,1,true))yield return block;
             // All consumed public record members, including raw component C (no guessed endpoint).
             var records=new int[input.Records.Length*13];for(int i=0;i<input.Records.Length;i++)
             {
@@ -660,21 +660,21 @@ namespace EnemyBridgePathTest
                 records[p+3]=r.r_BuildingId;records[p+4]=r.r_UnitId;records[p+5]=unchecked((int)r.r_SubjectGlobalId);records[p+6]=r.r_IsEnabledOrOpen;
                 records[p+7]=r.r_EntryTileId;records[p+8]=r.r_ExitTileId;records[p+9]=r.r_PathComponentA;records[p+10]=r.r_PathComponentB;records[p+11]=r.r_OwnerOrAccessPlayerId;records[p+12]=r.r_PathComponentC;
             }
-            foreach(var block in BridgeInputArtifact.Section("records13",records,4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("records13",records,4,true))yield return block;
             var decks=new List<int>();foreach(var d in input.Decks)
             {decks.Add(d.Id);decks.Add(unchecked((int)d.Global));decks.Add(d.Owner);decks.Add(d.Capturer);decks.Add(d.NativeParent);decks.Add(d.Authorized?1:0);decks.Add(d.BoundaryVerified?1:0);decks.Add(d.Tiles.Length);decks.AddRange(d.Tiles);}
-            foreach(var block in BridgeInputArtifact.Section("decks",decks.ToArray(),4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("decks",decks.ToArray(),4,true))yield return block;
             // Optional schema1 section: old complete captures remain replayable.
             var parents=new List<int>();foreach(var d in input.Decks)
             {parents.Add(d.Id);parents.Add(d.ParentId);parents.Add(unchecked((int)d.ParentGlobal));parents.Add(d.ParentOwner);parents.Add(d.ParentCapturer);}
-            foreach(var block in BridgeInputArtifact.Section("coupledParents5",parents.ToArray(),4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("coupledParents5",parents.ToArray(),4,true))yield return block;
             // Mask generation is lazy in small pieces; snapshot getter is copied managed data.
-            foreach(var block in BridgeInputArtifact.Section("gateMaskHeader",new[]{input.Pcl.Length,request.GatePolicy==null?0:1},4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("gateMaskHeader",new[]{input.Pcl.Length,request.GatePolicy==null?0:1},4,true))yield return block;
             for(int start=0;start<input.Pcl.Length;start+=512)
             {
                 var mask=new byte[Math.Min(512,input.Pcl.Length-start)];for(int i=0;i<mask.Length;i++)
                     for(int direction=0;direction<8;direction++)if(request.GatePolicy==null||request.GatePolicy.IsDirectionAllowed(start+i,direction))mask[i]|=(byte)(1<<direction);
-                foreach(var block in BridgeInputArtifact.Section("gateMaskChunk",mask,1))yield return block;
+                foreach(var block in BridgeInputArtifact.Section("gateMaskChunk",mask,1,true))yield return block;
             }
         }
         private void FlushRepeats()

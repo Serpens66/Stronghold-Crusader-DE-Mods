@@ -1,0 +1,9 @@
+physicalControlMatched=True,recordedOccupancyDelta=7,firstTile=190279,recordedPartitionConflicts=0,firstPartitionTile=-1,dirty=1,negativeEligible=False
+historical-occupancy-change:tile=148377,before=33,after=0,flags=0x40008000,directions=0,height=0,baseHeight=8,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+historical-occupancy-change:tile=149149,before=33,after=0,flags=0x40008000,directions=0,height=0,baseHeight=8,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+historical-occupancy-change:tile=149920,before=33,after=0,flags=0x40008000,directions=0,height=0,baseHeight=8,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+historical-occupancy-change:tile=149921,before=33,after=0,flags=0x40008000,directions=0,height=0,baseHeight=8,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+historical-occupancy-change:tile=149922,before=33,after=0,flags=0x40008000,directions=0,height=0,baseHeight=8,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+historical-occupancy-change:tile=150693,before=33,after=0,flags=0x40008000,directions=0,height=0,baseHeight=8,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+historical-occupancy-change:tile=190279,before=0,after=1,flags=0x8000,directions=255,height=80,baseHeight=80,building=0,timing=pending-dirty-native-rebuild,policy=Unknown
+PASS full native physical rebuild including C5040/C4BF0/updaters; inputTiming=consumer-entry;partitionEquivalent=False;updaterDirtyAtCaller=0;nativeGeneration=14,earlierCallerHeightProof=OwnCopyMatched;negativeEligible=False

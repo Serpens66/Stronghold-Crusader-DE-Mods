@@ -420,3 +420,8 @@ Ground.Iron=Železná pole
 Ground.Pitch=Smolná pole
 BugfixesAndQoL.ImprovedBuildPreview=Zobrazit požadavky na půdu při stavbě
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Označí nevhodnou půdu červeně a zobrazí počty polí v nápovědě stavby. Pouze místní; nemění pravidla stavění.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Arabští šermíři: hlasitost v klidu
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Místní hlasitost pouze tasení meče při klidové animaci arabských šermířů všech hráčů. 0 %: ticho; 100 %: normální hlasitost; výchozí: 25 %. Zvuky boje se nemění. Bez omezení opakování.

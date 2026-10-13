@@ -1,6 +1,6 @@
 using System;
 using System.Threading;
-namespace EnemyGatePathfindingTest { unsafe class Reader {
+namespace BugfixesAndQoL.GateRouting { unsafe class Reader {
 internal ulong module; internal int* active, diagnostics; internal Func<RouteTilePolicySnapshot> policy;
 private Action<IntPtr,bool> observeClear; private Action<int> observeException;
 private long allowed,preserved,errors,observerErrors;

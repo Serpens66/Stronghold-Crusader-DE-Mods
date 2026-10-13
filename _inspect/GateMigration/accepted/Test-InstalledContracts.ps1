@@ -1,0 +1,115 @@
+[CmdletBinding()]
+param()
+$ErrorActionPreference = 'Stop'
+$workspace = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
+$extender = Join-Path $game 'BepInEx/plugins/000shcdese'
+$assembly = [Reflection.Assembly]::LoadFrom((Join-Path $extender 'SHCDESE.dll'))
+# Layout, not a version equality, is the runtime contract. Newer compatible versions remain allowed.
+$contracts = @(
+    @('GameUnit',1168,'r_ControllableForPlayerId','System.UInt16',0x92),
+    @('GameUnit',1168,'r_TargetTilePositionX2','System.UInt16',0xE8),
+    @('GameUnit',1168,'r_TargetTilePositionY2','System.UInt16',0xEA),
+    @('GameUnit',1168,'r_CurrentPositionTileId','System.UInt32',0xD0),
+    @('GameUnit',1168,'r_CurrentPathPlanIndex','System.UInt16',0xF6),
+    @('GameUnit',1168,'r_PathPlanLength','System.UInt16',0xF8),
+    @('GameUnit',1168,'r_MovementDirection','SHCDESE.Interop.Dircs',0x2B0),
+    @('GameUnit',1168,'r_PathPlanStateBitFlags','System.UInt16',0xF2),
+    @('GameUnit',1168,'N000001F6_2','System.Byte',0x40E),
+    @('GameUnit',1168,'r_GlobalId','System.UInt32',0x94),
+    @('GameUnit',1168,'r_UnitChimp','SHCDESE.Interop.eChimps',0x8A),
+    @('GameUnit',1168,'r_TribeId','System.UInt16',0x2D4),
+    @('GameUnit',1168,'r_AIState','System.UInt16',0x2BC),
+    @('GameUnit',1168,'r_AI_LastIssuedTribeCommand','System.UInt16',0x398),
+    @('GameUnit',1168,'r_AI_ContextTargetBuildingTileId','System.UInt32',0x3A4),
+    @('GameUnit',1168,'r_CurrentTilePositionX','System.UInt16',0xC0),
+    @('GameUnit',1168,'r_CurrentTilePositionY','System.UInt16',0xC2),
+    @('GameUnit',1168,'r_IsKilledByProjectile','System.UInt16',0x29C),
+    @('GameTribe',1672,'r_GlobalId','System.UInt32',0xA),
+    @('GameTribe',1672,'r_PlayerIdOwner','System.UInt16',0x2),
+    @('GameTribe',1672,'r_LeaderUnitId','System.UInt16',0x30),
+    @('GameBuilding',812,'r_AIWalkableState','SHCDESE.Interop.Enums.GatePathOverrideMode',0xD4),
+    @('GameBuilding',812,'r_GlobalId','System.UInt32',0xD8),
+    @('GameBuilding',812,'r_BuildingType','SHCDESE.Interop.eStructs',0xD2),
+    @('GameBuilding',812,'r_PlayerIdOwner','System.UInt16',0xD6),
+    @('GameBuilding',812,'r_GateState','System.Byte',0x2A2),
+    @('GameBuilding',812,'r_CapturedByPlayerId','System.UInt16',0x2C6),
+    @('GameBuilding',812,'r_GatehouseId','System.UInt16',0x2D2)
+)
+foreach ($contract in $contracts) {
+    $type = $assembly.GetType('SHCDESE.Interop.'+$contract[0],$true)
+    $field = $type.GetField($contract[2])
+    if ($null -eq $field -or -not $field.IsPublic -or $field.FieldType.FullName -cne $contract[3] -or
+        $type.StructLayoutAttribute.Size -ne $contract[1] -or
+        [Runtime.InteropServices.Marshal]::OffsetOf($type,$contract[2]).ToInt64() -ne $contract[4]) { throw "Installed layout mismatch: $($contract[0]).$($contract[2])" }
+}
+if ([Convert]::ToInt32([Enum]::Parse($assembly.GetType('SHCDESE.Interop.eStructs',$true),'STRUCT_QUARRY')) -ne 20) { throw 'Quarry diagnostic type contract changed.' }
+if ([Convert]::ToInt32([Enum]::Parse($assembly.GetType('SHCDESE.Interop.eChimps',$true),'CHIMP_TYPE_ARAB_ASSASIN')) -ne 73) { throw 'Assassin native fast filter differs' }
+# The descent guard reads two audited native signed WORDs, not private Unity fields.
+$unitType = $assembly.GetType('SHCDESE.Interop.GameUnit',$true)
+foreach ($raw in @(@('N00000573',[uint16],0x90),@('N000001CE',[byte],0x36C),@('UnknownRelevant1',[byte],0x36D))) {
+    $field=$unitType.GetField($raw[0])
+    if ($null -eq $field -or $field.FieldType -ne $raw[1] -or
+        [Runtime.InteropServices.Marshal]::OffsetOf($unitType,$raw[0]).ToInt64() -ne $raw[2]) { throw 'Native descent raw field layout changed' }
+}
+# 18593E uses MOVSX WORD at +36C: both SDK BYTE fields belong to the native check.
+# TEMP_MACEMEN_GATE_DIAGNOSTICS: only installed public coordinate/query APIs are used.
+$tileType = $assembly.GetType('SHCDESE.API.GameTileManagerAPI', $true)
+foreach ($name in @('IsTileInsideMapBounds','GetTileId','IsValidTileId','GetTileBuildingId')) {
+    $methods = @($tileType.GetMethods() | Where-Object Name -eq $name)
+    if ($methods.Count -ne 1 -or -not $methods[0].IsPublic) { throw "Public tile API unavailable: $name" }
+}
+# TEMP_GATE_ROUTE_ACCEPTANCE: new event input is public on the installed extender.
+$captureType = $assembly.GetType('SHCDESE.EventAPI.Buildings.BuildingCaptureEventArgs', $true)
+foreach ($name in @('BuildingId','CapturingPlayerId')) {
+    $property = $captureType.GetProperty($name)
+    if ($null -eq $property -or $property.PropertyType -ne [int] -or -not $property.GetMethod.IsPublic) {
+        throw "Installed capture event input is unavailable: $name"
+    }
+}
+$source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/EnemyGatePathfindingNativeDefinition.cs'))
+function Constant([string]$name) {
+    $match = [regex]::Match($source,'\b'+[regex]::Escape($name)+'\s*=\s*(0x[0-9A-Fa-f]+|[0-9]+)\s*;')
+    if (-not $match.Success) { throw "Missing native span constant $name" }
+    $value = $match.Groups[1].Value
+    if ($value.StartsWith('0x')) { return [Convert]::ToInt32($value.Substring(2),16) }
+    return [int]$value
+}
+function ArrayValues([string]$name) {
+    $match = [regex]::Match($source,'\b'+[regex]::Escape($name)+'\s*=\s*\{([^}]+)\}',[Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $match.Success) { throw "Missing native span array $name" }
+    return @([regex]::Matches($match.Groups[1].Value,'0x[0-9A-Fa-f]+|\b[0-9]+\b') | ForEach-Object {
+        if ($_.Value.StartsWith('0x')) { [Convert]::ToInt32($_.Value.Substring(2),16) } else { [int]$_.Value }
+    })
+}
+$spans = @(@((Constant 'PclGraphCapturedByFilterRva'),(Constant 'PclGraphCapturedByFilterHookLength')),
+    @((Constant 'BuilderPrecheckCapturedByFilterRva'),(Constant 'BuilderPrecheckCapturedByFilterHookLength')),
+    @((Constant 'DirectCursorSearchBlockRva'),(Constant 'DirectCursorSearchBlockLength')),
+    @((Constant 'CursorPclDecisionRva'),(Constant 'CursorPclDecisionLength')))
+foreach ($prefix in @('DirectionFilter','AiTacticalFilter')) {
+    $starts = ArrayValues ($prefix+'Rvas'); $lengths = ArrayValues ($prefix+'Lengths')
+    if ($starts.Count -ne $lengths.Count) { throw 'Span arrays disagree' }
+    for ($index=0; $index -lt $starts.Count; $index++) { $spans += ,@($starts[$index],$lengths[$index]) }
+}
+# The archived 2.14.1 audit includes every actual RedBird displacement, not minimum HookSize.
+$traceSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/NativeAssassinDiagnosticHooks.cs'))
+$traceStarts = @([regex]::Matches([regex]::Match($traceSource,'Sites = \{([^}]+)\}').Groups[1].Value,'0x([0-9A-F]+)') | ForEach-Object { [Convert]::ToInt32($_.Groups[1].Value,16) })
+$traceBytes = @([regex]::Matches([regex]::Match($traceSource,'Bytes = \{([^}]+)\}').Groups[1].Value,'"([0-9a-f]+)"') | ForEach-Object { $_.Groups[1].Value })
+$guardSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/AssassinGateDescentRuntime.cs'))
+if ($guardSource -notmatch 'Site = 0x185D55, Length = 20, Continuation = 0x185934' -or
+    ([regex]::Matches($traceSource,'if \(i == 10\) continue;')).Count -ne 2 -or
+    $traceSource -notmatch 'if \(i != 10 &&') { throw 'Closed-gate site must have exactly one functional owner' }
+if ($traceStarts.Count -ne 19 -or $traceBytes.Count -ne $traceStarts.Count) { throw 'Incomplete native trace span manifest' }
+for ($index=0; $index -lt $traceStarts.Count; $index++) {
+    $traceLength = [int]($traceBytes[$index].Length / 2)
+    $span = @($traceStarts[$index],$traceLength)
+    foreach ($other in $spans) { if ($other[0] -lt $span[0]+$span[1] -and $span[0] -lt $other[0]+$other[1]) { throw 'Native trace overlaps another gate span' } }
+    $spans += ,$span
+}
+$sites = Get-Content -Raw -LiteralPath (Join-Path $workspace '_inspect/ScriptExtender2141Audit/native-sites.json') | ConvertFrom-Json
+foreach ($site in $sites) {
+    foreach ($span in $spans) {
+        if ($site.rva -lt $span[0]+$span[1] -and $span[0] -lt $site.rva+$site.length) { throw 'Extender engage-range hook overlaps gate adapter' }
+    }
+}
+Write-Host "PASS: installed public layouts/full control WORD; $($spans.Count) gate adapter spans vs $($sites.Count) actual SE 2.14.1 engage-range spans. Version is audit provenance only."

@@ -1,0 +1,87 @@
+--- 
+
++++ 
+
+@@ -25,4 +25,6 @@
+
+         PreserveCapturerAlly,
+         ExcludeForeignCapture,
++        PreserveAccessRule,
++        ExcludeAccessRule,
+         InvalidQueryPlayer,
+         UntrackedConnection,
+@@ -57,5 +59,5 @@
+
+             ushort ownerRelatedPlayers,
+             ushort capturerRelatedPlayers,
+-            ushort unrelatedPlayers)
++            ushort unrelatedPlayers, ushort changedAccessPlayers = 0)
+         {
+             Valid = valid;
+@@ -65,4 +67,5 @@
+
+             CapturerRelatedPlayers = capturerRelatedPlayers;
+             UnrelatedPlayers = unrelatedPlayers;
++            ChangedAccessPlayers = changedAccessPlayers;
+         }
+ 
+@@ -73,4 +76,5 @@
+
+         internal ushort CapturerRelatedPlayers { get; }
+         internal ushort UnrelatedPlayers { get; }
++        internal ushort ChangedAccessPlayers { get; }
+ 
+         internal bool PolicyEquals(NativeGateAccessRecord other) =>
+@@ -80,5 +84,5 @@
+
+             OwnerRelatedPlayers == other.OwnerRelatedPlayers &&
+             CapturerRelatedPlayers == other.CapturerRelatedPlayers &&
+-            UnrelatedPlayers == other.UnrelatedPlayers;
++            UnrelatedPlayers == other.UnrelatedPlayers && ChangedAccessPlayers == other.ChangedAccessPlayers;
+     }
+ 
+@@ -94,6 +98,7 @@
+
+             NativeGateAccessRecord[] recordsByBuildingId,
+             ulong rawFingerprint,
+-            uint[] gateGlobalsByBuildingId = null, long diagnosticEpoch = 0, long diagnosticGeneration = 0)
+-        {
++            uint[] gateGlobalsByBuildingId = null, long diagnosticEpoch = 0, long diagnosticGeneration = 0, long? rulesVersion = null)
++        {
++            RulesVersion = rulesVersion ?? APIShared.GateAccessRules.Version;
+             DiagnosticEpoch = diagnosticEpoch;
+             DiagnosticGeneration = diagnosticGeneration;
+@@ -123,4 +128,5 @@
+
+                     policyFingerprint = (policyFingerprint ^ record.OwnerRelatedPlayers) * 1099511628211UL;
+                     policyFingerprint = (policyFingerprint ^ record.CapturerRelatedPlayers) * 1099511628211UL;
++                    policyFingerprint = (policyFingerprint ^ record.ChangedAccessPlayers) * 1099511628211UL;
+                     policyFingerprint = (policyFingerprint ^ record.UnrelatedPlayers) * 1099511628211UL;
+                 }
+@@ -133,8 +139,9 @@
+
+ 
+         internal NativeGateAccessRecord[] RecordsByBuildingId { get; }
++        internal long RulesVersion { get; }
+         internal long DiagnosticEpoch { get; }
+         internal long DiagnosticGeneration { get; }
+         internal NativeGateAccessSnapshot WithDiagnosticPublication(long epoch, long generation) =>
+-            new NativeGateAccessSnapshot(RecordsByBuildingId, RawFingerprint, GateGlobalsByBuildingId, epoch, generation);
++            new NativeGateAccessSnapshot(RecordsByBuildingId, RawFingerprint, GateGlobalsByBuildingId, epoch, generation, RulesVersion);
+         internal ulong RawFingerprint { get; }
+         internal uint[] GateGlobalsByBuildingId { get; }
+@@ -183,4 +190,5 @@
+
+         {
+             record = default;
++            if (RulesVersion != APIShared.GateAccessRules.Version) return NativeGateSnapshotDecision.UntrackedConnection;
+             if (queryPlayerId <= 0 || queryPlayerId > 8)
+                 return NativeGateSnapshotDecision.InvalidQueryPlayer;
+@@ -197,4 +205,6 @@
+
+ 
+             ushort playerBit = unchecked((ushort)(1 << queryPlayerId));
++            if ((record.ChangedAccessPlayers & playerBit) != 0)
++                return (record.UnrelatedPlayers & playerBit) != 0 ? NativeGateSnapshotDecision.ExcludeAccessRule : NativeGateSnapshotDecision.PreserveAccessRule;
+             if (queryPlayerId == record.OwnerPlayerId)
+                 return NativeGateSnapshotDecision.PreserveOwner;

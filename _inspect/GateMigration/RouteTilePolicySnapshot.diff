@@ -1,0 +1,18 @@
+--- 
+
++++ 
+
+@@ -18,4 +18,5 @@
+
+             string directionMaskDiagnostics = null, GateEdgeOwnership[] edgeOwners = null, Dictionary<int, GateIdentity> gateIdentities = null, GateEdgeOwnership diagnosticGateEdges = null, int[] missingRequiredGateMasks = null, HashSet<int> maskedGates = null)
+         {
++            RulesVersion = APIShared.GateAccessRules.Version;
+             MissingRequiredGateMasks = missingRequiredGateMasks == null ? Array.Empty<int>() : (int[])missingRequiredGateMasks.Clone();
+             MaskedGates = maskedGates == null ? new HashSet<int>() : new HashSet<int>(maskedGates);
+@@ -47,4 +48,5 @@
+
+             internal readonly int Owner, Capturer;
+         }
++        internal long RulesVersion { get; }
+         internal int[] MissingRequiredGateMasks { get; }
+         private readonly HashSet<int> MaskedGates;

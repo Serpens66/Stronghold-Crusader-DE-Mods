@@ -420,3 +420,8 @@ Ground.Iron=Caselle di ferro
 Ground.Pitch=Caselle di pece
 BugfixesAndQoL.ImprovedBuildPreview=Mostra requisiti del terreno durante la costruzione
 BugfixesAndQoL.ImprovedBuildPreviewHelp=Evidenzia in rosso il terreno inadatto e mostra le caselle richieste nel suggerimento. Solo locale; le regole di costruzione restano invariate.
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=Spadaccini arabi: volume a riposo
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Volume locale solo per lo sguainamento durante l’animazione a riposo degli spadaccini arabi di tutti i giocatori. 0%: silenzioso; 100%: volume normale; predefinito: 25%. I suoni di combattimento non cambiano. Nessun limite di ripetizione.

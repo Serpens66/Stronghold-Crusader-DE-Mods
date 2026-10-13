@@ -377,6 +377,15 @@
         <TextBlock Text="{Binding EnableCustomTrailExtremeGoldFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       </StackPanel>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.client-possible-fixes" shared:ModSettingsSearch.Title="{Binding PossibleFixesTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding PossibleFixesTitleText}"><TextBlock Text="{Binding PossibleFixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
+      <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-possible-fixes" shared:ModSettingsSearch.SectionTitle="{Binding PossibleFixesTitleText}">
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.arabian-idle-sound-volume" shared:ModSettingsSearch.Title="{Binding ArabianIdleSoundVolumeText}" shared:ModSettingsSearch.ToolTipText="{Binding ArabianIdleSoundVolumeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="250"/><ColumnDefinition Width="70"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding ArabianIdleSoundVolumeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding ArabianIdleSoundVolumePercent, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding ArabianIdleSoundVolumeValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
+      </Grid>
+      </StackPanel>
       </StackPanel>
       <Separator Background="#444466" Margin="0,8"/>
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
@@ -605,6 +614,7 @@
         <TextBlock Text="{Binding EnableAiStoneReserveFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-raid-retarget-fix" shared:ModSettingsSearch.Title="{Binding EnableAiRaidRetargetFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiRaidRetargetFixHelpText}"><CheckBox IsChecked="{Binding EnableAiRaidRetargetFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiRaidRetargetFixHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableAiRaidRetargetFixText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-enemy-gate-pathfinding-fix" shared:ModSettingsSearch.Title="{Binding EnableEnemyGatePathfindingFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableEnemyGatePathfindingFixHelpText}"><CheckBox IsChecked="{Binding EnableEnemyGatePathfindingFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEnemyGatePathfindingFixHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableEnemyGatePathfindingFixText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-defense-patrol-fix" shared:ModSettingsSearch.Title="{Binding EnableAiDefensePatrolFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiDefensePatrolFixHelpText}"><CheckBox IsChecked="{Binding EnableAiDefensePatrolFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiDefensePatrolFixHelpText}"

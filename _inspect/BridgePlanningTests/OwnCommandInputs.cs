@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using EnemyBridgePathTest;
 namespace BridgePlanningTests
 {
@@ -6,7 +7,7 @@ namespace BridgePlanningTests
     {
         private static void CommandLineCases(NativeImage native)
         {
-            for(int direction=0;direction<8;direction++)for(int scenario=0;scenario<6;scenario++)
+            foreach(bool relaxed in new[]{false,true})for(int direction=0;direction<8;direction++)for(int scenario=0;scenario<6;scenario++)
             {
                 var f=new Fixture(7,7);int sx=103,sy=103,tx=sx+VirtualBridgeMap.Dx[direction]*2,ty=sy+VirtualBridgeMap.Dy[direction]*2;
                 int origin=sy*W+sx,next=origin+f.Offsets[sy*8+direction];
@@ -20,10 +21,10 @@ namespace BridgePlanningTests
                 Put(0x3a11ea4,valid);Put(0x402ff2c,rows);Put(0x405edb0,f.Offsets);Put(0x2d2e50,directions);Put(0x51890d0,f.Edge);Put(0x48f71b0,f.Flag);Put(0x4b6aa50,new short[N]);Put(0x2e68d0,new int[336]);Put(0x51d75f0,block);Put(Visits,visits);
                 var control=new byte[224];Buffer.BlockCopy(BitConverter.GetBytes(generation),0,control,4,4);Put(Root,control);Put(Root+0x155f68,new int[1]);Put(0x2f7a690,new[]{mode});
                 byte[] path=new byte[1000];native.Put(0x8790000,path);native.Long(Root+0x155f60,native.Ptr(0x8790000).ToInt64());
-                int n=native.Function<R5>(0xF32B0)(native.Ptr(Root),sx,sy,tx,ty),m=managed.CommandLine(sx,sy,tx,ty,path);
+                int n=native.Function<R5>(relaxed?0xF3060:0xF32B0)(native.Ptr(Root),sx,sy,tx,ty),m=managed.CommandLine(sx,sy,tx,ty,path,relaxed);
                 Check(n==m,"all line directions/edge/solid/passable/block/reset result");Equal(native.Bytes(0x8790000,1000),path,"line packed bank");Equal(native.Bytes(Visits,N*2),managed.Bytes(Visits,N*2),"line visits");Check(native.Int(Root+4)==BitConverter.ToInt32(managed.Bytes(Root+4,4),0),"line generation");Check(native.Int(Root+0x155f68)==BitConverter.ToInt32(managed.Bytes(Root+0x155f68,4),0),"line count");cases++;
             }
-            Console.WriteLine("PASS F32B0 native/managed:48 cases,8 orientations,solid/passable/block/edge/reset and packed output/visits");
+            Console.WriteLine("PASS F32B0/F3060 native/managed:96 cases,8 orientations,solid/passable/block/edge/reset and packed output/visits");
         }
         [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Winapi)]
         private delegate int Flood7(IntPtr self,int sx,int sy,int tx,int ty,int limit,int continuation);
@@ -46,6 +47,11 @@ namespace BridgePlanningTests
                     int n=run(native.Ptr(Root),sx,sy,tx,ty,continuation==1?400000:limit,continuation),m=managed.CommandFlood(sx,sy,tx,ty,continuation==1?400000:limit,continuation,blocked);Check(n==m,"normal flood result");
                     foreach(var range in new[]{Tuple.Create(Root,224),Tuple.Create(Root+0x155f3c,32),Tuple.Create(Root+0x155f6c,N*4),Tuple.Create(Root+0x28f3ec,N*2),Tuple.Create(Visits,N*2),Tuple.Create(0x5225b10,N*2)})Equal(native.Bytes(range.Item1,range.Item2),managed.Bytes(range.Item1,range.Item2),"complete flood queue/controls/visited/distances");
                 }
+                byte[] beforeFormation=managed.Bytes(0x5225b10,N*2),beforeFormationCursor=managed.Bytes(Root+0x155f3c,4);
+                var strategic=new short[N];if(scenario!=1)for(int q=0;q<N;q++)strategic[q]=(short)(scenario==2?100:10);Put(0x5759230+N*2,strategic);
+                var formation=new int[40];for(int q=0;q<formation.Length;q++)formation[q]=-700001;native.Put(0x37f139c+320,formation);
+                native.Function<V4>(0xEA4E0)(native.Ptr(Root),0,1,scenario==2?200:10);int formed=managed.FormationTargets(1,scenario==2?200:10,formation);
+                Equal(native.Bytes(0x37f139c+320,160),Bytes(formation),"entire formation pairs including preserved private sentinel");Equal(native.Bytes(0x5225b10,N*2),managed.Bytes(0x5225b10,N*2),"formation marked work distances");Equal(native.Bytes(Root+0x155f3c,4),managed.Bytes(Root+0x155f3c,4),"formation consumed queue cursor");Check(formed>=0&&formed<=20,"bounded formation pairs");native.Put(0x5225b10,beforeFormation);managed.Replace(0x5225b10,beforeFormation);native.Put(Root+0x155f3c,beforeFormationCursor);managed.Replace(Root+0x155f3c,beforeFormationCursor);
                 if(native.Int(Root+0x155f3c)!=native.Int(Root+0x155f44)&&native.Int(Root+0x155f58)<400000&&scenario!=1)
                 {
                     var path=new byte[1000];native.Put(0x8790000,path);native.Long(Root+0x155f60,native.Ptr(0x8790000).ToInt64());native.Int(Root+0x155f68,0);managed.Replace(Root+0x155f68,new byte[4]);
@@ -59,7 +65,7 @@ namespace BridgePlanningTests
         private static int HistoricalOwnCommand(string file)
         {
             if(!BridgePlanningImporter.TryRead(file,out var artifact,out string reason))throw new Exception(reason);
-            if(artifact.Hash!="3E471B66DEB3CC4237450EAF1406EC7E951E2E3A45AA15EB9F85D52FC030DC61"&&artifact.Hash!="5FE8D6432D3D41B72BC0FA2EEA74580FE0F60EADEF2B31FC79595816DB712F9B"&&artifact.Hash!="1CAE92A57B9A08C23EE74E0817F733243D1A6B73C8D9175C22C26031DA9F709E")throw new Exception("unapproved historical own command");
+            if(artifact.Hash!="3E471B66DEB3CC4237450EAF1406EC7E951E2E3A45AA15EB9F85D52FC030DC61"&&artifact.Hash!="5FE8D6432D3D41B72BC0FA2EEA74580FE0F60EADEF2B31FC79595816DB712F9B"&&artifact.Hash!="1CAE92A57B9A08C23EE74E0817F733243D1A6B73C8D9175C22C26031DA9F709E"&&artifact.Hash!="553EBBD51E274B0F5ADB9D7C7BC63F457D6C10BF2BD98B290387189A834735C5")throw new Exception("unapproved historical own command");
             if(!CopiedStructureInput.TryCreate(artifact,out var memory,out reason))throw new Exception(reason);
             using(var native=new NativeImage(Native,System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv")))
             {
@@ -86,11 +92,30 @@ namespace BridgePlanningTests
                     Console.WriteLine("isolatedDAAC0NativeManaged=Matched;result="+n+";limit="+limit+";radiusSource=audited-79C0-max-axis-plus4;fullCommandReplay=Unknown;native-entry-not-executed");
                     if(n==0){n=native.Function<Flood7>(0xDA590)(native.Ptr(Root),sx,sy,tx,ty,400000,0);m=memory.CommandFlood(sx,sy,tx,ty,400000,0,false);Check(n==m,"own unrestricted flood native result");foreach(var range in new[]{Tuple.Create(Visits,N*2),Tuple.Create(0x5225b10,N*2),Tuple.Create(Root+0x155f3c,32),Tuple.Create(Root+0x155f6c,N*4),Tuple.Create(Root+0x28f3ec,N*2)})Equal(native.Bytes(range.Item1,range.Item2),memory.Bytes(range.Item1,range.Item2),"own unrestricted flood output");Console.WriteLine("isolatedDA590NativeManaged=Matched;result="+n+";fullCommandReplay=Unknown");}
                 }
+                if(artifact.Sections.ContainsKey("structure/pre/pathDirectionMasks8")&&native.Int(Root+0x155f3c)!=native.Int(Root+0x155f44))
+                {
+                    native.Put(0x312620,memory.Bytes(0x312620,8));native.Put(bank,new byte[1000]);Array.Clear(privatePath,0,privatePath.Length);native.Long(Root+0x155f60,native.Ptr(bank).ToInt64());native.Int(Root+0x155f68,0);memory.Replace(Root+0x155f68,new byte[4]);
+                    native.Function<Reconstruct6>(0xE1640)(native.Ptr(Root),sx,sy,tx,ty,1);memory.CommandReconstruct(sx,sy,tx,ty,privatePath);
+                    Equal(native.Bytes(bank,1000),privatePath,"own mode1 reconstruction entire bank");int count=native.Int(Root+0x155f68);Check(count==BitConverter.ToInt32(memory.Bytes(Root+0x155f68,4),0),"own mode1 count");Check(native.Int(Root+0x94)==BitConverter.ToInt32(memory.Bytes(Root+0x94,4),0),"own obstacle count");
+                    Console.WriteLine("ownMode1NativeManaged=Matched;count="+count+";obstacles="+native.Int(Root+0x94)+";scope=computed-line-flood-reconstruction-not-full196280");
+                    if(artifact.Sections.TryGetValue("structure/post/pathBank1000",out var postBank)){int used=(count+1)/2;Equal(native.Bytes(bank,used),new ArraySegment<byte>(postBank,0,used).ToArray(),"own computed path used bytes vs immediate observed Post");Check(count==BitConverter.ToInt32(artifact.Sections["structure/post/workQueueControls"],0x30),"own path length vs Post");Console.WriteLine("ownComputedPathVsImmediatePost=Matched;usedBytes="+used+";unusedBankTailNotAssumedZero=True;mutablePostReturn="+BitConverter.ToInt64(artifact.Sections["structure/commandPostReturn8"],0));}
+                }
                 if(!CopiedStructureInput.TryCommandClosure(artifact,out reason))
                 {
                     Console.WriteLine("nativeCommandExecution=refused;productiveCommandExecution=Unknown;"+reason+";fullNativeHashValidated=True;behaviorFix=disabled");return 2;
                 }
-                Console.WriteLine("nativeCommandExecution=Unknown:full-continuation-not-yet-validated;"+reason);return 2;
+                if(artifact.Sections.ContainsKey("structure/post/pathBank1000"))
+                {
+                    if(!CopiedStructureInput.TryCreate(artifact,out var whole,out reason))throw new Exception(reason);
+                    using(var full=new NativeImage(Native,System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv")))
+                    {
+                        whole.CopyInputsTo(full.Put);var output=new byte[1000];full.Put(0x67e8400+0xb4fe78+id*1000,new byte[1000]);
+                        int nativeReturn=full.Function<R5>(0x196280)(full.Ptr(0x67e8400),id,tx,ty,checked((int)BitConverter.ToInt64(arguments,48))),managedReturn=whole.OwnSameRegionCommand(id,tx,ty,checked((int)BitConverter.ToInt64(arguments,48)),output);
+                        Check(nativeReturn==managedReturn,"complete own196280 positive branch return");Equal(full.Bytes(record,0xb00),whole.Bytes(record,0xb00),"complete own unit transition native/managed");Equal(full.Bytes(record,0xb00),artifact.Sections["structure/post/unit-"+id],"complete own unit transition vs immediate Post");Equal(full.Bytes(0x67e8400+0xb4fe78+id*1000,1000),output,"complete own path bank native/managed");Equal(output,artifact.Sections["structure/post/pathBank1000"],"complete own path bank vs observed Post");
+                        Console.WriteLine("PASS complete own196280 same-region/mode0 native-managed return="+nativeReturn+";entireUnitWindowAndPathBankMatchImmediatePost=True;mutablePostReturnNotAssumedRaw=True;otherBranches=Unknown;phase5Root=not-replayed");return 0;
+                    }
+                }
+                Console.WriteLine("nativeCommandExecution=Unknown:missing-immediate-post-path-bank;"+reason);return 2;
             }
         }
     }

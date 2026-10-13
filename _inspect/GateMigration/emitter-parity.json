@@ -1,0 +1,51 @@
+[
+  {
+    "source": "_inspect\\GateMigration\\accepted\\src\\EnemyGatePathfindingNativeDefinition.cs",
+    "destination": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\EnemyGatePathfindingNativeDefinition.cs",
+    "functionalTextEqual": true,
+    "sourceSha256": "6285955c728765cda4c6b2cc0f5d3d9c660b7e34b0a6b65e3656eebb17a45db6",
+    "destinationSha256": "cac5bc2d371fd5d4249e19b1f2bcb212913c879c82599be778f232d5a28c4a3f"
+  },
+  {
+    "source": "_inspect\\GateMigration\\accepted\\src\\DirectCursorCallAdapterEmitter.cs",
+    "destination": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\DirectCursorCallAdapterEmitter.cs",
+    "functionalTextEqual": true,
+    "sourceSha256": "5956120f00a21f2ceb28f65eb758ae61e2640186efbdafa926c3429de3b931c2",
+    "destinationSha256": "cdc3d9550e43147719ca1e8ec68ab18fb8dffde72107e17a45750cea3359fcd1"
+  },
+  {
+    "source": "_inspect\\GateMigration\\accepted\\src\\CapturerComparisonAdapterEmitter.cs",
+    "destination": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\CapturerComparisonAdapterEmitter.cs",
+    "functionalTextEqual": true,
+    "sourceSha256": "49237009c16adc28d1961d16dae7814f864f9776de54bed26ff4dac77343a10e",
+    "destinationSha256": "584010c791012187cd6671f68d0c467d40ddffbc14bea3f37f0fe4da8d360391"
+  },
+  {
+    "source": "_inspect\\GateMigration\\accepted\\src\\DirectionFilterAdapterEmitter.cs",
+    "destination": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\DirectionFilterAdapterEmitter.cs",
+    "functionalTextEqual": true,
+    "sourceSha256": "12c346410cf9c069604bfd0fa10654c11d30f28e131b2162ef037b0b1a06180d",
+    "destinationSha256": "ddfc5c05599061aa7c882f8d194bcf574703821755056496bcf7f967c56cd136"
+  },
+  {
+    "source": "_inspect\\GateMigration\\accepted\\src\\AiTacticalTargetAdapterEmitter.cs",
+    "destination": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\AiTacticalTargetAdapterEmitter.cs",
+    "functionalTextEqual": true,
+    "sourceSha256": "a8cd14f62b197d28c4ee871a12a49752020fe6c22619a19e04400c26dece9ad7",
+    "destinationSha256": "3f32cfcc87e7dcd275e1bef534e803603c4b18f1b5d627d8b28b643dbdc4d31b"
+  },
+  {
+    "source": "_inspect\\GateMigration\\accepted\\src\\NativeCallbackAdapterEmitter.cs",
+    "destination": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\NativeCallbackAdapterEmitter.cs",
+    "functionalTextEqual": true,
+    "sourceSha256": "2d74056b04a7ecf1810474907353074f11a6c11aa23f00def9f8e03341590a53",
+    "destinationSha256": "c201f6fffe08649c6ca8e7e2dd492c16002405512a63ee3878d29b96675068c5"
+  },
+  {
+    "source": "_inspect\\GateMigration\\accepted\\src\\AssassinGateDescentAdapter.cs",
+    "destination": "APIShared\\src\\Pathfinding\\GateRoutes\\Native\\AssassinGateDescentAdapter.cs",
+    "functionalTextEqual": true,
+    "sourceSha256": "671b5dbed07966efdf60e3d0859fce06575df06cce529511b8cceb98ddbf1b2c",
+    "destinationSha256": "83553feae6bbb2a2e3cce17cbb307030923f95c1936a1f9a6a46621be6983154"
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "LogOutput.log": {
+    "source": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\LogOutput.log",
+    "sha256": "17A4198E1E6161B275F7BB200EF741BABC4E51E073963F6FA2327E51443C3F92",
+    "bytes": 1460551
+  },
+  "planning.bin": {
+    "source": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\diagnostics\\EnemyBridgePathTest\\20261013-192928-5509565\\bridge-1-3.bin",
+    "sha256": "214299972AE0696E412D1AF0FD688ED89B5E5F957CBECF2D921752B02E9979BE",
+    "bytes": 57403701
+  },
+  "command.bin": {
+    "source": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\diagnostics\\EnemyBridgePathTest\\20261013-192928-5509565\\bridge-1-0.bin",
+    "sha256": "553EBBD51E274B0F5ADB9D7C7BC63F457D6C10BF2BD98B290387189A834735C5",
+    "bytes": 53614443
+  }
+}

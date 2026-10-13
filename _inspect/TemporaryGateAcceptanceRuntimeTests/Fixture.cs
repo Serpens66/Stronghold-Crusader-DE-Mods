@@ -6,7 +6,7 @@ using System.Threading;
 using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
-using EnemyGatePathfindingTest;
+using BugfixesAndQoL.GateRouting;
 using BugfixesAndQoL.UnitCommands;
 namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }
 namespace BepInEx.Bootstrap { public static class Chainloader { public static readonly Dictionary<string, object> PluginInfos=new Dictionary<string, object>(); } }
@@ -71,8 +71,8 @@ namespace SHCDESE.API {
         public bool TryGetBuildingById(int id,out GameBuilding* building) { building=id==579&&Additional!=null&&Additional->r_GlobalId!=0?Additional:id==BuildingId?Building:null;return building!=null; }
     }
 }
-namespace EnemyGatePathfindingTest { internal static class EnemyGatePathfindingNativeDefinition { internal const uint MaximumTileIdExclusive = 320800; } }
-namespace EnemyGatePathfindingTest {
+namespace BugfixesAndQoL.GateRouting { internal static class EnemyGatePathfindingNativeDefinition { internal const uint MaximumTileIdExclusive = 320800; } }
+namespace BugfixesAndQoL.GateRouting {
     internal sealed class GateOrderEvidence { }
     internal sealed class MacemenCommandDiagnostics {
         internal void BeginSearch(int player,int kind) { }
@@ -95,14 +95,15 @@ namespace EnemyGatePathfindingTest {
         }
     }
 }
-namespace EnemyGatePathfindingTest {
+namespace BugfixesAndQoL.GateRouting {
+    internal static class GateRoutingFeature { internal static bool IsActive=true; }
     internal class ActualStandaloneBuildings {
         private enum QueryKind {BuildingApproach,AlternateBuildingApproach}
         private struct QueryScope { }
         private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions;
         private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics=new AttackOrderCorrelationDiagnostics();
         private MacemenCommandDiagnostics MacemenDiagnostics;
-        private enum EnemyGateSearchKind { BuildingApproach }
+        private enum EnemyGateSearchKind { BuildingApproach, BuildingConsumer }
         internal int Calls,Releases,LastPlayer;internal bool ThrowNative;
         private int ResolveTribePlayer(int t)=>5;
         private int ResolveBuildingMovementPlayer(int p,int t)=>5;
@@ -112,10 +113,23 @@ namespace EnemyGatePathfindingTest {
         private void originalBuilding(IntPtr m,int t,int b,int n,int pcl,int p){Calls++;if(p!=2||t!=37||b!=578)throw new Exception("arguments");if(ThrowNative)throw new InvalidOperationException("original");}
         private void originalConsumer(IntPtr m,int t,int v){Calls++;if(ThrowNative)throw new InvalidOperationException("original");}
         private void originalAlternateConsumer(IntPtr m,int t,int v){Calls++;if(ThrowNative)throw new InvalidOperationException("original");}
+        private int ResolveEnemyGateBuildingPlayer(int player,int tribe)=>5;
+        private int ResolveEnemyGateTribePlayer(int tribe)=>5;
+        private IEnemyGatePathPolicy BeginEnemyGateSearch(int p,EnemyGateSearchKind k,out object token)
+        { LastPlayer=p;token=new object();try{attackOrderDiagnostics.BeginNativeSearch(k.ToString(),p);}catch{}return null; }
+        private void EndEnemyGateSearch(IEnemyGatePathPolicy p,object token,EnemyGateSearchKind k,bool completed,bool success)
+        { Releases++;attackOrderDiagnostics.EndNativeSearch(k.ToString(),completed,success); }
+        private object BeginTemporaryAssassinScope(string s,int t,int p,int b,int r)=>null;
+        private void EndTemporaryAssassinScope(object t,bool c,int r){}
+        private void ObserveEnemyGateAssassinBuilding(IEnemyGatePathPolicy p,int t,int b,int r,int m){}
+        private void ObserveBuildingApproachBuilderWithMoat(IntPtr m,int t,int b,int n,int pcl,int p)=>originalBuilding(m,t,b,n,pcl,p);
+        private void ObserveBuildingCandidateConsumerWithMoat(IntPtr m,int t,int v)=>originalConsumer(m,t,v);
         /* ACTUAL_STANDALONE_METHODS */
+        internal bool RunInactive()
+        { GateRoutingFeature.IsActive=false;try{FilterAlternateConsumer(IntPtr.Zero,37,1);return Calls==1&&Releases==0&&attackOrderDiagnostics.Begins==0;}finally{GateRoutingFeature.IsActive=true;} }
         internal bool Run(int mode,bool failNative,bool failObserver){
             ThrowNative=failNative;attackOrderDiagnostics.ThrowBegin=failObserver;bool threw=false;
-            try{if(mode==0)FilterBuilding(IntPtr.Zero,37,578,1,2,2);else if(mode==1)FilterConsumer(IntPtr.Zero,37,1);else FilterAlternateConsumer(IntPtr.Zero,37,1);}
+            try{if(mode==0)ObserveBuildingApproachBuilder(IntPtr.Zero,37,578,1,2,2);else if(mode==1)ObserveBuildingCandidateConsumer(IntPtr.Zero,37,1);else FilterAlternateConsumer(IntPtr.Zero,37,1);}
             catch(InvalidOperationException){threw=true;}
             return Calls==1&&Releases==1&&LastPlayer==5&&attackOrderDiagnostics.Begins==1&&attackOrderDiagnostics.Ends==1&&attackOrderDiagnostics.LastCompleted==!failNative&&threw==failNative;
         }
@@ -130,7 +144,7 @@ namespace BugfixesAndQoL {
     }
     internal interface IEnemyBridgePathObserver : IEnemyGateAssassinObserver { }
     internal static class EnemyGatePathPolicyBridge { internal static IEnemyGatePathPolicy Current; }
-    internal static class EnemyBridgeDiagnosticBridge { internal static IEnemyBridgePathObserver Current; }
+    internal static class EnemyBridgeDiagnosticBridge { internal static IEnemyBridgePathObserver Current; internal static object BeginSearch(string source,int player)=>null; internal static void EndSearch(object token,bool completed,int result){} }
     internal static class AssassinPathfindingRuntime { internal static string TemporaryReconstructionRelaxation="active"; }
     internal class ActualSearchWrapper {
         private static AssassinObservation activeObservation;
@@ -562,8 +576,9 @@ public static unsafe class RuntimeAcceptanceTests {
             Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();correlation.Report(5,"unit",false,1);
             acceptance.CompareBuilderTotals(2,1);acceptance.End();
             Check(Contains("builderCounterAgreement=FAIL")&&Contains("ai-builder-counter-mismatch"),"missing AI callback cannot be called complete coverage");
+            Check(new ActualStandaloneBuildings().RunInactive(),"inactive gate wrapper calls original once without scopes or observers");
             for(int mode=0;mode<3;mode++)foreach(bool originalFailure in new[]{false,true})foreach(bool observerFailure in new[]{false,true})
-                Check(new ActualStandaloneBuildings().Run(mode,originalFailure,observerFailure),"actual standalone original call/arguments/exception/cleanup preserved with optional context failures");
+                Check(new ActualStandaloneBuildings().Run(mode,originalFailure,observerFailure),"actual current-owner original call/arguments/exception/cleanup preserved with optional context failures");
             snapshot=new RouteTilePolicySnapshot(masks,70,edgeOwners:owners,gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{578,new RouteTilePolicySnapshot.GateIdentity(99,2,0)}});
             GameBuildingManagerAPI.Instance.Building->r_PlayerIdOwner=2;GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=0;
             RaidChainFixture.Run((success,role)=> {
@@ -608,3 +623,5 @@ public static unsafe class RuntimeAcceptanceTests {
         } finally { runtime.DisposeFixture(); Marshal.FreeHGlobal((IntPtr)GameUnitManagerAPI.Instance.Unit); Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe); Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Building); }
     }
 }
+
+namespace APIShared.GateRouting.Native { internal static class FixtureNamespaceMarker {} }

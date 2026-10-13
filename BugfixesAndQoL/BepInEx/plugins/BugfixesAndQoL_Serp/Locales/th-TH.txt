@@ -420,3 +420,8 @@ Ground.Iron=ช่องเหล็ก
 Ground.Pitch=ช่องยางมะตอย
 BugfixesAndQoL.ImprovedBuildPreview=แสดงข้อกำหนดของพื้นดินขณะก่อสร้าง
 BugfixesAndQoL.ImprovedBuildPreviewHelp=ทำเครื่องหมายพื้นดินที่ไม่เหมาะสมเป็นสีแดง และแสดงจำนวนช่องที่ต้องการในคำแนะนำการก่อสร้าง มีผลเฉพาะเครื่องนี้ ไม่เปลี่ยนกฎการก่อสร้าง
+
+BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
+BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
+BugfixesAndQoL.ArabianIdleSoundVolume=ทหารดาบอาหรับ: ระดับเสียงขณะพัก
+BugfixesAndQoL.ArabianIdleSoundVolumeHelp=ปรับเสียงเฉพาะเครื่องนี้สำหรับการชักดาบในท่าพักของทหารดาบอาหรับของผู้เล่นทุกคน 0%: เงียบ; 100%: เสียงปกติ; ค่าเริ่มต้น: 25% เสียงการต่อสู้ไม่เปลี่ยนแปลง ไม่มีการจำกัดการเล่นซ้ำ
