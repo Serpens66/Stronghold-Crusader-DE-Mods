@@ -1,0 +1,5 @@
+Ground.Coverage=Begroeiing
+Ground.Green=Groen
+Ground.Stone=Steenvelden
+Ground.Iron=IJzervelden
+Ground.Pitch=Pekvelden

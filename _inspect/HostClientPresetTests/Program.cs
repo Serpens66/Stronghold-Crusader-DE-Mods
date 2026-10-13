@@ -1975,6 +1975,7 @@ internal static class Program
         setting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         setting.ActivatePresets();
         Check(setting.EnableGatehouseLivingCaptureFix, "gatehouse fix did not default to true" );
+        Check(setting.EnableDrawbridgeDestructionFix, "drawbridge fix did not default to true" );
         Check(setting.EnableAssassinGatehouseClimbFix, "gatehouse fix did not default to true" );
         Check(setting.EnableAiFixes, "EnableAiFixes did not default to true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
@@ -1990,6 +1991,7 @@ internal static class Program
         Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
             "obsolete EnableSurrender property remains present");
         setting.EnableGatehouseLivingCaptureFix = false;
+        setting.EnableDrawbridgeDestructionFix = false;
         setting.EnableAssassinGatehouseClimbFix = false;
         setting.EnableAiFixes = false;
         setting.EnableSurrenderAndStatistics = false;
@@ -1999,6 +2001,7 @@ internal static class Program
         setting.EnableReturnToMultiplayerLobby = false;
         setting.AllowFullAiMultiplayerLobby = false;
         Check(!setting.EnableGatehouseLivingCaptureFix, "gatehouse false did not round-trip through presets");
+        Check(!setting.EnableDrawbridgeDestructionFix, "drawbridge false did not round-trip through presets");
         Check(!setting.EnableAssassinGatehouseClimbFix, "gatehouse false did not round-trip through presets");
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
@@ -2037,8 +2040,10 @@ internal static class Program
             $"EnableSurrenderAndStatistics={migratedSetting.EnableSurrenderAndStatistics}, " +
             $"SelectedPreset={migratedSetting.SelectedPreset})");
         Check(!migratedSetting.EnableGatehouseLivingCaptureFix, "stored gatehouse false did not survive reload");
+        Check(!migratedSetting.EnableDrawbridgeDestructionFix, "stored drawbridge false did not survive reload");
         Check(!migratedSetting.EnableAssassinGatehouseClimbFix, "stored gatehouse false did not survive reload");
         stalePreset.Remove(nameof(setting.EnableGatehouseLivingCaptureFix));
+        stalePreset.Remove(nameof(setting.EnableDrawbridgeDestructionFix));
         stalePreset.Remove(nameof(setting.EnableAssassinGatehouseClimbFix));
         stalePayload["__SerpCurrentSettings"] = MessagePackSerializer.Serialize(stalePreset);
         File.WriteAllBytes(settingsPath, MessagePackSerializer.Serialize(stalePayload));
@@ -2046,6 +2051,7 @@ internal static class Program
         missingGatehouseSetting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         missingGatehouseSetting.ActivatePresets();
         Check(missingGatehouseSetting.EnableGatehouseLivingCaptureFix, "missing gatehouse preset key did not retain true default");
+        Check(missingGatehouseSetting.EnableDrawbridgeDestructionFix, "missing drawbridge preset key did not retain true default");
         Check(missingGatehouseSetting.EnableAssassinGatehouseClimbFix, "missing gatehouse preset key did not retain true default");
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixesViewModelSource = File.ReadAllText(
@@ -2075,6 +2081,11 @@ internal static class Program
               bugfixesViewModelSource.Contains("EnableGatehouseLivingCaptureFix = true;") &&
               bugfixesViewModelSource.Contains("SetSetting(ref enableGatehouseLivingCaptureFix, value, nameof(EnableGatehouseLivingCaptureFix))"),
             "gatehouse production setting is not default-enabled, resettable and host-managed");
+        Check(normalizedBugfixesViewModelSource.Contains("private bool enableDrawbridgeDestructionFix = true;") &&
+              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableDrawbridgeDestructionFix") &&
+              bugfixesViewModelSource.Contains("EnableDrawbridgeDestructionFix = true;") &&
+              bugfixesViewModelSource.Contains("SetSetting(ref enableDrawbridgeDestructionFix, value, nameof(EnableDrawbridgeDestructionFix))"),
+            "drawbridge production setting is not default-enabled, resettable and host-managed");
         string bugfixesRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         Check(bugfixesRuntimeSource.Contains(
@@ -2175,14 +2186,17 @@ internal static class Program
         Check(!setting.EnableReturnToMultiplayerLobby,
             "client mutated the host-only EnableReturnToMultiplayerLobby setting");
         setting.EnableGatehouseLivingCaptureFix = true;
+        setting.EnableDrawbridgeDestructionFix = true;
         setting.EnableAssassinGatehouseClimbFix = true;
         Check(!setting.EnableGatehouseLivingCaptureFix, "client changed the gatehouse host setting");
+        Check(!setting.EnableDrawbridgeDestructionFix, "client changed the drawbridge host setting");
         Check(!setting.EnableAssassinGatehouseClimbFix, "client changed the gatehouse host setting");
         Check(!setting.AllowFullAiMultiplayerLobby,
             "client mutated the host-only AllowFullAiMultiplayerLobby setting");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
             setting.EnableGatehouseLivingCaptureFix = true;
+            setting.EnableDrawbridgeDestructionFix = true;
             setting.EnableAssassinGatehouseClimbFix = true;
             setting.EnableAiFixes = true;
             setting.EnableSurrenderAndStatistics = true;
@@ -2193,6 +2207,13 @@ internal static class Program
             setting.AllowFullAiMultiplayerLobby = true;
         });
         Check(setting.EnableGatehouseLivingCaptureFix, "host sync did not update gatehouse fix");
+        Check(setting.EnableDrawbridgeDestructionFix, "host sync did not update drawbridge fix");
+        GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
+        {
+            setting.EnableDrawbridgeDestructionFix = false;
+            setting.ResetSurrenderAndStatistics();
+        });
+        Check(setting.EnableDrawbridgeDestructionFix, "reset did not restore drawbridge true default" );
         Check(setting.EnableAssassinGatehouseClimbFix, "host sync did not update gatehouse fix");
         Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
@@ -2209,6 +2230,7 @@ internal static class Program
         setting.System_EnterMissionPreset(
             new Dictionary<string, byte[]>
             {
+                [nameof(setting.EnableDrawbridgeDestructionFix)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableAiFixes)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
@@ -2220,6 +2242,10 @@ internal static class Program
             "Trail",
             editable: false);
         Check(!setting.EnableAiFixes, "read-only Trail did not apply EnableAiFixes");
+        Check(!setting.EnableDrawbridgeDestructionFix, "read-only Trail did not apply drawbridge option");
+        setting.EnableDrawbridgeDestructionFix = true;
+        setting.ResetSurrenderAndStatistics();
+        Check(!setting.EnableDrawbridgeDestructionFix, "read-only Trail allowed drawbridge editing/reset" );
         Check(!setting.EnableSurrenderAndStatistics && !setting.CanEditHostSettings,
             "read-only Trail did not apply and lock EnableSurrenderAndStatistics");
         Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
@@ -5807,6 +5833,7 @@ internal sealed class SnapshotCompletionProbeViewModel : PresetLobbyModSettingsV
 internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSettingsViewModel
 {
     private bool enableAiFixes = true;
+    private bool enableDrawbridgeDestructionFix = true;
     private bool enableGatehouseLivingCaptureFix = true;
     private bool enableAssassinGatehouseClimbFix = true;
     private bool enableSurrenderAndStatistics = true;
@@ -5815,6 +5842,19 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     private bool enableAbruptHostMigrationFix = true;
     private bool enableReturnToMultiplayerLobby = true;
     private bool allowFullAiMultiplayerLobby = true;
+
+    [SyncHostOnly]
+    public bool EnableDrawbridgeDestructionFix
+    {
+        get { return enableDrawbridgeDestructionFix; }
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableDrawbridgeDestructionFix)) || enableDrawbridgeDestructionFix == value)
+                return;
+            enableDrawbridgeDestructionFix = value;
+            OnPropertyChanged(nameof(EnableDrawbridgeDestructionFix));
+        }
+    }
 
     [SyncHostOnly]
     public bool EnableGatehouseLivingCaptureFix
@@ -5947,6 +5987,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
 
     internal void ResetSurrenderAndStatistics()
     {
+        EnableDrawbridgeDestructionFix = true;
         EnableAiFixes = true;
         EnableSurrenderAndStatistics = true;
         EnableLordUnitControls = true;

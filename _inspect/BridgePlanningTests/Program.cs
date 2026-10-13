@@ -293,7 +293,7 @@ namespace BridgePlanningTests
         {
             var f=new Fixture(12,12);f.Install(m);m.Int(0x405B4F8,12345);m.Int(0x379D9A8+8*0x583c,1);m.Int(Root+0x6c,dirty);m.Int(Root+0x74,4);
             object token=new object();object discardedShadow=new object();BridgePlanningCapture.Bundle bundle=null;var reasons=new List<string>();int originalCalls=0;
-            var capture=new BridgePlanningCapture(m.Size,m.Bytes,()=>token,v=>bundle=v,(k,d)=>reasons.Add(k+":"+d));
+            var capture=new BridgePlanningCapture(m.Size,m.Bytes,()=>token,v=>bundle=v,(k,d)=>reasons.Add(k+":"+d),effectiveCounts:()=>{var counts=new int[4000];counts[1]=912;return counts;});
             capture.Begin(1);capture.Observe(0x2D250,false,1,100,90,8,8,1,0,0,true);
             discardedShadow=null;Check(discardedShadow==null&&capture.ActiveFamily==100,"discarded shadow publication does not discard own map-bound planning family");
             m.Int(0x2EA70DC+8*0x177bc,1); // Audited 2D250 bank write precedes both child calls.
@@ -352,11 +352,18 @@ namespace BridgePlanningTests
             int irrelevantReads=0;var irrelevant=new BridgePlanningCapture(m.Size,(r,n)=>{irrelevantReads++;throw new Exception("irrelevant must not read");},()=>token,v=>{},(k,d)=>{},relevance:p=>null);
             irrelevant.Begin(50);irrelevant.Observe(0x2D250,false,50,950,940,2,2,1,0,0,true);Check(irrelevantReads==0&&irrelevant.Status.Contains("no-observed-bridge-relevance"),"no relevant bridge skips capture before memory reads");
             var unbound=new BridgePlanningCapture(m.Size,(r,n)=>{throw new Exception("unbound family must not read memory");},()=>token,v=>{throw new Exception("unbound delivery");},(k,d)=>reasons.Add(d),requireMilitaryRoot:true);unbound.Begin(6);unbound.Observe(0x2D250,false,6,600,590,8,8,1,0,0,true);Check(reasons.Any(v=>v.Contains("unresolved-military-parent"))&&unbound.ActiveFamily==0,"unresolved parent is distinct and makes no complete copy");
+            unbound.Observe(0x2D250,false,6,601,590,8,8,1,0,0,true,590);Check(unbound.Status.Contains("planningCaptureAttempts=0")&&unbound.Status.Contains("missing-own-military-entry-at-family"),"an unrecorded root cannot burn planning family budget");
             m.Int(0x379D974+8*0x583c,4);int fullReads=0;
             var bounded=new BridgePlanningCapture(m.Size,(r,n)=>{if(r==0x67E8400&&n==BridgePlanningCapture.EntryUnitBytes)fullReads++;return m.Bytes(r,n);},()=>token,v=>{},(k,d)=>reasons.Add(d));
             m.Int(0x379D0D0+8*0x583c,1);bounded.Begin(6);for(int op=601;op<=603;op++)bounded.Observe(0x3C2E0,false,6,op,590,8,8,0,0,0,true);
             Check(fullReads==4&&reasons.Any(v=>v.Contains("entry-attempt-limit")),"at most two complete own-entry attempts, no repeat full manager scan");
             bounded.Begin(7);bounded.Observe(0x3C2E0,false,7,604,590,8,8,0,0,0,true);Check(fullReads==6,"own-entry attempt budget resets on map change");
+            m.Int(0x379D974+8*0x583c,5);bounded.Begin(8);
+            foreach(short timer in new short[]{0,1,2,short.MaxValue,short.MinValue,-1}){m.Put(0x379E78C+8*0x583c,BitConverter.GetBytes(timer));bounded.Observe(0x3C2E0,false,8,605,590,8,8,0,0,0,true);}
+            Check(fullReads==6&&bounded.Status.Contains("militaryEntryAttempts=0"),"phase5 wait cycles and signed overflow consume no full manager reads or budget");
+            m.Int(0x379E61C+8*0x583c,0);m.Int(0x379E6C0+8*0x583c,0);m.Int(0x379E740+8*0x583c,0);m.Int(0x379D994+8*0x583c,8);m.Int(0x379D9A8+8*0x583c,1);
+            m.Short(0x3A0F9F0+2,1);m.Int(0x3A0FA04+4,71);m.Int(0x67E8400+0x490+0x6f0,71);m.Short(0x67E8400+0x490+0x6e4,2);m.Short(0x67E8400+0x490+0x8f8,0);
+            m.Put(0x379E78C+8*0x583c,BitConverter.GetBytes((short)3));bounded.Observe(0x3C2E0,false,8,606,590,8,8,0,0,0,true);Check(fullReads==8,"phase5 captures complete own military managers using unchanged two-attempt budget");m.Int(0x379D974+8*0x583c,4);
             int changedReads=0;var unstableEntry=new BridgePlanningCapture(m.Size,(r,n)=>{var bytes=m.Bytes(r,n);if(r==0x67E8400&&n==BridgePlanningCapture.EntryUnitBytes&&++changedReads==2)bytes[bytes.Length-1]^=1;return bytes;},()=>token,v=>{},(k,d)=>reasons.Add(d));
             unstableEntry.Begin(8);unstableEntry.Observe(0x3C2E0,false,8,605,590,8,8,0,0,0,true);Check(reasons.Any(v=>v.Contains("military-own-entry-changed-during-copy")),"last unit slot mutation isolates and rejects own-entry capture");
             f.Install(m);m.Int(0x379D9A8+8*0x583c,1);m.Int(Root+0x6c,dirty);m.Int(Root+0x74,4);m.Int(Root+0xe0+4,144);capture.Begin(7);bundle=null;m.Int(0x379D0D0+8*0x583c,1);m.Int(0x379D974+8*0x583c,4);capture.Observe(0x3C2E0,false,7,699,690,8,8,0,0,0,true);
@@ -381,6 +388,8 @@ namespace BridgePlanningTests
             Check(bundle!=null&&CopiedPlanningBundle.Resolve(bundle,"consumer/pre/unitManager").Length>=0x65c&&CopiedPlanningBundle.Resolve(bundle,"consumer/weight-post/candidates").Length==VirtualCandidateConsumers.Bytes&&BitConverter.ToInt32(bundle.Sections["military/exitPlayer"],0x379D974-0x379AE00)==6,"complete consumer inputs/outputs and own military phase boundary captured");
             Check(bundle!=null&&bundle.Sections["military/entryUpdateClasses11"].Length==88&&bundle.Sections["military/entryMoveClasses11"].Length==88&&bundle.Sections["military/entryLeaderIds9"].Length==18&&bundle.Sections["military/entryConfig5"].Length==20&&CopiedPlanningBundle.Resolve(bundle,"callerHeight").Length==N&&CopiedPlanningBundle.Resolve(bundle,"callerBaseHeight").Length==N,"own entry dependencies and decision-time heights captured independently");
             Check(bundle!=null&&bundle.Sections.ContainsKey("target/703/values8"),"target selection associated by actual frame and completed parent");byte[] selectionBytes=bundle.Sections["target/703/values8"];Check(BitConverter.ToInt32(selectionBytes,20)==912&&BitConverter.ToInt32(selectionBytes,28)==144,"synthetic effective and native counts kept separate");
+            Check(bundle.Sections["target/703/effectiveCountsPre"].Length==16000&&BitConverter.ToInt32(bundle.Sections["target/703/effectiveCountsPre"],4)==912&&BitConverter.ToInt32(bundle.Sections["target/703/nativeCountsPre"],4)==144,"live relocated Pre table and native original table captured separately");
+            Check(CopiedPlanningReplay.TryEffectiveCounts(bundle,f.Component,out var selectedCounts,out replayReason)&&selectedCounts[1]==912,"selected own Pre count drives replay independently of histogram");
             Check(CopiedPlanningReplay.TryBaseline(bundle,new VirtualBridgeMap(7,4,f.Component,f.Edge,f.Flag,gx,gy,f.Rows,Array.Empty<VirtualConnection>(),true),out replayReason),"productive complete baseline with captured selection: "+replayReason);
             CopiedConsumerSequence.Validate(bundle);Check(CopiedConsumerSequence.Count(bundle)==2,"two sequential complete consumers preserved");
             var secondConsumer=CopiedConsumerSequence.View(bundle,1);Equal(CopiedPlanningBundle.Resolve(bundle,"consumer/post/candidates"),CopiedPlanningBundle.Resolve(secondConsumer,"consumer/pre/candidates"),"first computed native outputs flow directly into second own input");
@@ -563,6 +572,7 @@ namespace BridgePlanningTests
         }
         private static int Main(string[] args)
         {
+            if(args.Length==2&&args[0]=="--historical-own-command"){try{return HistoricalOwnCommand(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==2&&args[0]=="--historical-military"){try{return HistoricalMilitaryCoverage(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-table-hypothesis"){try{return HistoricalCandidates(args[1],true,int.Parse(args[2]),true);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             if(args.Length==3&&args[0]=="--historical-bridge")
@@ -575,7 +585,7 @@ namespace BridgePlanningTests
             if(args.Length==2&&args[0]=="--historical-weights"){try{return HistoricalWeights(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
                 if(args.Length==2&&args[0]=="--historical-rebuild"){try{return HistoricalRebuild(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             var elapsed=System.Diagnostics.Stopwatch.StartNew();
-            try{Check(IntPtr.Size==8,"x64 process");using(var m=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv"))){MilitaryHelperCases(m);Tables(m);CandidateConsumers(m);WeightComparisons(m);Callers(m);Planning(m);GatePlanning(m);Raised(m);SpecialSeeds(m);MacroRoles(m);PackedAndLimit(m);Capture(m,0);Capture(m,1);}CandidateWorkCases();Console.WriteLine("PASS private native planning: "+cases+" synthetic differential cases, "+checks+" checks; no game/library initialization");Console.WriteLine("offline-cost: totalMs="+elapsed.Elapsed.TotalMilliseconds.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)+",scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled");return 0;}
+            try{Check(IntPtr.Size==8,"x64 process");using(var m=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv"))){CommandLineCases(m);MilitaryHelperCases(m);StructureCases(m);Tables(m);CandidateConsumers(m);WeightComparisons(m);Callers(m);Planning(m);GatePlanning(m);Raised(m);SpecialSeeds(m);MacroRoles(m);PackedAndLimit(m);Capture(m,0);Capture(m,1);}CandidateWorkCases();Console.WriteLine("PASS private native planning: "+cases+" synthetic differential cases, "+checks+" checks; no game/library initialization");Console.WriteLine("offline-cost: totalMs="+elapsed.Elapsed.TotalMilliseconds.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)+",scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled");return 0;}
             catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
         }
     }

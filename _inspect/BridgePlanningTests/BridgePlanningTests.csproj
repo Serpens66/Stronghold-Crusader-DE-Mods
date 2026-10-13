@@ -10,4 +10,7 @@
   <ItemGroup>
     <Compile Include="..\..\Testmods\EnemyBridgePathTest\src\CopiedMilitaryEntry.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="..\..\Testmods\EnemyBridgePathTest\src\CopiedStructureTargets.cs" /></ItemGroup>
+<ItemGroup><Compile Include="StructureCases.cs" /></ItemGroup>
+<ItemGroup><Compile Include="..\..\Testmods\EnemyBridgePathTest\src\CopiedStructureInput.cs" /><Compile Include="OwnCommandInputs.cs" /></ItemGroup>
 </Project>

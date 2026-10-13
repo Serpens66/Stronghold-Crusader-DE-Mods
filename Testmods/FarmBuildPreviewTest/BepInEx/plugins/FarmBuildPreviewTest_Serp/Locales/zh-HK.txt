@@ -1,0 +1,5 @@
+Ground.Coverage=植被
+Ground.Green=綠地
+Ground.Stone=石料格
+Ground.Iron=鐵礦格
+Ground.Pitch=瀝青格

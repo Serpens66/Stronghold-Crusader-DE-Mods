@@ -1,0 +1,12 @@
+{
+  "dllSha256": "24c82ce422a5f359568e7d7351d7f6b03ab2fef72ef70f87e18900d88811de90",
+  "infoSha256": "789d252f6d04422f8e53735e2734ea77c4149de1b357909b493e3660a0dba602",
+  "buildExit": 0,
+  "installedAt": "2026-10-13 16:21:58",
+  "assertions": 38362,
+  "nativeDifferentialCases": 166,
+  "nativeChecks": 12629,
+  "behaviorFix": "disabled",
+  "version": "0.1.0",
+  "ownHooks": 30
+}

@@ -25,6 +25,13 @@ foreach ($path in $sources) {
             [regex]::Matches($runtimeText,'\(\(IDisposable\)permanent\[i\]\)\.Dispose\(\);').Count -ne 1) { throw 'Unpublished native rollback guard changed' }
         $runtimeText=$runtimeText.Replace('((IDisposable)permanent[i]).Dispose();','/* guarded unpublished candidate release */')
     }
+    if ($path -like '*EnemyBridgePathTest\src\BridgeInputArtifact.cs') {
+        if($runtimeText -notmatch 'IEnumerator<byte\[\]> Source' -or $runtimeText -notmatch 'SHA256 Payload=SHA256.Create\(\),Whole=SHA256.Create\(\)' -or $runtimeText -match 'IHook|NativeDetour|VirtualProtect|CodePatch|SHCDESE') {throw 'Unpublished artifact job release types changed'}
+        foreach($release in @('first?.Source?.Dispose();','second?.Source?.Dispose();','first?.Payload?.Dispose();','first?.Whole?.Dispose();','second?.Payload?.Dispose();','second?.Whole?.Dispose();','job.Payload.Dispose();','job.Whole.Dispose();')) {
+            if([regex]::Matches($runtimeText,[regex]::Escape($release)).Count -ne 1){throw 'Unpublished iterator/hash release contract changed'}
+            $runtimeText=$runtimeText.Replace($release,'/* unpublished iterator or SHA256 only */')
+        }
+    }
     if ($path -like '*EnemyBridgePathTest\src\*' -and $runtimeText -match '\.(?:Dispose|Apply)\s*\(') { throw "Published diagnostic runtime teardown: $path" }
 }
 # Shared lifecycle Pair.Dispose only releases observer tokens; the static plugin retains its Pair.
@@ -181,7 +188,7 @@ foreach ($field in @('nativeWorkDirections64','nativeDirectionMasks8','nativeWor
 if ($collector -notmatch 'consumer-native-table-changed' -or $importer -notmatch 'consumer-native-table-changed') { throw 'Consumer native table pre/post stability missing' }
 $candidateInputs=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/CopiedCandidateInputs.cs'))
 if ($candidateInputs -notmatch 'missing-own-consumer-table' -or $candidateInputs -notmatch '!calculated.Complete' -or $candidateInputs -match 'ConstantBytes|CrusaderLibraryLoadContext|File.ReadAllBytes') { throw 'Copied candidate inputs may not substitute unrecorded tables' }
-foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualCandidateBuilder.cs|CopiedCandidateInputs.cs|CopiedPlanningReplay.cs' }) {
+foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualCandidateBuilder.cs|CopiedCandidateInputs.cs|CopiedPlanningReplay.cs|CopiedStructureInput.cs' }) {
     if ([IO.File]::ReadAllText($path) -match 'new VirtualCandidateBuilder|CopiedCandidateInputs\.TryCreate') { throw 'Dormant candidate continuation unexpectedly activated in a live callback' }
 }
 foreach ($path in $sources | Where-Object { $_ -notmatch 'CopiedPlanningReplay.cs' }) {
@@ -232,7 +239,7 @@ Write-Host 'PASS: at most two ordered own consumers, legacy import, suppression 
 $identityFilter='(?i)\b(?:player|attacker|bridge\.Id|bridge\.Global)\s*(?:==|!=|=(?!=))\s*[1-9][0-9]*\b|\ba\s*==\s*[1-8]\b|only703|player8|\b(?:225464|228518)\b'
 foreach($fixture in @('player==3','attacker!=8','bridge.Id==494','bridge.Global==17','Player=6')) {if($fixture -notmatch $identityFilter){throw ('Identity scanner missed fixture: '+$fixture)}}
 foreach($fixture in @('player>=1&&player<=8','player!=0','bridge.Id!=single.Id','int Capacity=320800')) {if($fixture -match $identityFilter){throw ('Identity scanner rejected native contract fixture: '+$fixture)}}
-foreach($generalSource in @('BridgePlanningCapture.cs','BridgeVirtualShadow.cs','CopiedPlanningReplay.cs','BridgeDecisionTrace.cs')) {
+foreach($generalSource in @('BridgePlanningCapture.cs','BridgeVirtualShadow.cs','CopiedPlanningReplay.cs','BridgeDecisionTrace.cs','BridgeStructureTrace.cs','BridgeStructureCapture.cs')) {
     $generalText=[IO.File]::ReadAllText((Join-Path $PSScriptRoot ('src/'+$generalSource)))
     # The audited complete one-based player iteration is a native bound, not a selection.
     $selectionText=$generalText.Replace('for(int player=1;player<=8;player++)','for(allNativePlayers)')
@@ -246,3 +253,19 @@ if(!$routeSource.Contains('RemainingDeck') -or !$routeSource.Contains('LastSteps
 $artifactSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeInputArtifact.cs'))
 if(!$artifactSource.Contains('var block=outputBlock') -or !$artifactSource.Contains('artifactMaxSourceMs') -or !$shadowSource.Contains('artifacts.IntervalCosts()')){throw 'Bounded reused publisher buffer or separate source/write costs missing'}
 Write-Host 'PASS: one deferred fallback, stronger attempt, remaining deck only; reused64KiB writer and separate nested cost scopes.'
+
+$structureSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeStructureCapture.cs'))
+$structureTargets=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/CopiedStructureTargets.cs'))
+$structureTrace=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeStructureTrace.cs'))
+if(!$structureSource.Contains('attempts<2') -or !$structureSource.Contains('command-physical-changed-during-copy') -or !$structureSource.Contains('command-post-unit-reused') -or !$structureTrace.Contains('coordinate-candidate-not-selector-proof') -or !$structureTrace.Contains('kind==1&&command==38') -or !$deferredSource.Contains('StructureArgumentsStable') -or !$entryImporter.Contains('structure-command-source')){throw 'Own bounded structure command/event identity contract missing'}
+if(!$structureTargets.Contains('for(int d=0;d<8;d+=2)') -or !$structureTargets.Contains('DA020-E2CA0-assassin-surface-fallback') -or !$structureTargets.Contains('if(advance)') -or !$structureTargets.Contains('coherentTopology') -or !$structureTargets.Contains('completePermissions')){throw 'Copied native structure search/approach and conservative negative proof contract missing'}
+Write-Host 'PASS: passive own command entry/post, dynamic structure identities, legacy import and copied EDF30/DA020; unresolved permissions/formations retain Vanilla.'
+
+$pluginSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/EnemyBridgePathTestPlugin.cs'))
+if(!$pluginSource.Contains('buildingDamage = BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(runtime.BuildingDamage)') -or !$structureTrace.Contains('postReturn=not-exposed-by-sdk') -or !$structureTrace.Contains('damageKind=shared-native-path-melee-not-proven') -or !$structureTrace.Contains('damageSkipped') -or !$structureTrace.Contains('source>=1&&source<=8')){throw 'Existing-owner shared damage observation/scope contract missing'}
+Write-Host 'PASS: statically rooted existing SDK damage publisher; bounded samples, nested identity isolation and no claimed SDK return/melee attribution.'
+
+foreach($path in $sources | Where-Object { $_ -notmatch 'CopiedStructureInput.cs|CopiedStructureTargets.cs' }) {
+    if([IO.File]::ReadAllText($path) -match 'CopiedStructureInput\.TryCreate|\.FindAttackObject\(|\.BuildMeleeApproaches\('){throw 'Offline structure computation became reachable from a live callback'}
+}
+Write-Host 'PASS: copied structure/approach adapter is offline-only; live callbacks capture/read evidence without extra searches.'

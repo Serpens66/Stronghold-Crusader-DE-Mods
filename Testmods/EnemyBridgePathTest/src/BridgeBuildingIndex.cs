@@ -16,6 +16,7 @@ namespace EnemyBridgePathTest
         {
             internal int Id, ParentId, Owner, NativeParent, Grid, Orientation, OriginX, OriginY;
             internal uint Global, ParentGlobal;
+            internal int[] Occupied;
             internal int MinX=800,MinY=800,MaxX=-1,MaxY=-1;
             internal string Link;
         }
@@ -26,6 +27,7 @@ namespace EnemyBridgePathTest
         internal long Builds;
         internal long BuildTicks;
         internal Entry[] Entries=Array.Empty<Entry>();
+        internal Action<Entry[]> Refreshed;
         internal void Invalidate() => Interlocked.Increment(ref generation);
         internal void Refresh()
         {
@@ -39,6 +41,8 @@ namespace EnemyBridgePathTest
                 if(!BridgeSnapshot.Active(b.r_AliveState)||(!BridgeSnapshot.IsGate(b.r_BuildingType)&&b.r_BuildingType!=eStructs.STRUCT_DRAWBRIDGE)) continue;
                 var entry=new Entry {Id=i+1,Global=b.r_GlobalId,Owner=b.r_PlayerIdOwner,NativeParent=b.r_GatehouseId,Grid=(int)b.r_OccupyTileGridSize,Orientation=b.r_SpriteVariationIndex,OriginX=b.r_TilePositionXBegin,OriginY=b.r_TilePositionYBegin};
                 fixed(GameBuilding* pointer=&b) footprints.Add(entry.Id,BridgeSnapshot.Footprint(pointer));
+                entry.Occupied=new List<int>(footprints[entry.Id]).ToArray();
+                Array.Sort(entry.Occupied);
                 foreach(int tile in footprints[entry.Id])
                 {
                     if((uint)tile>=320800)continue;
@@ -68,7 +72,7 @@ namespace EnemyBridgePathTest
                 else bridge.Link=parents!=null&&parents.Count>1?"ambiguous-native-coupling":"unlinked";
             }
             Entries=bridges.ToArray();built=version;nextCheck=now+Stopwatch.Frequency;Builds++;
-            BuildTicks+=Stopwatch.GetTimestamp()-now;
+            BuildTicks+=Stopwatch.GetTimestamp()-now;Refreshed?.Invoke(Entries);
         }
         internal string Parent(Entry entry)
         {

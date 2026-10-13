@@ -11,6 +11,22 @@ namespace BridgePlanningTests
         [DllImport("kernel32",SetLastError=true)] private static extern IntPtr VirtualAlloc(IntPtr address,UIntPtr size,uint kind,uint protection);
         [DllImport("kernel32",SetLastError=true)] private static extern bool VirtualFree(IntPtr address,UIntPtr size,uint kind);
         [DllImport("kernel32",SetLastError=true)] private static extern bool VirtualProtect(IntPtr address,UIntPtr size,uint protection,out uint previous);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int ExceptionObserver(IntPtr pointers);
+        [DllImport("kernel32")] private static extern IntPtr AddVectoredExceptionHandler(uint first,ExceptionObserver handler);
+        [DllImport("kernel32")] private static extern uint RemoveVectoredExceptionHandler(IntPtr handler);
+        private static readonly ExceptionObserver observer=ObservePrivateException;
+        private static long observedBase;
+        private readonly IntPtr exceptionRegistration;
+        private static int ObservePrivateException(IntPtr pointers)
+        {
+            try
+            {
+                int code=Marshal.ReadInt32(Marshal.ReadIntPtr(pointers));
+                if(code==unchecked((int)0xC000001D)||code==unchecked((int)0xC0000005))
+                {var context=Marshal.ReadIntPtr(pointers,8);long rip=Marshal.ReadInt64(context,0xf8);Console.Error.WriteLine("private-native-exception code="+unchecked((uint)code).ToString("X8")+",rva="+(rip-observedBase).ToString("X"));}
+            }
+            catch{}return 0; // Observe only; never catches or resumes an unknown native branch.
+        }
         internal readonly IntPtr Base;
         internal readonly int Size;
         internal readonly List<int> Guards=new List<int>();
@@ -22,6 +38,7 @@ namespace BridgePlanningTests
             int pe=BitConverter.ToInt32(image,0x3c),optional=pe+24;Size=BitConverter.ToInt32(image,optional+56);ulong preferred=BitConverter.ToUInt64(image,optional+24);
             if(BitConverter.ToUInt16(image,optional)!=0x20b||Size!=0x8903000)throw new Exception("Native image contract mismatch");
             Base=VirtualAlloc(IntPtr.Zero,(UIntPtr)Size,0x3000,4);if(Base==IntPtr.Zero)throw new Exception("Private native image allocation");
+            observedBase=Base.ToInt64();exceptionRegistration=AddVectoredExceptionHandler(1,observer);
             try
             {
                 int sections=BitConverter.ToUInt16(image,pe+6),table=optional+BitConverter.ToUInt16(image,pe+20);
@@ -39,7 +56,7 @@ namespace BridgePlanningTests
                 }
                 foreach(int rva in Guards){Byte(rva,0x0f);Byte(rva+1,0x0b);} // unsupported branch traps; never a permissive search stub.
             }
-            catch{VirtualFree(Base,UIntPtr.Zero,0x8000);throw;}
+            catch{if(exceptionRegistration!=IntPtr.Zero)RemoveVectoredExceptionHandler(exceptionRegistration);VirtualFree(Base,UIntPtr.Zero,0x8000);throw;}
         }
         private static string Hash(byte[] bytes){using(var h=SHA256.Create())return BitConverter.ToString(h.ComputeHash(bytes)).Replace("-","");}
         internal IntPtr Ptr(int rva,int bytes=1){if(rva<0||bytes<0||(long)rva+bytes>Size)throw new Exception("Outside private image");return IntPtr.Add(Base,rva);}
@@ -78,6 +95,6 @@ namespace BridgePlanningTests
         // Unpublished private image only; never touches installed hooks or library.
         internal void PrivateExecutable(int rva,int length)
         {uint previous;if(!VirtualProtect(Ptr(rva,length),(UIntPtr)length,0x40,out previous))throw new Exception("Private stub protection");}
-        public void Dispose(){VirtualFree(Base,UIntPtr.Zero,0x8000);} // exclusively unpublished private test memory.
+        public void Dispose(){if(exceptionRegistration!=IntPtr.Zero)RemoveVectoredExceptionHandler(exceptionRegistration);VirtualFree(Base,UIntPtr.Zero,0x8000);} // exclusively unpublished private test memory.
     }
 }

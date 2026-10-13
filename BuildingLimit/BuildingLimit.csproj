@@ -117,7 +117,6 @@
     <Compile Include="src\BuildingLimitPlugin.cs" />
     <Compile Include="src\BuildingLimitLobbyViewModel.cs" />
     <Compile Include="src\BuildingLimitNotificationViewModel.cs" />
-    <Compile Include="src\BuildingLimitTooltipViewModel.cs" />
     <Compile Include="src\BuildingLimitDefinition.cs" />
     <Compile Include="src\BuildingLimitRule.cs" />
   </ItemGroup>

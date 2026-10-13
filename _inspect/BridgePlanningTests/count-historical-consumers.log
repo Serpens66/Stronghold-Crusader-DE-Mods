@@ -1,0 +1,5 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+System.Exception: Unknown:missing-effective-component-count-input:region=1,observed=117913,histogram=117922,dirty=1
+   bei BridgePlanningTests.Program.ComputedVariant(Artifact a, Int32 variant, VirtualBridgeMap& physical, Int32[]& counts, Int32 selectedBridge, UInt32 selectedGlobal) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\HistoricalInputs.cs:Zeile 39.
+   bei BridgePlanningTests.Program.HistoricalCandidates(String path, Boolean continuous, Int32 variant, Boolean referenceTables, Int32 ordinal, Int32 selectedBridge, UInt32 selectedGlobal) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\HistoricalInputs.cs:Zeile 101.
+   bei BridgePlanningTests.Program.Main(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\Program.cs:Zeile 582.

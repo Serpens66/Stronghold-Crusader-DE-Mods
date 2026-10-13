@@ -81,4 +81,9 @@
   <ItemGroup>
     <Compile Include="src\CopiedMilitaryEntry.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="src\CopiedStructureTargets.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\BridgeStructureCapture.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\BridgeStructureTrace.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\CopiedStructureInput.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\BridgeLossHistory.cs" /></ItemGroup>
 </Project>

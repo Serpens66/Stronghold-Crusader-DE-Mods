@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "ai-different-food",
+  "name": "AI different food",
+  "description": "AI starts with all foodtypes, so it does not buy so much food at game start",
+  "targetGuid": "StartConditions_Serp",
+  "settings": {
+    "AddStartGoldAI": {
+      "mode": "player"
+    },
+    "AddStartGoldHuman": {
+      "mode": "player"
+    },
+    "AddStartTroopsAI": {
+      "mode": "player"
+    },
+    "AddStartTroopsHuman": {
+      "mode": "player"
+    },
+    "EnableMod": {
+      "mode": "player"
+    },
+    "MultiplyStartTroopsAI": {
+      "mode": "player"
+    },
+    "MultiplyStartTroopsHuman": {
+      "mode": "player"
+    },
+    "SetStartGoldAI": {
+      "mode": "player"
+    },
+    "SetStartGoldHuman": {
+      "mode": "player"
+    },
+    "StartGoodsAI": {
+      "mode": "fixed",
+      "value": "# -1 = unchanged\r\nSTORED_WOOD_PLANKS=-1\r\nSTORED_RAW_HOPS=-1\r\nSTORED_STONE_BLOCKS=-1\r\nSTORED_IRON_INGOTS=-1\r\nSTORED_PITCH_RAW=-1\r\nSTORED_RAW_WHEAT=-1\r\nSTORED_FOOD_BREAD=20\r\nSTORED_FOOD_CHEESE=10\r\nSTORED_FOOD_MEAT=10\r\nSTORED_FOOD_FRUIT=10\r\nSTORED_FOOD_ALE=-1\r\nSTORED_FLOUR=-1\r\nSTORED_BOWS=-1\r\nSTORED_CROSSBOWS=-1\r\nSTORED_SPEARS=-1\r\nSTORED_PIKES=-1\r\nSTORED_MACES=-1\r\nSTORED_SWORDS=-1\r\nSTORED_LEATHER_ARMOUR=-1\r\nSTORED_METAL_ARMOUR=-1"
+    },
+    "StartGoodsHuman": {
+      "mode": "player"
+    }
+  }
+}

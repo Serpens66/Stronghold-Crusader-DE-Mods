@@ -29,6 +29,7 @@ namespace EnemyBridgePathTest
                 var b=planning.Planning;long current=Number(group,"planningRoot"),retained=Number(group,"decisionRoot");
                 if(Number(group,"session")!=b.Session||Number(group,"planningBundleRoot")!=b.Root||Number(group,"planningBundleDefinition")!=Number(planning,"definition")||Number(group,"player")!=b.Attacker||b.Root<=0)throw new InvalidDataException("artifact-source-identity");
                 if(current!=b.Root&&retained!=b.Root)throw new InvalidDataException("unrelated-military-root");
+                if(group.Sections.TryGetValue("structure/identity18",out var commandIdentity)&&current==b.Root&&(commandIdentity.Length!=144||BitConverter.ToInt64(commandIdentity,16)!=b.Root))throw new InvalidDataException("own-command-root-disagrees-with-metadata");
                 if(!group.Metadata.TryGetValue("planningAssociation",out string association)||association!=(current==b.Root?"same-parent-root":"retained-decision-root"))throw new InvalidDataException("association-branch");
                 reason="exact-artifact-source-linked;not-a-positive-region-proof";return true;
             }
@@ -64,6 +65,35 @@ namespace EnemyBridgePathTest
                     {if(previous.Length+size>16*1024*1024)throw new InvalidDataException("chunk-extent");var merged=new byte[previous.Length+data.Length];Buffer.BlockCopy(previous,0,merged,0,previous.Length);Buffer.BlockCopy(data,0,merged,previous.Length,data.Length);a.Sections[name]=merged;}
                     else a.Sections.Add(name,data);
                 }
+                if(a.Sections.TryGetValue("structure/identity18",out byte[] structureIdentity))
+                {
+                    if(a.Schema!=2||structureIdentity.Length!=144||!a.Sections.TryGetValue("structure/postClock",out byte[] postClock)||postClock.Length!=8)throw new InvalidDataException("structure-command-extent");
+                    long[] own=new long[18];Buffer.BlockCopy(structureIdentity,0,own,0,structureIdentity.Length);
+                    if(own[0]!=Number(a,"session")||own[1]!=Number(a,"op")||own[5]!=Number(a,"player")||own[5]<1||own[5]>8||own[6]<1||own[6]>=4500||own[9]<1||own[9]>4000||own[7]<=0||own[10]<=0||own[4]>BitConverter.ToInt64(postClock,0))throw new InvalidDataException("structure-command-source");
+                    foreach(string name in new[]{"pre/tribe","post/tribe","pre/target","pre/approaches501","post/approaches501","pre/flags","pre/components","pre/edges"})if(!a.Sections.ContainsKey("structure/"+name))throw new InvalidDataException("structure-command-missing:"+name);
+                    if(a.Sections["structure/pre/tribe"].Length!=0x688||a.Sections["structure/post/tribe"].Length!=0x688||a.Sections["structure/pre/target"].Length!=0x32c||a.Sections["structure/pre/approaches501"].Length!=6012||a.Sections["structure/post/approaches501"].Length!=6012||a.Sections["structure/pre/flags"].Length!=1283200||a.Sections["structure/pre/components"].Length!=641600||a.Sections["structure/pre/edges"].Length!=320800)throw new InvalidDataException("structure-command-input-extent");
+                    if(BitConverter.ToUInt32(a.Sections["structure/pre/tribe"],0x34)!=(uint)own[7]||BitConverter.ToUInt32(a.Sections["structure/pre/target"],0x134)!=(uint)own[10])throw new InvalidDataException("structure-command-identity");
+                    if(a.Sections.TryGetValue("structure/unitCommandArguments7",out byte[] commandArgs))
+                    {
+                        if(commandArgs.Length!=56||!a.Sections.TryGetValue("structure/unitIdentity4",out byte[] commandActor)||commandActor.Length!=32||!a.Sections.TryGetValue("structure/observationOrigin",out byte[] commandOrigin)||System.Text.Encoding.UTF8.GetString(commandOrigin)!="unit-command-pre")throw new InvalidDataException("structure-original-command-extent-or-origin");
+                        long[] args=new long[7];Buffer.BlockCopy(commandArgs,0,args,0,56);
+                        if(args[0]!=own[0]||args[1]!=own[1]||args[2]!=BitConverter.ToInt64(commandActor,0)||args[3]!=BitConverter.ToInt64(commandActor,8)||(ulong)args[4]>=800||(ulong)args[5]>=800||args[6]<int.MinValue||args[6]>int.MaxValue||BitConverter.ToInt64(commandActor,24)!=0)throw new InvalidDataException("structure-original-command-binding");
+                    }
+                    if(a.Sections.TryGetValue("structure/unitIdentity4",out byte[] actor))
+                    {
+                        if(actor.Length!=32)throw new InvalidDataException("structure-unit-actor-extent");long id=BitConverter.ToInt64(actor,0),g=BitConverter.ToInt64(actor,8),tile=BitConverter.ToInt64(actor,16),snapshot=BitConverter.ToInt64(actor,24);
+                        if(id<1||id>9999||g<=0||g>uint.MaxValue||tile<0||tile>=320800||(snapshot!=0&&snapshot!=1)||!a.Sections.TryGetValue("structure/pre/unit-"+id,out byte[] ownUnit)||ownUnit.Length!=0xb00||BitConverter.ToUInt32(ownUnit,0x6f0)!=(uint)g||BitConverter.ToUInt32(ownUnit,0xa00)!=(uint)tile||!a.Sections.TryGetValue("structure/observationOrigin",out byte[] origin)||System.Text.Encoding.UTF8.GetString(origin)!=(snapshot==1?"ongoing-unit-state-snapshot":"unit-command-pre"))throw new InvalidDataException("structure-unit-actor-identity-or-timing");
+                    }
+                    foreach(var section in a.Sections)if(section.Key.StartsWith("structure/pre/unit-",StringComparison.Ordinal)){if(section.Value.Length!=0xb00||!a.Sections.TryGetValue(section.Key.Replace("/pre/","/post/"),out byte[] after)||after.Length!=0xb00||BitConverter.ToUInt32(section.Value,0x6f0)!=BitConverter.ToUInt32(after,0x6f0))throw new InvalidDataException("structure-unit-input");}
+                    foreach(var table in new[]{Tuple.Create("profiles90",360),Tuple.Create("permissions540",2160)})if(a.Sections.TryGetValue("structure/pre/"+table.Item1,out byte[] ownTable)&&ownTable.Length!=table.Item2)throw new InvalidDataException("structure-command-table-extent:"+table.Item1);
+                    if(a.Sections.TryGetValue("structure/pre/pathInputCoverage4",out var coverage))
+                    {if(coverage.Length!=4||BitConverter.ToInt32(coverage,0)!=1||!a.Sections.TryGetValue("structure/pre/lineBlockGrid",out var normalGrid)||normalGrid.Length!=320800)throw new InvalidDataException("normal-flood-grid-input-missing");}
+                    if(a.Sections.TryGetValue("structure/pre/lineMode",out var lineMode))
+                    {
+                        if(lineMode.Length!=4||!a.Sections.TryGetValue("structure/pre/lineBuildingClasses336",out var classes)||classes.Length!=1344)throw new InvalidDataException("structure-line-input-extent");
+                        if(BitConverter.ToInt32(lineMode,0)!=0&&(!a.Sections.TryGetValue("structure/pre/lineBlockGrid",out var grid)||grid.Length!=320800))throw new InvalidDataException("structure-line-grid-missing");
+                    }
+                }
                 if(a.Schema==2&&a.Metadata.TryGetValue("planningComplete",out string complete)&&complete=="True")
                 {
                     var b=new BridgePlanningCapture.Bundle {Complete=true,Reason="validated-file",Op=Number(a,"planningBundleOp"),Parent=Number(a,"planningParent"),Root=Number(a,"planningBundleRoot"),Clock=Number(a,"planningCaptureClock"),Session=a.Metadata.ContainsKey("planningSession")?Number(a,"planningSession"):Number(a,"session"),Attacker=checked((int)Number(a,"planningAttacker")),Target=checked((int)Number(a,"planningTarget")),Mode=checked((int)Number(a,"planningMode")),Bank=checked((int)Number(a,"planningBank")),Thread=checked((int)Number(a,"planningThread")),Revision=a.Metadata.ContainsKey("planningRevision")?checked((int)Number(a,"planningRevision")):0,Dirty=a.Metadata.ContainsKey("planningDirty")?checked((int)Number(a,"planningDirty")):0};
@@ -73,6 +103,10 @@ namespace EnemyBridgePathTest
                     foreach(var pair in a.Sections)
                     {if(pair.Key.StartsWith("plan/ref/",StringComparison.Ordinal))b.References.Add(pair.Key.Substring(9),Utf8.GetString(pair.Value));else if(pair.Key.StartsWith("plan/",StringComparison.Ordinal))b.Sections.Add(pair.Key.Substring(5),pair.Value);}
                     foreach(var pair in b.References)if(b.Sections.ContainsKey(pair.Key)||!b.Sections.ContainsKey(pair.Value))throw new InvalidDataException("missing-or-conflicting-definition");
+                    foreach(var pair in b.Sections)if(pair.Key.StartsWith("target/",StringComparison.Ordinal)&&(pair.Key.EndsWith("effectiveCountsPre",StringComparison.Ordinal)||pair.Key.EndsWith("effectiveCountsPost",StringComparison.Ordinal)))
+                    {if(pair.Value.Length!=4000&&pair.Value.Length!=16000)throw new InvalidDataException("effective-count-extent");var counts=new int[pair.Value.Length/4];Buffer.BlockCopy(pair.Value,0,counts,0,pair.Value.Length);BridgePlanningCapture.ValidateEffectiveCounts(counts);
+                        if(pair.Key.EndsWith("effectiveCountsPre",StringComparison.Ordinal)){string post=pair.Key.Substring(0,pair.Key.Length-3)+"Post";if(!b.Sections.TryGetValue(post,out var after)||after.Length!=pair.Value.Length)throw new InvalidDataException("effective-count-pair-missing");for(int i=0;i<after.Length;i++)if(after[i]!=pair.Value[i])throw new InvalidDataException("effective-count-pair-changed");}
+                    }
                     foreach(string stage in new[]{"caller-pre","seed-pre","seed-post","distance-pre","distance-post","caller-post"})
                     {
                         string[] names={"seeds","visits","distance","queue","queueRows","controls","queueControls","selectedBank","candidateCount"};int[] lengths={320800,641600,641600,1283200,641600,224,52,4,4};

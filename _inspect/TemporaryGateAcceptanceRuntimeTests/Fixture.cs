@@ -73,6 +73,11 @@ namespace SHCDESE.API {
 }
 namespace EnemyGatePathfindingTest { internal static class EnemyGatePathfindingNativeDefinition { internal const uint MaximumTileIdExclusive = 320800; } }
 namespace EnemyGatePathfindingTest {
+    internal sealed class GateOrderEvidence { }
+    internal sealed class MacemenCommandDiagnostics {
+        internal void BeginSearch(int player,int kind) { }
+        internal void EndSearch(bool completed,bool success,long touched) { }
+    }
     internal sealed class AttackOrderCorrelationDiagnostics {
         /* ACTUAL_CORRELATION_FRAMES */
         private static List<NativeFrame> nativeFrames;
@@ -96,12 +101,14 @@ namespace EnemyGatePathfindingTest {
         private struct QueryScope { }
         private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions;
         private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics=new AttackOrderCorrelationDiagnostics();
+        private MacemenCommandDiagnostics MacemenDiagnostics;
+        private enum EnemyGateSearchKind { BuildingApproach }
         internal int Calls,Releases,LastPlayer;internal bool ThrowNative;
         private int ResolveTribePlayer(int t)=>5;
         private int ResolveBuildingMovementPlayer(int p,int t)=>5;
         private void CaptureScopeSample(QueryKind k,int a,int b,int c,int d){}
         private QueryScope Enter(int p){LastPlayer=p;return default;}
-        private void Complete(QueryScope s,QueryKind k,bool contract,bool success){Releases++;}
+        private long Complete(QueryScope s,QueryKind k,bool contract,bool success,bool completed=true){Releases++;return 0;}
         private void originalBuilding(IntPtr m,int t,int b,int n,int pcl,int p){Calls++;if(p!=2||t!=37||b!=578)throw new Exception("arguments");if(ThrowNative)throw new InvalidOperationException("original");}
         private void originalConsumer(IntPtr m,int t,int v){Calls++;if(ThrowNative)throw new InvalidOperationException("original");}
         private void originalAlternateConsumer(IntPtr m,int t,int v){Calls++;if(ThrowNative)throw new InvalidOperationException("original");}
@@ -229,9 +236,21 @@ namespace BugfixesAndQoL {
     }
 }
 public static unsafe class RuntimeAcceptanceTests {
+    private sealed class CompatibleObserver : ITemporaryGateRouteAcceptanceObserver, ITemporaryAssassinGateObserver {
+        internal int Edges, Decisions; internal bool Throw, Prepared;
+        public object BeginRoute(int p,int t,uint tg,int u,uint ug,int type,int x,int y,int tx,int ty,string detail)=>null;
+        public void RouteEdge(object token,int from,int to,int d){Edges++;}
+        public void EndRoute(object token,string status,int result){}
+        public void Raid(int p,int r,int t,uint tg,int b,uint bg,string stage,string result,string detail){}
+        public void ObserveAssassinStage(object token,int p,string stage,string result,string detail){}
+        public void ObserveAssassinDecision(object token,int p,int from,int to,int d,bool prepared,AssassinTransitionKind movement,bool allowed,int gate,uint global,string detail){Decisions++;Prepared=prepared;if(Throw)throw new Exception("optional observer");}
+    }
     private static int assertions;
     private static void Check(bool value,string why) { assertions++; if(!value) throw new Exception(why); }
-    private static bool Contains(string text) => Shared.DebugLogHelper.Lines.Exists(s=>s.Contains(text));
+    private static bool Contains(string text) => text.StartsWith("checked=") && text.Contains(",unclear=")
+        ? Shared.DebugLogHelper.Lines.Exists(s=>s.Contains("TEMP_GATE_ROUTE_ACCEPTANCE summary ") &&
+            Array.TrueForAll(text.Split(','),part=>s.Contains(","+part+",")||s.EndsWith(","+part)))
+        : Shared.DebugLogHelper.Lines.Exists(s=>s.Contains(text));
     public static void Run() {
         GameUnitManagerAPI.Instance.Unit=(GameUnit*)Marshal.AllocHGlobal(sizeof(GameUnit));
         GameTribeManagerAPI.Instance.Tribe=(GameTribe*)Marshal.AllocHGlobal(sizeof(GameTribe));
@@ -244,10 +263,31 @@ public static unsafe class RuntimeAcceptanceTests {
             var searchWrapper=new BugfixesAndQoL.ActualSearchWrapper();
             Check(searchWrapper.Invoke(runtime.Context)==1 && searchWrapper.Calls==1 && GameUnitManagerAPI.Instance.Reads==0,
                 "actual search wrapper without observer preserves calls/result and no SDK reads");
+            var inactiveReport=new UnitCommandPathRuntime.TemporaryRouteReport {Token=new object(),Player=5,NativeResult=1};
+            UnitCommandPathRuntime.temporaryRouteCall=inactiveReport;
+            UnitCommandPathRuntime.BeginTemporaryFinalValidation();
+            UnitCommandPathRuntime.RememberTemporaryFinalEdge(5,80100,80101,2,AssassinTransitionKind.ClimbUp,true,578,99,"fixture");
+            long inactiveBytes=GC.GetAllocatedBytesForCurrentThread();
+            for(int i=0;i<1000;i++) {
+                UnitCommandPathRuntime.BeginTemporaryFinalValidation();
+                UnitCommandPathRuntime.RememberTemporaryFinalEdge(5,80100,80101,2,AssassinTransitionKind.ClimbUp,true,578,99,"fixture");
+            }
+            Check(GC.GetAllocatedBytesForCurrentThread()==inactiveBytes&&inactiveReport.FinalValidatedEdges==null,
+                "no registered observer: final evidence allocates nothing");
+            UnitCommandPathRuntime.temporaryRouteCall=null;
             RouteTilePolicySnapshot snapshot=new RouteTilePolicySnapshot(new byte[9][],42);
             bool fail=false;
             var acceptance=new TemporaryGateRouteAcceptance(new BepInEx.Logging.ManualLogSource(),()=>fail?throw new Exception("fixture"):snapshot);
             TemporaryGateRouteAcceptanceBridge.Register(acceptance);
+            foreach(bool throwObserver in new[]{false,true}) {
+                var external=new CompatibleObserver{Throw=throwObserver};
+                var delivery=new UnitCommandPathRuntime.TemporaryRouteReport {Observer=external,Token=new object(),Player=5,
+                    ExactWeightedPublished=true,FinalValidationPassed=true,FinalValidationPublished=true,
+                    FinalValidatedEdges=new Dictionary<long,UnitCommandPathRuntime.TemporaryValidatedEdge>{{80100L*8+2,
+                        new UnitCommandPathRuntime.TemporaryValidatedEdge{Player=5,From=80100,To=80101,Direction=2,Movement=AssassinTransitionKind.ClimbUp,Allowed=true,Gate=578,Global=99}}}};
+                UnitCommandPathRuntime.ReportTemporaryFinalEdge(delivery,80100,80101,2);
+                Check(external.Edges==1&&external.Decisions==1&&!external.Prepared,"public RouteEdge exactly once even when optional evidence throws");
+            }
             var producer=new BugfixesAndQoL.WeightedProducer();
             foreach(int nodes in new[]{1,2,8}) { Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); producer.Emit(acceptance,nodes); acceptance.End(); Check(Contains("checked=1,violated=0,unclear=0"),"actual weighted producer: nodes -> edges including stationary"); }
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); producer.Emit(acceptance,3,true,true); acceptance.End(); Check(Contains("kind=assassin-weighted-cache,result=checked") && Contains("climbEdges=1"),"cache and climb retained");
@@ -264,6 +304,35 @@ public static unsafe class RuntimeAcceptanceTests {
             acceptance.ObserveAssassinDecision(functional,5,80100,80101,2,true,AssassinTransitionKind.ClimbUp,true,578,99,"identity=verified,fallbackEndpointAndSurface=True");
             acceptance.EndAssassin(functional,5,1,1,"weighted-staged-exact",false,2,0);acceptance.End();
             Check(Contains("permittedClimbRoutes=1")&&Contains("firstFunctionalClimb=")&&Contains("checked=1"),"actual functional climb evidence supersedes an inconclusive read-only approximation");
+            // Replay final-output provenance through the actual main-mod adapter and testmod observer.
+            // Native mode94 output deliberately receives no published event, even after validation.
+            for(int repeat=0;repeat<40;repeat++) foreach(string mode in new[]{"exact","native-mode94","failed","different-edge","different-player","new-validation","snapshot","identity","nested"}) {
+                Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
+                var savedPolicy=snapshot;
+                var final=acceptance.BeginRoute(5,37,9,1,12,73,100,100,101,100,"");
+                var report=new UnitCommandPathRuntime.TemporaryRouteReport { Observer=acceptance,Token=final,Player=5,NativeResult=1 };
+                UnitCommandPathRuntime.temporaryRouteCall=report;
+                UnitCommandPathRuntime.BeginTemporaryFinalValidation();
+                UnitCommandPathRuntime.RememberTemporaryFinalEdge(mode=="different-player"?2:5,80100,mode=="different-edge"?80102:80101,2,
+                    AssassinTransitionKind.ClimbUp,true,578,99,"identity=verified");
+                UnitCommandPathRuntime.ReportTemporaryAssassinStage("route-validation",mode=="failed"?"rejected":"passed","validationPhase=post-native-builder");
+                if(mode!="native-mode94") UnitCommandPathRuntime.ReportTemporaryAssassinStage("handoff","published","");
+                if(mode=="new-validation") UnitCommandPathRuntime.BeginTemporaryFinalValidation();
+                if(mode=="nested") {
+                    UnitCommandPathRuntime.temporaryRouteCall=new UnitCommandPathRuntime.TemporaryRouteReport {Observer=acceptance,Token=new object(),Player=5,NativeResult=1};
+                    UnitCommandPathRuntime.BeginTemporaryFinalValidation();
+                    UnitCommandPathRuntime.temporaryRouteCall=report;
+                }
+                UnitCommandPathRuntime.ReportTemporaryFinalEdge(report,80100,80101,2);
+                if(mode=="snapshot") snapshot=new RouteTilePolicySnapshot(new byte[9][],999);
+                if(mode=="identity") GameBuildingManagerAPI.Instance.Building->r_GlobalId=100;
+                acceptance.EndRoute(final,"decoded",1);acceptance.End();
+                bool publicationProven=mode=="exact"||mode=="nested";
+                Check(Contains(publicationProven?"checked=1,violated=0,unclear=0":"checked=0,violated=0,unclear=1"),"final weighted provenance: "+mode);
+                if(publicationProven) Check(Contains("validatedWeightedPublishedEdges=1")&&Contains("permittedClimbEdges=1"),"functional movement retained");
+                snapshot=savedPolicy;GameBuildingManagerAPI.Instance.Building->r_GlobalId=99;
+                UnitCommandPathRuntime.temporaryRouteCall=null;
+            }
             APIShared.AssassinPathAPI.Movement=AssassinTransitionKind.ClimbUp;
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); GameTileManagerAPI.Instance.Buildings[80101]=579;
             producer.Emit(acceptance,2,climb:true); acceptance.End();
@@ -457,7 +526,7 @@ public static unsafe class RuntimeAcceptanceTests {
             snapshot=savedSnapshot;
             acceptance.End();
             Check(Contains("phase=before-capture/source=assassin-weighted-fresh"),"actual weighted route before capture");
-            Check(Contains("phase=after-confirmed-publication/source=assassin-weighted-fresh") && Contains("Ground/allowed=True"),"captured ground edge remains visible and allowed");
+            Check(Contains("phase=after-confirmed-publication/source=assassin-weighted-fresh") && Contains("Ground/groundMaskAllowed=True"),"captured ground edge remains visible and allowed");
             Check(Contains("phase=after-confirmed-publication/source=assassin-published") && Contains("packed-movement-unproven"),"native bytes never prove climb execution");
             Check(Contains("phase=transition/source=assassin-weighted-fresh") && Contains("routeVerdict=unclear"),"publication during synchronous route cannot pass");
             Check(Contains("policyGeneration=14,generationSource=route-entry-snapshot"),"owned route supplies entry generation without policy-entry observer");
@@ -495,6 +564,46 @@ public static unsafe class RuntimeAcceptanceTests {
             Check(Contains("builderCounterAgreement=FAIL")&&Contains("ai-builder-counter-mismatch"),"missing AI callback cannot be called complete coverage");
             for(int mode=0;mode<3;mode++)foreach(bool originalFailure in new[]{false,true})foreach(bool observerFailure in new[]{false,true})
                 Check(new ActualStandaloneBuildings().Run(mode,originalFailure,observerFailure),"actual standalone original call/arguments/exception/cleanup preserved with optional context failures");
+            snapshot=new RouteTilePolicySnapshot(masks,70,edgeOwners:owners,gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{578,new RouteTilePolicySnapshot.GateIdentity(99,2,0)}});
+            GameBuildingManagerAPI.Instance.Building->r_PlayerIdOwner=2;GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=0;
+            RaidChainFixture.Run((success,role)=> {
+                Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();runtime.Reset();
+                GameTribeManagerAPI.Instance.StorageRole=180+role;
+                GameUnitManagerAPI.Instance.Unit->r_TribeId=37;GameUnitManagerAPI.Instance.Unit->r_UnitChimp=1;
+                acceptance.Raid(5,role,37,9,578,99,"fixture-candidate","AttackPoint","freshness=nativeSearchObserved,candidateIsNotRoute=true");
+                int before=runtime.Calls;
+                runtime.Invoke(success?5:0,()=> {
+                    // Native-boundary output: south, east*3, north, a real geometric detour.
+                    byte* path=*(byte**)((byte*)runtime.Context+0x155F60);path[0]=0x24;path[1]=0x22;path[2]=0;
+                });
+                acceptance.End();
+                Check(runtime.Calls==before+1,"one simulated native publication per Raid result");
+                Check(Contains("role="+role+",kind=raid-published,result="+(success?"checked":"negative-search-no-route")),"actual final route observer separates detour from failed route for every raid role");
+                Check(Contains(success?"checked=1,violated=0":"checked=0,violated=0"),"attack point is never counted as checked route");
+            });
+            Shared.DebugLogHelper.Lines.Clear();acceptance.Begin();
+            GameTribeManagerAPI.Instance.StorageRole=183;
+            var savedBuilding=*GameBuildingManagerAPI.Instance.Building;
+            for(int i=0;i<40;i++) {
+                GameBuildingManagerAPI.Instance.Building->r_BuildingType=20;
+                GameBuildingManagerAPI.Instance.Building->r_GlobalId=(uint)(99+i);
+                for(int repeat=0;repeat<2;repeat++) {
+                    acceptance.RaidOrder(5,37,9,578,(uint)(99+i),true,0,false);
+                    acceptance.RaidOrder(5,37,9,578,(uint)(99+i),false,1,false);
+                    acceptance.Raid(5,3,37,9,578,(uint)(99+i),"raid-command","NoAttackPoint","validation=nativeFirstBuildingGateFailed,freshness=nativeSearchObserved");
+                    acceptance.Raid(5,3,37,9,578,(uint)(99+i),"raid-replacement-command","AttackPoint","validation=validFirstMeleePair");
+                }
+            }
+            acceptance.RaidOrder(5,37,9,578,9999,true,0,true);
+            acceptance.RaidOrder(5,0,9,578,99,true,0,false);
+            acceptance.End();
+            Check(Shared.DebugLogHelper.Lines.FindAll(l=>l.Contains("kind=raid-command,")&&l.Contains("quarry=578/")&&l.Contains("count=2,")).Count==40,"every quarry identity retains exact negative counts beyond 32 patterns");
+            Check(Shared.DebugLogHelper.Lines.FindAll(l=>l.Contains("kind=raid-order-pre,")&&l.Contains("quarry=578/")&&l.Contains("count=2,")).Count==40,"raw incoming commands remain independently counted");
+            Check(Contains("orderOrigin=outside-this-retarget")&&Contains("orderOrigin=raid-fix-replacement")&&Contains("nativeMovementAssignment=skipped-by-first-building-field-guard"),"native guard and existing replacement source are distinct");
+            Check(Contains("targetIdentity=unverified,targetType=unknown")&&Contains("skipAtObserver=True")&&Contains("counterfactualWithoutRaidFix=not-measured"),"stale building cannot gain quarry classification or claim unmodified Vanilla");
+            *GameBuildingManagerAPI.Instance.Building=savedBuilding;
+            Shared.DebugLogHelper.Lines.Clear();acceptance.RaidOrder(5,37,9,578,99,true,0,false);
+            Check(Shared.DebugLogHelper.Lines.Count==0,"inactive diagnostic does no order work");
             Console.WriteLine("PASS: "+assertions+" actual diagnostic path assertions; no moat-plan helper present in fixture.");
         } finally { runtime.DisposeFixture(); Marshal.FreeHGlobal((IntPtr)GameUnitManagerAPI.Instance.Unit); Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe); Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Building); }
     }

@@ -146,6 +146,17 @@ namespace EnemyBridgePathTest
             Set(fallback,"decisionCaptured",newer);fallback.End();Check(fallback.ArtifactStatus(1).Contains("inputArtifactsRequested=1")&&!fallback.HasDeferredPlanning,"session-end publication uses retained own snapshot even after newer publication");
             fallback.Begin(2);Check(!fallback.HasDeferredPlanning&&!fallback.HasPublishedPlanning,"map replacement cannot retain old fallback identity");fallback.End();
         }
+        private static void ExplicitStructurePublication()
+        {
+            var shadow=new BridgeVirtualShadow((k,d)=>{},_=>0,structureIdentity:_=>true);shadow.Begin(1);var input=Input(5,false);var request=RequestForPlayer(input,2);Set(request,"Parent",10L);Set(request,"Id",1L);
+            Set(shadow,"planningRequest",request);Set(shadow,"decisionCaptured",input);Set(shadow,"decisionCaptureOp",10L);
+            var group=RequestForPlayer(input,2);Set(group,"Op",50L);Set(group,"Id",2L);Set(group,"PlanningRoot",9L);Set(group,"PolicyValidAtDecision",false);((System.Collections.IDictionary)Get(shadow,"groups")).Add(50L,group);
+            Set(shadow,"structureRequest",group);
+            Set(shadow,"structureInput",new BridgeStructureCapture.Input {Session=1,Op=50,Root=9,Player=2,Complete=true,ExplicitBuilding=true});
+            var bundle=new BridgePlanningCapture.Bundle {Session=1,Op=10,Root=9,Attacker=2,Complete=true,SelectionReason="unallowed-coupled-bridge-candidate-not-route-proof"};
+            Check(shadow.PlanningCompleted(bundle)&&shadow.HasPublishedPlanning&&shadow.HasPublishedGroup,"own explicit structure command promotes same-root diagnostic even with unresolved policy, without fabricating route evidence");
+            Check(shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=2"),"one plan and one own-command follow artifact preserve two-file bound");shadow.End();
+        }
         private static void RealPlanningEvidence()
         {
             string folder=Path.GetFullPath(Path.Combine("..","..","_inspect","EnemyGateBuildingContextAudit","real-plan-20261007-151016"));
@@ -165,6 +176,13 @@ namespace EnemyBridgePathTest
             byte[] before=CopiedPlanningBundle.Resolve(plan.Planning,"caller-pre/distance");before[0]^=1;
             Check(!CopiedPlanningReplay.TryBaseline(plan,out reason),"computed baseline does not substitute recorded distance-pre/Post state");before[0]^=1;
         }
+        private static void OngoingStructureFallback()
+        {
+            var shadow=new BridgeVirtualShadow((_,__)=>{},_=>0);shadow.Begin(1);var input=Input(5,false);var request=RequestForPlayer(input,2);Set(request,"Op",50L);Set(request,"Id",2L);
+            var own=new BridgeStructureCapture.Input{Session=1,Op=50,Player=2,Complete=true,SnapshotOnly=true,TargetEvidence="remaining-deck-path-coupling-candidate",Origin="ongoing-unit-state-snapshot"};
+            Set(shadow,"structureInput",own);Set(shadow,"structureRequest",request);shadow.CompleteStructureCommand(own);Check(!shadow.HasPublishedGroup,"weak ongoing task retained before publication so stronger input can replace it");
+            shadow.End();Check(shadow.HasPublishedGroup&&shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=1"),"bounded session-end weak fallback survives group dictionary eviction and keeps unresolved origin");
+        }
         private static void LatestOwnPlanningEvidence()
         {
             string folder=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","..","..","..","_inspect","BridgePlanningTests","historical-20261013-1154"));
@@ -178,11 +196,43 @@ namespace EnemyBridgePathTest
                 if(artifact.Planning.Attacker==2)Check(reason.Split(new[]{"gateSelectorTarget=134"},StringSplitOptions.None).Length==6,"native building-grid override leaves gate choice unchanged even under single/all virtual cuts");
             }
         }
+        private static string Header(string file)
+        {var bytes=File.ReadAllBytes(file);int length=BitConverter.ToInt32(bytes,12);return System.Text.Encoding.UTF8.GetString(bytes,16,length);}
+        private static void OwnRootPairing()
+        {
+            foreach(int actor in new[]{2,7})foreach(bool identity in new[]{true,false})
+            {
+                var messages=new List<string>();string directory=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"root-pair-"+Guid.NewGuid().ToString("N"));
+                var shadow=new BridgeVirtualShadow((k,d)=>messages.Add(k+":"+d),_=>throw new Exception("pair cannot rescan map"),artifactDirectory:directory,structureIdentity:_=>identity);shadow.Begin(1);shadow.MilitaryOpened(1,9,actor);
+                var physical=Input(5,false);var group=RequestForPlayer(physical,actor);Set(group,"Id",2L);Set(group,"Op",50L);Set(group,"PlanningRoot",9L);
+                var own=new BridgeStructureCapture.Input{Session=1,Root=9,Op=50,Player=actor,Complete=true,Unit=11+actor,UnitGlobal=71,TargetEvidence="native-unit-context-building-tile-not-attack-execution-proof"};
+                Set(shadow,"structureInput",own);Set(shadow,"structureRequest",group);
+                shadow.CompleteStructureCommand(own);Check(!shadow.HasPublishedGroup&&shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=0"),"command waits for its own root without consuming file slot");
+                var plan=RequestForPlayer(physical,actor);Set(plan,"Id",1L);Set(plan,"Parent",10L);Set(shadow,"planningRequest",plan);Set(shadow,"decisionCaptured",physical);Set(shadow,"decisionCaptureOp",10L);
+                var bundle=new BridgePlanningCapture.Bundle{Session=1,Root=9,Op=10,Attacker=actor,Complete=true,SelectionReason="unallowed-coupled-bridge-candidate-not-route-proof"};
+                Check(shadow.PlanningCompleted(bundle),"matching root is selected or explicitly held as fallback");
+                if(identity)
+                {
+                    Check(shadow.HasPublishedPlanning&&shadow.HasPublishedGroup&&shadow.ArtifactStatus(1).Contains("inputArtifactsRequested=2"),"native unit context promotes exact root atomically without a castle-positive claim");
+                    Set(shadow,"planningRequest",plan);Set(shadow,"decisionCaptured",physical);Set(shadow,"decisionCaptureOp",20L);Check(!shadow.PlanningCompleted(new BridgePlanningCapture.Bundle{Session=1,Op=20,Root=19,Attacker=actor,Complete=true,SelectionReason="observed-deck-path-same-player"}),"later stronger root cannot replace sealed pair");
+                }
+                else Check(!shadow.HasPublishedPlanning&&!shadow.HasPublishedGroup,"reused unit/target identity cannot create a matched pair");
+                shadow.MilitaryClosed(1,9,true);shadow.End();int turns=0;while(shadow.ArtifactPending(1)&&turns++<100)shadow.PumpArtifacts();Check(!shadow.ArtifactPending(1),"bounded publisher finishes retained session after map end");
+                string command=Header(Path.Combine(directory,"bridge-1-2.bin"));
+                Check(command.Contains("planningBundleRoot="+(identity?"9":"0")+"\n"),"frozen command metadata references actual selected pair or remains independent");
+                Check(messages.Exists(m=>m.Contains(identity?"planning-command-pair-selected":"unresolved-own-command-only")),"association proof and failure are explicit");
+                shadow.Begin(2);Check(!shadow.HasPublishedPlanning&&!shadow.HasPublishedGroup,"map change clears pair selection and active roots");shadow.End();
+            }
+            var failed=new BridgeVirtualShadow((_,__)=>{},_=>0);failed.Begin(1);failed.MilitaryOpened(1,9,2);failed.MilitaryClosed(1,9,false);Check(!failed.HasPublishedGroup,"failed root without own command fabricates no artifact");failed.End();
+        }
         internal static int Run()
         {
             checks=0;
+            OwnRootPairing();
             RemappedEndpointEvidence();
             DeferredPlanningEvidence();
+            ExplicitStructurePublication();
+            OngoingStructureFallback();
             RealPlanningEvidence();
             LatestOwnPlanningEvidence();
             Check(VirtualComponentControl.Evaluate(1,1,0,Array.Empty<VirtualComponentLink>())==VirtualReachability.Reachable,"same component shortcut");

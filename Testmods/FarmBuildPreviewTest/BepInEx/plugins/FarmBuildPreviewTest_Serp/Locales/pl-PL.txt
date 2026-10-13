@@ -1,0 +1,5 @@
+Ground.Coverage=Roślinność
+Ground.Green=Zieleń
+Ground.Stone=Pola kamienia
+Ground.Iron=Pola żelaza
+Ground.Pitch=Pola smoły

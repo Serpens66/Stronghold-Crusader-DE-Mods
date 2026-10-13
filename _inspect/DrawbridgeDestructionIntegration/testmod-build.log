@@ -1,0 +1,42 @@
+[13.10.2026 16:54:28,02] START DrawbridgeDestructionFixTest
+PASS: current native hash; HP/damage tables; 15-byte instruction span; no incoming interior edges; post-damage writer and later lethal branch.
+PASS: source JSON/lifecycle/permanent-hook checks, metadata, CRLF and native audit.
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: Testmods\DrawbridgeDestructionFixTest, APIShared and explicit project/source dependencies.
+[Preflight] Checking 4 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 4 projects, 26 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 2 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Checking centralized UnitAccess contract...
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.
+PASS: 217 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 8,1s.
+[Preflight] Completed in 16,3s.
+PASS: 1 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 1 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+PASS: verified APIShared consumer package and source inputs.
+[16:54:45.648] Compile and execute private native decision tests
+
+  PASS: verified APIShared consumer package and source inputs.
+  DrawbridgeDestructionFixTest.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DrawbridgeDestructionFixTest\tests\bin\DrawbridgeDestructionFixTest.Tests.exe
+PASS: production diagnostics: EditorCreated/EditorLoaded/save, replay/end deduplication, stale End, quotas, nested pairing, session counters, marker reset; 10,000 exhausted-budget damage pairs plus ticks allocated 0 bytes after warmup.
+PASS: 150 native execution cases; inactive/non-target/lethal paths match the original registers, flags and branch outcome; real RedBird span=15; resolver absent/ambiguous/mutated cases rejected.
+LIMIT: private native fixture validates the decision and ABI, not complete game removal/rendering; 0/1/2 attached bridges and open/raised states require in-game acceptance.
+[16:54:47.816] Compile test mod
+
+  PASS: verified APIShared consumer package and source inputs.
+  DrawbridgeDestructionFixTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DrawbridgeDestructionFixTest\BepInEx\plugins\DrawbridgeDestructionFixTest_Serp\DrawbridgeDestructionFixTest.dll
+PASS: installed DrawbridgeDestructionFixTest 0.1.0 at E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\DrawbridgeDestructionFixTest_Serp
+[13.10.2026 16:54:49,15] END exit=0

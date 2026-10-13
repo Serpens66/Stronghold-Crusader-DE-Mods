@@ -29,12 +29,12 @@ namespace EnemyGatePathfindingTest
                 (record.CapturerRelatedPlayers & bit) != 0 ? "captured-by-ally" : "captured-by-other";
             return "ownerRelation=" + ownerRelation + ",captureRelation=" + captureRelation +
                 ",policyDecision=" + snapshot.Evaluate(player, buildingId, owner, captured) +
-                ",edgePolicy=" + ((record.UnrelatedPlayers & bit) != 0 ? "restricted" : "unrestricted") +
+                ",requiredEdgePolicy=" + ((record.UnrelatedPlayers & bit) != 0 ? "restricted" : "unrestricted") +
                 ",classificationSource=identity-verified-policy-snapshot" + identity;
         }
 
         internal static string Unknown(string reason) =>
-            "ownerRelation=unknown,captureRelation=unknown,policyDecision=unknown,edgePolicy=unknown," +
+            "ownerRelation=unknown,captureRelation=unknown,policyDecision=unknown,requiredEdgePolicy=unknown," +
             "classificationSource=unverified,classificationReason=" + reason;
 
         internal static string BuildingContextResult(BuildingSearchPlayerContext context) =>

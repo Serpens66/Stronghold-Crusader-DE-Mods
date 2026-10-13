@@ -1,0 +1,3 @@
+line-probe native=0,managed=0,native-count=2,managed-count=2,nativeBytes=11-00-00-00-00-00-00-00,managedBytes=11-00-00-00-00-00-00-00
+isolatedF32B0NativeManaged=Matched;lineResult=0;origin=443/371;target=588/326;fullCommandReplay=Unknown;no-recorded-post-used
+nativeCommandExecution=refused;productiveCommandExecution=Unknown;Unknown:own-command-input-closure:Unknown:uncopied-candidate-memory:51D75F0:320800;time=unit-command-pre-before-196280;post-substitution=False;fullNativeHashValidated=True;behaviorFix=disabled

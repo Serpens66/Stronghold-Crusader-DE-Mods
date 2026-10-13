@@ -16,11 +16,35 @@ namespace EnemyBridgePathTest
             finally { EnemyBridgeDiagnosticBridge.EndSearch(token, true, result); }
         }
         private static int calls;
+        private static void EffectiveCountInputs()
+        {
+            var bundle=new BridgePlanningCapture.Bundle{Dirty=1,Attacker=2,Target=5,Session=1,Root=77};
+            byte[] Raw(int[] a){var b=new byte[a.Length*4];Buffer.BlockCopy(a,0,b,0,b.Length);return b;}
+            bundle.Sections.Add("target/91/values8",Raw(new[]{2,5,1,0,1,9,3,0}));
+            var grid=new ushort[20];for(int i=0;i<10;i++)grid[i]=1;
+            Check(!CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out _,out var reason)&&reason.Contains("observed=9,histogram=10"),"Dirty histogram never replaces missing Fixes input");
+            var identity=new long[]{1,91,0,77,0};var identityBytes=new byte[40];Buffer.BlockCopy(identity,0,identityBytes,0,40);bundle.Sections.Add("target/91/identity5",identityBytes);
+            var counts=new int[4000];counts[1]=9;
+            bundle.Sections.Add("target/91/effectiveCountsPre",Raw(counts));bundle.Sections.Add("target/91/effectiveCountsPost",Raw(counts));
+            Check(CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out var effective,out reason)&&effective.Length==1000&&effective[1]==9,"actual extended Pre input drives baseline even when histogram differs");
+            bundle.Sections["target/91/effectiveCountsPost"][4]=10;
+            Check(!CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out _,out reason)&&reason.Contains("input-changed"),"changed count table is Unknown");
+            bundle.Sections["target/91/effectiveCountsPost"]=Raw(counts);counts[1]=8;bundle.Sections["target/91/effectiveCountsPre"]=Raw(counts);bundle.Sections["target/91/effectiveCountsPost"]=Raw(counts);
+            Check(!CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out _,out reason)&&reason.Contains("output-mismatch"),"Post output never fills missing or inconsistent input");
+            counts[1]=9;bundle.Sections["target/91/effectiveCountsPre"]=Raw(counts);bundle.Sections["target/91/effectiveCountsPost"]=Raw(counts);
+            bool failed=false;try{BridgePlanningCapture.ValidateEffectiveCounts(new int[1001]);}catch(InvalidOperationException){failed=true;}Check(failed,"unknown relocated capacity rejected");
+            counts[2]=-1;failed=false;try{BridgePlanningCapture.ValidateEffectiveCounts(counts);}catch(InvalidOperationException){failed=true;}Check(failed,"negative counts rejected");
+        }
+
         private static int Main(string[] args)
         {
             try
             {
                 if(args.Length==2&&args[0]=="--transport-replay")return TraceTransportTests.Replay(args[1]);
+                if(args.Length==2&&args[0]=="--structure-input")
+                {BridgePlanningImporter.Artifact artifact;string reason;VirtualCandidateBuilder builder;if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}bool known=CopiedStructureInput.TryCreate(artifact,out builder,out reason);Console.WriteLine(reason);return known?0:2;}
+                if(args.Length==2&&args[0]=="--structure-command-closure")
+                {if(!BridgePlanningImporter.TryRead(args[1],out var artifact,out string reason)){Console.WriteLine(reason);return 2;}bool known=CopiedStructureInput.TryCommandClosure(artifact,out reason);Console.WriteLine(reason);return known?0:2;}
                 if(args.Length==2&&args[0]=="--replay")return ShadowControlTests.Replay(args[1]);
                 if(args.Length==2&&args[0]=="--replay-alternate-mode")return ShadowControlTests.Replay(args[1],true);
                 if(args.Length==2&&args[0]=="--planning-replay")
@@ -59,8 +83,11 @@ namespace EnemyBridgePathTest
                     if(!BridgePlanningImporter.TryRead(args[1],out planning,out reason)||!BridgePlanningImporter.TryRead(args[2],out group,out reason)){Console.WriteLine(reason);return 2;}
                     bool linked=BridgePlanningImporter.TryLinkGroup(planning,group,out reason);Console.WriteLine("planningGroupLinked="+linked+",reason="+reason+",behaviorFix=disabled");return linked?0:2;
                 }
+                EffectiveCountInputs();
                 count += TraceTransportTests.Run();
                 count += ShadowControlTests.Run();
+                count += Tests.StructureCaptureTests.Run();
+                count += Tests.BridgeLossTests.Run();
                 count += VirtualBridgeTests.Run();
                 count += SharedTests.CaptureRefreshTests.Run();
                 count += RouteTraceTests.Run();

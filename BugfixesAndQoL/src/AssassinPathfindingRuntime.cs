@@ -794,6 +794,7 @@ namespace BugfixesAndQoL
 
         private bool ValidateCachedRoute(RouteCacheKey key, CachedRoute cached)
         {
+            UnitCommandPathRuntime.BeginTemporaryFinalValidation();
             int length = cached.Nodes.Length;
             int expectedStart = GetCoordinateIndex(key.StartX, key.StartY);
             int expectedTarget = GetCoordinateIndex(key.TargetX, key.TargetY);
@@ -829,7 +830,7 @@ namespace BugfixesAndQoL
 
                 bool directClimbingMatches = key.DirectGatehouseClimbing == AssassinPathAPI.DirectGatehouseClimbingEnabled;
                 if (!directClimbingMatches ||
-                    !AllowsAssassinTransition(key.GatePolicy, currentTile, nextTile, direction, key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints))
+                    !AllowsAssassinTransition(key.GatePolicy, currentTile, nextTile, direction, key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints, publicationValidation: true))
                     return TemporaryRouteValidation(false, key, directClimbingMatches ? "gate-transition-rejected" : "direct-climb-switch", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode, direction, currentTile, nextTile);
                 RememberTemporaryParent(nextTile);
                 bool cardinal = (direction & 1) == 0;
@@ -1016,10 +1017,13 @@ namespace BugfixesAndQoL
             else observation.ParentDecisions[to] = observation.LastDecision;
         }
         private bool AllowsAssassinTransition(IEnemyGateRoutePolicySnapshot policy, int from, int to,
-            int direction, bool allowClimbing, bool allowReserved)
+            int direction, bool allowClimbing, bool allowReserved, bool publicationValidation = false)
         {
             bool result = EvaluateAssassinTransition(policy, from, to, direction, allowClimbing, allowReserved,
-                out GateTransitionEvidence evidence);
+                out GateTransitionEvidence evidence, publicationValidation && UnitCommandPathRuntime.WantsTemporaryFinalValidation);
+            if (publicationValidation && evidence != null)
+                UnitCommandPathRuntime.RememberTemporaryFinalEdge(policy?.PlayerId ?? 0, from, to, direction,
+                    evidence.Movement, result, evidence.Gate, evidence.Global, evidence.Detail);
             AssassinObservation observation = activeObservation;
             if (observation?.DetailedObserver != null)
             {
@@ -1035,11 +1039,11 @@ namespace BugfixesAndQoL
             return result;
         }
         private bool EvaluateAssassinTransition(IEnemyGateRoutePolicySnapshot policy, int from, int to,
-            int direction, bool allowClimbing, bool allowReserved, out GateTransitionEvidence evidence)
+            int direction, bool allowClimbing, bool allowReserved, out GateTransitionEvidence evidence, bool captureFinalEvidence = false)
         {
             evidence = null;
             if (AssassinGateRoutePolicy.Allows(policy, from, direction)) return true;
-            if (activeObservation?.DetailedObserver != null)
+            if (activeObservation?.DetailedObserver != null || captureFinalEvidence)
                 evidence = new GateTransitionEvidence { From = from, To = to, Direction = direction,
                     Movement = AssassinTransitionKind.Unknown, Detail = "policy=masked,climbing=" + allowClimbing + ",reservedEndpoints=" + allowReserved };
             if (policy == null || !policy.IsCurrent || (uint)direction > 7 || !IsNativeTile(from) || !IsNativeTile(to)) return false;

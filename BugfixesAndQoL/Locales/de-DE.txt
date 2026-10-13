@@ -414,3 +414,6 @@ BugfixesAndQoL.LineupLine=Linie
 BugfixesAndQoL.LineupColumn=Kolonne
 BugfixesAndQoL.LineupWedge=Keil
 BugfixesAndQoL.LineupCircle=Kreis
+
+BugfixesAndQoL.EnableDrawbridgeDestructionFix=Zugbrücken bei Torhaus-Schaden erhalten
+BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Verhindert, dass direkte Angriffe auf noch lebende Steintorhäuser ihre verbundenen Zugbrücken zerstören. Beim Zusammenbruch oder Abriss des Torhauses werden die Zugbrücken weiterhin regulär entfernt.

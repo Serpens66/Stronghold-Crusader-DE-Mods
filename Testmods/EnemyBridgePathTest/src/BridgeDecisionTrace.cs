@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading;
 namespace EnemyBridgePathTest
 {
-    internal sealed unsafe class BridgeDecisionTrace
+    internal sealed unsafe partial class BridgeDecisionTrace
     {
         internal readonly struct Arguments : IEquatable<Arguments>
         {
@@ -280,16 +280,18 @@ namespace EnemyBridgePathTest
         [ThreadStatic] private static Scope current;
         [ThreadStatic] private static Scope free;
         internal BridgeDecisionTrace(ManualLogSource log,Func<int,AttackStamp> testStamp=null,Func<long> testCapture=null,Func<int,int> testRead=null,Func<int,IntPtr> testUnit=null)
-        {this.log=log;VirtualShadow=testCapture==null?new BridgeVirtualShadow(Observe,Read,ArtifactObservation,focusedComparisons:true):null;this.testStamp=testStamp;this.testCapture=testCapture;this.testRead=testRead;this.testUnit=testUnit;
+        {this.log=log;VirtualShadow=testCapture==null?new BridgeVirtualShadow(Observe,Read,ArtifactObservation,focusedComparisons:true,structureIdentity:ValidateStructurePair):null;this.testStamp=testStamp;this.testCapture=testCapture;this.testRead=testRead;this.testUnit=testUnit;
+            lossHistory=new BridgeLossHistory(Read,Observe);buildingIndex.Refreshed=entries=>{lossHistory.Retain(entries);lossHistory.Sample("index-observation");};
             Routes=new BridgeRouteTrace((kind,detail)=>CriticalObservation(kind,detail),GetRouteGeometry,LiveState,evidence:RouteEvidence,unboundChange:UnboundRouteChange,structureTarget:ReadStructureTarget);}
         private BridgePlanningCapture planningCapture;
         internal void SetNative(IntPtr value,int length)
         {
             native=value;nativeLength=length;
+            if(testCapture==null)structureCapture=new BridgeStructureCapture(CopyStructureBytes,()=>planningMapIdentity,Observe);
             // Counter/route fixtures intentionally use non-dereferenceable dummy pointers.
             // Full capture is tested separately with the bounded private native image.
             if(testCapture!=null){planningCapture=null;return;}
-            planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");else if(VirtualShadow.HasDeferredPlanning)planningCapture?.ReleaseForStrongerAttempt();},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex),relevance:PlanningRelevance);
+            planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");else if(VirtualShadow.HasDeferredPlanning)planningCapture?.ReleaseForStrongerAttempt();},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex),relevance:PlanningRelevance,effectiveCounts:()=>GamePathingManagerAPI.Instance.GetNativeComponentTileCounts().ToArray());
         }
         private string nativeUnavailable="initialization-not-completed";
         private long sessionNativeCalls,sessionNativeExits;
@@ -312,7 +314,7 @@ namespace EnemyBridgePathTest
         internal bool InsideNative => current!=null;
         private Scope CurrentScope => current!=null&&current.Session==Volatile.Read(ref session)?current:null;
         private long CurrentId => CurrentScope?.Id??0;
-        private static bool SuitablePlanningCapture(Scope scope){for(var value=scope.Parent;value!=null&&value.Session==scope.Session;value=value.Parent)if(value.Site.Rva==0x3C2E0)return value.PrePlan[1]==4;return false;}
+        private static bool SuitablePlanningCapture(Scope scope){for(var value=scope.Parent;value!=null&&value.Session==scope.Session;value=value.Parent)if(value.Site.Rva==0x3C2E0)return BridgePlanningCapture.IsDecisionCapturePhase(value.PrePlan[1]);return false;}
         private static long PlanningRootId(Scope scope) {for(var value=scope.Parent;value!=null&&value.Session==scope.Session;value=value.Parent)if(value.Site.Rva==0x3C2E0)return value.PlanningPlayer==scope.PlanningPlayer?value.Id:0;return 0;}
         private static long ParentId(Scope scope) => scope.Parent!=null&&scope.Parent.Session==scope.Session?scope.Parent.Id:0;
         internal bool DetailedNative => CurrentScope!=null&&CurrentScope.Detailed&&CurrentScope.Site.Rva!=0xE49D0;
@@ -340,7 +342,7 @@ namespace EnemyBridgePathTest
             lock(textGate){commandContexts.Clear();commandIdentities.Clear();commandPreRows.Clear();}
             lock(regionGate) eventCounts.Clear();
             lock(captureGate) {tableImages.Clear();bridgeProgress.Clear();Array.Clear(structureTargets,0,structureTargets.Length);Array.Clear(structureTargetGlobals,0,structureTargetGlobals.Length);buildingIndex.Invalidate();}
-            planningMapIdentity=new object();Interlocked.Exchange(ref session,value);
+            lossHistory.Begin();planningMapIdentity=new object();Interlocked.Exchange(ref session,value);BeginDamage();structureCapture?.Begin(value);
             Interlocked.Exchange(ref sessionNativeCalls,0);Interlocked.Exchange(ref sessionNativeExits,0);
             VirtualShadow?.Begin(value);planningCapture?.Begin(value);Routes.Begin(value);routeGeometryBuild=-1;lock(decisionGate)Array.Clear(decisions,0,decisions.Length);
             Array.Clear(lastPlayerPlan,0,9);Array.Clear(lastPlayerPlanTopology,0,9);Array.Clear(lastPlayerPlanPhysical,0,9);
@@ -349,7 +351,7 @@ namespace EnemyBridgePathTest
         }
         internal void End()
         {
-            planningMapIdentity=null;planningCapture?.End();VirtualShadow?.End();Routes.End();FlushRegions();
+            structureCapture?.End();planningMapIdentity=null;planningCapture?.End();VirtualShadow?.End();Routes.End();FlushRegions();
             var currentDecisions=new long[9];lock(decisionGate)for(int player=1;player<=8;player++)currentDecisions[player]=decisions[player]?.Id??0;
             lock(captureGate)foreach(var pair in bridgeProgress)for(int player=1;player<=8;player++)
             {
@@ -359,7 +361,7 @@ namespace EnemyBridgePathTest
             }
             // One bounded synchronous record survives an immediate process exit.
             // Pending observations continue through the permanent render publisher.
-            Safe(() => WriteRecord(StampRecord(new Record {Kind="session-end",Detail=Summary()+",captureComplete="+(active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryComplete="+(queued==0)+",criticalPending="+(queued-backgroundQueued)+",backgroundPending="+backgroundQueued})));
+            Safe(() => WriteRecord(StampRecord(new Record {Kind="session-end",Detail=Summary()+","+lossHistory.Status+","+DamageStatus+",buildingDamageKind=shared-native-path-not-exclusive-melee,captureComplete="+(active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryComplete="+(queued==0)+",criticalPending="+(queued-backgroundQueued)+",backgroundPending="+backgroundQueued})));
             lock(endedSessions)endedSessions.Enqueue(new EndedSession(Volatile.Read(ref session),active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0));
             Interlocked.Exchange(ref session,0);
         }
@@ -400,6 +402,7 @@ namespace EnemyBridgePathTest
             current=scope;lock(counterGate) {entered++;active++;} Interlocked.Increment(ref siteCalls[site.Index]);Interlocked.Increment(ref sessionNativeCalls);
             try
             {
+                if(site.Rva==0x3C2E0)VirtualShadow?.MilitaryOpened(run,scope.Id,scope.PlanningPlayer);
                 planningCapture?.Observe(site.Rva,false,run,scope.Id,ParentId(scope),scope.PlanningPlayer,a,b,c,d,true,PlanningRootId(scope),SuitablePlanningCapture(scope));
                 if(site.Rva==0x2D250)VirtualShadow?.ExpectPlanningFamily(planningCapture?.ActiveFamily??0);
                 if(site.Rva==0x11A980)
@@ -479,7 +482,7 @@ namespace EnemyBridgePathTest
                 if(!completed)Interlocked.Increment(ref incompleteCalls);
                 if(scope.Session!=Volatile.Read(ref session)) {Emit("native-session-boundary","op="+scope.Id+",preSession="+scope.Session+",postSession="+session+",nativeCalls=1,completed="+completed);return;}
                 if(completed&&(scope.Site.Rva==0x64460||scope.Site.Rva==0x645C0)) {Interlocked.Increment(ref physical);VirtualShadow?.Invalidate();Routes.ForceReobserve();lock(captureGate) {if(bridgeProgress.TryGetValue(scope.Args[0],out BridgeProgress bridge)) {bridge.Pending=true;bridge.Changes++;}}Emit("comparison-marker","stage=physical-call-completed,building="+scope.Args[0]+",action="+scope.Site.Name+",settledTopology=false");}
-                if(scope.Site.Rva==0xE49D0&&completed&&result==1) {Interlocked.Increment(ref topology);scope.Rebuilt=true;if(testCapture==null)lock(captureGate)VirtualShadow?.Rebuilt(session,topology,buildingIndex);}
+                if(scope.Site.Rva==0xE49D0&&completed&&result==1) {Interlocked.Increment(ref topology);scope.Rebuilt=true;lock(captureGate){lossHistory.Retain(buildingIndex.Entries);lossHistory.Sample("completed-topology-rebuild");}if(testCapture==null)lock(captureGate)VirtualShadow?.Rebuilt(session,topology,buildingIndex);}
                 if(scope.Site.Rva==0x3C2E0)
                 {
                     Arguments after=PlanStamp(scope.Args[0]);
@@ -532,14 +535,14 @@ namespace EnemyBridgePathTest
                 else Interlocked.Increment(ref coalesced);
             }
             catch(Exception error) {Failure(error);}
-            finally {if(scope.Session==Volatile.Read(ref session))Interlocked.Increment(ref sessionNativeExits);current=scope.Parent;if(current!=null&&current.Session==scope.Session) {current.Commands+=scope.Commands;current.CandidateBuilds+=scope.CandidateBuilds;}scope.Parent=null;scope.Next=free;free=scope;lock(counterGate) {exited++;active--;}}
+            finally {if(scope.Site.Rva==0x3C2E0)Safe(()=>VirtualShadow?.MilitaryClosed(scope.Session,scope.Id,completed));if(scope.Session==Volatile.Read(ref session))Interlocked.Increment(ref sessionNativeExits);current=scope.Parent;if(current!=null&&current.Session==scope.Session) {current.Commands+=scope.Commands;current.CandidateBuilds+=scope.CandidateBuilds;}scope.Parent=null;scope.Next=free;free=scope;lock(counterGate) {exited++;active--;}}
         }
         internal long NewOperation() => Interlocked.Increment(ref sequence);
-        internal void CompareGroupShadow(long op,long parent,int player,int x,int y,int targetX,int targetY,int tribe,uint global)
+        internal void CompareGroupShadow(long op,long parent,int player,int x,int y,int targetX,int targetY,int tribe,uint global,string source="group-formation")
         {
-            VirtualShadow?.CompareXY("group-formation",op,parent,player,x,y,targetX,targetY);
+            VirtualShadow?.CompareXY(source,op,parent,player,x,y,targetX,targetY);
             Scope root=CurrentScope;while(root!=null&&root.Site.Rva!=0x3C2E0)root=root.Parent;
-            bool linked=root!=null&&root.PlanningPlayer==player;
+            bool linked=root!=null&&root.Session==session&&root.PlanningPlayer==player;
             long decision=linked?DecisionFor(player,root.PrePlan):0;
             VirtualShadow?.GroupContext(op,tribe,global,linked?root.Id:0,decision,linked?root.PrePlan[1]:-1,DecisionRootFor(player,decision));
         }

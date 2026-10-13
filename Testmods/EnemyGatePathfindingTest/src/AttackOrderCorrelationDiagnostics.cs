@@ -72,6 +72,9 @@ namespace EnemyGatePathfindingTest
             int player = ResolveTribePlayer(args.TribeId);
             if (pre && player == 0) ObserveUnattributedPlayer("tribe-target", args.TribeId);
             int command = (int)args.AICommand;
+            try { TemporaryAcceptance?.RaidOrder(player, args.TribeId, command, args.TargetValue1,
+                unchecked((uint)args.TargetValue2), pre, args.ReturnValue, args.SkipOriginalFunction); }
+            catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("raid-order", error); }
             string detail = "kind=" + args.AICommand + ",a6=" + args.a6;
             if (pre) Push("target", args.TribeId, player, args.TribeId,
                 command, args.TargetValue1, args.TargetValue2);

@@ -49,7 +49,7 @@ namespace BugfixesAndQoL.UnitCommands
             finally
             {
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
-                EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Attack, true, false);
+                EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Attack, bridgeCompleted, false);
             }
         }
 

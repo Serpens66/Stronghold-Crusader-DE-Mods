@@ -1,0 +1,5 @@
+Ground.Coverage=Vegetação
+Ground.Green=Verde
+Ground.Stone=Campos de pedra
+Ground.Iron=Campos de ferro
+Ground.Pitch=Campos de piche

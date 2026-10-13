@@ -1,0 +1,190 @@
+[13.10.2026 17:20:52,18] START BugfixesAndQoL
+[13.10.2026 17:20:52,18] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: BugfixesAndQoL, APIShared and explicit project/source dependencies.
+[Preflight] Checking 19 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 19 projects, 424 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 2 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Checking centralized UnitAccess contract...
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.
+PASS: 558 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 6,5s.
+[Preflight] Completed in 13,2s.
+PASS: 7 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[13.10.2026 17:21:05,53] PowerShell checks / build step
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_UnitChimp type=SHCDESE.Interop.eChimps offset=0x8A width=2 stride=1168
+GameUnit.r_GlobalId type=System.UInt32 offset=0x94 width=4 stride=1168
+GameUnit.r_CurrentTilePositionX type=System.UInt16 offset=0xC0 width=2 stride=1168
+GameUnit.r_CurrentTilePositionY type=System.UInt16 offset=0xC2 width=2 stride=1168
+GameUnit.r_TargetTilePositionX type=System.UInt16 offset=0xC4 width=2 stride=1168
+GameUnit.r_TargetTilePositionY type=System.UInt16 offset=0xC6 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit.r_TribeId type=System.UInt16 offset=0x2D4 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileX type=System.UInt16 offset=0x2D8 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileY type=System.UInt16 offset=0x2DA width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_PlayerIdOwner type=System.UInt16 offset=0x2 width=2 stride=1672
+GameTribe.r_GlobalId type=System.UInt32 offset=0xA width=4 stride=1672
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager.r_IsCursorInGame type=System.UInt32 offset=0x8 width=4 stride=0
+GameCursorManager.r_MouseTileX type=System.UInt32 offset=0x6C width=4 stride=0
+GameCursorManager.r_MouseTileY type=System.UInt32 offset=0x70 width=4 stride=0
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+[13.10.2026 17:21:05,92] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+APIShared verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 169 sources, 0 errors
+BugfixesAndQoL verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+BugfixesAndQoL verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 366 sources, 0 errors
+MoatMove verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+MoatMove verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (561 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+[13.10.2026 17:21:14,17] PowerShell checks / build step
+PASS: verified APIShared consumer package and source inputs.
+[13.10.2026 17:21:14,68] Check that the game is closed
+[13.10.2026 17:21:14,83] Gatehouse target-marker height contracts
+PASS: 2684 production-prefix native-record cases; bounded logs and permanent lifetime.
+PASS: unknown native build fails open before publication.
+PASS: 2320 marker height cases; real managed member contracts, bounds/IDs, lifetime, setting, XAML and locales.
+[13.10.2026 17:21:17,30] PowerShell checks / build step
+PASS: current native hash; HP/damage tables; 15-byte instruction span; no incoming interior edges; post-damage writer and later lethal branch.
+PASS: drawbridge native/public field/host UI/default/reset/activation/minimal diagnostic contracts.
+
+  PASS: verified APIShared consumer package and source inputs.
+  DrawbridgeDestructionFix.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\DrawbridgeDestructionFix.Tests\bin\DrawbridgeDestructionFix.Tests.exe
+PASS: 150 native execution cases; inactive/non-target/lethal paths match the original registers, flags and branch outcome; real RedBird span=15; resolver absent/ambiguous/mutated cases rejected.
+LIMIT: private native fixture validates the decision and ABI, not complete game removal/rendering; 0/1/2 attached bridges and open/raised states require in-game acceptance.
+PASS: gatehouse host setting/UI/locales, installed API visibility, permanent roots/rollback, minimal logging and CRLF.
+
+  GatehouseLivingCapture.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\GatehouseLivingCapture.Tests\bin\GatehouseLivingCapture.Tests.exe
+PASS: exact native/full-handler hashes, all handler branch boundaries, chain backedge, unique executable signature.
+PASS: feature/main switches, unpublished state, disable and reactivation.
+PASS: 648 native machine cases; callback errors=243
+PASS: installed GameUnit layout, life helper, real RedBird span/patch/JE, registers, XMM, stack, entry/backedge, inactive/invalid/error paths.
+[13.10.2026 17:21:22,26] PowerShell checks / build step
+BugfixesAndQoL runtime JSON/lifecycle, XAML, rally terrain flags/settings/localization preflight succeeded.
+[13.10.2026 17:21:23,06] PowerShell checks / build step
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+
+  ModOptions.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ModOptions.Tests\bin\ModOptions.Tests.exe
+PASS: 8046 mod-option/ledger/save/runtime checks (simulated publishers; no in-game FPS claim).
+PASS: mod-option performance source contracts; active HUD cadence and pending lobby/spectator work preserved.
+[13.10.2026 17:21:23,91] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+Public installed member: GameUnit.r_AliveState : SHCDESE.Interop.Enums.AliveState
+Public installed member: GameUnit.r_UnitChimp : SHCDESE.Interop.eChimps
+Public installed member: GameUnit.r_CurrentPositionTileId : System.UInt32
+Public installed member: GameUnit.r_NextPositionTileId2 : System.UInt32
+Public installed member: GameUnit.r_AIState : System.UInt16
+Public installed member: GameUnit.r_GlobalId : System.UInt32
+Public installed member: GameUnit.r_AI_LastIssuedTribeCommand : System.UInt16
+Public installed member: GameUnit.r_ControllableForPlayerId : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_PathPlanStateBitFlags : System.UInt16
+Public installed member: GameUnit.r_MovementSubstep : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionX : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionY : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_IsKilledByProjectile : System.UInt16
+Public installed member: GameUnit.r_CurrentSpeed : System.UInt16
+System.Span`1<SHCDESE.Interop.GameUnit> SHCDESE.API.GameUnitManagerAPI::GetUnitsAsSpan()
+System.Void SHCDESE.API.GameTimeManagerAPI::add_OnTick(System.Action`1<System.Int32>)
+PASS: installed public static AssassinPathAPI.SetDirectGatehouseClimbing(string,bool).
+PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.
+[13.10.2026 17:21:29,61] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.
+PASS: xrefs (including data/function references) enter only at EEF90: [{'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x7A73A', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_18007a3b0'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0xEE611', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_1800ee320'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x88F5680', 'to_rva': '0xEEF90', 'type': 'DATA', 'source_function': None}]
+function sha: 83D062DDDBAFEC9EB33F704FA914609B6761E16DAE351A64F7491319984DF12E
+PASS: executable-section rel32 candidate scan: no incoming interior edge; complete 317-byte body captured for Iced tests.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+  PASS: verified APIShared consumer package and source inputs.
+  AIKeepRange.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe
+PASS: production AI runtime: settings, prebuild/save publishers, mission change, original counts, persistent fail-closed.
+PASS: AI keep range: 113 checks; actual NativeX64 Indirect/10, trampoline execution, AI/human/invalid/disabled forwarding.
+[13.10.2026 17:21:35,89] PowerShell checks / build step
+PASS: installed public API signatures and 6 interop fields; no new private game accesses.
+[13.10.2026 17:21:36,27] PowerShell checks / build step
+PASS: native hash, exact 17-byte span, incoming branches, filter and both gate continuations.
+PASS: AI raid host setting, lifecycle, single classifier, permanent hook, compact logs, bounded retry, versions and CRLF.
+[13.10.2026 17:21:36,90] PowerShell checks / build step
+warning CS1702: Es wird angenommen, dass der von "RedBird.X64" verwendete Assemblyverweis "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.10, Culture=neutral, PublicKeyToken=adb9793829ddae60" mit "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.12, Culture=neutral, PublicKeyToken=adb9793829ddae60" von "Microsoft.Extensions.Logging.Abstractions" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+PASS: 1945 assertions; 1920 detailed retries=1138560 bytes.
+PASS: native search evidence and assembler tests (89 assertions).
+PASS: 15 runtime activation/lifecycle/logging assertions; simulated stream log bytes=440.
+PASS: 35 raid hardening assertions (publication, actual frame helpers, expiration and waiting callbacks).
+[13.10.2026 17:21:37,85] PowerShell checks / build step
+Notification last-frame assembly, Noesis, lifecycle, and Vanilla-fallback preflight succeeded.
+[13.10.2026 17:21:38,19] PowerShell checks / build step
+PASS: spectator-save marker and recognition fixtures.
+BugfixesAndQoL spectator perspective preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root/HUD visibility.
+[13.10.2026 17:21:38,68] PowerShell checks / build step
+Health-bar baseline, runtime, local settings, XAML and CRLF preflight passed.
+[13.10.2026 17:21:38,91] PowerShell checks / build step
+PASS: workshop idle permanent native hook, synchronized default-off setting and locale preflight.
+[13.10.2026 17:21:39,12] PowerShell checks / build step
+Tannery native, settings, locales, lifecycle and CRLF preflight passed.
+[13.10.2026 17:21:39,48] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[13.10.2026 17:21:44,22] Compile projects
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 13.10.2026 17:21:44 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /nowarn:1701,1702 /fullpaths /nostdlib+ /platform:anycpu32bitpreferred /define:API_SHARED_PRESET_TESTS /highentropyva+ /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.Annotations.dll" /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll" /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\Microsoft.Bcl.AsyncInterfaces.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll" /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Buffers.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Memory.dll" /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Runtime.CompilerServices.Unsafe.dll" /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Threading.Tasks.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\netstandard.dll" /debug+ /out:obj\Debug\HostClientPresetTests.exe /subsystemversion:6.00 /target:exe /utf8output /langversion:latest /analyzerconfig:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\.editorconfig" ..\..\APIShared\src\Missions\MissionLifecycleContracts.cs ..\..\APIShared\src\Missions\MissionLifecycleState.cs MissionTestEnvironment.cs ..\..\CastlePlanner\src\CastleSpawnCompatibility.cs ..\..\CastlePlanner\src\CastleSpawnContentPolicy.cs ..\..\CastlePlanner\src\FreeCastleProtocol.cs ..\..\CastlePlanner\src\BlueprintHudPolicy.cs ..\..\UnitCosts\src\UnitGoldCostSnapshot.cs ..\..\APIShared\src\GameModes\MissionModePolicy.cs ..\..\APIShared\src\GameModes\CustomizedLaunchOrigins.cs Program.cs DynamicPresetTests.cs RestartSettingsTests.cs TweakerProviderTests.cs TweakerDefaultResetTests.cs OptionalIntegrationTests.cs ..\..\SerpsModsHost\src\OptionalSettingsIntegration.cs ..\..\SerpsModsHost\src\StatsTweakerConfigurationProvider.cs ..\..\APIShared\src\ModSettings\Presets\DynamicPresetSettings.cs ..\..\APIShared\src\ModSettings\ModSettingsApplication.cs ..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetContracts.cs ..\..\APIShared\src\ModSettings\Presets\ModSettingsWorkingSources.cs ..\..\APIShared\src\ModSettings\Presets\PresetDialogModels.cs ..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetJson.cs ..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetCatalog.cs ..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.cs ..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs ..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs ..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs ..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs ..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Persistence.cs ..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Mission.cs ..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Snapshots.cs ..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs ..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs ..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs ..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs ..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs ..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs ..\..\APIShared\src\ModSettings\UI\ModSettingsSearch.cs ..\..\SerpsModsHost\src\ModSettingsSearchPolicy.cs ..\..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs ..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs ..\..\Shared\Adapters\APIShared\GameplayModActivationGate.cs ..\..\APIShared\src\GameModes\GameplayModModePolicy.cs ..\..\Shared\Adapters\APIShared\SerpsModProfiles.cs ..\..\APIShared\src\GameModes\GameplayModeGate.cs ..\..\APIShared\src\ModSettings\UI\ModSettingsModeAvailability.cs ..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.ModeAvailability.cs ..\..\Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs ..\..\StartConditions\src\StartConditionsMapSessionState.cs ..\..\StartConditions\src\StartGoldPolicy.cs ..\..\Shared\Runtime\Gameplay\LobbyLifecycle.cs ..\..\BugfixesAndQoL\src\LocalPerPlayerSetting.cs ..\..\BugfixesAndQoL\src\ShiftRepairAllBuildingsPolicy.cs ..\..\BugfixesAndQoL\src\PlaguePopularitySaveState.cs ..\..\BugfixesAndQoL\src\AiStoneReserveNativeDefinition.cs ..\..\BugfixesAndQoL\src\AiStoneReservePolicy.cs ..\..\BugfixesAndQoL\src\MarketGoodsOrderDefinition.cs ..\..\BugfixesAndQoL\src\ResyncHostKickPolicy.cs ..\..\BugfixesAndQoL\src\AbruptHostMigrationPolicy.cs ..\..\BugfixesAndQoL\src\SelectedUnitHealthSummary.cs ..\..\BugfixesAndQoL\src\LordUnitControlsPolicy.cs ..\..\BugfixesAndQoL\src\SurrenderPackets.cs ..\..\BugfixesAndQoL\src\SurrenderPolicy.cs ..\..\BugfixesAndQoL\src\SiegeAmmoRestockPacket.cs ..\..\BugfixesAndQoL\src\SiegeAmmoRestockPolicy.cs ..\..\ExtraFeatures\src\MarketGoodPriceDefinition.cs Legacy\AIMarketVanillaPricePolicy.cs ..\..\ExtraFeatures\src\EnemyProximityPolicy.cs ..\..\BugfixesAndQoL\src\AssassinClimbCostPolicy.cs ..\..\BugfixesAndQoL\src\AssassinCombatResumeNativeDefinition.cs ..\..\BugfixesAndQoL\src\AssassinCombatResumePolicy.cs ..\..\BugfixesAndQoL\src\AssassinClimbCancellationPolicy.cs ..\..\BugfixesAndQoL\src\AssassinClimbTransitionPolicy.cs ..\..\BugfixesAndQoL\src\AssassinPathReconstructionNativeDefinition.cs ..\..\ExtraFeatures\src\LordHealthMultiplierPolicy.cs ..\..\BugfixesAndQoL\src\QuarryPileTargetSelectionPolicy.cs ..\..\BugfixesAndQoL\src\QuarryPileVanillaGroupPolicy.cs ..\..\BugfixesAndQoL\src\TemporaryGateBlockagePolicy.cs ..\..\ExtraFeatures\src\GatehouseAutomationSaveState.cs ..\..\ExtraFeatures\src\PlagueFlagDiseaseRegistry.cs ..\..\ExtraFeatures\src\PlagueFlagDiseaseSaveState.cs ..\..\BugfixesAndQoL\src\MultiplayerGameSpeedChangePacket.cs ..\..\BugfixesAndQoL\src\MultiplayerGameSpeedPolicy.cs ..\..\BugfixesAndQoL\src\MultiplayerTimeControlPermission.cs ..\..\BugfixesAndQoL\src\MultiplayerLobbyReturnPolicy.cs ..\..\BugfixesAndQoL\src\SteamLobbyInvitePolicy.cs ..\..\BugfixesAndQoL\src\SteamInviteBlacklistStore.cs ..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs ..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs ..\..\BugfixesAndQoL\src\MarketTradeIntegration.cs ..\..\BugfixesAndQoL\src\GameSpeedRepeatScheduler.cs ..\..\Shared\Runtime\Native\NativePatternResolver.cs ..\..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs FearFactorPresetTests.cs AssassinCapturedGatePresetTests.cs ..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs ..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs ..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs ..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs ..\..\APIShared\src\Core\Internal\Native\NativePatternResolver.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\GameModes\MissionModePolicy.cs(98,49): warning CS0649: Dem Feld "GameModeHelper.ReadSavedModeEvidence" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "null". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj]
+  CompilerServer: server - server processed compilation - HostClientPresetTests
+_CopyAppConfigFile:
+Das Ziel "_CopyAppConfigFile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\obj\Debug\HostClientPresetTests.exe" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe" kopiert.
+  HostClientPresetTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\obj\Debug\HostClientPresetTests.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\bin\HostClientPresetTests.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+
+"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" (Standardziel) (1) ->
+(CoreCompile Ziel) -> 
+  D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\GameModes\MissionModePolicy.cs(98,49): warning CS0649: Dem Feld "GameModeHelper.ReadSavedModeEvidence" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "null". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj]
+
+    1 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.46
+PASS: market-goods order, unavailable neighbors and per-player snapshots.
+PASS: fear-factor host working state, client lock, sync and persistence
+PASS: captured-gate default, stored false, old preset, client lock, host sync and persistence
+FAIL: System.InvalidOperationException: loading a preset into editable Trail did not show its actual source
+   bei Program.Check(Boolean condition, String message) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\Program.cs:Zeile 5448.
+   bei Program.TestPersonalBundledExternalPresetSaveLoad() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\Program.cs:Zeile 4674.
+   bei Program.Main(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\Program.cs:Zeile 134.
+Build fehlgeschlagen.
+[13.10.2026 17:21:46,30] END: exit code 1

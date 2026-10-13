@@ -67,6 +67,19 @@ namespace BridgePlanningTests
         private static void MilitaryHelperCases(NativeImage m)
         {
             MembershipCases(m);
+            // Execute the exact installed-hash-bound INC word / CMP word,4
+            // instructions in unpublished private memory, with a private counter.
+            // No full 3C2E0 call or permissive helper stub is claimed here.
+            byte[] timer=m.Bytes(0x3C6ED,19);
+            Check(timer[0]==0x66&&timer[9]==0x66&&timer[18]==4,"native signed word instruction extent");
+            var code=new byte[]{0x56,0x41,0x54,0x31,0xF6,0x49,0x89,0xCC}.Concat(timer).Concat(new byte[]{0x0F,0x9D,0xC0,0x0F,0xB6,0xC0,0x41,0x5C,0x5E,0xC3}).ToArray();
+            m.Put(0x8800000,code);m.PrivateExecutable(0x8800000,code.Length);
+            var nativeDue=(R2)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(m.Ptr(0x8800000),typeof(R2));
+            for(int counter=short.MinValue;counter<=short.MaxValue;counter++)
+            {
+                m.Short(0x8790000,counter);
+                Check((nativeDue(m.Ptr(0x8790000-0x13257c),0)!=0)==BridgePlanningCapture.Phase5PlanningDue((short)counter),"all signed timer values agree with native increment and branch");
+            }
             var random=new Random(1031);int[] boundary={int.MinValue,-99,-17,-1,0,1,2,4,12,13,16,17,199,int.MaxValue};
             int[] fields={0x379D994,0x379D990,0x379D984,0x379D980,0x379D97C,0x379D9A0,0x379D99C,0x379D998};
             var strength=m.Function<R2>(0x2FD40);
@@ -78,6 +91,9 @@ namespace BridgePlanningTests
                 foreach(int address in fields)Put(address,n<128?boundary[random.Next(boundary.Length)]:random.Next(-100,100));
                 m.Put(0x379AE00+8*0x583C,p);
                 Check(strength(m.Ptr(0x366C210),8)==MilitaryStrength(p),"2FD40 full strength helper "+n);
+                Put(0x379D974,5);m.Put(0x379AE00+8*0x583C,p);
+                int Read(int address)=>BitConverter.ToInt32(p,address-0x379AE00);
+                Check(strength(m.Ptr(0x366C210),8)==BridgePlanningCapture.Phase5Strength(Read(0x379E740),Read(0x379D994),Read(0x379D990),Read(0x379D984),Read(0x379D980),Read(0x379D9A0),Read(0x379D99C),Read(0x379D998),Read(0x379D97C)),"production entry selection strength matches native including signed overflow");
             }
             var metric=m.Function<R5>(0x79C0);
             for(int n=0;n<256;n++)

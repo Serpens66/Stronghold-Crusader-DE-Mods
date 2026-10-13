@@ -15,8 +15,10 @@ namespace EnemyGatePathfindingTest
             ulong topologyFingerprint,
             int maskedDirectedEdges = 0,
             int ambiguousPassages = 0,
-            string directionMaskDiagnostics = null, GateEdgeOwnership[] edgeOwners = null, Dictionary<int, GateIdentity> gateIdentities = null, GateEdgeOwnership diagnosticGateEdges = null)
+            string directionMaskDiagnostics = null, GateEdgeOwnership[] edgeOwners = null, Dictionary<int, GateIdentity> gateIdentities = null, GateEdgeOwnership diagnosticGateEdges = null, int[] missingRequiredGateMasks = null, HashSet<int> maskedGates = null)
         {
+            MissingRequiredGateMasks = missingRequiredGateMasks == null ? Array.Empty<int>() : (int[])missingRequiredGateMasks.Clone();
+            MaskedGates = maskedGates == null ? new HashSet<int>() : new HashSet<int>(maskedGates);
             DirectionMasks = directionMasks ?? new byte[9][];
             EdgeOwners = edgeOwners;
             DiagnosticGateEdges = diagnosticGateEdges;
@@ -43,6 +45,15 @@ namespace EnemyGatePathfindingTest
             internal GateIdentity(uint global, int owner, int capturer) { Global = global; Owner = owner; Capturer = capturer; }
             internal readonly uint Global;
             internal readonly int Owner, Capturer;
+        }
+        internal int[] MissingRequiredGateMasks { get; }
+        private readonly HashSet<int> MaskedGates;
+        internal string DescribeGateMask(int gateId, uint globalId, int owner, int capturer)
+        {
+            if (!GateIdentities.TryGetValue(gateId, out GateIdentity identity) || identity.Global != globalId || identity.Owner != owner || identity.Capturer != capturer)
+                return "unknown-identity";
+            return MaskedGates.Contains(gateId) ? "present-for-restricted-players" :
+                Array.IndexOf(MissingRequiredGateMasks, gateId) >= 0 ? "missing-required-mask" : "not-required";
         }
         internal int NonEmptyPlayerMaskCount { get; }
         internal int MaskedDirectedEdges { get; }

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Operation Type="SetAttribute" XPath="//n:DockPanel[@Visibility='{Binding RolloverBuilding_TooltipVis, Converter={StaticResource booleanToVisibilityConverter}}']" AttributeName="HorizontalAlignment" Value="Right"/>
   <Operation Type="Replace" XPath="//n:DockPanel[@Visibility='{Binding RolloverBuilding_TooltipVis, Converter={StaticResource booleanToVisibilityConverter}}']//n:TextBlock[n:Run[@Text='{Binding RollOverText_AmountReq1}']]">
     <Content>
       <Grid HorizontalAlignment="Left" Tag="Ignore">
@@ -58,7 +57,7 @@
   </Operation>
   <Operation Type="Replace" XPath="//n:TextBlock[@x:Name='GameHoverText']">
     <Content>
-      <StackPanel HorizontalAlignment="Right" Panel.ZIndex="1" Tag="Ignore">
+      <StackPanel HorizontalAlignment="Left" Panel.ZIndex="1" Tag="Ignore">
         <StackPanel.RenderTransform>
           <TransformGroup>
             <TranslateTransform X="-250"/>

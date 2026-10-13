@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Gatehouse damage and drawbridge destruction](./sem/FBCB9319/knowledge/DRAWBRIDGE_DESTRUCTION.md): native bridge damage immunity, premature direct-hit removal, lethal/demolition paths and pending standalone fix acceptance.
+
 Current canonical DLL SHA-256:
 
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`

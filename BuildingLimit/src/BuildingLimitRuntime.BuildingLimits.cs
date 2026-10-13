@@ -1,3 +1,4 @@
+using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
 using R3;
@@ -106,14 +107,14 @@ namespace BuildingLimit
             return count;
         }
 
-        private void UpdateBuildingLimitTooltip(HUD_Main hud)
+        private IReadOnlyList<BuildingTooltipLine> UpdateBuildingLimitTooltip(BuildingTooltipContext context)
         {
             try
             {
                 if (!EffectsEnabled || !IsBuildingLimitModeAllowed())
                 {
                     ClearBuildingLimitTooltip();
-                    return;
+                    return Array.Empty<BuildingTooltipLine>();
                 }
 
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
@@ -122,44 +123,46 @@ namespace BuildingLimit
                     GamePlayerManagerAPI.Instance.IsAIPlayer(localPlayerId))
                 {
                     ClearBuildingLimitTooltip();
-                    return;
+                    return Array.Empty<BuildingTooltipLine>();
                 }
 
-                int hoverStruct = (int)hoverStructField.GetValue(hud);
-                int selectedStruct = (int)selectedStructField.GetValue(hud);
-                int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
+                int tooltipStruct = context.BuildingType;
                 if (tooltipStruct <= 0 ||
                     !TryResolveActiveBuildingLimitRule(tooltipStruct, out BuildingLimitRule rule) ||
                     rule.Limit < 0 ||
                     (rule.Definition.CountedUnitType.HasValue && !towerSiegeCacheAvailable))
                 {
                     ClearBuildingLimitTooltip();
-                    return;
+                    return Array.Empty<BuildingTooltipLine>();
                 }
 
                 int count = GetDisplayBuildingCount(rule, CountAliveBuildings(localPlayerId, rule.Definition));
                 int limit = rule.DisplayLimit;
+                string text = SerpLocalization.Get(SerpLocalization.Limit) + ": " + count + "/" + limit;
                 if (!buildingLimitTooltipIsClear &&
                     tooltipStruct == lastTooltipStruct &&
                     localPlayerId == lastTooltipLocalPlayerId &&
                     count == lastTooltipCount &&
-                    limit == lastTooltipLimit)
+                    limit == lastTooltipLimit && text == lastTooltipText)
                 {
-                    return;
+                    return tooltipLines;
                 }
 
-                BuildingLimitTooltip.Show(count, rule.DisplayLimit);
+                tooltipLines = Array.AsReadOnly(new[] { new BuildingTooltipLine(new BuildingTooltipText(text)) });
+                lastTooltipText = text;
                 lastTooltipStruct = tooltipStruct;
                 lastTooltipLocalPlayerId = localPlayerId;
                 lastTooltipCount = count;
                 lastTooltipLimit = limit;
                 buildingLimitTooltipIsClear = false;
+                return tooltipLines;
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:169", "Error updating building limit tooltip:", ex);
                 ClearBuildingLimitTooltip();
                 ResetBuildingLimitTooltipCache();
+                return Array.Empty<BuildingTooltipLine>();
             }
         }
 

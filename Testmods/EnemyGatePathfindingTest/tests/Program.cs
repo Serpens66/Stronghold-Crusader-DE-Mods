@@ -15,6 +15,10 @@ namespace EnemyGatePathfindingTest
             try
             {
                 assertions += SharedTests.CaptureRefreshTests.Run();
+                assertions += LargeGateFootprintTests.Run();
+                assertions += NativeAssassinTraceTests.Run();
+                assertions += NativeTraceContractTests.Run();
+                assertions += NativeMovementTests.Run();
                 assertions += GateRoutePolicyTests.Run();
                 assertions += CompactDiagnosticTests.Run();
                 assertions += MacemenDiagnosticTests.Run();
@@ -1222,7 +1226,7 @@ namespace EnemyGatePathfindingTest
         private static void DirectionMaskBlocksOnlyTheGatePassage()
         {
             string topology = File.ReadAllText(Path.Combine("src", "GateTopologySnapshotProvider.cs"));
-            string boundary = ExtractMethodBody(topology, "ClearBoundary");
+            string boundary = ExtractMethodBody(File.ReadAllText(Path.Combine("src", "GatePassageMask.cs")), "ClearBoundary");
             Assert(boundary.IndexOf("1 << direction", StringComparison.Ordinal) >= 0 &&
                     boundary.IndexOf("(direction + 4) & 7", StringComparison.Ordinal) >= 0,
                 "gate boundary clears both directions of the crossing edge");
@@ -2148,16 +2152,16 @@ namespace EnemyGatePathfindingTest
         private static void GatehouseUsesBothOuterBoundaries()
         {
             string topology = File.ReadAllText(Path.Combine("src", "GateTopologySnapshotProvider.cs"));
-            string gate = ExtractMethodBody(topology, "ClearGatehouseOuterDirections");
+            string gate = ExtractMethodBody(File.ReadAllText(Path.Combine("src", "GatePassageMask.cs")), "ClearGatehouseOuterDirections");
             Assert(gate.IndexOf("minY - 1, x, minY, 4", StringComparison.Ordinal) >= 0 &&
                     gate.IndexOf("maxY, x, maxY + 1, 4", StringComparison.Ordinal) >= 0,
                 "vertical gatehouse blocks both outer entry/exit boundaries");
             Assert(gate.IndexOf("minX - 1, y, minX, y, 2", StringComparison.Ordinal) >= 0 &&
                     gate.IndexOf("maxX, y, maxX + 1, y, 2", StringComparison.Ordinal) >= 0,
                 "horizontal gatehouse blocks both outer entry/exit boundaries");
-            Assert(gate.IndexOf("Math.Min(info.EntryY, info.ExitY) != minY - 1",
+            Assert(gate.IndexOf("Math.Min(entryY, exitY) != minY - 1",
                         StringComparison.Ordinal) >= 0 &&
-                    gate.IndexOf("Math.Max(info.EntryY, info.ExitY) != maxY + 1",
+                    gate.IndexOf("Math.Max(entryY, exitY) != maxY + 1",
                         StringComparison.Ordinal) >= 0,
                 "logged 401/372 to 401/366 gate coordinates validate against 367..371 bounds");
             Assert(!topology.Contains("ClearDrawbridgePassageDirections") &&

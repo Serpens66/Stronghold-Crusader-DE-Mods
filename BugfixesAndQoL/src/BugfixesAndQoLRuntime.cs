@@ -91,6 +91,8 @@ namespace BugfixesAndQoL
         private bool aiKeepRangeInitializationAttempted;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static WorkshopIdleDelayHook processWorkshopIdleDelayHook;
+        private static DrawbridgeDestructionFix.FixRuntime processDrawbridgeDestructionFixRuntime;
+        private static bool drawbridgeDestructionFixInitializationAttempted;
         private static GatehouseLivingCapture.CaptureRuntime processGatehouseLivingCaptureRuntime;
         private static bool gatehouseLivingCaptureInitializationAttempted;
         private static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime;
@@ -438,6 +440,13 @@ namespace BugfixesAndQoL
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
             TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
+            TryInitializePersistentFeature("drawbridge destruction fix", () =>
+            {
+                if (drawbridgeDestructionFixInitializationAttempted) return;
+                drawbridgeDestructionFixInitializationAttempted = true;
+                processDrawbridgeDestructionFixRuntime = new DrawbridgeDestructionFix.FixRuntime(log);
+                processDrawbridgeDestructionFixRuntime.Install(context, settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
+            });
             TryInitializePersistentFeature("gatehouse living capture", () =>
             {
                 if (gatehouseLivingCaptureInitializationAttempted) return;
@@ -510,6 +519,7 @@ namespace BugfixesAndQoL
         {
             TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
+            processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
             processAIKeepRangeRuntime?.Refresh();
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(
                 settings.EnableMod && settings.EnableAiRaidRetargetFix));

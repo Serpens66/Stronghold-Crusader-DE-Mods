@@ -63,6 +63,12 @@ namespace APIShared.UnitCommands {
   void ObserveTemporaryNativeBuilderOutput(object t,int r){}
   internal static string CaptureTemporaryAssassinSource()=>"source=unknown";
   internal static string CaptureTemporaryRouteValidationPhase()=>"post-native-builder";
+  // Optional final-output observation is covered by TemporaryGateAcceptanceRuntimeTests.
+  internal static void BeginTemporaryFinalValidation() { }
+  internal static bool WantsTemporaryFinalValidation;
+  internal static int FinalEvidenceCount;
+  internal static AssassinTransitionKind FinalMovement;
+  internal static void RememberTemporaryFinalEdge(int player,int from,int to,int direction,AssassinTransitionKind movement,bool allowed,int gate,uint global,string evidence) { FinalEvidenceCount++;FinalMovement=movement; }
   internal static void ReportTemporaryAssassinStage(string stage,string result,string detail,int? player=null) {
    try{(TemporaryGateRouteAcceptanceBridge.Current as ITemporaryAssassinGateObserver)?.ObserveAssassinStage(null,player??2,stage,result,detail);}catch(Exception e){TemporaryGateRouteAcceptanceBridge.ReportFailure("fixture-observer",e);}
   }
@@ -174,6 +180,13 @@ namespace BugfixesAndQoL {
      bool observed=runtime.AllowsAssassinTransition(mask,from,to,0,climb,true);
      Assert(observed==baseline&&GameBuildingManagerAPI.Instance.Reads-before==reads,"optional actual decision observer preserves result and native identity query count");
      Assert(observed==(!connected&&climb&&!captured),"blocked ground, legitimate gate climb and capture identity retain functional contract");
+     activeObservation=null;UnitCommandPathRuntime.WantsTemporaryFinalValidation=true;
+     int evidenceCount=UnitCommandPathRuntime.FinalEvidenceCount;before=GameBuildingManagerAPI.Instance.Reads;
+     bool finalObserved=runtime.AllowsAssassinTransition(mask,from,to,0,climb,true,publicationValidation:true);
+     Assert(finalObserved==baseline&&GameBuildingManagerAPI.Instance.Reads-before==reads,"post-native evidence preserves decisions and identity reads");
+     Assert(UnitCommandPathRuntime.FinalEvidenceCount==evidenceCount+1,"existing final decision delivered exactly once");
+     if(finalObserved)Assert(UnitCommandPathRuntime.FinalMovement==AssassinTransitionKind.ClimbUp,"actual accepted masked transition retains climb classification");
+     UnitCommandPathRuntime.WantsTemporaryFinalValidation=false;
     }
     Assert(sink.Decisions==16,"every masked actual validation is counted, including throwing observer");
    } finally {activeObservation=null;AssassinPathAPI.DirectEndpoint=-1;GameBuildingManagerAPI.Instance.Building=null;runtime.Release();}

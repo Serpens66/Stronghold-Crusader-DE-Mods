@@ -5,6 +5,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
 namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
@@ -22,10 +23,64 @@ namespace BugfixesAndQoL.UnitCommands
             internal string Source, FirstSearch, LastSearch;
             internal long Searches, TargetSearches, Floods, Continuations, WeightedFields, ValidationChecks, ValidationFailures;
             internal bool ExactWeightedPublished;
+            internal bool FinalValidationPassed;
+            internal bool FinalValidationPublished;
+            internal Dictionary<long, TemporaryValidatedEdge> FinalValidatedEdges;
             internal int Flags84, Flags88, Flags94;
             internal int? BuilderArgument2, BuilderArgument3, NativeResult, NativeLength;
             internal long Sequence, Started;
             internal string Relaxation;
+        }
+        // TEMP_GATE_ROUTE_ACCEPTANCE: only masked edges from the existing post-native validation.
+        // Scoped to one output call; no retained unit history or additional route validation.
+        internal sealed class TemporaryValidatedEdge
+        {
+            internal int From, To, Direction, Player, Gate;
+            internal uint Global;
+            internal AssassinTransitionKind Movement;
+            internal bool Allowed;
+            internal string Evidence;
+        }
+        internal static void BeginTemporaryFinalValidation()
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return;
+            TemporaryRouteReport report = temporaryRouteCall;
+            if (report == null || !report.NativeResult.HasValue) return;
+            report.FinalValidationPassed = false;
+            report.FinalValidationPublished = false;
+            report.FinalValidatedEdges?.Clear();
+        }
+        internal static bool WantsTemporaryFinalValidation => temporaryRouteCall?.Token != null &&
+            temporaryRouteCall.NativeResult.HasValue && TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver;
+        internal static void RememberTemporaryFinalEdge(int player, int from, int to, int direction,
+            AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence)
+        {
+            if (!WantsTemporaryFinalValidation) return;
+            try
+            {
+                TemporaryRouteReport report = temporaryRouteCall;
+                if (player != report.Player) return;
+                if (report.FinalValidatedEdges == null) report.FinalValidatedEdges = new Dictionary<long, TemporaryValidatedEdge>();
+                report.FinalValidatedEdges[(long)from * 8 + direction] = new TemporaryValidatedEdge {
+                    Player = player, From = from, To = to, Direction = direction, Movement = movement,
+                    Allowed = allowed, Gate = gate, Global = global, Evidence = evidence };
+            }
+            catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("final-validation-edge", error); }
+        }
+        internal static void ReportTemporaryFinalEdge(TemporaryRouteReport report, int from, int to, int direction)
+        {
+            if (report.ExactWeightedPublished && report.FinalValidationPassed && report.FinalValidationPublished &&
+                report.Observer is ITemporaryAssassinGateObserver detailed &&
+                report.FinalValidatedEdges != null && report.FinalValidatedEdges.TryGetValue((long)from * 8 + direction, out var edge) &&
+                edge.From == from && edge.To == to && edge.Direction == direction && edge.Player == report.Player)
+            {
+                try { detailed.ObserveAssassinDecision(report.Token, report.Player, from, to, direction, false,
+                    edge.Movement, edge.Allowed, edge.Gate, edge.Global,
+                    "movementSource=exact-published-weighted-post-validation," + edge.Evidence); }
+                catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("final-validation-observer", error); }
+            }
+            // Preserve the public decoded-edge callback for every observer, including detailed observers.
+            report.Observer.RouteEdge(report.Token, from, to, direction);
         }
         internal sealed class TemporaryAssassinCall
         {
@@ -127,8 +182,14 @@ namespace BugfixesAndQoL.UnitCommands
                 TemporaryRouteReport report = temporaryRouteCall;
                 if (report != null)
                 {
-                    if (stage == "route-validation") { report.ValidationChecks++; if (result != "passed") report.ValidationFailures++; }
-                    if (stage == "handoff" && result == "published") report.ExactWeightedPublished = true;
+                    if (stage == "route-validation") {
+                        report.ValidationChecks++; if (result != "passed") report.ValidationFailures++;
+                        if (report.NativeResult.HasValue) report.FinalValidationPassed = result == "passed";
+                    }
+                    if (stage == "handoff" && result == "published") {
+                        report.ExactWeightedPublished = true;
+                        report.FinalValidationPublished = report.FinalValidationPassed;
+                    }
                 }
                 observer.ObserveAssassinStage(report?.Token, player ?? report?.Player ?? 0, stage, result, detail);
             }
@@ -294,7 +355,7 @@ namespace BugfixesAndQoL.UnitCommands
                             if ((uint)nx >= MapWidth || (uint)ny >= MapWidth) { status = "invalid-coordinate"; break; }
                             int from = GameTileManagerAPI.Instance.GetTileId(x, y), to = GameTileManagerAPI.Instance.GetTileId(nx, ny);
                             if (!IsValidTileId(from) || !IsValidTileId(to)) { status = "invalid-tile"; break; }
-                            report.Observer.RouteEdge(report.Token, from, to, d); x = nx; y = ny;
+                            ReportTemporaryFinalEdge(report, from, to, d); x = nx; y = ny;
                         }
                     }
                     else status = "output-buffer-or-endpoints-mismatch";

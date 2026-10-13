@@ -119,6 +119,10 @@ When the host leaves a running two-player match without Vanilla's normal leave p
 ### Remove disbanded units from control groups
 Fix that immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership.
 
+### Preserve drawbridges when gatehouses take damage
+
+This enabled-by-default host fix keeps connected drawbridges intact when a stone gatehouse survives a direct attack. Drawbridges are still removed when the gatehouse collapses or is demolished.
+
 ### Ignore dead units during gatehouse capture
 
 Gatehouses can be captured while dead units are still visible on top. Dead attackers and defenders no longer count; living defenders still block capture. This host setting is enabled by default and can be switched off under Fixes.

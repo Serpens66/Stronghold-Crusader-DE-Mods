@@ -11,6 +11,8 @@ known.extend([0x1A6990,0x61ED0,0x61E70]) # full compiler stack probe and bounded
 known.extend([0x3C150,0x3B8D0,0x2B2C0]) # complete military follow-up wrappers; inner searches remain guarded
 known.extend([0x2FD40,0x3CF20,0x3CAC0,0x3CE40,0x3FE50,0x3CDC0,0x2A6B0,0x3B450,0x30E90,0x3BD50,0x79C0,0x187E60,0x2FC80]) # complete military preamble/formation bodies; unknown side-effect branches stay guarded
 known.extend([0x119F90,0x126020]) # complete membership enumeration and entry side-effect reference bodies
+known.extend([0x196280,0x19B1B0,0x196840,0xF4930,0xF32B0,0xDAAC0,0xDA590,0xE62D0,0xE1640,0x199CD0]) # full own-command/line/fallback reference bodies
+known.extend([0xDA020,0xEAB80,0xEDF30,0xEC880,0x18BE50,0xC0270,0xE2CA0,0x117820,0xD9C40,0xC2280]) # existing structure differential suite, complete bodies
 lines=[c['currentNativeHash']];evidence=[str(n),c['currentNativeHash']];guards=set()
 for a in known+references:
  row=d.execute('select * from functions where binary_hash=? and rva=?',(c['currentNativeHash'],f'0x{a:X}')).fetchone();assert row and row['pseudocode'],hex(a)

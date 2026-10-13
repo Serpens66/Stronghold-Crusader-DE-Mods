@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         private bool enableAiStoneReserveFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
+        private bool enableDrawbridgeDestructionFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
         private bool enableAssassinGatehouseClimbFix = true;
         private bool enableAssassinCapturedGateProtectionFix = true;
@@ -237,6 +238,8 @@ namespace BugfixesAndQoL
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
+        public string EnableDrawbridgeDestructionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFix");
+        public string EnableDrawbridgeDestructionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp");
         public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
         public string EnableAssassinCapturedGateProtectionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix");
         public string EnableAssassinCapturedGateProtectionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp");
@@ -926,6 +929,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableDrawbridgeDestructionFix
+        {
+            get => enableDrawbridgeDestructionFix;
+            set => SetSetting(ref enableDrawbridgeDestructionFix, value, nameof(EnableDrawbridgeDestructionFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableGatehouseLivingCaptureFix
         {
             get => enableGatehouseLivingCaptureFix;
@@ -1411,6 +1421,7 @@ namespace BugfixesAndQoL
                 EnableAiStoneReserveFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
+                EnableDrawbridgeDestructionFix = true;
                 EnableGatehouseLivingCaptureFix = true;
                 EnableAssassinGatehouseClimbFix = true;
                 EnableAssassinCapturedGateProtectionFix = true;

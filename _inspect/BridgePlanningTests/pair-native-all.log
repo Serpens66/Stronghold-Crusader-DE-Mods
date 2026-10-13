@@ -1,0 +1,14 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+cut-selection=all-unallowed,cutCells=30
+variant=2,nativeCandidateChangedBytes=667
+variant=2,nativeWeightChangedBytes=792
+variant=2,nativeConsumerChangedBytes=793
+variant=2,field=workControls,changedBytes=1
+variant=2,field=workQueueControls,changedBytes=0
+variant=2,field=workQueue,changedBytes=0
+variant=2,field=workQueueRows,changedBytes=0
+variant=2,field=workQueueX,changedBytes=0
+variant=2,field=workDistances,changedBytes=0
+variant=2,field=workVisits,changedBytes=0
+variant=2,field=workTargets,changedBytes=0
+PASS own consumer ordinal=1,variant=2,nativeCastleResult=0,candidateChangedBytes=793,entryPhase=5,militaryContinuation=Unknown:not-a-phase4-suffix,phase5Requires=3665FB8-control-before-own-entry,postValuesUsedOnlyForComparison=True,behaviorFix=disabled

@@ -5,7 +5,7 @@ namespace EnemyBridgePathTest
     // there is no DLL-default substitution or current-game lookup here.
     internal static class CopiedCandidateInputs
     {
-        internal static bool TryCreate(BridgePlanningCapture.Bundle bundle,VirtualPlanningState calculated,VirtualBridgeMap physical,byte[] macroRecords,int[] effectiveCounts,out VirtualCandidateBuilder builder,out string reason)
+        internal static bool TryCreate(BridgePlanningCapture.Bundle bundle,VirtualPlanningState calculated,VirtualBridgeMap physical,byte[] macroRecords,int[] effectiveCounts,out VirtualCandidateBuilder builder,out string reason,bool projectTarget=true)
         {
             builder=null;reason="Unknown:missing-candidate-inputs";
             try
@@ -17,7 +17,7 @@ namespace EnemyBridgePathTest
                 void Put(int address,string key,int expected=-1){var bytes=Get(key);if(expected>=0&&bytes.Length!=expected)throw new ArgumentException("candidate-input-extent:"+key);actual.Put(address,bytes);}
                 var expectedCounts=new int[1000];if(physical.Components.Length!=n||physical.Flags.Length!=n||physical.Edges.Length!=n||effectiveCounts==null||effectiveCounts.Length!=1000)throw new ArgumentException("candidate-map-extent");
                 foreach(int region in physical.Components){if(region>=1000)throw new ArgumentException("candidate-component-bound");if(region!=0)expectedCounts[region]++;}
-                for(int i=0;i<1000;i++)if(expectedCounts[i]!=effectiveCounts[i])throw new ArgumentException("candidate-effective-histogram");
+                for(int i=0;i<1000;i++)if(effectiveCounts[i]<0||effectiveCounts[i]>n)throw new ArgumentException("candidate-effective-count-range");
                 foreach(var table in new[]{Tuple.Create("nativeWorkDirections64",0x2d2e50,64),Tuple.Create("nativeDirectionMasks8",0x312620,8),Tuple.Create("nativeWorkBuildingClasses336",0x2e68d0,1344)})
                 {
                     string key="consumer/pre/"+table.Item1;
@@ -39,7 +39,9 @@ namespace EnemyBridgePathTest
                 actual.Put(0x535ef90,Raw(calculated.Seeds));actual.Put(0x53ad4b0,new byte[n]);actual.Put(0x5759230+bundle.Bank*n*2,Raw(calculated.Distance));
                 Put(0x379ae00,"consumer/pre/players",9*0x583c);Put(0x37f1edc,"consumer/pre/workTargets",9*50*16);
                 Put(0x60ad660+0x155f38,"consumer/pre/workQueueControls",0x34);Put(0x60ad660+0x155f6c,"consumer/pre/workQueue",n*4);Put(0x60ad660+0x28f3ec,"consumer/pre/workQueueRows",n*2);Put(0x60ad660+0x32be2c,"consumer/pre/workQueueX",n*2);Put(0x5225b10,"consumer/pre/workDistances",n*2);Put(0x52c2550,"consumer/pre/workVisits",n*2);
-                actual.SelectAndUnitTargets(bundle.Attacker,bundle.Target,effectiveCounts);builder=actual;
+                foreach(var field in new[]{Tuple.Create("structureConfig4",0x37ed4c4,4),Tuple.Create("costConfig4",0x8574b90,4),Tuple.Create("approachRingOffsets",0x2e3fa0,0xb60),Tuple.Create("approachRingCounts14",0x2e8fd8,56),Tuple.Create("approachContactDirections8",0x3123b0,32),Tuple.Create("approachBuildingHeights336",0x2e5360,336*4),Tuple.Create("approachOffsetScratch8",0x67e8380,8),Tuple.Create("approaches501",0x60ad660+0x1b344,501*12)})
+                    if(bundle.Sections.ContainsKey("consumer/pre/"+field.Item1)||bundle.References.ContainsKey("consumer/pre/"+field.Item1))Put(field.Item2,"consumer/pre/"+field.Item1,field.Item3);
+                if(projectTarget)actual.SelectAndUnitTargets(bundle.Attacker,bundle.Target,effectiveCounts);else actual.UnitTargetsOnly(bundle.Attacker);builder=actual;
                 reason="complete-own-candidate-inputs;dirty="+bundle.Dirty+";historicalOnly=True;negativePolicyEligible=False";return true;
             }
             catch(Exception error){reason="Unknown:candidate-inputs:"+error.Message;return false;}

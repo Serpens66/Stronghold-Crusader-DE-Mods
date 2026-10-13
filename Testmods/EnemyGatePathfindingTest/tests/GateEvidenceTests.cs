@@ -20,6 +20,10 @@ namespace EnemyGatePathfindingTest
             check(GateSearchEvidence.Region(1, 1) == "same-pcl-shortcut-in-observed-region-call", "actual equal PCL call");
             check(GateSearchEvidence.Region(0, 0) == "invalid-pcl-input", "zero is not valid equality");
             check(GateSearchEvidence.Region(1, 2) == "different-pcl-region-call", "region traversal entered");
+            check(GateSearchEvidence.TopologyCase(1, 1, false) == "same-pcl-gate-candidate-query-and-route-unproven", "topology candidate is not a proven query or violation");
+            check(GateSearchEvidence.TopologyCase(1, 2, false) == "different-pcl-gate-ordinary-native-check", "normal native region case distinguished");
+            check(GateSearchEvidence.TopologyCase(0, 0, false) == "pcl-unavailable", "unknown topology not equality");
+            check(GateSearchEvidence.TopologyCase(1, 1, true) == "bridge-present-not-isolated", "bridge excluded from isolated gate experiment");
             var parent = new GateOrderEvidence();
             parent.Comparison(false, false, true);
             check(parent.Classification == "no-policy-rejection-observed", "native reject does not prove mod effect");

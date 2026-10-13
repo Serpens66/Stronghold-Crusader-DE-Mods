@@ -33,8 +33,6 @@ namespace BuildingLimit
         private string buildingLimitMessageTimerHandle;
         private Hook placeMapperItemHook;
         private PlaceMapperItemDelegate placeMapperItemTrampoline;
-        private FieldInfo hoverStructField;
-        private FieldInfo selectedStructField;
         private int lastTooltipStruct = int.MinValue;
         private int lastTooltipLocalPlayerId = int.MinValue;
         private int lastTooltipCount = int.MinValue;
@@ -43,7 +41,8 @@ namespace BuildingLimit
 
 
         public BuildingLimitNotificationViewModel BuildingLimitNotification { get; } = new BuildingLimitNotificationViewModel();
-        public BuildingLimitTooltipViewModel BuildingLimitTooltip { get; } = new BuildingLimitTooltipViewModel();
+        private IReadOnlyList<BuildingTooltipLine> tooltipLines = Array.Empty<BuildingTooltipLine>();
+        private string lastTooltipText;
 
         public BuildingLimitRuntime(ManualLogSource log, BuildingLimitLobbyViewModel settings)
         {
@@ -164,21 +163,8 @@ namespace BuildingLimit
 
         private void InstallUpdateRolloverHook()
         {
-            hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (hoverStructField == null || selectedStructField == null)
-                throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
-
-            if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, BuildingLimitPlugin.PluginGuid,
-                "BuildingTooltip", null, args => {
-                    if (args.OriginalCompleted) UpdateRolloverHookImpl(args.BuildingHud);
-                }, out string reason)) throw new InvalidOperationException(reason);
-        }
-
-        private void UpdateRolloverHookImpl(HUD_Main self)
-        {
-
-            UpdateBuildingLimitTooltip(self);
+            if (!BuildingTooltipPresentation.TryRegister(BuildingLimitPlugin.PluginGuid, "Limit", UpdateBuildingLimitTooltip,
+                out string reason)) throw new InvalidOperationException(reason);
         }
 
         private void LogDebug(string site, params object[] parts)
@@ -216,7 +202,7 @@ namespace BuildingLimit
             if (buildingLimitTooltipIsClear)
                 return;
 
-            BuildingLimitTooltip.Clear();
+            tooltipLines = Array.Empty<BuildingTooltipLine>();
             buildingLimitTooltipIsClear = true;
         }
 

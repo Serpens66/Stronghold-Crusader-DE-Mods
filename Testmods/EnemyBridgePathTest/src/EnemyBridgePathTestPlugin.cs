@@ -21,7 +21,7 @@ namespace EnemyBridgePathTest
         // The plugin component is destroyed during startup. These registrations and
         // the static observer remain alive; map end only clears logical state.
         private static BridgeDiagnostics runtime;
-        private static IDisposable started, ended, target, move, unit, movement, buildingSpawn, buildingDelete, buildingCapture;
+        private static IDisposable started, ended, target, move, unit, movement, buildingSpawn, buildingDelete, buildingCapture, buildingDamage;
         private static int frame = -1;
         private void Awake()
         {
@@ -41,6 +41,7 @@ namespace EnemyBridgePathTest
             buildingSpawn = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(args => { if(BridgeSnapshot.IsGate(args.Building)||(int)args.Building==49) runtime.Trace.InvalidateBuildings(); });
             buildingDelete = BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(_ => runtime.Trace.InvalidateBuildings());
             buildingCapture = BuildingR3EventHooks.OnBuildingCapture.Observable.Subscribe(runtime.BuildingCapture);
+            buildingDamage = BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(runtime.BuildingDamage);
             Application.onBeforeRender += Render;
             Shared.DebugLogHelper.LogInfo(Logger,
                 "EnemyBridgePathTest registered: diagnosis-only, no gate provider, passive native decision probes, no active edge mask.");

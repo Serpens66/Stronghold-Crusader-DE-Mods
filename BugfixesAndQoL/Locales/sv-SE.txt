@@ -409,3 +409,6 @@ BugfixesAndQoL.LineupLine=Linje
 BugfixesAndQoL.LineupColumn=Kolonn
 BugfixesAndQoL.LineupWedge=Kil
 BugfixesAndQoL.LineupCircle=Cirkel
+
+BugfixesAndQoL.EnableDrawbridgeDestructionFix=Preserve drawbridges when gatehouses take damage
+BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp=Prevents direct attacks on surviving stone gatehouses from destroying their coupled drawbridges. Drawbridges are still removed normally when the gatehouse collapses or is demolished.

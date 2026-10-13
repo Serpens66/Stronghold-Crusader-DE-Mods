@@ -1,0 +1,5 @@
+historical-table-coverage=3/3,reference-table-hypothesis=False,negativePolicyEligible=False
+System.Exception: hash-approved historical positive post-consumer castle decision
+   bei BridgePlanningTests.Program.Check(Boolean v, String text) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\Program.cs:Zeile 20.
+   bei BridgePlanningTests.Program.HistoricalCandidates(String path, Boolean continuous, Int32 variant, Boolean referenceTables, Int32 ordinal, Int32 selectedBridge, UInt32 selectedGlobal) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\HistoricalInputs.cs:Zeile 247.
+   bei BridgePlanningTests.Program.Main(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\Program.cs:Zeile 579.

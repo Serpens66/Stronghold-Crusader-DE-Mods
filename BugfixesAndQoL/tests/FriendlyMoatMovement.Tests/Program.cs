@@ -5,6 +5,7 @@ using System.Reflection;
 
 string root=Path.GetFullPath(args.Length==0?".":args[0]);
 SplitContracts.Validate(root);
+GateCompletionTests.Validate(root);
 string path=Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Runtime/ManualUnitCommands.cs");
 var syntax=CSharpSyntaxTree.ParseText(File.ReadAllText(path));
 var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","ManualCommandContext",

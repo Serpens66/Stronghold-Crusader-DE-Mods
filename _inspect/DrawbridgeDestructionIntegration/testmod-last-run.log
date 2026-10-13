@@ -1,0 +1,31 @@
+[Message:   BepInEx] BepInEx 5.4.23.5 - Stronghold Crusader Definitive Edition (07.09.2026 11:07:12)
+[Info   :  SHCDE-SE] [T1-17:13:05.848] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\DrawbridgeDestructionFixTest_Serp]
+[Info   :  SHCDE-SE] [T1-17:13:05.848] [GameAssetManagerAPI] [RegisterModProvider] Indexed 3 files for [DrawbridgeDestructionFixTest_Serp] in [Global] asset mode from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\DrawbridgeDestructionFixTest_Serp] in 0 ms.
+[Warning:  SHCDE-SE] [T1-17:13:05.848] [GameAssetModManager] [RegisterAssetModCore] Mod has no sprite logo at [Override/Assets/GUI/Sprites/DrawbridgeDestructionFixTest_Serp.png] in [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\DrawbridgeDestructionFixTest_Serp] - This may be ignored.
+[Info   :  SHCDE-SE] [T1-17:13:05.848] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\DrawbridgeDestructionFixTest_Serp
+[Info   :  SHCDE-SE] [T1-17:13:05.848] [GameAssetModManager] [RegisterAssetModCore] Mod [Drawbridge Destruction Fix Test] has no Lua scripts (Scripts/init.lua not found) - This is fine.
+[Info   :  SHCDE-SE] [T1-17:13:10.219] [GameXAMLManagerAPI] [RegisterBinding] Registering auto-binding: [ExtraFeaturesDrawbridgeAutomationButtonHost]
+[Info   :   BepInEx] Loading [Drawbridge Destruction Fix Test 0.1.0]
+[Info   :Drawbridge Destruction Fix Test] [2026-10-13 17:13:16.949] DRAWBRIDGE_FIX loaded version=0.1.0; waiting for native library; enabled=True
+[Info   :Drawbridge Destruction Fix Test] [2026-10-13 17:13:16.986] DRAWBRIDGE_FIX INSTALLED hash=FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; method=reference-rva; rva=0x7EE6B; span=15; end=0x7EE7A; skip=0x7EF87; fields=slot+0x5C,type+0x12E,hpSigned16+0x168; SE=SHCDESE, Version=2.14.1.0, Culture=neutral, PublicKeyToken=null
+[Info   :Drawbridge Destruction Fix Test] [2026-10-13 17:13:16.986] DRAWBRIDGE_FIX READY enabled=True; native-only-decision=true; diagnosticRevision=2; subscriptions=damage,mission-lifecycle,tick; configChangesRequireRestart=true
+[Info   :  SHCDE-SE] [T1-17:13:21.180] [XamlPatcher] [ApplyPatches] Applying patch: Add, xpath: [//n:Grid[@Name='ShowDrawbridge']]
+[Info   :  SHCDE-SE] [T1-17:13:21.260] [GameXAMLManagerAPI] [InjectBindings] ViewModel Linked [ExtraFeaturesDrawbridgeAutomationButtonHost] in [HUD_Buildings]
+[Info   :  SHCDE-SE] [T1-17:13:21.260] [GameXAMLManagerAPI] [ApplyBinding] ViewModel Linked [ExtraFeaturesDrawbridgeAutomationButtonHost]
+[Info   :  SHCDE-SE] [T1-17:13:29.168] [X64InlineHook] ["drawbridgeHeightFailureWriterHook"] compiled stub at 0x00007FFC654EF310, size: 255 bytes (target: 0x00007FFCD53C870B).
+[Info   :  SHCDE-SE] [T1-17:13:29.171] [X64InlineHook] ["loweredDrawbridgeHeightWriteHook"] compiled stub at 0x00007FFC654EFEC0, size: 73 bytes (target: 0x00007FFCD53B4546).
+[Info   :  SHCDE-SE] [T1-17:13:29.172] [X64InlineHook] ["completedDrawbridgeHeightWriteHook"] compiled stub at 0x00007FFC6550FD30, size: 89 bytes (target: 0x00007FFCD53C3B35).
+[Info   :  SHCDE-SE] [T1-17:13:29.172] [X64InlineHook] ["drawbridgeSpecialRendererHook"] compiled stub at 0x00007FFC6550FE60, size: 100 bytes (target: 0x00007FFCD5395820).
+[Info   :  SHCDE-SE] [T1-17:13:29.174] [X64InlineHook] ["drawbridgeAnimatedRendererArgumentsHook"] compiled stub at 0x00007FFC654D5D60, size: 116 bytes (target: 0x00007FFCD5393BA2).
+[Info   :  SHCDE-SE] [T1-17:13:29.174] [X64InlineHook] ["drawbridgeStaticRendererArgumentsHook"] compiled stub at 0x00007FFC654D5EF0, size: 90 bytes (target: 0x00007FFCD5394EDD).
+[Info   :  SHCDE-SE] [T1-17:13:29.175] [X64InlineHook] ["unitDrawbridgeHeightCorrectionHook"] compiled stub at 0x00007FFC65510000, size: 100 bytes (target: 0x00007FFCD54D511C).
+[Info   :  SHCDE-SE] [T1-17:13:29.176] [X64InlineHook] ["drawbridgeHeightFailureWriterHook"] hook enabled at 0x00007FFCD53C870B, stub 0x00007FFC654EF310.
+[Info   :  SHCDE-SE] [T1-17:13:29.176] [X64InlineHook] ["loweredDrawbridgeHeightWriteHook"] hook enabled at 0x00007FFCD53B4546, stub 0x00007FFC654EFEC0.
+[Info   :  SHCDE-SE] [T1-17:13:29.176] [X64InlineHook] ["completedDrawbridgeHeightWriteHook"] hook enabled at 0x00007FFCD53C3B35, stub 0x00007FFC6550FD30.
+[Info   :  SHCDE-SE] [T1-17:13:29.176] [X64InlineHook] ["drawbridgeSpecialRendererHook"] hook enabled at 0x00007FFCD5395820, stub 0x00007FFC6550FE60.
+[Info   :  SHCDE-SE] [T1-17:13:29.176] [X64InlineHook] ["drawbridgeAnimatedRendererArgumentsHook"] hook enabled at 0x00007FFCD5393BA2, stub 0x00007FFC654D5D60.
+[Info   :  SHCDE-SE] [T1-17:13:29.176] [X64InlineHook] ["drawbridgeStaticRendererArgumentsHook"] hook enabled at 0x00007FFCD5394EDD, stub 0x00007FFC654D5EF0.
+[Info   :  SHCDE-SE] [T1-17:13:29.176] [X64InlineHook] ["unitDrawbridgeHeightCorrectionHook"] hook enabled at 0x00007FFCD54D511C, stub 0x00007FFC65510000.
+[Info   :Drawbridge Destruction Fix Test] [2026-10-13 17:13:29.501] DRAWBRIDGE_FIX MAP session=1; source=EditorCreated; editor=True; replay=False; enabled=True; diagnosticRevision=2
+[Info   :Drawbridge Destruction Fix Test] [2026-10-13 17:13:29.535] DRAWBRIDGE_FIX RUNTIME_AFTER_STARTUP_CLEANUP tick=29; session=1
+[Info   :Drawbridge Destruction Fix Test] [2026-10-13 17:14:16.162] DRAWBRIDGE_FIX MAP_END session=1; reason=ApplicationExit; entered=0; suppressed=0; diagnosticErrors=0; damagePre=0; damagePost=0; paired=True; gateCaptures=0; pendingAtEnd=0; hookConfirmed=False; tickConfirmed=True

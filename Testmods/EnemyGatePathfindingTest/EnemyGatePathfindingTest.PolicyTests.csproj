@@ -46,6 +46,8 @@
     <Compile Include="src\DeferredGateDiagnosticErrors.cs" />
     <Compile Include="src\BuildingSearchPlayerResolver.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
+    <Compile Include="src\GatePassageMask.cs" />
+    <Compile Include="src\ConnectedGateFootprint.cs" />
     <Compile Include="src\SparseBuildingFootprint.cs"><Link>SparseBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\PathfindingGlobalsBaseline.cs"><Link>PathfindingGlobalsBaseline.cs</Link></Compile>
     <Compile Include="src\DirectionFilterAdapterEmitter.cs"><Link>DirectionFilterAdapterEmitter.cs</Link></Compile>
@@ -59,6 +61,7 @@
     <Compile Include="src\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
     <Compile Include="src\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="tests\CapturerAdapterMachineTests.cs" />
+    <Compile Include="tests\LargeGateFootprintTests.cs" />
     <Compile Include="tests\Program.cs" /><Compile Include="tests\CompactDiagnosticTests.cs" /><Compile Include="tests\TemporaryGateAcceptanceTests.cs" /><Compile Include="src\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
     <Compile Include="tests\GateRoutePolicyTests.cs" />
     <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
@@ -72,4 +75,8 @@
   <ItemGroup><Compile Include="src\MacemenDiagnosticAggregate.cs" /><Compile Include="tests\MacemenDiagnosticTests.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\GateSearchEvidence.cs" /></ItemGroup>
   <ItemGroup><Compile Include="tests\GateEvidenceTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\NativeAssassinTrace.cs" /><Compile Include="src\NativeTraceAdapterEmitter.cs" /><Compile Include="tests\NativeAssassinTraceTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="tests\NativeTraceContractTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\NativeAssassinMovementDiagnostics.cs" /><Compile Include="tests\NativeMovementTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\AssassinGateDescentRule.cs" /><Compile Include="src\AssassinGateDescentAdapter.cs" /></ItemGroup>
 </Project>

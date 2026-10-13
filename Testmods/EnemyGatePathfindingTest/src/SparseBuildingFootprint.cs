@@ -5,7 +5,9 @@ namespace EnemyGatePathfindingTest
         Valid,
         InvalidGridSize,
         InvalidNonZeroTile,
-        Empty
+        Empty,
+        IncompleteGeometry,
+        IdentityChanged
     }
 
     // Allocation-free common contract for the signature scan and snapshot builder.
@@ -46,6 +48,21 @@ namespace EnemyGatePathfindingTest
             maxX = int.MinValue;
             maxY = int.MinValue;
         }
+
+        // Only reconstructed grid data may exceed the native inline array capacity.
+        internal static SparseFootprintAccumulator ReconstructedLargeGate()
+        {
+            return new SparseFootprintAccumulator(7, 49);
+        }
+
+        private SparseFootprintAccumulator(uint gridSize, int cellCount) : this(1)
+        {
+            GridSize = gridSize;
+            CellCount = cellCount;
+            fingerprint = Mix(OffsetBasis, gridSize);
+        }
+
+        internal void Reject(SparseFootprintStatus failure) { status = failure; }
 
         internal uint GridSize { get; }
         internal int CellCount { get; }

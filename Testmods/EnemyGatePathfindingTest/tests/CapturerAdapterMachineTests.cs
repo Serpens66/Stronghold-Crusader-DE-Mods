@@ -37,6 +37,10 @@ namespace EnemyGatePathfindingTest
                 Require(Marshal.OffsetOf(typeof(X64SmartCPUContext), fields[i]).ToInt32() == i * 8,
                     "installed context field layout: " + fields[i]);
             foreach (bool builder in new[] { false, true }) RunSite(builder);
+            RunTransparentTrace(false);
+            RunTransparentTrace(true);
+            RunTransparentTrace(true, true);
+            RunTransparentTrace(false, false, true);
             Console.WriteLine("PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.");
         }
 
@@ -136,11 +140,84 @@ namespace EnemyGatePathfindingTest
                     for (int i = 0; i < 12; i++) Require(Marshal.ReadInt64(results, 144 + i * 8) == -1, "volatile XMM preserved");
                 }
                 Require(callbackErrors == 4, "all callback failures observed");
+                // Same machine stub and memory, only the registered snapshot differs.
+                // This proves the local comparison change, not a complete AI order.
+                queryPlayer = 2; throwInsideCallback = false;
+                Marshal.WriteInt16(word, 3);
+                snapshot = NativeGateAccessSnapshot.Empty;
+                int nativeForeignCapture = invoke(r9, new IntPtr(baseAddress), results, 0);
+                var foreignRecords = new NativeGateAccessRecord[4];
+                foreignRecords[3] = new NativeGateAccessRecord(true, 1, 3, 2, (ushort)(1 << 3), (ushort)(1 << 2));
+                snapshot = new NativeGateAccessSnapshot(foreignRecords, 1);
+                int policyForeignCapture = invoke(r9, new IntPtr(baseAddress), results, 0);
+                queryPlayer = 3;
+                int permittedCapture = invoke(r9, new IntPtr(baseAddress), results, 0);
+                Require(nativeForeignCapture == 1 && policyForeignCapture == 2 && permittedCapture == 1,
+                    "controlled local comparison: third-party capture rejected, actual capturer preserved");
+                Console.WriteLine("PASS controlled " + (builder ? "builder" : "graph") +
+                    " comparison: owner1/capturer3/query2 native=accept, policy=reject; query3=accept. Full AI order not measured.");
             }
             finally { Marshal.FreeHGlobal(records); Marshal.FreeHGlobal(word); Marshal.FreeHGlobal(results); }
         }
 
-        private static byte[] BuildHarness(byte[] originalBytes, ulong ip, bool builder)
+        private static void RunTransparentTrace(bool nativeCall, bool execution = false, bool descent = false)
+        {
+            byte[] original = new byte[14]; for (int i = 0; i < original.Length; i++) original[i] = 0x90;
+            IntPtr page = VirtualAlloc(IntPtr.Zero, (UIntPtr)4096, 0x3000, 0x40); Pages.Add(page);
+            Require(page != IntPtr.Zero, "trace test allocation");
+            byte[] harness = BuildHarness(original, (ulong)page.ToInt64(), true, true);
+            int offset = Find(harness, original);
+            if (nativeCall)
+            {
+                int target = harness.Length;
+                byte[] helper = { 0x41,0xFF,0x80,0xF0,0,0,0,0x83,0xF8,0,0xC3 }; // increment native-call count; CMP EAX,0; RET
+                Array.Resize(ref harness, target + helper.Length); Array.Copy(helper, 0, harness, target, helper.Length);
+                harness[offset] = 0xE8; Array.Copy(BitConverter.GetBytes(target - offset - 5), 0, harness, offset + 1, 4);
+            }
+            Marshal.Copy(harness, 0, page, harness.Length);
+            IntPtr enabled = Marshal.AllocHGlobal(4), results = Marshal.AllocHGlobal(256);
+            Pages.Add(enabled); // embedded pointer remains rooted with the published test stub
+            IntPtr module = execution ? VirtualAlloc(IntPtr.Zero, (UIntPtr)0x67F0000, 0x3000, 0x04) : IntPtr.Zero;
+            if (execution) { Require(module != IntPtr.Zero, "execution memory"); Pages.Add(module); Marshal.WriteInt32(module, 0x9302C4, 1); }
+            int calls = 0; bool fail = false;
+            CapturerComparisonCallback callback = p => { var c = (X64SmartCPUContext*)p;
+                if (descent) c->R11 = 0;
+                try { calls++; if (fail) throw new InvalidOperationException("fixture"); if (descent) c->R11 = c->RAX == 0 ? 1UL : 0; } catch { } };
+            Callbacks.Add(callback);
+            IntPtr noDiagnostics = Marshal.AllocHGlobal(4); Pages.Add(noDiagnostics); Marshal.WriteInt32(noDiagnostics, 0);
+            var hook = new X64InlineHook((ulong)page.ToInt64() + (uint)offset, 14);
+            hook.Generate((a, instructions, ret) => {
+                ulong cb = (ulong)Marshal.GetFunctionPointerForDelegate(callback).ToInt64();
+                if (descent) AssassinGateDescentAdapter.Emit(a, instructions, cb, (ulong)enabled.ToInt64(), (ulong)page.ToInt64() + (uint)offset + 14, cb, cb, (ulong)noDiagnostics.ToInt64(), 0);
+                else if (execution) NativeTraceAdapterEmitter.EmitExecution(a, instructions, cb, cb, (ulong)enabled.ToInt64(), (ulong)module.ToInt64(), true);
+                else NativeTraceAdapterEmitter.Emit(a, instructions, cb, (ulong)enabled.ToInt64());
+            });
+            Require(hook.DisplacedByteCount == 14, "trace backend exact displacement");
+            hook.Enable(); Hooks.Add(hook);
+            var run = (RunHarness)Marshal.GetDelegateForFunctionPointer(page, typeof(RunHarness));
+            try
+            {
+                foreach (int type in execution ? new[] { 0, 73 } : new[] { 0 })
+                foreach (int on in new[] { 0, 1 }) foreach (int value in new[] { 0, 1 }) foreach (bool error in new[] { false, true })
+                {
+                    Marshal.WriteInt32(enabled, on); fail = error;
+                    if (execution) Marshal.WriteInt16(module, 0x67E8AE6 + 0x490, (short)type);
+                    Marshal.WriteInt32(results, 240, 0);
+                    Require(run((IntPtr)123, (IntPtr)456, results, value) == (value == 0 ? 2 : 1), "incoming ZF survives observer and native branch");
+                    Require(Marshal.ReadInt32(results, 240) == (nativeCall ? 1 : 0), "displaced native call occurs exactly once");
+                    Require(Marshal.ReadInt64(results, 8) == Marshal.ReadInt64(results, 16), "trace stack preserved");
+                    Require((ulong)Marshal.ReadInt64(results, 24) == Sentinel && (ulong)Marshal.ReadInt64(results, 32) == Sentinel + 1, "trace volatile registers");
+                    Require(Marshal.ReadInt64(results, 40) == 123 && Marshal.ReadInt64(results, 48) == 456 &&
+                        Marshal.ReadInt64(results, 56) == 123 && Marshal.ReadInt64(results, 64) == value, "trace argument registers");
+                    for (int i = 0; i < 7; i++) Require((ulong)Marshal.ReadInt64(results, 80 + i * 8) == Sentinel + (ulong)i + 2, "trace nonvolatile");
+                    for (int i = 0; i < 12; i++) Require(Marshal.ReadInt64(results, 144 + i * 8) == -1, "trace XMM");
+                }
+                Require(calls == (execution ? 8 : 4), "inactive/ordinary trace performs no managed callback; execution is paired");
+            }
+            finally { Marshal.FreeHGlobal(results); }
+            Console.WriteLine("PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.");
+        }
+        private static byte[] BuildHarness(byte[] originalBytes, ulong ip, bool builder, bool trace = false)
         {
             var a = new Assembler(64);
             a.push(rbx); a.push(rbp); a.push(rsi); a.push(rdi);
@@ -156,6 +233,7 @@ namespace EnemyGatePathfindingTest
             a.mov(r12, Sentinel + 6); a.mov(r14, Sentinel + 7); a.mov(r15, Sentinel + 8);
             a.pcmpeqd(xmm0, xmm0); a.pcmpeqd(xmm1, xmm1); a.pcmpeqd(xmm2, xmm2);
             a.pcmpeqd(xmm3, xmm3); a.pcmpeqd(xmm4, xmm4); a.pcmpeqd(xmm5, xmm5);
+            if (trace) a.cmp(eax, 0);
             a.db(originalBytes);
             Label reject = a.CreateLabel(), collect = a.CreateLabel();
             a.je(reject);

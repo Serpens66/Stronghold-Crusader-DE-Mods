@@ -178,6 +178,8 @@ internal static partial class Program
             .Replace("(PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0)", "Stopwatch.GetTimestamp()")
             .Replace("if (PerformanceDiagnosticsEnabled) ", "")
             .Replace("RememberTemporaryParent(nextTile);", "")
+            .Replace("UnitCommandPathRuntime.BeginTemporaryFinalValidation();", "")
+            .Replace(", publicationValidation: true", "")
             .Replace("activeObservation?.ParentDecisions?.Clear();", "");
         MethodDeclarationSyntax WithoutTemporaryValidation(MethodDeclarationSyntax method)
         {
@@ -199,7 +201,8 @@ internal static partial class Program
                 st is IfStatementSyntax test && (test.Condition.ToString().Contains("DetailedObserver") || test.Condition.ToString() == "evidence != null")).ToArray();
             method = method.RemoveNodes(removable, SyntaxRemoveOptions.KeepNoTrivia);
             return method.WithIdentifier(SyntaxFactory.Identifier("AllowsAssassinTransition"))
-                .WithParameterList(method.ParameterList.WithParameters(method.ParameterList.Parameters.RemoveAt(method.ParameterList.Parameters.Count - 1)));
+                .WithParameterList(method.ParameterList.WithParameters(SyntaxFactory.SeparatedList(method.ParameterList.Parameters
+                    .Where(p => p.Identifier.Text != "evidence" && p.Identifier.Text != "captureFinalEvidence"))));
         }
         string runtimePath = "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs";
         string previous = GitSource("f57dfdb02", runtimePath), current = WithoutDiagnosticGates(File.ReadAllText(Path.Combine(root, runtimePath)));

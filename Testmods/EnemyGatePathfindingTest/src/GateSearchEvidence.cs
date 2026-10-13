@@ -20,6 +20,13 @@ namespace EnemyGatePathfindingTest
     // Evidence only. Never used to choose a route, player, command or policy mask.
     internal static class GateSearchEvidence
     {
+        // Classification of existing topology data, never a path query or a policy input.
+        internal static string TopologyCase(int entry, int exit, bool hasBridge) => hasBridge
+            ? "bridge-present-not-isolated" : entry <= 0 || exit <= 0
+                ? "pcl-unavailable" : entry == exit
+                    ? "same-pcl-gate-candidate-query-and-route-unproven"
+                    : "different-pcl-gate-ordinary-native-check";
+
         internal static string Search(bool completed, bool success, long rejectedEdges) =>
             !completed ? "incomplete" : success
                 ? (rejectedEdges > 0 ? "success-with-rejected-edges" : "success-without-rejected-edges")

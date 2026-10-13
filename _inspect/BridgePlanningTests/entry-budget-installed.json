@@ -1,0 +1,12 @@
+[
+  {
+    "File": "EnemyBridgePathTest.dll",
+    "SHA256": "00d6e46672f016f5b84b509ce6a979e363d864b0e5f0fef36582c75b6b9c1674",
+    "Match": true
+  },
+  {
+    "File": "info.json",
+    "SHA256": "789d252f6d04422f8e53735e2734ea77c4149de1b357909b493e3660a0dba602",
+    "Match": true
+  }
+]

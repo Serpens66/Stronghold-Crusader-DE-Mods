@@ -8,8 +8,24 @@ namespace EnemyBridgePathTest
 {
     internal static class TraceTransportTests
     {
+        private sealed class ThrowingArtifact : System.Collections.Generic.IEnumerable<byte[]>
+        {
+            public System.Collections.Generic.IEnumerator<byte[]> GetEnumerator()=>throw new InvalidOperationException("fixture-before-publication");
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()=>GetEnumerator();
+        }
+        private static System.Collections.Generic.IEnumerable<byte[]> MinimalArtifact(){yield return BridgeInputArtifact.Header("fixture=True\n",1);}
+        private static void PairReservation()
+        {
+            string folder=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"pair-reservation-"+Guid.NewGuid().ToString("N"));var writer=new BridgeInputArtifact(folder,(_,__,___)=>{});bool threw=false;
+            try{writer.EnqueuePair(1,1,MinimalArtifact(),2,new ThrowingArtifact(),1);}catch(InvalidOperationException){threw=true;}
+            if(!threw||writer.Pending(1)||!writer.Status(1).Contains("inputArtifactsRequested=0"))throw new Exception("unpublished pair failure must preserve both slots");
+            if(!writer.EnqueuePair(1,1,MinimalArtifact(),2,MinimalArtifact(),1)||writer.EnqueuePair(1,3,MinimalArtifact(),4,MinimalArtifact(),1))throw new Exception("pair atomically reserves exactly two slots");
+            int frames=0;while(writer.Pending(1)&&frames++<20)writer.Pump();if(writer.Pending(1)||!File.Exists(Path.Combine(folder,"bridge-1-1.bin"))||!File.Exists(Path.Combine(folder,"bridge-1-2.bin")))throw new Exception("bounded pair delivery");
+            if(!writer.Enqueue(2,5,MinimalArtifact(),1)||writer.EnqueuePair(2,6,MinimalArtifact(),7,MinimalArtifact(),1)||!writer.Status(2).Contains("inputArtifactsRequested=1"))throw new Exception("existing independent slot cannot partially accept a pair");
+        }
         internal static int Run()
         {
+            PairReservation();
             if(BridgeTraceTransport.WarmUp()<0||BridgeTraceTransport.WarmUp()!=0)throw new Exception("publisher warmup must be once and synthetic");
             string prefix="[Info : bridge] bridge trace seq=1,session=9,thread=15,tick=2,clock=9223372036854775807,physical=3,topology=4,";
             string detail="rows=["+string.Concat(Enumerable.Repeat("-9223372036854775808/4294967297/8/225464/0/0;",32))+"],unicode=Br\u00FCcke";

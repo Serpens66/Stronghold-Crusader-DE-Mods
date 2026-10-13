@@ -1,0 +1,64 @@
+{
+  "sessionSummary": [
+    {
+      "session": "1",
+      "ended": true,
+      "delivered": true,
+      "commandAccounting": {
+        "pre": 7312,
+        "post": 7312,
+        "suppressed": 0,
+        "complete": true,
+        "suppressionSource": "trace-counter"
+      }
+    }
+  ],
+  "coverage": {
+    "eventCaptureComplete": true,
+    "nativeReady": true,
+    "nativeCallsObserved": true,
+    "nativeCoverageComplete": true,
+    "coherentTopologyCaptures": 15,
+    "shadowResultsDelivered": true,
+    "selectedShadowComputationComplete": true,
+    "shadowCoverageComplete": false,
+    "usableGeometricResults": 8
+  },
+  "lossSummary": {
+    "fieldDefinitions": 0,
+    "states": 0,
+    "ongoingSnapshots": 0,
+    "unitCommandInputs": 0,
+    "sourceCoverage": [
+      [
+        "1",
+        "not-instrumented"
+      ]
+    ],
+    "freshDecisionProof": false
+  },
+  "movementSummary": [
+    {
+      "player": "5",
+      "observations": 8,
+      "units": 4,
+      "commands": 4,
+      "unitsWithEntryAndExit": 2,
+      "unmatchedEntries": 2,
+      "unmatchedExits": 0
+    }
+  ],
+  "artifactSummary": {
+    "requested": 0,
+    "completed": 0,
+    "failed": 0,
+    "pending": 0,
+    "deliveryComplete": true,
+    "filesVerified": false
+  },
+  "captureComplete": true,
+  "deliveryComplete": true,
+  "bridgeComplete": true,
+  "logSha256": "47F1F1CF57FBA9F72C5AB2A5A0FC325AD9AA7BAC8E865E2790FC876A1ED7D46C",
+  "processSectionSha256": "7FE42449AF3164AA0FE835BB9CDB96C92FBCECB8454BCAA98BF5FC79CDF0C463"
+}

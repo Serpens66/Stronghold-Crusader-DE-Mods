@@ -1,0 +1,5 @@
+Ground.Coverage=พืชพรรณ
+Ground.Green=พื้นที่สีเขียว
+Ground.Stone=ช่องหิน
+Ground.Iron=ช่องเหล็ก
+Ground.Pitch=ช่องยางมะตอย

@@ -32,6 +32,7 @@ namespace EnemyGatePathfindingTest
         // TEMP_GATE_ROUTE_ACCEPTANCE: compact minute windows for the endurance test.
         private static readonly long DiagnosticInterval = Stopwatch.Frequency * 60L;
         private TemporaryGateRouteAcceptance temporaryAcceptance;
+        private AssassinGateDescentRuntime assassinDescent;
 
         private readonly ManualLogSource log;
         private readonly bool detailedDiagnostics;
@@ -218,8 +219,27 @@ namespace EnemyGatePathfindingTest
                 samePclRouteRuntime.TemporaryPolicyPublished = temporaryAcceptance.ObservePolicyPublication;
             topologyProvider.SetRoutePolicyConsumer(updated =>
                 samePclRouteRuntime?.UpdatePolicy(updated));
+            assassinDescent = new AssassinGateDescentRuntime(context,
+                () => samePclRouteRuntime?.MacemenDiagnosticSnapshot ?? RouteTilePolicySnapshot.Empty);
+            Shared.DebugLogHelper.LogInfo(log, "Assassin gate descent guard installed: rva=0x185D55,displaced=20,continuation=0x185934,independentOfDetailedDiagnostics=true");
             // TEMP_GATE_ROUTE_ACCEPTANCE: publish only after the existing initialization succeeds.
             if (detailedDiagnostics) APIShared.TemporaryGateRouteAcceptanceBridge.Register(temporaryAcceptance);
+            if (detailedDiagnostics)
+            {
+                try
+                {
+                    temporaryAcceptance.NativeDiagnostics = new NativeAssassinDiagnosticHooks(context, temporaryAcceptance);
+                    Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE native reconstruction probes installed; exact branch/selected-edge evidence enabled with map diagnostics.");
+                    for (int site = 0; site < NativeAssassinDiagnosticHooks.Sites.Length; site++)
+                        Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE native trace resolution=reference-rva, rva=0x" +
+                            NativeAssassinDiagnosticHooks.Sites[site].ToString("X") + ",displaced=" +
+                            NativeAssassinDiagnosticHooks.Bytes[site].Length / 2 + ",backend=X64InlineHook,permanent=true");
+                }
+                catch (Exception error)
+                {
+                    Shared.DebugLogHelper.LogError(log, "TEMP_GATE_ROUTE_ACCEPTANCE native reconstruction coverage unavailable: " + error);
+                }
+            }
 
             if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
@@ -257,6 +277,7 @@ namespace EnemyGatePathfindingTest
             samePclRouteRuntime?.SetBuildingMapMode(editor);
             attackOrderDiagnostics?.Reset();
             temporaryAcceptance?.Begin();
+            assassinDescent?.SetActive(true, temporaryAcceptance?.NativeDiagnostics);
             topologyProvider?.BeginExplicitEpoch(reason);
             macemen?.Begin(topologyProvider?.DiagnosticEpoch ?? 0);
             Shared.DebugLogHelper.LogInfo(log,
@@ -270,6 +291,8 @@ namespace EnemyGatePathfindingTest
             bool hadActiveEpoch = Interlocked.CompareExchange(ref mapActive, 0, 1) == 1;
             if (!hadActiveEpoch)
                 return;
+            assassinDescent?.SetActive(false, temporaryAcceptance?.NativeDiagnostics);
+            if (assassinDescent != null) Shared.DebugLogHelper.LogInfo(log, assassinDescent.Summary);
             LogDiagnosticCheckpoint("final", reason);
             // TEMP_GATE_ROUTE_ACCEPTANCE: validate complete AI result attribution against functional counters.
             if (temporaryAcceptance != null && samePclRouteRuntime != null)

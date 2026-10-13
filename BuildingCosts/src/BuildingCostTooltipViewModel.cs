@@ -10,7 +10,7 @@ namespace BuildingCosts
     public sealed class BuildingCostTooltipViewModel : INotifyPropertyChanged, INoesisElementBindingAware
     {
         private bool hasAdditionalCosts;
-        private FrameworkElement hudRoot;
+        private FrameworkElement hudRoot, tooltipAnchor;
         private double tooltipMaxWidth = 960;
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -63,6 +63,7 @@ namespace BuildingCosts
                 hudRoot.SizeChanged += OnHudSizeChanged;
                 hudRoot.Unloaded += OnHudUnloaded;
             }
+            tooltipAnchor = element;
             UpdateTooltipWidth();
         }
 
@@ -82,13 +83,16 @@ namespace BuildingCosts
                 return;
             hudRoot.SizeChanged -= OnHudSizeChanged;
             hudRoot.Unloaded -= OnHudUnloaded;
-            hudRoot = null;
+            hudRoot = null; tooltipAnchor = null;
         }
 
         private void UpdateTooltipWidth()
         {
             if (hudRoot != null && hudRoot.ActualWidth > 320)
-                TooltipMaxWidth = Math.Max(320, hudRoot.ActualWidth - 320);
+            {
+                double left = tooltipAnchor == null ? 0 : tooltipAnchor.TransformToAncestor(hudRoot).TransformBounds(new Rect(0, 0, 1, 1)).X;
+                TooltipMaxWidth = Math.Max(1, hudRoot.ActualWidth - Math.Max(0, left) - 10);
+            }
         }
 
         private void OnPropertyChanged(string propertyName)

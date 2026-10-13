@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.187.0</AssemblyVersion>
-    <FileVersion>1.0.187.0</FileVersion>
+    <AssemblyVersion>1.0.188.0</AssemblyVersion>
+    <FileVersion>1.0.188.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -35,6 +35,8 @@
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureRuntime.cs" />
+    <Compile Include="src\DrawbridgeDestructionFix\NativeContract.cs" />
+    <Compile Include="src\DrawbridgeDestructionFix\FixRuntime.cs" />
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Numerics" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath><Private>false</Private></Reference>

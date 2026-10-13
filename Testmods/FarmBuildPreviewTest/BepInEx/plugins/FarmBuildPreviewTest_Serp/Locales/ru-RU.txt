@@ -1,0 +1,5 @@
+Ground.Coverage=Растительность
+Ground.Green=Зелень
+Ground.Stone=Клетки камня
+Ground.Iron=Клетки железа
+Ground.Pitch=Клетки смолы

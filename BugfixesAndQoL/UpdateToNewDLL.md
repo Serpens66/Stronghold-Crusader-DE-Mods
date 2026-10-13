@@ -563,3 +563,42 @@ checks. Visible Vanilla comparison and multiplayer acceptance remain pending.
 ### TEMP_GATE_ROUTE_ACCEPTANCE: output-mode evidence (2026-10-11)
 
 Owner: existing UnitCommandPathRuntime F4930 detour; no added hook. Reference DLL SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2, RVA 0xF4930. At the existing entry/exit, read already audited manager modes +0x84/+0x88/+0x94 and output length +0x155F68; capture original arguments 2/3 as raw values. F4930 at 0xF4B9C tests +0x94 and argument 3 zero before DB650/DA590 and E1640 mode-1 reconstruction. Entry eligibility is not runtime proof that this branch executed. +0x94 remains excluded from exact staged Assassin publication. Use the existing hash/signature and displaced-span validation of the functional owner; no separate executable patch or address fallback. Unknown/unowned context is not read; diagnosis is inactive without an observer and cannot authorize publication. On future native updates re-audit the whole F4930 search/reconstruction flow rather than removing this guard.
+
+### Drawbridge nonlethal gatehouse damage (2026-10-13)
+
+Owner: src/DrawbridgeDestructionFix/FixRuntime.cs, permanent X64InlineHook.
+Reference native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Audit the complete direct damage function 0x7EB00..0x7F88A, all incoming
+edges, bridge coupling/removal, area damage, demolition and deferred removal
+before adapting this feature. Hook 0x7EE6B displaces exactly 15 bytes (4+6+5),
+continues at 0x7EE7A, and skips early bridge removal at 0x7EF87 only when
+argument 8 is 1, type is 45/46 and the newly stored signed Int16 HP is positive.
+Native manager slot stride 0x32C, type +0x12E, health +0x168; public view +0x5C.
+Original displaced instructions must execute fully when disabled. Preserve
+RAX, flags and all other live state. The installed RedBird backend must again
+assemble/decode the production emitter and confirm its 15-byte displacement.
+
+Test-DrawbridgeDestructionFix.ps1 and tests/DrawbridgeDestructionFix.Tests
+verify hash, original bytes, layout, full-function control flow and 150 native
+execution cases. Live interior bytes must match the reference function;
+Extender entry instrumentation is allowed only in the first audited 64 bytes.
+Unknown hash, conflicting bytes or an unexpected span abort this feature only.
+Installation candidates roll back before publication; published hooks and
+subscriptions remain statically rooted and activation changes only data.
+
+EnableDrawbridgeDestructionFix is SyncHostOnly, defaults true, resets true and
+participates in the existing preset/host/client/trail rules. Effective state
+is EnableMod && EnableDrawbridgeDestructionFix. Existing dependency minima
+and main version remain unchanged during main-mod acceptance. APIShared is
+unchanged: existing public damage/coupling/lifecycle services suffice and no
+second user justifies a new public native service. Diagnose installation and
+state transitions, one identity-checked protected hit, and at most one observer
+error; the observer exits immediately after confirmation. Do not restore test
+snapshots, map summaries, geometry caches or per-hit logging.
+
+Independent testmod revision 2 editor acceptance: 2026-10-13 16:57..16:59,
+668 paired calls, 665 protected native decisions, 64 detailed surviving-hit
+bridge captures and 3 lethal removals (both stone gate sizes), no errors or
+pending follow-ups. This confirms the testmod, not main-mod or multiplayer
+acceptance. Main-mod testing must include two bridges and bridge states,
+option/mod disabled, demolition, projectile/area damage and multiplayer.

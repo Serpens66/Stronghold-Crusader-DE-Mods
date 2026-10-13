@@ -1,0 +1,1723 @@
+F APIShared.AssassinObstacleCompletionMode APIShared.AssassinObstacleCompletionMode::IdleOnly
+F APIShared.AssassinObstacleCompletionMode APIShared.AssassinObstacleCompletionMode::NativeRetarget
+F APIShared.AssassinTransitionKind APIShared.AssassinTransitionKind::ClimbDown
+F APIShared.AssassinTransitionKind APIShared.AssassinTransitionKind::ClimbUp
+F APIShared.AssassinTransitionKind APIShared.AssassinTransitionKind::Ground
+F APIShared.AssassinTransitionKind APIShared.AssassinTransitionKind::Unknown
+F APIShared.Audio.SituationEvidence APIShared.Audio.SituationEvidence::Inferred
+F APIShared.Audio.SituationEvidence APIShared.Audio.SituationEvidence::InGameConfirmed
+F APIShared.Audio.SituationEvidence APIShared.Audio.SituationEvidence::NativeAudited
+F APIShared.Audio.SituationEvidence APIShared.Audio.SituationEvidence::Unknown
+F APIShared.Audio.SoundPlaybackKind APIShared.Audio.SoundPlaybackKind::Explicit
+F APIShared.Audio.SoundPlaybackKind APIShared.Audio.SoundPlaybackKind::Spatial
+F APIShared.Audio.SoundPlaybackKind APIShared.Audio.SoundPlaybackKind::SpatialUnattenuated
+F APIShared.Audio.SoundPlaybackKind APIShared.Audio.SoundPlaybackKind::Unknown
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::ArabianIdleSwordDraw
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::ArabianIdleSwordSheathe
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::AttackStone
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::AttackWood
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::Climbing
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::FireSetting
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::LadderBreaking
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::LadderPlacement
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::MeleeMetalContact
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::MeleeWeaponSwing
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::MoatDigging
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::MountedDeath
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::MountedFall
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::OilPouring
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::RangedWeaponFire
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::RangedWeaponReload
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::TunnelCollapse
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::TunnelDigging
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::Unknown
+F APIShared.Audio.SoundSituation APIShared.Audio.SoundSituation::WallDemolition
+F APIShared.Audio.SoundTargetKind APIShared.Audio.SoundTargetKind::CustomClip
+F APIShared.Audio.SoundTargetKind APIShared.Audio.SoundTargetKind::VanillaEffect
+F APIShared.BriefingGoldAdjustmentStage APIShared.BriefingGoldAdjustmentStage::ModAdjustment
+F APIShared.BriefingGoldAdjustmentStage APIShared.BriefingGoldAdjustmentStage::VanillaCorrection
+F APIShared.Economy.MarketPriceDirection APIShared.Economy.MarketPriceDirection::Buy
+F APIShared.Economy.MarketPriceDirection APIShared.Economy.MarketPriceDirection::Sell
+F APIShared.ElevatedMoatAiState APIShared.ElevatedMoatAiState::Disabled
+F APIShared.ElevatedMoatAiState APIShared.ElevatedMoatAiState::Enabled
+F APIShared.ElevatedMoatAiState APIShared.ElevatedMoatAiState::Unknown
+F APIShared.EnemyGateSearchKind APIShared.EnemyGateSearchKind::Attack
+F APIShared.EnemyGateSearchKind APIShared.EnemyGateSearchKind::Builder
+F APIShared.EnemyGateSearchKind APIShared.EnemyGateSearchKind::BuildingApproach
+F APIShared.EnemyGateSearchKind APIShared.EnemyGateSearchKind::BuildingConsumer
+F APIShared.EnemyGateSearchKind APIShared.EnemyGateSearchKind::CursorCommand
+F APIShared.GameModes.CustomizedLaunchOriginKind APIShared.GameModes.CustomizedLaunchOriginKind::CoopTrail
+F APIShared.GameModes.CustomizedLaunchOriginKind APIShared.GameModes.CustomizedLaunchOriginKind::CustomTrail
+F APIShared.GameModes.CustomizedLaunchOriginKind APIShared.GameModes.CustomizedLaunchOriginKind::None
+F APIShared.GameModes.CustomizedLaunchOriginKind APIShared.GameModes.CustomizedLaunchOriginKind::SandsOfTime
+F APIShared.GameModes.CustomizedLaunchOriginKind APIShared.GameModes.CustomizedLaunchOriginKind::VanillaTrail
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::Campaign
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::CoopTrail
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::CustomGame
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::CustomTrail
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::MapEditor
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::SandsOfTime
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::StandaloneMission
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::Tutorial
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::Unknown
+F APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeKind::VanillaTrail
+F APIShared.GameModes.GameModeLaunchVariant APIShared.GameModes.GameModeLaunchVariant::Customized
+F APIShared.GameModes.GameModeLaunchVariant APIShared.GameModes.GameModeLaunchVariant::RestoredCustomizedSave
+F APIShared.GameModes.GameModeLaunchVariant APIShared.GameModes.GameModeLaunchVariant::Standard
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::Campaign
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::CoopTrail
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::CustomGame
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::CustomizedCoopTrail
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::CustomizedCustomTrail
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::CustomizedSandsOfTime
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::CustomizedVanillaTrail
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::CustomTrail
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::MapEditor
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::None
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::SandsOfTime
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::StandaloneMission
+F APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModAllowedContext::VanillaTrail
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::Extreme
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::FirstEdition
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsEight
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsFive
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsFour
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsOne
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsSeven
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsSix
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsThree
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::SandsTwo
+F APIShared.GameModes.GameTrailType APIShared.GameModes.GameTrailType::Warchest
+F APIShared.GatehouseDistanceOrigin APIShared.GatehouseDistanceOrigin::BuildingBoundsCenter
+F APIShared.GatehouseDistanceOrigin APIShared.GatehouseDistanceOrigin::VanillaBuildingBegin
+F APIShared.MissionEndReason APIShared.MissionEndReason::ApplicationExit
+F APIShared.MissionEndReason APIShared.MissionEndReason::Exception
+F APIShared.MissionEndReason APIShared.MissionEndReason::Failed
+F APIShared.MissionEndReason APIShared.MissionEndReason::None
+F APIShared.MissionEndReason APIShared.MissionEndReason::Replaced
+F APIShared.MissionEndReason APIShared.MissionEndReason::SceneChanged
+F APIShared.MissionEndReason APIShared.MissionEndReason::Unloaded
+F APIShared.MissionInitializationPhase APIShared.MissionInitializationPhase::AfterNativeStart
+F APIShared.MissionInitializationPhase APIShared.MissionInitializationPhase::BeforeLoad
+F APIShared.MissionInitializationPhase APIShared.MissionInitializationPhase::BeforeNativeStart
+F APIShared.MissionInitializationPhase APIShared.MissionInitializationPhase::ManagedReady
+F APIShared.MissionInitializationPhase APIShared.MissionInitializationPhase::NativeLoaded
+F APIShared.MissionInitializationPhase APIShared.MissionInitializationPhase::None
+F APIShared.MissionLifecycleKind APIShared.MissionLifecycleKind::End
+F APIShared.MissionLifecycleKind APIShared.MissionLifecycleKind::Initialization
+F APIShared.MissionLifecycleKind APIShared.MissionLifecycleKind::Start
+F APIShared.MissionMapType APIShared.MissionMapType::Economy
+F APIShared.MissionMapType APIShared.MissionMapType::FreeBuild
+F APIShared.MissionMapType APIShared.MissionMapType::Invasion
+F APIShared.MissionMapType APIShared.MissionMapType::Siege
+F APIShared.MissionMapType APIShared.MissionMapType::Unknown
+F APIShared.MissionStartKind APIShared.MissionStartKind::EditorCreated
+F APIShared.MissionStartKind APIShared.MissionStartKind::EditorLoaded
+F APIShared.MissionStartKind APIShared.MissionStartKind::LoadedSave
+F APIShared.MissionStartKind APIShared.MissionStartKind::NewGame
+F APIShared.ModSettings.ModSettingsPresetSourceKind APIShared.ModSettings.ModSettingsPresetSourceKind::Bundled
+F APIShared.ModSettings.ModSettingsPresetSourceKind APIShared.ModSettings.ModSettingsPresetSourceKind::External
+F APIShared.ModSettings.ModSettingsPresetSourceKind APIShared.ModSettings.ModSettingsPresetSourceKind::Mission
+F APIShared.ModSettings.ModSettingsPresetSourceKind APIShared.ModSettings.ModSettingsPresetSourceKind::Personal
+F APIShared.ModSettings.ModSettingsWorkingSourceKind APIShared.ModSettings.ModSettingsWorkingSourceKind::Map
+F APIShared.ModSettings.ModSettingsWorkingSourceKind APIShared.ModSettings.ModSettingsWorkingSourceKind::ModDefault
+F APIShared.ModSettings.ModSettingsWorkingSourceKind APIShared.ModSettings.ModSettingsWorkingSourceKind::Trail
+F APIShared.ModSettings.PresetSaveBulkMode APIShared.ModSettings.PresetSaveBulkMode::Fixed
+F APIShared.ModSettings.PresetSaveBulkMode APIShared.ModSettings.PresetSaveBulkMode::HostFixed
+F APIShared.ModSettings.PresetSaveBulkMode APIShared.ModSettings.PresetSaveBulkMode::Mixed
+F APIShared.ModSettings.PresetSaveBulkMode APIShared.ModSettings.PresetSaveBulkMode::ModDefault
+F APIShared.ModSettings.PresetSaveBulkMode APIShared.ModSettings.PresetSaveBulkMode::Player
+F APIShared.ModSettings.PresetSettingScope APIShared.ModSettings.PresetSettingScope::Host
+F APIShared.ModSettings.PresetSettingScope APIShared.ModSettings.PresetSettingScope::Local
+F APIShared.ModSettings.PresetSettingScope APIShared.ModSettings.PresetSettingScope::Player
+F APIShared.ModSettings.PublishedPresetValueMode APIShared.ModSettings.PublishedPresetValueMode::Fixed
+F APIShared.ModSettings.PublishedPresetValueMode APIShared.ModSettings.PublishedPresetValueMode::ModDefault
+F APIShared.ModSettings.PublishedPresetValueMode APIShared.ModSettings.PublishedPresetValueMode::Player
+F APIShared.ModSettings.SettingModeStatus APIShared.ModSettings.SettingModeStatus::Active
+F APIShared.ModSettings.SettingModeStatus APIShared.ModSettings.SettingModeStatus::Inactive
+F APIShared.ModSettings.SettingModeStatus APIShared.ModSettings.SettingModeStatus::Unknown
+F APIShared.NativeApiState APIShared.NativeApiState::Pending
+F APIShared.NativeApiState APIShared.NativeApiState::Ready
+F APIShared.NativeApiState APIShared.NativeApiState::Unavailable
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::Ambiguous
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::Available
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::Conflict
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::Faulted
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::PatternMissing
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::Pending
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::UnsupportedBuild
+F APIShared.NativeCapabilityState APIShared.NativeCapabilityState::ValidationFailed
+F APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendStatus::Disabled
+F APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendStatus::Invalid
+F APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendStatus::PreparationFailed
+F APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendStatus::Submitted
+F APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendStatus::TooLarge
+F APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendStatus::TransportFailed
+F APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendStatus::Unavailable
+F APIShared.Pathfinding.RouteSearchTerrain APIShared.Pathfinding.RouteSearchTerrain::DiagnosticMoat
+F APIShared.Pathfinding.RouteSearchTerrain APIShared.Pathfinding.RouteSearchTerrain::FriendlyMoat
+F APIShared.Pathfinding.RouteSearchTerrain APIShared.Pathfinding.RouteSearchTerrain::GroundOnly
+F APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationOperation::BuildingRollover
+F APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationOperation::GuiChecks
+F APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationOperation::RechargeSiegeAmmo
+F APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationOperation::RecruitmentEnter
+F APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationOperation::RecruitmentLeave
+F APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationOperation::TroopPanelEnter
+F APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationOperation::TroopPanelLeave
+F APIShared.Recruitment.RecruitmentConstraintAction APIShared.Recruitment.RecruitmentConstraintAction::Block
+F APIShared.Recruitment.RecruitmentConstraintAction APIShared.Recruitment.RecruitmentConstraintAction::ForwardAmount
+F APIShared.Recruitment.RecruitmentConstraintAction APIShared.Recruitment.RecruitmentConstraintAction::PreserveOriginal
+F APIShared.SavegameLoadChoiceState APIShared.SavegameLoadChoiceState::Invalid
+F APIShared.SavegameLoadChoiceState APIShared.SavegameLoadChoiceState::Legacy
+F APIShared.SavegameLoadChoiceState APIShared.SavegameLoadChoiceState::SavedOnly
+F APIShared.SavegameLoadChoiceState APIShared.SavegameLoadChoiceState::Selectable
+F APIShared.UnitHudImageSlot APIShared.UnitHudImageSlot::UIBuildingsO011
+F APIShared.UnitHudImageSlot APIShared.UnitHudImageSlot::UIBuildingsO012
+F APIShared.UnitHudImageSlot APIShared.UnitHudImageSlot::UIButtonsK007
+F APIShared.UnitHudImageSlot APIShared.UnitHudImageSlot::UIButtonsK008
+F APIShared.UnitHudImageSlot APIShared.UnitHudImageSlot::UIButtonsO016
+F APIShared.UnitHudImageSlot APIShared.UnitHudImageSlot::UIButtonsO017
+F APIShared.UnitHudImageSlot APIShared.UnitHudImageSlot::UIButtonsO018
+F APIShared.UnitHudMouseButton APIShared.UnitHudMouseButton::Left
+F APIShared.UnitHudMouseButton APIShared.UnitHudMouseButton::Middle
+F APIShared.UnitHudMouseButton APIShared.UnitHudMouseButton::Right
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::All
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::ArmyReport
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::ControlGroups
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::None
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::Recruitment
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::TroopSelection
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::UnitDetails
+F APIShared.UnitHudSurface APIShared.UnitHudSurface::UnitHover
+F APIShared.UnitHudTextKind APIShared.UnitHudTextKind::Description
+F APIShared.UnitHudTextKind APIShared.UnitHudTextKind::DisplayName
+F APIShared.UnitHudTextKind APIShared.UnitHudTextKind::ShortLabel
+F APIShared.UnitLookupFailure APIShared.UnitLookupFailure::InvalidId
+F APIShared.UnitLookupFailure APIShared.UnitLookupFailure::ManagerUnavailable
+F APIShared.UnitLookupFailure APIShared.UnitLookupFailure::None
+F APIShared.UnitLookupFailure APIShared.UnitLookupFailure::OutOfRange
+F APIShared.UnitLookupFailure APIShared.UnitLookupFailure::Unavailable
+F APIShared.Workshop.WorkshopAction APIShared.Workshop.WorkshopAction::Downgrade
+F APIShared.Workshop.WorkshopAction APIShared.Workshop.WorkshopAction::Install
+F APIShared.Workshop.WorkshopAction APIShared.Workshop.WorkshopAction::Reinstall
+F APIShared.Workshop.WorkshopAction APIShared.Workshop.WorkshopAction::Remove
+F APIShared.Workshop.WorkshopAction APIShared.Workshop.WorkshopAction::Update
+F APIShared.Workshop.WorkshopOperationState APIShared.Workshop.WorkshopOperationState::AwaitingRestart
+F APIShared.Workshop.WorkshopOperationState APIShared.Workshop.WorkshopOperationState::Failed
+F APIShared.Workshop.WorkshopOperationState APIShared.Workshop.WorkshopOperationState::Preparing
+F APIShared.Workshop.WorkshopOperationState APIShared.Workshop.WorkshopOperationState::Ready
+F APIShared.Workshop.WorkshopOperationState APIShared.Workshop.WorkshopOperationState::Submitted
+F APIShared.Workshop.WorkshopOperationState APIShared.Workshop.WorkshopOperationState::Succeeded
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsMode::AvailabilityProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsMode::KeyProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::ExactKeyProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::ExcludeProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::FilterTextProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::FocusRequestProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::IncludeToolTipsProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::IsSectionProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::KeyProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::SectionKeyProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::SectionTitleProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::TitleProperty
+F Noesis.DependencyProperty APIShared.ModSettings.ModSettingsSearch::ToolTipTextProperty
+F System.Double APIShared.GatehouseTimingValues::MaximumAiDelaySeconds
+F System.Double APIShared.GatehouseTimingValues::MaximumDistanceTiles
+F System.Double APIShared.GatehouseTimingValues::MaximumHumanDelaySeconds
+F System.Double APIShared.GatehouseTimingValues::MinimumAiDelaySeconds
+F System.Double APIShared.GatehouseTimingValues::MinimumDistanceTiles
+F System.Double APIShared.GatehouseTimingValues::MinimumHumanDelaySeconds
+F System.Double APIShared.GatehouseTimingValues::VanillaAiDelaySeconds
+F System.Double APIShared.GatehouseTimingValues::VanillaAiDistanceTiles
+F System.Double APIShared.GatehouseTimingValues::VanillaHumanDelaySeconds
+F System.Double APIShared.GatehouseTimingValues::VanillaHumanDistanceTiles
+F System.Int32 APIShared.AssassinObstacleCompletionMode::value__
+F System.Int32 APIShared.AssassinTransitionKind::value__
+F System.Int32 APIShared.Audio.SituationEvidence::value__
+F System.Int32 APIShared.Audio.SoundPlaybackKind::value__
+F System.Int32 APIShared.Audio.SoundSituation::value__
+F System.Int32 APIShared.Audio.SoundTargetKind::value__
+F System.Int32 APIShared.BriefingGoldAdjustmentStage::value__
+F System.Int32 APIShared.Economy.MarketPriceDirection::value__
+F System.Int32 APIShared.ElevatedMoatAiState::value__
+F System.Int32 APIShared.EnemyGateSearchKind::value__
+F System.Int32 APIShared.GameModes.CustomizedLaunchOriginKind::value__
+F System.Int32 APIShared.GameModes.GameModeKind::value__
+F System.Int32 APIShared.GameModes.GameModeLaunchVariant::value__
+F System.Int32 APIShared.GameModes.GameplayModAllowedContext::value__
+F System.Int32 APIShared.GameModes.GameTrailType::value__
+F System.Int32 APIShared.GatehouseDistanceOrigin::value__
+F System.Int32 APIShared.GatehouseDrawbridgeCoupling::MaximumCoupledDrawbridges
+F System.Int32 APIShared.MissionEndReason::value__
+F System.Int32 APIShared.MissionInitializationPhase::value__
+F System.Int32 APIShared.MissionLifecycleKind::value__
+F System.Int32 APIShared.MissionMapType::value__
+F System.Int32 APIShared.MissionStartKind::value__
+F System.Int32 APIShared.ModSettings.ModSettingsPresetJson::MaximumDescriptionLength
+F System.Int32 APIShared.ModSettings.ModSettingsPresetJson::MaximumSettings
+F System.Int32 APIShared.ModSettings.ModSettingsPresetJson::SchemaVersion
+F System.Int32 APIShared.ModSettings.ModSettingsPresetSourceKind::value__
+F System.Int32 APIShared.ModSettings.ModSettingsWorkingSourceKind::value__
+F System.Int32 APIShared.ModSettings.PresetSaveBulkMode::value__
+F System.Int32 APIShared.ModSettings.PresetSettingScope::value__
+F System.Int32 APIShared.ModSettings.PublishedPresetValueMode::value__
+F System.Int32 APIShared.ModSettings.SettingModeStatus::value__
+F System.Int32 APIShared.NativeApiState::value__
+F System.Int32 APIShared.NativeCapabilityState::value__
+F System.Int32 APIShared.Networking.ChoreTransport::MaximumPayloadBytes
+F System.Int32 APIShared.Networking.NetworkSendStatus::value__
+F System.Int32 APIShared.Pathfinding.RouteSearchTerrain::value__
+F System.Int32 APIShared.Presentation.PresentationOperation::value__
+F System.Int32 APIShared.Recruitment.RecruitmentConstraintAction::value__
+F System.Int32 APIShared.Recruitment.RecruitmentRequestPolicy::VanillaCtrlAllAmount
+F System.Int32 APIShared.SavegameLoadChoiceState::value__
+F System.Int32 APIShared.UnitHudImageSlot::value__
+F System.Int32 APIShared.UnitHudMouseButton::value__
+F System.Int32 APIShared.UnitHudSurface::value__
+F System.Int32 APIShared.UnitHudTextKind::value__
+F System.Int32 APIShared.UnitLookupFailure::value__
+F System.Int32 APIShared.Workshop.WorkshopAction::value__
+F System.Int32 APIShared.Workshop.WorkshopOperationState::value__
+F System.String APIShared.APISharedPlugin::PluginGuid
+F System.String APIShared.APISharedPlugin::PluginName
+F System.String APIShared.APISharedPlugin::PluginVersion
+F System.String APIShared.ModSettings.ModSettingsPresetJson::EncodedMessagePackPrefix
+F System.String APIShared.ModSettings.ModSettingsWorkingSourceRegistry::MapId
+F System.String APIShared.ModSettings.ModSettingsWorkingSourceRegistry::ModDefaultsId
+F System.String APIShared.ModSettings.ModSettingsWorkingSourceRegistry::TrailId
+F System.String APIShared.NativeCapabilityIds::AivBuildStep
+F System.String APIShared.NativeCapabilityIds::BriefingGoldPresentation
+F System.String APIShared.NativeCapabilityIds::BuildingRepair
+F System.String APIShared.NativeCapabilityIds::GatehouseAutomation
+F System.String APIShared.NativeCapabilityIds::GatehouseDistanceOrigin
+F System.String APIShared.NativeCapabilityIds::GatehouseTiming
+F System.String APIShared.NativeCapabilityIds::HudExtrasButtons
+F System.String APIShared.NativeCapabilityIds::LobbyState
+F System.String APIShared.NativeCapabilityIds::MissionLifecycle
+F System.String APIShared.NativeCapabilityIds::PlayerDefeat
+F System.String APIShared.NativeCapabilityIds::UnitHudPresentation
+F System.String APIShared.Workshop.WorkshopInventory::FileName
+F System.String APIShared.Workshop.WorkshopPackage::ManifestFileName
+M APIShared.AivBuildStepContext APIShared.AivBuildStepCompletion::get_Context()
+M APIShared.AssassinTransitionKind APIShared.AssassinGateTransitionPolicy::Classify(System.Int32,System.Byte,System.Byte,System.Byte,System.Byte,System.UInt32,System.UInt32,System.Boolean,System.Boolean,System.Boolean)
+M APIShared.AssassinTransitionKind APIShared.AssassinPathAPI::ClassifyNativeTransition(System.Int32,System.Int32,System.Int32,System.Boolean)
+M APIShared.Audio.SituationEvidence APIShared.Audio.SoundContext::get_SituationEvidence()
+M APIShared.Audio.SoundClipHandle APIShared.Audio.SoundTarget::get_Clip()
+M APIShared.Audio.SoundContext APIShared.Audio.SoundPostEventArgs::get_Context()
+M APIShared.Audio.SoundContext APIShared.Audio.SoundPreEventArgs::get_Context()
+M APIShared.Audio.SoundPlaybackKind APIShared.Audio.SoundContext::get_Kind()
+M APIShared.Audio.SoundSituation APIShared.Audio.SoundContext::get_Situation()
+M APIShared.Audio.SoundTarget APIShared.Audio.SoundPostEventArgs::get_Target()
+M APIShared.Audio.SoundTarget APIShared.Audio.SoundPreEventArgs::get_Target()
+M APIShared.Audio.SoundTargetKind APIShared.Audio.SoundTarget::get_Kind()
+M APIShared.Economy.MarketPriceDirection APIShared.Economy.MarketPricePostEventArgs::get_Direction()
+M APIShared.Economy.MarketPriceDirection APIShared.Economy.MarketPricePreEventArgs::get_Direction()
+M APIShared.ElevatedMoatAiState APIShared.ElevatedMoatAiCapability::get_Current()
+M APIShared.GameModes.CustomizedLaunchOriginKind APIShared.GameModes.CustomizedLaunchOrigin::get_Kind()
+M APIShared.GameModes.GameModeKind APIShared.GameModes.GameModeSnapshot::get_Kind()
+M APIShared.GameModes.GameModeLaunchVariant APIShared.GameModes.GameModeSnapshot::get_LaunchVariant()
+M APIShared.GameModes.GameModeSnapshot APIShared.GameModes.GameModeHelper::Capture(System.Boolean)
+M APIShared.GameModes.GameModeSnapshot APIShared.GameModes.GameplayModeGate::get_Snapshot()
+M APIShared.GameModes.GameModeSnapshot APIShared.MissionContext::get_Mode()
+M APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModActivationProfile::get_AllowedContexts()
+M APIShared.GameModes.GameplayModAllowedContext APIShared.GameModes.GameplayModModePolicy::ResolveContext(APIShared.GameModes.GameModeSnapshot)
+M APIShared.IAivBuildStepInvocation APIShared.IAivBuildStepObserver::TryBegin(APIShared.AivBuildStepContext)
+M APIShared.IApiShared APIShared.ApiShared::get_Current()
+M APIShared.IEnemyBridgePathObserver APIShared.EnemyBridgeDiagnosticBridge::get_Current()
+M APIShared.IEnemyGatePathPolicy APIShared.EnemyGatePathPolicyBridge::get_Current()
+M APIShared.ITemporaryGateRouteAcceptanceObserver APIShared.TemporaryGateRouteAcceptanceBridge::get_Current()
+M APIShared.MissionContext APIShared.IMissionLifecycleCapability::get_Current()
+M APIShared.MissionContext APIShared.MissionLifecycleNotification::get_Context()
+M APIShared.MissionEndReason APIShared.MissionLifecycleNotification::get_EndReason()
+M APIShared.MissionInitializationPhase APIShared.MissionLifecycleNotification::get_Phase()
+M APIShared.MissionLifecycleKind APIShared.MissionLifecycleNotification::get_Kind()
+M APIShared.MissionLifecycleNotification APIShared.MissionLifecycleNotification::AsReplay()
+M APIShared.MissionMapType APIShared.MissionContext::get_MapType()
+M APIShared.MissionStartKind APIShared.MissionContext::get_StartKind()
+M APIShared.ModApiClient APIShared.ApiShared::ForMod(System.String)
+M APIShared.ModSettings.IDynamicPresetSettingsProvider APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_DynamicSettingsProvider()
+M APIShared.ModSettings.IModSettingsApplicationBackend APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_SettingsApplicationBackend()
+M APIShared.ModSettings.LobbyModSettingsPresetRegistration/PreparedExternalSettings APIShared.ModSettings.LobbyModSettingsPresetRegistration::PrepareExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,APIShared.ModSettings.PresetLobbyModSettingsViewModel)
+M APIShared.ModSettings.ModSettingsModeAvailability APIShared.ModSettings.ModSettingsMode::GetAvailability(Noesis.DependencyObject)
+M APIShared.ModSettings.ModSettingsModeAvailability APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModeAvailability()
+M APIShared.ModSettings.ModSettingsPresetListEntry APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SelectedPresetLoadEntry()
+M APIShared.ModSettings.ModSettingsPresetSaveTarget APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SelectedPresetSaveTarget()
+M APIShared.ModSettings.ModSettingsPresetSourceKind APIShared.ModSettings.ModSettingsPresetListEntry::get_SourceKind()
+M APIShared.ModSettings.ModSettingsPresetSourceKind APIShared.ModSettings.PublishedModSettingsPreset::get_SourceKind()
+M APIShared.ModSettings.ModSettingsWorkingSource APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SelectedSettingsSource()
+M APIShared.ModSettings.ModSettingsWorkingSourceKind APIShared.ModSettings.ModSettingsWorkingSource::get_Kind()
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::AfterPublish(System.Action)
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::BeforePublish(System.Action)
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::OnObservation(System.Action)
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::RequireReport(System.String,System.Func`2<System.Object,System.Boolean>)
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::ResetSlotsWith(System.String,System.Func`1<System.Object>)
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::WhenLobbyChanged(System.Action`1<APIShared.ModSettings.PerPlayerLobbySnapshot>)
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::WhenLocalPlayerResolved(System.Action`1<System.Int32>)
+M APIShared.ModSettings.PerPlayerLobbySettingsBuilder APIShared.ModSettings.PerPlayerLobbySettingsBuilder::WhenRemoteDataChanged(System.Action`1<System.String>)
+M APIShared.ModSettings.PresetSaveSelection APIShared.ModSettings.PresetSaveSettingViewModel::ToSelection()
+M APIShared.ModSettings.PresetSettingScope APIShared.ModSettings.DynamicPresetSetting::get_Scope()
+M APIShared.ModSettings.PresetSettingScope APIShared.ModSettings.PresetSaveSettingViewModel::get_Scope()
+M APIShared.ModSettings.PresetSettingScope APIShared.ModSettings.PresetSettingDescriptor::get_Scope()
+M APIShared.ModSettings.PublishedModSettingsPreset APIShared.ModSettings.ModSettingsPresetJson::Parse(System.String,System.String,System.String,System.String,System.String)
+M APIShared.ModSettings.PublishedPresetValueMode APIShared.ModSettings.PresetSaveSelection::get_Mode()
+M APIShared.ModSettings.PublishedPresetValueMode APIShared.ModSettings.PublishedPresetSetting::get_Mode()
+M APIShared.ModSettings.SettingModeState APIShared.ModSettings.ModSettingsModeAvailability::GetState(System.String)
+M APIShared.ModSettings.SettingModeStatus APIShared.ModSettings.SettingModeState::get_Status()
+M APIShared.NativeApiState APIShared.IApiShared::get_State()
+M APIShared.NativeApiState APIShared.ModApiClient::get_State()
+M APIShared.NativeCapabilityState APIShared.NativeCapabilityDiagnostic::get_State()
+M APIShared.Networking.ChoreChannel`1<T> APIShared.Networking.ModNetworkClient::RegisterChore(System.String,System.Action`1<T>,APIShared.Networking.ChoreChannelOptions`1<T>)
+M APIShared.Networking.MessageChannel`1<T> APIShared.Networking.ModNetworkClient::RegisterMessage(System.String,System.Action`1<APIShared.Networking.NetworkMessage`1<T>>,APIShared.Networking.MessageChannelOptions`1<T>)
+M APIShared.Networking.ModNetworkClient APIShared.ModApiClient::get_Network()
+M APIShared.Networking.NetworkSendResult APIShared.Networking.ChoreChannel`1::Send(T)
+M APIShared.Networking.NetworkSendResult APIShared.Networking.ChoreTransport::Send(T,System.Int16,System.Boolean,System.Int32)
+M APIShared.Networking.NetworkSendResult APIShared.Networking.MessageChannel`1::SendToGame(T,System.Boolean)
+M APIShared.Networking.NetworkSendResult APIShared.Networking.MessageChannel`1::SendToLobby(T)
+M APIShared.Networking.NetworkSendResult APIShared.Networking.MessageChannel`1::SendToPlayer(T,System.Int32)
+M APIShared.Networking.NetworkSendResult APIShared.Networking.MessageChannel`1::SendToSteamPeer(T,System.UInt64)
+M APIShared.Networking.NetworkSendStatus APIShared.Networking.NetworkSendResult::get_Status()
+M APIShared.Pathfinding.RouteSearchContext APIShared.Pathfinding.RouteSearchPostEventArgs::get_Context()
+M APIShared.Pathfinding.RouteSearchContext APIShared.Pathfinding.RouteSearchPreEventArgs::get_Context()
+M APIShared.Pathfinding.RouteSearchTerrain APIShared.Pathfinding.RouteSearchContext::get_Terrain()
+M APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationPostEventArgs::get_Operation()
+M APIShared.Presentation.PresentationOperation APIShared.Presentation.PresentationPreEventArgs::get_Operation()
+M APIShared.Recruitment.RecruitmentConstraintAction APIShared.Recruitment.RecruitmentConstraintDecision::get_Action()
+M APIShared.Recruitment.RecruitmentConstraintDecision APIShared.Recruitment.RecruitmentRequestPolicy::ApplyMaximum(System.Int32,System.Int32,System.Int32,System.Boolean)
+M APIShared.SavegameLoadChoiceState APIShared.SavegameModSettings::GetLoadChoiceState(System.String)
+M APIShared.SavegameModSettingsRecord APIShared.SavegameModSettingsRecordFormatter::Deserialize(MessagePack.MessagePackReader&,MessagePack.MessagePackSerializerOptions)
+M APIShared.UnitHudCategoryImageResolver APIShared.UnitHudCategoryDefinition::get_ImageResolver()
+M APIShared.UnitHudCategorySnapshot APIShared.UnitHudInteractionContext::get_Category()
+M APIShared.UnitHudCategorySnapshot APIShared.UnitHudSlotSnapshot::get_Category()
+M APIShared.UnitHudImageSlot APIShared.UnitHudImageOverrideContext::get_Slot()
+M APIShared.UnitHudImageSlot APIShared.UnitHudImageOverrideDefinition::get_Slot()
+M APIShared.UnitHudMouseButton APIShared.UnitHudInteractionContext::get_Button()
+M APIShared.UnitHudSurface APIShared.UnitHudCategoryDefinition::get_Surfaces()
+M APIShared.UnitHudTextProfile APIShared.UnitHudCategoryDefinition::get_TextProfile()
+M APIShared.UnitHudTextResolver APIShared.UnitHudTextProfile::get_Resolver()
+M APIShared.UnitHudTint APIShared.UnitHudCategoryDefinition::get_Tint()
+M APIShared.Workshop.WorkshopAction APIShared.Workshop.WorkshopInstallPlan::get_Action()
+M APIShared.Workshop.WorkshopBootstrap APIShared.Workshop.WorkshopPackage::get_Bootstrap()
+M APIShared.Workshop.WorkshopBootstrap APIShared.Workshop.WorkshopPackageDraft::get_Bootstrap()
+M APIShared.Workshop.WorkshopClient APIShared.ModApiClient::get_Workshop()
+M APIShared.Workshop.WorkshopOperation APIShared.Workshop.WorkshopClient::Publish(APIShared.Workshop.WorkshopUploadPlan)
+M APIShared.Workshop.WorkshopOperationState APIShared.Workshop.WorkshopOperation::get_State()
+M APIShared.Workshop.WorkshopPackage APIShared.Workshop.WorkshopCatalogItem::get_Package()
+M APIShared.Workshop.WorkshopPackageDraft APIShared.Workshop.WorkshopUploadOptions::get_Draft()
+M CrusaderDE.HUD_Main APIShared.Presentation.PresentationPostEventArgs::get_BuildingHud()
+M CrusaderDE.HUD_Main APIShared.Presentation.PresentationPreEventArgs::get_BuildingHud()
+M CrusaderDE.MainViewModel APIShared.Presentation.PresentationPostEventArgs::get_ViewModel()
+M CrusaderDE.MainViewModel APIShared.Presentation.PresentationPreEventArgs::get_ViewModel()
+M Enums/GameActionCommand APIShared.Commands.GameActionAcceptedEventArgs::get_Command()
+M Enums/GameActionCommand APIShared.Commands.GameActionPostEventArgs::get_Command()
+M Enums/GameActionCommand APIShared.Commands.GameActionPreEventArgs::get_Command()
+M FatControler APIShared.Presentation.PresentationPostEventArgs::get_Controller()
+M FatControler APIShared.Presentation.PresentationPreEventArgs::get_Controller()
+M Noesis.ComboBoxItem[] APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveBulkModeOptions()
+M Noesis.FrameworkElement APIShared.HudExtrasButtonContext::get_Hud()
+M Noesis.FrameworkElement APIShared.UnitHudActionButtonContext::get_Hud()
+M Noesis.ImageSource APIShared.RepairTooltipEntry::get_Icon()
+M Noesis.ImageSource APIShared.UnitHudCategoryImageResolver::EndInvoke(System.IAsyncResult)
+M Noesis.ImageSource APIShared.UnitHudCategoryImageResolver::Invoke()
+M Noesis.ImageSource APIShared.UnitHudImageOverrideContext::get_CurrentImage()
+M Noesis.ImageSource APIShared.UnitHudImageOverrideContext::get_VanillaImage()
+M Noesis.ImageSource APIShared.UnitHudImageOverrideResolver::EndInvoke(System.IAsyncResult)
+M Noesis.ImageSource APIShared.UnitHudImageOverrideResolver::Invoke(APIShared.UnitHudImageOverrideContext)
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ActionsScopeNoticeVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ClientSettingsActivationVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HostReadOnlyNoticeVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_PresetVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ConsumerModeNoticeVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_DirectLaunchNoticeVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModeNoticeVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchInactiveVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchNoResultsVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchPanelVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetDeleteVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetInlineConfirmationVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetLoadPanelVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetOperationErrorVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetOperationStatusVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetOperationSuccessVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSavePanelVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetStatusVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SettingsSourceVisibility()
+M Noesis.Visibility APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_TrailSourceNoticeVisibility()
+M Noesis.Visibility APIShared.RepairTooltipViewModel::get_Visibility()
+M SHCDESE.Interop.SelectedUnitInfo APIShared.LocalSelectionSnapshot::get_Item(System.Int32)
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_CancelPresetInlineActionCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_CancelPresetLoadCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_CancelPresetSaveCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ClearModSettingsSearchCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ConfirmPresetInlineActionCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ConfirmPresetLoadCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ConfirmPresetSaveCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_DeletePresetCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_DismissPresetStatusCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_LoadSettingsSourceCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_OpenPresetLoadCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_OpenPresetSaveCommand()
+M SHCDESE.NoesisUtil.RelayCommand APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ToggleModSettingsSearchCommand()
+M System.Action`1<APIShared.Networking.NetworkPacketDiagnostic> APIShared.Networking.ChoreChannelOptions`1::get_Diagnostic()
+M System.Action`1<APIShared.Networking.NetworkPacketDiagnostic> APIShared.Networking.MessageChannelOptions`1::get_Diagnostic()
+M System.Action`1<System.Boolean> APIShared.UnitHudActionButtonDefinition::get_ContextChanged()
+M System.Action`1<System.Boolean> APIShared.UnitHudActionButtonDefinition::get_HoverChanged()
+M System.Action`1<System.Object> APIShared.Presentation.PresentationPreEventArgs::get_Replacement()
+M System.Boolean APIShared.AivBuildStepCompletion::get_VanillaCompleted()
+M System.Boolean APIShared.AssassinGateTransitionPolicy::Allows(System.Boolean,APIShared.AssassinTransitionKind,System.Boolean)
+M System.Boolean APIShared.AssassinGateTransitionPolicy::HasOrdinaryConnection(System.Byte,System.Byte,System.Byte,System.Byte)
+M System.Boolean APIShared.AssassinGateTransitionPolicy::ValidateReconstructionField(System.Int32[],System.Int32,System.Int32,System.Func`3<System.Int32,System.Int32,System.Boolean>)
+M System.Boolean APIShared.AssassinPathAPI::get_DirectGatehouseClimbingEnabled()
+M System.Boolean APIShared.AssassinPathAPI::get_HasSingleUnitRoutePublication()
+M System.Boolean APIShared.AssassinPathAPI::get_IsInstalled()
+M System.Boolean APIShared.AssassinPathAPI::IsDirectGatehouseClimbEndpoint(System.Int32)
+M System.Boolean APIShared.AssassinPathAPI::TryGetCurrentWeightedRequest(System.String,System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32&,System.Int32&)
+M System.Boolean APIShared.AssassinPathAPI::TryStageWeightedRoute(System.String,System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Byte[],System.Int32,System.Func`1<System.Boolean>,System.Action`2<System.Int64,System.Boolean>)
+M System.Boolean APIShared.AssassinPathAPI::TryStageWeightedRoute(System.String,System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Byte[],System.Int32,System.Func`1<System.Boolean>)
+M System.Boolean APIShared.Audio.SoundClipHandle::get_IsReady()
+M System.Boolean APIShared.Audio.SoundClipHandle::get_MapScoped()
+M System.Boolean APIShared.Audio.SoundClips::TryImportExtenderClip(System.String,System.String,System.Int32,System.Action`1<APIShared.Audio.SoundClipHandle>,APIShared.Audio.SoundClipHandle&,System.String&,System.Single)
+M System.Boolean APIShared.Audio.SoundClips::TryLoadMapClip(System.String,System.String,System.String,System.Action`1<APIShared.Audio.SoundClipHandle>,APIShared.Audio.SoundClipHandle&,System.String&,System.Single)
+M System.Boolean APIShared.Audio.SoundClips::TryLoadModClip(System.String,System.String,System.String,System.Action`1<APIShared.Audio.SoundClipHandle>,APIShared.Audio.SoundClipHandle&,System.String&,System.Single)
+M System.Boolean APIShared.Audio.SoundContext::get_SituationConfirmed()
+M System.Boolean APIShared.Audio.SoundEvents::get_ArabianIdleContextAvailable()
+M System.Boolean APIShared.Audio.SoundEvents::get_PlaybackAvailable()
+M System.Boolean APIShared.Audio.SoundEvents::TryRegister(System.String,System.String,System.Action`1<APIShared.Audio.SoundPreEventArgs>,System.Action`1<APIShared.Audio.SoundPostEventArgs>,APIShared.Audio.SoundRegistration&,System.String&,System.Int32)
+M System.Boolean APIShared.Audio.SoundPostEventArgs::get_Unstoppable()
+M System.Boolean APIShared.Audio.SoundPostEventArgs::get_WasSuppressed()
+M System.Boolean APIShared.Audio.SoundPreEventArgs::get_Unstoppable()
+M System.Boolean APIShared.Audio.SoundPreEventArgs::TryReplaceClip(APIShared.Audio.SoundClipHandle)
+M System.Boolean APIShared.Audio.SoundRegistration::get_Enabled()
+M System.Boolean APIShared.BriefingGoldContext::get_HasNoStartingGoldState()
+M System.Boolean APIShared.BriefingGoldContext::get_IsHuman()
+M System.Boolean APIShared.BriefingGoldContext::get_NoStartingGoldEnabled()
+M System.Boolean APIShared.BuildingRepairQuote::get_CanRepair()
+M System.Boolean APIShared.BuildingRepairQuote::get_HasResources()
+M System.Boolean APIShared.Commands.GameActionEvents::TryRegister(System.String,System.String,System.Action`1<APIShared.Commands.GameActionPreEventArgs>,System.Action`1<APIShared.Commands.GameActionPostEventArgs>,System.String&,System.Int32,System.Action`1<APIShared.Commands.GameActionAcceptedEventArgs>)
+M System.Boolean APIShared.Commands.GameActionPostEventArgs::get_HasConcreteRecruitmentAmount()
+M System.Boolean APIShared.Commands.GameActionPostEventArgs::get_WasSkipped()
+M System.Boolean APIShared.Commands.GameActionPreEventArgs::get_HasConcreteRecruitmentAmount()
+M System.Boolean APIShared.Commands.GameActionPreEventArgs::get_InterpretCtrlSentinel()
+M System.Boolean APIShared.Economy.MarketPriceEvents::TryRegister(System.String,System.String,System.Action`1<APIShared.Economy.MarketPricePreEventArgs>,System.Action`1<APIShared.Economy.MarketPricePostEventArgs>,System.String&,System.Int32)
+M System.Boolean APIShared.Economy.MarketPricePostEventArgs::get_HasNativeManager()
+M System.Boolean APIShared.Economy.MarketPricePostEventArgs::get_WasSkipped()
+M System.Boolean APIShared.Economy.MarketPricePreEventArgs::get_HasNativeManager()
+M System.Boolean APIShared.EnemyBridgeDiagnosticBridge::get_TopologyAvailable()
+M System.Boolean APIShared.EnemyBridgeDiagnosticBridge::TryRegister(APIShared.IEnemyBridgePathObserver)
+M System.Boolean APIShared.EnemyGatePathPolicyBridge::TryRegister(APIShared.IEnemyGatePathPolicy)
+M System.Boolean APIShared.Events.InterceptionPreEventArgs::get_SkipOriginalFunction()
+M System.Boolean APIShared.GameModes.CustomizedLaunchOrigin::get_LaunchPending()
+M System.Boolean APIShared.GameModes.CustomizedLaunchOrigin::get_RestoredFromSave()
+M System.Boolean APIShared.GameModes.CustomizedLaunchOrigin::get_SupportsBuiltInOrigins()
+M System.Boolean APIShared.GameModes.GameModeHelper::IsMapEditor()
+M System.Boolean APIShared.GameModes.GameModeHelper::IsRealMultiplayer(System.Boolean)
+M System.Boolean APIShared.GameModes.GameModeHelper::IsSingleplayerSkirmish(System.Boolean)
+M System.Boolean APIShared.GameModes.GameModeHelper::IsSingleplayerSkirmishMode(System.Boolean)
+M System.Boolean APIShared.GameModes.GameModeHelper::IsSingleplayerTrail(System.Boolean)
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_AllowsCustomGameMods()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_AllowsRegularGameplayMods()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_DirectorAvailable()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_DirectorMultiplayer()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_DirectorSkirmish()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_HasConflictingCustomizedOrigin()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_IsCustomized()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_IsMapEditor()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_IsMissionContent()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_IsRealMultiplayer()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_IsSingleplayerSkirmish()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_IsSingleplayerSkirmishMode()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_IsSingleplayerTrail()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_LowLevelNetworked()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_MultiplayerSave()
+M System.Boolean APIShared.GameModes.GameModeSnapshot::get_PlatformMultiplayer()
+M System.Boolean APIShared.GameModes.GameplayModActivationProfile::get_AllowRealMultiplayer()
+M System.Boolean APIShared.GameModes.GameplayModeGate::get_IsAllowed()
+M System.Boolean APIShared.GameModes.GameplayModeGate::IsEnabled(System.Boolean)
+M System.Boolean APIShared.GameModes.GameplayModModePolicy::IsAllowed(APIShared.GameModes.GameplayModActivationProfile,APIShared.GameModes.GameModeSnapshot,System.String&)
+M System.Boolean APIShared.GatehouseTimingSettings::get_Enabled()
+M System.Boolean APIShared.IAivBuildStepCapability::TryRegisterObserver(System.String,APIShared.IAivBuildStepObserver,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetAivBuildStep(System.String,APIShared.IAivBuildStepCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetBriefingGoldPresentation(System.String,APIShared.IBriefingGoldPresentationCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetBuildingRepair(System.String,APIShared.IBuildingRepairCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetGatehouseDistanceOrigin(System.String,APIShared.IGatehouseDistanceOriginCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetGatehouseTiming(System.String,APIShared.IGatehouseTimingCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetLobbyState(System.String,APIShared.ILobbyStateCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetMissionLifecycle(System.String,APIShared.IMissionLifecycleCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetPlayerDefeat(System.String,APIShared.IPlayerDefeatCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IApiShared::TryGetUnitHudPresentation(System.String,APIShared.IUnitHudPresentationCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IBriefingGoldPresentationCapability::TryRegisterAdjustment(System.String,APIShared.BriefingGoldAdjustmentStage,APIShared.BriefingGoldAdjuster,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IBuildingRepairCapability::TryGetSelectedQuote(APIShared.BuildingRepairQuote&)
+M System.Boolean APIShared.IEnemyGateClimbRoutePolicySnapshot::TryGetBlockedGateIdentity(System.Int32,System.Int32,System.Int32&,System.UInt32&,System.Int32&,System.Int32&)
+M System.Boolean APIShared.IEnemyGatePathPolicy::get_HasPublishedMask()
+M System.Boolean APIShared.IEnemyGatePathPolicy::IsDirectionAllowed(System.Int32,System.Int32,System.Int32)
+M System.Boolean APIShared.IEnemyGateRoutePolicyProvider::TryCaptureRoutePolicy(System.Int32,APIShared.IEnemyGateRoutePolicySnapshot&)
+M System.Boolean APIShared.IEnemyGateRoutePolicySnapshot::get_IsCurrent()
+M System.Boolean APIShared.IEnemyGateRoutePolicySnapshot::IsDirectionAllowed(System.Int32,System.Int32)
+M System.Boolean APIShared.IGatehouseAutomationCapability::TrySetManualOnlyResolver(System.Func`2<System.Int32,System.Boolean>,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IGatehouseDistanceOriginCapability::TryApply(APIShared.GatehouseDistanceOrigin,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IGatehouseTimingCapability::TryApply(APIShared.GatehouseTimingSettings,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IHudExtrasButtonsCapability::TryRegisterButton(APIShared.HudExtrasButtonDefinition,APIShared.IHudExtrasButtonRegistration&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ILobbyStateCapability::TryRegisterObserver(System.String,System.Action`1<APIShared.LobbyStateSnapshot>,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IMissionLifecycleCapability::TryRegisterObserver(System.String,System.Action`1<APIShared.MissionLifecycleNotification>,System.Action`1<APIShared.MissionLifecycleNotification>,System.Action`1<APIShared.MissionLifecycleNotification>,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IPlayerDefeatCapability::TryRegisterObserver(System.String,System.Action`1<APIShared.PlayerLordDeathNotification>,System.Action`1<APIShared.PlayerDefeatNotification>,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IUnitHudActionButtonsCapability::TryRegisterActionButton(APIShared.UnitHudActionButtonDefinition,APIShared.IUnitHudActionButtonRegistration&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IUnitHudActivationCapability::SetCategoryActive(System.String,System.Boolean)
+M System.Boolean APIShared.IUnitHudActivationCapability::SetImageOverrideActive(System.String,System.Boolean)
+M System.Boolean APIShared.IUnitHudPresentationCapability::TryCompleteRecruitment(APIShared.UnitHudRecruitmentTicket,System.Int32,System.String,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IUnitHudPresentationCapability::TryRegisterCategory(APIShared.UnitHudCategoryDefinition,APIShared.UnitHudCategoryMatcher,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IUnitHudPresentationCapability::TryRegisterImageOverride(APIShared.UnitHudImageOverrideDefinition,APIShared.UnitHudImageOverrideResolver,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IUnitHudPresentationCapability::TryRegisterInteraction(System.String,APIShared.UnitHudInteractionHandler,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IUnitHudPresentationCapability::TryRegisterRecruitment(System.String,APIShared.UnitHudRecruitmentHandler,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.IUnitHudPresentationCapability::TryRemoveUnitFromControlGroups(System.Int32,System.Int32&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.LobbyPreparationOverride::Begin(CrusaderDE.FRONT_Multiplayer)
+M System.Boolean APIShared.LobbyPreparationOverride::get_IsActive()
+M System.Boolean APIShared.LobbyStateSnapshot::get_HasUnresolvedPlayers()
+M System.Boolean APIShared.LobbyStateSnapshot::get_PreserveForMapTransition()
+M System.Boolean APIShared.LocalSelectionAPI::TryCapture(System.Int32,APIShared.LocalSelectionSnapshot&)
+M System.Boolean APIShared.MarkedUnitSelectionAPI::TryCapture(System.Int64,APIShared.MarkedUnitSelectionSnapshot&)
+M System.Boolean APIShared.MarkedUnitSelectionAPI::TryRegisterObserver(System.String,System.Action`1<APIShared.MarkedUnitSelectionSnapshot>)
+M System.Boolean APIShared.MissionContext::get_IsEditor()
+M System.Boolean APIShared.MissionContext::get_IsRestart()
+M System.Boolean APIShared.MissionContext::get_IsSave()
+M System.Boolean APIShared.MissionContext::get_IsSiegeThatEditor()
+M System.Boolean APIShared.MissionLifecycleNotification::get_HasStarted()
+M System.Boolean APIShared.MissionLifecycleNotification::get_IsBeforeInitialization()
+M System.Boolean APIShared.MissionLifecycleNotification::get_IsReplay()
+M System.Boolean APIShared.ModApiClient::TryGetAivBuildStep(APIShared.IAivBuildStepCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetBriefingGoldPresentation(APIShared.IBriefingGoldPresentationCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetBuildingRepair(APIShared.IBuildingRepairCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetGatehouseDistanceOrigin(APIShared.IGatehouseDistanceOriginCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetGatehouseTiming(APIShared.IGatehouseTimingCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetHudExtrasButtons(APIShared.IHudExtrasButtonsCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetLobbyState(APIShared.ILobbyStateCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetMissionLifecycle(APIShared.IMissionLifecycleCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetPlayerDefeat(APIShared.IPlayerDefeatCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModApiClient::TryGetUnitHudPresentation(APIShared.IUnitHudPresentationCapability&,APIShared.NativeCapabilityDiagnostic&)
+M System.Boolean APIShared.ModSettings.DynamicPresetSetting::get_RequiresRestart()
+M System.Boolean APIShared.ModSettings.IModSettingsPresetEndpoint::get_IsMissionPresetActive()
+M System.Boolean APIShared.ModSettings.INetworkModSettingsApplicationBackend::get_IsNetworkConfigurationClient()
+M System.Boolean APIShared.ModSettings.INetworkModSettingsApplicationBackend::PrepareNetworkConfiguration()
+M System.Boolean APIShared.ModSettings.ModSettingsApplication::Commit(System.String)
+M System.Boolean APIShared.ModSettings.ModSettingsApplication::get_HasActivationFailures()
+M System.Boolean APIShared.ModSettings.ModSettingsApplication::get_HasApplicationEndpoints()
+M System.Boolean APIShared.ModSettings.ModSettingsApplication::get_HasRestartPreparation()
+M System.Boolean APIShared.ModSettings.ModSettingsApplication::PrepareLaunch()
+M System.Boolean APIShared.ModSettings.ModSettingsModeAvailability::get_HasInactive()
+M System.Boolean APIShared.ModSettings.ModSettingsPresetListEntry::get_CanDelete()
+M System.Boolean APIShared.ModSettings.ModSettingsPresetListEntry::get_CanOverwrite()
+M System.Boolean APIShared.ModSettings.ModSettingsPresetSaveTarget::get_IsNew()
+M System.Boolean APIShared.ModSettings.ModSettingsSearch::GetExclude(Noesis.DependencyObject)
+M System.Boolean APIShared.ModSettings.ModSettingsSearch::GetIncludeToolTips(Noesis.DependencyObject)
+M System.Boolean APIShared.ModSettings.ModSettingsSearch::GetIsSection(Noesis.DependencyObject)
+M System.Boolean APIShared.ModSettings.ModSettingsSearch::HasMatches(System.Object,System.String,System.Boolean,System.String)
+M System.Boolean APIShared.ModSettings.ModSettingsSearchEntry::get_IsSection()
+M System.Boolean APIShared.ModSettings.ModSettingsSearchMatcher::IsMatch(System.String,System.Boolean,System.String,System.String,System.String,System.String,System.String,System.String)
+M System.Boolean APIShared.ModSettings.ModSettingsSearchMatcher::IsMatch(System.String,System.Boolean,System.String,System.String,System.String,System.String)
+M System.Boolean APIShared.ModSettings.ModSettingsSearchMatcher::IsSectionTitleMatch(System.String,System.String)
+M System.Boolean APIShared.ModSettings.ModSettingsWorkingSource::get_IsPreferred()
+M System.Boolean APIShared.ModSettings.ModSettingsWorkingSourceRegistry::get_HasProvider()
+M System.Boolean APIShared.ModSettings.PerPlayerLobbySnapshot::get_HasUnresolvedPlayers()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::CanMutateSetting(System.String)
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::CanMutateSettingWithDependents(System.String,System.String[])
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_AreSettingsEditable()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_CanChangePreset()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_CanEditClientSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_CanEditHostSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_CanResetSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_CanToggleClientSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_CanToggleHostSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ClientSettingsEnabled()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HasClientSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HasClientSettingsActivation()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HasHostSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HasHostSettingsActivation()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HostSettingsEnabled()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_IsApplyingSettingsSnapshot()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_IsLocalSettingsHost()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_IsMissionPresetActive()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_IsMissionPresetSelected()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_IsPerPlayerLobbySettingsReady()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_IsRealMultiplayerContext()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_MissionPresetEditable()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_CanConfirmPresetSave()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_CanDeleteSelectedPreset()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_CanLoadSettingsSource()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_HasApplicationBackend()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_HasDynamicSettings()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_HasPendingConfiguration()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchHasActiveFilter()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchIncludeToolTips()
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::IsRetiredPresetProperty(System.String)
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ApplyConfiguration(System.String)
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ApplyModSettingsSearchTarget(System.String,System.String)
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ArePerPlayerSettingsReady(System.Collections.Generic.IEnumerable`1<System.Int32>,System.String&)
+M System.Boolean APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ConfigurationNeedsRestart()
+M System.Boolean APIShared.ModSettings.PresetSaveSettingViewModel::get_RequiresRestart()
+M System.Boolean APIShared.ModSettings.PresetSettingDescriptor::get_RequiresRestart()
+M System.Boolean APIShared.ModSettings.PublishedModSettingsPreset::get_CanOverwrite()
+M System.Boolean APIShared.ModSettings.SettingModeState::get_IsInactive()
+M System.Boolean APIShared.Networking.ChoreChannel`1::get_IsAvailable()
+M System.Boolean APIShared.Networking.ChoreTransport::IsAvailable(System.Boolean)
+M System.Boolean APIShared.Networking.ChoreTransport::IsChoreDelivery(SHCDESE.EventAPI.Network.ReceiveCustomPacketEventArgs`1<T>)
+M System.Boolean APIShared.Networking.ChoreTransport::TrySend(T,System.Int16,System.Boolean,System.Byte[]&,System.String&,System.Int32)
+M System.Boolean APIShared.Networking.ModNetworkClient::TryPostPresentation(System.Action)
+M System.Boolean APIShared.Networking.NetworkSendResult::get_Submitted()
+M System.Boolean APIShared.Pathfinding.RouteSearchEvents::TryRegister(System.String,System.String,System.Action`1<APIShared.Pathfinding.RouteSearchPreEventArgs>,System.Action`1<APIShared.Pathfinding.RouteSearchPostEventArgs>,System.String&)
+M System.Boolean APIShared.Pathfinding.RouteSearchPostEventArgs::get_Success()
+M System.Boolean APIShared.Pathfinding.RouteSearchPreEventArgs::get_SkipOriginalFunction()
+M System.Boolean APIShared.PlayerPerspectiveAPI::TrySetSpectatorView(System.Int32)
+M System.Boolean APIShared.Presentation.PresentationEvents::TryRegister(APIShared.Presentation.PresentationOperation,System.String,System.String,System.Action`1<APIShared.Presentation.PresentationPreEventArgs>,System.Action`1<APIShared.Presentation.PresentationPostEventArgs>,System.String&,System.Int32)
+M System.Boolean APIShared.Presentation.PresentationPostEventArgs::get_OriginalCompleted()
+M System.Boolean APIShared.Presentation.PresentationPostEventArgs::get_WasReplaced()
+M System.Boolean APIShared.Presentation.PresentationPostEventArgs::get_WasSkipped()
+M System.Boolean APIShared.Recruitment.RecruitmentMaterialUi::TryRegister(System.String,System.String,System.Func`2<SHCDESE.Interop.eChimps,System.Boolean>,System.String&)
+M System.Boolean APIShared.SavegameModSettings::CanUseCurrentSettings(System.String)
+M System.Boolean APIShared.SavegameModSettings::PrepareLoadWithRestartCheck(System.String,System.Boolean)
+M System.Boolean APIShared.SavegameModSettingsRecord::get_LockedByConflict()
+M System.Boolean APIShared.SavegameModSettingsRecord::get_TrailCustomizeAllowed()
+M System.Boolean APIShared.UnitAccess::IsReallyAlive(SHCDESE.Interop.GameUnit*)
+M System.Boolean APIShared.UnitAccess::IsReallyAlive(SHCDESE.Interop.GameUnit&)
+M System.Boolean APIShared.UnitAccess::TryGetById(SHCDESE.API.GameUnitManagerAPI,System.Int32,SHCDESE.Interop.GameUnit*&,APIShared.UnitLookupFailure&,System.String,System.String,System.Int32)
+M System.Boolean APIShared.UnitAccess::TryGetById(System.Int32,SHCDESE.Interop.GameUnit*&,APIShared.UnitLookupFailure&,System.String,System.String,System.Int32)
+M System.Boolean APIShared.UnitHudCategoryMatcher::EndInvoke(System.IAsyncResult)
+M System.Boolean APIShared.UnitHudCategoryMatcher::Invoke(APIShared.UnitHudUnitSnapshot)
+M System.Boolean APIShared.UnitHudImageOverrideContext::get_Arabic()
+M System.Boolean APIShared.UnitHudRecruitmentHandler::EndInvoke(System.IAsyncResult)
+M System.Boolean APIShared.UnitHudRecruitmentHandler::Invoke(APIShared.UnitHudRecruitmentTicket)
+M System.Boolean APIShared.UnitHudUnitSnapshot::get_IsAlive()
+M System.Boolean APIShared.Workshop.WorkshopCatalogItem::get_CanInstall()
+M System.Boolean APIShared.Workshop.WorkshopCatalogItem::get_IsSubscribed()
+M System.Boolean APIShared.Workshop.WorkshopClient::get_IsExternallyManaged()
+M System.Boolean APIShared.Workshop.WorkshopUploadOptions::get_MetadataOnly()
+M System.Byte APIShared.AivBuildStepContext::get_FreeOrForced()
+M System.Byte APIShared.UnitHudTint::get_Alpha()
+M System.Byte APIShared.UnitHudTint::get_Blue()
+M System.Byte APIShared.UnitHudTint::get_Green()
+M System.Byte APIShared.UnitHudTint::get_Red()
+M System.Byte[] APIShared.Networking.NetworkSendResult::CopySerializedBody()
+M System.Byte[] APIShared.TrailCreatorRule::get_FixedValue()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.IModSettingsPresetEndpoint::System_CreateDisabledMissionPresetSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.IModSettingsWorkingCopyEndpoint::System_CreateCurrentMissionPresetSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.IModSettingsWorkingCopyEndpoint::System_CreateCurrentWorkingSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.IModSettingsWorkingCopyEndpoint::System_CreateModDefaultSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.IModSettingsWorkingCopyEndpoint::System_CreatePlayerMissionPresetSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.ModSettingsApplication::ResumeSnapshot(System.String)
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_CreateCurrentMissionPresetSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_CreateCurrentWorkingSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_CreateDisabledMissionPresetSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_CreateModDefaultSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Byte[]> APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_CreatePlayerMissionPresetSnapshot()
+M System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.Dictionary`2<System.String,APIShared.TrailCreatorRule>> APIShared.SavegameModSettingsRecord::get_CreatorRules()
+M System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>> APIShared.SavegameModSettingsRecord::get_Mods()
+M System.Collections.Generic.Dictionary`2<System.String,System.Object> APIShared.ModSettings.IDynamicPresetSettingsProvider::ReadValues()
+M System.Collections.Generic.Dictionary`2<System.String,System.Object> APIShared.ModSettings.IModSettingsApplicationBackend::ReadActiveValues()
+M System.Collections.Generic.Dictionary`2<System.String,System.Object> APIShared.ModSettings.IModSettingsApplicationBackend::ReadDesiredValues()
+M System.Collections.Generic.Dictionary`2<System.String,System.Object> APIShared.ModSettings.IModSettingsApplicationBackend::ReadOwnValues()
+M System.Collections.Generic.Dictionary`2<System.String,System.Object> APIShared.ModSettings.IModSettingsApplicationBackend::ReadPendingValues()
+M System.Collections.Generic.IReadOnlyDictionary`2<System.Int32,System.UInt64> APIShared.LobbyStateSnapshot::get_Players()
+M System.Collections.Generic.IReadOnlyDictionary`2<System.Int32,System.UInt64> APIShared.ModSettings.PerPlayerLobbySnapshot::get_Players()
+M System.Collections.Generic.IReadOnlyDictionary`2<System.String,APIShared.ModSettings.IModSettingsPresetEndpoint> APIShared.SavegameModSettings::GetCompatibleParticipants()
+M System.Collections.Generic.IReadOnlyDictionary`2<System.String,APIShared.ModSettings.PresetLobbyModSettingsViewModel> APIShared.ModSettings.ModSettingsApplication::get_Endpoints()
+M System.Collections.Generic.IReadOnlyDictionary`2<System.String,APIShared.ModSettings.PublishedPresetSetting> APIShared.ModSettings.PublishedModSettingsPreset::get_Settings()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Audio.SoundSituation> APIShared.Audio.SoundEvents::get_SupportedSituations()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.ModSettings.DynamicPresetSetting> APIShared.ModSettings.IDynamicPresetSettingsProvider::GetSettings()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.ModSettings.ModSettingsSearchEntry> APIShared.ModSettings.ModSettingsSearch::Export(System.Object,Noesis.FrameworkElement)
+M System.Collections.Generic.IReadOnlyList`1<APIShared.ModSettings.ModSettingsSearchEntry> APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_GetModSettingsSearchEntries(Noesis.FrameworkElement)
+M System.Collections.Generic.IReadOnlyList`1<APIShared.ModSettings.ModSettingsWorkingSource> APIShared.ModSettings.IModSettingsWorkingSourceProvider::GetSources(System.String)
+M System.Collections.Generic.IReadOnlyList`1<APIShared.ModSettings.ModSettingsWorkingSource> APIShared.ModSettings.ModSettingsWorkingSourceRegistry::GetProviderSources(System.String)
+M System.Collections.Generic.IReadOnlyList`1<APIShared.ModSettings.PresetSettingDescriptor> APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_GetPresetSettingDescriptors()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.UnitHudCategorySnapshot> APIShared.IUnitHudPresentationCapability::GetSelectedCategories()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.UnitHudControlGroupSnapshot> APIShared.IUnitHudPresentationCapability::GetControlGroups()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.UnitHudSlotSnapshot> APIShared.IUnitHudPresentationCapability::GetVisibleTroopSlots()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.UnitHudUnitSnapshot> APIShared.UnitHudCategorySnapshot::get_Units()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.UnitHudUnitSnapshot> APIShared.UnitHudControlGroupSnapshot::get_Units()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopDependency> APIShared.Workshop.WorkshopPackage::get_Dependencies()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopDependency> APIShared.Workshop.WorkshopPackageDraft::get_Dependencies()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopFile> APIShared.Workshop.WorkshopInstallPlan::get_Files()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopFile> APIShared.Workshop.WorkshopLegacyRelease::get_Files()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopFile> APIShared.Workshop.WorkshopPackage::get_Files()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopLegacyRelease> APIShared.Workshop.WorkshopPackage::get_LegacyReleases()
+M System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopLegacyRelease> APIShared.Workshop.WorkshopPackageDraft::get_LegacyReleases()
+M System.Collections.Generic.IReadOnlyList`1<System.String> APIShared.Workshop.WorkshopInstallPlan::get_Diagnostics()
+M System.Collections.Generic.IReadOnlyList`1<System.String> APIShared.Workshop.WorkshopInstallPlan::get_RemovedFiles()
+M System.Collections.Generic.IReadOnlyList`1<System.String> APIShared.Workshop.WorkshopPackage::get_ModGuids()
+M System.Collections.Generic.IReadOnlyList`1<System.String> APIShared.Workshop.WorkshopPackage::get_Roots()
+M System.Collections.Generic.IReadOnlyList`1<System.String> APIShared.Workshop.WorkshopUploadPlan::get_Files()
+M System.Collections.Generic.List`1<APIShared.GatehouseFootprintCandidate> APIShared.GatehouseDrawbridgeCoupling::BuildOrderedFootprintCandidates(System.Int32,System.Int32,System.Int32)
+M System.Collections.Generic.List`1<System.Int32> APIShared.GatehouseDrawbridgeCoupling::CollectFirstDistinctBuildingIds(System.Collections.Generic.IReadOnlyList`1<APIShared.GatehouseFootprintCandidate>,System.Func`3<System.Int32,System.Int32,System.Int32>,System.Func`2<System.Int32,System.Boolean>)
+M System.Collections.ObjectModel.ObservableCollection`1<APIShared.ModSettings.ModSettingsPresetListEntry> APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetLoadEntries()
+M System.Collections.ObjectModel.ObservableCollection`1<APIShared.ModSettings.ModSettingsPresetSaveTarget> APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveTargets()
+M System.Collections.ObjectModel.ObservableCollection`1<APIShared.ModSettings.ModSettingsWorkingSource> APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SettingsSources()
+M System.Collections.ObjectModel.ObservableCollection`1<APIShared.ModSettings.PresetSaveSettingViewModel> APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveSettings()
+M System.Collections.ObjectModel.ObservableCollection`1<APIShared.RepairTooltipEntry> APIShared.RepairTooltipViewModel::get_Costs()
+M System.DateTime APIShared.Networking.NetworkPacketDiagnostic::get_TimestampUtc()
+M System.Double APIShared.GatehouseTimingSettings::get_AiCloseDistanceTiles()
+M System.Double APIShared.GatehouseTimingSettings::get_AiReopenDelaySeconds()
+M System.Double APIShared.GatehouseTimingSettings::get_HumanCloseDistanceTiles()
+M System.Double APIShared.GatehouseTimingSettings::get_HumanReopenDelaySeconds()
+M System.Exception APIShared.Networking.NetworkPacketDiagnostic::get_Error()
+M System.Exception APIShared.Presentation.PresentationPostEventArgs::get_CompletionException()
+M System.Exception APIShared.Presentation.PresentationPostEventArgs::get_OriginalException()
+M System.Func`1<System.Boolean> APIShared.Networking.ChoreChannelOptions`1::get_IsEnabled()
+M System.Func`1<System.Boolean> APIShared.Networking.MessageChannelOptions`1::get_IsEnabled()
+M System.Func`2<APIShared.HudExtrasButtonContext,Noesis.Button> APIShared.HudExtrasButtonDefinition::get_ButtonFactory()
+M System.Func`2<APIShared.HudExtrasButtonContext,Noesis.ToolTip> APIShared.HudExtrasButtonDefinition::get_TooltipFactory()
+M System.Func`2<APIShared.Networking.NetworkMessage`1<T>,System.Boolean> APIShared.Networking.MessageChannelOptions`1::get_Validate()
+M System.Func`2<APIShared.UnitHudActionButtonContext,Noesis.FrameworkElement> APIShared.UnitHudActionButtonDefinition::get_ContentFactory()
+M System.Func`2<T,System.Boolean> APIShared.Networking.ChoreChannelOptions`1::get_Validate()
+M System.Func`2<T,T> APIShared.Networking.MessageChannelOptions`1::get_Snapshot()
+M System.IAsyncResult APIShared.AssassinPathBuilder::BeginInvoke(System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.AsyncCallback,System.Object)
+M System.IAsyncResult APIShared.BriefingGoldAdjuster::BeginInvoke(APIShared.BriefingGoldContext,System.AsyncCallback,System.Object)
+M System.IAsyncResult APIShared.UnitHudCategoryImageResolver::BeginInvoke(System.AsyncCallback,System.Object)
+M System.IAsyncResult APIShared.UnitHudCategoryMatcher::BeginInvoke(APIShared.UnitHudUnitSnapshot,System.AsyncCallback,System.Object)
+M System.IAsyncResult APIShared.UnitHudImageOverrideResolver::BeginInvoke(APIShared.UnitHudImageOverrideContext,System.AsyncCallback,System.Object)
+M System.IAsyncResult APIShared.UnitHudInteractionHandler::BeginInvoke(APIShared.UnitHudInteractionContext,System.AsyncCallback,System.Object)
+M System.IAsyncResult APIShared.UnitHudRecruitmentHandler::BeginInvoke(APIShared.UnitHudRecruitmentTicket,System.AsyncCallback,System.Object)
+M System.IAsyncResult APIShared.UnitHudTextResolver::BeginInvoke(APIShared.UnitHudTextKind,System.AsyncCallback,System.Object)
+M System.Int16 APIShared.Networking.ChoreChannel`1::get_PacketId()
+M System.Int16 APIShared.Networking.MessageChannel`1::get_PacketId()
+M System.Int32 APIShared.AivBuildStepCompletion::get_VanillaResult()
+M System.Int32 APIShared.AivBuildStepContext::get_FrameIndex()
+M System.Int32 APIShared.AivBuildStepContext::get_PlayerId()
+M System.Int32 APIShared.AivBuildStepContext::get_RestrictedMode()
+M System.Int32 APIShared.AssassinPathAPI::RunVanillaBuilder(System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Int32 APIShared.AssassinPathBuilder::EndInvoke(System.IAsyncResult)
+M System.Int32 APIShared.AssassinPathBuilder::Invoke(System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Int32 APIShared.Audio.SoundContext::get_OriginalSoundId()
+M System.Int32 APIShared.Audio.SoundPostEventArgs::get_SoundId()
+M System.Int32 APIShared.Audio.SoundPreEventArgs::get_SoundId()
+M System.Int32 APIShared.BriefingGoldAdjuster::EndInvoke(System.IAsyncResult)
+M System.Int32 APIShared.BriefingGoldAdjuster::Invoke(APIShared.BriefingGoldContext)
+M System.Int32 APIShared.BriefingGoldContext::get_CurrentGold()
+M System.Int32 APIShared.BriefingGoldContext::get_EffectiveVanillaGold()
+M System.Int32 APIShared.BriefingGoldContext::get_SlotIndex()
+M System.Int32 APIShared.BriefingGoldContext::get_VanillaDisplayedGold()
+M System.Int32 APIShared.BuildingRepairQuote::get_AvailableGold()
+M System.Int32 APIShared.BuildingRepairQuote::get_AvailableIron()
+M System.Int32 APIShared.BuildingRepairQuote::get_AvailablePitch()
+M System.Int32 APIShared.BuildingRepairQuote::get_AvailableStone()
+M System.Int32 APIShared.BuildingRepairQuote::get_AvailableWood()
+M System.Int32 APIShared.BuildingRepairQuote::get_BuildingGlobalId()
+M System.Int32 APIShared.BuildingRepairQuote::get_BuildingId()
+M System.Int32 APIShared.BuildingRepairQuote::get_CurrentHealth()
+M System.Int32 APIShared.BuildingRepairQuote::get_Gold()
+M System.Int32 APIShared.BuildingRepairQuote::get_Iron()
+M System.Int32 APIShared.BuildingRepairQuote::get_MaxHealth()
+M System.Int32 APIShared.BuildingRepairQuote::get_Panel()
+M System.Int32 APIShared.BuildingRepairQuote::get_Pitch()
+M System.Int32 APIShared.BuildingRepairQuote::get_Stone()
+M System.Int32 APIShared.BuildingRepairQuote::get_Wood()
+M System.Int32 APIShared.Commands.GameActionAcceptedEventArgs::get_ActionState()
+M System.Int32 APIShared.Commands.GameActionAcceptedEventArgs::get_StructureId()
+M System.Int32 APIShared.Commands.GameActionAcceptedEventArgs::get_Value2()
+M System.Int32 APIShared.Commands.GameActionPostEventArgs::get_ActionState()
+M System.Int32 APIShared.Commands.GameActionPostEventArgs::get_OriginalStructureId()
+M System.Int32 APIShared.Commands.GameActionPostEventArgs::get_Result()
+M System.Int32 APIShared.Commands.GameActionPostEventArgs::get_StructureId()
+M System.Int32 APIShared.Commands.GameActionPostEventArgs::get_Value2()
+M System.Int32 APIShared.Commands.GameActionPreEventArgs::get_ActionState()
+M System.Int32 APIShared.Commands.GameActionPreEventArgs::get_OriginalStructureId()
+M System.Int32 APIShared.Commands.GameActionPreEventArgs::get_StructureId()
+M System.Int32 APIShared.Commands.GameActionPreEventArgs::get_Value2()
+M System.Int32 APIShared.Economy.MarketPriceEvents::CalculateTradeTotal(System.Int32,System.Int32)
+M System.Int32 APIShared.Economy.MarketPricePostEventArgs::get_Amount()
+M System.Int32 APIShared.Economy.MarketPricePostEventArgs::get_Good()
+M System.Int32 APIShared.Economy.MarketPricePostEventArgs::get_PlayerId()
+M System.Int32 APIShared.Economy.MarketPricePostEventArgs::get_Result()
+M System.Int32 APIShared.Economy.MarketPricePreEventArgs::get_Amount()
+M System.Int32 APIShared.Economy.MarketPricePreEventArgs::get_Good()
+M System.Int32 APIShared.Economy.MarketPricePreEventArgs::get_PlayerId()
+M System.Int32 APIShared.Economy.MarketPricePreEventArgs::get_ReplacementTotal()
+M System.Int32 APIShared.EnemyBridgeDiagnosticBridge::NativeResult(System.Int32)
+M System.Int32 APIShared.GameModes.CustomizedLaunchOrigin::get_MissionId()
+M System.Int32 APIShared.GameModes.CustomizedLaunchOrigin::get_TrailId()
+M System.Int32 APIShared.GameModes.CustomizedLaunchOrigin::get_TrailType()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_CampaignMapId()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_CoopTrailId()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_CustomizedMissionId()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_CustomizedOriginKind()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_CustomizedTrailId()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_EventTrailType()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_GameMembers()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_GameType()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_LobbyMembers()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_RealLobbyMembers()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_RealNetworkGameMembers()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_SkirmishGameType()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_SkirmishLobbyMembers()
+M System.Int32 APIShared.GameModes.GameModeSnapshot::get_SkirmishTrailType()
+M System.Int32 APIShared.GatehouseFootprintCandidate::get_OutwardX()
+M System.Int32 APIShared.GatehouseFootprintCandidate::get_OutwardY()
+M System.Int32 APIShared.GatehouseFootprintCandidate::get_X()
+M System.Int32 APIShared.GatehouseFootprintCandidate::get_Y()
+M System.Int32 APIShared.HudExtrasButtonDefinition::get_Order()
+M System.Int32 APIShared.IEnemyGatePathPolicy::ResolveBuildingPlayer(System.Int32,System.Int32)
+M System.Int32 APIShared.IEnemyGatePathPolicy::ResolveCursorPlayer(System.Int32)
+M System.Int32 APIShared.IEnemyGatePathPolicy::ResolveTribePlayer(System.Int32)
+M System.Int32 APIShared.IEnemyGateRoutePolicySnapshot::get_PlayerId()
+M System.Int32 APIShared.LobbyStateSnapshot::get_LocalPlayerId()
+M System.Int32 APIShared.LocalSelectionSnapshot::get_Count()
+M System.Int32 APIShared.LocalSelectionSnapshot::get_PlayerId()
+M System.Int32 APIShared.MarkedUnitSelectionSnapshot::get_Count()
+M System.Int32 APIShared.MarkedUnitSelectionSnapshot::get_Item(System.Int32)
+M System.Int32 APIShared.ModSettings.ModSettingsSearch::GetFocusRequest(Noesis.DependencyObject)
+M System.Int32 APIShared.ModSettings.PerPlayerLobbySnapshot::get_LocalPlayerId()
+M System.Int32 APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchFocusRequest()
+M System.Int32 APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveBulkModeIndex()
+M System.Int32 APIShared.ModSettings.PresetSaveSettingViewModel::get_SelectedModeIndex()
+M System.Int32 APIShared.Networking.ChoreChannelOptions`1::get_MaximumPayloadBytes()
+M System.Int32 APIShared.Networking.MessageChannelOptions`1::get_MaximumBodyBytes()
+M System.Int32 APIShared.Networking.NetworkSendResult::get_BodyBytes()
+M System.Int32 APIShared.Pathfinding.RouteSearchContext::get_MaximumEdges()
+M System.Int32 APIShared.Pathfinding.RouteSearchContext::get_PlayerId()
+M System.Int32 APIShared.Pathfinding.RouteSearchContext::get_StartX()
+M System.Int32 APIShared.Pathfinding.RouteSearchContext::get_StartY()
+M System.Int32 APIShared.Pathfinding.RouteSearchContext::get_TargetX()
+M System.Int32 APIShared.Pathfinding.RouteSearchContext::get_TargetY()
+M System.Int32 APIShared.Pathfinding.RouteSearchPostEventArgs::get_ExpandedNodes()
+M System.Int32 APIShared.Pathfinding.RouteSearchPostEventArgs::get_RouteLength()
+M System.Int32 APIShared.PlayerDefeatNotification::get_PlayerId()
+M System.Int32 APIShared.PlayerDefeatNotification::get_SimulationTick()
+M System.Int32 APIShared.PlayerLordDeathNotification::get_LordGlobalId()
+M System.Int32 APIShared.PlayerLordDeathNotification::get_LordUnitId()
+M System.Int32 APIShared.PlayerLordDeathNotification::get_PlayerId()
+M System.Int32 APIShared.PlayerLordDeathNotification::get_SimulationTick()
+M System.Int32 APIShared.PlayerPerspectiveAPI::GetControlledPlayerId()
+M System.Int32 APIShared.PlayerPerspectiveAPI::GetRawNativeViewPlayerId()
+M System.Int32 APIShared.PlayerPerspectiveAPI::GetViewedPlayerId()
+M System.Int32 APIShared.Recruitment.RecruitmentConstraintDecision::get_AmountToForward()
+M System.Int32 APIShared.Recruitment.RecruitmentConstraintDecision::get_EffectiveRequestedAmount()
+M System.Int32 APIShared.Recruitment.RecruitmentRequestPolicy::ReconcilePendingAmount(System.Int32,System.Int32,System.Boolean)
+M System.Int32 APIShared.SavegameModSettingsRecord::get_Kind()
+M System.Int32 APIShared.SavegameModSettingsRecord::get_Variant()
+M System.Int32 APIShared.SavegameModSettingsRecord::get_Version()
+M System.Int32 APIShared.TrailCreatorRule::get_Mode()
+M System.Int32 APIShared.UnitHudActionButtonContext::get_PlayerColour()
+M System.Int32 APIShared.UnitHudActionButtonContext::get_PlayerId()
+M System.Int32 APIShared.UnitHudActionButtonDefinition::get_Order()
+M System.Int32 APIShared.UnitHudCategoryDefinition::get_BaseUnitType()
+M System.Int32 APIShared.UnitHudCategoryDefinition::get_Order()
+M System.Int32 APIShared.UnitHudControlGroupSnapshot::get_Group()
+M System.Int32 APIShared.UnitHudImageOverrideContext::get_Colour()
+M System.Int32 APIShared.UnitHudImageOverrideDefinition::get_Priority()
+M System.Int32 APIShared.UnitHudRecruitmentTicket::get_BaseUnitType()
+M System.Int32 APIShared.UnitHudRecruitmentTicket::get_PlayerId()
+M System.Int32 APIShared.UnitHudRecruitmentTicket::get_RequestedAmount()
+M System.Int32 APIShared.UnitHudSlotSnapshot::get_Slot()
+M System.Int32 APIShared.UnitHudSlotSnapshot::get_VanillaType()
+M System.Int32 APIShared.UnitHudUnitSnapshot::get_GameId()
+M System.Int32 APIShared.UnitHudUnitSnapshot::get_OwnerPlayerId()
+M System.Int32 APIShared.UnitHudUnitSnapshot::get_VanillaType()
+M System.Int32[] APIShared.UnitAccess::GetAllReallyAliveUnits()
+M System.Int64 APIShared.Audio.SoundClips::get_CallbackFailures()
+M System.Int64 APIShared.Audio.SoundEvents::get_CallbackFailures()
+M System.Int64 APIShared.Audio.SoundEvents::get_ContextRejections()
+M System.Int64 APIShared.Commands.GameActionEvents::get_CallbackFailures()
+M System.Int64 APIShared.Economy.MarketPriceEvents::get_CallbackFailures()
+M System.Int64 APIShared.EnemyBridgeDiagnosticBridge::get_FailureCount()
+M System.Int64 APIShared.MarkedUnitSelectionSnapshot::get_SessionId()
+M System.Int64 APIShared.MissionContext::get_SessionId()
+M System.Int64 APIShared.Pathfinding.RouteSearchContext::get_MaximumEdgeCost()
+M System.Int64 APIShared.Pathfinding.RouteSearchEvents::get_CallbackFailures()
+M System.Int64 APIShared.Pathfinding.RouteSearchPostEventArgs::get_GroundEdgeCost()
+M System.Int64 APIShared.Pathfinding.RouteSearchPostEventArgs::get_MoatEdgeCost()
+M System.Int64 APIShared.Pathfinding.RouteSearchPreEventArgs::get_GroundEdgeCost()
+M System.Int64 APIShared.Pathfinding.RouteSearchPreEventArgs::get_MoatEdgeCost()
+M System.Int64 APIShared.PlayerDefeatNotification::get_SessionId()
+M System.Int64 APIShared.PlayerLordDeathNotification::get_SessionId()
+M System.Int64 APIShared.Presentation.PresentationEvents::GetCallbackFailures(APIShared.Presentation.PresentationOperation)
+M System.Int64 APIShared.Recruitment.RecruitmentMaterialUi::get_CallbackFailures()
+M System.Int64 APIShared.TemporaryGateRouteAcceptanceBridge::get_Failures()
+M System.Int64 APIShared.UnitHudRecruitmentTicket::get_TicketId()
+M System.Int64 APIShared.Workshop.WorkshopFile::get_Size()
+M System.Nullable`1<System.Boolean> APIShared.MissionContext::get_IsHost()
+M System.Nullable`1<System.Boolean> APIShared.MissionContext::get_IsMultiplayerMap()
+M System.Nullable`1<System.Int32> APIShared.Audio.SoundContext::get_TileX()
+M System.Nullable`1<System.Int32> APIShared.Audio.SoundContext::get_TileY()
+M System.Nullable`1<System.Int32> APIShared.Audio.SoundContext::get_UnitType()
+M System.Nullable`1<System.Int32> APIShared.Audio.SoundTarget::get_EffectId()
+M System.Nullable`1<System.Int32> APIShared.MissionContext::get_Difficulty()
+M System.Nullable`1<System.Int32> APIShared.MissionContext::get_LocalPlayerId()
+M System.Nullable`1<System.Int32> APIShared.MissionContext::get_MapSize()
+M System.Nullable`1<System.Int32> APIShared.MissionContext::get_MissionIndex()
+M System.Nullable`1<System.UInt64> APIShared.LobbyStateSnapshot::get_LobbyId()
+M System.Nullable`1<System.UInt64> APIShared.ModSettings.PerPlayerLobbySnapshot::get_LobbyId()
+M System.Object APIShared.Audio.SoundPostEventArgs::get_State()
+M System.Object APIShared.Commands.GameActionAcceptedEventArgs::get_State()
+M System.Object APIShared.Commands.GameActionPostEventArgs::get_State()
+M System.Object APIShared.Economy.MarketPricePostEventArgs::get_State()
+M System.Object APIShared.EnemyBridgeDiagnosticBridge::BeginSearch(System.String,System.Int32)
+M System.Object APIShared.EnemyBridgeDiagnosticBridge::BeginTopology(System.Int32,System.Boolean,System.Boolean)
+M System.Object APIShared.Events.InterceptionPreEventArgs::get_State()
+M System.Object APIShared.IEnemyBridgePathObserver::BeginSearch(System.String,System.Int32)
+M System.Object APIShared.IEnemyBridgeTopologyObserver::BeginTopology(System.Int32,System.Boolean,System.Boolean)
+M System.Object APIShared.IEnemyGateAssassinObserver::BeginAssassinSearch(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)
+M System.Object APIShared.IEnemyGatePathPolicy::EnterNativeSearch(System.Int32,APIShared.EnemyGateSearchKind)
+M System.Object APIShared.ITemporaryGateRouteAcceptanceObserver::BeginRoute(System.Int32,System.Int32,System.UInt32,System.Int32,System.UInt32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)
+M System.Object APIShared.ModSettings.DynamicPresetSetting::get_DefaultValue()
+M System.Object APIShared.ModSettings.IDynamicPresetSettingsProvider::ReadValue(System.String)
+M System.Object APIShared.ModSettings.ModSettingsPresetJson::ConvertValue(System.Object,System.Type)
+M System.Object APIShared.ModSettings.ModSettingsPresetJson::ToJsonValue(System.Type,System.Object)
+M System.Object APIShared.ModSettings.ModSettingsSearchVisibilityConverter::Convert(System.Object[],System.Type,System.Object,System.Globalization.CultureInfo)
+M System.Object APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ReadDescribedValue(System.String)
+M System.Object APIShared.ModSettings.PublishedPresetSetting::get_Value()
+M System.Object APIShared.Presentation.PresentationPostEventArgs::get_Instance()
+M System.Object APIShared.Presentation.PresentationPostEventArgs::get_Parameter()
+M System.Object APIShared.Presentation.PresentationPostEventArgs::get_State()
+M System.Object APIShared.Presentation.PresentationPreEventArgs::get_Instance()
+M System.Object APIShared.Presentation.PresentationPreEventArgs::get_OriginalParameter()
+M System.Object APIShared.Presentation.PresentationPreEventArgs::get_Parameter()
+M System.Object[] APIShared.ModSettings.ModSettingsSearchVisibilityConverter::ConvertBack(System.Object,System.Type[],System.Object,System.Globalization.CultureInfo)
+M System.Reflection.PropertyInfo[] APIShared.ModSettings.ModSettingsApplication::GetHostProperties(System.Object)
+M System.Single APIShared.Audio.SoundClipHandle::get_BaseVolume()
+M System.Single APIShared.Audio.SoundContext::get_OriginalPan()
+M System.Single APIShared.Audio.SoundContext::get_OriginalVolume()
+M System.Single APIShared.Audio.SoundPostEventArgs::get_Pan()
+M System.Single APIShared.Audio.SoundPostEventArgs::get_Volume()
+M System.Single APIShared.Audio.SoundPreEventArgs::get_Pan()
+M System.Single APIShared.Audio.SoundPreEventArgs::get_Volume()
+M System.Single APIShared.Audio.SoundPreEventArgs::get_VolumeFactor()
+M System.Single APIShared.ModSettings.ToolTipPresentation::get_AutomaticFontSize()
+M System.Single APIShared.ModSettings.ToolTipPresentation::get_AutomaticMaximumWidth()
+M System.Single APIShared.ModSettings.ToolTipPresentation::get_FontSize()
+M System.Single APIShared.ModSettings.ToolTipPresentation::get_MaximumWidth()
+M System.String APIShared.AssassinPathAPI::get_TemporaryWeightedRequestReason()
+M System.String APIShared.Audio.SoundClipHandle::get_Diagnostic()
+M System.String APIShared.Audio.SoundClipHandle::get_OwnerGuid()
+M System.String APIShared.Audio.SoundClipHandle::get_RegistrationId()
+M System.String APIShared.Audio.SoundClips::get_MapDiagnostic()
+M System.String APIShared.Audio.SoundContext::get_SourceKey()
+M System.String APIShared.Audio.SoundEvents::get_ContextDiagnostic()
+M System.String APIShared.Audio.SoundEvents::get_PlaybackDiagnostic()
+M System.String APIShared.Audio.SoundTarget::ToString()
+M System.String APIShared.EnemyBridgeDiagnosticBridge::get_LastFailure()
+M System.String APIShared.GameModes.GameModeSnapshot::ToDiagnosticString()
+M System.String APIShared.GameModes.GameplayModActivationProfile::get_DisplayName()
+M System.String APIShared.GameModes.GameplayModActivationProfile::get_ModGuid()
+M System.String APIShared.GameModes.GameplayModeGate::get_Reason()
+M System.String APIShared.HudExtrasButtonDefinition::get_ButtonId()
+M System.String APIShared.HudExtrasButtonDefinition::get_Tooltip()
+M System.String APIShared.LobbyStateSnapshot::get_Diagnostic()
+M System.String APIShared.LobbyStateSnapshot::get_Error()
+M System.String APIShared.MissionContext::get_FilePath()
+M System.String APIShared.MissionContext::get_MapName()
+M System.String APIShared.ModApiClient::get_OwnerGuid()
+M System.String APIShared.ModSettings.DynamicPresetSetting::get_DisplayName()
+M System.String APIShared.ModSettings.DynamicPresetSetting::get_Group()
+M System.String APIShared.ModSettings.DynamicPresetSetting::get_Key()
+M System.String APIShared.ModSettings.IModSettingsApplicationBackend::get_ActiveContextId()
+M System.String APIShared.ModSettings.ModSettingsApplication::DescribeRestartPreparation()
+M System.String APIShared.ModSettings.ModSettingsApplication::get_ContextId()
+M System.String APIShared.ModSettings.ModSettingsMode::GetKey(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsPresetJson::Serialize(System.String,System.String,System.String,System.String,System.String,System.String,System.Collections.Generic.IReadOnlyDictionary`2<System.String,APIShared.ModSettings.PublishedPresetSetting>)
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::get_Description()
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::get_DisplayText()
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::get_Name()
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::get_ProviderGuid()
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::get_ProviderName()
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::get_SourceLabel()
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::get_StableId()
+M System.String APIShared.ModSettings.ModSettingsPresetListEntry::ToString()
+M System.String APIShared.ModSettings.ModSettingsPresetSaveTarget::get_DisplayText()
+M System.String APIShared.ModSettings.ModSettingsPresetSaveTarget::get_Name()
+M System.String APIShared.ModSettings.ModSettingsPresetSaveTarget::get_StableId()
+M System.String APIShared.ModSettings.ModSettingsPresetSaveTarget::ToString()
+M System.String APIShared.ModSettings.ModSettingsSearch::GetExactKey(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsSearch::GetFilterText(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsSearch::GetKey(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsSearch::GetSectionKey(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsSearch::GetSectionTitle(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsSearch::GetTitle(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsSearch::GetToolTipText(Noesis.DependencyObject)
+M System.String APIShared.ModSettings.ModSettingsSearchEntry::get_Key()
+M System.String APIShared.ModSettings.ModSettingsSearchEntry::get_SectionKey()
+M System.String APIShared.ModSettings.ModSettingsSearchEntry::get_SectionTitle()
+M System.String APIShared.ModSettings.ModSettingsSearchEntry::get_Title()
+M System.String APIShared.ModSettings.ModSettingsSearchEntry::get_ToolTip()
+M System.String APIShared.ModSettings.ModSettingsSearchMatcher::Normalize(System.String)
+M System.String APIShared.ModSettings.ModSettingsWorkingSource::get_DisplayName()
+M System.String APIShared.ModSettings.ModSettingsWorkingSource::get_Id()
+M System.String APIShared.ModSettings.ModSettingsWorkingSource::get_PreferenceContextId()
+M System.String APIShared.ModSettings.ModSettingsWorkingSource::ToString()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ActionsScopeNoticeText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ClientActivationLabelText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ClientOptionsText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ClientSettingsActivationHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_EnableModHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HostActivationLabelText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HostOptionsText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HostReadOnlyNoticeText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_HostSettingsActivationHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_ModEnabledText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_PerPlayerLobbySettingsReadinessError()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_PresetHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_PresetText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ApplicationNotice()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ConsumerModeNoticeText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_DirectLaunchNoticeText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModeNoticeText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchClearHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchExactKey()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchIncludeToolTipsHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchIncludeToolTipsText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchLabelText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchNoResultsText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_ModSettingsSearchToggleHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetDeleteText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetInlineCancelText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetInlineConfirmationMessage()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetInlineConfirmationTitle()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetInlineConfirmText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetLoadCancelText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetLoadConfirmText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetLoadSelectionHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetLoadText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetOperationStatusText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveBulkModeHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveBulkModeText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveCancelText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveConfirmHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveConfirmText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveDescription()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveDescriptionText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveName()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveNameText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveTargetText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetSaveText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetStatusDismissText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_PresetStatusText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SettingsSourceHelpText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SettingsSourceLoadText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_SettingsSourceText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::get_System_TrailSourceNoticeText()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::ResolveSettingsUiText(System.String,System.String)
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ExportSelectedPresetJson()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ImportPresetJson(System.String)
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_OwnConfigurationFingerprint()
+M System.String APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_SavePersonalPreset(System.String,System.String,System.String,System.Collections.Generic.IEnumerable`1<APIShared.ModSettings.PresetSaveSelection>,System.Boolean)
+M System.String APIShared.ModSettings.PresetSaveSelection::get_PropertyName()
+M System.String APIShared.ModSettings.PresetSaveSettingViewModel::get_DisplayName()
+M System.String APIShared.ModSettings.PresetSaveSettingViewModel::get_Group()
+M System.String APIShared.ModSettings.PresetSaveSettingViewModel::get_PropertyName()
+M System.String APIShared.ModSettings.PresetSaveSettingViewModel::get_RestartHelp()
+M System.String APIShared.ModSettings.PresetSaveSettingViewModel::get_ScopeText()
+M System.String APIShared.ModSettings.PresetSaveSettingViewModel::get_SettingHelp()
+M System.String APIShared.ModSettings.PresetSettingDescriptor::get_DisplayName()
+M System.String APIShared.ModSettings.PresetSettingDescriptor::get_Group()
+M System.String APIShared.ModSettings.PresetSettingDescriptor::get_PropertyName()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_Description()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_Id()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_MaximumTargetVersion()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_MinimumTargetVersion()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_Name()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_ProviderGuid()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_ProviderName()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_SourcePath()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_StableId()
+M System.String APIShared.ModSettings.PublishedModSettingsPreset::get_TargetGuid()
+M System.String APIShared.NativeCapabilityDiagnostic::get_BinaryHash()
+M System.String APIShared.NativeCapabilityDiagnostic::get_CapabilityId()
+M System.String APIShared.NativeCapabilityDiagnostic::get_ConflictOwnerGuid()
+M System.String APIShared.NativeCapabilityDiagnostic::get_Reason()
+M System.String APIShared.Networking.ModNetworkClient::get_OwnerGuid()
+M System.String APIShared.Networking.NetworkPacketDiagnostic::get_OwnerGuid()
+M System.String APIShared.Networking.NetworkPacketDiagnostic::get_Reason()
+M System.String APIShared.Networking.NetworkPacketDiagnostic::get_RegistrationId()
+M System.String APIShared.Networking.NetworkSendResult::get_Reason()
+M System.String APIShared.Pathfinding.RouteSearchContext::get_SourceGuid()
+M System.String APIShared.Pathfinding.RouteSearchPostEventArgs::get_Reason()
+M System.String APIShared.RepairTooltipEntry::get_Available()
+M System.String APIShared.RepairTooltipEntry::get_Required()
+M System.String APIShared.TemporaryGateRouteAcceptanceBridge::get_LastFailureCause()
+M System.String APIShared.UnitHudActionButtonDefinition::get_ButtonId()
+M System.String APIShared.UnitHudActionButtonDefinition::get_Tooltip()
+M System.String APIShared.UnitHudCategoryDefinition::get_CategoryId()
+M System.String APIShared.UnitHudCategoryDefinition::get_DisplayName()
+M System.String APIShared.UnitHudCategorySnapshot::get_CategoryId()
+M System.String APIShared.UnitHudCategorySnapshot::get_DisplayName()
+M System.String APIShared.UnitHudCategorySnapshot::get_OwnerGuid()
+M System.String APIShared.UnitHudImageOverrideDefinition::get_OverrideId()
+M System.String APIShared.UnitHudRecruitmentTicket::get_CategoryId()
+M System.String APIShared.UnitHudRecruitmentTicket::get_OwnerGuid()
+M System.String APIShared.UnitHudTextProfile::get_DescriptionFallback()
+M System.String APIShared.UnitHudTextProfile::get_DisplayNameFallback()
+M System.String APIShared.UnitHudTextProfile::get_ShortLabelFallback()
+M System.String APIShared.UnitHudTextResolver::EndInvoke(System.IAsyncResult)
+M System.String APIShared.UnitHudTextResolver::Invoke(APIShared.UnitHudTextKind)
+M System.String APIShared.Workshop.WorkshopBootstrap::get_Guid()
+M System.String APIShared.Workshop.WorkshopBootstrap::get_MapFile()
+M System.String APIShared.Workshop.WorkshopBootstrap::get_PluginFolder()
+M System.String APIShared.Workshop.WorkshopBootstrap::get_Version()
+M System.String APIShared.Workshop.WorkshopCatalogItem::get_ContentRoot()
+M System.String APIShared.Workshop.WorkshopCatalogItem::get_InstalledVersion()
+M System.String APIShared.Workshop.WorkshopCatalogItem::get_Status()
+M System.String APIShared.Workshop.WorkshopCatalogItem::get_Title()
+M System.String APIShared.Workshop.WorkshopDependency::get_Guid()
+M System.String APIShared.Workshop.WorkshopDependency::get_MaximumVersion()
+M System.String APIShared.Workshop.WorkshopDependency::get_MinimumVersion()
+M System.String APIShared.Workshop.WorkshopDependency::get_WorkshopId()
+M System.String APIShared.Workshop.WorkshopFile::get_Path()
+M System.String APIShared.Workshop.WorkshopFile::get_Sha256()
+M System.String APIShared.Workshop.WorkshopInstallPlan::get_OperationId()
+M System.String APIShared.Workshop.WorkshopInstallPlan::get_PackageId()
+M System.String APIShared.Workshop.WorkshopInstallPlan::get_Version()
+M System.String APIShared.Workshop.WorkshopLegacyRelease::get_Version()
+M System.String APIShared.Workshop.WorkshopOperation::get_Diagnostic()
+M System.String APIShared.Workshop.WorkshopOperation::get_OperationId()
+M System.String APIShared.Workshop.WorkshopPackage::get_MaximumScriptExtenderVersion()
+M System.String APIShared.Workshop.WorkshopPackage::get_MinimumAPISharedVersion()
+M System.String APIShared.Workshop.WorkshopPackage::get_MinimumScriptExtenderVersion()
+M System.String APIShared.Workshop.WorkshopPackage::get_PackageId()
+M System.String APIShared.Workshop.WorkshopPackage::get_Version()
+M System.String APIShared.Workshop.WorkshopPackageDraft::get_MaximumScriptExtenderVersion()
+M System.String APIShared.Workshop.WorkshopPackageDraft::get_MinimumAPISharedVersion()
+M System.String APIShared.Workshop.WorkshopPackageDraft::get_MinimumScriptExtenderVersion()
+M System.String APIShared.Workshop.WorkshopPackageDraft::get_PackageId()
+M System.String APIShared.Workshop.WorkshopPackageDraft::get_Version()
+M System.String APIShared.Workshop.WorkshopUploadOptions::get_ChangeNote()
+M System.String APIShared.Workshop.WorkshopUploadOptions::get_Description()
+M System.String APIShared.Workshop.WorkshopUploadOptions::get_PreviewFile()
+M System.String APIShared.Workshop.WorkshopUploadOptions::get_SourceDirectory()
+M System.String APIShared.Workshop.WorkshopUploadOptions::get_Title()
+M System.String APIShared.Workshop.WorkshopUploadOptions::get_Visibility()
+M System.String APIShared.Workshop.WorkshopUploadPlan::get_OperationId()
+M System.String APIShared.Workshop.WorkshopUploadPlan::get_PackageId()
+M System.String APIShared.Workshop.WorkshopUploadPlan::get_Version()
+M System.String[] APIShared.ModSettings.ModSettingsApplication::DiscardPreparationWithReport()
+M System.String[] APIShared.ModSettings.PresetSaveSettingViewModel::get_ModeOptions()
+M System.String[] APIShared.Workshop.WorkshopUploadOptions::get_Tags()
+M System.Threading.Tasks.Task`1<APIShared.Workshop.WorkshopInstallPlan> APIShared.Workshop.WorkshopClient::PrepareInstallAsync(System.UInt64,APIShared.Workshop.WorkshopAction)
+M System.Threading.Tasks.Task`1<APIShared.Workshop.WorkshopOperation> APIShared.Workshop.WorkshopClient::ApplyAsync(APIShared.Workshop.WorkshopInstallPlan)
+M System.Threading.Tasks.Task`1<APIShared.Workshop.WorkshopPackage> APIShared.Workshop.WorkshopClient::ValidatePackageAsync(System.String)
+M System.Threading.Tasks.Task`1<APIShared.Workshop.WorkshopUploadPlan> APIShared.Workshop.WorkshopClient::PrepareUploadAsync(APIShared.Workshop.WorkshopUploadOptions)
+M System.Threading.Tasks.Task`1<System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopCatalogItem>> APIShared.Workshop.WorkshopClient::GetCatalogAsync()
+M System.Threading.Tasks.Task`1<System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopCatalogItem>> APIShared.Workshop.WorkshopClient::GetOwnedItemsAsync()
+M System.Threading.Tasks.Task`1<System.String> APIShared.Workshop.WorkshopClient::CreateManifestAsync(System.String,APIShared.Workshop.WorkshopPackageDraft)
+M System.Type APIShared.ModSettings.DynamicPresetSetting::get_ValueType()
+M System.Type APIShared.ModSettings.PresetSettingDescriptor::get_PropertyType()
+M System.UInt32 APIShared.UnitHudUnitSnapshot::get_GlobalId()
+M System.UInt64 APIShared.AivBuildStepContext::get_AivStateAddress()
+M System.UInt64 APIShared.Networking.NetworkMessage`1::get_SenderSteamId()
+M System.UInt64 APIShared.Workshop.WorkshopCatalogItem::get_WorkshopId()
+M System.UInt64 APIShared.Workshop.WorkshopInstallPlan::get_WorkshopId()
+M System.UInt64 APIShared.Workshop.WorkshopOperation::get_WorkshopId()
+M System.UInt64 APIShared.Workshop.WorkshopUploadOptions::get_WorkshopId()
+M System.UInt64 APIShared.Workshop.WorkshopUploadPlan::get_WorkshopId()
+M System.Void APIShared.AivBuildStepCompletion::.ctor(APIShared.AivBuildStepContext,System.Boolean,System.Int32)
+M System.Void APIShared.AivBuildStepContext::.ctor(System.UInt64,System.Int32,System.Int32,System.Int32,System.Byte)
+M System.Void APIShared.ApiShared::WhenReady(System.Action`1<APIShared.IApiShared>)
+M System.Void APIShared.APISharedPlugin::.ctor()
+M System.Void APIShared.AssassinAttackControlAPI::RegisterGuard(System.String,System.Func`2<System.Int32,System.Boolean>,APIShared.AssassinObstacleCompletionMode)
+M System.Void APIShared.AssassinAttackControlAPI::RegisterGuard(System.String,System.Func`2<System.Int32,System.Boolean>)
+M System.Void APIShared.AssassinPathAPI::RegisterWeightedBuilder(System.String,APIShared.AssassinPathBuilder)
+M System.Void APIShared.AssassinPathAPI::SetDirectGatehouseClimbing(System.String,System.Boolean)
+M System.Void APIShared.AssassinPathAPI::SetWeightedReconstructionEnabled(System.String,System.Boolean)
+M System.Void APIShared.AssassinPathBuilder::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.Audio.SoundPreEventArgs::MultiplyVolume(System.Single)
+M System.Void APIShared.Audio.SoundPreEventArgs::ReplaceSound(System.Int32)
+M System.Void APIShared.Audio.SoundPreEventArgs::SetPan(System.Single)
+M System.Void APIShared.Audio.SoundRegistration::SetEnabled(System.Boolean)
+M System.Void APIShared.BriefingGoldAdjuster::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.BriefingGoldContext::.ctor(System.Int32,System.Boolean,System.Int32,System.Int32,System.Int32,System.Boolean,System.Boolean)
+M System.Void APIShared.BuildingRepairQuote::.ctor(System.Int32,System.Int32,System.Int32,System.Boolean,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.Commands.GameActionPreEventArgs::set_ActionState(System.Int32)
+M System.Void APIShared.Commands.GameActionPreEventArgs::set_StructureId(System.Int32)
+M System.Void APIShared.Commands.GameActionPreEventArgs::set_Value2(System.Int32)
+M System.Void APIShared.Economy.MarketPricePreEventArgs::set_ReplacementTotal(System.Int32)
+M System.Void APIShared.ElevatedMoatAiCapability::add_Changed(System.Action`1<APIShared.ElevatedMoatAiState>)
+M System.Void APIShared.ElevatedMoatAiCapability::Publish(APIShared.ElevatedMoatAiState)
+M System.Void APIShared.ElevatedMoatAiCapability::remove_Changed(System.Action`1<APIShared.ElevatedMoatAiState>)
+M System.Void APIShared.EnemyBridgeDiagnosticBridge::EndSearch(System.Object,System.Boolean,System.Int32)
+M System.Void APIShared.EnemyBridgeDiagnosticBridge::EndTopology(System.Object,System.Boolean,System.Boolean,System.Nullable`1<System.Int32>,System.Int32)
+M System.Void APIShared.EnemyBridgeDiagnosticBridge::ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.Events.InterceptionPreEventArgs::set_SkipOriginalFunction(System.Boolean)
+M System.Void APIShared.Events.InterceptionPreEventArgs::set_State(System.Object)
+M System.Void APIShared.GameModes.CustomizedLaunchOrigin::.ctor(APIShared.GameModes.CustomizedLaunchOriginKind,System.Int32,System.Int32,System.Int32,System.Boolean,System.Boolean,System.Boolean)
+M System.Void APIShared.GameModes.CustomizedLaunchOrigins::Register(System.String,System.Func`1<APIShared.GameModes.CustomizedLaunchOrigin>)
+M System.Void APIShared.GameModes.GameModeSnapshot::.ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,APIShared.GameModes.GameModeKind,APIShared.GameModes.GameModeLaunchVariant,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean)
+M System.Void APIShared.GameModes.GameplayModActivationProfile::.ctor(System.String,System.String,APIShared.GameModes.GameplayModAllowedContext,System.Boolean)
+M System.Void APIShared.GameModes.GameplayModeGate::.ctor(APIShared.GameModes.GameplayModActivationProfile)
+M System.Void APIShared.GameModes.GameplayModeGate::add_StateChanged(System.Action`1<System.Boolean>)
+M System.Void APIShared.GameModes.GameplayModeGate::remove_StateChanged(System.Action`1<System.Boolean>)
+M System.Void APIShared.GameModes.GameplayModeGate::Update(APIShared.GameModes.GameModeSnapshot)
+M System.Void APIShared.GameModes.GameplayModeGate::Update(APIShared.MissionLifecycleNotification)
+M System.Void APIShared.GatehouseFootprintCandidate::.ctor(System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.GatehouseTimingSettings::.ctor(System.Boolean,System.Double,System.Double,System.Double,System.Double)
+M System.Void APIShared.HudExtrasButtonDefinition::.ctor(System.String,System.Windows.Input.ICommand,System.String,System.Func`2<APIShared.HudExtrasButtonContext,Noesis.Button>,System.Int32,System.Func`2<APIShared.HudExtrasButtonContext,Noesis.ToolTip>)
+M System.Void APIShared.IAivBuildStepInvocation::Complete(APIShared.AivBuildStepCompletion)
+M System.Void APIShared.IBuildingRepairCapability::BeginHover(System.String)
+M System.Void APIShared.IBuildingRepairCapability::EndHover(System.String)
+M System.Void APIShared.IBuildingRepairCapability::SetActive(System.Boolean)
+M System.Void APIShared.IEnemyBridgePathObserver::EndSearch(System.Object,System.Boolean,System.Nullable`1<System.Int32>,System.Int32,System.Int64)
+M System.Void APIShared.IEnemyBridgePathObserver::ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.IEnemyBridgeTopologyObserver::EndTopology(System.Object,System.Boolean,System.Boolean,System.Nullable`1<System.Int32>,System.Int32)
+M System.Void APIShared.IEnemyGateAssassinObserver::EndAssassinSearch(System.Object,System.Int32,System.Int32,System.Int32,System.String,System.Boolean,System.Int32)
+M System.Void APIShared.IEnemyGateAssassinObserver::ObserveAssassinBuildingSearch(System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.IEnemyGateAssassinObserver::ObserveAssassinEdge(System.Object,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean)
+M System.Void APIShared.IEnemyGateAssassinObserver::ObserveAssassinPolicyFiltering(System.Object,System.Int32,System.Int64,System.Int64)
+M System.Void APIShared.IEnemyGatePathPolicy::ExitNativeSearch(System.Object,APIShared.EnemyGateSearchKind,System.Boolean,System.Boolean)
+M System.Void APIShared.IEnemyGateRegionPairObserver::ObserveRegionPair(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)
+M System.Void APIShared.IHudExtrasButtonRegistration::RequestContentRefresh()
+M System.Void APIShared.IHudExtrasButtonRegistration::SetEnabled(System.Boolean)
+M System.Void APIShared.IHudExtrasButtonRegistration::SetTooltip(System.String)
+M System.Void APIShared.IHudExtrasButtonRegistration::SetVisible(System.Boolean)
+M System.Void APIShared.IHudExtrasButtonsCapability::SetOwnerActive(System.Boolean)
+M System.Void APIShared.ITemporaryAssassinGateObserver::ObserveAssassinDecision(System.Object,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean,APIShared.AssassinTransitionKind,System.Boolean,System.Int32,System.UInt32,System.String)
+M System.Void APIShared.ITemporaryAssassinGateObserver::ObserveAssassinStage(System.Object,System.Int32,System.String,System.String,System.String)
+M System.Void APIShared.ITemporaryGateRouteAcceptanceObserver::EndRoute(System.Object,System.String,System.Int32)
+M System.Void APIShared.ITemporaryGateRouteAcceptanceObserver::Raid(System.Int32,System.Int32,System.Int32,System.UInt32,System.Int32,System.UInt32,System.String,System.String,System.String)
+M System.Void APIShared.ITemporaryGateRouteAcceptanceObserver::RouteEdge(System.Object,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.IUnitHudActionButtonRegistration::RequestContentRefresh()
+M System.Void APIShared.IUnitHudActionButtonRegistration::SetEnabled(System.Boolean)
+M System.Void APIShared.IUnitHudActionButtonRegistration::SetTooltip(System.String)
+M System.Void APIShared.IUnitHudActionButtonRegistration::SetVisible(System.Boolean)
+M System.Void APIShared.IUnitHudActivationCapability::SetOwnerActive(System.Boolean)
+M System.Void APIShared.IUnitHudPresentationCapability::RequestRefresh()
+M System.Void APIShared.LobbyPreparationOverride::Apply(CrusaderDE.FRONT_Multiplayer)
+M System.Void APIShared.LobbyPreparationOverride::Register(System.String,System.Func`2<CrusaderDE.FRONT_Multiplayer,System.Boolean>,System.Action`1<CrusaderDE.FRONT_Multiplayer>)
+M System.Void APIShared.LobbyPreparationOverride::Tick(CrusaderDE.FRONT_Multiplayer)
+M System.Void APIShared.LobbyStateSnapshot::.ctor(System.Nullable`1<System.UInt64>,System.Collections.Generic.IReadOnlyDictionary`2<System.Int32,System.UInt64>,System.Boolean,System.Int32,System.Boolean,System.String,System.String)
+M System.Void APIShared.MarkedUnitSelectionAPI::RequestResync(System.Int64)
+M System.Void APIShared.ModApiClient::WhenReady(System.Action`1<APIShared.ModApiClient>)
+M System.Void APIShared.ModSettings.DynamicPresetSetting::.ctor()
+M System.Void APIShared.ModSettings.DynamicPresetSetting::set_DefaultValue(System.Object)
+M System.Void APIShared.ModSettings.DynamicPresetSetting::set_DisplayName(System.String)
+M System.Void APIShared.ModSettings.DynamicPresetSetting::set_Group(System.String)
+M System.Void APIShared.ModSettings.DynamicPresetSetting::set_Key(System.String)
+M System.Void APIShared.ModSettings.DynamicPresetSetting::set_RequiresRestart(System.Boolean)
+M System.Void APIShared.ModSettings.DynamicPresetSetting::set_Scope(APIShared.ModSettings.PresetSettingScope)
+M System.Void APIShared.ModSettings.DynamicPresetSetting::set_ValueType(System.Type)
+M System.Void APIShared.ModSettings.ExcludeFromSavegameModSettingsAttribute::.ctor()
+M System.Void APIShared.ModSettings.IDynamicPresetSettingsProvider::ReplaceValues(System.Collections.Generic.Dictionary`2<System.String,System.Object>)
+M System.Void APIShared.ModSettings.IDynamicPresetSettingsProvider::ValidateValues(System.Collections.Generic.Dictionary`2<System.String,System.Object>)
+M System.Void APIShared.ModSettings.IModSettingsApplicationBackend::ApplyValues(System.Collections.Generic.Dictionary`2<System.String,System.Object>,System.String)
+M System.Void APIShared.ModSettings.IModSettingsApplicationBackend::DiscardPendingConfiguration()
+M System.Void APIShared.ModSettings.IModSettingsApplicationBackend::ReplaceDesiredValues(System.Collections.Generic.Dictionary`2<System.String,System.Object>)
+M System.Void APIShared.ModSettings.IModSettingsApplicationBackend::ReturnToOwnConfiguration()
+M System.Void APIShared.ModSettings.IModSettingsApplicationBackend::StageValues(System.Collections.Generic.Dictionary`2<System.String,System.Object>,System.String)
+M System.Void APIShared.ModSettings.IModSettingsMissionSourceEndpoint::System_SetExplicitMissionSettings(System.Boolean)
+M System.Void APIShared.ModSettings.IModSettingsPresetEndpoint::System_EnterMissionPreset(System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>,System.String,System.Boolean)
+M System.Void APIShared.ModSettings.IModSettingsPresetEndpoint::System_ExitMissionPreset()
+M System.Void APIShared.ModSettings.IModSettingsWorkingCopyEndpoint::System_ApplyMissionPresetSnapshot(System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>,System.String)
+M System.Void APIShared.ModSettings.IModSettingsWorkingCopyEndpoint::System_ApplyWorkingSnapshot(System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>)
+M System.Void APIShared.ModSettings.IModSettingsWorkingCopyEndpoint::System_LoadModDefaults()
+M System.Void APIShared.ModSettings.IModSettingsWorkingSourceProvider::add_SourcesChanged(System.Action)
+M System.Void APIShared.ModSettings.IModSettingsWorkingSourceProvider::Apply(System.String,System.String)
+M System.Void APIShared.ModSettings.IModSettingsWorkingSourceProvider::ApplyMany(System.Collections.Generic.IEnumerable`1<System.String>,System.String)
+M System.Void APIShared.ModSettings.IModSettingsWorkingSourceProvider::remove_SourcesChanged(System.Action)
+M System.Void APIShared.ModSettings.LobbyModSettingsPresetRegistration::AttachExternalView(System.Object,BepInEx.Logging.ManualLogSource,System.String)
+M System.Void APIShared.ModSettings.LobbyModSettingsPresetRegistration::AttachExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,APIShared.ModSettings.PresetLobbyModSettingsViewModel,System.Object)
+M System.Void APIShared.ModSettings.LobbyModSettingsPresetRegistration::Register(BepInEx.BaseUnityPlugin,BepInEx.Logging.ManualLogSource,System.String,APIShared.ModSettings.PresetLobbyModSettingsViewModel,System.String,System.Boolean,System.Boolean)
+M System.Void APIShared.ModSettings.LobbyModSettingsPresetRegistration::Register(BepInEx.BaseUnityPlugin,BepInEx.Logging.ManualLogSource,System.String,APIShared.ModSettings.PresetLobbyModSettingsViewModel,System.String,System.Boolean)
+M System.Void APIShared.ModSettings.LobbyModSettingsPresetRegistration::Register(BepInEx.BaseUnityPlugin,BepInEx.Logging.ManualLogSource,System.String,APIShared.ModSettings.PresetLobbyModSettingsViewModel,System.String)
+M System.Void APIShared.ModSettings.LobbyModSettingsPresetRegistration::RegisterExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,APIShared.ModSettings.PresetLobbyModSettingsViewModel)
+M System.Void APIShared.ModSettings.LobbyModSettingsPresetRegistration/PreparedExternalSettings::Activate(System.Action,System.Func`2<System.Exception,System.Boolean>)
+M System.Void APIShared.ModSettings.ModSettingsApplication::add_PreparationChanged(System.Action)
+M System.Void APIShared.ModSettings.ModSettingsApplication::ConfirmStarted()
+M System.Void APIShared.ModSettings.ModSettingsApplication::DiscardPreparation()
+M System.Void APIShared.ModSettings.ModSettingsApplication::EnterContext(System.String)
+M System.Void APIShared.ModSettings.ModSettingsApplication::ExitContext()
+M System.Void APIShared.ModSettings.ModSettingsApplication::remove_PreparationChanged(System.Action)
+M System.Void APIShared.ModSettings.ModSettingsApplication::RestorePreparedSources(System.String)
+M System.Void APIShared.ModSettings.ModSettingsMode::SetAvailability(Noesis.DependencyObject,APIShared.ModSettings.ModSettingsModeAvailability)
+M System.Void APIShared.ModSettings.ModSettingsMode::SetKey(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::.ctor()
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::add_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::Configure(System.String,System.Nullable`1<APIShared.GameModes.GameplayModActivationProfile>)
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::ConfigureDefault(System.Nullable`1<APIShared.GameModes.GameplayModActivationProfile>)
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::ConfigureNetworkVariant(System.String,System.Nullable`1<System.Boolean>)
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::remove_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::SetMission(APIShared.GameModes.GameModeSnapshot)
+M System.Void APIShared.ModSettings.ModSettingsModeAvailability::SetPreview(APIShared.GameModes.GameplayModAllowedContext,System.Nullable`1<System.Boolean>)
+M System.Void APIShared.ModSettings.ModSettingsPresetListEntry::.ctor()
+M System.Void APIShared.ModSettings.ModSettingsPresetSaveTarget::.ctor()
+M System.Void APIShared.ModSettings.ModSettingsSearch::RegisterSource(System.Object,System.String,BepInEx.Logging.ManualLogSource,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetExactKey(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetExclude(Noesis.DependencyObject,System.Boolean)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetFilterText(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetFocusRequest(Noesis.DependencyObject,System.Int32)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetIncludeToolTips(Noesis.DependencyObject,System.Boolean)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetIsSection(Noesis.DependencyObject,System.Boolean)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetKey(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetSectionKey(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetSectionTitle(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetTitle(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearch::SetToolTipText(Noesis.DependencyObject,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearchEntry::.ctor(System.String,System.String,System.String,System.String,System.String,System.Boolean)
+M System.Void APIShared.ModSettings.ModSettingsSearchEntry::.ctor(System.String,System.String,System.String)
+M System.Void APIShared.ModSettings.ModSettingsSearchVisibilityConverter::.ctor()
+M System.Void APIShared.ModSettings.ModSettingsWorkingSource::.ctor()
+M System.Void APIShared.ModSettings.ModSettingsWorkingSource::set_DisplayName(System.String)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSource::set_Id(System.String)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSource::set_IsPreferred(System.Boolean)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSource::set_Kind(APIShared.ModSettings.ModSettingsWorkingSourceKind)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSource::set_PreferenceContextId(System.String)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSourceRegistry::add_SourcesChanged(System.Action)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSourceRegistry::Apply(System.String,System.String)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSourceRegistry::ApplyMany(System.Collections.Generic.IEnumerable`1<System.String>,System.String)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSourceRegistry::Register(APIShared.ModSettings.IModSettingsWorkingSourceProvider)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSourceRegistry::remove_SourcesChanged(System.Action)
+M System.Void APIShared.ModSettings.ModSettingsWorkingSourceRegistry::Unregister(APIShared.ModSettings.IModSettingsWorkingSourceProvider)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::.ctor()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::ApplyConfirmedPresetSelection(APIShared.ModSettings.PublishedModSettingsPreset)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::ConfigurePerPlayerLobbySettings(APIShared.ModSettings.PerPlayerLobbySettingsBuilder)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::OnPropertyChanged(System.String)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::OnSettingsSnapshotApplied()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_ClientSettingsEnabled(System.Boolean)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_HostSettingsEnabled(System.Boolean)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_ModSettingsSearchIncludeToolTips(System.Boolean)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_ModSettingsSearchText(System.String)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_PresetSaveBulkModeIndex(System.Int32)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_PresetSaveDescription(System.String)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_PresetSaveName(System.String)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_SelectedPresetLoadEntry(APIShared.ModSettings.ModSettingsPresetListEntry)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_SelectedPresetSaveTarget(APIShared.ModSettings.ModSettingsPresetSaveTarget)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::set_System_SelectedSettingsSource(APIShared.ModSettings.ModSettingsWorkingSource)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::SetConfigurationNotice(System.String)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::SetModDefaultValue(System.String,T)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ApplyMissionPresetSnapshot(System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>,System.String)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ApplyWorkingSnapshot(System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_CommitConfiguration()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ConfigureDirectLaunchNotice(System.Func`1<System.String>)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_DiscardPendingConfiguration()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_EnterMissionPreset(System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>,System.String,System.Boolean)
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ExitMissionPreset()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_LoadModDefaults()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_RefreshOwnConfiguration()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_RefreshSettingsAccess()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_RequestPerPlayerSettingsPublish()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_ReturnToOwnConfiguration()
+M System.Void APIShared.ModSettings.PresetLobbyModSettingsViewModel::System_SetExplicitMissionSettings(System.Boolean)
+M System.Void APIShared.ModSettings.PresetLocalAttribute::.ctor()
+M System.Void APIShared.ModSettings.PresetSaveSelection::.ctor()
+M System.Void APIShared.ModSettings.PresetSaveSelection::set_Mode(APIShared.ModSettings.PublishedPresetValueMode)
+M System.Void APIShared.ModSettings.PresetSaveSelection::set_PropertyName(System.String)
+M System.Void APIShared.ModSettings.PresetSaveSettingViewModel::.ctor(APIShared.ModSettings.PresetSettingDescriptor,System.String,System.String[])
+M System.Void APIShared.ModSettings.PresetSaveSettingViewModel::.ctor(APIShared.ModSettings.PresetSettingDescriptor)
+M System.Void APIShared.ModSettings.PresetSaveSettingViewModel::add_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.ModSettings.PresetSaveSettingViewModel::remove_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.ModSettings.PresetSaveSettingViewModel::set_RestartHelp(System.String)
+M System.Void APIShared.ModSettings.PresetSaveSettingViewModel::set_SelectedModeIndex(System.Int32)
+M System.Void APIShared.ModSettings.PresetSettingDescriptor::.ctor()
+M System.Void APIShared.ModSettings.PublishedModSettingsPreset::.ctor()
+M System.Void APIShared.ModSettings.PublishedPresetSetting::.ctor()
+M System.Void APIShared.ModSettings.PublishedPresetSetting::set_Mode(APIShared.ModSettings.PublishedPresetValueMode)
+M System.Void APIShared.ModSettings.PublishedPresetSetting::set_Value(System.Object)
+M System.Void APIShared.ModSettings.RequiresRestartAttribute::.ctor()
+M System.Void APIShared.ModSettings.SettingModeState::add_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.ModSettings.SettingModeState::remove_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.NativeCapabilityDiagnostic::.ctor(System.String,APIShared.NativeCapabilityState,System.String,System.String,System.String)
+M System.Void APIShared.Networking.ChoreChannelOptions`1::.ctor()
+M System.Void APIShared.Networking.ChoreChannelOptions`1::set_Diagnostic(System.Action`1<APIShared.Networking.NetworkPacketDiagnostic>)
+M System.Void APIShared.Networking.ChoreChannelOptions`1::set_IsEnabled(System.Func`1<System.Boolean>)
+M System.Void APIShared.Networking.ChoreChannelOptions`1::set_MaximumPayloadBytes(System.Int32)
+M System.Void APIShared.Networking.ChoreChannelOptions`1::set_Validate(System.Func`2<T,System.Boolean>)
+M System.Void APIShared.Networking.MessageChannelOptions`1::.ctor()
+M System.Void APIShared.Networking.MessageChannelOptions`1::set_Diagnostic(System.Action`1<APIShared.Networking.NetworkPacketDiagnostic>)
+M System.Void APIShared.Networking.MessageChannelOptions`1::set_IsEnabled(System.Func`1<System.Boolean>)
+M System.Void APIShared.Networking.MessageChannelOptions`1::set_MaximumBodyBytes(System.Int32)
+M System.Void APIShared.Networking.MessageChannelOptions`1::set_Snapshot(System.Func`2<T,T>)
+M System.Void APIShared.Networking.MessageChannelOptions`1::set_Validate(System.Func`2<APIShared.Networking.NetworkMessage`1<T>,System.Boolean>)
+M System.Void APIShared.Pathfinding.RouteSearchPreEventArgs::set_GroundEdgeCost(System.Int64)
+M System.Void APIShared.Pathfinding.RouteSearchPreEventArgs::set_MoatEdgeCost(System.Int64)
+M System.Void APIShared.Pathfinding.RouteSearchPreEventArgs::set_SkipOriginalFunction(System.Boolean)
+M System.Void APIShared.PlayerDefeatNotification::.ctor(System.Int64,System.Int32,System.Int32)
+M System.Void APIShared.PlayerLordDeathNotification::.ctor(System.Int64,System.Int32,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.PlayerPerspectiveAPI::ClearSpectatorView()
+M System.Void APIShared.Presentation.PresentationPreEventArgs::set_Parameter(System.Object)
+M System.Void APIShared.Presentation.PresentationPreEventArgs::set_Replacement(System.Action`1<System.Object>)
+M System.Void APIShared.RepairTooltipEntry::.ctor()
+M System.Void APIShared.RepairTooltipEntry::set_Available(System.String)
+M System.Void APIShared.RepairTooltipEntry::set_Icon(Noesis.ImageSource)
+M System.Void APIShared.RepairTooltipEntry::set_Required(System.String)
+M System.Void APIShared.RepairTooltipViewModel::.ctor()
+M System.Void APIShared.RepairTooltipViewModel::add_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.RepairTooltipViewModel::Clear()
+M System.Void APIShared.RepairTooltipViewModel::remove_PropertyChanged(System.ComponentModel.PropertyChangedEventHandler)
+M System.Void APIShared.RepairTooltipViewModel::Show(APIShared.BuildingRepairQuote)
+M System.Void APIShared.SavegameModSettings::CancelLoadChoice()
+M System.Void APIShared.SavegameModSettings::ExcludePluginFromAutomaticSettings(System.Type)
+M System.Void APIShared.SavegameModSettings::PrepareLoad(System.String,System.Boolean)
+M System.Void APIShared.SavegameModSettings::RegisterTrailCreatorRulesProvider(System.Func`1<System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.Dictionary`2<System.String,APIShared.TrailCreatorRule>>>,System.Func`1<System.Boolean>)
+M System.Void APIShared.SavegameModSettingsRecord::.ctor()
+M System.Void APIShared.SavegameModSettingsRecord::set_CreatorRules(System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.Dictionary`2<System.String,APIShared.TrailCreatorRule>>)
+M System.Void APIShared.SavegameModSettingsRecord::set_Kind(System.Int32)
+M System.Void APIShared.SavegameModSettingsRecord::set_LockedByConflict(System.Boolean)
+M System.Void APIShared.SavegameModSettingsRecord::set_Mods(System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.Dictionary`2<System.String,System.Byte[]>>)
+M System.Void APIShared.SavegameModSettingsRecord::set_TrailCustomizeAllowed(System.Boolean)
+M System.Void APIShared.SavegameModSettingsRecord::set_Variant(System.Int32)
+M System.Void APIShared.SavegameModSettingsRecord::set_Version(System.Int32)
+M System.Void APIShared.SavegameModSettingsRecordFormatter::.ctor()
+M System.Void APIShared.SavegameModSettingsRecordFormatter::Serialize(MessagePack.MessagePackWriter&,APIShared.SavegameModSettingsRecord,MessagePack.MessagePackSerializerOptions)
+M System.Void APIShared.TemporaryGateRouteAcceptanceBridge::Register(APIShared.ITemporaryGateRouteAcceptanceObserver)
+M System.Void APIShared.TemporaryGateRouteAcceptanceBridge::ReportFailure(System.String,System.Exception)
+M System.Void APIShared.TemporaryGateRouteAcceptanceBridge::ReportRaid(System.Int32,System.Int32,System.Int32,System.UInt32,System.Int32,System.UInt32,System.String,System.String,System.String)
+M System.Void APIShared.TrailCreatorRule::.ctor()
+M System.Void APIShared.TrailCreatorRule::set_FixedValue(System.Byte[])
+M System.Void APIShared.TrailCreatorRule::set_Mode(System.Int32)
+M System.Void APIShared.UnitHudActionButtonDefinition::.ctor(System.String,System.Windows.Input.ICommand,System.String,System.Func`2<APIShared.UnitHudActionButtonContext,Noesis.FrameworkElement>,System.Int32,System.Action`1<System.Boolean>,System.Action`1<System.Boolean>)
+M System.Void APIShared.UnitHudCategoryDefinition::.ctor(System.String,System.String,System.Int32,APIShared.UnitHudSurface,APIShared.UnitHudCategoryImageResolver,APIShared.UnitHudTint,System.Int32,APIShared.UnitHudTextProfile)
+M System.Void APIShared.UnitHudCategoryDefinition::.ctor(System.String,System.String,System.Int32,APIShared.UnitHudSurface,APIShared.UnitHudCategoryImageResolver,APIShared.UnitHudTint,System.Int32)
+M System.Void APIShared.UnitHudCategoryImageResolver::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.UnitHudCategoryMatcher::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.UnitHudCategorySnapshot::.ctor(System.String,System.String,System.String,System.Collections.Generic.IReadOnlyList`1<APIShared.UnitHudUnitSnapshot>)
+M System.Void APIShared.UnitHudControlGroupSnapshot::.ctor(System.Int32,System.Collections.Generic.IReadOnlyList`1<APIShared.UnitHudUnitSnapshot>)
+M System.Void APIShared.UnitHudImageOverrideContext::.ctor(System.Int32,System.Boolean,APIShared.UnitHudImageSlot,Noesis.ImageSource,Noesis.ImageSource)
+M System.Void APIShared.UnitHudImageOverrideDefinition::.ctor(System.String,APIShared.UnitHudImageSlot,System.Int32)
+M System.Void APIShared.UnitHudImageOverrideResolver::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.UnitHudInteractionContext::.ctor(APIShared.UnitHudMouseButton,APIShared.UnitHudCategorySnapshot)
+M System.Void APIShared.UnitHudInteractionHandler::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.UnitHudInteractionHandler::EndInvoke(System.IAsyncResult)
+M System.Void APIShared.UnitHudInteractionHandler::Invoke(APIShared.UnitHudInteractionContext)
+M System.Void APIShared.UnitHudRecruitmentHandler::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.UnitHudRecruitmentTicket::.ctor(System.Int64,System.String,System.String,System.Int32,System.Int32,System.Int32)
+M System.Void APIShared.UnitHudSlotSnapshot::.ctor(System.Int32,System.Int32,APIShared.UnitHudCategorySnapshot)
+M System.Void APIShared.UnitHudTextProfile::.ctor(System.String,System.String,System.String,APIShared.UnitHudTextResolver)
+M System.Void APIShared.UnitHudTextResolver::.ctor(System.Object,System.IntPtr)
+M System.Void APIShared.UnitHudTint::.ctor(System.Byte,System.Byte,System.Byte,System.Byte)
+M System.Void APIShared.UnitHudUnitSnapshot::.ctor(System.Int32,System.UInt32,System.Int32,System.Int32,System.Boolean)
+M System.Void APIShared.Workshop.WorkshopBootstrap::.ctor(System.String,System.String,System.String,System.String)
+M System.Void APIShared.Workshop.WorkshopCatalogItem::.ctor()
+M System.Void APIShared.Workshop.WorkshopDependency::.ctor(System.String,System.String,System.String,System.String)
+M System.Void APIShared.Workshop.WorkshopFile::.ctor(System.String,System.Int64,System.String)
+M System.Void APIShared.Workshop.WorkshopLegacyRelease::.ctor(System.String,System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopFile>)
+M System.Void APIShared.Workshop.WorkshopOperation::add_Changed(System.Action`1<APIShared.Workshop.WorkshopOperation>)
+M System.Void APIShared.Workshop.WorkshopOperation::remove_Changed(System.Action`1<APIShared.Workshop.WorkshopOperation>)
+M System.Void APIShared.Workshop.WorkshopPackage::.ctor()
+M System.Void APIShared.Workshop.WorkshopPackageDraft::.ctor(System.String,System.String,System.String,System.String,System.String,System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopDependency>,APIShared.Workshop.WorkshopBootstrap,System.Collections.Generic.IReadOnlyList`1<APIShared.Workshop.WorkshopLegacyRelease>)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::.ctor()
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_ChangeNote(System.String)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_Description(System.String)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_Draft(APIShared.Workshop.WorkshopPackageDraft)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_MetadataOnly(System.Boolean)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_PreviewFile(System.String)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_SourceDirectory(System.String)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_Tags(System.String[])
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_Title(System.String)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_Visibility(System.String)
+M System.Void APIShared.Workshop.WorkshopUploadOptions::set_WorkshopId(System.UInt64)
+M System.Void APIShared.Workshop.WorkshopUploadPlan::.ctor()
+M System.Windows.Input.ICommand APIShared.HudExtrasButtonDefinition::get_Command()
+M System.Windows.Input.ICommand APIShared.UnitHudActionButtonDefinition::get_Command()
+M T APIShared.Networking.NetworkMessage`1::get_Packet()
+T APIShared.AivBuildStepCompletion
+T APIShared.AivBuildStepContext
+T APIShared.ApiShared
+T APIShared.APISharedPlugin
+T APIShared.AssassinAttackControlAPI
+T APIShared.AssassinGateTransitionPolicy
+T APIShared.AssassinObstacleCompletionMode
+T APIShared.AssassinPathAPI
+T APIShared.AssassinPathBuilder
+T APIShared.AssassinTransitionKind
+T APIShared.Audio.SituationEvidence
+T APIShared.Audio.SoundClipHandle
+T APIShared.Audio.SoundClips
+T APIShared.Audio.SoundContext
+T APIShared.Audio.SoundEvents
+T APIShared.Audio.SoundPlaybackKind
+T APIShared.Audio.SoundPostEventArgs
+T APIShared.Audio.SoundPreEventArgs
+T APIShared.Audio.SoundRegistration
+T APIShared.Audio.SoundSituation
+T APIShared.Audio.SoundTarget
+T APIShared.Audio.SoundTargetKind
+T APIShared.BriefingGoldAdjuster
+T APIShared.BriefingGoldAdjustmentStage
+T APIShared.BriefingGoldContext
+T APIShared.BuildingRepairQuote
+T APIShared.Commands.GameActionAcceptedEventArgs
+T APIShared.Commands.GameActionEvents
+T APIShared.Commands.GameActionPostEventArgs
+T APIShared.Commands.GameActionPreEventArgs
+T APIShared.Economy.MarketPriceDirection
+T APIShared.Economy.MarketPriceEvents
+T APIShared.Economy.MarketPricePostEventArgs
+T APIShared.Economy.MarketPricePreEventArgs
+T APIShared.ElevatedMoatAiCapability
+T APIShared.ElevatedMoatAiState
+T APIShared.EnemyBridgeDiagnosticBridge
+T APIShared.EnemyGatePathPolicyBridge
+T APIShared.EnemyGateSearchKind
+T APIShared.Events.InterceptionPreEventArgs
+T APIShared.GameModes.CustomizedLaunchOrigin
+T APIShared.GameModes.CustomizedLaunchOriginKind
+T APIShared.GameModes.CustomizedLaunchOrigins
+T APIShared.GameModes.GameModeHelper
+T APIShared.GameModes.GameModeKind
+T APIShared.GameModes.GameModeLaunchVariant
+T APIShared.GameModes.GameModeSnapshot
+T APIShared.GameModes.GameplayModActivationProfile
+T APIShared.GameModes.GameplayModAllowedContext
+T APIShared.GameModes.GameplayModeGate
+T APIShared.GameModes.GameplayModModePolicy
+T APIShared.GameModes.GameTrailType
+T APIShared.GatehouseDistanceOrigin
+T APIShared.GatehouseDrawbridgeCoupling
+T APIShared.GatehouseFootprintCandidate
+T APIShared.GatehouseTimingSettings
+T APIShared.GatehouseTimingValues
+T APIShared.HudExtrasButtonContext
+T APIShared.HudExtrasButtonDefinition
+T APIShared.IAivBuildStepCapability
+T APIShared.IAivBuildStepInvocation
+T APIShared.IAivBuildStepObserver
+T APIShared.IApiShared
+T APIShared.IBriefingGoldPresentationCapability
+T APIShared.IBuildingRepairCapability
+T APIShared.IEnemyBridgePathObserver
+T APIShared.IEnemyBridgeTopologyObserver
+T APIShared.IEnemyGateAssassinObserver
+T APIShared.IEnemyGateClimbRoutePolicySnapshot
+T APIShared.IEnemyGatePathPolicy
+T APIShared.IEnemyGateRegionPairObserver
+T APIShared.IEnemyGateRoutePolicyProvider
+T APIShared.IEnemyGateRoutePolicySnapshot
+T APIShared.IGatehouseAutomationCapability
+T APIShared.IGatehouseDistanceOriginCapability
+T APIShared.IGatehouseTimingCapability
+T APIShared.IHudExtrasButtonRegistration
+T APIShared.IHudExtrasButtonsCapability
+T APIShared.ILobbyStateCapability
+T APIShared.IMissionLifecycleCapability
+T APIShared.IPlayerDefeatCapability
+T APIShared.ITemporaryAssassinGateObserver
+T APIShared.ITemporaryGateRouteAcceptanceObserver
+T APIShared.IUnitHudActionButtonRegistration
+T APIShared.IUnitHudActionButtonsCapability
+T APIShared.IUnitHudActivationCapability
+T APIShared.IUnitHudPresentationCapability
+T APIShared.LobbyPreparationOverride
+T APIShared.LobbyStateSnapshot
+T APIShared.LocalSelectionAPI
+T APIShared.LocalSelectionSnapshot
+T APIShared.MarkedUnitSelectionAPI
+T APIShared.MarkedUnitSelectionSnapshot
+T APIShared.MissionContext
+T APIShared.MissionEndReason
+T APIShared.MissionInitializationPhase
+T APIShared.MissionLifecycleKind
+T APIShared.MissionLifecycleNotification
+T APIShared.MissionMapType
+T APIShared.MissionStartKind
+T APIShared.ModApiClient
+T APIShared.ModSettings.DynamicPresetSetting
+T APIShared.ModSettings.ExcludeFromSavegameModSettingsAttribute
+T APIShared.ModSettings.IDynamicPresetSettingsProvider
+T APIShared.ModSettings.IModSettingsApplicationBackend
+T APIShared.ModSettings.IModSettingsMissionSourceEndpoint
+T APIShared.ModSettings.IModSettingsPresetEndpoint
+T APIShared.ModSettings.IModSettingsWorkingCopyEndpoint
+T APIShared.ModSettings.IModSettingsWorkingSourceProvider
+T APIShared.ModSettings.INetworkModSettingsApplicationBackend
+T APIShared.ModSettings.LobbyModSettingsPresetRegistration
+T APIShared.ModSettings.LobbyModSettingsPresetRegistration/PreparedExternalSettings
+T APIShared.ModSettings.ModSettingsApplication
+T APIShared.ModSettings.ModSettingsMode
+T APIShared.ModSettings.ModSettingsModeAvailability
+T APIShared.ModSettings.ModSettingsPresetJson
+T APIShared.ModSettings.ModSettingsPresetListEntry
+T APIShared.ModSettings.ModSettingsPresetSaveTarget
+T APIShared.ModSettings.ModSettingsPresetSourceKind
+T APIShared.ModSettings.ModSettingsSearch
+T APIShared.ModSettings.ModSettingsSearchEntry
+T APIShared.ModSettings.ModSettingsSearchMatcher
+T APIShared.ModSettings.ModSettingsSearchVisibilityConverter
+T APIShared.ModSettings.ModSettingsWorkingSource
+T APIShared.ModSettings.ModSettingsWorkingSourceKind
+T APIShared.ModSettings.ModSettingsWorkingSourceRegistry
+T APIShared.ModSettings.PerPlayerLobbySettingsBuilder
+T APIShared.ModSettings.PerPlayerLobbySnapshot
+T APIShared.ModSettings.PresetLobbyModSettingsViewModel
+T APIShared.ModSettings.PresetLocalAttribute
+T APIShared.ModSettings.PresetSaveBulkMode
+T APIShared.ModSettings.PresetSaveSelection
+T APIShared.ModSettings.PresetSaveSettingViewModel
+T APIShared.ModSettings.PresetSettingDescriptor
+T APIShared.ModSettings.PresetSettingScope
+T APIShared.ModSettings.PublishedModSettingsPreset
+T APIShared.ModSettings.PublishedPresetSetting
+T APIShared.ModSettings.PublishedPresetValueMode
+T APIShared.ModSettings.RequiresRestartAttribute
+T APIShared.ModSettings.SettingModeState
+T APIShared.ModSettings.SettingModeStatus
+T APIShared.ModSettings.ToolTipPresentation
+T APIShared.NativeApiState
+T APIShared.NativeCapabilityDiagnostic
+T APIShared.NativeCapabilityIds
+T APIShared.NativeCapabilityState
+T APIShared.Networking.ChoreChannel`1
+T APIShared.Networking.ChoreChannelOptions`1
+T APIShared.Networking.ChoreTransport
+T APIShared.Networking.MessageChannel`1
+T APIShared.Networking.MessageChannelOptions`1
+T APIShared.Networking.ModNetworkClient
+T APIShared.Networking.NetworkMessage`1
+T APIShared.Networking.NetworkPacketDiagnostic
+T APIShared.Networking.NetworkSendResult
+T APIShared.Networking.NetworkSendStatus
+T APIShared.Pathfinding.RouteSearchContext
+T APIShared.Pathfinding.RouteSearchEvents
+T APIShared.Pathfinding.RouteSearchPostEventArgs
+T APIShared.Pathfinding.RouteSearchPreEventArgs
+T APIShared.Pathfinding.RouteSearchTerrain
+T APIShared.PlayerDefeatNotification
+T APIShared.PlayerLordDeathNotification
+T APIShared.PlayerPerspectiveAPI
+T APIShared.Presentation.PresentationEvents
+T APIShared.Presentation.PresentationOperation
+T APIShared.Presentation.PresentationPostEventArgs
+T APIShared.Presentation.PresentationPreEventArgs
+T APIShared.Recruitment.RecruitmentConstraintAction
+T APIShared.Recruitment.RecruitmentConstraintDecision
+T APIShared.Recruitment.RecruitmentMaterialUi
+T APIShared.Recruitment.RecruitmentRequestPolicy
+T APIShared.RepairTooltipEntry
+T APIShared.RepairTooltipViewModel
+T APIShared.SavegameLoadChoiceState
+T APIShared.SavegameModSettings
+T APIShared.SavegameModSettingsRecord
+T APIShared.SavegameModSettingsRecordFormatter
+T APIShared.TemporaryGateRouteAcceptanceBridge
+T APIShared.TrailCreatorRule
+T APIShared.UnitAccess
+T APIShared.UnitHudActionButtonContext
+T APIShared.UnitHudActionButtonDefinition
+T APIShared.UnitHudCategoryDefinition
+T APIShared.UnitHudCategoryImageResolver
+T APIShared.UnitHudCategoryMatcher
+T APIShared.UnitHudCategorySnapshot
+T APIShared.UnitHudControlGroupSnapshot
+T APIShared.UnitHudImageOverrideContext
+T APIShared.UnitHudImageOverrideDefinition
+T APIShared.UnitHudImageOverrideResolver
+T APIShared.UnitHudImageSlot
+T APIShared.UnitHudInteractionContext
+T APIShared.UnitHudInteractionHandler
+T APIShared.UnitHudMouseButton
+T APIShared.UnitHudRecruitmentHandler
+T APIShared.UnitHudRecruitmentTicket
+T APIShared.UnitHudSlotSnapshot
+T APIShared.UnitHudSurface
+T APIShared.UnitHudTextKind
+T APIShared.UnitHudTextProfile
+T APIShared.UnitHudTextResolver
+T APIShared.UnitHudTint
+T APIShared.UnitHudUnitSnapshot
+T APIShared.UnitLookupFailure
+T APIShared.Workshop.WorkshopAction
+T APIShared.Workshop.WorkshopBootstrap
+T APIShared.Workshop.WorkshopCatalogItem
+T APIShared.Workshop.WorkshopClient
+T APIShared.Workshop.WorkshopDependency
+T APIShared.Workshop.WorkshopFile
+T APIShared.Workshop.WorkshopInstallPlan
+T APIShared.Workshop.WorkshopInventory
+T APIShared.Workshop.WorkshopLegacyRelease
+T APIShared.Workshop.WorkshopOperation
+T APIShared.Workshop.WorkshopOperationState
+T APIShared.Workshop.WorkshopPackage
+T APIShared.Workshop.WorkshopPackageDraft
+T APIShared.Workshop.WorkshopUploadOptions
+T APIShared.Workshop.WorkshopUploadPlan

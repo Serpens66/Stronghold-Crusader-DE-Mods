@@ -12,7 +12,8 @@ namespace EnemyBridgePathTest
             reason="missing-historical-planning-values";if(artifact?.Planning==null)return false;
             try
             {
-                ushort[] components=Values<ushort>(artifact,"components",2),x=Values<ushort>(artifact,"x",2),y=Values<ushort>(artifact,"y",2);int[] rows=Values<int>(artifact,"rows",4),flags=Values<int>(artifact,"flags",4);byte[] edges=Values<byte>(artifact,"edges",1);
+                ushort[] components=Values<ushort>(artifact,"components",2),x=Values<ushort>(artifact,"x",2),y=Values<ushort>(artifact,"y",2);
+int[] rows=Values<int>(artifact,"rows",4),flags=Values<int>(artifact,"flags",4);byte[] edges=Values<byte>(artifact,"edges",1);
                 if(components.Length!=320800||rows.Length!=800)throw new ArgumentException("incomplete-packed-geometry");
                 Equal(components,CopiedPlanningBundle.Resolve(artifact.Planning,"components"),"physical-components");Equal(edges,CopiedPlanningBundle.Resolve(artifact.Planning,"edges"),"physical-edges");Equal(flags,CopiedPlanningBundle.Resolve(artifact.Planning,"flags"),"physical-flags");
                 var map=new VirtualBridgeMap(artifact.Planning.Session,artifact.Planning.Revision,components,edges,flags,x,y,rows,Array.Empty<VirtualConnection>(),true,artifact.Sections.ContainsKey("specialIds")?Values<ushort>(artifact,"specialIds",2):Array.Empty<ushort>(),artifact.Sections.ContainsKey("specialKinds")?Values<short>(artifact,"specialKinds",2):Array.Empty<short>());
@@ -83,6 +84,8 @@ namespace EnemyBridgePathTest
             {
                 var b=artifact.Planning;
                 ushort[] components=Values<ushort>(artifact,"components",2),x=Values<ushort>(artifact,"x",2),y=Values<ushort>(artifact,"y",2);
+                if((b.Sections.ContainsKey("consumer/pre/identity")||b.References.ContainsKey("consumer/pre/identity"))&&!TryEffectiveCounts(b,components,out _,out string countReason)){report=countReason+";fullVariants=not-evaluated-before-valid-baseline;behaviorFix=disabled";return false;}
+
                 var map=new VirtualBridgeMap(b.Session,b.Revision,components,Values<byte>(artifact,"edges",1),Values<int>(artifact,"flags",4),x,y,Values<int>(artifact,"rows",4),Array.Empty<VirtualConnection>(),true,Values<ushort>(artifact,"specialIds",2),Values<short>(artifact,"specialKinds",2));
                 int[] players=Ints(CopiedPlanningBundle.Resolve(b,"playerScalars7")),rr=Ints(CopiedPlanningBundle.Resolve(b,"rowRecords"));
                 int targetTile=map.Tile(players[b.Target*7+1],players[b.Target*7+2]),originTile=players[b.Attacker*7+3];
@@ -233,7 +236,8 @@ namespace EnemyBridgePathTest
                 VirtualPlanningState state;string reason;
                 if(!TryBaseline(b,map,out reason,out state))return "Unknown:"+reason;
                 VirtualCandidateBuilder builder;
-                if(!CopiedCandidateInputs.TryCreate(b,state,map,Get("consumer/pre/macroRecords"),Histogram(map.Components),out builder,out reason))return reason;
+                if(!TryEffectiveCounts(b,map.Components,out int[] effective,out reason))return reason;
+                if(!CopiedCandidateInputs.TryCreate(b,state,map,Get("consumer/pre/macroRecords"),effective,out builder,out reason,projectTarget:!reason.StartsWith("own-cached-selection-input",StringComparison.Ordinal)))return reason;
                 Equal(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-pre/candidates"),"full-projection-unit-handoff");
                 builder.Run(b.Attacker,b.Target);
                 Equal(builder.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-post/candidates"),"full-candidate-builder");Equal(builder.Bytes(0x535ef90,320800),Get("consumer/build-post/seeds"),"full-candidate-seeds");Equal(builder.Bytes(0x53ad4b0,320800),Get("consumer/build-post/selectionMask"),"full-candidate-mask");
@@ -255,6 +259,7 @@ namespace EnemyBridgePathTest
             try
             {
                 var b=artifact.Planning;if(CopiedConsumerSequence.Count(b)<2)return "not-observed";
+                if(b.Sections.TryGetValue("military/entryPlayer",out var ownEntry)&&BitConverter.ToInt32(ownEntry,0x379d974-0x379ae00)!=4)return "Unknown:inter-consumer-entry-is-not-phase4";
                 string first=FullCandidateReplay(artifact,out var prior,out var earlier,out int castle);
                 if(prior==null)return "Unknown:first-consumer-not-reproduced:"+first;
                 if(castle!=0)return "Unknown:positive-castle-would-return-before-second-consumer";
@@ -327,7 +332,7 @@ namespace EnemyBridgePathTest
             var players=Get("consumer/pre/players");var tribes=Get("consumer/pre/tribes");int offset=b.Attacker*0x583c,role=BitConverter.ToInt16(players,offset+0x4886);
             if(castle==0&&role>0&&role<4500&&BitConverter.ToUInt32(tribes,role*0x688+0x34)==BitConverter.ToUInt32(players,offset+0x4af4))
             {int leader=BitConverter.ToInt16(tribes,role*0x688+0x5a);var units=Get("consumer/pre/unitManager");if(leader>0&&leader*0x490+0x720<=units.Length){int x=BitConverter.ToInt16(units,leader*0x490+0x71c),y=BitConverter.ToInt16(units,leader*0x490+0x71e);gateTarget=builder.FindEnemyGatehouse(b.Attacker,x,y,80);if(gateTarget==0)gateTarget=builder.FindEnemyGatehouse(b.Attacker,x,y,200);}}
-            return "computed-own-first-consumer;gateSelectorTarget="+gateTarget+";candidatesChangedInt32="+candidates+";weightsChangedInt32="+weights+";availabilityChangedInt32="+availability+";castle="+castle+";firstChangedStage="+(candidates!=0?"candidate-building":weights!=0?"weights":availability!=0?"availability":"none")+";nextMilitaryBranch="+(castle==0?"4-to-5-follow-up-required":"4-to-6-return")+";recordedPostUsedOnlyForComparison=True";
+            return "computed-own-first-consumer;gateSelectorTarget="+gateTarget+";candidatesChangedInt32="+candidates+";weightsChangedInt32="+weights+";availabilityChangedInt32="+availability+";castle="+castle+";firstChangedStage="+(candidates!=0?"candidate-building":weights!=0?"weights":availability!=0?"availability":"none")+";nextMilitaryBranch="+(b.Sections.TryGetValue("military/entryPlayer",out var entry)&&BitConverter.ToInt32(entry,0x379d974-0x379ae00)==4?(castle==0?"4-to-5-follow-up-required":"4-to-6-return"):"Unknown:entry-specific-tail-not-replayed")+";recordedPostUsedOnlyForComparison=True";
         }
         private static byte[] Raw(Array values){var bytes=new byte[Buffer.ByteLength(values)];Buffer.BlockCopy(values,0,bytes,0,bytes.Length);return bytes;}
         internal static bool TryConsumerInputClosure(BridgePlanningImporter.Artifact artifact,out string reason)
@@ -336,6 +341,48 @@ namespace EnemyBridgePathTest
             string[] required={"consumer/weight-pre/gameModeValues","buildingUpdaterControls","buildingUpdaterSlots","consumer/pre/packedValidity","consumer/pre/combatClassMask","consumer/pre/buildingTransitionClasses","consumer/pre/buildingSeedClasses","consumer/pre/workControls","consumer/pre/workQueueControls","consumer/pre/workQueue","consumer/pre/workQueueRows","consumer/pre/workQueueX","consumer/pre/workDistances","consumer/pre/workVisits","consumer/pre/workTargets","consumer/post/workControls","consumer/post/workQueueControls","consumer/post/workQueue","consumer/post/workQueueRows","consumer/post/workQueueX","consumer/post/workDistances","consumer/post/workVisits","consumer/post/workTargets"};
             var missing=new List<string>();foreach(string key in required)if(!b.Sections.ContainsKey(key)&&!b.References.ContainsKey(key))missing.Add(key);
             reason=missing.Count==0?"bounded-extra-inputs-present;fullCandidateBuilderAndMilitaryReplay=Unknown;negativeEligible=False":"Unknown:missing-native-inputs=["+string.Join(";",missing)+"];no-defaults;negativeEligible=False";return missing.Count==0;
+        }
+        internal static bool TryEffectiveCounts(BridgePlanningCapture.Bundle bundle,ushort[] components,out int[] values,out string reason)
+        {
+            values=null;reason="Unknown:missing-effective-component-count-input";
+            try
+            {
+                var targetKeys=new System.Collections.Generic.List<string>();
+                long ownConsumer=0;
+                try {ownConsumer=BitConverter.ToInt64(CopiedPlanningBundle.Resolve(bundle,"consumer/pre/identity"),16);}catch(ArgumentException){}
+                foreach(string key in bundle.Sections.Keys)if(key.StartsWith("target/",StringComparison.Ordinal)&&key.EndsWith("/values8",StringComparison.Ordinal))
+                {
+                    string owner=key.Substring(0,key.Length-7)+"identity5";
+                    if(ownConsumer!=0&&(!bundle.Sections.TryGetValue(owner,out var frame)||frame.Length!=40||BitConverter.ToInt64(frame,16)!=ownConsumer))continue;
+                    targetKeys.Add(key);
+                }
+                if(targetKeys.Count==0&&ownConsumer!=0&&bundle.Sections.TryGetValue("consumer/projectionCoverage4",out var coverage)&&coverage.Length==4&&BitConverter.ToInt32(coverage,0)==2)
+                {
+                    byte[] pre=CopiedPlanningBundle.Resolve(bundle,"consumer/pre/candidates");if(pre.Length!=VirtualCandidateConsumers.Bytes)throw new ArgumentException("cached-selection-extent");
+                    int cachedRegion=BitConverter.ToInt32(pre,0x2e97d10-VirtualCandidateConsumers.Root),cachedCount=BitConverter.ToInt32(pre,0x2e9ca14-VirtualCandidateConsumers.Root);
+                    if(cachedRegion<0||cachedRegion>=1000||cachedCount<0||cachedCount>320800)throw new ArgumentException("cached-selection-range");
+                    values=new int[1000];values[cachedRegion]=cachedCount;reason="own-cached-selection-input;no-observed-target-projection;unused-counts-not-known";return true;
+                }
+                if(targetKeys.Count!=1){reason="Unknown:ambiguous-effective-count-selection";return false;}
+                string prefix=targetKeys[0].Substring(0,targetKeys[0].Length-7);var outputs=bundle.Sections[targetKeys[0]];
+                if(outputs.Length!=32||BitConverter.ToInt32(outputs,0)!=bundle.Attacker||BitConverter.ToInt32(outputs,4)!=bundle.Target)throw new ArgumentException("effective-count-selection-players");
+                int region=BitConverter.ToInt32(outputs,16),observed=BitConverter.ToInt32(outputs,20);
+                if(region<0||region>=1000||observed<0||observed>320800)throw new ArgumentException("effective-count-selection-range");
+                if(bundle.Sections.TryGetValue(prefix+"effectiveCountsPre",out var raw))
+                {
+                    if(!bundle.Sections.TryGetValue(prefix+"identity5",out var identity)||identity.Length!=40||BitConverter.ToInt64(identity,0)!=bundle.Session||BitConverter.ToInt64(identity,24)!=bundle.Root)throw new ArgumentException("effective-count-input-frame");
+                    if(raw.Length!=4000&&raw.Length!=16000)throw new ArgumentException("effective-count-input-capacity");
+                    if(!bundle.Sections.TryGetValue(prefix+"effectiveCountsPost",out var after)||raw.Length!=after.Length)throw new ArgumentException("effective-count-post-capacity");
+                    for(int i=0;i<raw.Length;i++)if(raw[i]!=after[i])throw new ArgumentException("effective-count-input-changed");
+                    var all=new int[raw.Length/4];Buffer.BlockCopy(raw,0,all,0,raw.Length);BridgePlanningCapture.ValidateEffectiveCounts(all);
+                    if(all[region]!=observed)throw new ArgumentException("effective-count-output-mismatch");
+                    values=new int[1000];Array.Copy(all,values,1000);reason="own-effective-count-pre-input;post-used-only-for-comparison";return true;
+                }
+                var histogram=Histogram(components);
+                if(histogram[region]!=observed){reason="Unknown:missing-effective-component-count-input:region="+region+",observed="+observed+",histogram="+histogram[region]+",dirty="+bundle.Dirty;return false;}
+                values=histogram;reason="legacy-histogram-selected-value-agrees;full-effective-table-not-captured";return true;
+            }
+            catch(Exception error){reason="Unknown:effective-count-input:"+error.Message;return false;}
         }
         private static int[] Histogram(ushort[] components)
         {var counts=new int[1000];foreach(int component in components){if(component>=counts.Length)throw new ArgumentException("unsupported-component-capacity");if(component!=0)counts[component]++;}return counts;}

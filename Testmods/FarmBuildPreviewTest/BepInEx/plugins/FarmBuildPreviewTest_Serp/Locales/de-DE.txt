@@ -1,0 +1,5 @@
+Ground.Coverage=Bewuchs
+Ground.Green=Grün
+Ground.Stone=Steinfelder
+Ground.Iron=Eisenfelder
+Ground.Pitch=Pechfelder

@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(LegacyQueueTestGuid)]
     [BepInIncompatibility(PreplacedTestGuid)]
     [BepInIncompatibility("GatehouseLivingCaptureTest_Serp")]
+    [BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -42,7 +43,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.187";
+        public const string PluginVersion = "1.0.188";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;

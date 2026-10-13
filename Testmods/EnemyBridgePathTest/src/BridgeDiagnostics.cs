@@ -45,6 +45,7 @@ namespace EnemyBridgePathTest
             internal uint Global;
             internal int StartX=-1,StartY=-1,RawUnitType;
             internal bool Detailed, RouteBound;
+            internal BridgeStructureCapture.Input StructureInput;
             internal Dictionary<int, UnitState> WorkBefore;
         }
         private readonly struct UnitState
@@ -194,6 +195,7 @@ namespace EnemyBridgePathTest
             while (frames != null && frames.Count > 0 && frames[frames.Count - 1].PreEvent?.SkipOriginalFunction == true)
             {
                 var skipped = frames[frames.Count - 1];
+                Trace.EndStructureCommand(skipped.StructureInput,false);
                 frames.RemoveAt(frames.Count - 1);
                 if(skipped.Epoch!=epoch) { boundaryPosts++; continue; }
                 suppressedCount++;if(skipped.TraceId!=0)Trace.CountSuppressedCommand(skipped.TraceId);
@@ -257,7 +259,7 @@ namespace EnemyBridgePathTest
             if (frames == null) frames = new List<Frame>();
             frame.Epoch = running ? epoch : -1;
             frame.ParentTrace = frames.Count>0&&frames[frames.Count-1].Epoch==frame.Epoch ? frames[frames.Count-1].TraceId : 0;
-            frame.Extra=frame.PreEvent is TribeIssueOrderWithTargetEventArgs targetArgs?targetArgs.a6:0;
+            frame.Extra=frame.PreEvent is TribeIssueOrderWithTargetEventArgs targetArgs?targetArgs.a6:frame.PreEvent is UnitMoveHereEventArgs unitArgs?unitArgs.Unknown:0;
             frame.TraceId = Trace.NewOperation(); frames.Add(frame);
             if(!running) return;
             Interlocked.Increment(ref preCount);Trace.CountCommand(true);
@@ -266,7 +268,8 @@ namespace EnemyBridgePathTest
             bool resolved=frame.Global!=0&&frame.Player>=1&&frame.Player<=8;
             bool changed=Trace.CommandIsNew(kind,frame.Id,frame.Global,new BridgeDecisionTrace.Arguments(frame.Tribe,frame.Player,frame.Command,frame.X,frame.Y,0));
             bool near=Trace.NearBridge(frame.X,frame.Y)||Trace.NearBridge(frame.StartX,frame.StartY);
-            frame.Detailed=Trace.ShouldDetailCommand(frame.Kind!="unit",near,changed);
+            frame.StructureInput=Trace.BeginStructureCommand(frame.TraceId,frame.ParentTrace,kind,frame.Player,frame.Tribe,frame.Global,frame.Command,frame.X,frame.Y,frame.StartX,frame.StartY,kind==3?frame.Id:0,frame.Extra);
+            frame.Detailed=frame.StructureInput!=null||Trace.ShouldDetailCommand(frame.Kind!="unit",near,changed);
             Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind,frame.Player,frame.Command,0,true,resolved));
             if(!resolved&&!frame.Detailed&&unresolvedSamples<8)
             {
@@ -302,6 +305,13 @@ namespace EnemyBridgePathTest
                 }
             }
         }
+        private static bool StructureArgumentsStable(Frame frame)
+        {
+            if(frame.PreEvent is TribeIssueOrderWithTargetEventArgs target)return target.TribeId==frame.Tribe&&(int)target.AICommand==frame.Command&&target.TargetValue1==frame.X&&target.TargetValue2==frame.Y&&target.a6==frame.Extra;
+            if(frame.PreEvent is TribeIssueOrderMoveHereEventArgs move)return move.TribeId==frame.Tribe&&(int)move.MoveType==frame.Command&&move.TileX==frame.X&&move.TileY==frame.Y;
+            if(frame.PreEvent is UnitMoveHereEventArgs unit)return unit.UnitId==frame.Id&&unit.TileX==frame.X&&unit.TileY==frame.Y&&unit.Unknown==frame.Extra;
+            return false;
+        }
         private void Pop(string kind, int id, long result)
         {
             var frame = Current;
@@ -315,6 +325,7 @@ namespace EnemyBridgePathTest
             Interlocked.Increment(ref postCount);Trace.CountCommand(false);
             if (frame == null || frame.Kind != kind || frame.Id != id)
             { Interlocked.Increment(ref errors); Record(frame, "diagnostic-error", "pre-post-mismatch", "post=" + kind + "/" + id); return; }
+            if(frame.StructureInput!=null)Trace.EndStructureCommand(frame.StructureInput,frame.PreEvent!=null&&!frame.PreEvent.SkipOriginalFunction&&StructureArgumentsStable(frame));
             if(kind=="unit")Trace.Routes.Observe(id,true,true,result,frame.TraceId,frame.RouteBound);
             frames.RemoveAt(frames.Count - 1);
             Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind=="target"?1:kind=="move"?2:3,frame.Player,frame.Command,result,false,frame.Global!=0&&frame.Player>=1&&frame.Player<=8));
@@ -332,6 +343,8 @@ namespace EnemyBridgePathTest
             int extra=f.Extra;
             Trace.Command(post?"command-post":"command-pre",new BridgeDecisionTrace.CommandData(f.TraceId,f.ParentTrace,f.Kind=="target"?1:f.Kind=="move"?2:3,f.Id,f.Global,f.Tribe,f.Player,f.Command,f.X,f.Y,f.StartX,f.StartY,f.SourcePcl,f.TargetPcl,f.RawUnitType,extra,result,f.Regions,f.Searches,f.Failed,promoted,following,near,Trace.DetailedNative?1:near?2:3),f.Player);
         }
+        internal void BuildingDamage(BuildingTileTakeDamageEventArgs args)
+        {if(running)Guard("building-damage",()=>Trace.BuildingDamage(args.Phase==EventHookPhase.Post,args.TileId,args.PlayerIdSource,args.Unknown4,args.Damage));}
         internal void TargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {
             if (!running)
@@ -373,7 +386,7 @@ namespace EnemyBridgePathTest
                     var frame = TribeFrame("move", args.TribeId, (int)args.MoveType, args.TileX, args.TileY);
                     frame.PreEvent = args;
                     Push(frame);
-                    Trace.CompareGroupShadow(frame.TraceId,frame.ParentTrace,frame.Player,frame.StartX,frame.StartY,frame.X,frame.Y,frame.Tribe,frame.Global);
+                    if(frame.StructureInput==null)Trace.CompareGroupShadow(frame.TraceId,frame.ParentTrace,frame.Player,frame.StartX,frame.StartY,frame.X,frame.Y,frame.Tribe,frame.Global);
                 }
                 else if (args.Phase == EventHookPhase.Post) Pop("move", args.TribeId, args.ReturnValue);
             });
@@ -382,6 +395,7 @@ namespace EnemyBridgePathTest
         {
             if(!running||args.UnitId>int.MaxValue)return;
             Trace.Routes.Observe((int)args.UnitId,args.Phase==EventHookPhase.Post);
+            if(args.Phase==EventHookPhase.Post)Guard("ongoing-unit-structure",()=>Trace.ObserveUnitStructure((int)args.UnitId));
         }
         internal void UnitMove(UnitMoveHereEventArgs args)
         {
@@ -397,6 +411,7 @@ namespace EnemyBridgePathTest
                 {
                     var frame = new Frame { Kind = "unit", Id = args.UnitId, X = args.TileX, Y = args.TileY,
                         PreEvent = args,
+                        Extra=args.Unknown,
                         SourcePcl = -1, TargetPcl = Pcl(args.TileX, args.TileY), Identity = "unit-unavailable" };
                     if (GameUnitManagerAPI.Instance.IsValidId(args.UnitId) && APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) && unit != null)
                     {

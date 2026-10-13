@@ -15,6 +15,12 @@ namespace EnemyBridgePathTest
             Get("entryTribesFull",BridgePlanningCapture.EntryTribeBytes);
             var players=Get("entryPlayers9",9*0x583c);var own=Get("entryPlayer",0x583c);
             Get("entryQuota",4);Get("entryEngineerCounters2",8);
+            bool Has(string key)=>b.Sections.ContainsKey("military/"+key)||b.References.ContainsKey("military/"+key);
+            if(Has("entryLordConfigRow")||Has("entryPhase5Controls"))
+            {
+                var row=Get("entryLordConfigRow",0x5e4);var phase=Get("entryPhase5Controls",8);var config=Get("entryConfig5",20);
+                if(BitConverter.ToInt32(row,0x20c)!=BitConverter.ToInt32(config,4)||BitConverter.ToInt32(row,0x2ec)!=BitConverter.ToInt32(config,8)||row[0x2f4]!=BitConverter.ToInt32(config,12)||BitConverter.ToInt32(phase,4)!=BitConverter.ToInt32(config,16))throw new ArgumentException("entry-lord-controls-disagree");
+            }
             var identity=Get("entryIdentity4",32);
             if(b.Attacker<1||b.Attacker>8||BitConverter.ToInt64(identity,0)!=b.Session||
                BitConverter.ToInt64(identity,8)!=b.Root||BitConverter.ToInt64(identity,16)<=0||BitConverter.ToInt64(identity,16)>b.Clock||

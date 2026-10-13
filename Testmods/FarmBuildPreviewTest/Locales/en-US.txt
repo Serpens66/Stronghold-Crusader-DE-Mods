@@ -1,0 +1,5 @@
+Ground.Coverage=Vegetation
+Ground.Green=Green
+Ground.Stone=Stone tiles
+Ground.Iron=Iron tiles
+Ground.Pitch=Pitch tiles

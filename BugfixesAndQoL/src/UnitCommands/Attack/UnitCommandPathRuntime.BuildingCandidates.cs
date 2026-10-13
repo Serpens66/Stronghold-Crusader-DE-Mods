@@ -52,7 +52,7 @@ namespace BugfixesAndQoL.UnitCommands
                 EndTemporaryAssassinScope(temporaryScope, bridgeCompleted, 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
-                    EnemyGateSearchKind.BuildingApproach, true, false);
+                    EnemyGateSearchKind.BuildingApproach, bridgeCompleted, false);
             }
         }
 
@@ -159,7 +159,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
-                    EnemyGateSearchKind.BuildingConsumer, true, false);
+                    EnemyGateSearchKind.BuildingConsumer, bridgeCompleted, false);
             }
         }
 

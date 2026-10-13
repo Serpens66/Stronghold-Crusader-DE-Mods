@@ -29,15 +29,17 @@ namespace BugfixesAndQoL.UnitCommands
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 ResolveEnemyGateCursorPlayer(tribeId),
                 EnemyGateSearchKind.CursorCommand, out object gateScope);
+            bool completed = false;
             try
             {
                 StageDirectCursorMoveWithOwnerRouteCore(
                     unitManager, tribeId, targetX, targetY, targetContext, actionFlags);
+                completed = true;
             }
             finally
             {
                 EndEnemyGateSearch(gate, gateScope,
-                    EnemyGateSearchKind.CursorCommand, true, false);
+                    EnemyGateSearchKind.CursorCommand, completed, false);
             }
         }
 

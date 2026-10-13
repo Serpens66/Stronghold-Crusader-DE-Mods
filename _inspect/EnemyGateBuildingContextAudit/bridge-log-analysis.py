@@ -202,10 +202,13 @@ def analyze(raw):
                 if row:
                     values=row.split('/');definitions['binding'].add(int(values[0]));bindings[values[0]]=(f,values)
     missing=[]
+    loss_definitions={(f.get('session'),f.get('definition')) for _,f in records if f['kind']=='bridge-loss-fields'}
     def require(category,value,f):
         if value and int(value)!=0 and int(value) not in definitions[category]: missing.append((f['seq'],category,int(value)))
     for _,f in records:
         kind=f['kind']
+        if kind in ('bridge-loss-state','bridge-loss-observation-timing') and (f.get('session'),f.get('fieldsDefinition')) not in loss_definitions:
+            missing.append((f['seq'],'bridge-loss-fields',f.get('fieldsDefinition')))
         if 'contextDefinition' in f: require('text',f['contextDefinition'],f)
         if 'commandContext' in f:require('command-context',f['commandContext'],f)
         if 'state' in f and kind!='live-state': require('state',f['state'],f)
@@ -281,7 +284,7 @@ def analyze(raw):
     delivered={f['session']:f for _,f in records if f['kind']=='session-delivered'}
     sessions={f['session'] for _,f in records if f.get('session') not in (None,'0',0)}
     ended={f['session'] for f in ends}
-    historical_suppression={}
+    historical_suppression={};epoch_commands={}
     for line in text.splitlines():
         match=re.search(r'bridge summary epoch=(\d+),',line)
         if not match: continue
@@ -289,6 +292,7 @@ def analyze(raw):
         try:
             if int(own.get('pre',0))-int(own.get('post',0))==int(own.get('suppressed',0)) and int(own.get('missingPost',-1))==0:
                 historical_suppression[match[1]]=int(own['suppressed'])
+                epoch_commands[match[1]]={key:int(own[key]) for key in ('pre','post','suppressed')}
         except (ValueError,KeyError): pass
     command_accounting={};previous_gap=0
     for end in ends:
@@ -296,6 +300,9 @@ def analyze(raw):
         known=int(end['commandSuppressed']) if 'commandSuppressed' in end else previous_gap+historical_suppression.get(sid,0)
         command_accounting[sid]=dict(pre=int(end.get('commandPre',0)),post=int(end.get('commandPost',0)),suppressed=known,complete=gap==known,suppressionSource='trace-counter' if 'commandSuppressed' in end else 'same-epoch-event-summary' if sid in historical_suppression else 'unresolved')
         previous_gap=gap
+        if sid in epoch_commands:
+            own=epoch_commands[sid]
+            command_accounting[sid]=dict(own,complete=own['pre']-own['post']==own['suppressed'],counterScope='session',suppressionSource='same-epoch-event-summary')
     session_summary=[dict(session=v,ended=v in ended,delivered=v in delivered and delivered[v].get('deliveryComplete')=='True',commandAccounting=command_accounting.get(v,{'complete':False,'reason':'missing-session-end'})) for v in sorted(sessions,key=str)]
     capture = bool(ends) and sessions<=ended and all(f.get('captureComplete')=='True' and ('entered' not in f or f['entered']==f.get('exited')) and ('commandPre' not in f or command_accounting[f['session']]['complete']) for f in ends)
     delivery = bool(ends) and sessions<=ended and all(f['session'] in delivered and delivered[f['session']].get('deliveryComplete')=='True' for f in ends)
@@ -376,7 +383,11 @@ def analyze(raw):
                   selectedShadowComputationComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_unresolved,
                   shadowCoverageComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_deferred and not virtual_skipped,
                   usableGeometricResults=sum(f.get('geometricResult') in ('Reachable','NoRoute') for f in virtual_results.values()))
-    return dict(sessionSummary=session_summary,artifactSummary=artifact_summary,controlSummary=dict(records=len(controls),baselineAgreements=sum(f.get("macroMatchesNative")=="True" and f.get("geometryMatchesNative")=="True" for f in controls),blocked=sum(f.get("cutAssessment","").startswith("blocked") for f in controls)),coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
+    loss_summary=dict(fieldDefinitions=len(loss_definitions),states=sum(f['kind']=='bridge-loss-state' for _,f in records),
+                      ongoingSnapshots=sum(f['kind']=='structure-command-complete' and f.get('timing')=='ongoing-unit-state-snapshot' for _,f in records),
+                      unitCommandInputs=sum(f['kind']=='structure-command-complete' and f.get('timing')=='unit-command-pre' for _,f in records),
+                      sourceCoverage=[(f['session'],f.get('bridgeLossCoverageComplete','not-instrumented')) for f in ends],freshDecisionProof=False)
+    return dict(lossSummary=loss_summary,sessionSummary=session_summary,artifactSummary=artifact_summary,controlSummary=dict(records=len(controls),baselineAgreements=sum(f.get("macroMatchesNative")=="True" and f.get("geometryMatchesNative")=="True" for f in controls),blocked=sum(f.get("cutAssessment","").startswith("blocked") for f in controls)),coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
                 bridgeFileComplete=bridge_file_complete,bridgeComplete=capture and delivery and bridge_file_complete and not missing and not reconstruction,
                 fileComplete=file_complete,complete=capture and delivery and file_complete and not missing and not reconstruction,
                 reconstructionErrors=reconstruction,routeChains=chains,routeChainGroups=chain_groups,transportRecords=len(wire_transport),
@@ -432,6 +443,10 @@ def self_test():
     assert compact['routeChainGroups'][0]['commands']==1
     assert sum(compact['volumes'].values())==len(raw+path+extra+batch)
     assert not analyze(raw+batch.replace(b'/4/1;',b'/4;'))['bridgeComplete']
+    loss=(prefix+'12,session=1,kind=bridge-loss-fields,definition=1,cells=[15/0/41/40000000/0;]\r\n'+prefix+'13,session=1,kind=bridge-loss-state,fieldsDefinition=1,presence=cleared-slot\r\n').encode()
+    assert analyze(raw+loss)['bridgeComplete'] and analyze(raw+loss)['lossSummary']['states']==1
+    assert not analyze(raw+loss.replace(b'fieldsDefinition=1',b'fieldsDefinition=2'))['bridgeComplete']
+    assert not analyze(raw+loss+(prefix+'14,session=2,kind=bridge-loss-state,fieldsDefinition=1\r\n').encode())['bridgeComplete']
     bad_frame=(prefix+'11,session=1,kind=native-frame,phase=pre,values=[1/2]\r\n').encode()
     assert not analyze(raw+bad_frame)['bridgeComplete']
     bad_context=(prefix+'11,session=1,kind=command-pre,op=50,commandContext=99\r\n').encode()
@@ -469,6 +484,14 @@ def self_test():
     assert not analyze(broken)['bridgeFileComplete']
     assert not analyze(packed.replace(b'records=2',b'records=1'))['bridgeFileComplete']
     print('PASS analyzer: nested fields, exact low-first bytes, decision/group links, consumed-cursor boundaries, bounded completion and torn exit')
+    counters=(prefix+'1,session=1,kind=session-end,commandPre=3,commandPost=3,commandSuppressed=0,captureComplete=True\r\n'+
+              prefix+'2,session=2,kind=session-end,commandPre=8,commandPost=8,commandSuppressed=0,captureComplete=True\r\n'+
+              '[Info :Enemy Bridge Path Test] bridge summary epoch=1,pre=3,post=3,suppressed=0,missingPost=0\r\n'+
+              '[Info :Enemy Bridge Path Test] bridge summary epoch=2,pre=5,post=5,suppressed=0,missingPost=0\r\n').encode()
+    counts=analyze(counters)['sessionSummary']
+    assert [s['commandAccounting']['pre'] for s in counts]==[3,5]
+    assert sum(s['commandAccounting']['pre'] for s in counts)==8
+    print('PASS analyzer: per-session epoch counters never re-add process totals')
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('log',nargs='?');parser.add_argument('--self-test',action='store_true');args=parser.parse_args()

@@ -1,0 +1,3 @@
+Main installed 2026-10-13 17:29:59; version=1.0.187.0; SHA256=f40b7607ff0b21e50239efd13ba00dd49f10ea5f97f3bbbee1bbdff948cb1143
+Installed feature type and host property verified; test package and source directory retired.
+Main in-game and multiplayer acceptance pending.

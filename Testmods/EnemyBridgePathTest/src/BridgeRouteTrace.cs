@@ -89,8 +89,20 @@ namespace EnemyBridgePathTest
             }
             return false; // A cursor boundary alone does not prove future use.
         }
+        internal bool TryDamageBinding(int unit,uint global,out long command,out long decision)
+        {lock(gate){command=decision=0;if(session==0||!tracks.TryGetValue(unit,out Track track)||track.Session!=session||track.Global!=global)return false;command=track.Command;decision=track.Decision;return command!=0;}}
         internal bool HasRemainingDeck(int unit)
         {lock(gate)return session!=0&&tracks.TryGetValue(unit,out Track track)&&track.Session==session&&track.HasObservation&&RemainingDeck(track,track.ObservedHeader);}
+        internal bool TryRemainingGate(int unit,uint global,out int building,out uint buildingGlobal)
+        {
+            building=0;buildingGlobal=0;lock(gate)
+            {
+                if(session==0||!tracks.TryGetValue(unit,out Track t)||t.Session!=session||t.Global!=global||!t.HasObservation||t.Content?.Touched==null)return false;
+                foreach(var b in t.Content.Touched)if(b.Parent>0&&b.ParentGlobal!=0&&RemainingDeck(t,t.ObservedHeader,b.Id,b.Global))
+                {if(building!=0&&(building!=b.Parent||buildingGlobal!=b.ParentGlobal)){building=0;buildingGlobal=0;return false;}building=b.Parent;buildingGlobal=b.ParentGlobal;}
+                return building!=0;
+            }
+        }
         private static int ProgressClass(Track t,Header h,Bridge[] bridges)
         {
             if(!t.Relevant)return 0;

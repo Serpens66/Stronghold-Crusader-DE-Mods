@@ -1,0 +1,2 @@
+PASS own military entry strength; attacker=7,result=0,phase=5,hash=9DA9CD5D88D89ED60D94608AC811E937D2E741FC8FB4B7A5D84615F728A74257
+PASS own-entry input version1 and native membership transition; fullMilitaryEntry=False,formationComplete=False,sideEffectCallClosure=Unknown,negativePolicyEligible=False,behaviorFix=disabled

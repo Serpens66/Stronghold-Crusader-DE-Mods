@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.187",
+  "Version": "1.0.188",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.188",
+      "Changes": [
+        "Preserve connected drawbridges when a stone gatehouse survives direct attack damage; enabled by default as a host setting."
+      ]
+    },
     {
       "Version": "1.0.187",
       "Changes": [

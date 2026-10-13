@@ -84,6 +84,8 @@ echo [%date% %time%] Gatehouse target-marker height contracts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GatehouseTargetMarkerHeight.ps1"
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-DrawbridgeDestructionFix.ps1" -RunTests
+if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GatehouseLivingCapturePreflight.ps1" -RunTests
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step

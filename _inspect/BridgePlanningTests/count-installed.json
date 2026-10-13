@@ -1,0 +1,16 @@
+{
+  "BuildExit": 0,
+  "CheckedAt": "2026-10-13T20:17:11.9793972+02:00",
+  "Files": [
+    {
+      "File": "EnemyBridgePathTest.dll",
+      "Sha256": "430c67826ef1135b769d4125dd598f6cb70d7528be63c2da25d4c7a59d46a146",
+      "Equal": true
+    },
+    {
+      "File": "info.json",
+      "Sha256": "789d252f6d04422f8e53735e2734ea77c4149de1b357909b493e3660a0dba602",
+      "Equal": true
+    }
+  ]
+}

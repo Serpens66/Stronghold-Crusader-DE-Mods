@@ -1,0 +1,120 @@
+{
+  "LogOutput-original.log": {
+    "sha256": "166EDB252BDDB768CF77ADF6F6C38F814F6A11CF6B6109C92B02DCE044E0E07B",
+    "bytes": 3039739
+  },
+  "process-original.log": {
+    "sha256": "F8722F10B403A7C172B3678C8B7CEE5FB159F2D2260BCA5ED5EF566ED7F59CC9",
+    "bytes": 2571611
+  },
+  "bridge-1-0.bin": {
+    "sha256": "348FF47C8DCCD43D91B98EB06CE255F7AF15A1640F2135EBB130610BF95AC831",
+    "bytes": 53290410
+  },
+  "bridge-2-0.bin": {
+    "sha256": "A54211D866E6EE4444B2B8F27FE41ABA795ED92BC7DF9AFEFCDA48F7738FA091",
+    "bytes": 53287982
+  },
+  "recoveredOriginalPre": [
+    {
+      "seq": "62041",
+      "session": "1",
+      "thread": "15",
+      "tick": "520",
+      "clock": "525670783",
+      "physical": "1",
+      "topology": "2",
+      "kind": "command-pre",
+      "op": "62036",
+      "parentEvent": "0",
+      "commandContext": "8",
+      "commandKind": "unit",
+      "id": "180",
+      "global": "2413930",
+      "typeRaw": "26",
+      "tribe": "4389",
+      "player": "7",
+      "command": "3",
+      "input": "588/326",
+      "start": "443/371",
+      "pcl": "1->1",
+      "a6": "0",
+      "regions": "0",
+      "searches": "0",
+      "failed": "0",
+      "nearBridge": "True",
+      "contextAttribution": "native-decision",
+      "routeAttribution": "unproven",
+      "parent": "62027",
+      "priorPlayerPlan": "61974",
+      "priorPlanPhysical": "1",
+      "priorPlanTopology": "2",
+      "state": "16",
+      "priorLink": "chronological-not-proven-causality"
+    },
+    {
+      "seq": "468124",
+      "session": "2",
+      "thread": "15",
+      "tick": "835",
+      "clock": "875144817",
+      "physical": "3",
+      "topology": "22",
+      "kind": "command-pre",
+      "op": "468120",
+      "parentEvent": "0",
+      "commandContext": "41",
+      "commandKind": "unit",
+      "id": "180",
+      "global": "2413930",
+      "typeRaw": "26",
+      "tribe": "4389",
+      "player": "7",
+      "command": "3",
+      "input": "588/326",
+      "start": "443/371",
+      "pcl": "1->1",
+      "a6": "0",
+      "regions": "0",
+      "searches": "0",
+      "failed": "0",
+      "nearBridge": "True",
+      "contextAttribution": "native-decision",
+      "routeAttribution": "unproven",
+      "parent": "468112",
+      "priorPlayerPlan": "468056",
+      "priorPlanPhysical": "3",
+      "priorPlanTopology": "22",
+      "state": "88",
+      "priorLink": "chronological-not-proven-causality"
+    }
+  ],
+  "sessionSummary": [
+    {
+      "session": "1",
+      "ended": true,
+      "delivered": true,
+      "commandAccounting": {
+        "pre": 6867,
+        "post": 6867,
+        "suppressed": 0,
+        "complete": true,
+        "counterScope": "session",
+        "suppressionSource": "same-epoch-event-summary"
+      }
+    },
+    {
+      "session": "2",
+      "ended": true,
+      "delivered": true,
+      "commandAccounting": {
+        "pre": 10106,
+        "post": 10106,
+        "suppressed": 0,
+        "complete": true,
+        "counterScope": "session",
+        "suppressionSource": "same-epoch-event-summary"
+      }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ namespace EnemyBridgePathTest
     // Pure copied-memory 10DF60/CF020 continuation. No pointer, hook, live
     // lookup or game-state write; absent input always throws Unknown.
     // Present in the runtime assembly but behavior installation remains disabled.
-    internal sealed class VirtualCandidateBuilder
+    internal sealed partial class VirtualCandidateBuilder
     {
         private sealed class Segment { internal int Start; internal byte[] Data; }
         private readonly List<Segment> segments=new List<Segment>();
@@ -251,11 +251,40 @@ namespace EnemyBridgePathTest
             if(destination==0||origin==0)return 0;
             return reachable(destination,origin)?1:0;
         }
+        // Complete F32B0 over private copied state. The caller supplies a private
+        // output bank as E62D0 would; this is not a full 196280 replay.
+        internal int CommandLine(int sx,int sy,int tx,int ty,byte[] path)
+        {
+            if((uint)sx>=800||(uint)sy>=800||(uint)tx>=800||(uint)ty>=800||B(0x3a11ea4+sy*800+sx)==0||B(0x3a11ea4+ty*800+tx)==0)return 0;
+            int generation=unchecked(I(Root+4)+1);I(Root+4,generation);
+            if(generation>32000){generation=1;I(Root+4,1);Clear(0x52c2550,N*2);}
+            int mode=I(0x2f7a690),count=I(Root+0x155f68),tile=I(0x402ff2c+sy*12)+sx,destination=I(0x402ff2c+ty*12)+tx;
+            if(count<0||path==null)throw new ArgumentException("line-private-output-bank");
+            for(int steps=0;steps<=1600;steps++)
+            {
+                if((uint)tile>=N)throw new ArgumentException("line-packed-field");S(0x52c2550+tile*2,generation);
+                if(tile==destination){I(Root+0x155f68,count);return 1;}
+                if(mode!=0&&B(0x51d75f0+tile)!=0){I(Root+0x155f68,count);return 0;}
+                int direction=ty<sy?(tx>sx?1:tx<sx?7:0):ty>sy?(tx>sx?3:tx<sx?5:4):tx>sx?2:tx<sx?6:-1;
+                if(direction<0||(B(0x51890d0+tile)&(1<<direction))==0){I(Root+0x155f68,count);return 0;}
+                tile=checked(tile+I(0x405edb0+(sy*8+direction)*4));sx=unchecked(sx+I(0x2d2e50+direction*8));sy=unchecked(sy+I(0x2d2e54+direction*8));
+                if((uint)tile>=N)throw new ArgumentException("line-next-packed-field");
+                if((Flag(tile)&0x10000100)!=0&&(Flag(tile)&2)==0)
+                {int building=Building(tile);if(building==0||I(0x2e68d0+S(BuildingRecord(building)+0x12e)*4)==0)return 0;}
+                int at=count/2;if((uint)at>=path.Length)throw new ArgumentException("line-output-capacity");
+                if((count&1)==0)path[at]=(byte)direction;else path[at]|=(byte)(direction<<4);count=unchecked(count+1);
+            }
+            throw new ArgumentException("line-step-bound");
+        }
         internal void SelectAndUnitTargets(int attacker,int target,int[] effectiveCounts)
         {
             int tile=I(0x379d968+attacker*0x583c),region=Component(tile);
             if((uint)region>=effectiveCounts.Length)throw new InvalidOperationException("Unknown:selection-component");
             I(0x2e97eac,1);I(0x2e97ea8,Seed(tile));I(0x2e97d10,region);I(0x2e9ca14,effectiveCounts[region]);I(0x2e97d14,Component(I(0x379afb0+target*0x583c)));
+            UnitTargetsOnly(attacker);
+        }
+        internal void UnitTargetsOnly(int attacker)
+        {
             int limit=I(0x67e8400);if(limit<1||limit>10000)throw new InvalidOperationException("Unknown:unit-manager-count");
             int count;var tasks=VirtualCandidateConsumers.UnitTargets(Bytes(0x67e8400,0x65c+limit*0x490),attacker,out count);
             var copied=new byte[tasks.Length*4];Buffer.BlockCopy(tasks,0,copied,0,copied.Length);Replace(0x2e93e8c,copied);I(0x2e97d0c,count);

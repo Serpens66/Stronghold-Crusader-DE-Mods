@@ -18,7 +18,9 @@ namespace BridgePlanningTests
             hash=="15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872" ||
             hash=="265373B3F1745365221F82558FE6ED660D9B04F2BAE59003C48009F6EBC411C6" ||
             hash=="E1FDDAD75696C89749BCD02D7707CCE06CB2A0C95B852F28715268FC182A474E" ||
-            hash=="C129673AA1F7982F7732A456421AA801FB9EAC4B5B45092C3EB48A60039420D2";
+            hash=="C129673AA1F7982F7732A456421AA801FB9EAC4B5B45092C3EB48A60039420D2" ||
+            hash=="B82464117A2AC2E8DB26A73583AD84FF5108B9346944738924A5B1F60BA9F780" ||
+            hash=="9DA9CD5D88D89ED60D94608AC811E937D2E741FC8FB4B7A5D84615F728A74257";
 
         private static byte[] Bytes(Array data){var bytes=new byte[Buffer.ByteLength(data)];Buffer.BlockCopy(data,0,bytes,0,bytes.Length);return bytes;}
         private static T[] ArrayValues<T>(byte[] bytes) where T:struct
@@ -33,6 +35,7 @@ namespace BridgePlanningTests
             VirtualPlanningInput input;VirtualPlanningState state;string reason;
             if(!CopiedPlanningBundle.TryRead(b,map,"caller-pre",out input,out state,out reason))throw new Exception(reason);
             physical=map;counts=new int[1000];foreach(int c in map.Components){if(c>=1000)throw new Exception("component bound");if(c!=0)counts[c]++;}
+            if(variant==0&&!CopiedPlanningReplay.TryEffectiveCounts(b,map.Components,out counts,out reason))throw new Exception(reason);
             if(variant!=0)
             {
                 // Reuse the production validator for coupling identities and all role checks.
@@ -136,12 +139,13 @@ namespace BridgePlanningTests
                 {
                     m.Put(0x53AD4B0,new byte[N]);
                     m.Put(Root+0xe0,variant==0?Get("componentCounts1000"):Bytes(counts));
-                    m.Function<V3>(0x2C5A0)(m.Ptr(0x366C210),b.Attacker,b.Target);
-                    // Existing Fixes owner replaces this one uint field with a full
-                    // histogram. Recompute it; never use a captured effective Post value.
-                    int region=m.Int(0x2E97D10),effective=0;
-                    foreach(short component in m.Shorts(Pcl,N))if((ushort)component==region)effective++;
-                    m.Int(0x2E9CA14,effective);
+                    bool projection=true;if(variant==0){if(!CopiedPlanningReplay.TryEffectiveCounts(b,physical.Components,out _,out string nativeProvenance))throw new Exception(nativeProvenance);projection=!nativeProvenance.StartsWith("own-cached-selection-input",StringComparison.Ordinal);}
+                    if(projection)m.Function<V3>(0x2C5A0)(m.Ptr(0x366C210),b.Attacker,b.Target);
+                    // Existing Fixes owner reads its relocated count table. Baseline
+                    // counts must come from its own Pre input, never effective Post.
+                    int region=m.Int(0x2E97D10);
+                    if(region<0||region>=counts.Length)throw new Exception("effective-count-region");
+                    if(projection)m.Int(0x2E9CA14,counts[region]);
                     m.Function<V2>(0x1126B0)(m.Ptr(VirtualCandidateConsumers.Root),b.Attacker);
                     if(variant==0)Equal(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/build-pre/candidates"),"continuous selection/unit-target handoff");
                 }
@@ -173,7 +177,7 @@ namespace BridgePlanningTests
                 if(continuous)
                 {
                     managedCandidates.Replace(VirtualCandidateConsumers.Root,Get("consumer/pre/candidates"));
-                    managedCandidates.SelectAndUnitTargets(b.Attacker,b.Target,counts);
+                    if(variant==0&&CopiedPlanningReplay.TryEffectiveCounts(b,physical.Components,out _,out string managedProvenance)&&managedProvenance.StartsWith("own-cached-selection-input",StringComparison.Ordinal))managedCandidates.UnitTargetsOnly(b.Attacker);else managedCandidates.SelectAndUnitTargets(b.Attacker,b.Target,counts);
                     Equal(managedCandidates.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),"complete calculated managed projection/Fixes histogram/unit handoff");
                 }
                 }
@@ -243,7 +247,13 @@ namespace BridgePlanningTests
                             }
                         }
                     }
-                    if(variant==0&&CopiedConsumerSequence.Count(originalBundle)==1)Check(castleResult!=0,"hash-approved historical positive post-consumer castle decision");
+                    if(variant==0&&CopiedConsumerSequence.Count(originalBundle)==1)
+                    {
+                        long consumerOp=BitConverter.ToInt64(Get("consumer/post/identity"),16);
+                        var observed=originalBundle.Sections.Where(p=>p.Key.StartsWith("access/",StringComparison.Ordinal)&&p.Key.EndsWith("/observed",StringComparison.Ordinal)).Select(p=>ArrayValues<long>(p.Value)).Where(v=>v.Length>=8&&v[1]==b.Root&&v[2]>consumerOp&&v[3]==0).ToArray();
+                        Check(observed.Length==1,"one actual post-consumer mode0 result, not an assumed positive castle test");
+                        Check(castleResult==observed[0][4],"native castle result matches recorded native mode0 result");
+                    }
                     if(CopiedConsumerSequence.Count(originalBundle)>1){if(variant==0)Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native own consumer entire player output");
                     if(variant==0&&ordinal==0)
                     {
@@ -260,6 +270,11 @@ namespace BridgePlanningTests
                         else Console.WriteLine("inter-consumer="+bridge);
                     }
                     Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",variant="+variant+",complete candidate/weight/availability/work native-managed outputs match;candidateChangedBytes="+Changed(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"))+";castle="+castleResult+";fullSequentialMilitary=Unknown:intervening-military-branches-not-replayed");return 0;}
+                    int entryPhase=originalBundle.Sections.TryGetValue("military/entryPlayer",out var entryPlayer)?BitConverter.ToInt32(entryPlayer,0x379d974-0x379ae00):-1;
+                    if(entryPhase!=4)
+                    {
+                        Console.WriteLine("PASS own consumer ordinal="+(ordinal+1)+",variant="+variant+",nativeCastleResult="+castleResult+",candidateChangedBytes="+Changed(m.Bytes(VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes),Get("consumer/post/candidates"))+",entryPhase="+entryPhase+",militaryContinuation=Unknown:not-a-phase4-suffix,phase5Requires=3665FB8-control-before-own-entry,postValuesUsedOnlyForComparison=True,behaviorFix=disabled");return 0;
+                    }
                     Console.WriteLine("variant="+variant+",nativeCastleResult="+castleResult+",projectedTarget="+m.Int(0x379D968+b.Attacker*0x583c)+",militaryBranch="+(castleResult!=0?"4-to-6-return":"4-to-5-follow-up-required")+",fullMilitaryExecuted=False,policy=Unknown");
                     if(variant==0)Equal(m.Bytes(0x379AE00,9*0x583c),Get("consumer/post/players"),"native consumer entire player output");
                     int playerOffset=b.Attacker*0x583c;

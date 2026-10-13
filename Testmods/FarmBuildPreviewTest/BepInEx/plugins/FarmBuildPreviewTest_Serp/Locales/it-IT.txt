@@ -1,0 +1,5 @@
+Ground.Coverage=Vegetazione
+Ground.Green=Verde
+Ground.Stone=Caselle di pietra
+Ground.Iron=Caselle di ferro
+Ground.Pitch=Caselle di pece
