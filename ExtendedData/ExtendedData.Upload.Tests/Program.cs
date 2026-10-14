@@ -20,6 +20,7 @@ namespace ExtendedData
             Run("upload allowlist and excluded gameplay gate", TestUploadAllowlistAndExcludedWarning);
             Run("local and Workshop Lord source selection", TestLordSourceSelection);
             Run("unnamed Extended Lord source identity", TestExtendedLordSourceIdentity);
+            Run("decoded Trail Lord accepts only equivalent package replicas", TestDecodedLordReplicas);
             Run("conflict rollback", TestConflictRollback);
             Run("dynamic rules", TestDynamicRules);
             Run("unknown extender identity upload", TestUnknownExtenderIdentityUpload);
@@ -140,6 +141,97 @@ namespace ExtendedData
             }
             catch (InvalidDataException) { wrongPathRejected = true; }
             Assert(wrongPathRejected, "a saved source path was ignored when it did not match");
+        }
+
+        private static void TestDecodedLordReplicas()
+        {
+            WithRoots((local, workshop) =>
+            {
+                foreach (string directory in new[] { local, workshop })
+                {
+                    WriteText(Path.Combine(directory, "rat_custom.lordjson"), "same AIC");
+                    WriteText(Path.Combine(directory, "castle.aivjson"), "same AIV");
+                    WriteText(Path.Combine(directory, "rat_custom.modlord.json"),
+                        "{\"mod\":{\"enabled\":true,\"values\":[1,2]}}");
+                    WriteText(Path.Combine(directory, "Override", "Fixes", "preferences.json"),
+                        "{\"Build\":1,\"Other\":{\"A\":true,\"B\":null}}");
+                    WriteText(Path.Combine(directory, "info.json"), ValidInfo);
+                    WriteText(Path.Combine(directory, "lordmeta.json"), ValidLordMeta);
+                }
+                // Exercise the actual installed Vanilla codec used by saved Trail Lord data.
+                // Its path and workshop fields disappear even when the author selected Workshop.
+                var original = new CustomisationFileManager.CustomLordConfig
+                {
+                    name = "rat_custom", path = workshop, workshop = true,
+                };
+                var decoded = CustomisationFileManager.CustomLordConfig.decode(original.encode());
+                Assert(decoded.path == null && !decoded.workshop && decoded.name == original.name,
+                    "Vanilla codec no longer drops source identity; re-audit the Trail contract");
+                Func<string[], string> resolve = paths => paths[TrailLordSourceSelector.SelectIndex(
+                    paths, decoded.path, "Rat", decoded.name)];
+                string chosen = resolve(new[] { local, workshop });
+                Assert(resolve(new[] { workshop, local }) == chosen,
+                    "equivalent replicas depend on scan order");
+
+                WriteText(Path.Combine(workshop, "avatar.png"), "different presentation");
+                WriteText(Path.Combine(local, "README.md"), "local documentation");
+                WriteText(Path.Combine(local, "rat_custom.ldata"), "local Workshop metadata");
+                WriteText(Path.Combine(workshop, "Override", "Fixes", "preferences.json"),
+                    "{\"Other\":{\"B\":null,\"A\":true},\"Build\":1}");
+                Assert(resolve(new[] { local, workshop }) == chosen,
+                    "presentation, control files or JSON property order changed equivalence");
+
+                string[] jsonPaths = { "rat_custom.modlord.json", "Override/Fixes/preferences.json",
+                    "info.json", "lordmeta.json" };
+                foreach (string relative in jsonPaths)
+                {
+                    string path = Path.Combine(workshop, relative);
+                    string saved = File.ReadAllText(path);
+                    WriteText(path, "{\"different\":true}");
+                    ExpectReplicaConflict(() => resolve(new[] { local, workshop }), local, workshop, relative);
+                    File.Delete(path);
+                    ExpectReplicaConflict(() => resolve(new[] { local, workshop }), local, workshop, relative);
+                    WriteText(path, "{");
+                    ExpectReplicaConflict(() => resolve(new[] { local, workshop }), workshop, null, relative);
+                    WriteText(path, "null");
+                    ExpectReplicaConflict(() => resolve(new[] { local, workshop }), workshop, null, relative);
+                    WriteText(path, saved);
+                    using (var locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                        ExpectReplicaConflict(() => resolve(new[] { local, workshop }), workshop, null, relative);
+                }
+                string modPath = Path.Combine(workshop, "rat_custom.modlord.json");
+                string modSaved = File.ReadAllText(modPath);
+                WriteText(modPath, "{\"mod\":{\"enabled\":true,\"values\":[2,1]}}");
+                ExpectReplicaConflict(() => resolve(new[] { local, workshop }), local, workshop,
+                    "rat_custom.modlord.json");
+                WriteText(modPath, modSaved);
+                string aiv = Path.Combine(workshop, "castle.aivjson");
+                WriteText(aiv, "different AIV");
+                ExpectReplicaConflict(() => resolve(new[] { local, workshop }), local, workshop, "gameplay");
+                Assert(TrailLordSourceSelector.SelectIndex(new[] { local, workshop }, workshop,
+                    "Rat", decoded.name) == 1, "explicit source was replaced by replica comparison");
+                ExpectReplicaConflict(() => TrailLordSourceSelector.SelectIndex(new[] { local, workshop },
+                    Path.Combine(local, "missing"), "Rat", decoded.name), null, null, "selected source path");
+                WriteText(aiv, "same AIV");
+                WriteText(Path.Combine(workshop, "extra.lua"), "return 1");
+                ExpectReplicaConflict(() => resolve(new[] { local, workshop }), local, workshop, "gameplay");
+                Assert(TrailLordSourceSelector.SelectIndex(new[] { workshop }, null,
+                    "Rat", decoded.name) == 0, "unique source unexpectedly required replica equivalence");
+            });
+        }
+
+        private static void ExpectReplicaConflict(Action action, string first, string second, string detail)
+        {
+            try { action(); }
+            catch (InvalidDataException exception)
+            {
+                Assert((first == null || exception.Message.Contains(first)) &&
+                    (second == null || exception.Message.Contains(second)) &&
+                    exception.Message.IndexOf(detail, StringComparison.OrdinalIgnoreCase) >= 0,
+                    "replica conflict lost source or difference detail: " + exception.Message);
+                return;
+            }
+            throw new Exception("Conflicting or unverifiable replicas were accepted: " + detail);
         }
 
         private static void TestConflictRollback()

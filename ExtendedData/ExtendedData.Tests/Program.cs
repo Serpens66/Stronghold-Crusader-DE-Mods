@@ -847,23 +847,40 @@ static void TestLordWorkshopMetadataFingerprint()
     }
 }
 
+static string CreateEquivalentLordExportSources(string root)
+{
+    string[] sources = { Path.Combine(root, "local"), Path.Combine(root, "workshop") };
+    foreach (string source in sources)
+    {
+        Directory.CreateDirectory(source);
+        File.WriteAllText(Path.Combine(source, "lord.lordjson"), "{\"lord\":{}}");
+        File.WriteAllText(Path.Combine(source, "castle.aivjson"), "{}");
+        File.WriteAllText(Path.Combine(source, "lord.modlord.json"), "{\"example.mod\":{\"value\":1}}");
+    }
+    int selected = TrailLordSourceSelector.SelectIndex(sources, null, "Author Lord", "lord");
+    Assert(sources[1 - TrailLordSourceSelector.SelectIndex(sources.Reverse().ToArray(), null,
+        "Author Lord", "lord")] == sources[selected], "export source depends on enumeration order");
+    return sources[selected];
+}
+
 static void TestTrailLordRequirements()
 {
     string root = Path.Combine(Path.GetTempPath(), "ExtendedDataTrailLord-" + Guid.NewGuid().ToString("N"));
     Directory.CreateDirectory(root);
     try
     {
+        string authorSource = CreateEquivalentLordExportSources(root);
         string mission = Path.Combine(root, "Trail_Mission_01.trail");
         File.WriteAllText(mission, "embedded mission");
         var slot = new TrailLordSlot
         {
             PlayerId = 3,
             LordName = "Author Lord",
-            ConfigName = "author",
+            ConfigName = "lord",
             ConfigChecksum = "123",
             AivChecksums = new[] { "456", "789" },
             RequiresInstalledPackage = false,
-            ModLordJson = "{\"example.mod\":{\"value\":1}}",
+            ModLordJson = LordDataSnapshot.ReadModLordFile(Path.Combine(authorSource, "lord.modlord.json")),
         };
         TrailLordRequirements.Create(mission, new[] { slot }).Write(mission);
         TrailLordRequirements read = TrailLordRequirements.Read(mission);
@@ -876,7 +893,8 @@ static void TestTrailLordRequirements()
         string coop = Path.Combine(root, "01.coopmission.json");
         File.WriteAllText(coop, "mission");
         TrailLordRequirements.Create(coop, new[] { slot }).Write(coop);
-        Assert(TrailLordRequirements.Read(coop).Slots.Single().PlayerId == 3,
+        Assert(TrailLordRequirements.Read(coop).Slots.Single().PlayerId == 3 &&
+            TrailLordRequirements.Read(coop).Slots.Single().ModLordJson == slot.ModLordJson,
             "Coop Lord requirements did not roundtrip");
     }
     finally
@@ -999,8 +1017,9 @@ static void TestBundledMission()
     Assert(loaded.Definition.Players.Where(player => player.Active).Take(2).Count() == 2, "human slots missing");
     string slotRoot = Path.Combine(fixture.Root, "Assets", "01", "AI-03");
     Directory.CreateDirectory(slotRoot);
-    File.Copy(Path.Combine(fixture.Root, "lord.lordjson"), Path.Combine(slotRoot, "lord.lordjson"));
-    File.Copy(Path.Combine(fixture.Root, "castle.aivjson"), Path.Combine(slotRoot, "castle.aivjson"));
+    string authorSource = CreateEquivalentLordExportSources(Path.Combine(fixture.Root, "replicas"));
+    File.Copy(Path.Combine(authorSource, "lord.lordjson"), Path.Combine(slotRoot, "lord.lordjson"));
+    File.Copy(Path.Combine(authorSource, "castle.aivjson"), Path.Combine(slotRoot, "castle.aivjson"));
     File.WriteAllText(Path.Combine(slotRoot, "second.aivjson"), "{}", new UTF8Encoding(false));
     PlayerDefinition ai = loaded.Definition.Players[2];
     ai.Lord.File = "Assets/01/AI-03/lord.lordjson";

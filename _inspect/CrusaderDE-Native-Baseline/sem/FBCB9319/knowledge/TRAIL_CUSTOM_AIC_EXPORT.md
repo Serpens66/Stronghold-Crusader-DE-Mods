@@ -14,3 +14,11 @@ The contracts below are managed; no native RVA or new detour is involved.
 
 Runtime evidence: Extended Data 1.0.8, local LogOutput.log, 2026-10-08 21:37:30.261: SelectIndex -> Capture -> CreateDefinition -> Prepare -> ExportHook fails with an empty author Lord name. The user confirmed a standard Lord with custom .lordjson and no visible popup.
 This demonstrates the pre-fix failures. Post-fix export, launch and popup visibility still require a gameplay acceptance run.
+
+## Duplicate local and Workshop AIC sources (2026-10-14)
+
+The installed CustomLordConfig.encode/decode roundtrip also drops the workshop flag: decoded path is null and workshop is false, even for a selected Workshop configuration. ExtendedData.Upload.Tests exercises the actual installed codec. The default false value cannot identify a local source after loading a Trail.
+
+CustomisationFileManager's Workshop scan appends standard Lord configurations to the same Extended Lord collection as local configurations. Their names, types and checksums can therefore coincide while their source directories differ. Named Custom Lords instead retain the Workshop item ID prefix in lordName. Both ExtendedData Trail export paths reach TrailLordPackageRuntime.Capture; the normal path reads exported .trail files and the Coop path reads the Maker .trail files before preparing the package.
+
+Equivalent candidates without a saved path can be resolved by comparing gameplay file fingerprints and the selected .modlord.json, Override/Fixes/preferences.json, info.json and lordmeta.json. The existing gameplay digest excludes those synchronized or presentation JSON files and alone does not establish equivalence. Explicit saved paths remain authoritative. These are managed serialization/export contracts; no native addresses changed. Automated codec, replica-selection and sidecar/bundle regressions do not establish in-game upload acceptance.

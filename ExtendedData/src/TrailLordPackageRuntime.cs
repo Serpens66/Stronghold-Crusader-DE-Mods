@@ -73,7 +73,8 @@ namespace ExtendedData
                         item.Config.lordType, item.Config.name, name, info.lordType,
                         info.lordConfig.name, string.IsNullOrWhiteSpace(info.lordName))).ToArray();
                 int sourceIndex = TrailLordSourceSelector.SelectIndex(
-                    matching.Select(item => item.Config.path).ToArray(), info.lordConfig.path, name);
+                    matching.Select(item => item.Config.path).ToArray(), info.lordConfig.path, name,
+                    info.lordConfig.name);
                 return matching[sourceIndex];
             }
             catch (Exception exception)
