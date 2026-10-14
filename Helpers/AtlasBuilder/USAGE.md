@@ -51,7 +51,7 @@ Die Verschiebung beträgt `|ΔPivotX| × Bildbreite` beziehungsweise `|ΔPivotY|
 
 - **SHCDE-Pixelanker beibehalten** ist der Standard und für eigene Ersatzbilder normalerweise richtig. Der Builder berechnet den Pixelanker des SHCDE-Ziels und normalisiert ihn für die tatsächliche Größe des Ersatzbildes neu.
 - **Pivot aus Quellmetadaten** reproduziert die ursprüngliche Ausrichtung eines mit AssetRipper extrahierten Sprites. Wähle zusätzlich den Ordner, der die einzelnen Sprite-JSONs enthält, oder einen übergeordneten AssetRipper-Exportordner. Der Builder liest nur JSON-Dateien, deren Namen zur gewählten Gruppe und zu den vorhandenen Frames passen.
-- **Normalisierten SHCDE-Pivot übernehmen (Legacy)** bildet das Verhalten älterer Builder-Projekte nach. Verwende es nur, wenn Quell- und Zielbilder dieselbe Leinwand besitzen oder die normalisierten Pivots absichtlich identisch sein sollen.
+- **Normalisierten SHCDE-Pivot übernehmen (Legacy)** kopiert den normalisierten Zielpivot. Verwende es nur, wenn Quell- und Zielbilder dieselbe Leinwand besitzen oder die normalisierten Pivots absichtlich identisch sein sollen.
 
 Enthält eine Gruppe sowohl SH1DE- als auch unveränderte SHCDE-Frames, wähle **Pivot aus Quellmetadaten** und bei **Fehlende Quellmetadaten** ausdrücklich **SHCDE-Pixelanker verwenden**. Vorhandene Quellmetadaten haben dann pro Frame Vorrang; nur Frames ohne passendes Quell-JSON verwenden den SHCDE-Pixelanker. Der Builder erkennt damit nicht die Bildherkunft, sondern verlangt für den Fallback vorhandene SHCDE-Zielmetadaten und meldet alle betroffenen Indizes. Findet der gewählte Ordner überhaupt kein passendes Quell-JSON, bricht die Prüfung weiterhin ab.
 
@@ -61,7 +61,7 @@ Bei Quellmetadaten bleiben normalisierte Pivots bei einer proportional skalierte
 
 Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` liegt der originale Pixelanker durchgehend bei `(32, 16,5)` und die PPU bei 64. Beispielsweise ergeben sowohl Pivot `(0,5; 0,40243897)` auf 64×41 Pixeln als auch `(0,5; 0,08418399)` auf 64×196 Pixeln denselben Anker. Schwarze Spalten zwischen Tiles sind ein typisches Zeichen dafür, dass stattdessen ein normalisierter Pivot von einer anders großen Leinwand kopiert wurde.
 
-Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Schema-2- bis Schema-4-Projekte behalten ihre bisherigen strikten Metadatenregeln und verwenden alle Frames. Beim nächsten Speichern werden ältere Projekte als Schema 5 abgelegt.
+Der Workspace-Builder akzeptiert Projektschemata 1–6 und speichert Schema 6. Schema 1 verwendet ohne explizite Pivotwahl `target-normalized` und zeigt beim Öffnen eine Warnung. Ohne expliziten Quellframe-Filter werden alle Frames berücksichtigt; ohne explizite Wahl für fehlende Quellmetadaten gilt `reject`.
 
 ### Grafiken aus Stronghold 1 DE übertragen
 
@@ -235,7 +235,7 @@ The displacement is `|ΔPivotX| × image width` or `|ΔPivotY| × image height` 
 
 - **Preserve SHCDE pixel anchor** is the default and is normally correct for custom replacements. The builder calculates the SHCDE target's pixel anchor and normalizes it for the replacement image's actual dimensions.
 - **Pivot from source metadata** reproduces the original alignment of a Sprite extracted with AssetRipper. Also select the directory containing the individual Sprite JSON files, or a parent AssetRipper export directory. Only JSON files whose names match the selected group and present frames are read.
-- **Copy normalized SHCDE pivot (legacy)** preserves the behavior of older builder projects. Use it only when source and target images have identical canvases or intentionally share normalized pivots.
+- **Copy normalized SHCDE pivot (legacy)** copies the normalized target pivot. Use it only when source and target images have identical canvases or intentionally share normalized pivots.
 
 If one group contains both SH1DE frames and unchanged SHCDE frames, select **Pivot from source metadata**, then explicitly select **Use SHCDE pixel anchor** under **Missing source metadata**. Existing source metadata takes precedence per frame; only frames without matching source JSON use the SHCDE pixel anchor. This does not infer image provenance: the builder requires existing SHCDE target metadata for the fallback and reports every affected index. Validation still stops when the selected directory contains no matching source JSON at all.
 
@@ -245,7 +245,7 @@ With source metadata, normalized pivots remain unchanged when the canvas is scal
 
 In the verified SH1DE groups `tile_land8`, `tile_buildings1`, `tile_churches` and `tile_ruins`, the original pixel anchor is consistently `(32, 16.5)` with 64 PPU. For example, pivot `(0.5, 0.40243897)` on a 64×41 image and `(0.5, 0.08418399)` on a 64×196 image both produce the same anchor. Black gaps between tiles are a typical symptom of copying a normalized pivot from a differently sized canvas.
 
-Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2 through schema-4 projects retain their previous strict metadata rules and use all frames. Saving an older project upgrades it to schema 5.
+The workspace builder accepts project schemas 1–6 and saves schema 6. Schema 1 uses `target-normalized` unless a pivot mode is specified and displays an opening warning. An unspecified source frame filter includes all frames; an unspecified missing-source-metadata policy uses `reject`.
 
 ### Transferring graphics from Stronghold 1 DE
 

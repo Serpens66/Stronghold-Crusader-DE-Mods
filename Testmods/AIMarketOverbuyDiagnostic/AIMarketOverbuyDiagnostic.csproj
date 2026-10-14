@@ -35,6 +35,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\AIMarketOverbuyDiagnosticPlugin.cs" />
     <Compile Include="src\AIMarketOverbuyDiagnosticRuntime.cs" />
+    <Compile Include="src\MarketObservation.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
   </ItemGroup>

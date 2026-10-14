@@ -4,7 +4,7 @@
 
 ## English
 
-This directory collects user and developer documentation for `ExtendedData` and the file conventions it supports.
+This directory collects user and developer documentation for `ExtendedData` and its file conventions. Ordinary presets use the public `APIShared.ModSettings` API; ExtendedData supplies optional Map, Trail and Lord workflows. The integration examples identify the checked APIShared package they require.
 
 ### Contents
 
@@ -19,7 +19,7 @@ This directory collects user and developer documentation for `ExtendedData` and 
 
 ## Deutsch
 
-Dieses Verzeichnis enthält Benutzer- und Entwicklerdokumentation für `ExtendedData` und die unterstützten Dateikonventionen.
+Dieses Verzeichnis enthält Benutzer- und Entwicklerdokumentation für `ExtendedData` und seine Dateikonventionen. Normale Presets verwenden die öffentliche API `APIShared.ModSettings`; ExtendedData ergänzt optionale Map-, Trail- und Lord-Abläufe. Die Integrationsbeispiele nennen das dafür geprüfte APIShared-Paket.
 
 ### Inhalt
 

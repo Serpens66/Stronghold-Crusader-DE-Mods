@@ -76,6 +76,7 @@ There is no global schema version. Prefer a stable BepInEx plugin GUID in lowerc
 Reference `ExtendedData.dll` and `ExtendedData.Core.dll`, then request only your namespace:
 
 ```csharp
+using System.Collections.Generic;
 using ExtendedData;
 
 ExtendedDataModDataReadResult result =
@@ -190,6 +191,7 @@ Es gibt keine globale Schemaversion. Bevorzuge eine stabile BepInEx-Plugin-GUID 
 Referenziere `ExtendedData.dll` und `ExtendedData.Core.dll` und fordere anschließend ausschließlich deinen Namensraum an:
 
 ```csharp
+using System.Collections.Generic;
 using ExtendedData;
 
 ExtendedDataModDataReadResult result =

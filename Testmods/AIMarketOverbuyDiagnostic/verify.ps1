@@ -3,12 +3,16 @@ $project = Split-Path -Parent $MyInvocation.MyCommand.Path
 $workspace = (Resolve-Path -LiteralPath (Join-Path $project '..\..')).Path
 $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'src') -Filter '*.cs' -File)
 $projectFile = Join-Path $project 'AIMarketOverbuyDiagnostic.csproj'
+$testDirectory = Join-Path $workspace '_inspect\AIMarketOverbuyDiagnosticTests'
 $textFiles = @($sourceFiles) + @(
     (Join-Path $project 'Properties\AssemblyInfo.cs'),
     (Join-Path $project 'info.json'),
     $projectFile,
     (Join-Path $project 'build.bat'),
-    $MyInvocation.MyCommand.Path)
+    $MyInvocation.MyCommand.Path,
+    (Join-Path $testDirectory 'Tests.csproj'),
+    (Join-Path $testDirectory 'Program.cs'),
+    (Join-Path $testDirectory 'Test.ps1'))
 $runtimeText = (($sourceFiles + @((Get-Item -LiteralPath $projectFile))) |
     ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
 $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json'
@@ -29,4 +33,6 @@ foreach ($path in $textFiles) {
 }
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace native runtime regression check failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $testDirectory 'Test.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Market observation behavior/performance tests failed.' }
 Write-Host 'PASS: Runtime JSON, lifecycle, plugin callbacks, native mutation, layout source, and CRLF checks.'

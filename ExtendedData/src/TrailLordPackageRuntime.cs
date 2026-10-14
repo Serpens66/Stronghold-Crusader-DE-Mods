@@ -20,7 +20,8 @@ namespace ExtendedData
 
         internal static IReadOnlyList<TrailLordSlot> Capture(
             HUD_IngameMenu.RestartSkirmishMapInfo restart,
-            IDictionary<int, Candidate> resolvedSources = null)
+            IDictionary<int, Candidate> resolvedSources = null,
+            ISet<int> includedPlayerIds = null)
         {
             if (restart?.aivs == null)
                 throw new InvalidDataException("The Trail has no saved Lord data.");
@@ -28,6 +29,8 @@ namespace ExtendedData
             var result = new List<TrailLordSlot>();
             for (int index = 0; index < Math.Min(8, restart.aivs.Length); index++)
             {
+                if (includedPlayerIds != null && !includedPlayerIds.Contains(index + 1))
+                    continue;
                 if (restart.lordTypes != null && index < restart.lordTypes.Count &&
                     restart.lordTypes[index] < 0)
                     continue;
@@ -93,10 +96,10 @@ namespace ExtendedData
             reason = string.Empty;
             Candidate[] candidates = FindCandidates(slot.ConfigChecksum, slot.AivChecksums)
                 .Where(item => !slot.LordType.HasValue || item.Config.lordType == slot.LordType.Value).ToArray();
-            if (candidates.Select(item => item.Config.lordType).Distinct().Count() != 1)
-            { reason = "Lord type is missing or ambiguous: " + slot.LordName; return false; }
             if (slot.RequiresInstalledPackage)
             {
+                if (candidates.Select(item => item.Config.lordType).Distinct().Count() != 1)
+                { reason = "Lord type is missing or ambiguous: " + slot.LordName; return false; }
                 candidates = candidates.Where(item =>
                 {
                     try
@@ -114,6 +117,13 @@ namespace ExtendedData
                 }
                 requiredLordPath = Path.Combine(candidates[0].Config.path,
                     candidates[0].Config.name + ".lordjson");
+            }
+            // Embedded gameplay values need no local installation. Legacy payloads with
+            // several possible installed types must not pick an arbitrary media provider.
+            if (candidates.Select(item => item.Config.lordType).Distinct().Skip(1).Any())
+            {
+                reason = "Optional Lord media has ambiguous installed Lord types: " + slot.LordName;
+                return true;
             }
             Candidate[] mediaDonors = candidates.Where(item =>
                 HasRegisteredSeMedia(item) || HasVanillaMedia(item.Name)).ToArray();

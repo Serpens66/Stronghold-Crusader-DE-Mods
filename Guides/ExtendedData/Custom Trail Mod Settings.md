@@ -87,7 +87,7 @@ The Trail Maker's **Coop Trail** export packages the first 40 existing missions,
 
 #### What players need
 
-Players need `ExtendedData` and every mod explicitly mentioned by the Map or mission. A missing mentioned mod is reported when the preset is activated. Unmentioned mods and settings use their mod-defined safe baseline instead of arbitrary local gameplay values.
+Players need `ExtendedData`, APIShared satisfying the installed mods' declared minimum versions, and every mod explicitly mentioned by the Map or mission. A missing mentioned mod is reported when the preset is activated. Unmentioned mods and settings use their mod-defined safe baseline instead of arbitrary local gameplay values.
 
 After the mission ends, compatible mods restore the player's previous normal working settings and preset status. Selecting a Custom Trail first shows a read-only preview: mods absent from its sidecar retain their personal values during selection. Starting that mission directly applies its settings as a read-only mission context, with the safe baseline for unmentioned mods and settings.
 
@@ -215,7 +215,7 @@ Der Export **Koop-Trail** im Trail Maker verpackt die ersten 40 vorhandenen Miss
 
 #### Voraussetzungen für Spieler
 
-Spieler benötigen `ExtendedData` und jeden von der Map oder Mission ausdrücklich genannten Mod. Ein fehlender genannter Mod wird bei der Aktivierung des Presets gemeldet. Nicht genannte Mods und Einstellungen verwenden ihre moddefinierte sichere Ausgangslage statt beliebiger lokaler Gameplay-Werte.
+Spieler benötigen `ExtendedData`, APIShared mit den von den installierten Mods deklarierten Mindestversionen und jeden von der Map oder Mission ausdrücklich genannten Mod. Ein fehlender genannter Mod wird bei der Aktivierung des Presets gemeldet. Nicht genannte Mods und Einstellungen verwenden ihre moddefinierte sichere Ausgangslage statt beliebiger lokaler Gameplay-Werte.
 
 Nach Missionsende stellen kompatible Mods die vorherigen normalen Arbeitswerte und den Presetstatus des Spielers wieder her. Die Auswahl eines Custom Trails zeigt zunächst eine schreibgeschützte Vorschau: Mods, die nicht im Sidecar genannt werden, behalten während der Auswahl ihre persönlichen Werte. Beim direkten Start werden die Missionseinstellungen als schreibgeschützter Kontext angewendet; für nicht genannte Mods und Einstellungen gilt die sichere Ausgangslage.
 

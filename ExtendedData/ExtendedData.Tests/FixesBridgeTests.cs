@@ -70,4 +70,9 @@ namespace Fixes.Config
         internal static CustomLordPreferencesEntry GetSlot(int id)=>_slots[id];
     }
 }
-internal static class ConfigSettings { internal static string[] extendedLordPaths=System.Array.Empty<string>(); }
+internal static class ConfigSettings
+{
+    internal static string[] extendedLordPaths=System.Array.Empty<string>();
+    internal static string MediaPath=System.IO.Path.GetTempPath();
+    public static string GetUserCustomMediaPath()=>MediaPath;
+}

@@ -1,0 +1,73 @@
+{
+  "Date": "2026-10-14",
+  "Scope": "Guides, active APIShared documentation, directly linked AtlasBuilder usage guide",
+  "ChangedDocuments": [
+    "Helpers\\AtlasBuilder\\USAGE.md",
+    "Guides\\Translation.md",
+    "Guides\\Linux and Proton Modding.md",
+    "Guides\\Replace Assets with Script Extender.md",
+    "Guides\\ExtendedData\\README.md",
+    "Guides\\ExtendedData\\Mod Compatibilty ExtendedData.md",
+    "Guides\\ExtendedData\\ModSettings Presets.md",
+    "Guides\\ExtendedData\\ModMapData.md",
+    "Guides\\ExtendedData\\Custom Trail Mod Settings.md",
+    "APIShared\\README.md",
+    "APIShared\\ARCHITECTURE.md",
+    "APIShared\\docs\\THIRD_PARTY_GUIDE.md",
+    "APIShared\\docs\\API_CATALOG.md",
+    "APIShared\\docs\\DEPENDENCIES.md",
+    "APIShared\\docs\\WORKSHOP.md",
+    "APIShared\\docs\\AUDIO.md",
+    "APIShared\\docs\\GATE_ROUTING.md"
+  ],
+  "UnchangedGuides": [
+    "Guides/ExtendedData/CustomLordExtendedPackages.md",
+    "Guides/ExtendedData/ModLordData.md"
+  ],
+  "UnchangedApiDocuments": [
+    "APIShared/AGENTS.md",
+    "APIShared/CONTRIBUTING.md",
+    "APIShared/UpdateToNewDLL.md",
+    "APIShared/docs/NATIVE_COMPATIBILITY.md"
+  ],
+  "Checks": {
+    "JsonExamples": 16,
+    "PresetBindingsCompiled": 10,
+    "LocalLinksAndAnchors": 253,
+    "CodeExamples": "Document-extracted settings class, registration call and map-data reader compiled against public APIShared 0.9.0.0, real installed game and Extender assemblies",
+    "Text": "All 17 changed documents use CRLF; no replacement characters, damaged code fences or old consumer namespace imports",
+    "Diff": "Documentation diff reviewed; existing unrelated workspace modifications preserved",
+    "APISharedPortableLinks": 194
+  },
+  "SourceEvidence": [
+    "APIShared/src/ModSettings/Presets",
+    "APIShared/src/Core/ModApiClient.cs",
+    "APIShared/src/Workshop/WorkshopClient.cs",
+    "APIShared/src/Pathfinding/GateRoutes",
+    "ExtendedData/src/ExtendedDataModDataApi.cs",
+    "ExtendedData/ExtendedData.Core/TrailModCompatibilityContract.cs",
+    "Shared/Runtime/Localization/SerpLocalization.cs",
+    "Helpers/AtlasBuilder/atlas_builder/models.py",
+    "Helpers/AtlasBuilder/atlas_builder/core.py",
+    "Helpers/LinuxModding/install-linux.sh",
+    "Installed SHCDESE 2.14.1: GameAtlasManagerAPI decompilation"
+  ],
+  "OfficialReleaseChecks": {
+    "AtlasBuilderDownload": "AtlasBuilder_1.0.5/AtlasBuilder-portable-win64.zip",
+    "WorkspaceAPIShared": "0.9.0",
+    "AssetRipper": "2.0.0/AssetRipper_win_x64.zip",
+    "SpritePreviewer": "v1.1.5/shcde-sprite-viewer-win-x64.zip",
+    "Extender": "2.14.1",
+    "Loader": "1.1.0",
+    "APISharedPublished": [
+      "0.7.2",
+      "0.7.1"
+    ]
+  },
+  "Limits": [
+    "No installed-game or Proton gameplay acceptance was performed",
+    "Native behavioral contracts were preserved; no new native feature audit or support claim",
+    "Audio measurements are existing fixture results, not new measurements"
+  ],
+  "Reproduce": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File _inspect/GuideDocumentation20261014/Test-Documentation.ps1"
+}

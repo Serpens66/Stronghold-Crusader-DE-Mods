@@ -53,7 +53,7 @@ Do not change the key before the `=`:
 - Keep every translation key exactly unchanged.
 - Keep all lines in the file, in their original order.
 - Do not add or remove keys.
-- Do not translate text after `#` unless you only want to update the comment.
+- Lines beginning with `#` are comments. Keep them unless you want to update the comment; a `#` inside a value is part of that value.
 - Preserve placeholders exactly as written, including their braces. Examples:
   - `{0}`
   - `{1}`
@@ -116,7 +116,7 @@ Example:
     Language: Polish
     Language code: pl-PL
     Mod: Random Events
-    Mod version: 1.0.26
+    Mod version: <version shown by the installed mod>
     Status: Complete
     Notes: I was unsure how “Vanilla months” should be expressed consistently with the Polish game translation.
 

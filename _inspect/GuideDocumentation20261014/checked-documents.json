@@ -1,0 +1,70 @@
+﻿[
+    {
+        "Document":  "Helpers\\AtlasBuilder\\USAGE.md",
+        "CRLF":  369
+    },
+    {
+        "Document":  "Guides\\Translation.md",
+        "CRLF":  123
+    },
+    {
+        "Document":  "Guides\\Linux and Proton Modding.md",
+        "CRLF":  61
+    },
+    {
+        "Document":  "Guides\\Replace Assets with Script Extender.md",
+        "CRLF":  968
+    },
+    {
+        "Document":  "Guides\\ExtendedData\\README.md",
+        "CRLF":  31
+    },
+    {
+        "Document":  "Guides\\ExtendedData\\Mod Compatibilty ExtendedData.md",
+        "CRLF":  182
+    },
+    {
+        "Document":  "Guides\\ExtendedData\\ModSettings Presets.md",
+        "CRLF":  182
+    },
+    {
+        "Document":  "Guides\\ExtendedData\\ModMapData.md",
+        "CRLF":  231
+    },
+    {
+        "Document":  "Guides\\ExtendedData\\Custom Trail Mod Settings.md",
+        "CRLF":  257
+    },
+    {
+        "Document":  "APIShared\\README.md",
+        "CRLF":  35
+    },
+    {
+        "Document":  "APIShared\\ARCHITECTURE.md",
+        "CRLF":  250
+    },
+    {
+        "Document":  "APIShared\\docs\\THIRD_PARTY_GUIDE.md",
+        "CRLF":  369
+    },
+    {
+        "Document":  "APIShared\\docs\\API_CATALOG.md",
+        "CRLF":  374
+    },
+    {
+        "Document":  "APIShared\\docs\\DEPENDENCIES.md",
+        "CRLF":  34
+    },
+    {
+        "Document":  "APIShared\\docs\\WORKSHOP.md",
+        "CRLF":  121
+    },
+    {
+        "Document":  "APIShared\\docs\\AUDIO.md",
+        "CRLF":  296
+    },
+    {
+        "Document":  "APIShared\\docs\\GATE_ROUTING.md",
+        "CRLF":  82
+    }
+]

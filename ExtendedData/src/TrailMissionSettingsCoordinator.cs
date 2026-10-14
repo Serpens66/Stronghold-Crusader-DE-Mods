@@ -1642,7 +1642,7 @@ namespace ExtendedData
                         Directory.CreateDirectory(trailMakerSource);
                         exportOriginal(self, trailMakerSource);
                         ExportSidecars(trailMakerSource);
-                        ExportLordRequirements(trailMakerSource);
+                        ExportLordRequirements(trailMakerSource, coopMakerSource: true);
                         prepared.Publish(destination);
                         RemoveNormalTrailFiles(destination);
                         DebugLogHelper.LogInfo(log, "Published Coop Trail package [" + prepared.Package.Manifest.DisplayName +
@@ -1697,7 +1697,7 @@ namespace ExtendedData
                 });
             }
 
-            private static void ExportLordRequirements(string destination)
+            private static void ExportLordRequirements(string destination, bool coopMakerSource = false)
             {
                 foreach (string stale in Directory.GetFiles(destination,
                     "Trail_Mission_*" + TrailLordRequirements.Suffix))
@@ -1708,8 +1708,14 @@ namespace ExtendedData
                         trail, trail, 4, loadRestartInfo: true);
                     if (header?.restartSkirmishInfo == null)
                         throw new InvalidDataException("Exported Trail mission has no Lord data: " + trail);
+                    ISet<int> includedPlayerIds = coopMakerSource
+                        ? CoopTrailSlotSelection.GetAiPlayerIds(
+                            CoopTrailSlotSelection.GetActiveSlots(header.restartSkirmishInfo.lordTypes))
+                        : null;
+                    // Maker files retain their original slot IDs; only playable Coop JSON is remapped.
                     TrailLordRequirements.Create(trail,
-                        TrailLordPackageRuntime.Capture(header.restartSkirmishInfo)).Write(trail);
+                        TrailLordPackageRuntime.Capture(header.restartSkirmishInfo,
+                            includedPlayerIds: includedPlayerIds)).Write(trail);
                 }
             }
 

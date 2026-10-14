@@ -2,7 +2,7 @@
 
 Stronghold Crusader: Definitive Edition runs its Windows executable through Proton. Install the Windows SHCDE BepInEx loader and the official SHCDE Script Extender in the game directory. Our optional [LinuxModding helpers](../Helpers/LinuxModding/) check that installation and set the Wine override that loads BepInEx; they do not install mods or replace the Extender's updater.
 
-This guide was checked against the locally installed Script Extender 2.11.0 and its release packaging. Use a current stable Proton version and a 64-bit Linux Steam installation. Install code mods only from authors you trust: they run with your user account's permissions.
+This guide was checked against the locally installed Script Extender 2.14.1 and its release packaging. Use a current stable Proton version and a 64-bit Linux Steam installation. Install code mods only from authors you trust: they run with your user account's permissions.
 
 ## Install the loader and Script Extender
 

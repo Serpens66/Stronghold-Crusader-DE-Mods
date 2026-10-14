@@ -16,7 +16,7 @@ Individual AssetRipper metadata files must still be combined into one `atlas.jso
 Verified atlas requirements:
 
 - Script Extender `2.4.0` or newer for PNG; `2.8.0` or newer for BC7-DDS.
-- The DDS loading path has been checked against the locally installed Script Extender `2.12.0`.
+- The DDS loading path has been checked against the locally installed Script Extender `2.14.1`.
 
 ---
 
@@ -330,9 +330,11 @@ Atlas Builder offers three modes per group:
 
 - `target-pixel-anchor`: preserves the SHCDE pixel anchor and is the default.
 - `source-metadata`: reads each source pivot from AssetRipper JSON files.
-- `target-normalized`: legacy behaviour for deliberately identical canvases.
+- `target-normalized`: preserves the normalized target pivot for deliberately identical canvases.
 
-Schema-1 builder projects load in `target-normalized` mode for compatibility and display a warning. The linked release `1.0.5` saves older projects as schema 5; PNG remains the default unless a different format is selected explicitly.
+The workspace builder accepts project schemas 1–6 and saves schema 6. Schema-1 projects use `target-normalized` and display a warning. PNG is the default unless a different format is selected explicitly. The portable download linked above is release `1.0.5`; use the workspace builder for the source features documented below.
+
+The optional **Source frame filter**, for example `0-127, 416-447, 0x-127x`, selects which source frames are read, checked and built; an empty filter includes all frames. In `source-metadata` mode, missing matching JSON is rejected by default. **Missing source metadata → Use SHCDE pixel anchor** explicitly permits a pixel-anchor fallback only for frames with existing SHCDE target metadata. At least one matching source JSON must exist, and the builder reports every fallback index. Missing SHCDE target slots still require validated source metadata. See the [AtlasBuilder usage guide](../Helpers/AtlasBuilder/USAGE.md#english).
 
 ---
 
@@ -494,7 +496,7 @@ Die einzelnen AssetRipper-Metadaten müssen weiterhin zu einer gemeinsamen `atla
 Geprüfter Atlasvertrag:
 
 - Script Extender `2.4.0` oder neuer für PNG; `2.8.0` oder neuer für BC7-DDS
-- DDS-Ladepfad auch im lokal installierten Script Extender `2.12.0` geprüft
+- DDS-Ladepfad auch im lokal installierten Script Extender `2.14.1` geprüft
 
 ---
 
@@ -808,9 +810,11 @@ Der Atlas Builder bietet dafür pro Gruppe drei Modi:
 
 - `target-pixel-anchor`: bewahrt den SHCDE-Pixelanker und ist der Standard
 - `source-metadata`: liest den individuellen Quellpivot aus AssetRipper-JSONs
-- `target-normalized`: altes Verhalten für absichtlich identische Leinwände
+- `target-normalized`: erhält den normalisierten Zielpivot für absichtlich identische Leinwände
 
-Schema-1-Projekte des Builders werden aus Kompatibilitätsgründen als `target-normalized` geladen und deutlich gewarnt. Das verlinkte Release `1.0.5` speichert ältere Projekte als Schema 5; ohne ausdrückliche Formatwahl bleibt PNG der Standard.
+Der Workspace-Builder akzeptiert Projektschemata 1–6 und speichert Schema 6. Schema-1-Projekte verwenden `target-normalized` und zeigen eine Warnung. Ohne ausdrückliche Formatwahl bleibt PNG der Standard. Der oben verlinkte portable Download ist Release `1.0.5`; für die nachfolgend beschriebenen Quellstand-Funktionen verwende den Workspace-Builder.
+
+Der optionale **Quellframe-Filter**, beispielsweise `0-127, 416-447, 0x-127x`, bestimmt, welche Quellframes eingelesen, geprüft und gebaut werden; ein leerer Filter berücksichtigt alle Frames. Im Modus `source-metadata` wird fehlendes passendes JSON standardmäßig abgelehnt. **Fehlende Quellmetadaten → SHCDE-Pixelanker verwenden** erlaubt ausdrücklich einen Pixelanker-Fallback ausschließlich für Frames mit vorhandenen SHCDE-Zielmetadaten. Mindestens ein passendes Quell-JSON muss vorhanden sein; der Builder meldet jeden Fallback-Index. Für fehlende SHCDE-Zielslots sind weiterhin validierte Quellmetadaten nötig. Siehe die [AtlasBuilder-Anleitung](../Helpers/AtlasBuilder/USAGE.md#deutsch).
 
 ---
 

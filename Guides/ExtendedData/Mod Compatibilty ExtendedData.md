@@ -14,16 +14,18 @@ ExtendedData can store a compatible mod's persistent host settings in Maps, Cust
 
 #### Requirements
 
-1. Add a hard BepInEx dependency on `APIShared_Serp` version `0.4.0` or newer.
-2. Reference the installed `APIShared.dll` with `Private=false`.
-3. Derive the registered lobby-settings ViewModel from `Shared.PresetLobbyModSettingsViewModel`.
+The integration examples target the checked workspace APIShared 0.9.0 assembly. Use a matching package; select a published release that contains these public types before distributing your mod.
+
+1. Add a hard BepInEx dependency on `APIShared_Serp` version `0.9.0` or newer.
+2. Reference the installed `APIShared.dll` with `Private=false`. Declare the same minimum APIShared version in `info.json` under `Dependencies`; see [dependency metadata](../../APIShared/docs/DEPENDENCIES.md).
+3. Derive the registered lobby-settings ViewModel from `APIShared.ModSettings.PresetLobbyModSettingsViewModel`.
 4. Every persistent setter calls `CanMutateSetting()` before changing state and `OnPropertyChanged()` afterwards.
 5. Register exactly one lobby-settings ViewModel for the plugin GUID through `LobbyModSettingsPresetRegistration.Register`.
 6. Expose at least one public readable/writable persistent `[SyncHostOnly]` property without `[DoNotPersist]`. Its current value must be non-null and MessagePack-serializable.
 
 ExtendedData also checks that APIShared's disabled mission snapshot contains a deserializable value for every eligible property. If `EnableMod` is among those properties, it must be Boolean; APIShared sets it to `false` in that snapshot. Deriving from `PresetLobbyModSettingsViewModel` supplies the typed endpoint and snapshot implementation.
 
-No Shared source links, compile symbols, or ExtendedData reference are required.
+No Shared source links, compile symbols, or ExtendedData reference are required. Retain the settings model and runtime callbacks in static state or a persistent publisher; SHCDE destroys startup plugin components. Register on the Unity thread and use logical activation instead of lifecycle teardown.
 
 ```xml
 <PropertyGroup Condition="'$(ApiSharedDir)' == ''">
@@ -41,15 +43,15 @@ Create the ViewModel once in the plugin, then register it from the plugin's exis
 
 ```csharp
 LobbyModSettingsPresetRegistration.Register(
-    this, Logger, Info.Metadata.GUID, Settings,
+    this, Logger, Info.Metadata.Name, Settings,
     "ScriptExtenderUI/ExampleSettings.xaml");
 ```
 
-The plugin declares `[BepInDependency("APIShared_Serp", "0.4.0")]`. Its `Settings` instance can use this minimal ViewModel shape:
+The plugin declares `[BepInDependency("APIShared_Serp", "0.9.0")]`. Its `Settings` instance can use this minimal ViewModel shape:
 
 ```csharp
 using SHCDESE.API.Components.Network;
-using Shared;
+using APIShared.ModSettings;
 
 public sealed class ExampleSettings : PresetLobbyModSettingsViewModel
 {
@@ -82,10 +84,10 @@ public sealed class ExampleSettings : PresetLobbyModSettingsViewModel
 }
 ```
 
-Use this namespace in the settings XAML because the shared controls now live in APIShared:
+Use the public settings namespace in the settings XAML:
 
 ```xml
-xmlns:shared="clr-namespace:Shared;assembly=APIShared"
+xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared"
 ```
 
 The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText`, and `System_OpenPresetSaveCommand`. Copy the complete standard Load/Save and settings-source block from [Extensible ModSettings Presets](ModSettings%20Presets.md#target-mod-integration). APIShared supplies **Mod defaults** by itself; an optional typed provider such as ExtendedData adds Trail and Map sources.
@@ -131,21 +133,23 @@ ExtendedData kann die persistenten Host-Einstellungen eines kompatiblen Mods in 
 
 #### Voraussetzungen
 
-1. Füge eine harte BepInEx-Abhängigkeit auf `APIShared_Serp` ab Version `0.4.0` hinzu.
-2. Referenziere die installierte `APIShared.dll` mit `Private=false`.
-3. Leite das registrierte Lobby-Settings-ViewModel von `Shared.PresetLobbyModSettingsViewModel` ab.
+Die Integrationsbeispiele richten sich an die geprüfte APIShared-Assembly 0.9.0 im Workspace. Verwende ein passendes Paket; wähle vor der Veröffentlichung deines Mods ein veröffentlichtes Release mit diesen öffentlichen Typen.
+
+1. Füge eine harte BepInEx-Abhängigkeit auf `APIShared_Serp` ab Version `0.9.0` hinzu.
+2. Referenziere die installierte `APIShared.dll` mit `Private=false`. Deklariere dieselbe APIShared-Mindestversion in `info.json` unter `Dependencies`; siehe [Abhängigkeitsmetadaten](../../APIShared/docs/DEPENDENCIES.md).
+3. Leite das registrierte Lobby-Settings-ViewModel von `APIShared.ModSettings.PresetLobbyModSettingsViewModel` ab.
 4. Jeder persistente Setter ruft vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` auf.
 5. Registriere über `LobbyModSettingsPresetRegistration.Register` genau ein Lobby-Settings-ViewModel für die Plugin-GUID.
 6. Stelle mindestens eine öffentliche les- und schreibbare persistente `[SyncHostOnly]`-Property ohne `[DoNotPersist]` bereit. Ihr aktueller Wert darf nicht null sein und muss sich mit MessagePack serialisieren lassen.
 
 ExtendedData prüft außerdem, ob APIShareds deaktivierter Missionssnapshot für jede geeignete Property einen deserialisierbaren Wert enthält. Falls `EnableMod` zu diesen Properties gehört, muss die Property boolesch sein; APIShared setzt sie in diesem Snapshot auf `false`. Die Ableitung von `PresetLobbyModSettingsViewModel` stellt den typisierten Endpunkt und die Snapshot-Implementierung bereit.
 
-Shared-Quelllinks, Compile-Symbole und eine ExtendedData-Referenz sind nicht erforderlich. Das Projektbeispiel im englischen Abschnitt gilt unverändert. Lege das ViewModel im Plugin einmalig an und registriere es im bestehenden `CrusaderLibrary.LibraryLoaded`-Callback nach dem Laden der Bibliothek. Der englische C#-Ausschnitt zeigt den Registrierungsaufruf und die minimale ViewModel-Form; er ist keine vollständige Plugin-Klasse.
+Shared-Quelllinks, Compile-Symbole und eine ExtendedData-Referenz sind nicht erforderlich. Verwurzle das Settings-Modell und Runtime-Callbacks statisch oder über einen langlebigen Publisher; SHCDE zerstört Startup-Plugin-Komponenten. Registriere auf dem Unity-Thread und verwende logische Aktivierung statt Lifecycle-Teardown. Das Projektbeispiel im englischen Abschnitt gilt unverändert. Lege das ViewModel im Plugin einmalig an und registriere es im bestehenden `CrusaderLibrary.LibraryLoaded`-Callback nach dem Laden der Bibliothek. Der englische C#-Ausschnitt zeigt den Registrierungsaufruf und die minimale ViewModel-Form; er ist keine vollständige Plugin-Klasse.
 
 Im XAML muss der gemeinsame Namespace auf APIShared zeigen:
 
 ```xml
-xmlns:shared="clr-namespace:Shared;assembly=APIShared"
+xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared"
 ```
 
 Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText` und `System_OpenPresetSaveCommand`. Den vollständigen Standardblock für Laden/Speichern sowie **Einstellungen zurücksetzen auf** findest du in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#integration-des-ziel-mods). APIShared stellt **Mod-Standards** selbst bereit; ein optionaler typisierter Provider wie ExtendedData ergänzt Trail- und Map-Quellen.

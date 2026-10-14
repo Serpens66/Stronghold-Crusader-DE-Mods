@@ -14,6 +14,9 @@ var tests = new (string Name, Action Run)[]
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
     ("Custom Coop Trail preview separates displayed teams", TestCoopTrailPreviewTeams),
     ("Custom Coop Trail team display hooks all four Vanilla pages", TestCoopTrailPreviewTeamIntegration),
+    ("Coop publication preserves old data across failures", TrailRuntimeRegressionTests.Publication),
+    ("portable Lord resolution keeps installations optional", TrailRuntimeRegressionTests.PortableLords),
+    ("Coop capture resolves only remaining AI sources", TrailRuntimeRegressionTests.CaptureSelection),
     ("bundled mission loads", TestBundledMission),
     ("Coop mission modsettings use an optional sidecar", TestCoopMissionModSettingsSidecar),
     ("path escape rejected", TestPathEscape),
@@ -947,7 +950,7 @@ static void TestCustomTrailLordLaunchIntegration()
     string lordData = File.ReadAllText(Path.Combine(root, "src", "LordDataSyncCoordinator.cs"));
     string resolver = File.ReadAllText(Path.Combine(root, "src", "TrailLordPackageRuntime.cs"));
     string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
-    Assert(exporter.Contains("TrailLordPackageRuntime.Capture(restart, lordSources)") &&
+    Assert(exporter.Contains("TrailLordPackageRuntime.Capture(restart, lordSources,") &&
         exporter.Contains("Name = authorSource.Name") && exporter.Contains("authorSource?.Config.path") &&
         !exporter.Contains("ResolveLordConfigFile("), "Lord files and metadata must share the validated source");
     int exportStart = coordinator.IndexOf("private void ExportHook(", StringComparison.Ordinal);
@@ -2357,7 +2360,13 @@ static void TestCoopExporterIntegration()
         coordinator.Contains("CoopWorkshopPackageStaging.Stage(") &&
         coordinator.Contains("CoopTrailPackageCatalog.Load(source)"),
         "Coop packages are not validated, listed, and staged through the unified Workshop uploader");
-    Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
+    Assert(exporter.Contains("ordinal < 40") &&
+        exporter.Contains("CoopTrailSlotSelection.GetActiveSlots(restart.lordTypes)") &&
+        exporter.IndexOf("GetActiveSlots(restart.lordTypes)", StringComparison.Ordinal) <
+            exporter.IndexOf("TrailLordPackageRuntime.Capture(restart, lordSources,", StringComparison.Ordinal) &&
+        coordinator.Contains("ExportLordRequirements(trailMakerSource, coopMakerSource: true)") &&
+        coordinator.Contains("includedPlayerIds: includedPlayerIds"),
+        "Coop slot selection is not applied before capture in both export paths");
     Assert(exporter.Contains("MissionProjection.Create(definition)") &&
         exporter.Contains("Colour = Math.Max(1, Math.Min(8, colour))") &&
         exporter.Contains("NativePreferredAiv = restart.MPsetupData.preferredAIVs[slot]") &&
@@ -3333,11 +3342,14 @@ namespace SHCDESE.API
     }
 }
 
-public sealed class CustomisationFileManager
+public sealed partial class CustomisationFileManager
 {
     public static readonly CustomisationFileManager Instance=new();
     public CustomLordConfig[] Configs=System.Array.Empty<CustomLordConfig>();
-    public List<CustomLordConfig> getLordLordList(int type,string name)=>Configs.Where(c=>c.lordType==type).ToList();
+    public List<CustomLordConfig> getLordLordList(int type,string name="") =>
+        type < 0 && CustomLords.Any(lord => lord.lordName == name)
+            ? CustomLords.First(lord => lord.lordName == name).configs
+            : Configs.Where(c=>c.lordType==type).ToList();
     public sealed class CustomLordConfig
     {
         public string name;

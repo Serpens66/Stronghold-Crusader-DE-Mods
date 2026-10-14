@@ -23,43 +23,7 @@ namespace ExtendedData
 
             internal void Publish(string destination)
             {
-                string targetRoot = Path.GetFullPath(destination);
-                string targetMissions = Path.Combine(targetRoot, "CoopMissions");
-                string targetManifest = Path.Combine(targetRoot, "cooptrail.json");
-                string backupMissions = Path.Combine(targetRoot, ".CoopMissions.old-" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(targetRoot);
-                bool backedUp = false;
-                try
-                {
-                    if (Directory.Exists(targetMissions))
-                    {
-                        Directory.Move(targetMissions, backupMissions);
-                        backedUp = true;
-                    }
-                    Directory.Move(Path.Combine(stagingRoot, "CoopMissions"), targetMissions);
-                    CoopTrailPackageManifestJson.WriteAtomic(targetManifest, Package.Manifest);
-                }
-                catch
-                {
-                    if (Directory.Exists(targetMissions))
-                        Directory.Delete(targetMissions, true);
-                    if (backedUp && Directory.Exists(backupMissions))
-                        Directory.Move(backupMissions, targetMissions);
-                    throw;
-                }
-
-                // The package is committed once its manifest has been replaced. Failure to
-                // clean an obsolete backup must not roll the valid new package back.
-                if (backedUp && Directory.Exists(backupMissions))
-                {
-                    try
-                    {
-                        Directory.Delete(backupMissions, true);
-                    }
-                    catch
-                    {
-                    }
-                }
+                CoopTrailPackagePublication.Publish(stagingRoot, destination, Package.Manifest);
             }
 
             public void Dispose()
@@ -162,20 +126,11 @@ namespace ExtendedData
             HUD_IngameMenu.RestartSkirmishMapInfo restart = container?.restartSkirmishInfo;
             if (restart?.selectedHeader == null || restart.MPsetupData == null)
                 throw new InvalidDataException("Mission " + ordinal + " has no complete saved skirmish setup.");
+            List<int> activeSlots = CoopTrailSlotSelection.GetActiveSlots(restart.lordTypes);
             var lordSources = new Dictionary<int, TrailLordPackageRuntime.Candidate>();
-            lordSlots = TrailLordPackageRuntime.Capture(restart, lordSources);
-
-            List<int> activeSlots = Enumerable.Range(0, Math.Min(8, restart.lordTypes?.Count ?? 0))
-                .Where(index => restart.lordTypes[index] != -9999)
-                .ToList();
-            if (activeSlots.Count < 2)
-                throw new InvalidDataException("Mission " + ordinal + " needs at least two occupied player slots for Coop.");
-            lordSlots = lordSlots.Where(slot => activeSlots.IndexOf(slot.PlayerId - 1) >= 2)
-                .Select(slot =>
-                {
-                    slot.PlayerId = activeSlots.IndexOf(slot.PlayerId - 1) + 1;
-                    return slot;
-                }).ToArray();
+            lordSlots = TrailLordPackageRuntime.Capture(restart, lordSources,
+                CoopTrailSlotSelection.GetAiPlayerIds(activeSlots));
+            lordSlots = CoopTrailSlotSelection.RemapForCoop(lordSlots, activeSlots);
 
             string assetRoot = Path.Combine(missionsRoot, "Assets", ordinal.ToString("00"));
             Directory.CreateDirectory(assetRoot);

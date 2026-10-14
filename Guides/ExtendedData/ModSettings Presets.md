@@ -21,15 +21,17 @@ The reference below explains mod integration, preset files and modes, and how mi
 
 #### Target-mod integration
 
-1. Add a reference and hard dependency on the required APIShared version.
-2. Derive the settings ViewModel from `Shared.PresetLobbyModSettingsViewModel`.
+1. Reference `APIShared.dll` with `Private=false` and declare matching hard minimum dependencies in BepInEx and `info.json`. These examples target the checked workspace assembly 0.9.0; use a published release containing the APIs before distributing a consumer.
+2. Derive the settings ViewModel from `APIShared.ModSettings.PresetLobbyModSettingsViewModel`.
 3. In every persistent setter, call `CanMutateSetting()` before changing state and `OnPropertyChanged()` afterwards.
 4. Register through `LobbyModSettingsPresetRegistration.Register`.
-5. Copy the standard Load/Save XAML block from a preset-capable mod in this repository.
+5. Import `clr-namespace:APIShared.ModSettings;assembly=APIShared` in XAML. Use the [public settings example](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) and [XAML example](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) for registration and bindings. Retain the model for the process lifetime; registration and UI operations run on Unity.
 
-No Shared source links, preset compile symbols, or ExtendedData reference are required. A minimal header contains:
+No Shared source links, preset compile symbols, or ExtendedData reference are required.
 
 If a persisted property's code default can only be known after dynamic discovery, the derived ViewModel may call `SetModDefaultValue(propertyName, value)` after registration. This updates only APIShared's typed default snapshot; it does not modify the current working value. Optional working-source providers mark the source for their current context with `ModSettingsWorkingSource.IsPreferred`; clients then select it when the context changes without applying it automatically.
+
+A minimal preset header contains:
 
 ```xml
 <Button IsEnabled="{Binding CanChangePreset}"
@@ -131,11 +133,11 @@ Die Referenz unten erklärt die Mod-Integration, Preset-Dateien und Modi sowie d
 
 #### Integration des Ziel-Mods
 
-1. APIShared referenzieren und als harte Abhängigkeit mit passender Mindestversion angeben.
-2. Das Settings-ViewModel von `Shared.PresetLobbyModSettingsViewModel` ableiten.
+1. `APIShared.dll` mit `Private=false` referenzieren und übereinstimmende harte Mindestabhängigkeiten in BepInEx und `info.json` angeben. Diese Beispiele richten sich an die geprüfte Workspace-Assembly 0.9.0; vor der Veröffentlichung eines Consumers ein veröffentlichtes Release mit den verwendeten APIs wählen.
+2. Das Settings-ViewModel von `APIShared.ModSettings.PresetLobbyModSettingsViewModel` ableiten.
 3. In jedem persistenten Setter vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` aufrufen.
 4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
-5. Den Standard-XAML-Block für Laden/Speichern aus einem presetfähigen Mod dieses Repositories übernehmen.
+5. Im XAML `clr-namespace:APIShared.ModSettings;assembly=APIShared` importieren. Das [öffentliche Settings-Beispiel](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) und [XAML-Beispiel](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) zeigen Registrierung und Bindings. Das Modell für die Prozesslebensdauer verwurzeln; Registrierung und UI-Operationen laufen auf Unity.
 
 Kann der Code-Standard einer persistenten Property erst nach einer dynamischen Erkennung bestimmt werden, darf das abgeleitete ViewModel anschließend `SetModDefaultValue(propertyName, value)` aufrufen. Dadurch wird nur der typisierte APIShared-Default-Snapshot aktualisiert, nicht der aktuelle Arbeitswert. Optionale Quellenprovider kennzeichnen die Quelle ihres aktuellen Kontexts mit `ModSettingsWorkingSource.IsPreferred`; beim Kontextwechsel wird sie vorausgewählt, aber nicht automatisch angewendet.
 

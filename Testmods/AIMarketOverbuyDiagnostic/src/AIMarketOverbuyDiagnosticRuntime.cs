@@ -3,305 +3,126 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 namespace AIMarketOverbuyDiagnostic
 {
     internal sealed unsafe class AIMarketOverbuyDiagnosticRuntime
     {
-        private const int MaxPlayers = 8; // Verified GamePlayerManagerAPI player-ID range.
-        private const int PendingPhaseWarningThreshold = 4;
-        private const int RecentBuyWindowTicks = 500;
-        private const int MaxDetailLinesPerTick = 24;
-        private static readonly TimeSpan SummaryInterval = TimeSpan.FromSeconds(10);
-
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
-        private readonly Observation[,] observations =
-            new Observation[MaxPlayers + 1, (int)eGoods.Count];
+        private readonly MarketObservation capture;
+        private readonly Thread writer;
+        private readonly Action<string> sink;
         private bool active;
-        private bool firstTickLogged;
-        private int lastTick = -1;
         private long sessionId;
-        private DateTime nextSummaryUtc;
-        private int pendingChanges;
-        private int persistentRequests;
-        private int increasedRequests;
-        private int likelyBuys;
-        private int buySellCandidates;
+        private long nextWriterError;
 
         internal AIMarketOverbuyDiagnosticRuntime(ManualLogSource log, bool fixesLoaded)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.fixesLoaded = fixesLoaded;
             ValidateInteropLayout();
+            capture = new MarketObservation((int)eGoods.Count, (int)eGoods.STORED_WOOD_LOGS, (int)eGoods.STORED_GOLD, Stopwatch.Frequency);
+            sink = WriteLine;
+            writer = new Thread(WriteLoop) { IsBackground = true, Name = "AI market diagnostic writer", Priority = ThreadPriority.BelowNormal };
         }
+
+        // Start only after all candidate validation and registrations. Once started,
+        // this process-lifetime worker is never joined or disposed by Unity cleanup.
+        internal void StartWriter() => writer.Start();
 
         internal void OnSessionStarted(Shared.GameplaySessionStartedContext session)
         {
-            ResetObservations();
             sessionId = session.SessionId;
-            active = !session.IsEditor && !session.IsReplay;
-            firstTickLogged = false;
-            lastTick = -1;
-            nextSummaryUtc = DateTime.UtcNow + SummaryInterval;
-            LogInfo($"AI_MARKET_SESSION: session={sessionId}, kind={session.Kind}, " +
-                $"loadedSave={session.IsLoadedSave}, editor={session.IsEditor}, replay={session.IsReplay}, " +
-                $"fixesLoaded={fixesLoaded}, active={active}.");
+            active = capture.Start(session.SessionId, session.IsEditor, session.IsReplay);
+            Shared.DebugLogHelper.LogInfo(log, $"AI_MARKET_SESSION: session={session.SessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, editor={session.IsEditor}, replayNotification={session.IsReplay}, fixesLoaded={fixesLoaded}, active={active}.");
         }
 
         internal void OnSessionEnded()
         {
-            if (active)
-                LogCounters("AI_MARKET_SESSION_END", lastTick);
             active = false;
-            ResetObservations();
+            capture.End();
         }
 
         internal void OnTick(int tick)
         {
             if (!active) return;
+            long started = Stopwatch.GetTimestamp();
             try
             {
-                if (!firstTickLogged)
-                {
-                    firstTickLogged = true;
-                    LogInfo($"AI_MARKET_POST_STARTUP_TICK: session={sessionId}, tick={tick}, " +
-                        "publisher=GameTimeManagerAPI.OnTick.");
-                }
-                if (lastTick >= 0 && tick < lastTick)
-                {
-                    ResetObservations();
-                    LogWarning($"AI_MARKET_TICK_RESET: session={sessionId}, previous={lastTick}, current={tick}; observations reset.");
-                }
-                lastTick = tick;
-
-                int detailLines = 0;
-                int suppressedLines = 0;
+                if (!capture.BeginTick(tick, DateTime.UtcNow.Ticks, started)) { active = false; return; }
                 var players = GamePlayerManagerAPI.Instance;
-                for (int playerId = 1; playerId <= MaxPlayers; playerId++)
+                for (int playerId = 1; playerId <= MarketObservation.Players; playerId++)
                 {
                     if (!players.IsAIPlayer(playerId) ||
-                        !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources))
-                        continue;
-
+                        !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources)) continue;
                     uint* stock = (uint*)&resources->r_TotalGoodsNull;
                     uint* pending = (uint*)&resources->r_AIPendingMarketPurchaseAmountNull;
                     int gold = resources->r_TotalGoodsGold;
-                    AISellBuyPhase phase = resources->r_AISellOrBuyPhase;
-                    string lord = players.GetAILord(playerId).ToString();
-
-                    for (int goodIndex = (int)eGoods.STORED_WOOD_LOGS;
-                         goodIndex < (int)eGoods.Count; goodIndex++)
+                    int phase = (int)resources->r_AISellOrBuyPhase;
+                    capture.Player(playerId, (int)players.GetAILord(playerId), gold, phase);
+                    for (int goodIndex = (int)eGoods.STORED_WOOD_LOGS; goodIndex < (int)eGoods.Count; goodIndex++)
                     {
                         if (goodIndex == (int)eGoods.STORED_GOLD) continue;
-                        string detail = ObserveGood(playerId, (eGoods)goodIndex, lord,
-                            pending[goodIndex], stock[goodIndex], gold, phase, tick,
-                            out bool candidate);
-                        if (detail == null) continue;
-                        // Candidate evidence must not disappear behind routine stock changes.
-                        if (candidate || detailLines < MaxDetailLinesPerTick)
-                        {
-                            LogInfo(detail);
-                            if (!candidate) detailLines++;
-                        }
-                        else suppressedLines++;
+                        capture.Good(playerId, goodIndex, pending[goodIndex], stock[goodIndex], gold, phase);
                     }
                 }
-                if (suppressedLines != 0)
-                    LogWarning($"AI_MARKET_DETAIL_LIMIT: session={sessionId}, tick={tick}, suppressed={suppressedLines}.");
-
-                DateTime now = DateTime.UtcNow;
-                if (now >= nextSummaryUtc)
-                {
-                    LogSummary(players, tick);
-                    nextSummaryUtc = now + SummaryInterval;
-                }
+                long finished = Stopwatch.GetTimestamp();
+                capture.EndTick(finished - started, finished);
             }
             catch (Exception ex)
             {
                 active = false;
-                Shared.DebugLogHelper.LogError(log,
-                    $"AI_MARKET_OBSERVATION_FAILED: session={sessionId}, tick={tick}; observation stopped for this session: {ex}");
+                capture.FailTick();
+                // Exceptional path only. No ordinary tick formats text or calls a log listener.
+                Shared.DebugLogHelper.LogError(log, $"AI_MARKET_OBSERVATION_FAILED: session={sessionId}, tick={tick}; observation stopped: {ex}");
             }
         }
 
-        private string ObserveGood(int playerId, eGoods good, string lord,
-            uint pending, uint stock, int gold, AISellBuyPhase phase, int tick,
-            out bool candidate)
+        private void WriteLine(string text) => Shared.DebugLogHelper.LogInfo(log, text);
+
+        private void WriteLoop()
         {
-            candidate = false;
-            int goodIndex = (int)good;
-            Observation previous = observations[playerId, goodIndex];
-            if (previous == null)
+            bool legendWritten = false;
+            long lastSkipped = 0;
+            while (true)
             {
-                observations[playerId, goodIndex] = new Observation
+                try
                 {
-                    Pending = pending, Stock = stock, Gold = gold, Phase = phase,
-                    PendingSinceTick = pending > 0 ? tick : -1,
-                    LastLikelyBuyTick = -1
-                };
-                if (pending == 0) return null;
-                return Format("AI_MARKET_INITIAL_PENDING", playerId, lord, good,
-                    tick, phase, pending, pending, stock, stock, gold, gold,
-                    "request already present at first sample");
-            }
-
-            long stockDelta = (long)stock - previous.Stock;
-            long goldDelta = (long)gold - previous.Gold;
-            bool pendingChanged = pending != previous.Pending;
-            bool equipment = good >= eGoods.STORED_BOWS && good <= eGoods.STORED_METAL_ARMOUR;
-            string marker = null;
-            string note = null;
-
-            if (pendingChanged)
-            {
-                pendingChanges++;
-                if (pending > previous.Pending && previous.Pending > 0 && stockDelta <= 0)
-                {
-                    increasedRequests++;
-                    AppendEvent(ref marker, ref note,
-                        "AI_MARKET_PENDING_INCREASE_CANDIDATE",
-                        "outstanding amount rose without a stock gain; request cause unconfirmed");
-                }
-                else
-                {
-                    AppendEvent(ref marker, ref note, "AI_MARKET_PENDING_CHANGE",
-                        pending == 0 ? "request cleared" : "request created or changed");
-                }
-            }
-
-            if (pending > 0)
-            {
-                if (previous.Pending == 0)
-                {
-                    previous.PendingSinceTick = tick;
-                    previous.PhaseTransitions = 0;
-                    previous.PersistentLogged = false;
-                }
-                if (phase != previous.Phase)
-                {
-                    previous.PhaseTransitions++;
-                    if (previous.PhaseTransitions >= PendingPhaseWarningThreshold &&
-                        !previous.PersistentLogged)
+                    if (!legendWritten)
                     {
-                        persistentRequests++;
-                        previous.PersistentLogged = true;
-                        AppendEvent(ref marker, ref note,
-                            "AI_MARKET_PENDING_PERSISTENT_CANDIDATE",
-                            $"outstanding across {previous.PhaseTransitions} phase transitions, sinceTick={previous.PendingSinceTick}");
+                        var legend = new StringBuilder("AI_MARKET_LEGEND: interval=10 real seconds; each tick sampled; sourceUnconfirmed=true; player changes=gold,phase; goods=id:pendingRange/stockRange/pendingChanges,stockChanges/kind=count@firstTickOffset:lastTickOffset; stockChanges '=' repeats pendingChanges; candidate counts/offsets are base36 (0-9,a-z), '^kind' repeats that earlier kind's count/first/last; other values decimal; range=first[>last][~min:max], omitted last=first and omitted extrema=endpoint extrema; kinds=0 increase,1 persistent,2 buy,3 buy-sell; evidence=tick@UTC(pending,stock,gold,phase), buy-sell=buyBefore>buyAfter|sellBefore>sellAfter; examples=first per player/good/kind/session; fixesLoaded=");
+                        legend.Append(fixesLoaded).Append("; goods=");
+                        for (int goodIndex = (int)eGoods.STORED_WOOD_LOGS; goodIndex < (int)eGoods.Count; goodIndex++)
+                            if (goodIndex != (int)eGoods.STORED_GOLD) legend.Append(goodIndex).Append('=').Append((eGoods)goodIndex).Append(';');
+                        WriteLine(legend.ToString());
+                        legendWritten = true;
+                    }
+                    while (capture.DrainOne(sink)) { }
+                    long skipped = Interlocked.Read(ref capture.SkippedSessions);
+                    if (skipped != lastSkipped)
+                    {
+                        Shared.DebugLogHelper.LogError(log, $"AI_MARKET_CAPTURE_INCOMPLETE: writer backlog exhausted at session/tick reset boundary; affectedSessions={skipped}. No retained summaries were overwritten.");
+                        lastSkipped = skipped;
                     }
                 }
-            }
-            else
-            {
-                previous.PendingSinceTick = -1;
-                previous.PhaseTransitions = 0;
-                previous.PersistentLogged = false;
-            }
-
-            // Stock and gold deltas only suggest trades; production, consumption, and taxes can coincide.
-            if (stockDelta > 0 && goldDelta < 0 &&
-                (previous.Pending > 0 || pending > 0))
-            {
-                likelyBuys++;
-                previous.LastLikelyBuyTick = tick;
-                AppendEvent(ref marker, ref note, "AI_MARKET_BUY_CANDIDATE",
-                    "stock rose while gold fell with a tracked request; transaction source unconfirmed");
-            }
-            else if (stockDelta < 0 && goldDelta > 0 &&
-                     previous.LastLikelyBuyTick >= 0 &&
-                     (long)tick - previous.LastLikelyBuyTick <= RecentBuyWindowTicks)
-            {
-                buySellCandidates++;
-                AppendEvent(ref marker, ref note, "AI_MARKET_BUY_SELL_CANDIDATE",
-                    $"stock fell while gold rose after buy candidate at tick={previous.LastLikelyBuyTick}; source unconfirmed");
-                previous.LastLikelyBuyTick = -1;
-            }
-
-            if (marker == null && stockDelta != 0 &&
-                (equipment || pending > 0 || previous.Pending > 0))
-            {
-                marker = "AI_MARKET_RELEVANT_STOCK_CHANGE";
-                note = "equipment stock or stock with a tracked request changed; transaction source unconfirmed";
-            }
-
-            string result = marker == null ? null : Format(marker, playerId, lord, good,
-                tick, phase, previous.Pending, pending, previous.Stock, stock,
-                previous.Gold, gold, note);
-            candidate = marker != null && marker.Contains("CANDIDATE");
-            previous.Pending = pending;
-            previous.Stock = stock;
-            previous.Gold = gold;
-            previous.Phase = phase;
-            return result;
-        }
-
-        private static void AppendEvent(ref string marker, ref string note,
-            string nextMarker, string nextNote)
-        {
-            marker = marker == null ? nextMarker : marker + "+" + nextMarker;
-            note = note == null ? nextNote : note + "; " + nextNote;
-        }
-
-        private string Format(string marker, int playerId, string lord, eGoods good,
-            int tick, AISellBuyPhase phase, uint oldPending, uint pending,
-            uint oldStock, uint stock, int oldGold, int gold, string note)
-        {
-            return $"{marker}: session={sessionId}, tick={tick}, player={playerId}, lord={lord}, " +
-                   $"good={good}, equipment={good >= eGoods.STORED_BOWS && good <= eGoods.STORED_METAL_ARMOUR}, " +
-                   $"phase={phase}({(int)phase}), pending={oldPending}->{pending}, " +
-                   $"stock={oldStock}->{stock}, gold={oldGold}->{gold}, fixesLoaded={fixesLoaded}, note={note}.";
-        }
-
-        private void LogSummary(GamePlayerManagerAPI players, int tick)
-        {
-            for (int playerId = 1; playerId <= MaxPlayers; playerId++)
-            {
-                if (!players.IsAIPlayer(playerId) ||
-                    !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources))
-                    continue;
-                uint* pending = (uint*)&resources->r_AIPendingMarketPurchaseAmountNull;
-                uint* stock = (uint*)&resources->r_TotalGoodsNull;
-                var goods = new StringBuilder();
-                var equipmentStock = new StringBuilder();
-                int count = 0;
-                long amount = 0;
-                for (int goodIndex = (int)eGoods.STORED_WOOD_LOGS;
-                     goodIndex < (int)eGoods.Count; goodIndex++)
+                catch (Exception ex)
                 {
-                    if (goodIndex == (int)eGoods.STORED_GOLD || pending[goodIndex] == 0) continue;
-                    if (goods.Length != 0) goods.Append(',');
-                    goods.Append((eGoods)goodIndex).Append(':').Append(pending[goodIndex]);
-                    count++;
-                    amount += pending[goodIndex];
+                    Interlocked.Increment(ref capture.WriterFailures);
+                    long now = Stopwatch.GetTimestamp();
+                    if (now >= nextWriterError)
+                    {
+                        nextWriterError = now + Stopwatch.Frequency * 30;
+                        try { Shared.DebugLogHelper.LogError(log, "AI_MARKET_WRITER_FAILED: summaries retained for retry; " + ex); } catch { }
+                    }
+                    Thread.Sleep(1000);
                 }
-                for (int goodIndex = (int)eGoods.STORED_BOWS;
-                     goodIndex <= (int)eGoods.STORED_METAL_ARMOUR; goodIndex++)
-                {
-                    if (equipmentStock.Length != 0) equipmentStock.Append(',');
-                    equipmentStock.Append((eGoods)goodIndex).Append(':').Append(stock[goodIndex]);
-                }
-                LogInfo($"AI_MARKET_SUMMARY: session={sessionId}, tick={tick}, player={playerId}, " +
-                    $"lord={players.GetAILord(playerId)}, phase={resources->r_AISellOrBuyPhase}({(int)resources->r_AISellOrBuyPhase}), " +
-                    $"gold={resources->r_TotalGoodsGold}, pendingGoods={count}, pendingAmount={amount}, " +
-                    $"pending=[{goods}], equipmentStock=[{equipmentStock}], fixesLoaded={fixesLoaded}.");
+                Thread.Sleep(250);
             }
-            LogCounters("AI_MARKET_COUNTERS", tick);
-        }
-
-        private void LogCounters(string marker, int tick)
-        {
-            LogInfo($"{marker}: session={sessionId}, tick={tick}, pendingChanges={pendingChanges}, " +
-                $"persistentRequests={persistentRequests}, increasedRequests={increasedRequests}, " +
-                $"buyCandidates={likelyBuys}, buySellCandidates={buySellCandidates}.");
-        }
-
-        private void ResetObservations()
-        {
-            Array.Clear(observations, 0, observations.Length);
-            pendingChanges = persistentRequests = increasedRequests = likelyBuys = buySellCandidates = 0;
         }
 
         private static void ValidateInteropLayout()
@@ -321,19 +142,5 @@ namespace AIMarketOverbuyDiagnostic
         private static int Offset(string member) =>
             Marshal.OffsetOf(typeof(GamePlayerResources), member).ToInt32();
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
-        private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
-
-        private sealed class Observation
-        {
-            internal uint Pending;
-            internal uint Stock;
-            internal int Gold;
-            internal AISellBuyPhase Phase;
-            internal int PendingSinceTick;
-            internal int PhaseTransitions;
-            internal bool PersistentLogged;
-            internal int LastLikelyBuyTick;
-        }
     }
 }
