@@ -35,7 +35,6 @@ namespace BugfixesAndQoL.GateRouting
         // TEMP_GATE_ROUTE_ACCEPTANCE: compact minute windows for the endurance test.
         private static readonly long DiagnosticInterval = Stopwatch.Frequency * 60L;
         private TemporaryGateRouteAcceptance temporaryAcceptance;
-        private AssassinGateDescentRuntime assassinDescent;
 
         private readonly ManualLogSource log;
         private readonly bool detailedDiagnostics;
@@ -172,9 +171,6 @@ namespace BugfixesAndQoL.GateRouting
                 samePclRouteRuntime.TemporaryPolicyPublished = temporaryAcceptance.ObservePolicyPublication;
             topologyProvider.SetRoutePolicyConsumer(updated =>
                 samePclRouteRuntime?.UpdatePolicy(updated));
-            assassinDescent = new AssassinGateDescentRuntime(context, nativeHooks,
-                () => samePclRouteRuntime?.MacemenDiagnosticSnapshot ?? RouteTilePolicySnapshot.Empty);
-            Shared.DebugLogHelper.LogInfo(log, "Assassin gate descent guard installed: rva=0x185D55,displaced=20,continuation=0x185934,independentOfDetailedDiagnostics=true");
             // TEMP_GATE_ROUTE_ACCEPTANCE: publish only after the existing initialization succeeds.
             if (detailedDiagnostics) APIShared.TemporaryGateRouteAcceptanceBridge.Register(temporaryAcceptance);
             if (detailedDiagnostics)
@@ -230,7 +226,7 @@ namespace BugfixesAndQoL.GateRouting
             samePclRouteRuntime?.SetBuildingMapMode(editor);
             attackOrderDiagnostics?.Reset();
             temporaryAcceptance?.Begin();
-            assassinDescent?.SetActive(true,
+            AssassinGatehouseDescentFeature.SetObservers(
                 temporaryAcceptance?.NativeDiagnostics == null ? (Action<IntPtr, bool>)null : temporaryAcceptance.NativeDiagnostics.ObserveClosedGate,
                 temporaryAcceptance?.NativeDiagnostics == null ? (Action<int>)null : temporaryAcceptance.NativeDiagnostics.ObserveDescentException);
             topologyProvider?.BeginExplicitEpoch(reason);
@@ -246,10 +242,7 @@ namespace BugfixesAndQoL.GateRouting
             bool hadActiveEpoch = Interlocked.CompareExchange(ref mapActive, 0, 1) == 1;
             if (!hadActiveEpoch)
                 return;
-            assassinDescent?.SetActive(false,
-                temporaryAcceptance?.NativeDiagnostics == null ? (Action<IntPtr, bool>)null : temporaryAcceptance.NativeDiagnostics.ObserveClosedGate,
-                temporaryAcceptance?.NativeDiagnostics == null ? (Action<int>)null : temporaryAcceptance.NativeDiagnostics.ObserveDescentException);
-            if (assassinDescent != null) Shared.DebugLogHelper.LogInfo(log, assassinDescent.Summary);
+            AssassinGatehouseDescentFeature.SetObservers(null, null);
             LogDiagnosticCheckpoint("final", reason);
             // TEMP_GATE_ROUTE_ACCEPTANCE: validate complete AI result attribution against functional counters.
             if (temporaryAcceptance != null && samePclRouteRuntime != null)
@@ -313,7 +306,7 @@ namespace BugfixesAndQoL.GateRouting
                 string counts = FormatPathfindingGlobalCounts(comparison);
                 if (comparison.MatchesCanonical)
                 {
-                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+                    if (detailedDiagnostics) Shared.DebugLogHelper.LogDebug(log,
                         "APIShared pathfinding globals match the canonical " +
                         $"FBCB9319 process-start tables: {counts}.");
                     return;

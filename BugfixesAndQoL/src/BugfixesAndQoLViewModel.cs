@@ -98,6 +98,8 @@ namespace BugfixesAndQoL
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool enableTrailCustomizationButtons = true;
         private bool showLoadSaveDialogControls = true;
+        private bool enableSoloMultiplayerSaveLoading = true;
+        private bool fixSkirmishLoadButtonVisibility = true;
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
         private bool enableGatehouseTargetMarkerHeightFix = true;
@@ -452,6 +454,10 @@ namespace BugfixesAndQoL
         public string EnableTrailCustomizationButtonsHelpText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtonsHelp);
         public string ShowLoadSaveDialogControlsText => SerpLocalization.Get("BugfixesAndQoL.ShowLoadSaveDialogControls");
         public string ShowLoadSaveDialogControlsHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowLoadSaveDialogControlsHelp");
+        public string EnableSoloMultiplayerSaveLoadingText => SerpLocalization.Get("BugfixesAndQoL.EnableSoloMultiplayerSaveLoading");
+        public string EnableSoloMultiplayerSaveLoadingHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSoloMultiplayerSaveLoadingHelp");
+        public string FixSkirmishLoadButtonVisibilityText => SerpLocalization.Get("BugfixesAndQoL.FixSkirmishLoadButtonVisibility");
+        public string FixSkirmishLoadButtonVisibilityHelpText => SerpLocalization.Get("BugfixesAndQoL.FixSkirmishLoadButtonVisibilityHelp");
         public string ShowVanillaMapsInEditorText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditor");
         public string ShowVanillaMapsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditorHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
@@ -799,6 +805,20 @@ namespace BugfixesAndQoL
                 ref enableTrailCustomizationButtons,
                 value,
                 nameof(EnableTrailCustomizationButtons));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableSoloMultiplayerSaveLoading
+        {
+            get => enableSoloMultiplayerSaveLoading;
+            set => SetSetting(ref enableSoloMultiplayerSaveLoading, value, nameof(EnableSoloMultiplayerSaveLoading));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool FixSkirmishLoadButtonVisibility
+        {
+            get => fixSkirmishLoadButtonVisibility;
+            set => SetSetting(ref fixSkirmishLoadButtonVisibility, value, nameof(FixSkirmishLoadButtonVisibility));
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1548,6 +1568,8 @@ namespace BugfixesAndQoL
             EnableDisbandedUnitControlGroupCleanup = true;
             EnableCustomTrailExtremeGoldFix = true;
             ShowLoadSaveDialogControls = true;
+            EnableSoloMultiplayerSaveLoading = true;
+            FixSkirmishLoadButtonVisibility = true;
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
             EnableGatehouseTargetMarkerHeightFix = true;

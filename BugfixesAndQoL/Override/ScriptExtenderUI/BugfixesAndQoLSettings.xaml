@@ -162,6 +162,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding ShowLoadSaveDialogControlsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.solo-multiplayer-save-loading" shared:ModSettingsSearch.Title="{Binding EnableSoloMultiplayerSaveLoadingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSoloMultiplayerSaveLoadingHelpText}">
+        <CheckBox IsChecked="{Binding EnableSoloMultiplayerSaveLoading, Mode=TwoWay}" Content="{Binding EnableSoloMultiplayerSaveLoadingText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSoloMultiplayerSaveLoadingHelpText}"/>
+      </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.skirmish-load-button-visibility" shared:ModSettingsSearch.Title="{Binding FixSkirmishLoadButtonVisibilityText}" shared:ModSettingsSearch.ToolTipText="{Binding FixSkirmishLoadButtonVisibilityHelpText}">
+        <CheckBox IsChecked="{Binding FixSkirmishLoadButtonVisibility, Mode=TwoWay}" Content="{Binding FixSkirmishLoadButtonVisibilityText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding FixSkirmishLoadButtonVisibilityHelpText}"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-selected-unit-health" shared:ModSettingsSearch.Title="{Binding ShowSelectedUnitHealthText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowSelectedUnitHealthHelpText}"><CheckBox IsChecked="{Binding ShowSelectedUnitHealth, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowSelectedUnitHealthHelpText}"

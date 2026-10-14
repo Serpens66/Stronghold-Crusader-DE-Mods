@@ -19,6 +19,12 @@ namespace BugfixesAndQoL.GateRouting
             s.State = u->r_AIState; s.Command = u->r_AI_LastIssuedTribeCommand;
             s.X = u->r_CurrentTilePositionX; s.Y = u->r_CurrentTilePositionY;
             s.TX = u->r_TargetTilePositionX2; s.TY = u->r_TargetTilePositionY2;
+            // Native manager offsets 70E/710/712/714/A6C/A70 minus unit base 65C.
+            // DCE60 initializes climb height; 16CD70 consumes progress; 184FD0 adds
+            // progress to the render offset. These are raw values, not screen coordinates.
+            s.WorldX = *(ushort*)((byte*)u + 0xB2); s.WorldY = *(ushort*)((byte*)u + 0xB4);
+            s.BaseHeight = *(ushort*)((byte*)u + 0xB6); s.RenderOffset = *(short*)((byte*)u + 0xB8);
+            s.ClimbHeight = *(short*)((byte*)u + 0x410); s.ClimbProgress = *(short*)((byte*)u + 0x414);
             s.Index = u->r_CurrentPathPlanIndex; s.Length = u->r_PathPlanLength;
             s.PathState = u->r_PathPlanStateBitFlags; s.GateContextRaw = u->N000001F6_2;
             // Audited native consumed-direction WORD: manager+90C = GameUnit+2B0.

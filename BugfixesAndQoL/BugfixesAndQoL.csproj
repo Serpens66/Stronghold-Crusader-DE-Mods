@@ -84,6 +84,9 @@
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
     <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
+    <Compile Include="src\LobbySaveLoadingPolicy.cs" />
+    <Compile Include="src\LobbySaveLoadingIl.cs" />
+    <Compile Include="src\LobbySaveLoadingFeature.cs" />
     <Compile Include="src\AIPreplacedBuildingFixPolicy.cs" />
     <Compile Include="src\AIPreplacedBuildingFixRuntime.cs" />
     <Compile Include="src\AiWoodBuildCallScope.cs" />
@@ -361,8 +364,8 @@
   <ItemGroup><Compile Include="..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs"><Link>Shared\TemporaryPackedRouteInspection.cs</Link></Compile></ItemGroup>
 
   <ItemGroup>
-    <Compile Include="src\GateRouting\AssassinGateDescentRule.cs" />
-    <Compile Include="src\GateRouting\AssassinGateDescentRuntime.cs" />
+    <Compile Include="src\Assassins\AssassinGateDescentRule.cs" />
+    <Compile Include="src\Assassins\AssassinGateDescentRuntime.cs" />
     <Compile Include="src\GateRouting\AttackOrderCorrelationDiagnostics.cs" />
     <Compile Include="src\GateRouting\BuildingSearchPlayerResolver.cs" />
     <Compile Include="src\GateRouting\CaptureTransitionDiagnostics.cs" />
@@ -395,4 +398,5 @@
     <Compile Include="..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" />
   </ItemGroup>
 <ItemGroup><Compile Include="src\GateRouting\GateRoutingFeature.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\Assassins\AssassinGatehouseDescentFeature.cs" /></ItemGroup>
 </Project>

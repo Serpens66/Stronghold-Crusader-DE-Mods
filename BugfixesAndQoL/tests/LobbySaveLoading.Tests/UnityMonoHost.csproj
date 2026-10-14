@@ -1,0 +1,12 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><BaseIntermediateOutputPath>obj\host\</BaseIntermediateOutputPath></PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><AssemblyName>UnityMonoHost</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget><OutputPath>bin\host\</OutputPath>
+    <IntermediateOutputPath>obj\host\</IntermediateOutputPath>
+  </PropertyGroup>
+  <ItemGroup><Reference Include="System" /><Compile Include="UnityMonoHost.cs" /></ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
