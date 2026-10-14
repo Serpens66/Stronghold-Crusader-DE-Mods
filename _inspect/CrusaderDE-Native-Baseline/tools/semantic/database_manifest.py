@@ -21,6 +21,7 @@ COUNT_TABLES = [
     "delegates", "rtti_vtables", "xaml_resources", "xaml_links",
     "classifications", "version_matches",
     "analysis_functions", "analysis_features", "analysis_sources", "analysis_profiles",
+    "analysis_memory", "analysis_contracts", "analysis_layouts", "analysis_changes",
 ]
 
 
@@ -115,6 +116,12 @@ def input_paths(args):
         if generation:
             root = Path(args.baseline_root) / generation
             paths += sorted(root.glob('facts-*.jsonl'))
+            paths += sorted(root.glob('memory-*.jsonl'))
+            paths += sorted(root.glob('historical-facts-*.jsonl'))+sorted(root.glob('changes-*.jsonl'))
+            if (root/'historical-types.json').exists():paths.append(root/'historical-types.json')
+            for name in ['decompiler-diagnostics.json','historical/decompiler-diagnostics.json']:
+                if (root/name).exists():paths.append(root/name)
+            if (root/'advanced.json').exists():paths.append(root/'advanced.json')
             paths += [root / name for name in ['profile.json','features.json','sources.json','coverage.json','backends.json']]
             paths += sorted((root / 'backend').glob('*.cs'))
     return paths
@@ -146,6 +153,9 @@ def verify_inputs(manifest, baseline_root: Path):
 
 
 def create(args):
+    from baseline_publication import fingerprint,publication_guard
+    expected_manifest=fingerprint(args.manifest)
+    expected_pointer=fingerprint(args.current_index)
     baseline = Path(args.baseline_root)
     semantic = Path(args.semantic)
     comparison = Path(args.comparison)
@@ -188,14 +198,15 @@ def create(args):
     if facts["metadata"].get("current_native_hash") != identities["currentNativeHash"] or facts["metadata"].get("managed_hash") != identities["managedHash"]:
         raise ValueError("Database metadata does not match requested identities")
     assert_identities(manifest, semantic, comparison)
-    write_json_atomic(Path(args.manifest), manifest)
     current = {
         "schemaVersion": 1,
         "currentNativeHash": identities["currentNativeHash"],
         "semanticDirectory": relative(semantic, baseline),
         "databaseManifest": relative(Path(args.manifest), baseline),
     }
-    write_json_atomic(Path(args.current_index), current)
+    with publication_guard(args.manifest,expected_manifest,pointer=args.current_index,expected_pointer=expected_pointer):
+        write_json_atomic(Path(args.manifest), manifest)
+        write_json_atomic(Path(args.current_index), current)
     print(json.dumps({"status": "created", "manifest": str(args.manifest), "databaseSha256": manifest["database"]["referenceSha256"], "databaseSize": manifest["database"]["referenceSize"]}))
 
 

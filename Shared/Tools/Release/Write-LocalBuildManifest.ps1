@@ -11,7 +11,9 @@ try {
     if ($runtimeFiles.Count -gt 0) { throw 'Plugin package contains local runtime data.' }
     $commitResult = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $metadata.Config.Root, 'rev-parse', 'HEAD')
     $commit = ($commitResult.Output -join '').Trim()
-    $status = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $metadata.Config.Root, 'status', '--porcelain=v1', '--untracked-files=normal')
+    $buildStatusArguments=@('-C',$metadata.Config.Root,'status','--porcelain=v1','--untracked-files=normal')
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){$buildStatusArguments+=@('--','.',':(exclude)APIShared')}
+    $status = Invoke-CheckedCommand -FilePath 'git' -Arguments $buildStatusArguments
     $records = @(foreach ($file in $files) { Get-FileHashRecord -Path $file.FullName -BasePath $metadata.PackageDir })
     $apiSharedCommit = if (Test-Path -LiteralPath (Join-Path $metadata.Config.Root 'APIShared/.git')) { (& git -C (Join-Path $metadata.Config.Root 'APIShared') rev-parse HEAD) } else { $null }
     if ($env:SHCDE_API_SHARED_RELEASE_PROOF) {

@@ -1,5 +1,9 @@
 # Current CrusaderDE Native Baseline
 
+- [Crenelated wall construction](./sem/FBCB9319/knowledge/CRENELATED_WALLS.md): complete human/AI placement and redraw flow, sticky high pieces, read-only native availability, ownership decoding and corrected current Chore-25 field contract.
+
+- [Savegame modsettings load boundaries](./sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md): multiplayer map-load routing, installed archive-context mismatch, Solo/Coop boundaries and readiness validation limits.
+
 - [Opt-in pathfinding table replacements](./sem/FBCB9319/knowledge/PATHFINDING_TABLE_REPLACEMENTS.md): native 90-slot rows, installed SE 89-stride counterexample, additive APIShared replacement and runtime acceptance limits.
 
 - [Gatehouse damage and drawbridge destruction](./sem/FBCB9319/knowledge/DRAWBRIDGE_DESTRUCTION.md): native bridge damage immunity, premature direct-hit removal, lethal/demolition paths and pending standalone fix acceptance.
@@ -102,6 +106,10 @@ For future chats, link this file and require the DLL hash to be checked before u
 
 ## Offline machine and data-flow analysis
 
-The Analysis stage adds hash-bound instruction facts, conservative liveness, selected High P-code, feature dossiers and installed-backend hook checks. See [operation and limitations](./tools/semantic/ANALYSIS.md). Queries: `instructions`, `flow`, `trace`, `global`, `feature`, `hookcheck`, `coverage`. The current database manifest selects the published schema-5 analysis generation; failed flows and unresolved audit boundaries remain explicit.
+The Analysis stage adds hash-bound instruction facts, conservative liveness, selected High P-code, feature dossiers and installed-backend hook checks. See [operation and limitations](./tools/semantic/ANALYSIS.md). Queries: `instructions`, `flow`, `trace`, `global`, `feature`, `hookcheck`, `coverage`. The current database manifest selects the published schema-6 analysis generation; failed flows and unresolved audit boundaries remain explicit.
 
-Published coverage: 4,478 native functions, 436,211 independently verified instructions, 2,600 complete selected High P-code flows and 67 existing audit dossiers. Three decompiler failures remain explicit; 1,875 functions have no selected deep flow. [Acceptance record](./sem/FBCB9319/analysis/g4F7B6F1F0530/acceptance.json) confirms fresh Windows PowerShell queries, unchanged reference projects and exact schema-5 analysis reconstruction.
+Published coverage: 4,478 native functions, 436,211 independently verified instructions, 2,601 complete selected High P-code flows and 69 existing audit dossiers. Three decompiler failures remain explicit; 1,874 functions have no selected deep flow. [Acceptance record](./sem/FBCB9319/analysis/g1E2FBFF53E33/acceptance.json) confirms fresh Windows PowerShell queries, unchanged reference projects and exact schema-6 analysis reconstruction.
+
+Additional offline queries: `slice`, `memory`, `switch`, `summary`, `type` and `changes`. They expose bounded value slices, 76,794 reconstructed memory accesses, 788 recovered layouts and 3,818 historical function comparisons. Reconstruction and audited contracts remain separate; partial flows, aliasing and decompiler diagnostics are explicit. See [usage and limits](./tools/semantic/ANALYSIS.md).
+
+Mod sources are mutable integration snapshots. Later edits do not invalidate Vanilla machine facts or block feature and summary queries. Hook checks retain machine evidence but report incomplete current ownership when the source inventory has changed. Concurrent baseline knowledge is preserved by publication guards.

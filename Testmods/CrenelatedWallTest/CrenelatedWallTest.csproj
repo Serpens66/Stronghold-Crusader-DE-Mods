@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration><Platform>AnyCPU</Platform>
+    <OutputType>Library</OutputType><AssemblyName>CrenelatedWallTest</AssemblyName><RootNamespace>CrenelatedWallTest</RootNamespace>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugSymbols>true</DebugSymbols><DebugType>portable</DebugType><OutputPath>BepInEx/plugins/CrenelatedWallTest_Serp/</OutputPath>
+    <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
+    <ApiSharedDir>$(MSBuildThisFileDirectory)../../APIShared/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/><Reference Include="System.Core"/>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)/System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)/System.Buffers.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Threading.Tasks.Extensions"><HintPath>$(ExtenderDir)/System.Threading.Tasks.Extensions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)/System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack"><HintPath>$(ExtenderDir)/MessagePack.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)/MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="R3"><HintPath>$(ExtenderDir)/R3.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="src/Plugin.cs"/><Compile Include="src/WallSettings.cs"/><Compile Include="src/WallRuntime.cs"/>
+    <Compile Include="src/WallPolicy.cs"/><Compile Include="src/SaveState.cs"/><Compile Include="src/NativeAvailability.cs"/><Compile Include="src/AvailabilityPattern.cs"/><Compile Include="Properties/AssemblyInfo.cs"/>
+    <Compile Include="../../Shared/Runtime/Diagnostics/DebugLogHelper.cs"><Link>Shared/DebugLogHelper.cs</Link></Compile>
+    <Compile Include="../../Shared/Runtime/Localization/SerpLocalization.cs"><Link>Shared/SerpLocalization.cs</Link></Compile>
+    <Content Include="Override/**/*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="Locales/*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
+</Project>

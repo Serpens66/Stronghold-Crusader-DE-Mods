@@ -1,0 +1,32 @@
+PASS: 31 Workshop workflow checks. Fixtures: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\workshop-workflow-9680d335f62f44dc8d19aa2e8893048e
+PASS: bootstrap environment from saved paths, fresh child inheritance, explicit invalid paths and missing references.
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\cache\mod.zip
+Using verified local release asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\remote.zip
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\history\v1.2.3\SerpsMods.map
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\history\v1.2.3\SerpsMods.map
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\pack\v1.2.3\SerpsMods.provenance.json
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\pack\v1.2.3\SerpsMods.map
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\pack\v1.2.3\SerpsMods.map.sha256
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\pack\v1.2.3\SerpsMods.provenance.json
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\pack\v1.2.3\SerpsMods.map
+Using verified local release asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.provenance.json
+Using verified local release asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip
+Using verified local release asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip.sha256
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.provenance.json
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip.sha256
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.provenance.json
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\SerpsMods\cache\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip
+Using verified local release asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip.sha256
+Using verified local release asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip
+Using verified local release asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\BugfixesAndQoL\v1.0.101\BugfixesAndQoL-v1.0.101.zip.sha256
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\test\SerpsMods\cache\BugfixesAndQoL\v1.0.101\1.0.101-2a6e613e3100\BugfixesAndQoL-v1.0.101.provenance.json
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\test\SerpsMods\cache\BugfixesAndQoL\v1.0.101\1.0.101-2a6e613e3100\BugfixesAndQoL-v1.0.101.zip
+Using verified cached asset: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d\test\SerpsMods\cache\BugfixesAndQoL\v1.0.101\1.0.101-2a6e613e3100\BugfixesAndQoL-v1.0.101.zip.sha256
+Current package: 0 original version sections; changelog: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d/SerpsMods-changelog.txt
+PASS: 36 cache/changelog checks. Fixtures: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\cache changelog ad90ca6bc35c4743bcaeb689fad6028d
+APIShared release source: main / b7abea5e6708ff48190122fb4fc4d3a196dd17c6 (personal checkout unchanged).
+Building the pinned main source; no game installation will be changed.
+APIShared release source: main / 92f65e23ee1c1828a8ddeff25274236b38ec6221 (personal checkout unchanged).
+Building the pinned main source; no game installation will be changed.
+PASS: 31 pinned-main, changed-worktree, publisher, preserved Dev, PR/conflict and real BAT checks. Fixtures: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.inspect\main-workflow-6b91b9016413467f81e0a555a7f5f8a5

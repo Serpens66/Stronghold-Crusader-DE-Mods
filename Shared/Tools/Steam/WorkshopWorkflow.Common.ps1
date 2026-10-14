@@ -1,20 +1,9 @@
-. (Join-Path $PSScriptRoot '../../../APIShared/tools/WorkshopPackage.ps1')
+. (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
+$workshopApiToolsRoot=Get-WorkshopApiRoot ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')))
+. (Join-Path $workshopApiToolsRoot 'tools/WorkshopPackage.ps1')
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
-. (Join-Path $PSScriptRoot '../../../APIShared/tools/WorkshopUploader/PublisherBuildProof.ps1')
-function Resolve-WorkshopOptions([string[]]$Options, [string]$Selection) {
-    $targets=@();$validate=$false;$test=$false;$noPause=$false
-    foreach($option in $Options){switch($option.ToLowerInvariant()){
-        '/modpack'{$targets+='SerpsMods'} '/apishared'{$targets+='APIShared'} '/both'{$targets+='Both'}
-        '/validate'{$validate=$true} '/test'{$test=$true} '/nopause'{$noPause=$true}
-        default{throw "Unknown option: $option"}
-    }}
-    if($targets.Count -gt 1){throw 'Specify exactly one target option.'}
-    if($targets.Count -eq 0){
-        if(-not $Selection){Write-Host "1. SerpsMods`r`n2. APIShared`r`n3. Beide`r`n0. Abbrechen";$Selection=Read-Host 'Auswahl'}
-        $targets=@(switch($Selection){'1'{'SerpsMods'} '2'{'APIShared'} '3'{'Both'} '0'{'Cancel'} default{throw 'Invalid target selection.'}})
-    }
-    [pscustomobject]@{Target=$targets[0];Validate=$validate;Test=$test;NoPause=$noPause}
-}
+. (Join-Path $workshopApiToolsRoot 'tools/WorkshopUploader/PublisherBuildProof.ps1')
+. (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 function Get-WorkshopStateRoot($Config,[bool]$Test){$path=Join-Path $Config.Root '.release-output/SteamWorkshop';if($Test){$path=Join-Path $path 'test'};return $path}
 function Get-WorkshopFolder($Config,$Target,[bool]$Test){if($Test){return (Join-Path (Get-WorkshopStateRoot $Config $true) ('packages/'+$Target.Key))};return $Target.Folder}
 function Get-WorkshopItemId($Config,$Target,[bool]$Test){
@@ -44,6 +33,7 @@ function Save-WorkshopReleaseReference($Config,[bool]$Test,[string]$Source){
 }
 function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,[string]$Commit,[string]$ReleaseTag,[string]$ReleaseNotes=''){
     $proof=[ordered]@{SchemaVersion=1;Target=$Target.Key;PackageId=$Target.Guid;Version=$Version;Mode=$(if($Test){'Test'}else{'Production'});Commit=$Commit;ReleaseTag=$ReleaseTag;ReleaseNotes=$ReleaseNotes;Files=@(Get-WorkshopRecords (Get-WorkshopFolder $Config $Target $Test))}
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){$proof.MainSource=Get-ApiMainDeliveryIdentity $Config.Root}
     if($Target.Key -eq 'SerpsMods'){$reference=Join-Path (Get-WorkshopStateRoot $Config $Test) 'references/SerpsMods.provenance.json';$proof.ReleaseProvenance=$reference;$proof.ReleaseProvenanceSha256=Get-WorkshopFileHash $reference}
     Write-SteamWorkshopJson -Path (Join-Path (Get-WorkshopStateRoot $Config $Test) ('prepared/'+$Target.Key+'.json')) -Value $proof
     return $proof
@@ -59,6 +49,7 @@ function Assert-WorkshopPreparation($Config,$Target,[bool]$Test){
     foreach($file in $actual){$byPath.Add($file.Path,$file)}
     foreach($file in $proof.Files){if(-not $byPath.ContainsKey($file.Path) -or $byPath[$file.Path].Size -ne $file.Size -or $byPath[$file.Path].Sha256 -cne $file.Sha256){throw "Prepared file changed: $($file.Path)"}}
     if($Target.Key -eq 'SerpsMods' -and (Get-WorkshopFileHash $proof.ReleaseProvenance) -cne $proof.ReleaseProvenanceSha256){throw 'Prepared release provenance changed.'}
+    if($proof.PSObject.Properties['MainSource']){$null=Assert-ApiMainDeliveryIdentity $Config.Root $proof.MainSource}
     return $proof
 }
 function Publish-WorkshopFolder([string]$Source,[string]$Destination,[string]$Workspace){
@@ -87,9 +78,10 @@ function Assert-WorkshopContentZip([string]$ZipPath){
 }
 function Assert-PreparedWorkshopFolder([string]$Directory,[string]$Version,[string]$PackageId){
     $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-    $publisher=Join-Path $root 'APIShared/.local/WorkshopUploader/WorkshopUploader.exe'
+    $apiRoot=Get-WorkshopApiRoot $root
+    $publisher=Join-Path $apiRoot '.local/WorkshopUploader/WorkshopUploader.exe'
     if(-not(Test-Path -LiteralPath $publisher)){throw 'Build APIShared/tools/WorkshopUploader/build.bat before preparing Workshop packages.'}
-    Assert-WorkshopPublisherBuild (Join-Path $root 'APIShared')
+    Assert-WorkshopPublisherBuild $apiRoot
     $run=Join-Path $root ('.release-output/SteamWorkshop/validation/'+[guid]::NewGuid().ToString('N'))
     [void][IO.Directory]::CreateDirectory($run)
     $request=Join-Path $run 'request.json';$result=Join-Path $run 'result.json'
@@ -99,8 +91,9 @@ function Assert-PreparedWorkshopFolder([string]$Directory,[string]$Version,[stri
 }
 function Assert-PreparedLooseFolder([string]$Directory,[string]$Version){Assert-PreparedWorkshopFolder $Directory $Version 'SerpsMods_Serp'}
 function Initialize-WorkshopBootstrapEnvironment([string]$Workspace) {
-    . (Join-Path $Workspace 'APIShared/tools/BuildProof.ps1')
-    Initialize-ApiBuildEnvironment (Join-Path $Workspace 'APIShared')
+    $apiRoot=Get-WorkshopApiRoot $Workspace
+    . (Join-Path $apiRoot 'tools/BuildProof.ps1')
+    Initialize-ApiBuildEnvironment $apiRoot
     # The shipped standalone bootstrap compiler uses these installed references.
     # Validate them before any source edits, releases or expensive packaging.
     foreach ($relative in @('BepInEx/core/BepInEx.dll','BepInEx/plugins/000shcdese/SHCDESE.dll','Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.dll','Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.CoreModule.dll')) {

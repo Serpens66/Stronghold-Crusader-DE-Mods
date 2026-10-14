@@ -85,27 +85,37 @@ try {
     & git init --initial-branch=main $releaseRoot | Out-Null
     Invoke-ApiGit $releaseRoot @('submodule','add',$origin,'APIShared') | Out-Null
     $releaseApi=Join-Path $releaseRoot 'APIShared'
-    foreach($dir in @('src','Properties','Patches','tools')) { [IO.Directory]::CreateDirectory((Join-Path $releaseApi $dir)) | Out-Null }
+    foreach($dir in @('src','Properties','Patches','tools','Workshop','tools/WorkshopUploader')) { [IO.Directory]::CreateDirectory((Join-Path $releaseApi $dir)) | Out-Null }
     Write-Fixture (Join-Path $releaseApi 'APIShared.csproj') '<Project />'
     Write-Fixture (Join-Path $releaseApi 'src/example.cs') 'production input boundary'
     Write-Fixture (Join-Path $releaseApi '.gitignore') ".local/`nBepInEx/`n"
     Write-Fixture (Join-Path $releaseApi 'tools/Build.ps1') 'build boundary'
+    foreach($inputTool in @('WorkshopPackage.ps1','Prepare-WorkshopPackage.ps1','New-WorkshopBootstrap.ps1','PublisherPackage.ps1')) { Write-Fixture (Join-Path $releaseApi ('tools/'+$inputTool)) 'package tool input boundary' }
+    Write-Fixture (Join-Path $releaseApi 'tools/WorkshopUploader/fixture.sh') 'publisher input boundary'
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../../../APIShared/tools/BuildProof.ps1') -Destination (Join-Path $releaseApi 'tools/BuildProof.ps1')
     Commit-Fixture $releaseApi release-inputs
     Commit-Fixture $releaseRoot pin
     $compiler=Join-Path $temp 'release-compiler'; Write-Fixture $compiler 'external compiler boundary'
     $dll=Join-Path $releaseApi 'BepInEx/plugins/APIShared_Serp/APIShared.dll'; Write-Fixture $dll 'external binary boundary'
+    Write-Fixture (Join-Path $releaseApi 'BepInEx/tools/APISharedWorkshopPublisher/fixture.sh') 'publisher package boundary'
     . (Join-Path $releaseApi 'tools/BuildProof.ps1')
     $state=Get-ApiInputState $releaseApi '' '' $compiler
     Write-ApiBuildProof $releaseApi '' '' $compiler $state
     $publishedTip=((Invoke-ApiGit $releaseApi @('rev-parse','HEAD')) -join '')
+    $publishedRef='refs/heads/main'
     $gitImplementation=(Get-Item Function:Invoke-ApiGit).ScriptBlock
     function Invoke-ApiGit([string]$Directory,[string[]]$Arguments) {
         if (($Arguments -join ' ') -eq 'remote get-url origin') { return 'https://github.com/SHCDE-APIShared/APIShared.git' }
-        if (($Arguments -join ' ') -eq 'ls-remote --heads --tags origin') { return "$publishedTip`trefs/heads/main" }
+        if (($Arguments -join ' ') -eq 'ls-remote --heads --tags origin') { return "$publishedTip`t$publishedRef" }
         & $gitImplementation $Directory $Arguments
     }
     $null=Assert-ApiReleaseState $releaseRoot
+    foreach($candidate in @('refs/heads/develop','refs/heads/dev/Serpens66','refs/tags/APIShared/test/v1.0.0-fixture','refs/tags/unreviewed')) {
+        $publishedRef=$candidate;$failed=$false;try{$null=Assert-ApiReleaseState $releaseRoot}catch{$failed=$true}
+        Check $failed ('Development publication accepted: '+$candidate)
+    }
+    $publishedRef='refs/tags/APIShared/v1.0.0';$null=Assert-ApiReleaseState $releaseRoot
+    $publishedRef='refs/heads/main'
     Write-Fixture (Join-Path $releaseApi 'unpublished.txt') 'local commit'
     Commit-Fixture $releaseApi unpublished
     $failed=$false; try { $null=Assert-ApiReleaseState $releaseRoot } catch { $failed=$true }

@@ -362,6 +362,10 @@ function Get-ValidatedApiSharedPackage {
     $apiProject = [string]$Config.ApiShared.Project
     $apiGuid = [string]$Config.ApiShared.Guid
     $apiSourceInfoPath = Join-Path $Config.Root "$apiProject\info.json"
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){
+        . (Join-Path $Config.Root 'Shared/Tools/ApiSharedRepository/MainSource.Common.ps1')
+        $apiSourceInfoPath=Join-Path (Get-WorkshopApiRoot $Config.Root) 'info.json'
+    }
     $apiPackage = Join-Path $Config.Root "$apiProject\BepInEx\plugins\$apiGuid"
     if ($env:SHCDE_API_SHARED_RELEASE_PROOF) { $apiPackage = $env:SHCDE_API_SHARED_DIR }
     $apiInfoPath = Join-Path $apiPackage 'info.json'

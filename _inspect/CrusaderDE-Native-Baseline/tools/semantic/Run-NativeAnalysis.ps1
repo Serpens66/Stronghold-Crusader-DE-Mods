@@ -26,11 +26,22 @@ if (-not $ResumeOnly) {
     Assert-Success 'Read-only Ghidra analysis'
 }
 if (-not (Test-Path -LiteralPath (Join-Path $work 'COMPLETE.json') -PathType Leaf)) { throw 'Ghidra did not complete the exporter; inspect ghidra.log (headless can exit zero after script errors).' }
+$history = $profile.historical
+$historyWork = Join-Path $generation 'historical\work'
+$historyProject = Join-Path $baselineRoot ($history.comparisonDirectory + '/ghidra')
+Write-Host "$(Get-Date -Format o) Historical machine/flow export; functions selected: $($history.selection.Count)"
+if (-not $ResumeOnly) {
+    & $ghidra $historyProject 'CrusaderDE-Historical' -process 'CrusaderDE.dll' -readOnly -noanalysis -scriptPath $toolDirectory -postScript ExportNativeAnalysis.java $historyWork $history.binaryHash (Join-Path $generation 'historical\selection.txt') $history.factsDigest -log (Join-Path $generation 'historical\ghidra.log') -scriptlog (Join-Path $generation 'historical\export.log')
+    Assert-Success 'Read-only historical Ghidra analysis'
+}
+if (-not (Test-Path -LiteralPath (Join-Path $historyWork 'COMPLETE.json') -PathType Leaf)) { throw 'Historical Ghidra export incomplete; candidate retained.' }
 $decoderProject = Join-Path $toolDirectory 'NativeFacts\NativeFacts.csproj'
 & dotnet build $decoderProject --configuration Release --nologo
 Assert-Success 'Offline decoder build'
 & dotnet (Join-Path $workspace '.tools\native-analysis\NativeFacts\Release\net10.0\NativeFacts.dll') $profile.nativePath $profile.binaryHash $work
 Assert-Success 'Independent Iced/PE verification'
+& dotnet (Join-Path $workspace '.tools\native-analysis\NativeFacts\Release\net10.0\NativeFacts.dll') $history.nativePath $history.binaryHash $historyWork
+Assert-Success 'Historical Iced/PE verification'
 & dotnet run --project (Join-Path $toolDirectory 'NativeFacts.Tests\NativeFacts.Tests.csproj') --configuration Release
 Assert-Success 'Actual installed backend fixture contracts'
 $evidence = Join-Path $generation 'backend'

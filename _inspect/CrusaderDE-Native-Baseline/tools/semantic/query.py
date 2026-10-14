@@ -230,7 +230,7 @@ def main():
     else:
         table_names = ["binaries", "functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "chore_opcodes", "chore_contracts", "chore_observations", "chore_evidence", "function_data_references", "call_edges", "xrefs", "strings", "globals", "managed_methods", "pinvokes", "managed_native_links", "patterns", "data_types", "source_types", "type_fields", "vtable_members", "delegates", "rtti_vtables", "xaml_resources", "classifications", "version_matches"]
         available = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        table_names += [t for t in ["analysis_functions", "analysis_features", "analysis_sources", "analysis_profiles"] if t in available]
+        table_names += [t for t in ["analysis_functions", "analysis_features", "analysis_sources", "analysis_profiles", "analysis_memory", "analysis_contracts", "analysis_layouts", "analysis_changes"] if t in available]
         print_json({table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in table_names})
     connection.close()
 

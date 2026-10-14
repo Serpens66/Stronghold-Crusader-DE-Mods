@@ -33,7 +33,7 @@ try {
     Write-SdkFixture $zip 'downloaded archive fixture'
     $proofPath = Join-Path $cache 'APIShared-v0.7.1.provenance.json'
     $proof = @{ SchemaVersion=1; Mod='APIShared'; PluginGuid='APIShared_Serp'; Version='0.7.1'; Tag='APIShared/v0.7.1'; Commit=$commit
-        Package=@{ Sha256=(Get-FileHash $zip).Hash.ToLowerInvariant(); Files=@(@{ Path='BepInEx/plugins/APIShared_Serp/APIShared.dll'; Size=(Get-Item $dll).Length; Sha256=(Get-FileHash $dll).Hash.ToLowerInvariant() }) } }
+        Package=@{ Sha256=(Get-ApiRepositoryHash $zip); Files=@(@{ Path='BepInEx/plugins/APIShared_Serp/APIShared.dll'; Size=(Get-Item $dll).Length; Sha256=(Get-ApiRepositoryHash $dll) }) } }
     Write-SdkFixture $proofPath ($proof | ConvertTo-Json -Depth 8)
     $env:SHCDE_API_SHARED_RELEASE_PROOF = $proofPath
     $env:SHCDE_WORKSHOP_TEST = ''
@@ -44,7 +44,7 @@ try {
     # MSBuild property precedence plus its fresh PowerShell validation subprocess.
     $workspaceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
     Copy-Item -LiteralPath (Join-Path $workspaceRoot 'Directory.Build.targets') -Destination (Join-Path $fixture 'Directory.Build.targets')
-    foreach ($relative in @('Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1','Shared/Tools/ApiSharedRepository/Test-ConsumerPackage.ps1','Shared/Tools/Steam/SteamPackPolicy.ps1')) {
+    foreach ($relative in @('Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1','Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/Test-ConsumerPackage.ps1','Shared/Tools/Steam/SteamPackPolicy.ps1')) {
         $destination = Join-Path $fixture $relative
         [void][IO.Directory]::CreateDirectory((Split-Path -Parent $destination))
         Copy-Item -LiteralPath (Join-Path $workspaceRoot $relative) -Destination $destination

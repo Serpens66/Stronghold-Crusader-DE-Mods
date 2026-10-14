@@ -17,6 +17,11 @@ $ErrorActionPreference = 'Stop'
 $previousApiSharedDirectory = $env:SHCDE_API_SHARED_DIR
 $previousApiSharedReleaseProof = $env:SHCDE_API_SHARED_RELEASE_PROOF
 $previousApiSharedTestMode = $env:SHCDE_WORKSHOP_TEST
+. (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
+$mainWorkspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){$env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $mainWorkspace}
+if(-not $Validate){Ensure-ApiMainBuild $mainWorkspace}
+$script:ApiMainRoot=Get-WorkshopApiRoot $mainWorkspace
 $previousGameDirectory = $env:SHCDE_GAME_DIR
 $previousExtenderDirectory = $env:SHCDESE_EXTENDER_DIR
 $previousMsBuild = $env:SHCDE_MSBUILD
@@ -25,7 +30,7 @@ $previousMsBuild = $env:SHCDE_MSBUILD
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot 'ReleaseAssetCache.ps1')
-. (Join-Path $PSScriptRoot '..\..\..\APIShared\tools\WorkshopPackage.ps1')
+. (Join-Path $script:ApiMainRoot 'tools/WorkshopPackage.ps1')
 
 class SteamPackFailure : System.Exception {
     [int]$ExitCode
@@ -510,6 +515,10 @@ function Get-ReleasePackage {
         Fail-Pack 7 "Provenance mismatch for $($Mod.Name)."
     }
     $audit = Join-Path $cache 'audit'
+    $audit=[IO.Path]::GetFullPath($audit)
+    if(-not $audit.StartsWith([IO.Path]::GetFullPath($cache).TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)){Fail-Pack 7 'Unsafe APIShared audit directory.'}
+    Assert-ApiWorkshopUnlinkedPath $audit
+    if(Test-Path -LiteralPath $audit){Assert-ApiWorkshopUnlinkedTree $audit}
     if (Test-Path -LiteralPath $audit) { Remove-Item -LiteralPath $audit -Recurse -Force }
     Expand-Archive -LiteralPath $zip -DestinationPath $audit
     $roots = @(Get-ChildItem -LiteralPath $audit -Directory)
@@ -569,6 +578,9 @@ function Get-ApiSharedReleasePackage {
         Fail-Pack 7 "SHA-256 file mismatch for $tag."
     }
     $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
+    $mainProof=Assert-ApiMainSelection $script:Root $env:SHCDE_API_SHARED_MAIN_SELECTION
+    $mainAncestor=Invoke-ApiRepositoryProcess 'git' @('-C',$Infrastructure.ProjectDirectory,'merge-base','--is-ancestor',[string]$provenance.Commit,$mainProof.Commit)
+    if($mainAncestor.ExitCode -ne 0){Fail-Pack 7 'APIShared release source is not in selected main history.'}
     if ([string]$provenance.Mod -cne 'APIShared' -or
         [string]$provenance.PluginGuid -cne $Infrastructure.Guid -or
         [string]$provenance.Version -cne $Infrastructure.Version -or
@@ -639,7 +651,7 @@ function Get-PackagedContentComparison {
     )
 
     if ($Mod.Name -eq 'APIShared') {
-        $apiRoot = Join-Path $script:Root 'APIShared'
+        $apiRoot = $script:ApiMainRoot
         $result = Invoke-Checked -FilePath 'git' -Arguments @('-C',$apiRoot,'diff','--name-only',$BaseCommit,'HEAD') -FailureCode 3
         $relevant = @(Get-SteamApiReleaseRelevantChanges @($result.Output))
         return [pscustomobject]@{ IsCurrent = $relevant.Count -eq 0; Paths = $relevant }
@@ -824,7 +836,8 @@ function Get-HostContentSignature {
         finally { $fileSha.Dispose() }
     }
     foreach ($relative in @('Shared/Tools/Steam/Prepare-SerpsModsWorkshop.ps1','APIShared/tools/Prepare-WorkshopPackage.ps1','APIShared/tools/New-WorkshopBootstrap.ps1','APIShared/tools/WorkshopPackage.ps1')) {
-        $lines.Add("PACKAGER|$relative|"+(Get-Sha256 (Join-Path $script:Root $relative)))
+        $packagerInput=if($relative.StartsWith('APIShared/')){Join-Path $script:ApiMainRoot $relative.Substring(10)}else{Join-Path $script:Root $relative}
+        $lines.Add("PACKAGER|$relative|"+(Get-Sha256 $packagerInput))
     }
     $payload = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
     $payloadSha = [Security.Cryptography.SHA256]::Create()
@@ -1429,12 +1442,11 @@ try {
 
     $branch = ((Invoke-Git @('branch','--show-current') 2).Output -join '').Trim()
     if ($branch -ne $script:Branch) { Fail-Pack 2 "Expected branch '$($script:Branch)', current branch is '$branch'." }
-    $status = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal') 2).Output
+    $status = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal','--','.',':(exclude)APIShared') 2).Output
     if ($status.Count -gt 0 -and -not $Validate) { Fail-Pack 2 "Git working tree must be clean:`r`n$($status -join "`r`n")" }
     if ($status.Count -gt 0) { Write-RunLog 'Validation continues with a dirty tree; a publishing run would stop here.' 'WARN' }
     . (Join-Path $script:Root 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
-    if ($Validate) { $null = Assert-ApiConsumerPackage $script:Root '' }
-    else { $null = Assert-ApiReleaseState $script:Root }
+    $null=Assert-ApiMainSelection $script:Root $env:SHCDE_API_SHARED_MAIN_SELECTION
     Invoke-Checked -FilePath 'gh' -Arguments @('auth','status') -FailureCode 2 | Out-Null
     if (-not $Validate) {
         Invoke-Git @('fetch','--prune','origin',$script:Branch,'--tags') 5 | Out-Null
@@ -1446,8 +1458,8 @@ try {
     $releaseConfigPath = Join-Path $script:Root 'Shared\Tools\Release\release-projects.json'
     $releaseConfig = Get-Content -LiteralPath $releaseConfigPath -Raw | ConvertFrom-Json
     if ($null -eq $releaseConfig.ApiShared) { Fail-Pack 3 'Release configuration lacks the required APIShared infrastructure metadata.' }
-    $apiSharedSourceInfoPath = Join-Path $script:Root "$([string]$releaseConfig.ApiShared.Project)\info.json"
-    $apiSharedDirectory = Join-Path $script:Root "$([string]$releaseConfig.ApiShared.Project)\BepInEx\plugins\$([string]$releaseConfig.ApiShared.Guid)"
+    $apiSharedSourceInfoPath = Join-Path $script:ApiMainRoot 'info.json'
+    $apiSharedDirectory = Join-Path $script:ApiMainRoot "BepInEx\plugins\$([string]$releaseConfig.ApiShared.Guid)"
     $apiSharedInfoPath = Join-Path $apiSharedDirectory 'info.json'
     $apiSharedDllPath = Join-Path $apiSharedDirectory 'APIShared.dll'
     if (-not (Test-Path -LiteralPath $apiSharedSourceInfoPath -PathType Leaf)) {
@@ -1590,7 +1602,7 @@ try {
     $previousPack = Get-PackReleaseState -Releases $script:ReleaseList
     $historicalSteamFiles = Get-HistoricalSteamFileIndex -History $uploadHistory -PackGuid $PackGuid
     $legacyApiSharedFiles = @(Get-LegacyApiSharedFiles -History $uploadHistory)
-    . (Join-Path $script:Root 'APIShared/tools/WorkshopMigration.ps1')
+    . (Join-Path $script:ApiMainRoot 'tools/WorkshopMigration.ps1')
     $verifiedMigrationMaps = @($uploadHistory.Uploads | Where-Object { $_.PSObject.Properties.Name -notcontains 'Format' -or $_.Format -eq 'Map' } | ForEach-Object { Get-HistoryMapPath -Upload $_ })
     Assert-ApiWorkshopMigrationVersion -Version $apiSharedInfrastructure.Version -LegacyMapPaths $verifiedMigrationMaps -HostGuid $PackGuid
     $apiHistoricalPrefix = "BepInEx/plugins/$PackGuid/Infrastructure/APIShared_Serp/"
@@ -1622,7 +1634,7 @@ try {
     $word=if($TestMode){'TESTPAKET'}else{'VEROEFFENTLICHEN'}
     $confirmation = Read-Host "Type $word to apply reviewed source changes, commit/push and create required releases"
     if ($confirmation -cne $word) { Fail-Pack 2 'Preparation cancelled.' }
-    $confirmedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal')).Output
+    $confirmedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal','--','.',':(exclude)APIShared')).Output
     if ($confirmedStatus.Count -gt 0) {
         Fail-Pack 2 "Git working tree changed while awaiting publishing confirmation. Commit or otherwise resolve these changes, then restart the workflow:`r`n$($confirmedStatus -join "`r`n")"
     }
@@ -1663,7 +1675,7 @@ try {
         Invoke-Git @('commit','-m','Add Serps Mods Workshop pack compatibility') | Out-Null
         Invoke-Git @('push','origin',$script:Branch) | Out-Null
     }
-    $unexpectedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal')).Output
+    $unexpectedStatus = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal','--','.',':(exclude)APIShared')).Output
     if ($unexpectedStatus.Count -gt 0) {
         Fail-Pack 5 "Unexpected working-tree changes remain after source preparation. They were not committed:`r`n$($unexpectedStatus -join "`r`n")"
     }
@@ -1717,10 +1729,7 @@ try {
         Invoke-Git @('push','origin',$script:Branch) | Out-Null
     }
     $hostDir = Join-Path $script:Root 'SerpsModsHost'
-    $apiProof = Assert-ApiConsumerPackage $script:Root '' -Release
-    if (((Invoke-ApiGit (Join-Path $script:Root 'APIShared') @('rev-parse','HEAD')) -join '').Trim() -ne (Get-ApiSubmodule $script:Root)) {
-        Fail-Pack 8 'APIShared changed during release preparation. Record its reviewed published submodule commit, then restart.'
-    }
+    $apiProof = Assert-ApiMainSelection $script:Root $env:SHCDE_API_SHARED_MAIN_SELECTION
     $null = Assert-ApiConsumerPackage $script:Root $apiSharedInfrastructure.Directory
     Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause','/noinstall') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
 
@@ -1826,7 +1835,8 @@ try {
     } })
     $provenance = [ordered]@{
         SchemaVersion = 3; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
-        ApiSharedCommit = Get-ApiSubmodule $script:Root
+        ApiSharedCommit = $apiPackage.TargetCommit
+        ApiSharedMainCommit = $apiProof.Commit
         CreatedUtc = [DateTime]::UtcNow.ToString('o')
         Package = [ordered]@{ File = $zipPackage.File; RootDirectory = $zipPackage.RootDirectory; Sha256 = $zipPackage.Sha256; Size = $zipPackage.Size; Files = $zipPackage.Files }
         Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }

@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "queryCases": 18,
+  "negativeCliCases": 1,
+  "databaseUnchanged": true,
+  "referenceProjectUnchanged": true,
+  "featureCount": 69,
+  "marketDisplacement": 10,
+  "workshopDisplacement": 17,
+  "restoration": "current schema tables and full analysis payloads reproduced in separate database"
+}

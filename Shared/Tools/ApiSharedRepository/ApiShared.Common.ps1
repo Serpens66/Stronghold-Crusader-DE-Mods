@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'MainSource.Common.ps1')
 function Invoke-ApiGit([string]$Directory, [string[]]$Arguments) {
     $result = @(& git -C $Directory @Arguments)
     if ($LASTEXITCODE -ne 0) { throw "Git failed: $($Arguments -join ' ')" }
@@ -11,13 +12,17 @@ function Get-ApiSubmodule([string]$Workspace) {
 }
 function Assert-ApiCheckout([string]$Workspace) {
     $api = [IO.Path]::GetFullPath((Join-Path $Workspace 'APIShared'))
-    if (-not (Test-Path -LiteralPath (Join-Path $api '.git'))) { throw 'APIShared is not initialized. Run APIShared-Aktualisieren.bat or git submodule update --init APIShared.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $api '.git'))) { throw 'APIShared is not initialized. Run git submodule update --init APIShared.' }
     $top = ((Invoke-ApiGit $api @('rev-parse','--show-toplevel')) -join '').Trim()
     if ([IO.Path]::GetFullPath($top) -ne [IO.Path]::GetFullPath($api)) { throw 'APIShared must be an independent Git checkout.' }
     return $api
 }
 function Assert-ApiConsumerPackage([string]$Workspace, [string]$PackageDirectory, [switch]$Release) {
     $api = Assert-ApiCheckout $Workspace
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){
+        $api=Get-WorkshopApiRoot $Workspace
+    }
+    if(-not $PackageDirectory -and $env:SHCDE_API_SHARED_RELEASE_PROOF){$PackageDirectory=$env:SHCDE_API_SHARED_DIR}
     if ($PackageDirectory -and $env:SHCDE_API_SHARED_RELEASE_PROOF) {
         return Assert-ApiPublishedConsumerPackage $Workspace $PackageDirectory $env:SHCDE_API_SHARED_RELEASE_PROOF
     }
@@ -33,6 +38,9 @@ function Assert-ApiPublishedConsumerPackage([string]$Workspace, [string]$Package
     # Only the release cache selected by the Workshop driver can supply a published SDK.
     # Recheck it in every child build; an environment override alone grants no trust.
     $api = Assert-ApiCheckout $Workspace
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){
+        $api=Get-WorkshopApiRoot $Workspace
+    }
     $cacheRoot = [IO.Path]::GetFullPath((Join-Path $Workspace '.release-output/APIShared')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
     $testCacheRoot = [IO.Path]::GetFullPath((Join-Path $Workspace '.release-output/SteamWorkshop/test/SerpsMods/cache/APIShared')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
     $proofPath = [IO.Path]::GetFullPath($ProvenancePath)
@@ -45,6 +53,11 @@ function Assert-ApiPublishedConsumerPackage([string]$Workspace, [string]$Package
     $proof = Get-Content -LiteralPath $proofPath -Raw | ConvertFrom-Json
     $info = Get-Content -LiteralPath (Join-Path $api 'info.json') -Raw | ConvertFrom-Json
     if ($proof.Commit -notmatch '^[0-9a-f]{40}$') { throw 'Invalid published APIShared source commit.' }
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){
+        $selected=Assert-ApiMainSelection $Workspace $env:SHCDE_API_SHARED_MAIN_SELECTION
+        $ancestor=Invoke-ApiRepositoryProcess 'git' @('-C',$api,'merge-base','--is-ancestor',[string]$proof.Commit,$selected.Commit)
+        if($ancestor.ExitCode -ne 0){throw 'Published APIShared SDK source is outside selected main history.'}
+    }
     $tag = "APIShared/v$($info.Version)"
     if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $tag = "APIShared/test/v$($info.Version)-$(([string]$proof.Commit).Substring(0,12))" }
     if ($proof.SchemaVersion -ne 1 -or $proof.Mod -cne 'APIShared' -or $proof.PluginGuid -cne 'APIShared_Serp' -or
@@ -81,6 +94,12 @@ function Assert-ApiPublishedConsumerPackage([string]$Workspace, [string]$Package
     return $proof
 }
 function Assert-ApiReleaseState([string]$Workspace) {
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){
+        $null=Assert-ApiMainSelection $Workspace $env:SHCDE_API_SHARED_MAIN_SELECTION
+        $status=@(Invoke-ApiGit $Workspace @('status','--porcelain','--untracked-files=normal','--','.',':(exclude)APIShared'))
+        if($status.Count){throw 'The mod repository must be clean for a release (APIShared development checkout is independent).'}
+        return (Assert-ApiConsumerPackage $Workspace '' -Release)
+    }
     $api = Assert-ApiCheckout $Workspace
     $expected = Get-ApiSubmodule $Workspace
     $actual = ((Invoke-ApiGit $api @('rev-parse','HEAD')) -join '').Trim()
@@ -94,7 +113,7 @@ function Assert-ApiReleaseState([string]$Workspace) {
     $refs = @(Invoke-ApiGit $api @('ls-remote','--heads','--tags','origin'))
     $published = $false
     foreach ($row in $refs) {
-        if ($row -notmatch '\srefs/heads/main$|\srefs/tags/') { continue }
+        if ($row -notmatch '\srefs/heads/main$|\srefs/tags/APIShared/v\d+\.\d+\.\d+(?:\.\d+)?(?:\^\{\})?$') { continue }
         $tip = ($row -split '\s+')[0]
         & git -C $api merge-base --is-ancestor $actual $tip 2>$null
         if ($LASTEXITCODE -eq 0) { $published = $true; break }

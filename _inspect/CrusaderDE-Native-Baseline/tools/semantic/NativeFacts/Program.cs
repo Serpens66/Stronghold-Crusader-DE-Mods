@@ -22,7 +22,7 @@ static class Program {
         }
         int total=0;
         foreach(string path in Directory.EnumerateFiles(args[2],"*.json").Order()){
-            if(Path.GetFileName(path)=="COMPLETE.json")continue;
+            if(Path.GetFileName(path) is "COMPLETE.json" or "TYPES.json")continue;
             JsonObject f=JsonNode.Parse(File.ReadAllText(path))!.AsObject();
             foreach(JsonNode? value in f["instructions"]!.AsArray()){
                 JsonObject row=value!.AsObject();ulong rva=Number(row["rva"]!.GetValue<string>());int length=row["length"]!.GetValue<int>();

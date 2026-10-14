@@ -29,7 +29,9 @@ try {
     if (-not (Test-Path -LiteralPath $metadata.BuildBat -PathType Leaf)) { throw "Missing build.bat: $($metadata.BuildBat)" }
 
     [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('auth', 'status'))
-    $status = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'status', '--porcelain=v1', '--untracked-files=normal')
+    $releaseStatusArguments=@('-C',$config.Root,'status','--porcelain=v1','--untracked-files=normal')
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){$releaseStatusArguments+=@('--','.',':(exclude)APIShared')}
+    $status = Invoke-CheckedCommand -FilePath 'git' -Arguments $releaseStatusArguments
     if ($status.Output.Count -ne 0) { throw "Git working tree is not clean:`r`n$($status.Output -join "`r`n")" }
     if ($apiSharedConsumer) {
         . (Join-Path $config.Root 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
@@ -107,7 +109,9 @@ try {
     if ($buildExitCode -ne 0) { throw "build.bat failed with exit code $buildExitCode." }
     if (-not (Test-Path -LiteralPath $metadata.PackageDir -PathType Container)) { throw "Plugin package was not produced: $($metadata.PackageDir)" }
 
-    $trackedStatus = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'status', '--porcelain=v1', '--untracked-files=no')
+    $trackedStatusArguments=@('-C',$config.Root,'status','--porcelain=v1','--untracked-files=no')
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){$trackedStatusArguments+=@('--','.',':(exclude)APIShared')}
+    $trackedStatus = Invoke-CheckedCommand -FilePath 'git' -Arguments $trackedStatusArguments
     $trackedChangesAfterBuild = @($trackedStatus.Output | ForEach-Object { if ([string]$_ -match '^.. (.+)$') { $Matches[1] } })
     $outputRoot = Join-Path $config.Root ".release-output\$ModName\v$($metadata.Version)"
     if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $outputRoot=Join-Path $config.Root ".release-output\SteamWorkshop\test\$ModName\v$($metadata.Version)" }

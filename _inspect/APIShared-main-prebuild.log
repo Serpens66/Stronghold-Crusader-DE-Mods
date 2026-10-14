@@ -1,0 +1,15 @@
+PASS: generic dependency declarations, arbitrary GUIDs, constants, presence-only and optional dependencies; 6 malformed fixtures rejected.
+PASS: APIShared has no executable-memory toggles or published transaction teardown.
+PASS: documentation links (202 local targets/anchors); no external workspace references.
+PASS: exact/repeatable Workshop assets, safe paths, inventory completeness, settings exclusion, hashes, ZIP ownership/layout and archive roundtrip.
+PASS: complete publisher inventory, Linux launcher hashes, narrow ZIP tool ownership, tampering and extra DLL rejection. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\APISharedPublisher-6d849dfd178c4555ac34aa3eb520c078
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+PASS: content-identical commits, retained provenance, changed runtime rejection, package tampering, dirty release rejection, cross-shell fingerprint, local path recovery and child inheritance.
+Build proof fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiSharedProof-65acea9ff52c42cea56ffe030d75e216
+INFO: maintainer workspace drivers are unavailable in this standalone checkout; their extra integration tests run locally.
+PASS: PS 5.1 standalone release probe/publication decision, missing/existing releases, authentication/access/network failures, strict missing detection, pipe capture, argument quoting and commit/mode conflicts. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\APIShared release test c68ae7f75424491880a89ec5b010ed69
+PASS: rooted startup coordination, UI removal, Linux launcher, batch protocol and upload isolation.
+PASS: historical APIShared version ordering, ambiguous/missing metadata rejection and central bootstrap gate. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiMigrationVersion-c2691dbd3ca041b6b8ced8d466eab7db
+PASS: standalone APIShared boundaries (108 links), runtime JSON/lifecycle/scheduling and XAML; installed interop is checked in the local full run.

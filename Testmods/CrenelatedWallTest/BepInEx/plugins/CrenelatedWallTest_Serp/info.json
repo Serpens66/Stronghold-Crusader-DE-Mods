@@ -1,0 +1,13 @@
+{
+  "GUID": "CrenelatedWallTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Crenelated Wall Test",
+  "Description": "Human crenel construction: alternating high/low straight pieces, double-row prevention and saved local corrections. Test build with conservative Vanilla special-piece restrictions.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.1",
+  "MaximumScriptExtenderVersion": "",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.9.1" }],
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

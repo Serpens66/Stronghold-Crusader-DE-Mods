@@ -4,6 +4,7 @@ import java.nio.file.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.security.MessageDigest;
+import java.math.BigInteger;
 import com.google.gson.*;
 import ghidra.app.script.GhidraScript;
 import ghidra.app.decompiler.*;
@@ -13,6 +14,7 @@ import ghidra.program.model.block.*;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.pcode.*;
 import ghidra.program.model.symbol.*;
+import ghidra.program.model.data.*;
 
 public class ExportNativeAnalysis extends GhidraScript {
     private final Gson gson = new GsonBuilder().disableHtmlEscaping().serializeNulls().create();
@@ -50,8 +52,89 @@ public class ExportNativeAnalysis extends GhidraScript {
         PcodeOp def=v.getDef();
         Integer ordinal=null;
         if(v instanceof VarnodeAST ast && ast.getHigh() instanceof HighParam p) ordinal=p.getSlot();
+        HighVariable h=v.getHigh();DataType type=h==null?null:h.getDataType();
         return obj("space",v.getAddress().getAddressSpace().getName(),"offset",String.format("0x%X",v.getOffset()),
-            "size",v.getSize(),"constant",v.isConstant(),"definition",def==null?null:opId(def),"parameterOrdinal",ordinal);
+            "size",v.getSize(),"constant",v.isConstant(),"definition",def==null?null:opId(def),"parameterOrdinal",ordinal,
+            "typePath",type==null?null:type.getPathName(),"pointerTargetType",type instanceof Pointer p && p.getDataType()!=null?p.getDataType().getPathName():null);
+    }
+    private List<Object> typeFacts() {
+        List<Object> result=new ArrayList<>();
+        Iterator<DataType> it=currentProgram.getDataTypeManager().getAllDataTypes();
+        while(it.hasNext()) {
+            DataType t=it.next();Map<String,Object> row=obj("path",t.getPathName(),"name",t.getName(),"size",t.getLength(),
+                "alignment",t.getAlignment(),"kind",t.getClass().getSimpleName(),"authority","ghidra-database-layout");
+            if(t instanceof Composite c) {
+                List<Object> fields=new ArrayList<>();DataTypeComponent[] components=c.getDefinedComponents();
+                for(int i=0;i<Math.min(components.length,20000);i++) {
+                    DataTypeComponent part=components[i];
+                    fields.add(obj("name",part.getFieldName(),"offset",part.getOffset(),"size",part.getLength(),"typePath",part.getDataType().getPathName(),
+                        "bitField",part.isBitFieldComponent(),"ordinal",part.getOrdinal()));
+                }
+                row.put("fields",fields);row.put("totalFields",components.length);row.put("truncated",components.length>fields.size());
+            } else if(t instanceof Pointer p) row.put("target",p.getDataType()==null?null:p.getDataType().getPathName());
+            else if(t instanceof Array a) row.put("array",obj("count",a.getNumElements(),"elementSize",a.getElementLength(),"typePath",a.getDataType().getPathName()));
+            else if(t instanceof TypeDef td) row.put("target",td.getBaseDataType().getPathName());
+            else if(t instanceof ghidra.program.model.data.Enum en) {
+                List<Object> values=new ArrayList<>();String[] names=en.getNames();
+                for(int i=0;i<Math.min(names.length,20000);i++)values.add(obj("name",names[i],"value",Long.toString(en.getValue(names[i]))));
+                row.put("values",values);row.put("totalValues",names.length);row.put("truncated",names.length>values.size());
+            }
+            result.add(row);
+        }
+        return result;
+    }
+    private List<ClangCaseToken> caseTokens(ClangNode node) {
+        List<ClangCaseToken> result=new ArrayList<>();
+        if(node==null)return result;
+        ArrayDeque<ClangNode> queue=new ArrayDeque<>();queue.push(node);
+        while(!queue.isEmpty()) {
+            ClangNode next=queue.pop();if(next instanceof ClangCaseToken token)result.add(token);
+            for(int i=next.numChildren()-1;i>=0;i--)queue.push(next.Child(i));
+        }
+        return result;
+    }
+    private Map<String,Object> switchFacts(JumpTable table,List<ClangCaseToken> tokens) {
+        List<String> destinations=new ArrayList<>();for(Address a:table.getCases())destinations.add(rva(a));
+        List<Object> mappings=new ArrayList<>(),unknown=new ArrayList<>(),data=new ArrayList<>();Set<String> defaults=new LinkedHashSet<>();
+        for(ClangCaseToken token:tokens) {
+            PcodeOp caseOp=token.getPcodeOp();PcodeBlockBasic block=caseOp==null?null:caseOp.getParent();
+            if(block==null)continue;
+            List<PcodeOp> dispatches=new ArrayList<>();
+            for(int i=0;i<block.getInSize();i++) {
+                PcodeBlock predecessor=block.getIn(i);
+                if(predecessor instanceof PcodeBlockBasic basic) {
+                    PcodeOp last=basic.getLastOp();if(last!=null&&last.getOpcode()==PcodeOp.BRANCHIND&&!dispatches.contains(last))dispatches.add(last);
+                }
+            }
+            boolean refers=dispatches.stream().anyMatch(op->op.getSeqnum().getTarget().equals(table.getSwitchAddress()));
+            if(!refers)continue;
+            String text=token.getText().trim(),target=rva(block.getStart());
+            Map<String,Object> observation=obj("token",text,"encodedUnsignedValue",Long.toUnsignedString(token.getValue()),"target",target);
+            if(dispatches.size()!=1 || !destinations.contains(target)) {observation.put("reason","ambiguous dispatch or case target");unknown.add(observation);continue;}
+            if(text.equals("default")) {defaults.add(target);continue;}
+            String numeric=text.replaceFirst("(?i)[ul]+$","");
+            try {
+                boolean negative=numeric.startsWith("-");String magnitude=negative?numeric.substring(1):numeric;
+                int radix=magnitude.startsWith("0x")||magnitude.startsWith("0X")?16:10;
+                if(radix==16)magnitude=magnitude.substring(2);
+                if(!magnitude.matches(radix==16?"[0-9a-fA-F]+":"[0-9]+"))throw new NumberFormatException();
+                BigInteger value=new BigInteger(magnitude,radix);if(negative)value=value.negate();
+                BigInteger encoded=new BigInteger(Long.toUnsignedString(token.getValue()));
+                // Clang case markup encodes the magnitude of a printed negative literal.
+                // It is not the selector's two's-complement bit pattern (verified by signed fixture).
+                boolean agrees=value.abs().equals(encoded);
+                if(!agrees||value.abs().compareTo(BigInteger.valueOf(9007199254740991L))>0)throw new NumberFormatException();
+                mappings.add(obj("value",value.longValue(),"target",target,"token",text,"authority","typed-decompiler-case-token"));
+            } catch(NumberFormatException e) {observation.put("reason","nonliteral, inconsistent or nonexact numeric case");unknown.add(observation);}
+        }
+        List<Object> rawMappings=new ArrayList<>();Integer[] labels=table.getLabelValues();
+        if(labels.length==destinations.size())for(int i=0;i<labels.length;i++)rawMappings.add(obj("encodedLabel32",String.format("0x%X",labels[i]),"target",destinations.get(i),"authority","ghidra-jumptable-observed-pair; original signedness/width not inferred"));
+        else unknown.add(obj("reason","raw label and destination counts differ; positional bindings withheld","labels",labels.length,"destinations",destinations.size()));
+        for(JumpTable.LoadTable load:table.getLoadTables())data.add(obj("address",rva(load.getAddress()),"entrySize",load.getSize(),"entryCount",load.getNum(),"authority","decompiler-load-table"));
+        return obj("switch",rva(table.getSwitchAddress()),"destinations",destinations,"rawLabels",table.getLabelValues(),
+            "mappings",mappings,"rawMappings",rawMappings,"defaultTargets",defaults,"unknownLabels",unknown,"dataSources",data,
+            "labelMapping","typed-token-observations","defaultCoverage",defaults.isEmpty()?"not-observed":"observed",
+            "limitations",List.of("Decompiler reconstruction, not runtime dispatch proof","Raw label pairs require equal counts; unsigned 32-bit labels retain original-width ambiguity","Load tables are not assigned to individual cases"));
     }
     @Override protected void run() throws Exception {
         String[] args=getScriptArgs();
@@ -62,7 +145,8 @@ public class ExportNativeAnalysis extends GhidraScript {
         selected.addAll(Files.readAllLines(Path.of(args[2]),StandardCharsets.UTF_8));
         List<Function> functions=new ArrayList<>();
         for(Function f:currentProgram.getFunctionManager().getFunctions(true))if(!f.isExternal()){functions.add(f);entries.put(f.getEntryPoint(),f);}
-        DecompInterface d=new DecompInterface();d.toggleCCode(false);d.toggleSyntaxTree(true);d.openProgram(currentProgram);
+        save(output.resolve("TYPES.json"),obj("binaryHash",hash,"profile",profile,"types",typeFacts()));
+        DecompInterface d=new DecompInterface();d.toggleCCode(true);d.toggleSyntaxTree(true);d.toggleJumpLoads(true);d.openProgram(currentProgram);
         BasicBlockModel model=new BasicBlockModel(currentProgram);
         int count=0,reused=0,flows=0;
         try {
@@ -76,7 +160,8 @@ public class ExportNativeAnalysis extends GhidraScript {
                        (!wantFlow || old.getAsJsonObject("flow").get("status").getAsString().equals("complete"))){reused++;count++;continue;}
                 }
                 Map<String,Object> packet=obj("binaryHash",hash,"profile",profile,"functionRva",key,"name",f.getName(),
-                    "ranges",ranges(f.getBody()),"signature",f.getSignature().toString(),"signatureSource",f.getSignatureSource().toString());
+                    "ranges",ranges(f.getBody()),"signature",f.getSignature().toString(),"signatureSource",f.getSignatureSource().toString(),
+                    "variadic",f.hasVarArgs(),"callingConvention",f.getCallingConventionName());
                 List<Object> instructions=new ArrayList<>(),blocks=new ArrayList<>();
                 for(Instruction ins:currentProgram.getListing().getInstructions(f.getBody(),true)){
                     List<Object> refs=new ArrayList<>();
@@ -100,10 +185,19 @@ public class ExportNativeAnalysis extends GhidraScript {
                     DecompileResults result=d.decompileFunction(f,120,monitor);
                     if(!result.decompileCompleted()||result.getHighFunction()==null){packet.put("flow",obj("status","failed","error",result.getErrorMessage()));}
                     else{
-                        HighFunction high=result.getHighFunction();List<Object> ops=new ArrayList<>(),params=new ArrayList<>(),switches=new ArrayList<>();
+                        HighFunction high=result.getHighFunction();List<Object> ops=new ArrayList<>(),params=new ArrayList<>(),switches=new ArrayList<>(),flowBlocks=new ArrayList<>();
+                        Set<PcodeOp> members=Collections.newSetFromMap(new IdentityHashMap<>());
+                        for(PcodeBlockBasic block:high.getBasicBlocks()) {
+                            Iterator<PcodeOp> member=block.getIterator();while(member.hasNext())members.add(member.next());
+                            List<Integer> successors=new ArrayList<>();for(int i=0;i<block.getOutSize();i++)successors.add(block.getOut(i).getIndex());
+                            flowBlocks.add(obj("id",block.getIndex(),"start",rva(block.getStart()),"stop",rva(block.getStop()),"successors",successors));
+                        }
                         for(int i=0;i<high.getFunctionPrototype().getNumParams();i++){
                             HighSymbol p=high.getFunctionPrototype().getParam(i);
-                            params.add(obj("ordinal",i,"name",p.getName(),"type",p.getDataType().getName(),"representative",node(p.getHighVariable()==null?null:p.getHighVariable().getRepresentative())));
+                            DataType paramType=p.getDataType();
+                            params.add(obj("ordinal",i,"name",p.getName(),"type",paramType.getName(),"typePath",paramType.getPathName(),
+                                "pointerTargetType",paramType instanceof Pointer pointer&&pointer.getDataType()!=null?pointer.getDataType().getPathName():null,
+                                "representative",node(p.getHighVariable()==null?null:p.getHighVariable().getRepresentative())));
                         }
                         Iterator<PcodeOpAST> oi=high.getPcodeOps();
                         while(oi.hasNext()){
@@ -111,13 +205,11 @@ public class ExportNativeAnalysis extends GhidraScript {
                             String target=null;
                             if(op.getOpcode()==PcodeOp.CALL && op.getNumInputs()>0)target=rva(op.getInput(0).getAddress());
                             ops.add(obj("id",opId(op),"site",rva(op.getSeqnum().getTarget()),"opcode",op.getMnemonic(),"inputs",inputs,
-                                "output",node(op.getOutput()),"dead",op.isDead(),"block",op.getParent()==null?null:op.getParent().getIndex(),"callTarget",target));
+                                "output",node(op.getOutput()),"dead",op.isDead(),"blockMembership",members.contains(op),"block",op.getParent()==null?null:op.getParent().getIndex(),"callTarget",target));
                         }
-                        for(JumpTable table:high.getJumpTables()){
-                            List<String> dest=new ArrayList<>();for(Address a:table.getCases())dest.add(rva(a));
-                            switches.add(obj("switch",rva(table.getSwitchAddress()),"destinations",dest,"labelMapping","not-inferred"));
-                        }
-                        packet.put("flow",obj("status","complete","provenance","ghidra-high-pcode","parameters",params,"operations",ops,"switches",switches,
+                        List<ClangCaseToken> tokens=caseTokens(result.getCCodeMarkup());
+                        for(JumpTable table:high.getJumpTables())switches.add(switchFacts(table,tokens));
+                        packet.put("flow",obj("status","complete","provenance","ghidra-high-pcode","parameters",params,"operations",ops,"switches",switches,"blocks",flowBlocks,
                             "limitations",List.of("Decompiler-derived; not original source or runtime evidence","Memory aliasing and indirect dispatch are unresolved","Recovered parameters are not a verified ABI")));
                         flows++;
                     }

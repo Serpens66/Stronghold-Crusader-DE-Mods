@@ -1,0 +1,115 @@
+Cloning into 'C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\author'...
+warning: You appear to have cloned an empty repository.
+done.
+warning: in the working copy of 'a.txt', LF will be replaced by CRLF the next time Git touches it
+To C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin
+ * [new branch]      main -> main
+Cloning into 'C:/Users/Serpens66/AppData/Local/Temp/ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2/workspace/APIShared'...
+done.
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'a.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'community.txt', LF will be replaced by CRLF the next time Git touches it
+To C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin
+   508176a..b5d0723  main -> main
+HEAD is now at 508176a baseline
+From C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin
+   508176a..b5d0723  main       -> origin/main
+Switched to a new branch 'codex/api-work'
+Merging selected APIShared commit b5d07234d55ca7a5fd3fc237db4223b9c0324f9f into codex/api-work.
+Updating 508176a..b5d0723
+Fast-forward
+ community.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 community.txt
+Update complete. Build/test APIShared; publish its commits, then commit the reviewed submodule pointer in the mod repository.
+warning: in the working copy of 'local.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'community.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'remote.txt', LF will be replaced by CRLF the next time Git touches it
+To C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin
+   b5d0723..905544e  main -> main
+From C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin
+   b5d0723..905544e  main       -> origin/main
+Merging selected APIShared commit 905544e95437059ca76a977f9383eff481d61221 into codex/api-work.
+Merge made by the 'ort' strategy.
+ remote.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 remote.txt
+Update complete. Build/test APIShared; publish its commits, then commit the reviewed submodule pointer in the mod repository.
+APIShared has open changes. Commit or explicitly preserve them before updating.
+warning: in the working copy of 'a.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'a.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'remote.txt', LF will be replaced by CRLF the next time Git touches it
+To C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin
+   905544e..a955bbb  main -> main
+From C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin
+   905544e..a955bbb  main       -> origin/main
+Merging selected APIShared commit a955bbb1a140f09c2accad62695da3c4f76ba11b into codex/api-work.
+Auto-merging a.txt
+CONFLICT (content): Merge conflict in a.txt
+Automatic merge failed; fix conflicts and then commit the result.
+Merge stopped. Conflicting files:
+a.txt
+Resolve the conflicts, then use: git -C "C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\workspace\APIShared" add <files>
+Continue: git -C "C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\workspace\APIShared" merge --continue
+Cancel: git -C "C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\workspace\APIShared" merge --abort
+Nothing was pushed or committed in the mod repository.
+APIShared has open changes. Commit or explicitly preserve them before updating.
+Cloning into 'C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\fresh'...
+done.
+Submodule 'APIShared' (C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\origin) registered for path 'APIShared'
+Cloning into 'C:/Users/Serpens66/AppData/Local/Temp/ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2/fresh/APIShared'...
+done.
+Submodule path 'APIShared': checked out '508176a3af332a5dbec1c36ade82c4c51c9caa76'
+Switched to a new branch 'codex/api-work'
+Merging selected APIShared commit a955bbb1a140f09c2accad62695da3c4f76ba11b into codex/api-work.
+Updating 508176a..a955bbb
+Fast-forward
+ a.txt         | 2 +-
+ community.txt | 1 +
+ remote.txt    | 1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
+ create mode 100644 community.txt
+ create mode 100644 remote.txt
+Update complete. Build/test APIShared; publish its commits, then commit the reviewed submodule pointer in the mod repository.
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+PASS: content-identical commits, retained provenance, changed runtime rejection, package tampering, dirty release rejection, cross-shell fingerprint, local path recovery and child inheritance.
+Build proof fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiSharedProof-fa069ed17f4240a091b9540bd79c2dc5
+warning: in the working copy of 'APIShared/a.txt', LF will be replaced by CRLF the next time Git touches it
+Cloning into 'C:/Users/Serpens66/AppData/Local/Temp/ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2/embedded-history/APIShared'...
+done.
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+HEAD is now at 508176a baseline
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+Cloning into 'C:/Users/Serpens66/AppData/Local/Temp/ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2/release-workspace/APIShared'...
+done.
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+Cloning into 'C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\collision-author'...
+warning: You appear to have cloned an empty repository.
+done.
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+To C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\collision-origin
+ * [new branch]      main -> main
+Cloning into 'C:/Users/Serpens66/AppData/Local/Temp/ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2/collision-workspace/APIShared'...
+done.
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitmodules', LF will be replaced by CRLF the next time Git touches it
+To C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\collision-origin
+   e336ba7..3da4147  main -> main
+From C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2\collision-origin
+   e336ba7..3da4147  main       -> origin/main
+Merging selected APIShared commit 3da414765f00f800235a0d7a2723b2bebce5dc5c into main.
+error: The following untracked working tree files would be overwritten by merge:
+	private.cfg
+Please move or remove them before you merge.
+Aborting
+Updating e336ba7..3da4147
+Git blocked the merge before it started. Address the error above, preserve any local files, then run this helper again.
+Nothing was pushed or committed in the mod repository.
+PASS: initialized/fresh submodules, detached HEAD, divergent changes, open files, conflicts/abort, missing/stale inputs, package tampering, dirty release rejection, cross-shell fingerprint and gitlink source reads.
+Git fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiSharedWorkflow-030cfdaa7fdc41d6a46879a8020ec0d2

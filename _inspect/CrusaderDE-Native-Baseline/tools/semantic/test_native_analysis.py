@@ -18,6 +18,24 @@ def instruction(rva, length=1, flow='Next', regs=(), targets=(), fallthrough=Non
             'fallthrough':a.hx(fallthrough) if fallthrough else None,'flagsRead':flags}
 
 class NativeAnalysisTests(unittest.TestCase):
+    def test_source_changes_allow_feature_and_contract_queries(self):
+        for command in [('feature','fixture'),('summary','0x1000')]:
+            with patch.object(q,'freshness',return_value=({},['source changed: unfinished-mod.cs'])),patch.object(q,'dispatch',return_value={'status':'observations'}):
+                result=q.run(self.db,['--database','fixture',*command])
+            self.assertEqual(result['status'],'observations')
+            self.assertEqual(result['sourceSnapshot']['status'],'stale')
+
+    def test_source_changes_withhold_only_hook_ownership_clearance(self):
+        argv=['--database','fixture','hookcheck','0x1000','--type','X64InlineHook','--backend','RedBird.X64','--minimum','14']
+        for status,expected in [('statically-passed','incomplete'),('conflict','conflict')]:
+            with patch.object(q,'freshness',return_value=({},['source changed: mod.cs'])),patch.object(q,'dispatch',return_value={'status':status,'instructions':[1],'gaps':[]}):
+                result=q.run(self.db,argv)
+            self.assertEqual(result['status'],expected);self.assertEqual(result['instructions'],[1]);self.assertTrue(result['gaps'])
+
+    def test_source_inventory_is_an_observation(self):
+        with patch.object(a,'source_files',return_value=[('mod','mod',Path('new.cs')),('mod','mod',Path('edited.cs'))]),patch.object(a,'sha',return_value='new'):
+            self.assertEqual(a.source_snapshot_changes({'discoveryHashes':{'edited.cs':'old','removed.cs':'old'}}),['edited.cs','new.cs','removed.cs'])
+
     def setUp(self):
         self.db=sqlite3.connect(':memory:')
         self.db.executescript('CREATE TABLE metadata(key,value);CREATE TABLE analysis_functions(binary_hash,rva,payload);CREATE TABLE analysis_profiles(key,payload);CREATE TABLE analysis_features(id,payload);CREATE TABLE xrefs(binary_hash,from_rva,to_rva,type);CREATE TABLE hook_spans(binary_hash,payload);CREATE TABLE function_claims(binary_hash,function_rva,abi_confidence);CREATE TABLE functions(binary_hash,rva,name);')

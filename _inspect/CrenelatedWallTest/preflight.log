@@ -1,0 +1,46 @@
+[2026-10-14 20:17:59.617] CrenelatedWallTest preflight starts
+PASS: APIShared source/metadata/package check - 225 SHA-256 file identities.
+PASS: verified APIShared consumer package and source inputs.
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: Testmods\CrenelatedWallTest, APIShared and explicit project/source dependencies.
+[Preflight] Checking 4 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 4 projects, 31 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 2 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Checking centralized UnitAccess contract...
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.
+PASS: 246 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 6,7s.
+[Preflight] Completed in 13,2s.
+PASS: 1 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+PASS: current native SHA-256, 27 feature functions, Chore-25 dispatch, all three high-bit writers and installed-source event contract. No hooks installed or executable buffers changed.
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+  CrenelatedWallTest.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\CrenelatedWallTest\tests\bin\Debug\net10.0\CrenelatedWallTest.Tests.dll
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.85
+PASS: all production sources type-checked against true Assembly-CSharp, installed SE and unchanged APIShared package; no runtime DLL emitted.
+PASS: 52933 assertions; production runtime compilation, policy, redraw stability, ownership and MessagePack persistence. Real game/peer execution is not inferred.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+  HostClientPresetTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe
+PASS: fear-factor host working state, client lock, sync and persistence
+PASS: captured-gate default, stored false, old preset, client lock, host sync and persistence
+PASS: gate-routing default, stored false, old preset, client lock, host sync and persistence
+PASS: routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels
+PASS: APIShared source/metadata/package check - 225 SHA-256 file identities.
+[2026-10-14 20:18:18.514] PASS: native audit, runtime signatures, CRLF/JSON/lifecycle, shared/dependency, XAML/locales, policy, save codec and host/client presets.

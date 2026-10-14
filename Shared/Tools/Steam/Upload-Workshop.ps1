@@ -226,13 +226,21 @@ function Save-ItemId {
 
 try {
     . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
+    . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
+    $uploadConfig=Get-WorkshopConfiguration
+    $uploadState=Join-Path $uploadConfig.Root '.release-output/SteamWorkshop'
+    if($TestMode -eq 1){$uploadState=Join-Path $uploadState 'test'}
+    $uploadPrepared=[IO.File]::ReadAllText((Join-Path $uploadState ('prepared/'+$Target+'.json')))|ConvertFrom-Json
+    if(-not $uploadPrepared.PSObject.Properties['MainSource']){throw 'Prepare the package again with main isolation before uploading.'}
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=Assert-ApiMainDeliveryIdentity $uploadConfig.Root $uploadPrepared.MainSource
     . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
     $config=Get-WorkshopConfiguration;$test=$TestMode -eq 1;$targetConfig=$config.$Target
     $folder=Get-WorkshopFolder $config $targetConfig $test
     $proof=Assert-WorkshopPreparation $config $targetConfig $test
-    $publisher=Join-Path $config.Root 'APIShared/.local/WorkshopUploader/WorkshopUploader.exe'
+    $apiRoot=Get-WorkshopApiRoot $config.Root
+    $publisher=Join-Path $apiRoot '.local/WorkshopUploader/WorkshopUploader.exe'
     if(-not(Test-Path -LiteralPath $publisher)){throw 'Build APIShared/tools/WorkshopUploader/build.bat first.'}
-    Assert-WorkshopPublisherBuild (Join-Path $config.Root 'APIShared')
+    Assert-WorkshopPublisherBuild $apiRoot
     $state=Get-WorkshopStateRoot $config $test
     $id=Get-WorkshopItemId $config $targetConfig $test
     $itemPath=Join-Path $state ('items/'+$config.AppId+'-'+$Target+'.item-id')

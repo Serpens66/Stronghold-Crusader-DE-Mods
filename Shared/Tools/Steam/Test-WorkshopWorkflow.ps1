@@ -43,6 +43,7 @@ $function=$ast.Find({param($node) $node -is [Management.Automation.Language.Func
 . ([scriptblock]::Create($function.Extent.Text))
 function Get-Sha256([string]$Path){Get-WorkshopFileHash $Path}
 $script:Root=$fixture;$ApiSharedWorkshopItemId='123'
+$script:ApiMainRoot=Join-Path $fixture 'APIShared'
 foreach($relative in @('SerpsModsHost/src/Host.cs','SerpsModsHost/obj/generated.cs','Shared/Tools/Steam/Prepare-SerpsModsWorkshop.ps1','APIShared/tools/Prepare-WorkshopPackage.ps1','APIShared/tools/New-WorkshopBootstrap.ps1','APIShared/tools/WorkshopPackage.ps1')){$path=Join-Path $fixture $relative;[void][IO.Directory]::CreateDirectory((Split-Path -Parent $path));[IO.File]::WriteAllText($path,'fixture')}
 $history=@([pscustomobject]@{PackVersion='1.0.1';MapSha256=('a'*64)})
 $before=Get-HostContentSignature -Mods @() -HistoricalUploads $history
@@ -60,3 +61,5 @@ Write-Host "PASS: $checks Workshop workflow checks. Fixtures: $fixture"
 if ($LASTEXITCODE -ne 0) { throw 'Bootstrap environment regression failed.' }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-WorkshopCacheAndChangelog.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Workshop cache/changelog regression failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '../ApiSharedRepository/Test-MainSource.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Pinned main/PR/Workshop BAT regression failed.' }

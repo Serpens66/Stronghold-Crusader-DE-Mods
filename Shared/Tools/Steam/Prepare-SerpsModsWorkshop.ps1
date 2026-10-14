@@ -5,7 +5,8 @@ $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 Initialize-WorkshopBootstrapEnvironment $workspace
-. (Join-Path $workspace 'APIShared/tools/WorkshopPackage.ps1')
+$apiRoot=Get-WorkshopApiRoot $workspace
+. (Join-Path $apiRoot 'tools/WorkshopPackage.ps1')
 $info=[IO.File]::ReadAllText((Join-Path $HostPackage 'info.json')) | ConvertFrom-Json
 if ($info.GUID -cne 'SerpsMods_Serp') { throw 'Expected the existing SerpsMods host identity.' }
 foreach ($legacy in $LegacyReleases) { if ([version]$info.Version -le [version]$legacy.Version) { throw 'First bootstrap and payload versions must be newer than every audited legacy delivery.' } }
@@ -18,7 +19,7 @@ foreach ($directory in @($OutputDirectory,$bootstrapSource,$bootstrapStage)) {
 }
 # Retain the old host identity and map basename; only the bootstrap receives an additional folder/GUID.
 $bootstrapGuid='SerpsModsWorkshopBootstrap_Serp'
-& (Join-Path $workspace 'APIShared/tools/New-WorkshopBootstrap.ps1') -Directory $bootstrapSource -Guid $bootstrapGuid -Name 'Serps Mods' -Version $info.Version -MinimumAPISharedVersion $APISharedVersion -APISharedWorkshopId $APISharedWorkshopId
+& (Join-Path $apiRoot 'tools/New-WorkshopBootstrap.ps1') -Directory $bootstrapSource -Guid $bootstrapGuid -Name 'Serps Mods' -Version $info.Version -MinimumAPISharedVersion $APISharedVersion -APISharedWorkshopId $APISharedWorkshopId
 & (Join-Path $bootstrapSource 'build.bat') /nopause | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'Workshop bootstrap build failed.' }
 $bootstrapPlugin=Join-Path $bootstrapStage ('BepInEx/plugins/'+$bootstrapGuid)
@@ -37,5 +38,5 @@ $plugins=Join-Path $OutputDirectory 'Payload/BepInEx/plugins'
 Copy-Item -LiteralPath $HostPackage -Destination (Join-Path $plugins 'SerpsMods_Serp') -Recurse
 if (Test-Path -LiteralPath (Join-Path $plugins 'SerpsMods_Serp/Infrastructure/APIShared_Serp')) { throw 'Payload must not embed APIShared.' }
 $dependency=[ordered]@{Guid='APIShared_Serp';MinimumVersion=$APISharedVersion;MaximumVersion='';WorkshopId=$APISharedWorkshopId}
-$manifest=& (Join-Path $workspace 'APIShared/tools/Prepare-WorkshopPackage.ps1') -Directory $OutputDirectory -PackageId 'SerpsMods_Serp' -Version $info.Version -MinimumAPISharedVersion $APISharedVersion -MinimumScriptExtenderVersion $info.MinimumScriptExtenderVersion -BootstrapMap 'SerpsMods.map' -BootstrapGuid $bootstrapGuid -BootstrapVersion $info.Version -BootstrapFolder ('BepInEx/plugins/'+$bootstrapGuid) -Dependencies @($dependency) -LegacyReleases $LegacyReleases
+$manifest=& (Join-Path $apiRoot 'tools/Prepare-WorkshopPackage.ps1') -Directory $OutputDirectory -PackageId 'SerpsMods_Serp' -Version $info.Version -MinimumAPISharedVersion $APISharedVersion -MinimumScriptExtenderVersion $info.MinimumScriptExtenderVersion -BootstrapMap 'SerpsMods.map' -BootstrapGuid $bootstrapGuid -BootstrapVersion $info.Version -BootstrapFolder ('BepInEx/plugins/'+$bootstrapGuid) -Dependencies @($dependency) -LegacyReleases $LegacyReleases
 return [pscustomobject]@{Directory=$OutputDirectory;MapPath=$map;Manifest=$manifest;BootstrapGuid=$bootstrapGuid;BootstrapVersion=[string]$info.Version}

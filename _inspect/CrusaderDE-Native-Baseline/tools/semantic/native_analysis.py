@@ -11,13 +11,14 @@ import re
 import sqlite3
 import subprocess
 import shutil
+import uuid
 
 TOOL = Path(__file__).resolve().parent
 BASELINE = TOOL.parent.parent
 WORKSPACE = BASELINE.parent.parent
 FIXES = WORKSPACE.parent / "Fremde Mods" / "shcde-fixes-main"
-COMMANDS = {"instructions", "flow", "trace", "global", "feature", "hookcheck", "coverage"}
-ANALYSIS_TABLES = ["analysis_functions", "analysis_features", "analysis_sources", "analysis_profiles"]
+COMMANDS = {"instructions", "flow", "trace", "global", "feature", "hookcheck", "coverage", "slice", "memory", "switch", "summary", "type", "changes"}
+ANALYSIS_TABLES = ["analysis_functions", "analysis_features", "analysis_sources", "analysis_profiles", "analysis_memory", "analysis_contracts", "analysis_layouts", "analysis_changes"]
 
 def sha(path):
     h = hashlib.sha256()
@@ -66,13 +67,21 @@ def mentioned(text):
     # Coordinates in prose are evidence candidates, never automatic function/field claims.
     return sorted(set(coordinate(x) for x in re.findall(r"\b0x[0-9a-fA-F]+\b", text)))
 
-def inventory(semantic, binary_hash):
+def source_files():
+    for owner,root in [('workspace',WORKSPACE),('script-extender',WORKSPACE/'shcde-script-extender'),('fixes',FIXES),('APIShared',WORKSPACE/'APIShared')]:
+        for path in sorted(root.rglob('*.cs')):
+            relative=path.relative_to(root)
+            if any(p in {'bin','obj','.git','_inspect','.tools','.native-analysis','tests'} for p in relative.parts):continue
+            if owner=='workspace' and relative.parts[0] in {'APIShared','shcde-script-extender'}:continue
+            yield owner,root,path
+
+def inventory(semantic, binary_hash, discovery=None):
     fs = functions(semantic); by_entry = {coordinate(f["rva"]): f["rva"] for f in fs}
     claims = list(read_jsonl(semantic / "knowledge" / "function-claims.jsonl"))
     spans = list(read_jsonl(semantic / "knowledge" / "hook-spans.jsonl"))
     docs, roots = [], set()
     for path in sorted((semantic / "knowledge").glob("*.md")):
-        text = path.read_text(encoding="utf-8")
+        raw=path.read_bytes();text=raw.decode('utf-8');captured_hash=hashlib.sha256(raw).hexdigest().upper()
         nums = mentioned(text)
         if path.stem == "MARKET_PRICE_QUERIES": nums += [0xCEB10,0xCEB90,0x29650,0x3EC90,0x29700,0xD78C0,0xD7AD0]
         entries = sorted({by_entry[n] for n in nums if n in by_entry}, key=coordinate)
@@ -80,7 +89,7 @@ def inventory(semantic, binary_hash):
         own_claims = [c for c in claims if coordinate(c["functionRva"]) in nums]
         own_spans = [s for s in spans if coordinate(s["startRva"]) in nums or s["claimId"] in {c["claimId"] for c in own_claims}]
         docs.append({"id": path.stem.lower().replace("_", "-"), "title": text.splitlines()[0].lstrip("# "),
-            "binaryHash": binary_hash, "source": path.relative_to(WORKSPACE).as_posix(), "sourceSha256": sha(path),
+            "binaryHash": binary_hash, "source": path.relative_to(WORKSPACE).as_posix(), "sourceSha256": captured_hash,
             "declaredHashes": sorted(set(re.findall(r"\b[0-9A-Fa-f]{64}\b", text))),
             "currentHashMentioned": binary_hash.lower() in text.lower(), "entrypoints": entries,
             "coordinateCandidates": [hx(n) for n in nums], "claims": own_claims, "hookSpans": own_spans,
@@ -93,12 +102,11 @@ def inventory(semantic, binary_hash):
     roots.update(c["functionRva"] for c in claims if c["binaryHash"] == binary_hash)
     roots.update(f["rva"] for f in fs if f.get("name", "").startswith("DLL_"))
     source_rows = []
-    for owner, root in [("workspace", WORKSPACE),("script-extender", WORKSPACE / "shcde-script-extender"),("fixes", FIXES),("APIShared", WORKSPACE / "APIShared")]:
-        for path in sorted(root.rglob("*.cs")):
+    for owner, root, path in source_files():
             relative = path.relative_to(root)
-            if any(p in {"bin","obj",".git","_inspect",".tools",".native-analysis","tests"} for p in relative.parts): continue
-            if owner == "workspace" and relative.parts[0] in {"APIShared","shcde-script-extender"}: continue
-            text = path.read_text(encoding="utf-8-sig")
+            raw=path.read_bytes();captured_hash=hashlib.sha256(raw).hexdigest().upper()
+            if discovery is not None:discovery[str(path)]=captured_hash
+            text = raw.decode('utf-8-sig')
             candidates = []
             for line_number,line in enumerate(text.splitlines(),1):
                 if re.search(r"AddDetour|InlineHook|ContextHook|HookTarget|HookSize|OnKeyDown|Subscribe\(|event |DllImport|NativePointer|RVA",line):
@@ -107,7 +115,7 @@ def inventory(semantic, binary_hash):
             if candidates:
                 coordinates = set(mentioned(text)); entries = [by_entry[n] for n in coordinates if n in by_entry]
                 roots.update(entries)
-                source_rows.append({"owner":owner,"path":str(path),"relativePath":relative.as_posix(),"sha256":sha(path),
+                source_rows.append({"owner":owner,"path":str(path),"relativePath":relative.as_posix(),"sha256":captured_hash,
                                     "entryCandidates":entries,"observations":candidates})
     # Expand native callees to a fixed point. No depth cut masquerading as a feature boundary.
     graph = {f["rva"]: [x for x in f.get("calleeRvas",[]) if x] for f in fs}
@@ -131,7 +139,13 @@ def prepare():
     native = next(b for b in manifest["binaries"] if b["role"]=="current-native")["sourcePath"]
     managed = next(b for b in manifest["binaries"] if b["role"]=="current-managed")["sourcePath"]
     if sha(native)!=current["currentNativeHash"] or sha(managed)!=manifest["identities"]["managedHash"]: raise ValueError("Installed binary mismatch")
-    docs,sources,roots=inventory(semantic,current["currentNativeHash"])
+    discovery={}
+    docs,sources,roots=inventory(semantic,current["currentNativeHash"],discovery)
+    comparison=BASELINE/'diff'/(manifest['identities']['oldNativeHash'][:8]+'-'+current['currentNativeHash'][:8])
+    historical_native=next(b for b in manifest['binaries'] if b['role']=='historical-native')['sourcePath']
+    if sha(historical_native)!=manifest['identities']['oldNativeHash']:raise ValueError('Historical native binary mismatch')
+    matches=list(read_jsonl(comparison/'version-matches.jsonl'))
+    historical_selection=sorted({m['oldRva'] for m in matches if m['newRva'] in set(roots)},key=coordinate)
     installed=Path(managed).parents[2] / "BepInEx" / "plugins" / "000shcdese"
     backends={name:{"path":str(installed / name),"sha256":sha(installed / name)} for name in ["Iced.dll","RedBird.X64.dll","RedBird.Backends.NativeX64.dll","SHCDESE.dll"]}
     profile={"schemaVersion":1,"binaryHash":current["currentNativeHash"],"managedHash":manifest["identities"]["managedHash"],
@@ -140,14 +154,31 @@ def prepare():
         "exporterSha256":sha(TOOL/"ExportNativeAnalysis.java"),"decoderSourceSha256":sha(TOOL/"NativeFacts"/"Program.cs"),
         "analysisSourceSha256":sha(__file__),"functionExportSha256":sha(semantic/"exports"/"semantic-functions.jsonl"),
         "querySourceSha256":sha(TOOL/"native_queries.py"),"driverSha256":sha(TOOL/"Run-NativeAnalysis.ps1"),
+        "advancedSources":{name:sha(TOOL/name) for name in ['value_slices.py','memory_accesses.py','advanced_analysis.py','baseline_publication.py','audited-models.json','version_behaviour.py',
+            'query.py','database_manifest.py','semantic_tools.py','Test-NativeAnalysis.ps1','validate_native_analysis.py',
+            'switch_fixture.py','ConfigureSwitchFixture.java','Test-SwitchExport.ps1','validate_switch_fixture.py',
+            'NativeFacts/NativeFacts.csproj','NativeFacts.Tests/Program.cs','NativeFacts.Tests/NativeFacts.Tests.csproj']},
+        "discoveryHashes":discovery,
         "selection":roots,"documentHashes":{d["id"]:d["sourceSha256"] for d in docs},"sourceHashes":{s["path"]:s["sha256"] for s in sources}}
     project=semantic/"ghidra"
     profile["projectHashes"]={p.relative_to(BASELINE).as_posix():sha(p) for p in project.rglob('*') if p.is_file() and p.suffix not in {'.lock','.ulock'}}
+    history_project=comparison/'ghidra'
+    history_project_hashes={p.relative_to(BASELINE).as_posix():sha(p) for p in history_project.rglob('*') if p.is_file() and p.suffix not in {'.lock','.ulock'}}
+    history_inputs={'binaryHash':manifest['identities']['oldNativeHash'],'nativePath':historical_native,'selection':historical_selection,
+        'comparisonDirectory':comparison.relative_to(BASELINE).as_posix(),'exporterSha256':profile['exporterSha256'],
+        'decoderSourceSha256':profile['decoderSourceSha256'],'icedSha256':backends['Iced.dll']['sha256'],
+        'functionExportSha256':sha(comparison/'exports/semantic-functions.jsonl'),'projectHashes':history_project_hashes,
+        'matchesSha256':sha(comparison/'version-matches.jsonl')}
+    history_facts={k:v for k,v in history_inputs.items() if k not in {'selection','nativePath','comparisonDirectory','matchesSha256'}}
+    history_inputs['factsDigest']=hashlib.sha256(json.dumps(history_facts,sort_keys=True).encode()).hexdigest().upper()
+    profile['historical']=history_inputs
+    profile['projectHashes'].update(history_project_hashes)
     # Git worktree status is recorded, not used to invalidate caches for generated outputs.
     committed={k:v for k,v in profile.items() if k!="sources"}
     committed["sourceIdentities"]=[{k:v for k,v in s.items() if k!="changes"} for s in profile["sources"]]
     digest=hashlib.sha256(json.dumps(committed,sort_keys=True).encode()).hexdigest().upper();profile["digest"]=digest
-    fact_inputs={k:profile[k] for k in ["binaryHash","ghidraVersion","exporterSha256","decoderSourceSha256","functionExportSha256","projectHashes"]}
+    fact_inputs={k:profile[k] for k in ["binaryHash","ghidraVersion","exporterSha256","decoderSourceSha256","functionExportSha256"]}
+    fact_inputs['projectHashes']={k:v for k,v in profile['projectHashes'].items() if k.startswith(semantic.relative_to(BASELINE).as_posix()+'/')}
     fact_inputs["icedSha256"]=backends["Iced.dll"]["sha256"]
     profile["factsDigest"]=hashlib.sha256(json.dumps(fact_inputs,sort_keys=True).encode()).hexdigest().upper()
     generation=semantic/"analysis"/("g"+digest[:12]); generation.mkdir(parents=True,exist_ok=True)
@@ -157,15 +188,27 @@ def prepare():
         print(json.dumps({"generation":str(generation),"digest":digest,"features":len(docs),"selectedFunctions":len(roots),"reusedPublished":True}))
         return
     work=generation/"work";work.mkdir(exist_ok=True)
+    history_work=generation/'historical/work';history_work.mkdir(parents=True,exist_ok=True)
     for previous in sorted((semantic/"analysis").glob("g*/profile.json")):
         old=json.loads(previous.read_text(encoding="utf-8"))
         if previous.parent!=generation and old.get("factsDigest")==profile["factsDigest"]:
+            diagnostic_source=previous.parent/'decompiler-diagnostics.json'
+            if diagnostic_source.exists() and not (generation/diagnostic_source.name).exists():shutil.copyfile(diagnostic_source,generation/diagnostic_source.name)
             for p in (previous.parent/"work").glob("*.json"):
                 if p.name!="COMPLETE.json" and not (work/p.name).exists():shutil.copyfile(p,work/p.name)
                 checksum=p.with_name(p.name+'.sha256')
                 if p.name!="COMPLETE.json" and checksum.exists() and not (work/checksum.name).exists():shutil.copyfile(checksum,work/checksum.name)
+        if previous.parent!=generation and old.get('historical',{}).get('factsDigest')==history_inputs['factsDigest']:
+            diagnostic_source=previous.parent/'historical/decompiler-diagnostics.json'
+            diagnostic_target=generation/'historical/decompiler-diagnostics.json'
+            if diagnostic_source.exists() and not diagnostic_target.exists():shutil.copyfile(diagnostic_source,diagnostic_target)
+            for p in (previous.parent/'historical/work').glob('*.json'):
+                if p.name=='COMPLETE.json':continue
+                for source_file in [p,p.with_name(p.name+'.sha256')]:
+                    if source_file.exists() and not (history_work/source_file.name).exists():shutil.copyfile(source_file,history_work/source_file.name)
     write(generation/"profile.json",profile);write(generation/"features.json",docs);write(generation/"sources.json",sources)
     (generation/"selection.txt").write_text("\r\n".join(roots)+"\r\n",encoding="utf-8",newline="")
+    (generation/'historical/selection.txt').write_text('\r\n'.join(historical_selection)+'\r\n',encoding='utf-8',newline='')
     write(semantic/"analysis"/"pending.json",{"generation":str(generation),"digest":digest})
     print(json.dumps({"generation":str(generation),"digest":digest,"features":len(docs),"selectedFunctions":len(roots)},ensure_ascii=False))
 
@@ -252,42 +295,62 @@ def import_analysis(connection, semantic, generation=None):
     flush()
     for name,table,key in [("features.json","analysis_features","id"),("sources.json","analysis_sources","path")]:
         for row in json.loads((generation/name).read_text(encoding="utf-8")):connection.execute(f"INSERT INTO {table} VALUES(?,?)",(row[key],json.dumps(row)))
+    from advanced_analysis import import_exports
+    import_exports(connection,generation)
+    from version_behaviour import import_exports as import_changes
+    import_changes(connection,generation)
 
-def validate_packets(generation):
-    profile=json.loads((generation/"profile.json").read_text(encoding="utf-8"));packets=[]
-    complete=json.loads((generation/"work"/"COMPLETE.json").read_text(encoding="utf-8"))
+def iter_packets(generation,profile=None,expected_functions=None,work=None):
+    profile=profile or json.loads((generation/"profile.json").read_text(encoding="utf-8"));seen=set()
+    work=work or generation/'work'
+    diagnostic_log=work.parent/'ghidra.log'
+    diagnostics=collections.defaultdict(set)
+    retained=work.parent/'decompiler-diagnostics.json'
+    if retained.exists():
+        captured=json.loads(retained.read_text(encoding='utf-8'))
+        if captured['binaryHash']!=profile['binaryHash'] or captured['factsDigest']!=profile['factsDigest']:raise ValueError('Diagnostic capture identity mismatch')
+        for row in captured['functions']:diagnostics[row['function']].update(row['messages'])
+    if diagnostic_log.exists():
+        for line in diagnostic_log.read_text(encoding='utf-8',errors='replace').splitlines():
+            match=re.search(r'Decompiling\s+([0-9a-fA-F]+)(?:,|:)\s*(.+)',line)
+            if match:diagnostics[hx(coordinate(match[1]))].add(match[2].strip())
+    write(retained,{'binaryHash':profile['binaryHash'],'factsDigest':profile['factsDigest'],
+        'functions':[{'function':f,'messages':sorted(messages)} for f,messages in sorted(diagnostics.items())]})
+    complete=json.loads((work/"COMPLETE.json").read_text(encoding="utf-8"))
     if complete['profile']!=profile['factsDigest'] or complete['binaryHash']!=profile['binaryHash']:raise ValueError('Completion profile mismatch')
-    for path in sorted((generation/"work").glob("*.json")):
-        if path.name=="COMPLETE.json":continue
+    for path in sorted(work.glob("*.json")):
+        if path.name in {"COMPLETE.json", "TYPES.json"}:continue
         row=json.loads(path.read_text(encoding="utf-8"))
         if path.with_name(path.name+'.sha256').read_text(encoding='utf-8').strip()!=sha(path):raise ValueError('Checkpoint integrity mismatch')
         if row["binaryHash"]!=profile["binaryHash"] or row["profile"]!=profile["factsDigest"]:raise ValueError("Stale packet")
         if row.get("icedStatus")!="complete":raise ValueError("Missing decoder verification")
         if row.get('icedAssemblySha256')!=profile['installed']['Iced.dll']['sha256']:raise ValueError('Actual decoder assembly differs from captured installed Iced')
+        if row['functionRva'] in seen:raise ValueError('Duplicate function checkpoint')
+        seen.add(row['functionRva'])
+        row['flow']['diagnostics']=sorted(diagnostics[row['functionRva']])
         if row['functionRva'] in profile['selection'] and row['flow']['status']=='not-selected':raise ValueError('Requested flow missing after interrupted export')
         for ins in row["instructions"]:
             if len(ins["bytes"])!=ins["length"]*2:raise ValueError("Invalid instruction byte count")
             n=coordinate(ins["rva"])
-            if not any(coordinate(r["start"])<=n<=coordinate(r["endInclusive"]) for r in row["ranges"]):raise ValueError("Instruction outside function body")
+            if not any(coordinate(r["start"])<=n and n+ins['length']-1<=coordinate(r["endInclusive"]) for r in row["ranges"]):raise ValueError("Instruction outside function body")
         ids={op["id"] for op in row["flow"].get("operations",[])}
         for op in row["flow"].get("operations",[]):
             for v in op["inputs"]:
                 if v.get("definition") and v["definition"] not in ids:raise ValueError("Dangling def-use edge")
-        packets.append(row)
-    if len(packets)!=complete["functions"]:raise ValueError("Interrupted machine export")
-    _,_,semantic=identity()
-    if {p["functionRva"] for p in packets}!={f["rva"] for f in functions(semantic)}:raise ValueError("Function coverage mismatch")
-    return profile,packets
+        yield row
+    if len(seen)!=complete["functions"]:raise ValueError("Interrupted machine export")
+    if expected_functions is None:
+        _,_,semantic=identity();expected_functions=functions(semantic)
+    if seen!={f["rva"] for f in expected_functions}:raise ValueError("Function coverage mismatch")
 
-def finalize(generation):
-    profile,packets=validate_packets(generation)
-    _,_,semantic=identity()
-    claims=list(read_jsonl(semantic/"knowledge"/"function-claims.jsonl"))
-    verified={c["functionRva"] for c in claims if c.get("abiConfidence")=="confirmed" and c["binaryHash"]==profile["binaryHash"]}
+def validate_packets(generation):
+    profile=json.loads((generation/'profile.json').read_text(encoding='utf-8'))
+    return profile,list(iter_packets(generation,profile))
+
+def write_packets(generation,packets,prefix='facts'):
     writer=None;shard=-1;shard_bytes=0
     try:
         for packet in packets:
-            packet["verifiedAbi"]=packet["functionRva"] in verified
             machine_liveness(packet)
             header=dict(packet);header.pop('instructions');header['flow']=dict(packet['flow']);operations=header['flow'].pop('operations',[])
             header['expectedCounts']={'instructions':len(packet['instructions']),'operations':len(operations)}
@@ -295,18 +358,70 @@ def finalize(generation):
             for kind,items in [('instructions',packet['instructions']),('operations',operations)]:
                 records.extend({'recordType':kind,'functionRva':packet['functionRva'],'offset':offset,'items':items[offset:offset+256]} for offset in range(0,len(items),256))
             for record in records:
-                line=json.dumps(record,ensure_ascii=False,separators=(",",":"))+'\r\n';size=len(line.encode('utf-8'))
+                line=json.dumps(record,ensure_ascii=False,separators=(',',':'))+'\r\n';size=len(line.encode('utf-8'))
                 if size>32*1024*1024:raise ValueError('Single bounded record exceeds export size ceiling')
                 if writer is None or shard_bytes+size>32*1024*1024:
                     if writer:writer.close()
-                    shard+=1;shard_bytes=0;writer=(generation/f'facts-{shard:03X}.jsonl').open('w',encoding='utf-8',newline='')
+                    shard+=1;shard_bytes=0;writer=(generation/f'{prefix}-{shard:03X}.jsonl').open('w',encoding='utf-8',newline='')
                 writer.write(line);shard_bytes+=size
     finally:
         if writer:writer.close()
+
+def export_history(generation,current_packets,features):
+    from version_behaviour import compare
+    profile=json.loads((generation/'profile.json').read_text(encoding='utf-8'));history=profile['historical']
+    comparison=BASELINE/history['comparisonDirectory']
+    matches=list(read_jsonl(comparison/'version-matches.jsonl'));old_matches=collections.defaultdict(list)
+    confirmed=collections.defaultdict(set)
+    for match in matches:
+        old_matches[match['oldRva']].append(match)
+        if match['confidence']=='confirmed':confirmed[match['oldRva']].add(match['newRva'])
+    call_map={k:next(iter(v)) for k,v in confirmed.items() if len(v)==1}
+    current={p['functionRva']:p for p in current_packets};membership=collections.defaultdict(set)
+    for feature in features:
+        for rva in feature['relatedFunctions']:membership[rva].add(feature['id'])
+    history_profile={**history,'installed':profile['installed']}
+    old_types=generation/'historical/work/TYPES.json'
+    if old_types.with_name(old_types.name+'.sha256').read_text().strip()!=sha(old_types):raise ValueError('Historical types checkpoint integrity failure')
+    captured_types=json.loads(old_types.read_text(encoding='utf-8'))
+    if captured_types['binaryHash']!=history['binaryHash'] or captured_types['profile']!=history['factsDigest']:raise ValueError('Historical type identity mismatch')
+    write(generation/'historical-types.json',captured_types)
+    status=collections.Counter();count=0;writer=None;shard=-1;size_so_far=0
+    def packets_and_changes():
+        nonlocal count,writer,shard,size_so_far
+        for index,old in enumerate(iter_packets(generation,history_profile,list(read_jsonl(comparison/'exports/semantic-functions.jsonl')),generation/'historical/work')):
+            if any(not i.get('icedVerified') for i in old['instructions']):raise ValueError('Historical decoder disagreement; comparison withheld')
+            old['verifiedAbi']=False
+            for match in old_matches[old['functionRva']]:
+                if match['newRva'] not in current:continue
+                row=compare(old,current[match['newRva']],match,call_map,membership[match['newRva']])
+                line=json.dumps(row,ensure_ascii=False,separators=(',',':'))+'\r\n';size=len(line.encode('utf-8'))
+                if size>32*1024*1024:raise ValueError('Version observation exceeds shard ceiling')
+                if writer is None or size_so_far+size>32*1024*1024:
+                    if writer:writer.close()
+                    shard+=1;size_so_far=0;writer=(generation/f'changes-{shard:03X}.jsonl').open('w',encoding='utf-8',newline='')
+                writer.write(line);size_so_far+=size;count+=1;status[row['completeness']]+=1
+            if index%100==0:print(f'HISTORICAL_PROGRESS functions={index+1} comparisons={count}',flush=True)
+            yield old
+    try:write_packets(generation,packets_and_changes(),'historical-facts')
+    finally:
+        if writer:writer.close()
+    return {'comparisons':count,'coverage':dict(status),'historicalHash':history['binaryHash']}
+
+def finalize(generation):
+    profile,packets=validate_packets(generation)
+    _,_,semantic=identity()
+    claims=list(read_jsonl(semantic/"knowledge"/"function-claims.jsonl"))
+    verified={c["functionRva"] for c in claims if c.get("abiConfidence")=="confirmed" and c["binaryHash"]==profile["binaryHash"]}
+    for packet in packets:packet['verifiedAbi']=packet['functionRva'] in verified
+    write_packets(generation,packets)
+    from advanced_analysis import export as export_advanced
+    advanced=export_advanced(generation,packets,BASELINE,TOOL/'audited-models.json',sha,write)
+    history=export_history(generation,packets,json.loads((generation/'features.json').read_text(encoding='utf-8')))
     coverage={"binaryHash":profile["binaryHash"],"functions":len(packets),"selected":len(profile["selection"]),
         "flowStatuses":dict(collections.Counter(p["flow"]["status"] for p in packets)),
         "decoderDisagreements":sum(not i.get("icedVerified") for p in packets for i in p["instructions"]),
-        "instructions":sum(len(p["instructions"]) for p in packets),"features":len(json.loads((generation/"features.json").read_text())),
+        "instructions":sum(len(p["instructions"]) for p in packets),"features":len(json.loads((generation/"features.json").read_text())),"advanced":advanced,"history":history,
         "limitations":["Static analysis is not runtime evidence.","Feature roots and source coordinates are discovery evidence unless separately audited."]}
     write(generation/"coverage.json",coverage)
     enrich_features(generation,packets,semantic)
@@ -354,53 +469,85 @@ def backend_profiles(generation, profile):
                "evidence":[sha(generation/"backend"/"jumps.cs"),sha(generation/"backend"/"prologue.cs")],
                "selection":"instruction-rounded-self-branch-widening","followJumps":False}}
 
+def source_snapshot_changes(profile):
+    captured=profile.get('discoveryHashes',profile.get('sourceHashes',{}))
+    actual={str(path):sha(path) for _,_,path in source_files()}
+    return sorted(path for path in set(captured)|set(actual) if captured.get(path)!=actual.get(path))
+
 def publish(generation):
     from database_manifest import database_facts, verify_inputs
+    from baseline_publication import fingerprint,publication_guard
     current,manifest,semantic=identity()
+    manifest_path=BASELINE/current['databaseManifest'];expected_manifest=fingerprint(manifest_path)
+    expected_pointer=fingerprint(BASELINE/'CURRENT.json')
     verify_inputs(manifest,BASELINE)
     profile=json.loads((generation/"profile.json").read_text(encoding="utf-8"))
+    def verify_discovery():
+        features=json.loads((generation/'features.json').read_text(encoding='utf-8'))
+        captured={f['source'] for f in features}
+        current_docs={p.relative_to(WORKSPACE).as_posix() for p in (semantic/'knowledge').glob('*.md')}
+        if current_docs!=captured:raise ValueError('Knowledge document inventory changed; new entries must be captured before publication')
+        if sha(semantic/'exports/semantic-functions.jsonl')!=profile['functionExportSha256']:
+            raise ValueError('Semantic function export changed during analysis')
     if manifest.get("analysis",{}).get("digest")==profile["digest"]:
         print(json.dumps({"status":"reused-published","digest":profile["digest"]}));return
     for key,path in [("exporterSha256",TOOL/"ExportNativeAnalysis.java"),("decoderSourceSha256",TOOL/"NativeFacts/Program.cs"),("analysisSourceSha256",Path(__file__)),("querySourceSha256",TOOL/"native_queries.py"),("driverSha256",TOOL/"Run-NativeAnalysis.ps1")]:
         if sha(path)!=profile[key]:raise ValueError("Analysis implementation changed during run; rerun Analysis to reuse unchanged machine facts")
+    for name,digest in profile.get('advancedSources',{}).items():
+        if sha(TOOL/name)!=digest:raise ValueError('Advanced analysis implementation changed during run')
+    verify_discovery()
     if sha(profile["nativePath"])!=profile["binaryHash"]:raise ValueError("Native changed during analysis")
+    history=profile['historical']
+    if sha(history['nativePath'])!=history['binaryHash']:raise ValueError('Historical native changed during analysis')
+    comparison=BASELINE/history['comparisonDirectory']
+    if sha(comparison/'version-matches.jsonl')!=history['matchesSha256'] or sha(comparison/'exports/semantic-functions.jsonl')!=history['functionExportSha256']:
+        raise ValueError('Historical reference exports changed during analysis')
     for assembly in profile["installed"].values():
         if sha(assembly["path"])!=assembly["sha256"]:raise ValueError("Backend changed during analysis")
     for path,digest in profile["projectHashes"].items():
         if sha(BASELINE/path)!=digest:raise ValueError("Reference Ghidra project changed")
-    for source in json.loads((generation/"sources.json").read_text(encoding="utf-8")):
-        if sha(source["path"])!=source["sha256"]:raise ValueError("Source changed during analysis")
     for feature in json.loads((generation/"features.json").read_text(encoding="utf-8")):
         if sha(WORKSPACE/feature["source"])!=feature["sourceSha256"]:raise ValueError("Audit changed during analysis")
     profiles=backend_profiles(generation,profile);write(generation/"backends.json",profiles)
     original=BASELINE/manifest["database"]["path"]
-    target=generation/"index.sqlite";temporary=generation/"index.sqlite-building"
+    # Never overwrite a candidate that another writer may already have selected.
+    # Each publisher owns a distinct immutable database; the manifest alone selects it.
+    target=generation/('index-'+uuid.uuid4().hex[:12]+'.sqlite');temporary=target.with_name(target.name+'-building')
     source=sqlite3.connect(original.resolve().as_uri()+"?mode=ro",uri=True);connection=sqlite3.connect(temporary)
     try:
         source.backup(connection)
         for table in ANALYSIS_TABLES:connection.execute(f"DROP TABLE IF EXISTS {table}")
         connection.commit()
         import_analysis(connection,semantic,generation)
-        connection.execute("UPDATE metadata SET value='5' WHERE key='schema_version'")
+        connection.execute("UPDATE metadata SET value='6' WHERE key='schema_version'")
         connection.commit()
         if connection.execute("PRAGMA integrity_check").fetchone()[0]!="ok":raise ValueError("Index integrity failure")
     finally:source.close();connection.close()
     os.replace(temporary,target)
     facts=database_facts(target)
     updated=json.loads(json.dumps(manifest));updated["manifestSchemaVersion"]=3
-    updated["database"].update(path=target.relative_to(BASELINE).as_posix(),schemaVersion=5,referenceSize=target.stat().st_size,
+    updated["database"].update(path=target.relative_to(BASELINE).as_posix(),schemaVersion=6,referenceSize=target.stat().st_size,
         referenceSha256=sha(target),referenceSqliteVersion=facts["sqliteVersion"])
     updated["validation"].update(counts=facts["counts"])
     updated["analysis"]={"generation":generation.relative_to(BASELINE).as_posix(),"digest":profile["digest"],"profileSchemaVersion":1}
     previous_generation=manifest.get("analysis",{}).get("generation")
     if previous_generation:updated["inputs"]=[x for x in updated["inputs"] if not x["path"].startswith(previous_generation+"/")]
-    paths=list(generation.glob("facts-*.jsonl"))+[generation/x for x in ["profile.json","features.json","sources.json","coverage.json","backends.json"]]+list((generation/"backend").glob("*.cs"))
+    paths=list(generation.glob("facts-*.jsonl"))+list(generation.glob('historical-facts-*.jsonl'))+list(generation.glob('changes-*.jsonl'))+list(generation.glob('memory-*.jsonl'))+[generation/x for x in ["profile.json","features.json","sources.json","coverage.json","backends.json","advanced.json","historical-types.json","decompiler-diagnostics.json","historical/decompiler-diagnostics.json"]]+list((generation/"backend").glob("*.cs"))
     updated["inputs"].extend({"path":p.relative_to(BASELINE).as_posix(),"sha256":sha(p),"bytes":p.stat().st_size} for p in paths)
+    if any(p.stat().st_size>=50*1024*1024 for p in paths):raise ValueError('Oversized analysis input; split it before Git/publication')
     verify_inputs(updated,BASELINE)
     # Single manifest replacement is the publication point. New database is immutable before this.
-    write(generation/"previous-manifest.json",manifest)
-    write(BASELINE/current["databaseManifest"],updated)
-    print(json.dumps({"status":"published","schemaVersion":5,"database":str(target),"counts":facts["counts"]}))
+    with publication_guard(manifest_path,expected_manifest,pointer=BASELINE/'CURRENT.json',expected_pointer=expected_pointer):
+        verify_inputs(updated,BASELINE)
+        verify_discovery()
+        changes=source_snapshot_changes(profile)
+        updated['analysis']['sourceSnapshot']={'status':'stale' if changes else 'current','changes':changes,
+            'meaning':'Captured integration inventory; mod edits do not invalidate Vanilla machine facts.'}
+        for feature in json.loads((generation/'features.json').read_text(encoding='utf-8')):
+            if sha(WORKSPACE/feature['source'])!=feature['sourceSha256']:raise ValueError('Audit changed before publication; candidate retained')
+        write(generation/"previous-manifest.json",manifest)
+        write(manifest_path,updated)
+    print(json.dumps({"status":"published","schemaVersion":6,"database":str(target),"counts":facts["counts"]}))
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument("command",choices=["prepare","finalize","publish"]);parser.add_argument("generation",nargs="?")

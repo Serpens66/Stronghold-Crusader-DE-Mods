@@ -34,11 +34,13 @@
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-journal
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-building
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/work/
+/_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/historical/work/
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/index.sqlite*
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/previous-manifest.json
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/pending.json
 
 # IDE and OS files
+/_inspect/NativeAnalysisFixtures/
 .vs/
 .vscode/
 *.user
@@ -60,6 +62,8 @@ Desktop.ini
 /_inspect/ApiSharedStructure/*.dll
 
 # Local analysis caches and oversized files (50 MiB and above)
+/_inspect/CrusaderDE-Native-Baseline/sem/*/*.publication.lock
+/_inspect/CrusaderDE-Native-Baseline/*.publication.lock
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/*.sqlite*
 **/__pycache__/
 *.pyc
@@ -90,3 +94,6 @@ Desktop.ini
 /_inspect/HD-Accessibility-Analysis/project/HDAccessibility.rep/idata/00/~00000000.db/db.1.gbf
 /_inspect/SHCDESE-2.0.2-release/SHCDESE.zip
 /_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/
