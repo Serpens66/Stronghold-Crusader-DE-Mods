@@ -45,6 +45,11 @@ function Get-ChangedRepositoryPaths {
     # repository layouts so the migration does not masquerade as deleted runtime code.
     $baseEntry=(Invoke-StatusGit -Config $Config -Arguments @('ls-tree',$BaseCommit,'--','APIShared')).Output -join ''
     $headEntry=(Invoke-StatusGit -Config $Config -Arguments @('ls-tree',$HeadCommit,'--','APIShared')).Output -join ''
+    # After separation APIShared is an external dependency. Removing the gitlink
+    # is tooling migration, not deletion of its former runtime sources.
+    if ([string]::IsNullOrWhiteSpace($headEntry)) {
+        return @($paths | Where-Object { $_ -ne 'APIShared' -and -not $_.StartsWith('APIShared/') } | Sort-Object -Unique)
+    }
     if ($baseEntry -match '^160000 ' -or $headEntry -match '^160000 ') {
         $maps=@(foreach ($revision in @($BaseCommit,$HeadCommit)) {
             $entry=(Invoke-StatusGit -Config $Config -Arguments @('ls-tree',$revision,'--','APIShared')).Output -join ''

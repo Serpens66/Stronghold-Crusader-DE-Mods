@@ -24,7 +24,14 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          submodules: true
+
+      - name: Check out independent APIShared history
+        uses: actions/checkout@v7
+        with:
+          repository: SHCDE-APIShared/APIShared
+          ref: main
+          path: APIShared
+          fetch-depth: 0
 
       - name: Fetch release tags and main
         shell: pwsh

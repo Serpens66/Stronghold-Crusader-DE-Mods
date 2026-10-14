@@ -3,11 +3,6 @@ param([string]$Revision='origin/main', [string]$Workspace)
 if (-not $Workspace) { $Workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
 try {
-    $null=Get-ApiSubmodule $Workspace
-    $api=Join-Path $Workspace 'APIShared'
-    if (-not (Test-Path -LiteralPath (Join-Path $api '.git'))) {
-        Invoke-ApiGit $Workspace @('submodule','update','--init','--','APIShared') | Write-Host
-    }
     $api=Assert-ApiCheckout $Workspace
     $status=@(Invoke-ApiGit $api @('status','--porcelain','--untracked-files=normal'))
     if ($status.Count) { throw 'APIShared has open changes. Commit or explicitly preserve them before updating.' }
@@ -48,5 +43,5 @@ try {
         Write-Host 'Nothing was pushed or committed in the mod repository.'
         exit 1
     }
-    Write-Host 'Update complete. Build/test APIShared; publish its commits, then commit the reviewed submodule pointer in the mod repository.'
+    Write-Host 'Update complete. Build/test APIShared and publish its commits in the APIShared repository. No mod repository pointer exists.'
 } catch { Write-Host $_ -ForegroundColor Red; exit 1 }

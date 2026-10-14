@@ -1,0 +1,49 @@
+PASS: generic dependency declarations, arbitrary GUIDs, constants, presence-only and optional dependencies; 6 malformed fixtures rejected.
+PASS: APIShared has no executable-memory toggles or published transaction teardown.
+PASS: documentation links (266 local targets/anchors); no external workspace references.
+PASS: exact/repeatable Workshop assets, safe paths, inventory completeness, settings exclusion, hashes, ZIP ownership/layout and archive roundtrip.
+PASS: complete publisher inventory, Linux launcher hashes, narrow ZIP tool ownership, tampering and extra DLL rejection. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\APISharedPublisher-acfc83c81f0b4ba0a9406f79a2dfa3c7
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+PASS: content-identical commits, retained provenance, changed runtime rejection, package tampering, dirty release rejection, cross-shell fingerprint, local path recovery and child inheritance.
+Build proof fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiSharedProof-342bf27265c343649fa4884e5e2bdac2
+PASS: maintainer preparation/upload drivers and production confirmations.
+PASS: PS 5.1 standalone release probe/publication decision, missing/existing releases, authentication/access/network failures, strict missing detection, pipe capture, argument quoting and commit/mode conflicts. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\APIShared release test 7a2a09edd5924bce9ec3aa3e8aa52060
+PASS: rooted startup coordination, UI removal, Linux launcher, batch protocol and upload isolation.
+PASS: shell scripts contain no bare negated assertions.
+SKIP: host Bash runtime fixtures require an explicitly supplied environment with flock/coreutils. Windows fixtures still run.
+Checking windows user-pattern recovery: 882 operations, 779 completed, 84 applied changes...
+PASS: windows user-pattern recovery restores all 882 original states, saves 84 changed targets, ignores stale cancellation and permits the next update without New copies.
+PASS: windows recovery protocol, full preflight, independent/overlapping transactions, cancelled handoff, repair, subsequent update and legacy rollback.
+Recovery fixture evidence retained: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\.local\recovery-tests\2d04bc2bbbbe49d59199b74fc55afac3
+Checking Windows updater coordination: backup
+Checking Windows updater coordination: first-write
+Checking Windows updater coordination: receipt
+Checking Windows updater coordination: restore
+Checking Windows updater coordination: timeout
+Checking Windows updater coordination: two-pauses
+Checking Windows updater coordination: changed-target
+Checking Windows updater coordination: changed-source
+Checking Windows updater coordination: changed-backup
+Checking Windows updater coordination: changed-operations
+Checking Windows updater coordination: staging
+Checking Windows updater coordination: killed
+Checking Windows updater coordination: completed
+PASS: real fixture game detection, exclusive writer/readable status, backup/apply/receipt/restore pauses, validation, timeout, process termination and post-commit safety. Evidence: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\.local\coordination-tests\5b503ca094c949e49428985b96df45ca
+PASS: 100 updates, two retained backups, legacy timestamps, staging removal, repeatability and protected receipts/publishing/uploads/game files.
+PASS: per-package retention preserves whole mixed batches.
+PASS: open, unknown, malformed timestamp and corrupted operations remain protected.
+PASS: retired failed source is removed before its successful replacement proof.
+PASS: locked predecessor keeps replacement evidence; partial deletion resumes after unlocking.
+PASS: pending dependency pins protect a proof even after partial reference metadata removal.
+PASS: deletion resumes across individual payload and metadata deletion boundaries.
+PASS: recovery snapshots follow the retention of their original transaction.
+PASS: changed pending cleanup targets are preserved.
+PASS: corrupted pending worklist cannot authorize deletion.
+PASS: concurrent updater and external manager prevent cleanup.
+PASS: linked content is retained without touching its target.
+Workshop maintenance warning after completion: isolated unexpected maintenance failure
+PASS: an unexpected post-commit maintenance exception cannot roll back payload or receipt.
+Maintenance fixture evidence retained: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\.local\maintenance-tests\423ed01a572b4688a6337c730cf43c0b
+PASS: historical APIShared version ordering, ambiguous/missing metadata rejection and central bootstrap gate. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiMigrationVersion-cd2568687aab45ac8498b45cf3d62ea8
+PASS: standalone APIShared boundaries (122 links), runtime JSON/lifecycle/scheduling and XAML; installed interop is checked in the local full run.

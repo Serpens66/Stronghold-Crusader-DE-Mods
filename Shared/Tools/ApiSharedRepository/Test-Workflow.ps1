@@ -27,13 +27,13 @@ try {
     $api=Join-Path $workspace 'APIShared'
     Invoke-ApiGit $api @('config','user.name','Fixture') | Out-Null
     Invoke-ApiGit $api @('config','user.email','fixture@example.invalid') | Out-Null
-    $pin=Get-ApiSubmodule $workspace
+    $pin=((Invoke-ApiGit $api @('rev-parse','HEAD')) -join '')
     Write-Fixture (Join-Path $author 'community.txt') "community`n"; Commit-Fixture $author community
     Invoke-ApiGit $author @('push','origin','main') | Out-Null
     Invoke-ApiGit $api @('checkout','--detach',$pin) | Out-Null
     Run-Update $workspace $true
     Check (Test-Path -LiteralPath (Join-Path $api 'community.txt')) 'Community change lost'
-    Check ((Get-ApiSubmodule $workspace) -eq $pin) 'Updater changed the parent pointer'
+    Check (((Invoke-ApiGit $workspace @('ls-tree','HEAD','--','APIShared')) -join '') -match $pin) 'Updater changed historical parent pointer'
     Check (((Invoke-ApiGit $api @('branch','--show-current')) -join '').StartsWith('codex/api-work')) 'Detached HEAD was not preserved on a work branch'
     Write-Fixture (Join-Path $api 'local.txt') "local`n"; Commit-Fixture $api local
     Write-Fixture (Join-Path $author 'remote.txt') "remote`n"; Commit-Fixture $author remote
@@ -57,8 +57,15 @@ try {
     $fresh=Join-Path $temp 'fresh'
     & git clone $workspace $fresh | Out-Null; if($LASTEXITCODE){throw 'Fresh clone failed'}
     & git -C $fresh config user.name Fixture; & git -C $fresh config user.email fixture@example.invalid
-    Run-Update $fresh $true
-    Check (Test-Path (Join-Path $fresh 'APIShared/community.txt')) 'Uninitialized submodule did not initialize/update'
+    Run-Update $fresh $false
+    # A fresh workspace requires an explicit independent clone, never submodule init.
+    $independent=Join-Path $temp 'independent'
+    & git init --initial-branch=main $independent | Out-Null
+    Write-Fixture (Join-Path $independent '.gitignore') "/APIShared/`r`n"
+    Commit-Fixture $independent ignore-dependency
+    & git clone $origin (Join-Path $independent 'APIShared') | Out-Null
+    Run-Update $independent $true
+    Check (Test-Path (Join-Path $independent 'APIShared/community.txt')) 'Independent clone did not update'
 
     & (Join-Path $PSScriptRoot '../../../APIShared/tools/Validation/Test-BuildProof.ps1')
     . (Join-Path $PSScriptRoot '../Release/Release.Common.ps1')
@@ -83,7 +90,8 @@ try {
     # Use real local repositories and evidence; double only the external public-ref query.
     $releaseRoot=Join-Path $temp 'release-workspace'
     & git init --initial-branch=main $releaseRoot | Out-Null
-    Invoke-ApiGit $releaseRoot @('submodule','add',$origin,'APIShared') | Out-Null
+    Write-Fixture (Join-Path $releaseRoot '.gitignore') "/APIShared/`r`n"
+    & git clone $origin (Join-Path $releaseRoot 'APIShared') | Out-Null
     $releaseApi=Join-Path $releaseRoot 'APIShared'
     foreach($dir in @('src','Properties','Patches','tools','Workshop','tools/WorkshopUploader')) { [IO.Directory]::CreateDirectory((Join-Path $releaseApi $dir)) | Out-Null }
     Write-Fixture (Join-Path $releaseApi 'APIShared.csproj') '<Project />'
@@ -119,8 +127,7 @@ try {
     Write-Fixture (Join-Path $releaseApi 'unpublished.txt') 'local commit'
     Commit-Fixture $releaseApi unpublished
     $failed=$false; try { $null=Assert-ApiReleaseState $releaseRoot } catch { $failed=$true }
-    Check $failed 'Different submodule pointer accepted for release'
-    Commit-Fixture $releaseRoot pin-local
+    Check $failed 'Unpublished or stale package accepted for release'
     Write-ApiBuildProof $releaseApi '' '' $compiler $state
     $failed=$false; try { $null=Assert-ApiReleaseState $releaseRoot } catch { $failed=$true }
     Check $failed 'Unpublished commit accepted for release'
@@ -155,7 +162,14 @@ try {
     Invoke-ApiGit $collisionAuthor @('push','origin','main') | Out-Null
     Run-Update $collisionRoot $false
     Check ([IO.File]::ReadAllText((Join-Path $collisionApi 'private.cfg')) -ceq 'user configuration') 'Ignored local configuration overwritten'
-    Write-Host 'PASS: initialized/fresh submodules, detached HEAD, divergent changes, open files, conflicts/abort, missing/stale inputs, package tampering, dirty release rejection, cross-shell fingerprint and gitlink source reads.'
+    Invoke-ApiGit $historyRoot @('rm','--cached','APIShared') | Out-Null
+    Write-Fixture (Join-Path $historyRoot '.gitignore') "/APIShared/`r`n"
+    Commit-Fixture $historyRoot independent
+    $changed=@(Get-ChangedRepositoryPaths -Config $historyConfig -BaseCommit $embeddedCommit -HeadCommit HEAD)
+    Check (@($changed | Where-Object { $_ -eq 'APIShared' -or $_.StartsWith('APIShared/') }).Count -eq 0) 'Separation reported deleted API sources'
+    Write-Host 'PASS: independent/fresh clones, explicit setup requirement, detached HEAD, divergent changes, open files, conflicts/abort, package tampering, stable publication and historical embedded/gitlink/separated layouts.'
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-IndependentRepository.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'Independent repository migration/setup regression failed.' }
 } finally {
     $env:GIT_ALLOW_PROTOCOL=$oldProtocol
     # Keep failed fixture contents inspectable; successful fixtures are ordinary disposable test data.

@@ -5,14 +5,9 @@ function Invoke-ApiGit([string]$Directory, [string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "Git failed: $($Arguments -join ' ')" }
     return $result
 }
-function Get-ApiSubmodule([string]$Workspace) {
-    $row = (Invoke-ApiGit $Workspace @('ls-tree','HEAD','--','APIShared')) -join ''
-    if ($row -notmatch '^160000 commit ([0-9a-f]{40})\s+APIShared$') { throw 'APIShared is not recorded as a submodule in the workspace HEAD.' }
-    return $Matches[1]
-}
 function Assert-ApiCheckout([string]$Workspace) {
     $api = [IO.Path]::GetFullPath((Join-Path $Workspace 'APIShared'))
-    if (-not (Test-Path -LiteralPath (Join-Path $api '.git'))) { throw 'APIShared is not initialized. Run git submodule update --init APIShared.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $api '.git'))) { throw 'APIShared is missing. Run Shared/Tools/ApiSharedRepository/Initialize-ApiShared.ps1 explicitly, or add your independent APIShared clone at APIShared/.' }
     $top = ((Invoke-ApiGit $api @('rev-parse','--show-toplevel')) -join '').Trim()
     if ([IO.Path]::GetFullPath($top) -ne [IO.Path]::GetFullPath($api)) { throw 'APIShared must be an independent Git checkout.' }
     return $api
@@ -101,9 +96,7 @@ function Assert-ApiReleaseState([string]$Workspace) {
         return (Assert-ApiConsumerPackage $Workspace '' -Release)
     }
     $api = Assert-ApiCheckout $Workspace
-    $expected = Get-ApiSubmodule $Workspace
     $actual = ((Invoke-ApiGit $api @('rev-parse','HEAD')) -join '').Trim()
-    if ($actual -ne $expected) { throw 'Commit the reviewed APIShared submodule pointer in the mod repository first.' }
     $status = @(Invoke-ApiGit $Workspace @('status','--porcelain','--untracked-files=normal'))
     if ($status.Count) { throw 'The mod repository must be clean for a release.' }
     $proof = Assert-ApiConsumerPackage $Workspace '' -Release

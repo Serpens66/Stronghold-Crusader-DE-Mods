@@ -4,7 +4,7 @@ if (-not $Workspace) { $Workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoo
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
 try {
     $api = Assert-ApiCheckout $Workspace
-    Write-Host ('Recorded commit: ' + (Get-ApiSubmodule $Workspace))
+    Write-Host 'APIShared is independent; the mod repository stores no source pointer.'
     Write-Host ('Current commit:  ' + ((Invoke-ApiGit $api @('rev-parse','HEAD')) -join ''))
     $branch = (Invoke-ApiGit $api @('branch','--show-current')) -join ''
     Write-Host ('Branch: ' + $(if($branch){$branch}else{'detached HEAD'}))

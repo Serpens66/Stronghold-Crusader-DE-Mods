@@ -71,7 +71,7 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     foreach($dir in @('Shared/Tools/ApiSharedRepository','Shared/Tools/Steam')){[void][IO.Directory]::CreateDirectory((Join-Path $root $dir))}
     foreach($file in @('RepositoryProcess.Common.ps1','MainSource.Common.ps1','Open-PullRequest.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $root ('Shared/Tools/ApiSharedRepository/'+$file))}
     [IO.File]::AppendAllText((Join-Path $root 'Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1'),"`r`n"+$shim)
-    foreach($bat in @('APIShared-PR-develop.bat','APIShared-PR-main.bat')){Copy-Item -LiteralPath (Join-Path $workspace $bat) -Destination (Join-Path $root $bat)}
+    foreach($bat in @('APIShared-PRCheck-develop.bat','APIShared-PRCheck-main.bat')){Copy-Item -LiteralPath (Join-Path $workspace $bat) -Destination (Join-Path $root $bat)}
     . ([scriptblock]::Create($shim))
     Invoke-ApiRepositoryGit $api @('switch','-c','dev/Serpens66')|Out-Null
     Write-Fixture (Join-Path $api 'info.json') '{"GUID":"APIShared_Serp","Version":"9.9.9"}'
@@ -124,18 +124,18 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Check ($prCheck.ExitCode -ne 0 -and $prCheck.Output -match 'Push/pull') 'PR helper accepted unpublished local commits.'
     Invoke-ApiRepositoryGit $api @('push','origin','dev/Serpens66')|Out-Null
     $prLog=Join-Path $fixture 'pr-bat.log'
-    & (Join-Path $root 'APIShared-PR-develop.bat') -NoOpen -NoPause *> $prLog
+    & (Join-Path $root 'APIShared-PRCheck-develop.bat') -NoOpen -NoPause *> $prLog
     Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($prLog) -match 'compare/develop\.\.\.dev%2FSerpens66') 'PR BAT used wrong comparison.'
     $env:APISHARED_PR_FIXTURE='existing'
-    & (Join-Path $root 'APIShared-PR-develop.bat') -NoOpen -NoPause *> $prLog
+    & (Join-Path $root 'APIShared-PRCheck-develop.bat') -NoOpen -NoPause *> $prLog
     Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($prLog) -match '/pull/123') 'Existing PR was not opened.'
     $env:APISHARED_PR_FIXTURE=''
     Invoke-ApiRepositoryGit $author @('switch','develop')|Out-Null
     Write-Fixture (Join-Path $author 'info.json') '{"GUID":"APIShared_Serp","Version":"2.0.0"}'
     Commit-Fixture $author;Invoke-ApiRepositoryGit $author @('push','origin','develop')|Out-Null
-    & (Join-Path $root 'APIShared-PR-develop.bat') -NoOpen -NoPause *> $prLog
+    & (Join-Path $root 'APIShared-PRCheck-develop.bat') -NoOpen -NoPause *> $prLog
     Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($prLog) -match 'Conflicts require manual') 'Conflicts were hidden.'
-    & (Join-Path $root 'APIShared-PR-main.bat') -NoOpen -NoPause *> $prLog
+    & (Join-Path $root 'APIShared-PRCheck-main.bat') -NoOpen -NoPause *> $prLog
     Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($prLog) -match 'compare/main\.\.\.develop') 'Release PR BAT used wrong direction.'
     Check (((Invoke-ApiRepositoryGit $api @('rev-parse','HEAD'))-join '') -ceq $devHead) 'PR helper changed personal commits.'
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'PR helper changed open file.'
