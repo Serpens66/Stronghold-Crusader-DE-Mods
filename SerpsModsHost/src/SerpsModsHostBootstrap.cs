@@ -26,7 +26,7 @@ namespace SerpsModsHost
     {
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.26";
+        public const string PluginVersion = "1.0.27";
         public const bool ExtendedDataModSettingsOptOut = true;
         internal ManualLogSource HostLogger => Logger;
         private static object runtime;
