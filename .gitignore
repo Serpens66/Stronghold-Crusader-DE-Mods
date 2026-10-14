@@ -33,6 +33,10 @@
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-shm
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-journal
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-building
+/_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/work/
+/_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/index.sqlite*
+/_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/previous-manifest.json
+/_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/pending.json
 
 # IDE and OS files
 .vs/
@@ -54,3 +58,35 @@ Desktop.ini
 
 /_inspect/ApiSharedStructure/*.log
 /_inspect/ApiSharedStructure/*.dll
+
+# Local analysis caches and oversized files (50 MiB and above)
+/_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/*.sqlite*
+**/__pycache__/
+*.pyc
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gE24A41520F15/
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gFCCD7FA0643B/
+/Findings/AIVPlacement/EVIDENCE.zip
+/Helpers/UnityDebug/DebugGameFiles/UnityPlayer_Win64_player_development_mono_x64.pdb
+/Helpers/UnityDebug/win64_player_development_mono/UnityPlayer_Win64_player_development_mono_x64.pdb
+/_inspect/BridgePlanningTests/historical-20261013-0012/bridge-1-16.bin
+/_inspect/BridgePlanningTests/historical-20261013-1154/bridge-1-3.bin
+/_inspect/BridgePlanningTests/historical-20261013-1154/bridge-2-13.bin
+/_inspect/BridgePlanningTests/historical-20261013-164010/bridge-1-0.bin
+/_inspect/BridgePlanningTests/historical-20261013-164010/bridge-2-0.bin
+/_inspect/BridgePlanningTests/historical-20261013-173119/command.bin
+/_inspect/BridgePlanningTests/historical-20261013-173119/planning.bin
+/_inspect/BridgePlanningTests/historical-20261013-192659/command.bin
+/_inspect/BridgePlanningTests/historical-20261013-192659/planning.bin
+/_inspect/BridgePlanningTests/historical-20261013-2043/command.bin
+/_inspect/BridgePlanningTests/historical-20261013-2043/planning.bin
+/_inspect/BridgePlanningTests/historical-20261013-2129/command.bin
+/_inspect/BridgePlanningTests/historical-20261013-2129/planning.bin
+/_inspect/CrusaderDE-Native-Baseline/FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/rizin/CrusaderDE-rizin-0.8.1-aaa.rzdb
+/_inspect/EnemyGateBuildingContextAudit/bridge-20261006-202236.log
+/_inspect/HD-Accessibility-Analysis/project/HDAccessibility.rep/idata/00/~00000000.db/db.1.gbf
+/_inspect/SHCDESE-2.0.2-release/SHCDESE.zip
+/_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/

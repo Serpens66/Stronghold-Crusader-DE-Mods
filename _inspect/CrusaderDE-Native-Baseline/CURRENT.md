@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Opt-in pathfinding table replacements](./sem/FBCB9319/knowledge/PATHFINDING_TABLE_REPLACEMENTS.md): native 90-slot rows, installed SE 89-stride counterexample, additive APIShared replacement and runtime acceptance limits.
+
 - [Gatehouse damage and drawbridge destruction](./sem/FBCB9319/knowledge/DRAWBRIDGE_DESTRUCTION.md): native bridge damage immunity, premature direct-hit removal, lethal/demolition paths and pending standalone fix acceptance.
 
 Current canonical DLL SHA-256:
@@ -93,3 +95,11 @@ For future chats, link this file and require the DLL hash to be checked before u
 - [Drawbridge stored-route contracts](./sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md): packed Unit path origin/cursor, existing movement publisher and passive route evidence; full installed-hash evidence under EnemyGateBuildingContextAudit/bridge-stored-path-evidence.txt.
 
 - [Situational unit audio](./sem/FBCB9319/knowledge/SITUATIONAL_UNIT_AUDIO.md): complete Arabian idle sword-draw production, buffer transport, per-play volume and permanent hook contracts.
+
+- [Plague cloud height and damage](./sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md): explicit wall/roof immunity, standing-height contracts and standalone PlagueHeightTest native fixture evidence.
+
+## Offline machine and data-flow analysis
+
+The Analysis stage adds hash-bound instruction facts, conservative liveness, selected High P-code, feature dossiers and installed-backend hook checks. See [operation and limitations](./tools/semantic/ANALYSIS.md). Queries: `instructions`, `flow`, `trace`, `global`, `feature`, `hookcheck`, `coverage`. The current database manifest selects the published schema-5 analysis generation; failed flows and unresolved audit boundaries remain explicit.
+
+Published coverage: 4,478 native functions, 436,211 independently verified instructions, 2,600 complete selected High P-code flows and 67 existing audit dossiers. Three decompiler failures remain explicit; 1,875 functions have no selected deep flow. [Acceptance record](./sem/FBCB9319/analysis/g4F7B6F1F0530/acceptance.json) confirms fresh Windows PowerShell queries, unchanged reference projects and exact schema-5 analysis reconstruction.

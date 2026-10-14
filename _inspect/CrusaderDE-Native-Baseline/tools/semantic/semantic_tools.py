@@ -706,7 +706,7 @@ def command_build_index(args):
         (old_hash, "historical-native", args.old_native, int(args.old_native_size)),
         (args.managed_hash.upper(), "current-managed", args.managed_assembly, int(args.managed_size)),
     ])
-    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "4"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
+    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "5"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
 
     decomp_map = {}
     decomp_path = semantic_dir / "exports" / "semantic-decompiled-functions.c"
@@ -878,6 +878,8 @@ def command_build_index(args):
             if not exists:
                 evidence = {"source": "managed-callchains", "terms": item["evidence"]}
                 connection.execute("INSERT INTO classifications VALUES(?,?,?,?)", (current_hash, native_rva, item["category"], json.dumps(evidence)))
+    from native_analysis import import_analysis
+    import_analysis(connection, semantic_dir)
     connection.commit()
     integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
     counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ["functions", "function_claims", "claim_evidence", "hook_spans", "api_contracts", "chore_opcodes", "chore_contracts", "chore_observations", "chore_evidence", "function_data_references", "xrefs", "strings", "managed_methods", "pinvokes", "managed_native_links", "patterns", "source_types", "type_fields", "vtable_members", "xaml_resources", "version_matches"]}

@@ -1,0 +1,17 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "functions": 4478,
+  "selected": 2603,
+  "flowStatuses": {
+    "complete": 2600,
+    "not-selected": 1875,
+    "failed": 3
+  },
+  "decoderDisagreements": 0,
+  "instructions": 436211,
+  "features": 67,
+  "limitations": [
+    "Static analysis is not runtime evidence.",
+    "Feature roots and source coordinates are discovery evidence unless separately audited."
+  ]
+}

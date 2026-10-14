@@ -20,6 +20,7 @@ COUNT_TABLES = [
     "patterns", "data_types", "source_types", "type_fields", "vtable_members",
     "delegates", "rtti_vtables", "xaml_resources", "xaml_links",
     "classifications", "version_matches",
+    "analysis_functions", "analysis_features", "analysis_sources", "analysis_profiles",
 ]
 
 
@@ -49,7 +50,8 @@ def database_facts(database: Path):
     integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
     foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
     metadata = dict(connection.execute("SELECT key,value FROM metadata"))
-    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in COUNT_TABLES}
+    available = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in COUNT_TABLES if table in available}
     fts_hits = connection.execute("SELECT COUNT(*) FROM function_search WHERE function_search MATCH 'operator'").fetchone()[0]
     binaries = [dict(zip(("hash", "role", "sourcePath", "size"), row)) for row in connection.execute("SELECT hash,role,path,size FROM binaries ORDER BY role")]
     connection.close()
@@ -69,7 +71,7 @@ def input_paths(args):
     comparison = Path(args.comparison)
     raw = Path(args.raw_root)
     managed = Path(args.managed_dir)
-    return [
+    paths = [
         semantic / "IDENTITY.json",
         comparison / "IDENTITY.json",
         semantic / "exports" / "semantic-functions.jsonl",
@@ -106,6 +108,16 @@ def input_paths(args):
         semantic / "resources" / "xaml-index.jsonl",
         semantic / "resources" / "xaml-managed-links.jsonl",
     ]
+    active_manifest = semantic / 'DATABASE_INFO.json'
+    if active_manifest.exists():
+        previous = json.loads(active_manifest.read_text(encoding='utf-8'))
+        generation = previous.get('analysis', {}).get('generation')
+        if generation:
+            root = Path(args.baseline_root) / generation
+            paths += sorted(root.glob('facts-*.jsonl'))
+            paths += [root / name for name in ['profile.json','features.json','sources.json','coverage.json','backends.json']]
+            paths += sorted((root / 'backend').glob('*.cs'))
+    return paths
 
 
 def assert_identities(manifest, semantic: Path, comparison: Path):
@@ -165,6 +177,12 @@ def create(args):
         },
         "inputs": [{"path": relative(path, baseline), "sha256": sha256(path), "bytes": path.stat().st_size} for path in input_paths(args)],
     }
+    prior_manifest = Path(args.manifest)
+    if prior_manifest.exists():
+        previous = json.loads(prior_manifest.read_text(encoding='utf-8'))
+        if previous.get('analysis'):
+            manifest['analysis'] = previous['analysis']
+            manifest['manifestSchemaVersion'] = 3
     if facts["integrityCheck"] != "ok" or facts["foreignKeyErrors"]:
         raise ValueError(f"Cannot publish invalid database manifest: {facts}")
     if facts["metadata"].get("current_native_hash") != identities["currentNativeHash"] or facts["metadata"].get("managed_hash") != identities["managedHash"]:

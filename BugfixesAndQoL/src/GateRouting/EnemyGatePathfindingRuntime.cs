@@ -22,6 +22,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using CorrectedPathing = APIShared.ScriptExtenderReplacements.GamePathingManagerAPI;
 
 namespace BugfixesAndQoL.GateRouting
 {
@@ -294,7 +295,14 @@ namespace BugfixesAndQoL.GateRouting
 
             try
             {
-                GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
+                CorrectedPathing pathing = CorrectedPathing.Instance;
+                if (!pathing.IsAvailable)
+                {
+                    Shared.DebugLogHelper.LogWarning(log,
+                        "APIShared pathfinding-global startup comparison unavailable: " +
+                        pathing.UnavailabilityReason + "; the enemy-gate policy remains active and read-only.");
+                    return;
+                }
                 Span<PathfindingProfile> nativeProfiles =
                     pathing.GetUnitTypePathfindingProfiles();
                 Span<int> profiles = MemoryMarshal.Cast<PathfindingProfile, int>(nativeProfiles);
@@ -306,7 +314,7 @@ namespace BugfixesAndQoL.GateRouting
                 if (comparison.MatchesCanonical)
                 {
                     if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
-                        "Script Extender pathfinding globals match the canonical " +
+                        "APIShared pathfinding globals match the canonical " +
                         $"FBCB9319 process-start tables: {counts}.");
                     return;
                 }
@@ -314,7 +322,7 @@ namespace BugfixesAndQoL.GateRouting
                 if (comparison.ComparedValuesMatch && !comparison.HasExpectedLengths)
                 {
                     Shared.DebugLogHelper.LogWarning(log,
-                        "Script Extender pathfinding-global coverage is incomplete or has an " +
+                        "APIShared pathfinding-global coverage is incomplete or has an " +
                         "unexpected API extent; all compared values match the canonical FBCB9319 " +
                         $"tables. This is not evidence of table mutation: {counts}, " +
                         $"missingNativeCoverage={comparison.MissingCoverage}, " +
@@ -323,7 +331,7 @@ namespace BugfixesAndQoL.GateRouting
                 }
 
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Compared Script Extender pathfinding-global values differ from the canonical " +
+                    "Compared APIShared pathfinding-global values differ from the canonical " +
                     "FBCB9319 process-start tables. Another component may have changed " +
                     "process-wide unit-type behavior; the enemy-gate policy remains " +
                     $"read-only and unchanged: {counts}, " +
@@ -332,7 +340,7 @@ namespace BugfixesAndQoL.GateRouting
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Script Extender pathfinding-global startup comparison failed; " +
+                    "APIShared pathfinding-global startup comparison failed; " +
                     $"the enemy-gate policy remains active and read-only: {ex.GetType().Name}: {ex.Message}");
             }
         }

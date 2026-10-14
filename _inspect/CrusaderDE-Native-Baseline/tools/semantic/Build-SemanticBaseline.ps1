@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Validate', 'ValidateFast', 'UpdateForScriptExtender', 'Knowledge', 'Curated', 'Resources', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
+    [ValidateSet('Analysis', 'Validate', 'ValidateFast', 'UpdateForScriptExtender', 'Knowledge', 'Curated', 'Resources', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
     [string]$Stage = 'Validate',
     [string]$ScriptExtenderCommit,
     [string]$PreviousScriptExtenderCommit
@@ -10,9 +10,17 @@ $toolDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $baselineRoot = Split-Path -Parent (Split-Path -Parent $toolDirectory)
 $workspace = Split-Path -Parent (Split-Path -Parent $baselineRoot)
 
-$currentHash = 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2'
-$managedHash = 'BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789'
-$oldHash = '17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4'
+$currentIndex = Join-Path $baselineRoot 'CURRENT.json'
+$baselineIndex = Get-Content -LiteralPath $currentIndex -Raw | ConvertFrom-Json
+$databaseManifest = [IO.Path]::GetFullPath((Join-Path $baselineRoot $baselineIndex.databaseManifest))
+$baselinePrefix = [IO.Path]::GetFullPath($baselineRoot).TrimEnd('\') + '\'
+if (-not $databaseManifest.StartsWith($baselinePrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Manifest path escapes baseline.' }
+$referenceManifest = Get-Content -LiteralPath $databaseManifest -Raw | ConvertFrom-Json
+$currentHash = $baselineIndex.currentNativeHash
+$managedHash = $referenceManifest.identities.managedHash
+$oldHash = $referenceManifest.identities.oldNativeHash
+if ($currentHash -ne $referenceManifest.identities.currentNativeHash) { throw 'CURRENT/manifest identity mismatch.' }
+. (Join-Path $workspace 'Shared\Tools\Steam\SteamPackPolicy.ps1')
 
 $native = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
 $managed = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'
@@ -29,11 +37,12 @@ $managedKey = $managedHash.Substring(0, 8)
 $oldKey = $oldHash.Substring(0, 8)
 if ($currentKey -eq $oldKey -and $currentHash -ne $oldHash) { throw "Native short-hash collision: $currentHash and $oldHash." }
 $rawHashRoot = Join-Path $baselineRoot $currentHash
-$semantic = Join-Path $baselineRoot "sem\$currentKey"
+$semantic = [IO.Path]::GetFullPath((Join-Path $baselineRoot $baselineIndex.semanticDirectory))
+if (-not $semantic.StartsWith($baselinePrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Semantic path escapes baseline.' }
 $managedDirectory = Join-Path $semantic "managed\$managedKey"
 $comparison = Join-Path $baselineRoot "diff\${oldKey}-${currentKey}"
-$database = Join-Path $semantic 'CrusaderDE-semantic.sqlite'
-$databaseManifest = Join-Path $semantic 'DATABASE_INFO.json'
+$database = [IO.Path]::GetFullPath((Join-Path $baselineRoot $referenceManifest.database.path))
+if (-not $database.StartsWith($baselinePrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Database path escapes baseline.' }
 $currentIndex = Join-Path $baselineRoot 'CURRENT.json'
 $python = 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe'
 $semanticTools = Join-Path $toolDirectory 'semantic_tools.py'
@@ -52,7 +61,7 @@ function Assert-LastExitCode([string]$Operation) {
 
 function Assert-Hash([string]$Path, [string]$Expected) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Required file is missing: $Path" }
-    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    $actual = (Get-SteamPackFileSha256 -Path $Path).ToUpperInvariant()
     if ($actual -ne $Expected) { throw "Hash mismatch for $Path. Expected $Expected, got $actual." }
 }
 
@@ -86,7 +95,7 @@ function Get-InputHashes([string[]]$Paths) {
             finally { $sha.Dispose() }
         }
         else {
-            $result[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+            $result[$path] = (Get-SteamPackFileSha256 -Path $path).ToUpperInvariant()
         }
     }
     $result
@@ -182,6 +191,10 @@ function Invoke-DatabaseManifest([string]$Command) {
 }
 
 Set-Location -LiteralPath $workspace
+if ($Stage -eq 'Analysis') {
+    & (Join-Path $toolDirectory 'Run-NativeAnalysis.ps1')
+    exit $LASTEXITCODE
+}
 $semanticIdentityPath = Join-Path $semantic 'IDENTITY.json'
 $comparisonIdentityPath = Join-Path $comparison 'IDENTITY.json'
 if ($Stage -eq 'RestoreDatabase' -and (-not (Test-Path -LiteralPath $semanticIdentityPath -PathType Leaf) -or -not (Test-Path -LiteralPath $comparisonIdentityPath -PathType Leaf))) {
@@ -348,7 +361,7 @@ if ($Stage -eq 'RestoreDatabase') {
 
 if ($Stage -in @('ValidateFast', 'Validate', 'UpdateForScriptExtender', 'All')) {
     Invoke-DatabaseManifest 'validate'
-    & $python (Join-Path $toolDirectory 'validate.py') --semantic $semantic --comparison $comparison --baseline-root $baselineRoot --database (Join-Path $semantic 'CrusaderDE-semantic.sqlite') --native $native --managed $managed --old-native $oldNative --raw-root $rawHashRoot --raw-before (Join-Path $semantic 'validation\raw-baseline-before.jsonl') --se-root $seRoot --se-commit $seCommit --se-tree $seTree --current-hash $currentHash --managed-hash $managedHash --old-hash $oldHash --output (Join-Path $semantic 'validation\validation-report.json')
+    & $python (Join-Path $toolDirectory 'validate.py') --semantic $semantic --comparison $comparison --baseline-root $baselineRoot --database $database --native $native --managed $managed --old-native $oldNative --raw-root $rawHashRoot --raw-before (Join-Path $semantic 'validation\raw-baseline-before.jsonl') --se-root $seRoot --se-commit $seCommit --se-tree $seTree --current-hash $currentHash --managed-hash $managedHash --old-hash $oldHash --output (Join-Path $semantic 'validation\validation-report.json')
     Assert-LastExitCode 'Semantic validation'
 }
 if ($Stage -in @('Validate', 'All')) {
