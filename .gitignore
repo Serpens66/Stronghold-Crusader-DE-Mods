@@ -17,6 +17,13 @@
 **/obj/
 **/TestResults/
 /.release-output/
+# Generated Workshop upload folders and atomic replacement artifacts
+/APISharedWorkshop/
+/APISharedWorkshop.previous-*/
+/APISharedWorkshop.ready-*/
+/SerpsMods/
+/SerpsMods.previous-*/
+/SerpsMods.ready-*/
 /release.local.json
 /.nexusmods-api-key.dpapi
 
