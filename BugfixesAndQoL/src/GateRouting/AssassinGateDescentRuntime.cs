@@ -20,16 +20,16 @@ namespace BugfixesAndQoL.GateRouting
         internal const int Site = 0x185D55, Length = 20, Continuation = 0x185934;
         private static readonly System.Collections.Generic.List<AssassinGateDescentRuntime> Roots = new System.Collections.Generic.List<AssassinGateDescentRuntime>();
         private readonly ulong module;
-        
+        private readonly Func<RouteTilePolicySnapshot> policy;
         private readonly int* active = (int*)Marshal.AllocHGlobal(4);
         private readonly int* diagnostics = (int*)Marshal.AllocHGlobal(4);
         private readonly CapturerComparisonCallback decide, before, after;
         private Action<IntPtr, bool> observeClear;
         private Action<int> observeException;
         private long allowed, preserved, errors, observerErrors;
-        internal AssassinGateDescentRuntime(CrusaderLibraryLoadContext context, GateRoutingNativeHooks nativeHooks)
+        internal AssassinGateDescentRuntime(CrusaderLibraryLoadContext context, GateRoutingNativeHooks nativeHooks, Func<RouteTilePolicySnapshot> policy)
         {
-            module = (ulong)context.ModuleHandle.ToInt64();
+            module = (ulong)context.ModuleHandle.ToInt64(); this.policy = policy;
             *active = *diagnostics = 0;
             decide = Decide;
             before = p => ObserveClear(p, false);
@@ -37,16 +37,12 @@ namespace BugfixesAndQoL.GateRouting
             nativeHooks.InstallDescent(decide,before,after,(IntPtr)active,(IntPtr)diagnostics);
             lock (Roots) Roots.Add(this);
         }
-        internal void SetActive(bool value)
-        {
-            Volatile.Write(ref *active, value ? 1 : 0);
-        }
-        internal void ResetCounters() { allowed = preserved = errors = observerErrors = 0; }
-        // Observers never control functional activation.
-        internal void SetObservers(Action<IntPtr, bool> clearObserver, Action<int> exceptionObserver)
+        internal void SetActive(bool value, Action<IntPtr, bool> clearObserver, Action<int> exceptionObserver)
         {
             observeClear = clearObserver; observeException = exceptionObserver;
-            Volatile.Write(ref *diagnostics, (clearObserver != null || exceptionObserver != null) ? 1 : 0);
+            if (value) allowed = preserved = errors = observerErrors = 0;
+            Volatile.Write(ref *diagnostics, value && (observeClear != null || observeException != null) ? 1 : 0);
+            Volatile.Write(ref *active, value ? 1 : 0);
         }
         internal string Summary => "Assassin gate descent: exceptionsGranted=" + Interlocked.Read(ref allowed) +
             ",nativeAbortPreserved=" + Interlocked.Read(ref preserved) + ",guardErrors=" + Interlocked.Read(ref errors) +
@@ -84,15 +80,13 @@ namespace BugfixesAndQoL.GateRouting
             if ((uint)tile >= 320800) return false;
             int target = tile + *(int*)(module + 0x405EDB0 + (uint)(direction + u->r_CurrentTilePositionY * 8) * 4UL);
             if ((uint)target >= 320800 || target == tile) return false;
+            RouteTilePolicySnapshot snapshot = policy();
             int gate = *(short*)(module + 0x4B6AA50 + (uint)tile * 2UL);
-            if (!GameBuildingManagerAPI.Instance.IsValidId(gate) ||
+            if (snapshot == null || !snapshot.GateIdentities.TryGetValue(gate, out var identity) || identity.Global == 0 ||
+                !GameBuildingManagerAPI.Instance.IsValidId(gate) ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(gate, out GameBuilding* b) || b == null ||
-                b->r_GlobalId == 0 || b->r_PlayerIdOwner < 1 || b->r_PlayerIdOwner > 8 || b->r_CapturedByPlayerId > 8 ||
+                b->r_GlobalId != identity.Global || b->r_PlayerIdOwner != identity.Owner || b->r_CapturedByPlayerId != identity.Capturer ||
                 b->r_GateState != 2 || !AssassinPathAPI.IsDirectGatehouseClimbEndpoint(tile)) return false;
-            // Immediate live identity, not a policy permission. The endpoint check validates
-            // building type/liveness and wall tile. Recheck the same identity after reading.
-            uint gateGlobal = b->r_GlobalId;
-            ushort gateOwner = b->r_PlayerIdOwner, gateCapturer = b->r_CapturedByPlayerId;
             // Audited raw WORDs: path mode +90, alternate step +36C. R9w is the special-step state.
             bool permitted = AssassinGateDescentRule.Allows(direction, (int)u->r_MovementDirection,
                 u->r_CurrentPathPlanIndex, u->r_PathPlanLength, (int)c->RDX, (ushort)c->R9,
@@ -100,11 +94,9 @@ namespace BugfixesAndQoL.GateRouting
                 *(byte*)(module + 0x51890D0 + (uint)tile), *(byte*)(module + 0x51890D0 + (uint)target),
                 *(byte*)(module + 0x312620 + (uint)direction), *(byte*)(module + 0x312620 + (uint)(direction ^ 4)),
                 *(uint*)(module + 0x48F71B0 + (uint)tile * 4UL), *(uint*)(module + 0x48F71B0 + (uint)target * 4UL));
-            return permitted && Volatile.Read(ref *active) != 0 && AssassinPathAPI.DirectGatehouseClimbingEnabled &&
-                *(short*)(module + 0x4B6AA50 + (uint)tile * 2UL) == gate &&
-                AssassinPathAPI.IsDirectGatehouseClimbEndpoint(tile) &&
+            return permitted && Volatile.Read(ref *active) != 0 && ReferenceEquals(snapshot, policy()) &&
                 u->r_GlobalId == global && u->r_ControllableForPlayerId == player && u->r_CurrentPositionTileId == tile &&
-                b->r_GlobalId == gateGlobal && b->r_PlayerIdOwner == gateOwner && b->r_CapturedByPlayerId == gateCapturer && b->r_GateState == 2;
+                b->r_GlobalId == identity.Global && b->r_PlayerIdOwner == identity.Owner && b->r_CapturedByPlayerId == identity.Capturer && b->r_GateState == 2;
         }
     }
 }

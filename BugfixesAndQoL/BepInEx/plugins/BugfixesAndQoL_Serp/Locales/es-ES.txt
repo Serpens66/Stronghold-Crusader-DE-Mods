@@ -425,7 +425,3 @@ BugfixesAndQoL.EnableEnemyGatePathfindingFix=Avoid hostile gatehouse passages
 BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Players and AI avoid ground routes through hostile gatehouses without authorized capture. Own, allied and authorized captured access, permitted Assassin climbing and gate attacks remain available. Independent drawbridge crossings are not included.
 BugfixesAndQoL.ArabianIdleSoundVolume=Espadachines árabes: volumen en reposo
 BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Volumen local solo al desenvainar durante la animación de reposo de espadachines árabes de cualquier jugador. 0%: silencio; 100%: volumen normal; predeterminado: 25%. Los sonidos de combate no cambian. Sin límite de repetición.
-BugfixesAndQoL.EnableSoloMultiplayerSaveLoading=Load multiplayer saves alone
-BugfixesAndQoL.EnableSoloMultiplayerSaveLoadingHelp=Allows a ready host to load multiplayer saves without another human player. Uses the original loading path: absent human players are removed, not replaced by AI. Existing AI players are restored from the save.
-BugfixesAndQoL.FixSkirmishLoadButtonVisibility=Keep the Skirmish Load button visible
-BugfixesAndQoL.FixSkirmishLoadButtonVisibilityHelp=Restores the Load Game button when entering singleplayer Skirmish after visiting a multiplayer lobby. The original singleplayer save selection and loading behavior stay unchanged.

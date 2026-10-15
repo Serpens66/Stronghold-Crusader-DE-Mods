@@ -92,7 +92,6 @@ namespace BugfixesAndQoL
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
             steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
-            LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
             FormationFeature.Configure(Logger, Config, Settings);

@@ -79,11 +79,11 @@ namespace ExtraFeatures
             if (guards.Count == 0)
                 return;
 
-            int now = CurrentGameTick();
+            DateTime now = DateTime.UtcNow;
             List<string> expiredKeys = new List<string>();
             foreach (KeyValuePair<string, ResourceEventCountGuard> entry in guards)
             {
-                if (IsTickWindowExpired(entry.Value.CreatedTick, now, ResourceGuardLifetimeTicks))
+                if (entry.Value.ExpiresAt <= now)
                     expiredKeys.Add(entry.Key);
             }
             foreach (string key in expiredKeys)

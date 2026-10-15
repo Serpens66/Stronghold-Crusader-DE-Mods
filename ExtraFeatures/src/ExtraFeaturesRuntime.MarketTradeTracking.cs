@@ -23,7 +23,7 @@ namespace ExtraFeatures
                 marketBuyResourceGuards[key] = new ResourceEventCountGuard
                 {
                     RemainingAmount = args.ShiftModifier != 0 ? MarketBuyShiftAmount : MarketBuyAmount,
-                    CreatedTick = CurrentGameTick()
+                    ExpiresAt = DateTime.UtcNow + MarketBuyGuardLifetime
                 };
             }
             else if (args.Phase == EventHookPhase.Post)
@@ -39,7 +39,7 @@ namespace ExtraFeatures
             marketBuyResourceGuards[key] = new ResourceEventCountGuard
             {
                 RemainingAmount = 1,
-                CreatedTick = CurrentGameTick()
+                ExpiresAt = DateTime.UtcNow + MarketBuyGuardLifetime
             };
         }
 

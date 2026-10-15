@@ -454,12 +454,3 @@ The AI-only feature is integrated into BugfixesAndQoL (RemoveAIKeepRangeLimit). 
 EEF90 function detour bypasses only the own/allied Keep distance check for valid
 AI players, leaving this global slider and humans' range unchanged. See that
 project's UpdateToNewDLL.md for hash, ABI, candidate-only rollback and tests. The former testmod has been removed.
-
-## Bedouin healer targets (HealerTargetsRuntime)
-
-- Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The feature is hash-bound: `HealerNativeContract.VerifyInstalledBinary` hashes the installed DLL and requires RedBird NativeX64 1.5.0.0. There is no pattern fallback because the player list count/ID/Global-ID tables and their strides are fixed-layout data not derivable from a function signature.
-- Function detour (Indirect scheme, 10 displaced bytes) on the per-player unit list builder RVA `0x181340`; entry bytes `48 89 5C 24 10 48 89 6C 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30` are compared live before installation. Vanilla runs exactly once; targets are appended afterwards.
-- Data RVAs: unit manager `0x67E8400` (GameUnitArray at `+0x65C`, slot 0 = LastOrderedUnit, game IDs index directly), list count `0x379F66C` (stride `0x583C`), short ID list `0x3945748` (stride 20000), Global-ID list `0x3971668` (stride 40000), capacity 10000 per player.
-- GameUnit exclusion fields: `TargetExclusionWordOffset` `0x29C` (no Extender field; hash-bound) and `TargetExclusionByteOffset` `0x458` (= Extender `GameUnit.N000000DE`, validated with `Marshal.OffsetOf`).
-- Failure behaviour: any contract mismatch leaves only this feature uninstalled and logged; a callback exception permanently turns the published detour into a Vanilla pass-through. The published instance stays statically rooted until process exit.
-- Update audit: re-derive all RVAs/strides above from the list builder and its healer consumers in the new semantic baseline; re-check the two exclusion fields and the Extender unit layout before changing the hash.

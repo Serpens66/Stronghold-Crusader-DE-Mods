@@ -79,7 +79,7 @@
 <ItemGroup><Compile Include="..\..\src\GateRouting\NativeAssassinTrace.cs" /><Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\NativeCallbackAdapterEmitter.cs" /><Compile Include="NativeAssassinTraceTests.cs" /></ItemGroup>
 <ItemGroup><Compile Include="NativeTraceContractTests.cs" /></ItemGroup>
 <ItemGroup><Compile Include="..\..\src\GateRouting\NativeAssassinMovementDiagnostics.cs" /><Compile Include="NativeMovementTests.cs" /></ItemGroup>
-<ItemGroup><Compile Include="..\..\src\Assassins\AssassinGateDescentRule.cs" /><Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\AssassinGateDescentAdapter.cs" /></ItemGroup>
+<ItemGroup><Compile Include="..\..\src\GateRouting\AssassinGateDescentRule.cs" /><Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\AssassinGateDescentAdapter.cs" /></ItemGroup>
 <ItemGroup><Compile Include="MigrationSources.cs"/><Compile Include="MigrationBehaviorTests.cs"/><Compile Include="../../../APIShared/src/Pathfinding/GateRoutes/GateAccessRules.cs"/></ItemGroup>
 <ItemGroup><Compile Include="GateNativeDetourTests.cs"/><Compile Include="../../../APIShared/src/Pathfinding/GateRoutes/Native/GateNativeDetourContract.cs"/></ItemGroup>
 </Project>

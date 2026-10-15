@@ -20,7 +20,6 @@ namespace ExtraFeatures
         private readonly Action<int, int> endCallback;
         private UnregisterDelegate unregister;
         private bool registered;
-        private bool connectAttempted;
 
         public MarketTradeGuardBridge(ManualLogSource log, ExtraFeaturesRuntime runtime)
         {
@@ -30,26 +29,11 @@ namespace ExtraFeatures
 
             beginCallback = (playerId, good) => runtime.BeginSingleMarketBuyGuard(playerId, (eGoods)good);
             endCallback = (playerId, good) => runtime.EndSingleMarketBuyGuard(playerId, (eGoods)good);
-        }
-
-        /// <summary>
-        /// Must run after the Chainloader finished: Bugfixes and QoL soft-depends on this mod and
-        /// therefore loads after Extra Features' Awake, so an Awake-time lookup never finds it.
-        /// </summary>
-        public void TryConnect()
-        {
-            if (connectAttempted)
-                return;
-            connectAttempted = true;
-
             if (!Chainloader.PluginInfos.TryGetValue(BugfixPluginGuid, out var pluginInfo))
                 return;
 
             try
             {
-                if (pluginInfo?.Instance == null)
-                    throw new InvalidOperationException("Bugfixes and QoL is listed but has no plugin instance.");
-
                 Type integrationType = pluginInfo.Instance.GetType().Assembly.GetType(IntegrationTypeName, true);
                 RegisterDelegate register = CreateDelegate<RegisterDelegate>(integrationType, "RegisterSingleBuyGuards");
                 unregister = CreateDelegate<UnregisterDelegate>(integrationType, "UnregisterSingleBuyGuards");
@@ -59,7 +43,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/MarketTradeGuardBridge.cs:62", $"Extra Features market-purchase guard integration failed; purchased goods may be treated as gained goods: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/MarketTradeGuardBridge.cs:46", $"Extra Features market-purchase guard integration failed; purchased goods may be treated as gained goods: {ex}");
             }
         }
 

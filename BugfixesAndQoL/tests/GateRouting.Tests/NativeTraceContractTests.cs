@@ -16,7 +16,6 @@ namespace BugfixesAndQoL.GateRouting
         [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr VirtualAlloc(IntPtr address, UIntPtr size, uint allocation, uint protection);
         private static readonly List<IntPtr> Pages = new List<IntPtr>();
         private static readonly List<object> Roots = new List<object>();
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void HeightProbe(IntPtr unitManager, int unitId);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ClosedGateProbe(IntPtr unitManager, int bypass);
         private static unsafe void RunClosedGate(Func<int, int, byte[]> read)
         {
@@ -100,26 +99,6 @@ namespace BugfixesAndQoL.GateRouting
                 if (Marshal.ReadInt16(unit, 0x490 + 0x918) != 101 || invoke(unit, 0) != 2 ||
                     Marshal.ReadInt32(unit, 0x490 + 0x752) != (pair.Item1 | (pair.Item2 << 16))) throw new Exception("Restored regular descent failed");
             }
-            // Execute the complete installed height-offset reader with controlled terrain.
-            // This proves a native data dependency, NOT that these terrain values occurred ingame.
-            Copy(0x184FD0, read(0x184FD0, 437));
-            var height = (HeightProbe)Marshal.GetDelegateForFunctionPointer(module + 0x184FD0, typeof(HeightProbe));
-            Marshal.WriteInt32(module, 0x9302C4, 1);
-            Marshal.WriteByte(unit, 0x490 + 0xA5A, 0);
-            Marshal.WriteByte(unit, 0x490 + 0xA5B, 0);
-            Marshal.WriteInt16(unit, 0x490 + 0xA70, 0);
-            Marshal.WriteInt32(unit, 0x490 + 0x72C, 1);
-            Marshal.WriteInt16(unit, 0x490 + 0x712, 10);
-            height(unit, 1);
-            if (Marshal.ReadInt16(unit, 0x490 + 0x714) != 40)
-                throw new Exception("Native building/wall presentation offset differs");
-            Marshal.WriteInt32(unit, 0x490 + 0x72C, 2);
-            Marshal.WriteInt16(unit, 0x490 + 0x712, 0);
-            Marshal.WriteInt16(unit, 0x490 + 0xA70, 10);
-            height(unit, 1);
-            if (Marshal.ReadInt16(unit, 0x490 + 0x714) != 10)
-                throw new Exception("Native ground presentation must use climb progress without roof offset");
-            Console.WriteLine("PASS: installed 184FD0 separates roof offset (40) from climb progress (10); synthetic terrain, runtime heights still require observation.");
             Console.WriteLine("PASS: real installed closed predicate, 197950 clear and DCE60 descent; functional guard and diagnostics independently on/off; rejection/exception preserves clear; simulated caller restore; 198ED0 unrelated cleanup fixture stubbed.");
         }
         internal static int Run()

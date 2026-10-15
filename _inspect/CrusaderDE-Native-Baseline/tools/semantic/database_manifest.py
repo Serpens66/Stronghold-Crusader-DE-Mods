@@ -20,8 +20,6 @@ COUNT_TABLES = [
     "patterns", "data_types", "source_types", "type_fields", "vtable_members",
     "delegates", "rtti_vtables", "xaml_resources", "xaml_links",
     "classifications", "version_matches",
-    "analysis_functions", "analysis_features", "analysis_sources", "analysis_profiles",
-    "analysis_memory", "analysis_contracts", "analysis_layouts", "analysis_changes",
 ]
 
 
@@ -51,8 +49,7 @@ def database_facts(database: Path):
     integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
     foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
     metadata = dict(connection.execute("SELECT key,value FROM metadata"))
-    available = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in COUNT_TABLES if table in available}
+    counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in COUNT_TABLES}
     fts_hits = connection.execute("SELECT COUNT(*) FROM function_search WHERE function_search MATCH 'operator'").fetchone()[0]
     binaries = [dict(zip(("hash", "role", "sourcePath", "size"), row)) for row in connection.execute("SELECT hash,role,path,size FROM binaries ORDER BY role")]
     connection.close()
@@ -72,7 +69,7 @@ def input_paths(args):
     comparison = Path(args.comparison)
     raw = Path(args.raw_root)
     managed = Path(args.managed_dir)
-    paths = [
+    return [
         semantic / "IDENTITY.json",
         comparison / "IDENTITY.json",
         semantic / "exports" / "semantic-functions.jsonl",
@@ -109,22 +106,6 @@ def input_paths(args):
         semantic / "resources" / "xaml-index.jsonl",
         semantic / "resources" / "xaml-managed-links.jsonl",
     ]
-    active_manifest = semantic / 'DATABASE_INFO.json'
-    if active_manifest.exists():
-        previous = json.loads(active_manifest.read_text(encoding='utf-8'))
-        generation = previous.get('analysis', {}).get('generation')
-        if generation:
-            root = Path(args.baseline_root) / generation
-            paths += sorted(root.glob('facts-*.jsonl'))
-            paths += sorted(root.glob('memory-*.jsonl'))
-            paths += sorted(root.glob('historical-facts-*.jsonl'))+sorted(root.glob('changes-*.jsonl'))
-            if (root/'historical-types.json').exists():paths.append(root/'historical-types.json')
-            for name in ['decompiler-diagnostics.json','historical/decompiler-diagnostics.json']:
-                if (root/name).exists():paths.append(root/name)
-            if (root/'advanced.json').exists():paths.append(root/'advanced.json')
-            paths += [root / name for name in ['profile.json','features.json','sources.json','coverage.json','backends.json']]
-            paths += sorted((root / 'backend').glob('*.cs'))
-    return paths
 
 
 def assert_identities(manifest, semantic: Path, comparison: Path):
@@ -153,9 +134,6 @@ def verify_inputs(manifest, baseline_root: Path):
 
 
 def create(args):
-    from baseline_publication import fingerprint,publication_guard
-    expected_manifest=fingerprint(args.manifest)
-    expected_pointer=fingerprint(args.current_index)
     baseline = Path(args.baseline_root)
     semantic = Path(args.semantic)
     comparison = Path(args.comparison)
@@ -187,26 +165,19 @@ def create(args):
         },
         "inputs": [{"path": relative(path, baseline), "sha256": sha256(path), "bytes": path.stat().st_size} for path in input_paths(args)],
     }
-    prior_manifest = Path(args.manifest)
-    if prior_manifest.exists():
-        previous = json.loads(prior_manifest.read_text(encoding='utf-8'))
-        if previous.get('analysis'):
-            manifest['analysis'] = previous['analysis']
-            manifest['manifestSchemaVersion'] = 3
     if facts["integrityCheck"] != "ok" or facts["foreignKeyErrors"]:
         raise ValueError(f"Cannot publish invalid database manifest: {facts}")
     if facts["metadata"].get("current_native_hash") != identities["currentNativeHash"] or facts["metadata"].get("managed_hash") != identities["managedHash"]:
         raise ValueError("Database metadata does not match requested identities")
     assert_identities(manifest, semantic, comparison)
+    write_json_atomic(Path(args.manifest), manifest)
     current = {
         "schemaVersion": 1,
         "currentNativeHash": identities["currentNativeHash"],
         "semanticDirectory": relative(semantic, baseline),
         "databaseManifest": relative(Path(args.manifest), baseline),
     }
-    with publication_guard(args.manifest,expected_manifest,pointer=args.current_index,expected_pointer=expected_pointer):
-        write_json_atomic(Path(args.manifest), manifest)
-        write_json_atomic(Path(args.current_index), current)
+    write_json_atomic(Path(args.current_index), current)
     print(json.dumps({"status": "created", "manifest": str(args.manifest), "databaseSha256": manifest["database"]["referenceSha256"], "databaseSize": manifest["database"]["referenceSize"]}))
 
 

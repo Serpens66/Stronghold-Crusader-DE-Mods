@@ -21,7 +21,6 @@ namespace ExtraFeatures
         private const int CivilianMask = 1;
         private const int SiegeMask = 2;
         private static HealerTargetsRuntime rootedPublishedInstance;
-        [ThreadStatic] private static bool[] seenBuffer;
 
         private readonly ManualLogSource log;
         private readonly DetourHandle<BuildPlayerUnitListDelegate> listBuilder =
@@ -152,9 +151,7 @@ namespace ExtraFeatures
                 (ulong)(playerId * HealerNativeContract.IdListStride));
             int* globalIds = (int*)(imageBase + HealerNativeContract.GlobalIdListRva +
                 (ulong)(playerId * HealerNativeContract.GlobalIdListStride));
-            // Reused per thread: this runs for every player list rebuild in the simulation.
-            bool[] seen = seenBuffer ?? (seenBuffer = new bool[HealerNativeContract.ListCapacity]);
-            Array.Clear(seen, 0, nextUnitId);
+            var seen = new bool[HealerNativeContract.ListCapacity];
             for (int index = 0; index < currentCount; index++)
             {
                 int existingId = ids[index];
@@ -176,8 +173,7 @@ namespace ExtraFeatures
                     continue;
 
                 byte* record = (byte*)unit;
-                if (*(short*)(record + HealerNativeContract.TargetExclusionWordOffset) != 0 ||
-                    *(byte*)(record + HealerNativeContract.TargetExclusionByteOffset) != 0)
+                if (*(short*)(record + 0x29C) != 0 || *(byte*)(record + 0x458) != 0)
                     continue;
 
                 ids[currentCount] = checked((short)unitId);

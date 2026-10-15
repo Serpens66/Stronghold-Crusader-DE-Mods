@@ -18,11 +18,12 @@ enum eChimps : short { CHIMP_TYPE_ARAB_ASSASIN=73 }
 }
 struct GameBuilding { internal uint r_GlobalId; internal ushort r_PlayerIdOwner,r_CapturedByPlayerId; internal byte r_GateState; }
 struct X64SmartCPUContext { internal ulong RBX,R14,RDI,R12,RBP,RDX,R9,R11; }
+sealed class RouteTilePolicySnapshot { internal Dictionary<int,Identity> GateIdentities=new(); internal struct Identity { internal uint Global; internal ushort Owner,Capturer; } }
 static unsafe class UnitAccess { internal static GameUnit* Unit; internal static bool Alive=true, Lookup=true;
 internal static bool TryGetById(int id,out GameUnit* u,out int x) { u=Unit;x=0;return Lookup; }
 internal static bool IsReallyAlive(in GameUnit u)=>Alive; }
 static class AssassinPathAPI { internal static bool DirectGatehouseClimbingEnabled=true, Endpoint=true;
-internal static Action OnEndpoint; internal static bool IsDirectGatehouseClimbEndpoint(int t) { OnEndpoint?.Invoke(); return Endpoint; } }
+internal static bool IsDirectGatehouseClimbEndpoint(int t)=>Endpoint; }
 unsafe class GameBuildingManagerAPI { internal static GameBuildingManagerAPI Instance=new(); internal static GameBuilding* Building;
 internal bool IsValidId(int id)=>id>0&&id<4000;
 internal bool TryGetBuildingById(int id,out GameBuilding* b) { b=Building;return true; } }
@@ -31,12 +32,14 @@ static int checks; static void Check(bool ok,string why) { checks++;if(!ok)throw
 static int Main() { try { Run(); return 0; } catch(Exception e) { Console.Error.WriteLine(e); return 1; } }
 static void Run() {
 string root=System.IO.Directory.GetCurrentDirectory();
-string runtime=System.IO.File.ReadAllText(System.IO.Path.Combine(root,"BugfixesAndQoL/src/Assassins/AssassinGateDescentRuntime.cs")).Replace("\r\n","\n");
+string runtime=System.IO.File.ReadAllText(System.IO.Path.Combine(root,"BugfixesAndQoL/src/GateRouting/AssassinGateDescentRuntime.cs")).Replace("\r\n","\n");
 string body=runtime.Substring(runtime.IndexOf("        internal void SetActive(")); body=body.Substring(0,body.LastIndexOf("\n    }")).Replace("private bool Allows","internal bool Allows").Replace("private void Decide","internal void Decide").Replace("private void ObserveClear","internal void ObserveClear");
 Check(System.IO.File.ReadAllText(System.IO.Path.Combine(root,"_inspect/AssassinDescentRuntimeTests/ProductionReader.cs")).Replace("\r\n","\n").Contains(body.Replace("\r\n","\n")),"fixture reader is exactly current production source");
 byte* m=(byte*)NativeMemory.AllocZeroed(0x6800000); int active=1, diagnostics=0;
 try {
 var r=new Reader { module=(ulong)m, active=&active, diagnostics=&diagnostics };
+var snapshot=new RouteTilePolicySnapshot(); snapshot.GateIdentities.Add(1,new RouteTilePolicySnapshot.Identity{Global=100,Owner=1});
+r.policy=()=>snapshot;
 GameBuilding b=new(){r_GlobalId=100,r_PlayerIdOwner=1,r_GateState=2}; GameBuildingManagerAPI.Building=&b;
 GameUnit* u=(GameUnit*)(m+0x67E8400+0x490+0x65C); UnitAccess.Unit=u;
 *u=new GameUnit { r_UnitChimp=eChimps.CHIMP_TYPE_ARAB_ASSASIN,r_GlobalId=4,r_ControllableForPlayerId=2,r_CurrentPositionTileId=1,
@@ -46,14 +49,14 @@ r_CurrentPathPlanIndex=16,r_PathPlanLength=19,r_AIState=101 };
 X64SmartCPUContext* cp=stackalloc X64SmartCPUContext[1]; *cp=new(){RBX=1,RDI=(ulong)m+0x67E8400,R12=0x490};
 Check(r.Allows(cp),"actual production reader authorizes verified descent");
 int observed=0;
-r.SetActive(true); r.ResetCounters(); r.SetObservers(null,null); r.Decide((IntPtr)cp); Check(cp->R11==1,"no diagnostic provider grants same descent");
-r.ResetCounters(); r.SetObservers((p,c)=>observed++,id=>observed++); r.Decide((IntPtr)cp); r.ObserveClear((IntPtr)cp,false);r.ObserveClear((IntPtr)cp,true);
+r.SetActive(true,null,null); r.Decide((IntPtr)cp); Check(cp->R11==1,"no diagnostic provider grants same descent");
+r.SetActive(true,(p,c)=>observed++,id=>observed++); r.Decide((IntPtr)cp); r.ObserveClear((IntPtr)cp,false);r.ObserveClear((IntPtr)cp,true);
 Check(cp->R11==1 && observed==3,"optional callbacks preserve permission");
-r.ResetCounters(); r.SetObservers((p,c)=>throw new Exception("observer"),id=>throw new Exception("observer"));
+r.SetActive(true,(p,c)=>throw new Exception("observer"),id=>throw new Exception("observer"));
 r.Decide((IntPtr)cp);r.ObserveClear((IntPtr)cp,false);r.ObserveClear((IntPtr)cp,true);
 Check(cp->R11==1 && r.Summary.Contains("observerErrors=3") && r.Summary.Contains("guardErrors=0"),"observer exceptions cannot revoke permission or escape native callback");
-r.SetActive(false); r.SetObservers(null,null);r.Decide((IntPtr)cp);Check(cp->R11==0,"inactive guard preserves original branch");
-r.SetActive(true); r.ResetCounters(); r.SetObservers(null,null);
+r.SetActive(false,null,null);r.Decide((IntPtr)cp);Check(cp->R11==0,"inactive guard preserves original branch");
+r.SetActive(true,null,null);
 
 void Reject(Action change,Action restore,string why) { change();Check(!r.Allows(cp),why);restore();Check(r.Allows(cp),why+" restored"); }
 // No substitute player or fabricated identities.
@@ -78,21 +81,16 @@ cp->RBX=10001;Check(!r.Allows(cp),"invalid ID");*cp=saved;
 cp->R12=0;Check(!r.Allows(cp),"stride mismatch");*cp=saved;
 cp->RDX=1;Check(!r.Allows(cp),"register pathmode");*cp=saved;
 cp->R9=1;Check(!r.Allows(cp),"special step");*cp=saved;
-b.r_GlobalId=0;Check(!r.Allows(cp),"invalid gate identity");b.r_GlobalId=100;
-b.r_CapturedByPlayerId=2;Check(r.Allows(cp),"captured gate descent requires no policy publication");
-b.r_PlayerIdOwner=2;Check(r.Allows(cp),"owned gate descent");
+b.r_GlobalId++;Check(!r.Allows(cp),"reused gate ID");b.r_GlobalId--;
+b.r_CapturedByPlayerId=2;Check(!r.Allows(cp),"capture before matching publication");
+snapshot.GateIdentities[1]=new RouteTilePolicySnapshot.Identity{Global=100,Owner=1,Capturer=2};Check(r.Allows(cp),"confirmed captured gate");
+b.r_PlayerIdOwner=2;snapshot.GateIdentities[1]=new RouteTilePolicySnapshot.Identity{Global=100,Owner=2,Capturer=2};Check(r.Allows(cp),"owned gate descent");
 active=0;Check(!r.Allows(cp),"map ended");active=1;
-int calls=0;AssassinPathAPI.OnEndpoint=()=> { if(++calls==2)GameBuildingManagerAPI.Building->r_GlobalId++; };Check(!r.Allows(cp),"gate reused during read");b.r_GlobalId--;
-calls=0;AssassinPathAPI.OnEndpoint=()=> { if(++calls==2)u->r_GlobalId++; };Check(!r.Allows(cp),"unit reused during read");u->r_GlobalId--;
-AssassinPathAPI.OnEndpoint=null;
-for(int gatePolicy=0;gatePolicy<2;gatePolicy++) for(int climb=0;climb<2;climb++) {
- AssassinPathAPI.DirectGatehouseClimbingEnabled=climb!=0;r.SetActive(climb!=0);
- Check(r.Allows(cp)==(climb!=0),"gate policy "+gatePolicy+" climb "+climb);
-}
-AssassinPathAPI.DirectGatehouseClimbingEnabled=true;r.SetActive(true);
+int calls=0;r.policy=()=>++calls==1?snapshot:new RouteTilePolicySnapshot();Check(!r.Allows(cp),"publication changed within read");
+calls=0;r.policy=()=> { if(++calls==2)u->r_GlobalId++;return snapshot; };Check(!r.Allows(cp),"unit reused during read");u->r_GlobalId--;
+r.policy=()=>snapshot;
 for(int d=0;d<8;d+=2) { cp->R14=(ulong)d;u->r_MovementDirection=(short)d;*(int*)(m+0x405EDB0+d*4)=1;m[0x312620+d]=(byte)(1<<d);m[0x312620+(d^4)]=(byte)(1<<(d^4));Check(r.Allows(cp),"orientation "+d); }
-FeatureHarness.Run(Check);
-Console.WriteLine("PASS: "+checks+" production-reader assertions; native data, SDK fixture boundaries, identities/control/state, owned/captured, maps and synchronous identity changes.");
+Console.WriteLine("PASS: "+checks+" production-reader assertions; native data, SDK fixture boundaries, identities/control/state, owned/captured, maps and publication changes.");
 } finally { NativeMemory.Free(m); }
 }
 }}

@@ -13,7 +13,6 @@ namespace BugfixesAndQoL.GateRouting
         internal struct Sample
         {
             internal int Unit, Player, State, Command, X, Y, TX, TY, Length, Index, PathState, Direction, NextDirection;
-            internal int BaseHeight, RenderOffset, ClimbHeight, ClimbProgress, WorldX, WorldY;
             internal int InvocationMode; // 0 regular 1855A0, 1 speculative 1855A0, 2 physical dispatcher
             internal int Gate, GateOwner, Capturer, GateState, GateContextRaw;
             internal uint Global, GateGlobal;
@@ -24,8 +23,6 @@ namespace BugfixesAndQoL.GateRouting
             internal bool Valid;
             public override string ToString() => "unit=" + Unit + "/" + Global + ",player=" + Player +
                 ",movementCall=" + ModeName(InvocationMode) + ",state=" + State + ",storedCommand=" + Command + ",position=" + X + "/" + Y +
-                ",world=" + WorldX + "/" + WorldY + ",baseHeightRaw=" + BaseHeight + ",renderOffsetRaw=" + RenderOffset +
-                ",climbHeightRaw=" + ClimbHeight + ",climbProgressRaw=" + ClimbProgress +
                 ",target=" + TX + "/" + TY + ",routeBuffer=0x" + Buffer.ToString("X") +
                 ",index=" + Index + ",length=" + Length + ",pathState=" + PathState +
                 ",consumedDirectionRaw=" + Direction + ",nextDirection=" + NextDirection +

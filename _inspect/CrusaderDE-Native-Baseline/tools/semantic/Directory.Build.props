@@ -1,6 +1,0 @@
-<Project>
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'NativeFacts' Or '$(MSBuildProjectName)' == 'NativeFacts.Tests'">
-    <BaseOutputPath>$(MSBuildThisFileDirectory)..\..\..\..\.tools\native-analysis\$(MSBuildProjectName)\</BaseOutputPath>
-    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)..\..\..\..\.tools\native-analysis\$(MSBuildProjectName)-obj\</BaseIntermediateOutputPath>
-  </PropertyGroup>
-</Project>

@@ -430,7 +430,3 @@ BugfixesAndQoL.EnableEnemyGatePathfindingFix=Feindliche Torhausdurchgänge verme
 BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp=Spieler und KI planen keine Bodenwege durch feindliche, nicht berechtigt eroberte Torhäuser. Eigene, verbündete und berechtigt eroberte Zugänge sowie erlaubtes Assassin-Klettern und Torangriffe bleiben möglich. Eigenständige Zugbrückenpassagen sind nicht enthalten.
 BugfixesAndQoL.ArabianIdleSoundVolume=Arabische Schwertkaempfer: Idle-Lautstaerke
 BugfixesAndQoL.ArabianIdleSoundVolumeHelp=Lokale Lautstaerke nur fuer das Schwertziehen waehrend der Ruheanimation arabischer Schwertkaempfer aller Spieler. 0 %: stumm; 100 %: normale Lautstaerke; Standard: 25 %. Kampfgeraeusche bleiben unveraendert. Keine Wiederholungsbegrenzung.
-BugfixesAndQoL.EnableSoloMultiplayerSaveLoading=Multiplayer-Spielstände alleine laden
-BugfixesAndQoL.EnableSoloMultiplayerSaveLoadingHelp=Erlaubt einem bereiten Host, Multiplayer-Spielstände ohne weitere menschliche Spieler zu laden. Verwendet den originalen Ladepfad: Fehlende Menschen werden entfernt und nicht durch KI ersetzt. Vorhandene KI-Spieler werden aus dem Spielstand wiederhergestellt.
-BugfixesAndQoL.FixSkirmishLoadButtonVisibility=Skirmish-Ladebutton sichtbar halten
-BugfixesAndQoL.FixSkirmishLoadButtonVisibilityHelp=Stellt den Spielstand-laden-Button beim Betreten des Singleplayer-Skirmish nach einem Besuch in einer Multiplayer-Lobby wieder her. Die originale Auswahl und das Laden von Singleplayer-Spielständen bleiben erhalten.

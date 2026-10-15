@@ -80,7 +80,6 @@ namespace ExtraFeatures
         private readonly IAivBuildStepObserver buildStepObserver;
         private bool initialized;
         private bool nativeInitialized;
-        private bool nativeUnavailable;
         private bool mapActive;
         private bool mapPrepared;
         private bool gameModeKnown;
@@ -154,14 +153,10 @@ namespace ExtraFeatures
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
-            if (nativeInitialized || nativeUnavailable || placementHook.Success)
+            if (nativeInitialized || placementHook.Success)
                 return;
             if (!NeedsNativeRebuildHooks)
                 return;
-
-            // This method is retried on every settings reconciliation. Any failure is final
-            // for the process so a half-registered state is never retried and logged again.
-            nativeUnavailable = true;
 
             // The placement helper's process-state origin fields are fixed-layout data, not
             // proven by either function signature. Fail closed on an unaudited DLL.
@@ -181,13 +176,18 @@ namespace ExtraFeatures
                     out failure))
             {
                 throw new InvalidOperationException(
-                    "APIShared AIV build-step capability unavailable: " +
+                    "APIShared AIV build-step registration failed: " +
                     (failure?.Reason ?? "unknown failure"));
             }
-
-            // Install the detour first: without nativeInitialized it is a pure pass-through, so a
-            // later observer-registration failure leaves a harmless published hook instead of an
-            // APIShared observer whose placement hook never existed.
+            if (!capability.TryRegisterObserver(
+                    "ai-defense-rebuild",
+                    buildStepObserver,
+                    out failure))
+            {
+                throw new InvalidOperationException(
+                    "APIShared AIV build-step registration failed: " +
+                    (failure?.Reason ?? "unknown failure"));
+            }
             try
             {
                 transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
@@ -198,32 +198,20 @@ namespace ExtraFeatures
                 CommitResult commitResult = transaction.Commit();
                 if (!commitResult.IsCompleteSuccess || !placementHook.Success)
                     throw new InvalidOperationException("The AI defense placement hook was not installed.");
+                nativeInitialized = true;
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AI defense rebuild registered through APIShared; placement hook installed at RVA 0x{placement.Rva:X}.");
             }
             catch
             {
-                if (!placementHook.Success)
+                if (!nativeInitialized && !placementHook.Success)
                 {
                     transaction?.Dispose();
                     transaction = null;
                 }
                 throw;
             }
-
-            if (!capability.TryRegisterObserver(
-                    "ai-defense-rebuild",
-                    buildStepObserver,
-                    out failure))
-            {
-                throw new InvalidOperationException(
-                    "APIShared AIV build-step registration failed; the placement hook stays a pass-through: " +
-                    (failure?.Reason ?? "unknown failure"));
-            }
-
-            nativeInitialized = true;
-            nativeUnavailable = false;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"AI defense rebuild registered through APIShared; placement hook installed at RVA 0x{placement.Rva:X}.");
         }
 
         public void Dispose()

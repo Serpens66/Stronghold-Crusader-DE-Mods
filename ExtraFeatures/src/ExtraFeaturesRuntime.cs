@@ -20,16 +20,11 @@ namespace ExtraFeatures
     public sealed partial class ExtraFeaturesRuntime : IDisposable
     {
         private static readonly int GoodsCount = (int)eGoods.Count;
-        // Guard windows are measured in simulation ticks, not wall-clock time, so every
-        // multiplayer peer expires them at the same tick. Vanilla simulates 40 ticks per
-        // game second at normal speed; 80 ticks preserve the previous two-second window.
-        private const int ResourceGuardLifetimeTicks = 80;
-        private const int StockpileRefundLifetimeTicks = 80;
+        private static readonly TimeSpan MarketBuyGuardLifetime = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan RefundGuardLifetime = TimeSpan.FromSeconds(2);
         private const int MarketBuyAmount = 5;
         private const int MarketBuyShiftAmount = 25;
         private const float VanillaRefundMultiplier = 0.5f;
-        // Must match the upper bound of ExtraFeaturesViewModel.CampfirePeasantsLimit.
-        internal const int CampfirePeasantsMaximum = 200;
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
@@ -43,13 +38,9 @@ namespace ExtraFeatures
             return true;
         }
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        // Process-lifetime mission subscriptions; intentionally never disposed.
-        private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
-        private bool missionLifecycleSubscribed;
         private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
-        private readonly List<string> activeRefundGuardKeys = new List<string>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly UnitLimitBridge unitLimitBridge;
         private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
@@ -135,30 +126,6 @@ namespace ExtraFeatures
             TryRunFeature("AI defense repair lifecycle", aiDefenseRepairRuntime.Initialize);
             TryRunFeature("Lord health lifecycle", lordHealthRuntime.Initialize);
             TryRunFeature("building repair HUD lifecycle", InitializeBuildingRepairHud);
-            InitializeMissionLifecycle();
-            // LibraryLoaded runs after every plugin's Awake, so Bugfixes and QoL is now present.
-            TryRunFeature("market-purchase guard integration", marketTradeGuardBridge.TryConnect);
-        }
-
-        private void InitializeMissionLifecycle()
-        {
-            if (missionLifecycleSubscribed)
-                return;
-            missionLifecycleSubscribed = true;
-
-            // Registered once for the process and never part of the toggled subscriptions:
-            // the activation gate closes before MissionEvents delivers End to observers, so a
-            // toggled Ended subscription would already be gone when the mission ends.
-            try
-            {
-                lifecycleSubscriptions.Add(
-                    Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
-                lifecycleSubscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnUnloadMap));
-            }
-            catch (Exception ex)
-            {
-                LogFeatureFailure("mission lifecycle subscriptions", ex);
-            }
         }
 
         public void InitializeNative(CrusaderLibraryLoadContext context, bool isFixedLayoutHashValidated)
@@ -313,6 +280,11 @@ namespace ExtraFeatures
                 PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
             TrySubscribeFeature("church priest spawn handling", () =>
                 BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
+            TrySubscribeFeature("gameplay-session initialization", () =>
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+            TrySubscribeFeature("map-unload cleanup", () =>
+                Shared.MissionEvents.Ended
+                    .Subscribe(OnUnloadMap));
             TryRunFeature("Lord health tick", ReconcileLordHealthRuntime);
             hooksSubscribed = true;
             ReconcileFixedLayoutFeatures();
@@ -579,21 +551,17 @@ namespace ExtraFeatures
         private void OnModeStateChanged(bool allowed)
         {
             if (!allowed)
-                ResetMapSession();
+            {
+                mapActive = false;
+                aiMarketVanillaPriceHook?.SetSessionOverride(false);
+                lordHealthRuntime.ResetMapState();
+                ClearResourceEventGuards();
+                pendingStockpileRefund = null;
+                multiplayerFeatureGate.Reset();
+                gatehouseAutomationRuntime.EndMap();
+            }
 
             ApplySettings();
-        }
-
-        // Shared by gate closure and the permanent mission-end subscription; idempotent.
-        private void ResetMapSession()
-        {
-            mapActive = false;
-            aiMarketVanillaPriceHook?.SetSessionOverride(false);
-            lordHealthRuntime.ResetMapState();
-            ClearResourceEventGuards();
-            pendingStockpileRefund = null;
-            multiplayerFeatureGate.Reset();
-            gatehouseAutomationRuntime.EndMap();
         }
 
         private void ApplyMapLoadedSettings(bool editor = false)
@@ -660,11 +628,6 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
-            // The subscription is process-permanent; only enabled sessions are initialized,
-            // exactly as when it was part of the toggled feature subscriptions.
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
-                return;
-
             TryRunFeature("fear-factor army report", () => fearFactorRuntime?.TryAttachArmyReportViewModel());
             bool multiplayerSave = context.IsLoadedSave
                 ? context.Mode.IsRealMultiplayer
@@ -681,8 +644,9 @@ namespace ExtraFeatures
                     lordHealthRuntime.BeginMap(context.SessionId, context.IsLoadedSave);
             });
 
-            // ApplyMapLoadedSettings already started the gatehouse map state for every start kind.
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
+            if (!context.IsLoadedSave && !context.IsEditor && !context.IsReplay)
+                TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
         }
 
         private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ScanRegion region, ReadOnlySpan<byte> memory)
@@ -808,8 +772,7 @@ namespace ExtraFeatures
                 }
             }
 
-            // Keep the reference: a published comparison hook must stay rooted. Every caller
-            // checks plagueDurationPatchUnavailable first, so the instance stays logically off.
+            plagueDurationPatch = null;
             string restoreDetails = restoreFailure == null
                 ? string.Empty
                 : $" Vanilla restoration also failed: {restoreFailure}";
@@ -858,8 +821,13 @@ namespace ExtraFeatures
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            TryRunFeature("campfire peasants restoration", RestoreCampfirePeasantsCap);
-            TryRunFeature("map-end cleanup", ResetMapSession);
+            RestoreCampfirePeasantsCap();
+            lordHealthRuntime.ResetMapState();
+            aiMarketVanillaPriceHook?.SetSessionOverride(false);
+            mapActive = false;
+            ClearResourceEventGuards();
+            multiplayerFeatureGate.Reset();
+            gatehouseAutomationRuntime.EndMap();
         }
 
         private void ApplyCampfirePeasantsLimit()
@@ -885,7 +853,7 @@ namespace ExtraFeatures
             if (!originalCampPeasantsCap.HasValue)
                 originalCampPeasantsCap = GameGlobalsManager.Instance.CampPeasantsCap.GetValue();
 
-            ushort value = (ushort)Math.Min(CampfirePeasantsMaximum, Math.Max(0, settings.CampfirePeasantsLimit));
+            ushort value = (ushort)Math.Min(500, Math.Max(0, settings.CampfirePeasantsLimit));
             GameGlobalsManager.Instance.CampPeasantsCap.SetValue(value);
             Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:879", "Extra Features applied campfire peasants limit:", value);
         }
@@ -925,7 +893,6 @@ namespace ExtraFeatures
 
         private void ClearResourceEventGuards()
         {
-            activeRefundGuardKeys.Clear();
             resourceAddReentryGuards.Clear();
             marketBuyResourceGuards.Clear();
             refundResourceGuards.Clear();
@@ -936,7 +903,7 @@ namespace ExtraFeatures
             public int PlayerId;
             public int Owner;
             public int RefundBuildingId;
-            public int CreatedTick;
+            public DateTime CreatedAt;
             public int PartsRemaining;
             public HashSet<int> ProcessedBuildingIds = new HashSet<int>();
         }
@@ -944,17 +911,7 @@ namespace ExtraFeatures
         private sealed class ResourceEventCountGuard
         {
             public int RemainingAmount { get; set; }
-            public int CreatedTick { get; set; }
-        }
-
-        private static int CurrentGameTick() =>
-            GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
-
-        // A tick counter that moved backwards belongs to a different map and is treated as expired.
-        private static bool IsTickWindowExpired(int createdTick, int nowTick, int lifetimeTicks)
-        {
-            int elapsed = unchecked(nowTick - createdTick);
-            return elapsed < 0 || elapsed >= lifetimeTicks;
+            public DateTime ExpiresAt { get; set; }
         }
     }
 }

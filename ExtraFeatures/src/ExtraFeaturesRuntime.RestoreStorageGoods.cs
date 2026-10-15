@@ -23,7 +23,7 @@ namespace ExtraFeatures
                 }
 
                 PendingStockpileRefund pending = pendingStockpileRefund;
-                if (pending == null || IsTickWindowExpired(pending.CreatedTick, CurrentGameTick(), StockpileRefundLifetimeTicks))
+                if (pending == null || pending.CreatedAt < DateTime.UtcNow.AddSeconds(-2))
                 {
                     pendingStockpileRefund = null;
                     return;
@@ -55,7 +55,6 @@ namespace ExtraFeatures
             {
                 NormalizeRefundPercentage(args);
                 AddResourceRefundGuards(args);
-                RemoveResourceRefundGuards(args);
 
                 if (args.Phase != EventHookPhase.Pre || args.BuildingId <= 0 || !settings.KeepStorageContent ||
                     !GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
@@ -74,7 +73,7 @@ namespace ExtraFeatures
                         PlayerId = args.PlayerId,
                         Owner = building->r_PlayerIdOwner,
                         RefundBuildingId = args.BuildingId,
-                        CreatedTick = CurrentGameTick(),
+                        CreatedAt = DateTime.UtcNow,
                         PartsRemaining = 4
                     };
                     return;

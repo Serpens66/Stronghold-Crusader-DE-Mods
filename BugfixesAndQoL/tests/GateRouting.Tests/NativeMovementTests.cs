@@ -30,9 +30,6 @@ namespace BugfixesAndQoL.GateRouting
                     Valid = true, Unit = 1, Global = 21, Player = 2, Gate = 4, GateGlobal = 7,
                     GateState = 2, GateContextRaw = 1, Length = 15, Index = 3, X = 8, Y = 9, TX = 12, TY = 9,
                     Epoch = 1, Generation = 4, Snapshot = new object() };
-                sample.BaseHeight = 80; sample.RenderOffset = 40; sample.ClimbHeight = 80; sample.ClimbProgress = 76;
-                sample.WorldX = 68; sample.WorldY = 76;
-                Check(sample.ToString().Contains("baseHeightRaw=80,renderOffsetRaw=40,climbHeightRaw=80,climbProgressRaw=76"), "separate presentation evidence retained");
                 var baseline = sample;
                 var d = new NativeAssassinMovementDiagnostics((ulong)memory.ToInt64(), id => sample);
                 X64SmartCPUContext* c = stackalloc X64SmartCPUContext[1]; *c = default; c->RBX = 1; c->RSP = 4096; c->RAX = 1;

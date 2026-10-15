@@ -10,7 +10,6 @@ namespace BugfixesAndQoL.GateRouting
             string main=Path.Combine("src","GateRouting",name);
             string api=Path.Combine("..","APIShared","src","Pathfinding","GateRoutes","Native",name);
             if(name=="EnemyGatePathfindingTestPlugin.cs")return File.ReadAllText("src/GateRouting/GateRoutingFeature.cs");
-            if(name=="AssassinGateDescentRuntime.cs" || name=="AssassinGateDescentRule.cs")return File.ReadAllText(Path.Combine("src","Assassins",name));
             if(File.Exists(main))return File.ReadAllText(main);
             if(File.Exists(api))return File.ReadAllText(api);
             string normalized=path.Replace('\\','/');

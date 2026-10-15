@@ -83,9 +83,6 @@ if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
 pushd "%PROJECT_DIR%"
-echo [%date% %time%] Lobby save loading and visibility contracts
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-LobbySaveLoading.ps1" -RunTests
-if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] Integrated gate routing migration regression
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GateRouting.ps1"
 if errorlevel 1 goto build_failed_popd

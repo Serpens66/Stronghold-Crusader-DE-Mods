@@ -105,10 +105,6 @@ static void Scan(string[] arguments)
     foreach (string file in scanRoots.SelectMany(RuntimeFiles).Distinct())
     {
         string relative=Path.GetRelativePath(root,file);
-        // Public third-party examples are documentation, not workspace runtime sources.
-        // Their public SDK calls cannot use our internal UnitAccess implementation.
-        // Match the project inventory's existing exclusion of APIShared/examples.
-        if (relative.Replace('\\','/').StartsWith("APIShared/examples/", StringComparison.OrdinalIgnoreCase)) continue;
         if (relative.Split(Path.DirectorySeparatorChar).Any(p=>excluded.Contains(p)||p.EndsWith(".Tests",StringComparison.OrdinalIgnoreCase))) continue;
         checkedFiles++;
         CheckLookupSyntax(File.ReadAllText(file), relative);

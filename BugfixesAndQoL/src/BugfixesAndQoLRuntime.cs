@@ -439,8 +439,6 @@ namespace BugfixesAndQoL
             TryInitializeFeature(
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
-            TryInitializePersistentFeature("Assassin gatehouse descent", () =>
-                GateRouting.AssassinGatehouseDescentFeature.Initialize(context, log, settings, isFixedLayoutHashValidated));
             TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             TryInitializePersistentFeature("enemy gate routing", () => GateRouting.GateRoutingFeature.Initialize(context,isFixedLayoutHashValidated));
             TryInitializePersistentFeature("drawbridge destruction fix", () =>
@@ -516,7 +514,6 @@ namespace BugfixesAndQoL
             if (!nativeLibraryAvailable) return;
             APIShared.AssassinPathAPI.SetDirectGatehouseClimbing(
                 BugfixesAndQoLPlugin.PluginGuid, settings.EnableMod && settings.EnableAssassinGatehouseClimbFix);
-            GateRouting.AssassinGatehouseDescentFeature.Refresh();
         }
 
         public void ApplySettings()

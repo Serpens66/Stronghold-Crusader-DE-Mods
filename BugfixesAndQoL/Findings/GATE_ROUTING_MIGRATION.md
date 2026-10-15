@@ -73,15 +73,3 @@ outside plugins. The first API driver stopped safely on the old blanket public
 pointer prohibition; explicit audited member/type/ABI checks now cover the new
 advanced service while retaining the general prohibition. No runtime was manually
 built or copied. Migration game acceptance remains pending.
-
-## 2026-10-14: Assassin descent ownership and height review
-
-The functional closed-gate descent guard now belongs to EnableAssassinGatehouseClimbFix, independently of EnableEnemyGatePathfindingFix. APIShared remains the sole owner of 0x185D55 (20 bytes). Sources: BugfixesAndQoL/src/Assassins/AssassinGatehouseDescentFeature.cs, AssassinGateDescentRuntime.cs and AssassinGateDescentRule.cs. Gate diagnosis only attaches optional observers; detaching them cannot disable descent. No new hooks or API contracts.
-
-The live guard validates unit/global ID, full control WORD, exact native pointer and current gate/global/owner/capturer identity before and after transition classification. No gate-policy snapshot permission is substituted. All four settings combinations, session changes and observer detach are covered by the production feature harness (64 assertions together with reader fixtures).
-
-Native height review: DCE60 initializes grid-height difference; 16CD70 consumes descent progress and commits the destination through 180A80. 184FD0 independently adds the roof/render offset and climb progress. Executing the installed 184FD0 in an isolated memory fixture demonstrates that a wall/building offset of 40 is separate from the grid-height difference. This is NOT yet proof of the actual reported visual defect: the earlier logs lack those raw heights. No speculative coordinate/height correction was applied. Existing movement observations now include world coordinates, base height, render offset, climb height and progress. Logical destination changes must not be undone merely to alter animation.
-
-Validation: full 60 search/climb and 21 planning/output native audit retained; gate suite 157368 assertions, native adapter register/flags tests, copied native height reader, runtime preflight and shared-boundary checks passed. Installed public field layout validated for B6/B8/410/414 and full control WORD at 92h. Interop fields 410/414 are DWORD storage; native audited instructions consume their signed low WORDs. No new Assembly-CSharp member access.
-
-Remaining acceptance: one closed, defended gate without drawbridge, one Assassin ground command behind it. Record descent appearance with climbing and gate policy enabled so the existing gate observer collects the raw heights. Then repeat with gate policy disabled to check functional independence; the separate descent summary remains available, but gate-observer detail is intentionally inactive. Height diagnosis is observational; the rendering defect remains open until the recorded values establish the exact correction. No repeat of Raid or around-route acceptance required.

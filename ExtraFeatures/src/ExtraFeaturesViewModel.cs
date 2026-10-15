@@ -217,7 +217,7 @@ namespace ExtraFeatures
         }
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
         [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance), nameof(ApothecaryPlagueSearchDistanceValueText)); }
-        [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, ExtraFeaturesRuntime.CampfirePeasantsMaximum,nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
+        [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 200, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
         [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
         [SHCDESE.API.Components.ModManager.DoNotPersist]
         public int VanillaPeaceTimeMinutes

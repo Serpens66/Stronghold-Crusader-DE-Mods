@@ -70,14 +70,14 @@ namespace ExtraFeatures
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             eStructs buildingType = buildingApi.GetType(args.BuildingId);
-            int createdTick = CurrentGameTick();
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_WOOD_PLANKS, GetRefundAmount(buildingApi.GetWoodCost(buildingType), buildingApi.WoodRefundMultiplier, args.Percentage), createdTick);
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_STONE_BLOCKS, GetRefundAmount(buildingApi.GetStoneCost(buildingType), buildingApi.StoneRefundMultiplier, args.Percentage), createdTick);
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_IRON_INGOTS, GetRefundAmount(buildingApi.GetIronIngotCost(buildingType), buildingApi.IronRefundMultiplier, args.Percentage), createdTick);
-            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_PITCH_RAW, GetRefundAmount(buildingApi.GetRawPitchCost(buildingType), buildingApi.PitchRefundMultiplier, args.Percentage), createdTick);
+            DateTime expiresAt = DateTime.UtcNow + RefundGuardLifetime;
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_WOOD_PLANKS, GetRefundAmount(buildingApi.GetWoodCost(buildingType), buildingApi.WoodRefundMultiplier, args.Percentage), expiresAt);
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_STONE_BLOCKS, GetRefundAmount(buildingApi.GetStoneCost(buildingType), buildingApi.StoneRefundMultiplier, args.Percentage), expiresAt);
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_IRON_INGOTS, GetRefundAmount(buildingApi.GetIronIngotCost(buildingType), buildingApi.IronRefundMultiplier, args.Percentage), expiresAt);
+            AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_PITCH_RAW, GetRefundAmount(buildingApi.GetRawPitchCost(buildingType), buildingApi.PitchRefundMultiplier, args.Percentage), expiresAt);
         }
 
-        private void AddBuildingRefundGuard(int playerId, eGoods good, int amount, int createdTick)
+        private void AddBuildingRefundGuard(int playerId, eGoods good, int amount, DateTime expiresAt)
         {
             if (amount <= 0)
                 return;
@@ -86,22 +86,8 @@ namespace ExtraFeatures
             refundResourceGuards[key] = new ResourceEventCountGuard
             {
                 RemainingAmount = amount,
-                CreatedTick = createdTick
+                ExpiresAt = expiresAt
             };
-            activeRefundGuardKeys.Add(key);
-        }
-
-        private void RemoveResourceRefundGuards(BuildingRefundEventArgs args)
-        {
-            // The Script Extender raises Post synchronously after Vanilla's refund. Every refund
-            // AddGood has happened by then, so a leftover guard (e.g. differing rounding) must not
-            // swallow later production gains.
-            if (args.Phase != EventHookPhase.Post || activeRefundGuardKeys.Count == 0)
-                return;
-
-            foreach (string key in activeRefundGuardKeys)
-                refundResourceGuards.Remove(key);
-            activeRefundGuardKeys.Clear();
         }
 
         private static int GetRefundAmount(int cost, float refundMultiplier, int percentage)

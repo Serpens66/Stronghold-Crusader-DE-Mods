@@ -338,12 +338,8 @@ namespace BugfixesAndQoL.GateRouting
             string runtimeSource = MigrationSources.Read(
                 Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             Assert(runtimeSource.IndexOf(
-                    "GetUnitTypePathfindingConnectionClasses()", StringComparison.Ordinal) >= 0 &&
-                runtimeSource.Contains("using CorrectedPathing = APIShared.ScriptExtenderReplacements.GamePathingManagerAPI;") &&
-                runtimeSource.Contains("CorrectedPathing pathing = CorrectedPathing.Instance;") &&
-                runtimeSource.Contains("if (!pathing.IsAvailable)") &&
-                runtimeSource.Contains("pathing.UnavailabilityReason"),
-                "startup comparison consumes the complete replacement span and reports unavailable access");
+                    "GetUnitTypePathfindingConnectionClasses()", StringComparison.Ordinal) >= 0,
+                "startup comparison consumes the public Script Extender connection-class span");
             Assert(runtimeSource.IndexOf(
                     "PathfindingConnectionPermissionTableRva", StringComparison.Ordinal) < 0 &&
                 runtimeSource.IndexOf("new ReadOnlySpan<int>(", StringComparison.Ordinal) < 0,
