@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory)][string]$PreviewPath,
     [string]$ApiSharedPreviewPath,
     [string]$ApiSharedWorkshopItemId,
+    [ValidateSet('main','develop')][string]$ModpackBranch='main',
     [switch]$Validate,
     [switch]$TestMode,
     [switch]$NoPause
@@ -45,14 +46,15 @@ $script:LogDir = Join-Path $script:OutputRoot 'logs'
 $script:LogPath = Join-Path $script:LogDir "$($script:RunId).log"
 $script:JournalPath = Join-Path $script:OutputRoot 'journal.json'
 $script:Repository = 'Serpens66/Stronghold-Crusader-DE-Mods'
-$script:Branch = 'main'
+$script:Branch = $ModpackBranch
+if($ModpackBranch -eq 'develop' -and -not $TestMode){throw 'Develop requires private TestMode.'}
 $script:CompatibilityChange = 'Added optional Serps Mods Host dependency for Workshop mod-pack load ordering.'
 $script:CecilSourcePath = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll'
 $script:CecilLoadPath = $null
 $script:BepInExCorePath = Split-Path -Parent $script:CecilSourcePath
 $script:ScriptExtenderOutputPath = Join-Path $script:Root 'shcde-script-extender\src\SHCDESE.BepInEx\bin\net481'
 $script:ReleaseList = @()
-$script:UploadHistoryPath = Join-Path $script:Root ".release-output\SteamWorkshop\items\$SteamAppId-$SteamStateName.upload-history.json"
+$script:UploadHistoryPath = Join-Path (Get-ApiMainWorkspace $script:Root) ".release-output\SteamWorkshop\items\$SteamAppId-$SteamStateName.upload-history.json"
 $script:UploadHistorySeedPath = Join-Path $PSScriptRoot "$SteamStateName.upload-history.seed.json"
 
 [void](New-Item -ItemType Directory -Path $script:LogDir -Force)
@@ -484,10 +486,11 @@ function Get-LatestReleaseForMod {
 
 function Get-ReleasePackage {
     param([Parameter(Mandatory)]$Mod)
+    $isTestRelease=$TestMode -and $Mod.LatestTag -like '*/test/*'
     $tag = if ($TestMode -and $Mod.LatestTag -like '*/test/*') {$Mod.LatestTag} else {"$($Mod.Name)/v$($Mod.TargetVersion)"}
     $view = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',$tag,'--repo',$script:Repository,'--json','tagName,isDraft,targetCommitish') -FailureCode 7
     $release = ($view.Output -join "`n") | ConvertFrom-Json
-    if ($release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$TestMode) { Fail-Pack 7 "Release identity/mode mismatch: $tag" }
+    if ($release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$isTestRelease) { Fail-Pack 7 "Release identity/mode mismatch: $tag" }
     $cache = Join-Path $script:OutputRoot "cache\$($Mod.Name)\v$($Mod.TargetVersion)"
     if ($TestMode) { $cache = Join-Path $cache ($tag -replace '^.*/v','') }
     [void](New-Item -ItemType Directory -Path $cache -Force)
@@ -533,8 +536,9 @@ function Get-ApiSharedReleasePackage {
         [Parameter(Mandatory)]$Infrastructure
     )
 
+    $apiTest=$TestMode -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1'
     $tag = "APIShared/v$($Infrastructure.Version)"
-    if ($TestMode) { $apiCommit=((Invoke-Checked -FilePath 'git' -Arguments @('-C',$Infrastructure.ProjectDirectory,'rev-parse','HEAD') -FailureCode 3).Output -join '').Trim(); $tag="APIShared/test/v$($Infrastructure.Version)-$($apiCommit.Substring(0,12))" }
+    if ($apiTest) { $apiCommit=((Invoke-Checked -FilePath 'git' -Arguments @('-C',$Infrastructure.ProjectDirectory,'rev-parse','HEAD') -FailureCode 3).Output -join '').Trim(); $tag="APIShared/test/v$($Infrastructure.Version)-$($apiCommit.Substring(0,12))" }
     $base = "APIShared-v$($Infrastructure.Version)"
     $expectedAssetNames = @("$base.zip", "$base.zip.sha256", "$base.provenance.json")
     $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @(
@@ -542,7 +546,7 @@ function Get-ApiSharedReleasePackage {
     ) -FailureCode 7 -AllowFailure
     if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is not published." }
     $release = ($releaseResult.Output -join "`n") | ConvertFrom-Json
-    if ([string]$release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$TestMode) {
+    if ([string]$release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$apiTest) {
         Fail-Pack 7 "APIShared release $tag is missing, still a draft, or resolved to an unexpected tag."
     }
     foreach ($assetName in $expectedAssetNames) {
@@ -551,8 +555,8 @@ function Get-ApiSharedReleasePackage {
         }
     }
 
-    $cache = Join-Path $script:Root ".release-output\APIShared\cache\v$($Infrastructure.Version)"
-    if ($TestMode) { $cache=Join-Path $script:OutputRoot ("cache/APIShared/v$($Infrastructure.Version)-"+$apiCommit.Substring(0,12)) }
+    $cache = Join-Path (Get-ApiMainWorkspace $script:Root) ".release-output\APIShared\cache\v$($Infrastructure.Version)"
+    if ($apiTest) { $cache=Join-Path $script:OutputRoot ("cache/APIShared/v$($Infrastructure.Version)-"+$apiCommit.Substring(0,12)) }
     [void](New-Item -ItemType Directory -Path $cache -Force)
     $zip = Join-Path $cache "$base.zip"
     $shaPath = Join-Path $cache "$base.zip.sha256"
@@ -631,6 +635,10 @@ function Get-ApiSharedReleasePackage {
         Fail-Pack 7 "APIShared release DLL identity/dependency mismatch for $tag."
     }
 
+    if($env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1' -and ($Infrastructure.Version -cne '0.9.2' -or
+       $provenance.Commit -cne 'c7b210f007035ff8edaf4d359a21f7bfbcbe479d' -or
+       $actualHash -cne 'a83714eb5ffaf24b6042cae4c972f0037c11169fdf25d3a1fe912e0d08c53097' -or
+       (Get-Sha256 $provenancePath) -cne 'c73265913ff8e7bcd0ad4aa010e4bb10ef7cbafa2fe7635e91c857467fbf3574')){Fail-Pack 7 'APIShared differs from the frozen public 0.9.2 release.'}
     return [pscustomobject]@{
         Zip = $zip
         Sha256 = $actualHash
@@ -1516,7 +1524,7 @@ try {
     $headCommit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
 
     $apiReleasesResult = Invoke-Checked -FilePath 'gh' -Arguments @('release','list','--repo',$apiSharedInfrastructure.Repository,'--limit','1000','--json','tagName,isDraft,publishedAt') -FailureCode 2
-    $apiReleases = @((($apiReleasesResult.Output -join "`n") | ConvertFrom-Json) | Where-Object { -not $_.isDraft })
+    $apiReleases = @((($apiReleasesResult.Output -join "`n") | ConvertFrom-Json) | Where-Object { -not $_.isDraft -and ($env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1' -or $_.tagName -ceq 'APIShared/v0.9.2') })
     $apiSharedLatest = Get-LatestReleaseForMod -ModName 'APIShared' -Releases $apiReleases -Repository $apiSharedInfrastructure.Repository
     $apiSharedPublishedVersion = if ($null -eq $apiSharedLatest) { $null } else { [string]$apiSharedLatest.Version }
     $apiSharedContentIsCurrent = $false
@@ -1539,7 +1547,7 @@ try {
         }
     }
     try {
-        $apiSharedAction = if ($TestMode) { [pscustomobject]@{ NeedsRelease=$false; Reason="Use reviewed APIShared test draft" } } else { Resolve-ApiSharedReleaseAction `
+        $apiSharedAction = if ($env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1') { if(-not $apiSharedArtifactIsValid){Fail-Pack 7 'The frozen public APIShared 0.9.2 artifact is required; no new API release will be created.'};[pscustomobject]@{NeedsRelease=$false;Reason='Frozen public APIShared 0.9.2'} } elseif ($TestMode) { [pscustomobject]@{ NeedsRelease=$false; Reason="Use reviewed APIShared test draft" } } else { Resolve-ApiSharedReleaseAction `
             -PreparedVersion $apiSharedInfrastructure.Version `
             -PublishedVersion $apiSharedPublishedVersion `
             -PublishedContentIsCurrent $apiSharedContentIsCurrent `
@@ -1548,7 +1556,7 @@ try {
         Fail-Pack 3 $_.Exception.Message
     }
     $apiSharedInfrastructure.NeedsRelease = [bool]$apiSharedAction.NeedsRelease
-    if ($TestMode) { $apiSharedInfrastructure.ReleasePackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure; $apiSharedInfrastructure.NeedsRelease = $false }
+    if ($TestMode -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1') { $apiSharedInfrastructure.ReleasePackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure; $apiSharedInfrastructure.NeedsRelease = $false }
     $apiSharedInfrastructure.ReleaseReason = [string]$apiSharedAction.Reason
     if ($null -ne $apiSharedInfrastructure.ReleasePackage) {
         $apiPackage = $apiSharedInfrastructure.ReleasePackage

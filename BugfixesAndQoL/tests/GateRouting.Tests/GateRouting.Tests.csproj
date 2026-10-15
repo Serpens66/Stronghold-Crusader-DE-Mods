@@ -22,7 +22,7 @@
     <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference><Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>true</Private></Reference>
@@ -63,7 +63,7 @@
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="CapturerAdapterMachineTests.cs" />
     <Compile Include="LargeGateFootprintTests.cs" />
-    <Compile Include="Program.cs" /><Compile Include="CompactDiagnosticTests.cs" /><Compile Include="TemporaryGateAcceptanceTests.cs" /><Compile Include="..\..\src\GateRouting\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
+    <Compile Include="Program.cs" /><Compile Include="GateDiagnosticConfigurationTests.cs" /><Compile Include="..\..\src\GateRouting\GateDiagnosticConfiguration.cs" /><Compile Include="CompactDiagnosticTests.cs" /><Compile Include="TemporaryGateAcceptanceTests.cs" /><Compile Include="..\..\src\GateRouting\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
     <Compile Include="GateRoutePolicyTests.cs" />
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\TemporaryGateRouteAcceptanceBridge.cs" />

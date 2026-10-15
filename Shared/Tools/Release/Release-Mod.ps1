@@ -18,6 +18,11 @@ $draftCreated = $false
 try {
     $metadata = Get-PluginMetadata -ModName $ModName
     $config = $metadata.Config
+    if($env:SHCDE_MODPACK_BRANCH){
+        if($env:SHCDE_MODPACK_BRANCH -cnotin @('main','develop') -or
+           ($env:SHCDE_MODPACK_BRANCH -eq 'develop' -and $env:SHCDE_WORKSHOP_TEST -ne '1')){throw 'Develop release drivers require private Workshop test mode.'}
+        $config.Branch=$env:SHCDE_MODPACK_BRANCH
+    }
     $apiSharedMinimum = Get-ApiSharedConsumerMinimum -Config $config -ModName $ModName
     $apiSharedConsumer = -not [string]::IsNullOrWhiteSpace($apiSharedMinimum)
     Write-Host "Preparing $($metadata.Manifest.Name) v$($metadata.Version)" -ForegroundColor Cyan

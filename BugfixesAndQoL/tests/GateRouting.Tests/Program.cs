@@ -22,6 +22,7 @@ namespace BugfixesAndQoL.GateRouting
                 assertions += NativeMovementTests.Run();
                 assertions += GateRoutePolicyTests.Run();
                 assertions += CompactDiagnosticTests.Run();
+                assertions += GateDiagnosticConfigurationTests.Run();
                 assertions += MacemenDiagnosticTests.Run();
                 assertions += GateEvidenceTests.Run();
                 assertions += TemporaryGateAcceptanceTests.Run();

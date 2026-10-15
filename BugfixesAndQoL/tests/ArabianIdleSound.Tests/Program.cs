@@ -23,7 +23,7 @@ namespace BugfixesAndQoL
         {
             string name = new AssemblyName(args.Name).Name + ".dll";
             foreach (string dir in new[] {
-                Path.Combine(workspace, "APIShared/BepInEx/plugins/APIShared_Serp"),
+                Environment.GetEnvironmentVariable("SHCDE_API_SHARED_DIR") ?? Path.Combine(workspace, "APIShared/BepInEx/plugins/APIShared_Serp"),
                 Path.Combine(game, "BepInEx/plugins/000shcdese"), Path.Combine(game, "BepInEx/core"),
                 Path.Combine(game, "Stronghold Crusader Definitive Edition_Data/Managed") })
             {

@@ -411,7 +411,7 @@ function Get-PublishedApiSharedRelease {
         [Parameter(Mandatory)]$Package
     )
     $tag = "APIShared/v$([string]$Package.Version)"
-    $testRelease = $env:SHCDE_WORKSHOP_TEST -eq '1'
+    $testRelease = $env:SHCDE_WORKSHOP_TEST -eq '1' -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1'
     if ($testRelease) { $tag = "APIShared/test/v$([string]$Package.Version)-$(([string]$Package.Commit).Substring(0,12))" }
     $assetName = "APIShared-v$([string]$Package.Version).zip"
     $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(
@@ -433,7 +433,7 @@ function Get-PublishedApiSharedRelease {
         throw "Required APIShared release $tag must contain exactly one $assetName asset."
     }
     if ($Package.PSObject.Properties['Commit']) {
-        $api = Join-Path $Config.Root ([string]$Config.ApiShared.Project)
+        $api = if($env:SHCDE_API_SHARED_MAIN_SELECTION){Get-WorkshopApiRoot $Config.Root}else{Join-Path $Config.Root ([string]$Config.ApiShared.Project)}
         $refs = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $api, 'ls-remote', 'origin', "refs/tags/$tag", "refs/tags/$tag^{}")
         $rows = @($refs.Output)
         $peeled = @($rows | Where-Object { $_ -match '\^\{\}$' })
