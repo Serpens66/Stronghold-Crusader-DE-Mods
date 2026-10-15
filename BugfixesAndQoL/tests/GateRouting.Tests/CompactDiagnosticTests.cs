@@ -58,7 +58,7 @@ namespace BugfixesAndQoL.GateRouting
             errors.Reset();
             check(errors.Summary == "" && errors.DrainNewCauses().Length == 0, "map reset");
             string plugin = MigrationSources.Read("src/EnemyGatePathfindingTestPlugin.cs");
-            check(plugin.Contains("config.Bind(\"GateMigrationDiagnostics\",\"DetailedDiagnostics\",true"), "migration diagnosis retained until acceptance");
+            check(plugin.Contains("config.Bind(\"GateMigrationDiagnostics\",\"DetailedDiagnostics\",false"), "detailed diagnosis defaults off for normal play");
             check(plugin.Contains("if(detailed||macemen)") && plugin.Contains("OnTribeIssueOrderWithTarget") && plugin.Contains("OnUnitMoveHere"), "order observations require diagnostic profile");
             check(plugin.Contains("config.Bind(\"GateMigrationDiagnostics\",\"MacemenDiagnostics\",false"), "Macemen profile defaults off");
             check(!plugin.Contains("detailed=config") || plugin.IndexOf("detailed=config",StringComparison.Ordinal)<plugin.IndexOf("internal static void Initialize",StringComparison.Ordinal), "diagnostic profile read during configuration only");

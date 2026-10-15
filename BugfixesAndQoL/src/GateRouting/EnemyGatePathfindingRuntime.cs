@@ -69,7 +69,7 @@ namespace BugfixesAndQoL.GateRouting
         private readonly CapturerSample[] samples =
             new CapturerSample[SiteCount * DecisionCount];
 
-        internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = true, bool macemenDiagnostics = false)
+        internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = false, bool macemenDiagnostics = false)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.detailedDiagnostics = detailedDiagnostics;

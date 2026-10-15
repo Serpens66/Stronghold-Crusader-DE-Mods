@@ -39,7 +39,7 @@ namespace BugfixesAndQoL.GateRouting
         internal static void Configure(ManualLogSource logger,ConfigFile config,BugfixesAndQoLViewModel options)
         {
             if(configured)return;configured=true;log=logger;settings=options;
-            detailed=config.Bind("GateMigrationDiagnostics","DetailedDiagnostics",true,"TEMP_GATE_MIGRATION_DIAGNOSTICS: retain complete gate diagnosis for migration acceptance; restart required.").Value;
+            detailed=config.Bind("GateMigrationDiagnostics","DetailedDiagnostics",false,"Optional detailed gate-route diagnosis; disabled for normal play; restart required.").Value;
             macemen=config.Bind("GateMigrationDiagnostics","MacemenDiagnostics",false,"TEMP_MACEMEN_GATE_DIAGNOSTICS: optional compact command diagnosis; restart required.").Value;
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log,c=>{map=true;editor=c.IsEditor;Refresh();}));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_=>{map=false;Refresh();}));
