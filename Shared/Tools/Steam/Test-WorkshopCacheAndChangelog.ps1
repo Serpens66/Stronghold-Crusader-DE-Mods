@@ -179,6 +179,16 @@ Check ($persisted.ContentFingerprint -ceq $savedNote.ContentFingerprint -and $pe
 $config=Get-WorkshopConfiguration
 $preparation=Join-Path $root '.release-output/SteamWorkshop/prepared/SerpsMods.json'
 if (Test-Path -LiteralPath $preparation) {
+    # Prepared files belong to their selected checkout, even when this test starts on develop.
+    $prepared=[IO.File]::ReadAllText($preparation)|ConvertFrom-Json
+    if($prepared.PSObject.Properties['PublishedRelease']){
+        . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
+        $config.Root=(Resolve-ModpackSource $root 'main' -AllowGeneratedOutputs).Root
+    }elseif($prepared.PSObject.Properties['ModpackSource']){$config.Root=$prepared.ModpackSource.Root}
+    $config.SerpsMods.Folder=Join-Path $config.Root 'SerpsMods'
+    $env:SHCDE_MODPACK_COORDINATOR=$root
+    $env:SHCDE_MODPACK_BRANCH='main'
+    if($prepared.PSObject.Properties['MainSource']){$env:SHCDE_API_SHARED_MAIN_SELECTION=$prepared.MainSource.Selection}
     $proof=Assert-WorkshopPreparation $config $config.SerpsMods $false
     $provenance=[IO.File]::ReadAllText($proof.ReleaseProvenance)|ConvertFrom-Json
     $statePath=Join-Path $root '.release-output/SteamWorkshop/items/3024040-SerpsMods.changelog-state.json'

@@ -20,6 +20,7 @@ $init=Invoke-ApiRepositoryProcess 'git' @('init','--initial-branch=main',$root);
 foreach($relative in @('Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1',
  'Shared/Tools/Steam/ModpackSource.Common.ps1','Shared/Tools/Steam/WorkshopOptions.Common.ps1','Shared/Tools/Steam/WorkshopWorkflow.ps1',
  'Shared/Tools/Steam/WorkshopWorkflow.Common.ps1','Shared/Tools/Steam/WorkshopOutputRetention.ps1','Shared/Tools/Steam/SteamWorkshopHistory.ps1',
+ 'Shared/Tools/Steam/PublishedModpack.Common.ps1','Shared/Tools/Steam/ReleaseAssetCache.ps1',
  'CreateSteamModPack.bat','UploadWorkshop.bat')){Put $relative ([IO.File]::ReadAllText((Join-Path $workspace $relative)))}
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll' 'original fixture build'
 Put '.gitignore' ".release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
@@ -53,12 +54,14 @@ param([int]$TestMode,[int]$ValidateOnly,[string]$Target)
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 $config=Get-WorkshopConfiguration;$test=$TestMode -eq 1
+if(-not $Target){$Target='SerpsMods';$ValidateOnly=0}
+
 $id=Get-WorkshopItemId $config $config.$Target $test
 if($test -and $id -eq '3788821961'){throw 'Public ID leaked into test'}
-Write-Host ('FIXTURE_SOURCE='+$config.Root+';branch='+$env:SHCDE_MODPACK_BRANCH+';test='+$TestMode+';id='+$id)
+if($PSCommandPath -notlike '*Prepare-LatestModpackUpload.ps1'){Write-Host ('FIXTURE_SOURCE='+$config.Root+';branch='+$env:SHCDE_MODPACK_BRANCH+';test='+$TestMode+';id='+$id)}
 if($env:MODPACK_FIXTURE_FAIL -eq '1'){Write-Host 'FIXTURE_FAILURE';exit 7}
 if($ValidateOnly){exit 0}
-if($Target -eq 'SerpsMods' -and $env:MODPACK_FIXTURE_HOST_BUILD -eq '1'){
+if($Target -eq 'SerpsMods' -and $env:MODPACK_FIXTURE_HOST_BUILD -eq '1' -and $PSCommandPath -notlike '*Prepare-LatestModpackUpload.ps1'){
  [IO.File]::WriteAllText((Join-Path $config.Root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'),'built '+$env:SHCDE_MODPACK_BRANCH)
 }
 $folder=Get-WorkshopFolder $config $config.$Target $test
@@ -73,7 +76,7 @@ if($Target -eq 'SerpsMods'){
 }
 $null=Write-WorkshopPreparation $config $config.$Target $test '1.0.28' $commit 'fixture'
 '@
-foreach($service in @('Prepare-ModpackWorkflow.ps1','Prepare-APISharedWorkshop.ps1')){Put ('Shared/Tools/Steam/'+$service) $prepare}
+foreach($service in @('Prepare-LatestModpackUpload.ps1','Prepare-ModpackWorkflow.ps1','Prepare-APISharedWorkshop.ps1')){Put ('Shared/Tools/Steam/'+$service) $prepare}
 Put 'Shared/Tools/Steam/Upload-WorkshopTarget.ps1' @'
 param([int]$TestMode,[int]$ValidateOnly,[string]$Target)
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
@@ -145,6 +148,8 @@ $env:MODPACK_FIXTURE_HOST_BUILD='1'
 & (Join-Path $caller 'CreateSteamModPack.bat') /modpack /branch:main /nopause *> $log
 Check ($LASTEXITCODE -eq 0) ('Main preparation BAT: '+[IO.File]::ReadAllText($log))
 Test-CompletionMatrix 'UploadWorkshop.bat'
+& (Join-Path $caller 'UploadWorkshop.bat') /validate /nopause *> $log
+Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($log) -match 'FIXTURE_UPLOAD=.*author' -and [IO.File]::ReadAllText($log) -notmatch 'Auswahl') 'Upload without target must select the main modpack without a menu'
 $mainOutput=Join-Path $root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
 $mainProof=Join-Path $root '.release-output/SteamWorkshop/prepared/SerpsMods.json'
 $before=Get-ApiRepositoryHash $mainProof
@@ -179,19 +184,20 @@ $p=[IO.File]::ReadAllText($testProof)|ConvertFrom-Json
 Check ($p.Mode -ceq 'Test' -and $p.ModpackSource.Branch -ceq 'develop') 'Develop did not force private mode'
 $before=Get-ApiRepositoryHash $testProof
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
-Check ($LASTEXITCODE -eq 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) ('Private cross-checkout upload: '+[IO.File]::ReadAllText($log))
+Check ($LASTEXITCODE -eq 0 -and ([IO.File]::ReadAllText($testProof)|ConvertFrom-Json).ModpackSource.Branch -ceq 'main') ('Private upload must select main: '+[IO.File]::ReadAllText($log))
+$before=Get-ApiRepositoryHash $testProof
 $ErrorActionPreference='Continue' # Expected BAT failures may write native stderr in Windows PowerShell 5.1.
-& (Join-Path $caller 'UploadWorkshop.bat') /modpack /branch:main /test /validate /nopause *> $log
-Check ($LASTEXITCODE -ne 0) 'Conflicting prepared branch was accepted'
-$generated=Join-Path $source.Root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
+& (Join-Path $caller 'UploadWorkshop.bat') /modpack /branch:develop /test /validate /nopause *> $log
+Check ($LASTEXITCODE -ne 0) 'Develop upload was accepted'
+$generated=Join-Path $root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
 $generatedBytes=[IO.File]::ReadAllText($generated);[IO.File]::WriteAllText($generated,'changed generated build')
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
-Check ($LASTEXITCODE -ne 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) 'Upload accepted changed generated output or rewrote provenance'
+Check ($LASTEXITCODE -eq 0) 'Known generated outputs must not prevent refreshing a published upload'
 [IO.File]::WriteAllText($generated,$generatedBytes)
-$payload=Join-Path $source.Root '.release-output/SteamWorkshop/test/packages/SerpsMods/payload.txt'
+$payload=Join-Path $root '.release-output/SteamWorkshop/test/packages/SerpsMods/payload.txt'
 $originalPayload=[IO.File]::ReadAllText($payload);[IO.File]::WriteAllText($payload,'tampered')
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
-Check ($LASTEXITCODE -ne 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) 'Changed payload accepted or proof rewritten on upload'
+Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($payload) -ceq 'main') 'Changed prepared payload was not repaired from main release'
 [IO.File]::WriteAllText($payload,$originalPayload)
 [IO.File]::WriteAllText($generated,'original fixture build')
 Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '3788821961'
