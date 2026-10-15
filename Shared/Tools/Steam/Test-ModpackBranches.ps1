@@ -101,13 +101,15 @@ Put '.release-output/SteamWorkshop/test/items/3024040-APIShared.item-id' '222'
 Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '333'
 $log=Join-Path $fixture 'bat.log'
 # Real BAT/Windows PowerShell children must wait for Enter only in the original caller.
-function Test-CompletionMatrix([string]$Driver){
- foreach($entryRoot in @($root,$caller)){
+function Test-CompletionMatrix([string]$Driver,[switch]$WithoutArguments){
+ $entryRoots=if($WithoutArguments){@($root,$source.Root)}else{@($root,$caller)}
+ $pauseCases=if($WithoutArguments){@($false)}else{@($false,$true)}
+ foreach($entryRoot in $entryRoots){
   foreach($fail in @($false,$true)){
-   foreach($noPause in @($false,$true)){
+   foreach($noPause in $pauseCases){
     $env:MODPACK_FIXTURE_FAIL=if($fail){'1'}else{'0'}
     $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=$env:ComSpec
-    $flags='/modpack /branch:main /validate';if($noPause){$flags+=' /nopause'}
+    $flags=if($WithoutArguments){''}else{'/modpack /branch:main /validate'};if($noPause){$flags+=' /nopause'}
     $start.Arguments='/d /s /c ""'+(Join-Path $entryRoot $Driver)+'" '+$flags+'"'
     $start.WorkingDirectory=$entryRoot;$start.UseShellExecute=$false;$start.CreateNoWindow=$true
     $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
@@ -131,8 +133,11 @@ function Test-CompletionMatrix([string]$Driver){
       }
      }
      if(-not $process.WaitForExit(5000)){throw 'BAT did not exit after completion'}
-     $output=$result.ToString();$description="$Driver root=$entryRoot fail=$fail nopause=$noPause"
+     $output=$result.ToString();$description="$Driver root=$entryRoot fail=$fail nopause=$noPause noargs=$WithoutArguments"
      Check ($process.ExitCode -eq $(if($fail){1}else{0})) ("Wrong exit code: $description / $output / "+$errors.Result)
+     if($WithoutArguments){
+      Check ($output -match 'Modpack-Branch: main /' -and $output -notmatch 'Unknown option:|FIXTURE_PROMPT=Auswahl|FIXTURE_PROMPT=Modpack-Branch') ("Argumentless upload must select main without an option error/menu: $description / $output")
+     }
      $prompts=[regex]::Matches($output,'FIXTURE_PROMPT=Enter zum Schliessen').Count
      Check ($prompts -eq $(if($noPause){0}else{1}) -and ($noPause -or $sentEnter)) ("Wrong pause count: $description / $output")
      $marker=if($fail){'FIXTURE_FAILURE'}elseif($Driver -eq 'CreateSteamModPack.bat'){'FIXTURE_SOURCE='}else{'FIXTURE_UPLOAD='}
@@ -148,6 +153,7 @@ $env:MODPACK_FIXTURE_HOST_BUILD='1'
 & (Join-Path $caller 'CreateSteamModPack.bat') /modpack /branch:main /nopause *> $log
 Check ($LASTEXITCODE -eq 0) ('Main preparation BAT: '+[IO.File]::ReadAllText($log))
 Test-CompletionMatrix 'UploadWorkshop.bat'
+Test-CompletionMatrix 'UploadWorkshop.bat' -WithoutArguments
 & (Join-Path $caller 'UploadWorkshop.bat') /validate /nopause *> $log
 Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($log) -match 'FIXTURE_UPLOAD=.*author' -and [IO.File]::ReadAllText($log) -notmatch 'Auswahl') 'Upload without target must select the main modpack without a menu'
 $mainOutput=Join-Path $root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
