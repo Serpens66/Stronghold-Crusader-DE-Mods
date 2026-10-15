@@ -55,6 +55,42 @@ function Get-PreparedModpackSource([string]$Workspace,[bool]$Test,[string]$Branc
     $source=$proof.ModpackSource
     if(($Branch -and $source.Branch -cne $Branch) -or ($source.Branch -eq 'develop' -and -not $Test) -or
         $proof.Mode -cne $(if($Test){'Test'}else{'Production'}) -or $proof.Commit -cne $source.Commit){throw 'Prepared modpack branch/mode/commit mismatch.'}
-    $null=Assert-ModpackSource $Workspace $source -Clean
+    $root=Assert-ModpackSource $Workspace $source
+    Assert-ModpackPreparedOutputs $root $source.GeneratedOutputs
     return $source
+}
+
+# The host driver refreshes tracked output after the source commit. Freeze only these
+# known build products; every source edit or unrelated dirty path remains forbidden.
+function Get-ModpackGeneratedOutputPaths {
+    return @('SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll',
+        'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.pdb',
+        'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/info.json',
+        'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/serps-modpack.json')
+}
+function Get-ModpackDirtyOutputs([string]$Root) {
+    if(@(Invoke-ApiRepositoryGit $Root @('diff','--cached','--name-only')).Count -or
+       @(Invoke-ApiRepositoryGit $Root @('ls-files','--others','--exclude-standard')).Count){throw 'Unexpected staged/untracked changes after preparation.'}
+    $allowed=@(Get-ModpackGeneratedOutputPaths)
+    $records=@(foreach($path in @(Invoke-ApiRepositoryGit $Root @('-c','core.quotepath=false','diff','--no-renames','--name-only'))){
+        if($path -cnotin $allowed){throw "Unexpected source change after preparation: $path"}
+        $file=Join-Path $Root $path;Assert-ApiMainUnlinkedPath $file
+        [ordered]@{Path=$path;Sha256=(Get-ApiRepositoryHash $file)}
+    })
+    return @($records|Sort-Object {$_.Path})
+}
+function Get-ModpackPreparationSource([string]$Root,[string]$Branch,[string]$Commit) {
+    $source=[ordered]@{Root=[IO.Path]::GetFullPath($Root);Branch=$Branch;Commit=$Commit}
+    $null=Assert-ModpackSource $Root $source
+    $source.GeneratedOutputs=@(Get-ModpackDirtyOutputs $Root)
+    return $source
+}
+function Assert-ModpackPreparedOutputs([string]$Root,$Outputs) {
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($output in @($Outputs)){
+        if($output.Path -cnotin @(Get-ModpackGeneratedOutputPaths) -or $output.Sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+           -not $seen.Add([string]$output.Path)){throw 'Invalid generated-output identity.'}
+    }
+    $actual=@(Get-ModpackDirtyOutputs $Root)
+    if((ConvertTo-Json -InputObject $actual -Compress) -cne (ConvertTo-Json -InputObject @($Outputs) -Compress)){throw 'Generated outputs changed since preparation; prepare again.'}
 }

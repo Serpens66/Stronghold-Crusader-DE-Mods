@@ -36,7 +36,7 @@ function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,
     if($Target.Key -eq 'SerpsMods' -and $env:SHCDE_MODPACK_BRANCH){
         . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
         if($env:SHCDE_MODPACK_BRANCH -eq 'develop' -and -not $Test){throw 'Develop modpacks must be private tests.'}
-        $source=Resolve-ModpackSource $Config.Root $env:SHCDE_MODPACK_BRANCH
+        $source=Get-ModpackPreparationSource $Config.Root $env:SHCDE_MODPACK_BRANCH $Commit
         if($source.Commit -cne $Commit -or $source.Root -ine $Config.Root){throw 'Prepared package/source identity mismatch.'}
         $proof.ModpackSource=$source
         $proof.PublishedSdk=[ordered]@{Version='0.9.2';Commit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d';DllSha256='2797b06042b0634ccc97ee5d2175c96944f95edfa1924d764776d9a6bde14758'}
