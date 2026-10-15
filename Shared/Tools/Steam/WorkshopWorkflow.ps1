@@ -1,5 +1,6 @@
 param([ValidateSet('Prepare','Upload')][string]$Action,[Parameter(ValueFromRemainingArguments=$true)][string[]]$Options)
 $ErrorActionPreference='Stop'
+if($null -eq $Options){$Options=@()}
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
