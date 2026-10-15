@@ -32,6 +32,7 @@ $rows += 'No newly introduced direct Assembly-CSharp field/property/method acces
 $workspace=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $report=Join-Path $workspace '.inspect\RaidRetargetEvaluation\MainmodInstalledApiContracts.txt'
 $content=($rows -join [Environment]::NewLine)+[Environment]::NewLine
+[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($report))
 [IO.File]::WriteAllText($report,$content,[Text.UTF8Encoding]::new($false))
 if([IO.File]::ReadAllText($report)-cne$content){throw 'API report write mismatch'}
 $assembly.Dispose()

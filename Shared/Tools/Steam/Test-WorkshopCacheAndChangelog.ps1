@@ -122,6 +122,8 @@ if (Test-Path -LiteralPath $existing) {
         $productionZip=$package.Zip
         $productionRoot=$OutputRoot
         $TestMode=$true; $script:OutputRoot=Join-Path $fixture 'test/SerpsMods'
+        $reusedPublic=Get-ReleasePackage $consumer
+        Check ($reusedPublic.Zip.StartsWith($OutputRoot+'\',[StringComparison]::OrdinalIgnoreCase) -and $reusedPublic.Zip -cne $productionZip) 'Private test failed to reuse an unchanged public child release in its isolated cache.'
         $consumer.LatestTag='BugfixesAndQoL/test/v'+$individual.Version+'-'+$individual.Commit.Substring(0,12)
         $remoteRelease.tagName=$consumer.LatestTag; $remoteRelease.isDraft=$true
         $individual.Tag=$consumer.LatestTag

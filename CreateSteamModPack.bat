@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions
-rem Uses pinned public APIShared main in an isolated worktree; dev checkout stays active.
+rem Selects the Modpack branch: main (public) or develop (private test).
+rem Scripts: /branch:main or /branch:develop. Reuses published APIShared 0.9.2; never builds it.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Tools\Steam\WorkshopWorkflow.ps1" -Action Prepare %*
 exit /b %ERRORLEVEL%

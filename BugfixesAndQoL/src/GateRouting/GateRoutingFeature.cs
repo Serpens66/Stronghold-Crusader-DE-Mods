@@ -39,8 +39,9 @@ namespace BugfixesAndQoL.GateRouting
         internal static void Configure(ManualLogSource logger,ConfigFile config,BugfixesAndQoLViewModel options)
         {
             if(configured)return;configured=true;log=logger;settings=options;
-            detailed=config.Bind("GateMigrationDiagnostics","DetailedDiagnostics",false,"Optional detailed gate-route diagnosis; disabled for normal play; restart required.").Value;
-            macemen=config.Bind("GateMigrationDiagnostics","MacemenDiagnostics",false,"TEMP_MACEMEN_GATE_DIAGNOSTICS: optional compact command diagnosis; restart required.").Value;
+            detailed=GateDiagnosticConfiguration.Read(config,ex=>Shared.DebugLogHelper.LogError(log,"Gate diagnostic config migration failed; diagnosis is disabled for this process and will be retried: "+ex));
+            try { macemen=config.Bind("GateMigrationDiagnostics","MacemenDiagnostics",false,"TEMP_MACEMEN_GATE_DIAGNOSTICS: optional compact command diagnosis; restart required.").Value; }
+            catch(Exception ex) { macemen=false;Shared.DebugLogHelper.LogError(log,"Gate command diagnostic config failed; command diagnosis is disabled: "+ex); }
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log,c=>{map=true;editor=c.IsEditor;Refresh();}));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_=>{map=false;Refresh();}));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingCapture.Observable.Subscribe(a=>{if(active)runtime?.ObserveBuildingCapture(a);}));

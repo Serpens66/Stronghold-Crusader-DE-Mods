@@ -5,7 +5,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WorkshopChangelog.ps1')
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
-$outputRoot = Join-Path $root '.release-output\SteamWorkshop'
+. (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
+$outputRoot = Join-Path (Get-ApiMainWorkspace $root) '.release-output\SteamWorkshop'
 if ($TestMode -eq 1) { $outputRoot = Join-Path $outputRoot 'test' }
 $logDirectory = Join-Path $outputRoot 'logs'
 $runId = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff')
@@ -228,7 +229,7 @@ try {
     . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
     . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
     $uploadConfig=Get-WorkshopConfiguration
-    $uploadState=Join-Path $uploadConfig.Root '.release-output/SteamWorkshop'
+    $uploadState=Join-Path (Get-ApiMainWorkspace $uploadConfig.Root) '.release-output/SteamWorkshop'
     if($TestMode -eq 1){$uploadState=Join-Path $uploadState 'test'}
     $uploadPrepared=[IO.File]::ReadAllText((Join-Path $uploadState ('prepared/'+$Target+'.json')))|ConvertFrom-Json
     if(-not $uploadPrepared.PSObject.Properties['MainSource']){throw 'Prepare the package again with main isolation before uploading.'}

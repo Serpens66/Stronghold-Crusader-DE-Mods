@@ -141,7 +141,7 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'PR helper changed open file.'
     # Exercise both original BAT entrypoints with real policy/worktrees and inert target services.
     $steam=Join-Path $root 'Shared/Tools/Steam'
-    foreach($file in @('WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1')) {
+    foreach($file in @('ModpackSource.Common.ps1','WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1')) {
         Copy-Item -LiteralPath (Join-Path $workspace ('Shared/Tools/Steam/'+$file)) -Destination (Join-Path $steam $file)
     }
     foreach($file in @('CreateSteamModPack.bat','UploadWorkshop.bat')){Copy-Item -LiteralPath (Join-Path $workspace $file) -Destination (Join-Path $root $file)}
@@ -192,7 +192,7 @@ Write-Host ('FIXTURE_UPLOAD_MAIN='+$proof.MainSource.Commit)
 exit 0
 '@
     $batLog=Join-Path $fixture 'workshop-bat.log'
-    & (Join-Path $root 'CreateSteamModPack.bat') /both /nopause *> $batLog
+    & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
     Check ($LASTEXITCODE -eq 0) ('Prepare BAT failed: '+[IO.File]::ReadAllText($batLog))
     foreach($generation in 1..3){
         & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
@@ -216,14 +216,14 @@ exit 0
     Invoke-ApiRepositoryGit $author @('switch','main')|Out-Null
     Write-Fixture (Join-Path $author 'after-preparation.txt') 'new public main after preparation'
     Commit-Fixture $author;Invoke-ApiRepositoryGit $author @('push','origin','main')|Out-Null
-    & (Join-Path $root 'UploadWorkshop.bat') /both /validate /nopause *> $batLog
+    & (Join-Path $root 'UploadWorkshop.bat') /apishared /validate /nopause *> $batLog
     Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($batLog) -match $production.MainSource.Commit) 'Upload changed the prepared main commit.'
     $testItems=Join-Path $root '.release-output/SteamWorkshop/test/items'
     Write-Fixture (Join-Path $testItems '3024040-APIShared.item-id') '222'
     Write-Fixture (Join-Path $testItems '3024040-SerpsMods.item-id') '333'
-    & (Join-Path $root 'CreateSteamModPack.bat') /both /test /nopause *> $batLog
+    & (Join-Path $root 'CreateSteamModPack.bat') /apishared /test /nopause *> $batLog
     Check ($LASTEXITCODE -eq 0) ('Test prepare BAT failed: '+[IO.File]::ReadAllText($batLog))
-    & (Join-Path $root 'UploadWorkshop.bat') /both /test /validate /nopause *> $batLog
+    & (Join-Path $root 'UploadWorkshop.bat') /apishared /test /validate /nopause *> $batLog
     Check ($LASTEXITCODE -eq 0) 'Test upload BAT failed.'
     [IO.File]::AppendAllText((Join-Path $root 'APISharedWorkshop/APIShared.map'),'tampered')
     $tamperRejected=$false

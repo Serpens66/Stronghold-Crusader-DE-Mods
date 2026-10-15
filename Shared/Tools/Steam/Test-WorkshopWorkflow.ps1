@@ -67,3 +67,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Bootstrap environment regression failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Workshop cache/changelog regression failed.' }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '../ApiSharedRepository/Test-MainSource.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Pinned main/PR/Workshop BAT regression failed.' }
+foreach($test in @('Test-ModpackBranches.ps1','Test-PublishedSdkPolicy.ps1')){
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $test)
+    if($LASTEXITCODE -ne 0){throw "$test failed."}
+}

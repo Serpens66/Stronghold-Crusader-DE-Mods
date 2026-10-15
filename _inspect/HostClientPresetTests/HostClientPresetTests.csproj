@@ -13,11 +13,16 @@
     <LangVersion>latest</LangVersion>
     <DefineConstants>$(DefineConstants);API_SHARED_PRESET_TESTS</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == '' and '$(SHCDESE_EXTENDER_DIR)' != ''">$(SHCDESE_EXTENDER_DIR)</ExtenderDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleContracts.cs" />
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleState.cs" />
     <Compile Include="MissionTestEnvironment.cs" />
-    <Reference Include="R3"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll</HintPath></Reference>
+    <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath></Reference>
 
     <Compile Include="..\..\CastlePlanner\src\CastleSpawnCompatibility.cs">
       <Link>CastleSpawnCompatibility.cs</Link>
@@ -37,31 +42,31 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="MessagePack">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
+      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="MessagePack.Annotations">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.Annotations.dll</HintPath>
+      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+      <HintPath>$(ExtenderDir)\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="System.Threading.Tasks.Extensions">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Threading.Tasks.Extensions.dll</HintPath>
+      <HintPath>$(ExtenderDir)\System.Threading.Tasks.Extensions.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="System.Memory">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Memory.dll</HintPath>
+      <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="System.Buffers">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Buffers.dll</HintPath>
+      <HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
   <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
