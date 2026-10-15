@@ -9,7 +9,6 @@
 !/.github/
 !/.github/workflows/
 !/.github/workflows/*.yml
-/AGENTS.md
 /info.txt
 
 # Build outputs
