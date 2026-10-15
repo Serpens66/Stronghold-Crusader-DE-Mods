@@ -6,7 +6,7 @@ import sys
 
 workspace = Path(sys.argv[2]).resolve()
 root = workspace / "APIShared"
-snapshot = workspace / "_inspect/CrenelatedWallTest/APIShared-before.json"
+snapshot = workspace / "_inspect/CrenelatedWallTest/APIShared-before-20261015.json"
 folders = [root / name for name in ("src", "Properties", "Override", "Patches", "Locales", "BepInEx/plugins/APIShared_Serp")]
 files = {p for p in root.iterdir() if p.is_file() and not p.name.startswith(".")}
 for folder in folders:

@@ -1,0 +1,18 @@
+{
+  "apishared-workshop-files.json": "7827f1fe775ae409c399f34b4ca0858b15dd8aead332343f273d4fb8fa72edc9",
+  "APIShared.dll": "2797b06042b0634ccc97ee5d2175c96944f95edfa1924d764776d9a6bde14758",
+  "APIShared.pdb": "e65c6796da47b0ed002f384aa077f4598528ebb1169dd9b616631a67c472c964",
+  "APIShared.xml": "1beb13c8ec93a6c7cb8c70d2010e7fdf836a53906f72b08e7ec22e493b053d28",
+  "info.json": "5f773d0c93ba3fc71a28e5a118a268af45112cf0f0f0c7488d4c787a0cf80f3c",
+  "Patches/Assets/GUI/XAML/IngameUIScreens.xaml": "dcaff77e7ea569288a1d727de0430a7075d1f30cd89e63d7a4a52d99868d24ea",
+  "Patches/Assets/GUI/XAML/MainHUD.xaml": "15bdee94859ae81d37dabbf7dff0a259522e3e1591bc2bf43259a8e8921bf321",
+  "Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml": "c8af066c4c11b65d3008b79daf31a6db653475088e1ae254ae8531b3c76b88a0",
+  "Patches/Assets/GUI/XAMLResources/HUD_Troops.xaml": "9003f13b8b672ff651364b7ca356b8f5f0a2aaf8fd0dd0e59cb06837b43dd197",
+  "Workshop/Bootstrap/build.bat.template": "642abb4d172a4a9add3d876467b9cc04e1ac6a47b08ec0ebb88bda6f3a5fed5b",
+  "Workshop/Bootstrap/Build.ps1.template": "48513911454d31767a0992553f1267fd3d4694b2ef83fcf42d63f5ef3e54af17",
+  "Workshop/Bootstrap/Plugin.cs.template": "09bed7db66bcf5278e4da0ebcc74c64fd79d24988dd216d745585bc232c0e7c8",
+  "Workshop/workshop-maintenance.ps1": "a7b5abb75ca08b54594ab373de266418726053d85ddd47118db96f3e4d6524fc",
+  "Workshop/workshop-maintenance.sh": "ab0c80aa3bd751e72c130dec54b00039b99a095cb5875d18dd3773d7f28f7d99",
+  "Workshop/workshop-updater.ps1": "fffaa3da2be9507b7a65c6a684fb6df508da195e18eb3f538f76c35d808129a8",
+  "Workshop/workshop-updater.sh": "dfd7fb2b61cca5fb2e4ac764bc4576ddcac7750b2f76a66f01d81be3de83875a"
+}

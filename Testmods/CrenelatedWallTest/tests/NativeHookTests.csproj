@@ -1,0 +1,21 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" />
+  <PropertyGroup><Configuration>Debug</Configuration><Platform>AnyCPU</Platform><PlatformTarget>x64</PlatformTarget><OutputType>Exe</OutputType><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><AssemblyName>CrenelatedWallTest.NativeHookTests</AssemblyName><OutputPath>bin/NativeHookTests/</OutputPath><ExtenderDir>E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/plugins/000shcdese</ExtenderDir><GameDir>E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir><BaseIntermediateOutputPath>obj/NativeHookTests/</BaseIntermediateOutputPath></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/><Reference Include="System.Core"/>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)/RedBird.Abstractions.dll</HintPath></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)/RedBird.Core.dll</HintPath></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)/RedBird.Backends.NativeX64.dll</HintPath></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)/Iced.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)/Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Extensions.Logging"><HintPath>$(ExtenderDir)/Microsoft.Extensions.Logging.dll</HintPath></Reference>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)/System.Memory.dll</HintPath></Reference>
+    <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)/System.Buffers.dll</HintPath></Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)/System.Runtime.CompilerServices.Unsafe.dll</HintPath></Reference>
+    <Reference Include="System.Threading.Tasks.Extensions"><HintPath>$(ExtenderDir)/System.Threading.Tasks.Extensions.dll</HintPath></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath></Reference>
+    <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath></Reference>
+  </ItemGroup>
+  <ItemGroup><Compile Include="NativeHookTests.cs"/><Compile Include="../src/StraightGraphicsHook.cs" Link="StraightGraphicsHook.cs"/><Compile Include="../src/EndpointGraphicsPolicy.cs" Link="EndpointGraphicsPolicy.cs"/></ItemGroup>
+  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
+</Project>

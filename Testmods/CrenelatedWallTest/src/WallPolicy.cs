@@ -70,17 +70,27 @@ namespace CrenelatedWallTest
             return added;
         }
 
-        internal static WallPlan Plan(IWallWorld world, int owner, IList<WallCell> seeds, bool preventDoubleRows)
+        internal static WallPlan Plan(IWallWorld world, int owner, IList<WallCell> seeds, bool preventDoubleRows, IReadOnlyDictionary<int, WallCell> preferred = null)
         {
             var plan = new WallPlan();
             var overlay = new Dictionary<long, WallCell>();
-            foreach (WallCell seed in seeds) overlay[Key(seed.X, seed.Y)] = seed;
+            foreach (WallCell seed in seeds)
+            {
+                WallCell value = seed;
+                if (seed.Owner == owner && !seed.Damaged && !seed.Structure && preferred != null &&
+                    preferred.TryGetValue(seed.Id, out WallCell saved) && saved.Owner == seed.Owner)
+                { value = seed.Copy(); value.High = saved.High; }
+                overlay[Key(seed.X, seed.Y)] = value;
+            }
             var cache = new Dictionary<long, WallCell>();
             Func<int, int, WallCell> read = (x, y) => {
                 long key = Key(x, y);
                 if (overlay.TryGetValue(key, out WallCell replacement)) return replacement;
                 if (cache.TryGetValue(key, out WallCell cached)) return cached;
                 if (!world.TryRead(x, y, out WallCell cell)) cell = null;
+                if (cell != null && cell.Owner == owner && !cell.Damaged && !cell.Structure && preferred != null &&
+                    preferred.TryGetValue(cell.Id, out WallCell saved) && saved.Owner == cell.Owner)
+                { cell = cell.Copy(); cell.High = saved.High; }
                 cache[key] = cell; return cell;
             };
             if (preventDoubleRows)
@@ -95,7 +105,7 @@ namespace CrenelatedWallTest
                     }
             }
             var queue = new Queue<WallCell>();
-            foreach (WallCell seed in seeds) if (Crenel(seed) && seed.Owner == owner) queue.Enqueue(seed);
+            foreach (WallCell seed in seeds) if (Crenel(seed) && seed.Owner == owner) queue.Enqueue(read(seed.X, seed.Y));
             while (queue.Count != 0)
             {
                 WallCell cell = queue.Dequeue();
@@ -127,7 +137,7 @@ namespace CrenelatedWallTest
                 if (cell.Damaged || cell.Structure) continue;
                 bool n = Crenel(read(cell.X, cell.Y - 1)), e = Crenel(read(cell.X + 1, cell.Y));
                 bool s = Crenel(read(cell.X, cell.Y + 1)), w = Crenel(read(cell.X - 1, cell.Y));
-                if ((n && s && !e && !w) || (e && w && !n && !s)) variable.Add(cell.Id);
+                if (((n || s) && !e && !w) || ((e || w) && !n && !s)) variable.Add(cell.Id);
                 else { plan.Heights[cell.Id] = true; plan.Anchors++; }
             }
             var visited = new HashSet<int>();
@@ -145,7 +155,7 @@ namespace CrenelatedWallTest
                 }
                 WallCell left = Cardinal(chain[0], read).FirstOrDefault(c => !variable.Contains(c.Id));
                 WallCell right = Cardinal(chain[chain.Count - 1], read).FirstOrDefault(c => !variable.Contains(c.Id) && (chain.Count != 1 || left == null || c.Id != left.Id));
-                if (!Solve(chain, left, right, plan)) { plan.Rejection = "incompatible segment anchors at " + start.X + "," + start.Y; return plan; }
+                if (!Solve(chain, left, right, plan, preferred)) { plan.Rejection = "incompatible segment anchors at " + start.X + "," + start.Y; return plan; }
             }
             if (visited.Count != variable.Count) { plan.Rejection = "unresolved straight component"; return plan; }
             bool High(WallCell cell) => plan.Heights.TryGetValue(cell.Id, out bool high) ? high : cell.High;
@@ -173,10 +183,14 @@ namespace CrenelatedWallTest
 
         private sealed class Score
         {
-            internal int Pairs, Changes, Previous;
-            internal Score(int pairs, int changes, int previous) { Pairs = pairs; Changes = changes; Previous = previous; }
+            internal int Pairs, Changes, PreferredChanges, Previous;
+            internal Score(int pairs, int changes, int preferredChanges, int previous)
+            { Pairs = pairs; Changes = changes; PreferredChanges = preferredChanges; Previous = previous; }
         }
-        private static bool Solve(List<WallCell> chain, WallCell left, WallCell right, WallPlan plan)
+        private static bool Better(Score candidate, Score best) => best == null || candidate.Pairs < best.Pairs ||
+            (candidate.Pairs == best.Pairs && (candidate.PreferredChanges < best.PreferredChanges ||
+            (candidate.PreferredChanges == best.PreferredChanges && candidate.Changes < best.Changes)));
+        private static bool Solve(List<WallCell> chain, WallCell left, WallCell right, WallPlan plan, IReadOnlyDictionary<int, WallCell> preferred)
         {
             bool BoundaryHigh(WallCell c) => c != null && (plan.Heights.TryGetValue(c.Id, out bool h) ? h : c.High);
             bool leftOwn = left != null && plan.Heights.ContainsKey(left.Id), rightOwn = right != null && plan.Heights.ContainsKey(right.Id);
@@ -189,10 +203,11 @@ namespace CrenelatedWallTest
                 {
                     if ((i == 0 && leftOwn && value == 1) || (i == chain.Count - 1 && rightOwn && value == 1)) continue;
                     int change = chain[i].High == (value == 1) ? 0 : 1;
+                    int preferredChange = preferred != null && preferred.ContainsKey(chain[i].Id) ? change : 0;
                     if (i == 0)
                     {
                         int run = left != null && lh == (value == 1) ? 2 : 1;
-                        level[value * 2 + run - 1] = new Score(run == 2 ? 1 : 0, change, -1);
+                        level[value * 2 + run - 1] = new Score(run == 2 ? 1 : 0, change, preferredChange, -1);
                     }
                     else for (int prior = 0; prior < 4; prior++)
                     {
@@ -200,23 +215,21 @@ namespace CrenelatedWallTest
                         bool equal = prior / 2 == value; int run = equal ? prior % 2 + 2 : 1;
                         if (run > 2) continue;
                         int slot = value * 2 + run - 1, pairs = old.Pairs + (equal ? 1 : 0), changes = old.Changes + change;
-                        Score best = level[slot];
-                        if (best == null || pairs < best.Pairs || (pairs == best.Pairs && changes < best.Changes))
-                            level[slot] = new Score(pairs, changes, prior);
+                        var candidate = new Score(pairs, changes, old.PreferredChanges + preferredChange, prior);
+                        if (Better(candidate, level[slot])) level[slot] = candidate;
                     }
                 }
                 levels.Add(level);
             }
-            int chosen = -1, bestPairs = int.MaxValue, bestChanges = int.MaxValue;
+            int chosen = -1; Score bestFinal = null;
             Score[] last = levels[levels.Count - 1];
             for (int state = 0; state < 4; state++)
             {
                 Score score = last[state]; if (score == null) continue;
                 bool equal = right != null && rh == (state / 2 == 1);
                 if (equal && state % 2 == 1) continue;
-                int pairs = score.Pairs + (equal ? 1 : 0);
-                if (pairs < bestPairs || (pairs == bestPairs && score.Changes < bestChanges))
-                { chosen = state; bestPairs = pairs; bestChanges = score.Changes; }
+                var candidate = new Score(score.Pairs + (equal ? 1 : 0), score.Changes, score.PreferredChanges, state);
+                if (Better(candidate, bestFinal)) { chosen = state; bestFinal = candidate; }
             }
             if (chosen < 0) return false;
             for (int i = chain.Count - 1; i >= 0; i--) { plan.Heights[chain[i].Id] = chosen / 2 == 1; chosen = levels[i][chosen].Previous; }

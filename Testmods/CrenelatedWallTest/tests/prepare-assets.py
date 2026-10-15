@@ -17,12 +17,12 @@ source = workspace / "Testmods/ArabianIdleSoundTest/Locales"
 destination = mod / "Locales"
 destination.mkdir(exist_ok=True)
 en = {
-    "Crenel.Scope": "New human crenel construction corrects the connected own crenel run. AI castles and unrelated existing walls stay unchanged. Corrections are saved. All multiplayer peers require this testmod.",
-    "Crenel.Rule": "Double rows (filled 2x2), three equal special pieces, and long diagonal special-piece runs are rejected as complete construction commands. Endpieces, corners and junctions keep Vanilla graphics; straight middles alternate. At most two equal pieces may be adjacent. Activation changes apply to the next session.",
+    "Crenel.Scope": "New human crenel construction corrects the connected own run. The editor supports manual construction for every player. Automatic AI builds and unrelated existing walls stay unchanged. Corrections persist in maps and saves. All multiplayer peers require this testmod.",
+    "Crenel.Rule": "Straight runs alternate, including endpieces. A single crenel is high; a pair alternates. Corners and junctions retain Vanilla geometry. Filled 2x2 blocks and unavoidable equal triples are rejected as complete commands. Activation changes apply to the next session.",
 }
 de = {
-    "Crenel.Scope": "Neue menschliche Zinnenbauten korrigieren den angeschlossenen eigenen Zinnenzug. KI-Burgen und andere bestehende Mauern bleiben unverändert. Korrekturen werden gespeichert. Alle Multiplayer-Teilnehmer benötigen diesen Testmod.",
-    "Crenel.Rule": "Doppelreihen (gefülltes 2x2), drei gleiche Sonderstücke und lange diagonale Sonderstückreihen werden als kompletter Bauzug abgelehnt. Endstücke, Ecken und Verzweigungen behalten ihre Vanilla-Grafik; gerade Mittelstücke wechseln. Höchstens zwei gleiche Stücke dürfen nebeneinander liegen. Aktivierungsänderungen gelten ab der nächsten Partie.",
+    "Crenel.Scope": "Neue menschliche Zinnenbauten korrigieren den angeschlossenen eigenen Zug. Im Editor gilt dies für manuelle Bauten aller Spieler. Automatische KI-Bauten und andere bestehende Mauern bleiben unverändert. Korrekturen bleiben in Karten und Saves erhalten. Alle Multiplayer-Teilnehmer benötigen diesen Testmod.",
+    "Crenel.Rule": "Gerade Reihen wechseln einschließlich ihrer Endstücke. Eine einzelne Zinne ist hoch; ein Paar wechselt. Ecken und Verzweigungen behalten ihre Vanilla-Form. Gefüllte 2x2-Blöcke und unvermeidbare Dreierfolgen werden als ganzer Bauzug abgelehnt. Aktivierungsänderungen gelten ab der nächsten Sitzung.",
 }
 english_common = dict(line.split("=", 1) for line in (source / "en-US.txt").read_text(encoding="utf-8-sig").splitlines() if line.startswith("Common.") and "=" in line)
 for template in sorted(source.glob("*.txt")):

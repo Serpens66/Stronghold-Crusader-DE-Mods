@@ -62,5 +62,5 @@ Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewählte Q
 Common.ClientActivationLabel=(Client-Settings)
 Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
-Crenel.Scope=Neue menschliche Zinnenbauten korrigieren den angeschlossenen eigenen Zinnenzug. KI-Burgen und andere bestehende Mauern bleiben unverändert. Korrekturen werden gespeichert. Alle Multiplayer-Teilnehmer benötigen diesen Testmod.
-Crenel.Rule=Doppelreihen (gefülltes 2x2), drei gleiche Sonderstücke und lange diagonale Sonderstückreihen werden als kompletter Bauzug abgelehnt. Endstücke, Ecken und Verzweigungen behalten ihre Vanilla-Grafik; gerade Mittelstücke wechseln. Höchstens zwei gleiche Stücke dürfen nebeneinander liegen. Aktivierungsänderungen gelten ab der nächsten Partie.
+Crenel.Scope=Neue menschliche Zinnenbauten korrigieren den angeschlossenen eigenen Zug. Im Editor gilt dies für manuelle Bauten aller Spieler. Automatische KI-Bauten und andere bestehende Mauern bleiben unverändert. Korrekturen bleiben in Karten und Saves erhalten. Alle Multiplayer-Teilnehmer benötigen diesen Testmod.
+Crenel.Rule=Gerade Reihen wechseln einschließlich ihrer Endstücke. Eine einzelne Zinne ist hoch; ein Paar wechselt. Ecken und Verzweigungen behalten ihre Vanilla-Form. Gefüllte 2x2-Blöcke und unvermeidbare Dreierfolgen werden als ganzer Bauzug abgelehnt. Aktivierungsänderungen gelten ab der nächsten Sitzung.

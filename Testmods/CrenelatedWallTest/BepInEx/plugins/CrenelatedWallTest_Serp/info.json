@@ -2,7 +2,7 @@
   "GUID": "CrenelatedWallTest_Serp",
   "Author": "Serpens66",
   "Name": "Crenelated Wall Test",
-  "Description": "Human crenel construction: alternating high/low straight pieces, double-row prevention and saved local corrections. Test build with conservative Vanilla special-piece restrictions.",
+  "Description": "Alternating straight crenels including endpieces, double-row prevention and saved corrections. Supports manual editor construction for all players; automatic AI builds stay unchanged.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.1",
   "MaximumScriptExtenderVersion": "",

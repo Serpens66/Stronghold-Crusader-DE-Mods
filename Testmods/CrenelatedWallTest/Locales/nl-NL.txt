@@ -62,5 +62,5 @@ Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Per
 Common.ClientActivationLabel=(Client settings)
 Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 Common.PresetLoadFailedTitle=Preset load failed
-Crenel.Scope=New human crenel construction corrects the connected own crenel run. AI castles and unrelated existing walls stay unchanged. Corrections are saved. All multiplayer peers require this testmod.
-Crenel.Rule=Double rows (filled 2x2), three equal special pieces, and long diagonal special-piece runs are rejected as complete construction commands. Endpieces, corners and junctions keep Vanilla graphics; straight middles alternate. At most two equal pieces may be adjacent. Activation changes apply to the next session.
+Crenel.Scope=New human crenel construction corrects the connected own run. The editor supports manual construction for every player. Automatic AI builds and unrelated existing walls stay unchanged. Corrections persist in maps and saves. All multiplayer peers require this testmod.
+Crenel.Rule=Straight runs alternate, including endpieces. A single crenel is high; a pair alternates. Corners and junctions retain Vanilla geometry. Filled 2x2 blocks and unavoidable equal triples are rejected as complete commands. Activation changes apply to the next session.

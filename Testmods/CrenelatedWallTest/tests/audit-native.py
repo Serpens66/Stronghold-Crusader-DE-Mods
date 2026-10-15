@@ -74,4 +74,29 @@ assert "new(EventHookPhase.Post, playerId" in wrapper # Post carries original in
 rows = connection.execute("select rva,pseudocode from functions where binary_hash=? and pseudocode is not null", (digest,)).fetchall()
 writers = [rva for rva, code in rows if "| 0x400000;" in code and "0x898400" in code]
 assert sorted(writers) == ["0x65830", "0x6CB20", "0x6F230"], "New crenel high-bit writer: " + str(writers)
-print("PASS: current native SHA-256,", len(contracts), "feature functions, Chore-25 dispatch, all three high-bit writers and installed-source event contract. No hooks installed or executable buffers changed.")
+hook_source = (workspace / "Testmods/CrenelatedWallTest/src/StraightGraphicsHook.cs").read_text(encoding="utf-8-sig")
+predicate = bytes.fromhex(re.search(r'BodyHex = "([0-9A-F]+)"', hook_source)[1])
+assert len(predicate) == 237 and image.get_data(0x5C2D0, 237) == predicate
+prologue = list(decoder.disasm(predicate[:15], 0x18005C2D0))
+assert len(prologue) == 3 and [i.size for i in prologue] == [5, 5, 5] and all(i.mnemonic == "mov" for i in prologue)
+callers = [rva for rva, code in rows if "FUN_18005c2d0(" in code and rva != "0x5C2D0"]
+assert callers == ["0x65830"], "Straight predicate gained a non-graphics consumer: " + str(callers)
+decoder.detail = True
+decoder.skipdata = True
+entry_calls = []
+for section in image.sections:
+    if not section.Characteristics & 0x20000000:
+        continue
+    for ins in decoder.disasm(section.get_data(), image.OPTIONAL_HEADER.ImageBase + section.VirtualAddress):
+        if not ins.id or not (ins.group(capstone.CS_GRP_JUMP) or ins.group(capstone.CS_GRP_CALL)):
+            continue
+        for op in ins.operands:
+            if op.type != capstone.x86.X86_OP_IMM:
+                continue
+            assert not 0x18005C2D0 < op.imm < 0x18005C2DF, "Incoming edge into displaced prologue"
+            if op.imm == 0x18005C2D0:
+                entry_calls.append(ins.address)
+assert entry_calls == [0x180065DD6, 0x180065E4F]
+backend = game / "BepInEx/plugins/000shcdese/RedBird.Backends.NativeX64.dll"
+assert hashlib.sha256(backend.read_bytes()).hexdigest().upper() == re.search(r'BackendHash = "([0-9A-F]+)"', hook_source)[1]
+print("PASS: current native SHA-256,", len(contracts), "feature functions, Chore-25, all high-bit writers, graphics-only callers, full 237-byte predicate, Absolute/15 entry/continuation, incoming edges and installed NativeX64 identity. Audit only; no hooks installed.")
