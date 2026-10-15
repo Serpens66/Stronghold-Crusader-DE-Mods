@@ -79,7 +79,7 @@ namespace BugfixesAndQoL
             {
                 mapActive = false;
                 sessionEligible = false;
-                log.LogError($"Corrupt Lord-data spawn fix could not arm the session: {ex}");
+                Shared.DebugLogHelper.LogError(log, $"Corrupt Lord-data spawn fix could not arm the session: {ex}");
             }
         }
 
@@ -121,7 +121,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 mapActive = false;
-                log.LogError(
+                Shared.DebugLogHelper.LogError(log, 
                     $"Corrupt Lord-data spawn fix failed during observation: session={sessionState.SessionId}, " +
                     $"tick={observationTick}, simulationTick={simulationTick}, error={ex}");
             }
@@ -191,13 +191,13 @@ namespace BugfixesAndQoL
             if (!players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* updated) ||
                 updated == null || updated->r_LordUnitId != 0 || updated->r_LordUnitGlobalId != 0)
             {
-                log.LogError(
+                Shared.DebugLogHelper.LogError(log, 
                     $"Corrupt Lord-data spawn fix failed to clear player {playerId}'s stale reference " +
                     $"in session {sessionState.SessionId}; no retry will be attempted.");
                 return;
             }
 
-            log.LogWarning(
+            Shared.DebugLogHelper.LogWarning(log, 
                 $"Cleared corrupt Lord data for player {playerId} in session {sessionState.SessionId} " +
                 $"(stale unit/global reference {snapshot.LordUnitId}/{snapshot.LordGlobalId}); " +
                 "Lord creation remains with Vanilla.");
@@ -259,7 +259,7 @@ namespace BugfixesAndQoL
             for (int playerId = 1; playerId <= 8; playerId++)
             {
                 if (sessionState.WasAttempted(playerId) && !sessionState.IsConfirmed(playerId))
-                    log.LogError(
+                    Shared.DebugLogHelper.LogError(log, 
                         $"No Vanilla Lord was observed after corrupt-data repair: " +
                         $"session={sessionState.SessionId}, player={playerId}, " +
                         $"observationTick={observationTick}, simulationTick={simulationTick}.");

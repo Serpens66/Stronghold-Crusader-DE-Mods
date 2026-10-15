@@ -1321,7 +1321,7 @@ namespace BugfixesAndQoL
             economyFixEnabled = false;
             if (economyFixFailureLogged) return;
             economyFixFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1330", $"PREPLACED_ECONOMY_FIX_DISABLED: stage={stage}; Vanilla searches will be used for the rest of this process; exception={ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1330", $"PREPLACED_ECONOMY_FIX_DISABLED: stage={stage}; Vanilla searches will be used for the rest of this map; exception={ex}");
         }
 
         private int CountPclTilesOutsideSet(int coarseX, int coarseY, HashSet<int> reachablePcls)
@@ -1361,6 +1361,11 @@ namespace BugfixesAndQoL
             if (args.Phase == APIShared.MissionInitializationPhase.BeforeLoad)
             {
                 ResetMap();
+                // A local economy-fix failure lasts only for the failed map. Every peer
+                // starts the next map with the same fix state instead of a process-wide
+                // divergence that would change AI economy decisions in later games.
+                economyFixEnabled = true;
+                economyFixFailureLogged = false;
                 sessionEnabled = nativeReady && isEnabled();
                 mapActive = sessionEnabled;
                 currentMapIsSave = args.Context.IsSave;

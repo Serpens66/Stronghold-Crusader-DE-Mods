@@ -42,7 +42,7 @@ namespace BugfixesAndQoL.UnitCommands
         }
 
         private bool ValidateActiveDrag(ActiveDrag state) =>
-            Enabled && state != null && markerRenderer != null &&
+            LocalInputEnabled && state != null && markerRenderer != null &&
             markerRenderer.ReplacementAvailable && HasValidMap() && !IsShiftHeld() &&
             state.MapEpoch == commandRuntime.mapEpoch &&
             state.PlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId() &&
@@ -63,19 +63,29 @@ namespace BugfixesAndQoL.UnitCommands
             ClearPreview();
         }
 
-        internal void DisableForProcess(string contract, Exception exception) => FailOpen(contract, exception);
-
-        private void FailOpen(string contract, Exception exception)
+        // Simulation-side contract failure (native selector): synchronized execution stops.
+        internal void DisableForProcess(string contract, Exception exception)
         {
             failed = true;
             lock (stateSync)
             {
-                drag = null;
                 pendingCommand = null;
                 activeCommand = null;
                 commonGroupCommand = null;
                 unitAssignmentFrame = null;
                 unitFallbackAttempt = null;
+            }
+            FailOpen(contract, exception);
+        }
+
+        // Local input/presentation failure: only this player's gestures fall back to
+        // Vanilla. Received packets keep the synchronized formation path on every peer.
+        private void FailOpen(string contract, Exception exception)
+        {
+            localInputFailed = true;
+            lock (stateSync)
+            {
+                drag = null;
                 releaseConsumptionWatch = null;
             }
             // Fail-open must reach Vanilla even if a presentation or logger also fails.

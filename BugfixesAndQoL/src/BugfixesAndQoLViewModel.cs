@@ -110,7 +110,8 @@ namespace BugfixesAndQoL
         private const int HealthBarControlMask = 1 << 17;
         private const int HealthBarShiftMask = 1 << 18;
         private const int DefaultHealthBarHotkey = (int)KeyCode.H | HealthBarAltMask;
-        private int arabianIdleSoundVolumePercent = 25;
+        private const int DefaultArabianIdleSoundVolumePercent = 25;
+        private int arabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
         private bool enableImprovedBuildPreview = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
@@ -1558,6 +1559,7 @@ namespace BugfixesAndQoL
             ShowSelectedUnitHealth = true;
             ShowForeignTroopHud = true;
             EnableImprovedBuildPreview = true;
+            ArabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;
             ShowCountdownTimers = true;

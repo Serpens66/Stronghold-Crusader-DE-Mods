@@ -186,6 +186,18 @@ namespace BugfixesAndQoL.UnitCommands
         internal int EnableCompletedMoatModeForScopedMovement(IntPtr unitManager, int unitId)
         {
             int vanillaResult = originalUnitStandingOnCompletedMoat(unitManager, unitId);
+            // Native detour barrier: no managed exception may unwind into the caller.
+            // Vanilla already ran exactly once, so its result is the safe fallback.
+            try { return ResolveScopedCompletedMoatMode(unitManager, unitId, vanillaResult); }
+            catch (Exception ex)
+            {
+                ReportNativeDetourBarrier("mode-context", ex);
+                return vanillaResult;
+            }
+        }
+
+        private int ResolveScopedCompletedMoatMode(IntPtr unitManager, int unitId, int vanillaResult)
+        {
             if (nativeManualProbe) return vanillaResult;
             UnitMoveFrame moveFrame = GetCurrentUnitMoveFrame();
             SynchronizePlacement(moveFrame);

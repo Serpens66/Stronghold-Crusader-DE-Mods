@@ -30,7 +30,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (!Enabled || args == null)
+            if (!LocalInputEnabled || args == null)
                 return;
             try
             {
@@ -68,7 +68,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnKeyHeld(UnityInputEventArgs args)
         {
-            if (!Enabled || args == null)
+            if (!LocalInputEnabled || args == null)
                 return;
             try
             {
@@ -105,7 +105,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnKeyUp(UnityInputEventArgs args)
         {
-            if (!Enabled || args == null)
+            if (!LocalInputEnabled || args == null)
                 return;
             try
             {

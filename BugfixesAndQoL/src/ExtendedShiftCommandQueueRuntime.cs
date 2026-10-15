@@ -668,15 +668,24 @@ namespace BugfixesAndQoL
             if (!installed || internalDispatch)
                 return;
 
+            int commandValue = (int)args.AICommand;
+            bool realMultiplayer = IsRealMultiplayer();
             // AI orders can never originate from Shift input and must not touch queue state.
-            if (IsAiOwnedAliveTribe(args.TribeId))
+            bool aiOwned = IsAiOwnedAliveTribe(args.TribeId);
+            // A peer that cannot queue this order (tribe AI-owned here, or the local Chore
+            // hook unavailable) still strips another peer's private marker, so Vanilla
+            // never executes a target command carrying the queue bit.
+            if (realMultiplayer && (aiOwned || !multiplayerSynchronizationReady))
+            {
+                if (QueueNativeContract.TryDecodeQueuedTargetCommand(commandValue, out int strippedCommand))
+                    args.AICommand = (TribeAICommand)strippedCommand;
+                return;
+            }
+            if (aiOwned)
                 return;
 
-            int commandValue = (int)args.AICommand;
-            if (IsRealMultiplayer())
+            if (realMultiplayer)
             {
-                if (!multiplayerSynchronizationReady)
-                    return;
 
                 if (QueueNativeContract.TryDecodeQueuedTargetCommand(
                         commandValue,
@@ -969,13 +978,24 @@ namespace BugfixesAndQoL
                 args.IsPatrolPath == 0 &&
                 args.IsNewOrder &&
                 IsLocalSelectedTribe(args.TribeId, out _);
-            if (internalDispatch || aiOwned)
+            if (internalDispatch)
                 return;
 
-            if (IsRealMultiplayer())
+            bool realMultiplayer = IsRealMultiplayer();
+            // A peer that cannot queue this order (tribe AI-owned here, or the local Chore
+            // hook unavailable) still strips another peer's private marker, so Vanilla
+            // never executes a move type carrying the queue bit.
+            if (realMultiplayer && (aiOwned || !multiplayerSynchronizationReady))
             {
-                if (!multiplayerSynchronizationReady)
-                    return;
+                if (QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out int strippedMoveType))
+                    args.MoveType = (TribeMoveType)strippedMoveType;
+                return;
+            }
+            if (aiOwned)
+                return;
+
+            if (realMultiplayer)
+            {
 
                 int serializedMoveType = (int)args.MoveType;
                 if (QueueNativeContract.TryDecodeQueuedMoveType(
@@ -1539,7 +1559,14 @@ namespace BugfixesAndQoL
         {
             // The current tick is already attached to meaningful queue records. A scope on
             // every simulation tick used to overwrite the complete 256-entry crash ring.
-            OnTickCore(tick);
+            // An exception must not escape into the shared tick publisher, where it would
+            // skip the remaining OnTick subscribers of this peer.
+            try { OnTickCore(tick); }
+            catch (Exception exception)
+            {
+                try { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1548", $"Extended Shift command queue tick failed: tick={tick}, error={exception}"); }
+                catch { }
+            }
         }
 
         private void OnTickCore(int tick)

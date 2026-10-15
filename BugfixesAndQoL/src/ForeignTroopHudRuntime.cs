@@ -164,13 +164,13 @@ namespace BugfixesAndQoL
                 catch (Exception hideError)
                 {
                     string hideKey = "hide:" + hideError.GetType().FullName + ":" + hideError.Message;
-                    if (hideKey != lastHideExceptionKey) log.LogError("FOREIGN_TROOP_HUD_HIDE_ERROR: " + hideError);
+                    if (hideKey != lastHideExceptionKey) Shared.DebugLogHelper.LogError(log, "FOREIGN_TROOP_HUD_HIDE_ERROR: " + hideError);
                     lastHideExceptionKey = hideKey;
                 }
                 health.Hide();
                 if (key == lastExceptionKey) return;
                 lastExceptionKey = key;
-                log.LogError("FOREIGN_TROOP_HUD_ERROR: " + error);
+                Shared.DebugLogHelper.LogError(log, "FOREIGN_TROOP_HUD_ERROR: " + error);
             }
         }
 
@@ -183,7 +183,7 @@ namespace BugfixesAndQoL
                 string key = error.GetType().FullName + ":" + error.Message;
                 if (key == lastHealthErrorKey) return;
                 lastHealthErrorKey = key;
-                log.LogError("SELECTED_UNIT_HEALTH_ERROR: " + error);
+                Shared.DebugLogHelper.LogError(log, "SELECTED_UNIT_HEALTH_ERROR: " + error);
             }
         }
 
@@ -348,7 +348,7 @@ namespace BugfixesAndQoL
             if (view.LordIconMissing && !lordIconWarningLogged)
             {
                 lordIconWarningLogged = true;
-                log.LogWarning("FOREIGN_TROOP_HUD_RESOURCE_MISSING: BugfixesAndQoL-LordIcon; Lord entry uses its type label.");
+                Shared.DebugLogHelper.LogWarning(log, "FOREIGN_TROOP_HUD_RESOURCE_MISSING: BugfixesAndQoL-LordIcon; Lord entry uses its type label.");
             }
             if (!main.Show_HUD_Troops)
             {
@@ -416,7 +416,7 @@ namespace BugfixesAndQoL
                 string key = error.GetType().FullName + ":" + error.Message;
                 if (key == lastCameraErrorKey) return;
                 lastCameraErrorKey = key;
-                log.LogError("FOREIGN_TROOP_HUD_CAMERA_ERROR: " + error);
+                Shared.DebugLogHelper.LogError(log, "FOREIGN_TROOP_HUD_CAMERA_ERROR: " + error);
             }
         }
 

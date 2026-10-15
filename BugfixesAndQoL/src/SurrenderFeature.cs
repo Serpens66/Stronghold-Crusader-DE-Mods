@@ -50,7 +50,10 @@ namespace BugfixesAndQoL
         public string StatisticsButtonText => SerpLocalization.Get("BugfixesAndQoL.StatisticsButton");
         public string RefreshStatisticsButtonText => SerpLocalization.Get("BugfixesAndQoL.RefreshStatisticsButton");
         public string RefreshStatisticsButtonHelpText => SerpLocalization.Get("BugfixesAndQoL.RefreshStatisticsButtonHelp");
-        public string QuitButtonText => MainViewModel.Instance?.IngameMessageQuitButtonText ?? string.Empty;
+        // A binding getter must never construct MainViewModel early through its factory getter.
+        public string QuitButtonText => MainViewModel.viewModelLoaded
+            ? MainViewModel.Instance?.IngameMessageQuitButtonText ?? string.Empty
+            : string.Empty;
 
         public Visibility SurrenderButtonVisibility
         {

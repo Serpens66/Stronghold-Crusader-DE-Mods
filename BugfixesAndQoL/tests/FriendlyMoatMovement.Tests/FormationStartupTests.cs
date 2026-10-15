@@ -116,6 +116,7 @@ namespace BugfixesAndQoL.UnitCommands {
         internal static FormationRuntime Last; internal static bool ThrowOnInitialize;
         private readonly BugfixesAndQoL.BugfixesAndQoLViewModel settings; internal bool Failed;
         internal bool Enabled=>!Failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
+        internal bool LocalInputEnabled=>Enabled;
         internal FormationRuntime(ManualLogSource l,SHCDESE.API.LowLevel.CrusaderLibraryLoadContext c,
             ConfigEntry<FormationKind> k,ConfigEntry<int> d,ConfigEntry<RangedPlacementMode> p,
             IFormationPresentation m,BugfixesAndQoL.BugfixesAndQoLViewModel s,object commands,object markers) { settings=s;Last=this; }

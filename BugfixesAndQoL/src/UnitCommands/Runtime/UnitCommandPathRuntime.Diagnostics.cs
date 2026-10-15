@@ -405,6 +405,22 @@ namespace BugfixesAndQoL.UnitCommands
             Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs:405", $"Bugfixes and QoL friendly-moat-movement {stage} callback failed once; Vanilla behavior remains active: {ex}");
         }
 
+        // Last-resort barrier of a native detour: reports once per stage and never throws.
+        internal void ReportNativeDetourBarrier(string stage, Exception ex)
+        {
+            try
+            {
+                if (!reportedDiagnosticFailureStages.Add("barrier:" + stage))
+                    return;
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs:425", $"Bugfixes and QoL native detour barrier stage={stage} caught an exception; " +
+                    $"the native caller receives the Vanilla-equivalent fallback: {ex}");
+            }
+            catch
+            {
+                // A native detour barrier must never throw.
+            }
+        }
+
         internal void TryLogDiagnosticFailure(string stage, Exception ex)
         {
             try

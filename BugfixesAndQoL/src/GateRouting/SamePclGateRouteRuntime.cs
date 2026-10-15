@@ -183,6 +183,15 @@ namespace BugfixesAndQoL.GateRouting
                 ? owners[tribeId] : -1;
             internal uint Global(int tribeId) => tribeId > 0 && tribeId < globals.Length
                 ? globals[tribeId] : 0;
+            // Allocation-free per-tick freshness check against the live native tribe slots.
+            internal bool Matches(Span<GameTribe> tribes)
+            {
+                if (owners.Length != tribes.Length) return false;
+                for (int tribeId = 1; tribeId < tribes.Length; tribeId++)
+                    if (owners[tribeId] != tribes[tribeId].r_PlayerIdOwner ||
+                        globals[tribeId] != tribes[tribeId].r_GlobalId) return false;
+                return true;
+            }
         }
 
         private sealed class NativeMaskSnapshot
@@ -572,7 +581,12 @@ namespace BugfixesAndQoL.GateRouting
             TryPublishPending(policy, generation);
         }
 
-        internal void ProcessDeferred()
+        // Runs once per simulation tick (render frame only in the map editor). The tribe
+        // ownership snapshot feeds gameplay masks on every peer, so it is refreshed in the
+        // same tick as any tribe change instead of on a wall-clock interval.
+        private const long PlayerKindRefreshIntervalTicks = 40;
+
+        internal void ProcessTick(long now)
         {
             RouteTilePolicySnapshot retry;
             int generation;
@@ -582,14 +596,8 @@ namespace BugfixesAndQoL.GateRouting
                 generation = policyGeneration;
             }
             if (retry != null) TryPublishPending(retry, generation);
-            long now = Stopwatch.GetTimestamp();
-            if (now < Volatile.Read(ref nextPlayerRefresh)) return;
-            Volatile.Write(ref nextPlayerRefresh, now + Stopwatch.Frequency);
-            var ai = new bool[9];
-            for (int player = 1; player <= 8; player++)
-                ai[player] = GamePlayerManagerAPI.Instance.IsAIPlayer(player);
-            playerKinds = new PlayerKindSnapshot(ai);
             Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
+            if (tribePlayers.Matches(tribes)) { RefreshPlayerKindsIfDue(now); return; }
             var owners = new int[tribes.Length];
             var globals = new uint[tribes.Length];
             // Script Extender 2.7 exposes the complete native tribe-slot span.
@@ -600,6 +608,18 @@ namespace BugfixesAndQoL.GateRouting
                 globals[tribeId] = tribes[tribeId].r_GlobalId;
             }
             tribePlayers = new TribePlayerSnapshot(owners, globals);
+            RefreshPlayerKindsIfDue(now);
+        }
+
+        // AI/human classification only selects diagnostic query counters.
+        private void RefreshPlayerKindsIfDue(long now)
+        {
+            if (now < Volatile.Read(ref nextPlayerRefresh)) return;
+            Volatile.Write(ref nextPlayerRefresh, now + PlayerKindRefreshIntervalTicks);
+            var ai = new bool[9];
+            for (int player = 1; player <= 8; player++)
+                ai[player] = GamePlayerManagerAPI.Instance.IsAIPlayer(player);
+            playerKinds = new PlayerKindSnapshot(ai);
         }
 
         private int FilterCursorPclDecision(IntPtr manager, int player,

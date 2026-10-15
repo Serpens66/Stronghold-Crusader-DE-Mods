@@ -137,7 +137,7 @@ namespace BugfixesAndQoL.UnitCommands
             lock (stateSync)
             {
                 allowed = false;
-                if (Enabled && ReferenceEquals(drag, state) && ValidateActiveDrag(state))
+                if (LocalInputEnabled && ReferenceEquals(drag, state) && ValidateActiveDrag(state))
                 {
                     GroundMoveFeedback feedback = groundFeedbackReader.Read();
                     GameCursorManager* cursor = GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;

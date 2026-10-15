@@ -33,9 +33,13 @@ namespace BugfixesAndQoL.UnitCommands
                 startupConfirmed = true;
                 LogDebugNoThrow("FORMATION_RUNTIME_AFTER_STARTUP_CLEANUP: persistent EngineInterface.run callback reached.");
             }
-            if (!Enabled)
+            if (!LocalInputEnabled)
             {
-                try { ResetTransientState(); }
+                try
+                {
+                    if (!Enabled) ResetTransientState();
+                    else AbortDrag("local-input-disabled");
+                }
                 catch (Exception ex) { FailOpen("disabled-reset", ex); }
                 return engineRunOriginal(mpFrameSkip);
             }
@@ -213,7 +217,7 @@ namespace BugfixesAndQoL.UnitCommands
             ActiveDrag state;
             lock (stateSync)
                 state = drag;
-            if (Enabled && state != null && state.Authorization.IsConfirmed)
+            if (LocalInputEnabled && state != null && state.Authorization.IsConfirmed)
                 self.AllowZoom = false;
             cameraUpdateOriginal(self);
             try

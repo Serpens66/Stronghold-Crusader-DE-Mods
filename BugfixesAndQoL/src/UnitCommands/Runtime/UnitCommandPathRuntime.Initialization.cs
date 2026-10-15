@@ -448,21 +448,22 @@ namespace BugfixesAndQoL.UnitCommands
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:448", "CADENCE_RESOLVER_UNAVAILABLE: weighted route publication disabled; " +
                     "shared movement commands remain available: " + exception);
             }
-            rootedCentralMovementPlan = RunCentralMovementPlanWithContext;
-            rootedPathBuilder = BuildPathWithCompletedMoatRouteVariant;
-            rootedPathReconstruction = BuildReconstructedUnitPath;
+            // Native callbacks enter through exception barriers (NativeDetourBarriers.cs).
+            rootedCentralMovementPlan = CentralMovementPlanBarrier;
+            rootedPathBuilder = PathBuilderBarrier;
+            rootedPathReconstruction = PathReconstructionBarrier;
             Resolve(memory, "40 53 48 83 EC 30 44 8B 49 10 33 C0 44 8B 41 0C 48 8B D9 8B 51 08 89 44 24 28 89 81 68 5F 15 00 8B 41 14 89 44 24 20 E8 64 E3 FF FF 8B 83 68 5F 15 00 48 83 C4 30 5B C3", 0xE32B0, "unit field reconstruction");
             ValidateExactBytes(memory, 0xE32B0, new byte[] { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x44, 0x8B, 0x49, 0x10, 0x33, 0xC0, 0x44, 0x8B, 0x41, 0x0C, 0x48, 0x8B, 0xD9, 0x8B, 0x51, 0x08, 0x89, 0x44, 0x24, 0x28, 0x89, 0x81, 0x68, 0x5F, 0x15, 0x00, 0x8B, 0x41, 0x14, 0x89, 0x44, 0x24, 0x20, 0xE8, 0x64, 0xE3, 0xFF, 0xFF, 0x8B, 0x83, 0x68, 0x5F, 0x15, 0x00, 0x48, 0x83, 0xC4, 0x30, 0x5B, 0xC3 }, "complete E32B0 function");
-            rootedTribeFloodFillMembership = AllowTribeFloodFillForMoveOrder;
-            rootedFirstGroupUnitOnCompletedMoat = SelectOwnerSafeGroupMoatMode;
+            rootedTribeFloodFillMembership = TribeFloodFillBarrier;
+            rootedFirstGroupUnitOnCompletedMoat = FirstGroupUnitBarrier;
             rootedUnitStandingOnCompletedMoat = EnableCompletedMoatModeForScopedMovement;
             ValidateMoatModeDetourCandidate(libraryBase + unchecked((ulong)modeResolution.Rva));
-            rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
+            rootedRegionReachability = RegionReachabilityBarrier;
             rootedCursorReachability = AllowCursorReachabilityThroughCompletedMoat;
-            rootedCursorTilePairReachability = AllowAttackCursorTilePairThroughCompletedMoat;
+            rootedCursorTilePairReachability = CursorTilePairBarrier;
             rootedCursorRegionPrecheck = AllowCursorRegionThroughCompletedMoat;
-            rootedCombatFinishResume = ResumeMovementAfterCombatWithMoatContext;
-            rootedCursorMoveStager = StageDirectCursorMoveWithOwnerRoute;
+            rootedCombatFinishResume = CombatFinishResumeBarrier;
+            rootedCursorMoveStager = CursorMoveStagerBarrier;
 
             HookTransaction pendingTransaction = CreateOwnedHookTransaction();
             RedBirdDetour<CentralMovementPlanDelegate> pendingPlanDetour = null;
@@ -535,6 +536,7 @@ namespace BugfixesAndQoL.UnitCommands
                 originalCursorReachability = pendingCursor.Original;
                 originalCursorTilePairReachability = pendingCursorTilePair.Original;
                 originalCursorRegionPrecheck = pendingCursorRegion.Original;
+                InstallNativeOriginalEntryCounters();
 
                 ValidatePublishedCommandHooks(pendingTransaction);
                 ValidateSelectionCallAdapters(libraryBase);

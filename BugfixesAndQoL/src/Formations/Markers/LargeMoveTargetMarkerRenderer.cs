@@ -478,7 +478,7 @@ namespace BugfixesAndQoL
                 return 4;
             int buildingType = Marshal.ReadInt16(
                 libraryHandle + BuildingTypeRva + buildingId * BuildingRecordSize);
-            return buildingType == 0x2F ? 6 : 20;
+            return buildingType == (int)SHCDESE.Interop.eStructs.STRUCT_GATE_WOOD ? 6 : 20;
         }
 
         private void FailOpen(Exception exception)

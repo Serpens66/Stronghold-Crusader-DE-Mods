@@ -112,7 +112,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                feature.log.LogError("NOTIFICATION_LAST_FRAME_URI_FAILED: Vanilla playback retained: " + ex);
+                Shared.DebugLogHelper.LogError(feature.log, "NOTIFICATION_LAST_FRAME_URI_FAILED: Vanilla playback retained: " + ex);
             }
         }
 
@@ -145,7 +145,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 retain = false;
-                feature.log.LogError("NOTIFICATION_LAST_FRAME_GUARD_FAILED: " + ex);
+                Shared.DebugLogHelper.LogError(feature.log, "NOTIFICATION_LAST_FRAME_GUARD_FAILED: " + ex);
             }
 
             try
@@ -171,7 +171,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                feature.log.LogError("NOTIFICATION_LAST_FRAME_DISPLAY_FAILED: " + ex);
+                Shared.DebugLogHelper.LogError(feature.log, "NOTIFICATION_LAST_FRAME_DISPLAY_FAILED: " + ex);
             }
         }
     }

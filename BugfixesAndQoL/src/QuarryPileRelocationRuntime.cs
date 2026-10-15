@@ -83,6 +83,9 @@ namespace BugfixesAndQoL
         private const int VanillaCandidateOffsetY = 0x31B7D4;
         private const int ChoreProtocolVersion = 1;
         private const double AIQuarryReadinessTimeoutSeconds = 10.0;
+        // Simulation ticks (40 per game second): pausing or slow game speed must not let a
+        // wall-clock deadline expire before the quarry had game time to become ready.
+        private const int AIQuarryReadinessTimeoutTicks = 400;
 
         // CrusaderDE setupBuildingEntrancesOffset. This is the native helper used by
         // findQuarryPileLocation to turn (buildingSize, pileSize, perimeterIndex, try)
@@ -520,15 +523,13 @@ namespace BugfixesAndQoL
             if (pendingAIQuarriesByGlobalId.ContainsKey(quarryGlobalId))
                 return;
 
-            long timeoutTicks = checked((long)Math.Ceiling(
-                AIQuarryReadinessTimeoutSeconds * Stopwatch.Frequency));
+            // The deadline starts at the first queue tick that processes this entry.
             pendingAIQuarriesByGlobalId.Add(
                 quarryGlobalId,
                 new PendingAIQuarry(
                     quarryId,
                     quarryGlobalId,
-                    args.PlayerId,
-                    Stopwatch.GetTimestamp() + timeoutTicks));
+                    args.PlayerId));
             LogInfo($"AI quarry queued for Keep-facing pile placement: playerId={args.PlayerId}, quarryId={quarryId}, quarryGlobalId={quarryGlobalId}, timeoutSeconds={AIQuarryReadinessTimeoutSeconds:0.#}.");
         }
 
@@ -593,7 +594,9 @@ namespace BugfixesAndQoL
             if (!pendingAIQuarriesByGlobalId.TryGetValue(quarryGlobalId, out PendingAIQuarry pending))
                 return;
 
-            if (Stopwatch.GetTimestamp() >= pending.DeadlineTimestamp)
+            if (pending.DeadlineTick == null)
+                pending.DeadlineTick = (long)tick + AIQuarryReadinessTimeoutTicks;
+            if (tick >= pending.DeadlineTick.Value)
             {
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:613", $"Bugfixes and QoL AI quarry-pile placement timed out; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
@@ -1798,19 +1801,17 @@ namespace BugfixesAndQoL
             public PendingAIQuarry(
                 int quarryId,
                 int quarryGlobalId,
-                int playerId,
-                long deadlineTimestamp)
+                int playerId)
             {
                 QuarryId = quarryId;
                 QuarryGlobalId = quarryGlobalId;
                 PlayerId = playerId;
-                DeadlineTimestamp = deadlineTimestamp;
             }
 
             public int QuarryId { get; }
             public int QuarryGlobalId { get; }
             public int PlayerId { get; }
-            public long DeadlineTimestamp { get; }
+            public long? DeadlineTick { get; set; }
         }
 
         private sealed class PrefabSpawnCapture

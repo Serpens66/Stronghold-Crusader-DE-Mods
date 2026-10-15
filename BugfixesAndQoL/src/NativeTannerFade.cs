@@ -210,7 +210,7 @@ namespace BugfixesAndQoL
         private void LogCallbackError(Exception ex)
         {
             if (Interlocked.Exchange(ref callbackErrorLogged, 1) == 0)
-                log.LogError($"TANNER_NATIVE_FIX_CALLBACK_FAILED {ex}");
+                Shared.DebugLogHelper.LogError(log, $"TANNER_NATIVE_FIX_CALLBACK_FAILED {ex}");
         }
 
         private void ValidateEntry()

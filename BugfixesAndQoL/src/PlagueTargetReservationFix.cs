@@ -161,6 +161,15 @@ namespace BugfixesAndQoL
             }
         }
 
+        // Reservations and a local fail-closed decision only live for one gameplay session,
+        // so stale GlobalIds cannot mask clouds in the next map and every peer starts equal.
+        public void ResetForMap()
+        {
+            ClearReservations("map ended", logRelease: false);
+            if (!disposed)
+                correctionAvailable = true;
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -319,9 +328,15 @@ namespace BugfixesAndQoL
 
             var reserved = new List<DiseaseIdentity>();
             Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
-            for (int projectileId = 1; projectileId < projectiles.Length; projectileId++)
+            // Resolve live projectile IDs through the shared Extender-layout adapter instead of
+            // assuming span index == native ID and reading past the native projectile bound.
+            if (!Shared.GameProjectileSlotPolicy.TryResolve(projectiles, out Shared.GameProjectileSlotLayout layout))
+                throw new InvalidOperationException("The projectile slot layout could not be resolved.");
+            for (int projectileId = 1; projectileId < layout.ExclusiveUpperBound; projectileId++)
             {
-                ref GameProjectile projectile = ref projectiles[projectileId];
+                if (!layout.TryGetSpanIndex(projectileId, out int spanIndex))
+                    continue;
+                ref GameProjectile projectile = ref projectiles[spanIndex];
                 if (projectile.r_AliveState != AliveState.IsAlive ||
                     projectile.r_ProjectileType != ProjectileType.Disease ||
                     projectile.r_Unknown4 > MaximumSelectablePhase ||
@@ -504,7 +519,7 @@ namespace BugfixesAndQoL
 
             correctionAvailable = false;
             ClearReservations("feature disabled", logRelease: false);
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:509", $"Bugfixes and QoL plague target-reservation fix disabled for this process because " +
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:509", $"Bugfixes and QoL plague target-reservation fix disabled for this map because" +
                 $"{reason}; other plague fixes remain active: {ex}");
         }
 

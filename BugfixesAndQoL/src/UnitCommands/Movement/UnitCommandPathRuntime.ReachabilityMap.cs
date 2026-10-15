@@ -423,24 +423,33 @@ namespace BugfixesAndQoL.UnitCommands
                 $"vanillaStandingOnMoat={vanillaResult}.");
         }
 
+        // Each fallible reset step is isolated, so a provider, diagnostic or UI failure can
+        // never leave command plans and trackers of the previous map alive.
+        private void ResetMapStep(string stage, Action step)
+        {
+            try { step(); }
+            catch (Exception ex) { TryLogDiagnosticFailure("map-reset-" + stage, ex); }
+        }
+
         internal void ResetMapState()
         {
             // TEMP_GATE_ROUTE_ACCEPTANCE: maps never retain an unfinished order association.
-            if (temporaryAssassinScope != null) TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-map-unpaired-order");
+            if (temporaryAssassinScope != null)
+                ResetMapStep("temporary-assassin", () => TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-map-unpaired-order"));
             temporaryAssassinScope = null;
             manualCommandContexts?.Clear(); targetCommandParents?.Clear();
             moveEventObservers?.Clear(); moveEventDepths?.Clear(); targetEventObservers?.Clear();
             nativeCursorAnswers.Clear(); nativeCursorAnswerTick = int.MinValue;
-            LogAndResetFastMoatMetrics();
-            ClearUnitMoveFrames();
+            ResetMapStep("fast-moat-metrics", LogAndResetFastMoatMetrics);
+            ResetMapStep("unit-move-frames", ClearUnitMoveFrames);
             mapEpoch++;
-            InvalidateFastMoatData();
+            ResetMapStep("fast-moat-data", InvalidateFastMoatData);
             cursorTopologies.Clear(); noBuilderDetails = 0; preBuilderRejections.Clear();
             cursorDecisionCounts.Clear(); cursorDecisionDetails.Clear();
             fillRouteDecisions.Clear(); fillRouteLogTick = -1; fillRouteLogCount = 0; formationOwner = null;
-            formationRuntime?.ResetTransientState();
-            ResetMoatWorkTargetSelection();
-            ResetDirectMoatCommandScopes();
+            if (formationRuntime != null) ResetMapStep("formation", formationRuntime.ResetTransientState);
+            ResetMapStep("moat-work-target", ResetMoatWorkTargetSelection);
+            ResetMapStep("direct-moat-scopes", ResetDirectMoatCommandScopes);
             cacheMapEpoch = -1;
             cacheStartX = -1;
             cacheStartY = -1;
@@ -453,8 +462,8 @@ namespace BugfixesAndQoL.UnitCommands
             lastAttackCommandCandidates.Clear();
             trackedAttackUnits.Clear();
             activeMoveCommand = null;
-            Traversal?.ResetMapState();
-            ClearDeferredFastMoveScope();
+            if (Traversal != null) ResetMapStep("traversal-provider", Traversal.ResetMapState);
+            ResetMapStep("deferred-fast-move", ClearDeferredFastMoveScope);
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;

@@ -71,11 +71,23 @@ namespace BugfixesAndQoL.GateRouting
         {
             if(name==nameof(BugfixesAndQoLViewModel.EnableMod)||name==nameof(BugfixesAndQoLViewModel.EnableEnemyGatePathfindingFix))Refresh();
         }
-        private static void Tick(int tick) { lock(StateGate) { RefreshCore();if(active)runtime?.OnGameTick(); } }
+        // Gate policies change pathfinding on every peer: in games they refresh in the
+        // simulation tick (deterministic on all peers). The map editor has no simulation
+        // and no peers, so it keeps the render-frame schedule there.
+        private static void Tick(int tick)
+        {
+            lock(StateGate) { RefreshCore();if(active){runtime?.OnGameTick();if(!editor)runtime?.ProcessGatePolicies(tick);} }
+        }
         private static void Deferred()
         {
             int current=Time.frameCount;if(current==frame)return;frame=current;
-            lock(StateGate) { RefreshCore();if(active)runtime?.ProcessDeferredDiagnostics(); }
+            lock(StateGate)
+            {
+                RefreshCore();
+                if(!active)return;
+                if(editor){runtime?.OnGameTick();runtime?.ProcessGatePolicies(current);}
+                runtime?.ProcessDeferredDiagnostics();
+            }
         }
         private static void Refresh() { lock(StateGate) RefreshCore(); }
         private static void RefreshCore()

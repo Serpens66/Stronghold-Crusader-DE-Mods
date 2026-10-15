@@ -99,8 +99,12 @@ namespace BugfixesAndQoL.GateRouting
     internal sealed unsafe class GateTopologySnapshotProvider
     {
         private const int MaximumErrorsPerCategory = 8;
-        private static readonly long TopologySafetyInterval = Math.Max(1, Stopwatch.Frequency);
-        private static readonly long AccessSafetyInterval = Math.Max(1, Stopwatch.Frequency);
+        // Gate policies change pathfinding on every peer, so their refresh timing may only
+        // depend on simulation state: intervals are simulation ticks (40 per game second),
+        // never render frames or wall-clock time. The map editor drives the same
+        // schedule from render frames because it has no simulation and no peers.
+        private const long TopologySafetyIntervalTicks = 40;
+        private const long AccessSafetyIntervalTicks = 40;
 
         private readonly ManualLogSource log;
         private readonly object snapshotLock = new object();
@@ -365,13 +369,15 @@ namespace BugfixesAndQoL.GateRouting
         internal void RequestCaptureSnapshot(bool post) =>
             captureEvents.Request(Volatile.Read(ref epochActive) != 0, post);
 
-        internal void ProcessDeferred()
+        // Runs in the same simulation tick directly after OnGameTick, so a detected
+        // capture/owner change is republished before any pathfinding of that tick.
+        internal void ProcessTick(long now)
         {
             if (Volatile.Read(ref epochActive) == 0)
                 return;
             try
             {
-                InitializeDeferredEpochIfNeeded();
+                InitializeDeferredEpochIfNeeded(now);
                 bool capturePost = captureEvents.Consume();
                 if (capturePost | captureRefresh.Consume())
                 {
@@ -382,7 +388,6 @@ namespace BugfixesAndQoL.GateRouting
                         if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                             "Gate capture Post refresh deferred, epoch=" + Volatile.Read(ref epochNumber));
                 }
-                long now = Stopwatch.GetTimestamp();
                 RefreshGateAccessIfDue(now);
                 RefreshTopologyIfDue(now);
             }
@@ -395,9 +400,9 @@ namespace BugfixesAndQoL.GateRouting
 
         internal void OnGameTick()
         {
-            // Script Extender contract: this is a cheap accepted-record
-            // freshness probe only. Full topology/footprint rebuilding remains deferred
-            // to onBeforeRender and is capped at once per second unless state changes.
+            // Script Extender contract: this is a cheap accepted-record freshness probe
+            // only. Full topology/footprint rebuilding runs in ProcessTick right after it
+            // in the same tick and is capped at once per game second unless state changes.
             if (Volatile.Read(ref epochActive) == 0)
                 return;
             try
@@ -419,7 +424,7 @@ namespace BugfixesAndQoL.GateRouting
                         Volatile.Write(ref nextSnapshotAt, 0);
                         Volatile.Write(ref nextAccessAt, 0);
                         // A capture/owner change invalidates both policies immediately.
-                        // The next deferred scan rebuilds them outside native callbacks.
+                        // ProcessTick rebuilds them in this tick, outside native callbacks.
                         snapshot = TopologySnapshot.Empty;
                         accessSnapshot = NativeGateAccessSnapshot.Empty;
                         Volatile.Write(ref routePolicyWasCleared, 1);
@@ -473,13 +478,12 @@ namespace BugfixesAndQoL.GateRouting
             Interlocked.Exchange(ref snapshotErrors, 0);
         }
 
-        private void InitializeDeferredEpochIfNeeded()
+        private void InitializeDeferredEpochIfNeeded(long now)
         {
             int currentEpoch = Volatile.Read(ref epochNumber);
             if (initializedDeferredEpoch == currentEpoch)
                 return;
             initializedDeferredEpoch = currentEpoch;
-            long now = Stopwatch.GetTimestamp();
             // Stay outside the native query/building mutation stack. NeedsInit is a
             // valid temporary editor state and is diagnosed after this deferred delay.
             Volatile.Write(ref nextSnapshotAt, now);
@@ -498,7 +502,7 @@ namespace BugfixesAndQoL.GateRouting
             Volatile.Write(ref accessRefreshRequired, 1);
             if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {currentEpoch} started ({pendingEpochReason}). " +
-                "Access and topology safety scans run at most once per second or immediately " +
+                "Access and topology safety scans run at most once per game second or immediately " +
                 "after a detected tracked-state change; " +
                 "the native Same-PCL filter is published only after a non-empty direction mask exists.");
         }
@@ -508,7 +512,7 @@ namespace BugfixesAndQoL.GateRouting
             long due = Volatile.Read(ref nextAccessAt);
             if (Volatile.Read(ref accessRefreshRequired) == 0 && now < due) return;
             if (Interlocked.CompareExchange(
-                    ref nextAccessAt, now + AccessSafetyInterval, due) != due) return;
+                    ref nextAccessAt, now + AccessSafetyIntervalTicks, due) != due) return;
             RefreshGateAccess();
         }
 
@@ -578,7 +582,7 @@ namespace BugfixesAndQoL.GateRouting
             long due = Volatile.Read(ref nextSnapshotAt);
             if (now < due) return;
             if (Interlocked.CompareExchange(
-                    ref nextSnapshotAt, now + TopologySafetyInterval, due) != due)
+                    ref nextSnapshotAt, now + TopologySafetyIntervalTicks, due) != due)
                 return;
             long rulesRevision = APIShared.GateAccessRules.Version;
             ulong signature = ComputeTopologySignature(lastStableAccessSnapshot.TopologyFingerprint);

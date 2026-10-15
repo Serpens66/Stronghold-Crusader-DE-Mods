@@ -261,8 +261,6 @@ namespace BugfixesAndQoL.GateRouting
             try
             {
                 ComparePathfindingGlobalsOnce();
-                topologyProvider?.ProcessDeferred();
-                samePclRouteRuntime?.ProcessDeferred();
                 attackOrderDiagnostics?.ProcessDeferred();
                 temporaryAcceptance?.Deferred();
                 macemen?.Deferred();
@@ -389,6 +387,17 @@ namespace BugfixesAndQoL.GateRouting
         {
             try { topologyProvider?.OnGameTick(); }
             catch { topologyProvider?.RecordSnapshotFailure(); }
+        }
+
+        // Functional gate-policy refresh. Driven by the simulation tick (the map editor,
+        // which has no simulation or peers, drives it from render frames), so every peer
+        // republishes access, topology and tribe ownership at the same simulation point.
+        internal void ProcessGatePolicies(long now)
+        {
+            try { topologyProvider?.ProcessTick(now); }
+            catch { topologyProvider?.RecordSnapshotFailure(); }
+            try { samePclRouteRuntime?.ProcessTick(now); }
+            catch (Exception ex) { TryLogDiagnosticFailure(ex); }
         }
 
         internal void ObserveTargetOrder(TribeIssueOrderWithTargetEventArgs args)

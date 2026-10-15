@@ -196,7 +196,7 @@ namespace BugfixesAndQoL
                     string pending = initializationPending ? saveRecoveryStage == 1 ? "restored spectator PlayState" :
                         saveRecoveryStage == 2 ? "selected-player PlayState" : "PlayState" : hudPending ? "IngameUI" :
                         reportStateBeforeSwitch != null ? "report PlayState" : "allies PlayState";
-                    log.LogWarning("SPECTATOR_PERSPECTIVE_READY_TIMEOUT: " + pending +
+                    Shared.DebugLogHelper.LogWarning(log, "SPECTATOR_PERSPECTIVE_READY_TIMEOUT: " + pending +
                         " did not become ready within 15 seconds.");
                     initializationPending = false;
                     saveRecoveryStage = 0;
@@ -220,7 +220,7 @@ namespace BugfixesAndQoL
                 StopRenderIfIdle();
                 if (failureLogged) return;
                 failureLogged = true;
-                log.LogError("SPECTATOR_PERSPECTIVE_ERROR: " + error);
+                Shared.DebugLogHelper.LogError(log, "SPECTATOR_PERSPECTIVE_ERROR: " + error);
             }
         }
 
@@ -320,7 +320,7 @@ namespace BugfixesAndQoL
                 selectedPlayer = view;
                 return true;
             }
-            log.LogError("SPECTATOR_SAVE_RESTORE_FAILED: APIShared rejected the saved CPU view.");
+            Shared.DebugLogHelper.LogError(log, "SPECTATOR_SAVE_RESTORE_FAILED: APIShared rejected the saved CPU view.");
             return false;
         }
 
@@ -359,7 +359,7 @@ namespace BugfixesAndQoL
                 ? requestedView : first;
             if (!PlayerPerspectiveAPI.TrySetSpectatorView(initialView))
             {
-                log.LogError("SPECTATOR_PERSPECTIVE_SELECT_FAILED: APIShared rejected the initial spectator view.");
+                Shared.DebugLogHelper.LogError(log, "SPECTATOR_PERSPECTIVE_SELECT_FAILED: APIShared rejected the initial spectator view.");
                 return false;
             }
             selectedPlayer = initialView;
@@ -372,7 +372,7 @@ namespace BugfixesAndQoL
         private static bool IsOriginalSpectator()
         {
             var state = GameData.Instance?.lastGameState;
-            return mapReady && state != null && state.game_type == 3 && state.spectatorMode != 0 &&
+            return mapReady && state != null && state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
                    EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
         }
 
@@ -380,7 +380,7 @@ namespace BugfixesAndQoL
         {
             var state = GameData.Instance?.lastGameState;
             return featureReady && sessionEnabled && mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
-                   state.game_type == 3 && state.spectatorMode != 0 &&
+                   state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
                    EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
         }
 
@@ -392,7 +392,7 @@ namespace BugfixesAndQoL
         internal static bool IsNetworkSpectator()
         {
             var state = GameData.Instance?.lastGameState;
-            return featureReady && state != null && state.game_type == 3 && state.spectatorMode != 0 &&
+            return featureReady && state != null && state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
                    GameModeHelper.IsRealMultiplayer();
         }
 
@@ -582,7 +582,7 @@ namespace BugfixesAndQoL
         {
             if (!spectatorActive || player < 1 || player > 8 || occupiedSlots == null || !occupiedSlots[player]) return;
             var state = GameData.Instance?.lastGameState;
-            if (state == null || state.spectatorMode == 0 || state.game_type != 3 ||
+            if (state == null || state.spectatorMode == 0 || state.game_type != (int)eGameTypeModes.GAMETYPE_MULTIPLAYER ||
                 EditorDirector.instance == null || EditorDirector.instance.ActivePlayerID > 0 ||
                 !state.is_human_or_skirmish_player(player) || selectedPlayer == player) return;
             try
@@ -591,7 +591,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception error)
             {
-                log.LogError($"SPECTATOR_PERSPECTIVE_SELECT_FAILED: player={player}, error={error}.");
+                Shared.DebugLogHelper.LogError(log, $"SPECTATOR_PERSPECTIVE_SELECT_FAILED: player={player}, error={error}.");
                 return;
             }
             selectedPlayer = player;
@@ -643,7 +643,7 @@ namespace BugfixesAndQoL
             {
                 if (cameraFailureLogged) return;
                 cameraFailureLogged = true;
-                log.LogError($"SPECTATOR_PERSPECTIVE_CAMERA_FAILED: player={player}, button={button}, error={error}.");
+                Shared.DebugLogHelper.LogError(log, $"SPECTATOR_PERSPECTIVE_CAMERA_FAILED: player={player}, button={button}, error={error}.");
             }
         }
 

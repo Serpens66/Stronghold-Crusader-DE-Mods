@@ -899,12 +899,18 @@ namespace BugfixesAndQoL.GateRouting
                 "deferred work uses the bounded access refresh gate");
             Assert(topologyCall > accessCall,
                 "deferred work retains separately throttled topology rebuilding");
-            Assert(source.IndexOf("TopologySafetyInterval = Math.Max(1, Stopwatch.Frequency)",
+            Assert(source.IndexOf("TopologySafetyIntervalTicks = 40",
                     StringComparison.Ordinal) >= 0,
-                "expensive topology safety rebuild is capped at one per second");
-            Assert(source.IndexOf("AccessSafetyInterval = Math.Max(1, Stopwatch.Frequency)",
+                "expensive topology safety rebuild is capped at one per game second");
+            Assert(source.IndexOf("AccessSafetyIntervalTicks = 40",
                     StringComparison.Ordinal) >= 0,
-                "access safety scans are capped at one per second");
+                "access safety scans are capped at one per game second");
+            Assert(source.IndexOf("Stopwatch", StringComparison.Ordinal) < 0,
+                "gate policy refresh never depends on wall-clock time");
+            string feature = MigrationSources.Read(Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
+            Assert(feature.IndexOf("runtime?.OnGameTick();if(!editor)runtime?.ProcessGatePolicies(tick);",
+                    StringComparison.Ordinal) >= 0,
+                "gate policies are republished in the same simulation tick after the freshness probe");
             string access = ExtractMethodBody(source, "RefreshGateAccess");
             Assert(access.IndexOf("ComputeGateAccessFingerprint", StringComparison.Ordinal) >= 0,
                 "access refresh probes a fingerprint before publishing");
@@ -1420,7 +1426,7 @@ namespace BugfixesAndQoL.GateRouting
             Assert(gates.Length == 100 && count == 1000, "more than 32 gate combinations remain exact and compact");
             string provider = MigrationSources.Read(Path.Combine("src", "GateTopologySnapshotProvider.cs"));
             int begin = provider.IndexOf("internal GateLiveStateObservation[] CaptureGateStates", StringComparison.Ordinal);
-            int end = provider.IndexOf("internal void ProcessDeferred()", begin, StringComparison.Ordinal);
+            int end = provider.IndexOf("internal void ProcessTick(long now)", begin, StringComparison.Ordinal);
             string live = provider.Substring(begin, end - begin);
             Assert(!live.Contains("UnrelatedByPlayer") && live.Contains("!observed.Add(info.GateId)"),
                 "all gate roles included once, even with multiple or no bridges");

@@ -62,7 +62,7 @@ if (-not $bootstrap -or
     throw 'Incomplete bootstrap must not activate spectator switching.'
 }
 if ($runtime -notmatch 'return featureReady && sessionEnabled && mapReady && spectatorActive' -or
-    $runtime -notmatch 'return featureReady && state != null && state\.game_type == 3' -or
+    $runtime -notmatch 'return featureReady && state != null && state\.game_type == \(int\)eGameTypeModes\.GAMETYPE_MULTIPLAYER' -or
     $runtime -notmatch 'IsSpectatorActionRestricted\(\) => featureReady &&' -or
     $runtime -notmatch 'recoveryIdentityApplied \|\| IsActiveSpectator\(\) \|\| IsOriginalSpectator\(\)' -or
     $runtime -notmatch 'int candidate = IsActiveSpectator\(\) \? selectedPlayer : PlayerPerspectiveAPI\.GetRawNativeViewPlayerId\(\)' -or

@@ -122,6 +122,8 @@ namespace BugfixesAndQoL.UnitCommands {
         private Entry<int> densityConfig=new Entry<int>(2);
         private Entry<RangedPlacementMode> placementModeConfig=new Entry<RangedPlacementMode>(RangedPlacementMode.Off);
         private bool Enabled=true,initialized=true,startupConfirmed;private int lastWheelFrame=-1;
+        // Local gesture/preview gate; the fixture's FailOpen closes it together with Enabled.
+        private bool LocalInputEnabled=>Enabled;
         private static SelectionIdentity[] selection;private static bool mapValid=true,shift;private static int button,selectionTribe=2;
         private int Originals,VanillaReleases,Dispatched;private int OriginalResult=1;private bool RejectPacket,RenderInsideOriginal;
         private FormationOrderPacket LastPacket;

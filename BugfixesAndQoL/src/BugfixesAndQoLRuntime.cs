@@ -261,6 +261,8 @@ namespace BugfixesAndQoL
             assassinClimbRuntime.EndMap();
             assassinPathfindingRuntime.EndMap();
             assassinCapturedGateProtectionRuntime.EndMap();
+            plagueTargetReservationFix?.ResetForMap();
+            siegeAmmoRestockFeature.ResetForMap();
             multiplayerFeatureGate.Reset();
         }
 

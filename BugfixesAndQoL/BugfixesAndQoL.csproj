@@ -339,6 +339,7 @@
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs"><Link>Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\GameBuildingFootprint.cs"><Link>Shared\Runtime\Native\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs</Link></Compile>

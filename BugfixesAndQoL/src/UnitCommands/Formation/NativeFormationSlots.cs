@@ -81,24 +81,33 @@ namespace BugfixesAndQoL.UnitCommands
                 formationRuntime.DisableForProcess("standard-selector", ex);
             }
             int effectiveSpacing = spacing;
-            if (nativeTribeManager == IntPtr.Zero)
-            { InvokeOriginalFormationSlot(manager, effectiveSpacing, x, y); return; }
-            int* state = (int*)((byte*)nativeTribeManager + 0x0C);
-            int oldX = state[0], oldY = state[1], oldIndex = state[2];
-            try { ChooseOwnerSafeFormationSlotCore(manager, effectiveSpacing, x, y); }
-            catch (OriginalFormationSlotException)
+            try
             {
-                // Never replay a native selector that already threw.
-                throw;
+                if (nativeTribeManager == IntPtr.Zero)
+                { InvokeOriginalFormationSlot(manager, effectiveSpacing, x, y); return; }
+                int* state = (int*)((byte*)nativeTribeManager + 0x0C);
+                int oldX = state[0], oldY = state[1], oldIndex = state[2];
+                try { ChooseOwnerSafeFormationSlotCore(manager, effectiveSpacing, x, y); }
+                catch (OriginalFormationSlotException)
+                {
+                    // Never replay a native selector that already threw; the outer barrier reports it.
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // E1D30 only changes this output triple. Restore it before replaying
+                    // the unmodified selector; the individual owner audit remains active.
+                    state[0] = oldX; state[1] = oldY; state[2] = oldIndex;
+                    formationOwner = null;
+                    TryLogDiagnosticFailure("formation-slot", ex);
+                    InvokeOriginalFormationSlot(manager, effectiveSpacing, x, y);
+                }
             }
-            catch (Exception ex)
+            catch (OriginalFormationSlotException ex)
             {
-                // E1D30 only changes this output triple. Restore it before replaying
-                // the unmodified selector; the individual owner audit remains active.
-                state[0] = oldX; state[1] = oldY; state[2] = oldIndex;
-                formationOwner = null;
-                TryLogDiagnosticFailure("formation-slot", ex);
-                InvokeOriginalFormationSlot(manager, effectiveSpacing, x, y);
+                // Native detour barrier: E1D30 is a void selector whose output triple the
+                // original already wrote. Never rethrow into CrusaderDE or replay it.
+                ReportNativeDetourBarrier("E1D30-formation-slot", ex);
             }
         }
 

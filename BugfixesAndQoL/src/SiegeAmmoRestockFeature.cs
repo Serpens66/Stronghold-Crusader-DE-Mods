@@ -72,6 +72,15 @@ namespace BugfixesAndQoL
             catch { Dispose(); throw; }
         }
 
+        // Operation IDs restart with every process, so duplicate detection may only span one
+        // gameplay session. A process-wide set would make long-running peers reject Chores
+        // that freshly started peers apply, which diverges stone and ammunition.
+        internal void ResetForMap()
+        {
+            processedOperations.Clear();
+            processedOperationOrder.Clear();
+        }
+
         public void Dispose()
         {
             // Only an unpublished failed initialization may release its subscriptions.

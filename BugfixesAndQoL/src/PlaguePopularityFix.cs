@@ -442,6 +442,13 @@ namespace BugfixesAndQoL
         {
             lock (stateGate)
             {
+                // A local callback failure only reverts the failed map to Vanilla. Every
+                // peer starts the next map or save with the same correction state.
+                if (!disposed)
+                {
+                    correctionAvailable = true;
+                    callbackFailureLogged = false;
+                }
                 mapActive = false;
                 currentCapture = null;
                 herds.Clear();
@@ -600,7 +607,7 @@ namespace BugfixesAndQoL
                 return;
 
             callbackFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:606", $"Plague popularity fix disabled for this process; Vanilla behavior restored because {reason}: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:606", $"Plague popularity fix disabled for this map; Vanilla behavior restored because {reason}: {ex}");
         }
 
         private static bool IsValidPlayerId(int playerId) =>

@@ -15,7 +15,7 @@ namespace BugfixesAndQoL
         private static BugfixesAndQoLViewModel settings;
         private static FormationMenuViewModel menu;
         private static FormationRuntime runtime;
-        internal static bool RuntimeAvailable => runtime != null && runtime.Enabled;
+        internal static bool RuntimeAvailable => runtime != null && runtime.LocalInputEnabled;
         private static ConfigEntry<FormationKind> kind;
         private static ConfigEntry<int> density;
         private static ConfigEntry<RangedPlacementMode> placement;
@@ -49,7 +49,7 @@ namespace BugfixesAndQoL
             }
             FormationPreviewOverlay.Initialize(log, roles.Value);
             menu = new FormationMenuViewModel(log, config, kind, density, placement, roles, rememberRows, rememberedRows);
-            menu.Enabled = () => runtime != null && runtime.Enabled;
+            menu.Enabled = () => runtime != null && runtime.LocalInputEnabled;
             RegisterPresentationBindings();
             FormationHudButton.Configure(menu, log);
             config.Save();

@@ -124,13 +124,20 @@ namespace BugfixesAndQoL.UnitCommands
 
             var command = new PendingFormationCommand(packet, source);
 
+            bool nested;
             lock (stateSync)
             {
-                if (pendingCommand != null || activeCommand != null)
-                    throw new InvalidOperationException("A nested formation command was rejected.");
-                pendingCommand = command;
-                dispatchDepth++;
+                nested = pendingCommand != null || activeCommand != null;
+                if (!nested)
+                {
+                    pendingCommand = command;
+                    dispatchDepth++;
+                }
             }
+            // A nested command keeps the outer command intact and still reaches Vanilla
+            // instead of being dropped (multiplayer) or disabling the feature (singleplayer).
+            if (nested)
+                return TryIssuePacketVanillaFallback(packet, source, "nested-formation-command");
             try
             {
                 bool issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(

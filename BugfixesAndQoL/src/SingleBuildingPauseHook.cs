@@ -925,10 +925,10 @@ namespace BugfixesAndQoL
                     return;
 
                 if (self.HUDBuildingPanel.RefBuildingZZZButtonOff != null)
-                    self.HUDBuildingPanel.RefBuildingZZZButtonOff.Visibility = isSleeping ? (Visibility)2 : (Visibility)1;
+                    self.HUDBuildingPanel.RefBuildingZZZButtonOff.Visibility = isSleeping ? Noesis.Visibility.Visible : Noesis.Visibility.Hidden;
 
                 if (self.HUDBuildingPanel.RefBuildingZZZButtonOn != null)
-                    self.HUDBuildingPanel.RefBuildingZZZButtonOn.Visibility = isSleeping ? (Visibility)1 : (Visibility)2;
+                    self.HUDBuildingPanel.RefBuildingZZZButtonOn.Visibility = isSleeping ? Noesis.Visibility.Hidden : Noesis.Visibility.Visible;
             }
             catch (Exception ex)
             {
