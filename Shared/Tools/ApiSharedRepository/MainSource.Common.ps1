@@ -138,6 +138,15 @@ function Assert-ApiMainDeliveryIdentity([string]$Workspace,$Identity) {
     . (Join-Path $selection.Root 'tools/WorkshopUploader/PublisherBuildProof.ps1')
     Assert-WorkshopPublisherBuild $selection.Root
     $outputs=@(Get-ApiMainPublisherOutputs $selection.Root)
-    if((ConvertTo-Json -InputObject $outputs -Compress) -cne (ConvertTo-Json -InputObject @($Identity.PublisherOutputs) -Compress)){throw 'Publisher output inventory changed since preparation.'}
+    # PowerShell 5.1 and 7 sort punctuation differently; compare the named hashes, not JSON array order.
+    $expected=[Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+    foreach($output in @($Identity.PublisherOutputs)){
+        if($expected.ContainsKey([string]$output.Name)){throw 'Duplicate prepared publisher output.'}
+        $expected.Add([string]$output.Name,[string]$output.Sha256)
+    }
+    if($expected.Count -ne $outputs.Count){throw 'Publisher output inventory changed since preparation.'}
+    foreach($output in $outputs){
+        if(-not $expected.ContainsKey([string]$output.Name) -or $expected[[string]$output.Name] -cne $output.Sha256){throw 'Publisher output inventory changed since preparation.'}
+    }
     return $Identity.Selection
 }

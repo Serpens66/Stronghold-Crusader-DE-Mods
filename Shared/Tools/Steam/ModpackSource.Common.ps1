@@ -25,7 +25,7 @@ function Assert-ModpackSource([string]$Workspace,$Source,[switch]$Clean) {
     if($Clean -and @(Invoke-ApiRepositoryGit $root @('status','--porcelain','--untracked-files=normal')).Count){throw 'Selected modpack source must be clean; commit or preserve its changes first.'}
     return $root
 }
-function Resolve-ModpackSource([string]$Workspace,[string]$Branch) {
+function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$AllowGeneratedOutputs) {
     if($Branch -cnotin @('main','develop')){throw 'Unsupported modpack branch.'}
     $root=$null;$candidate=$null
     foreach($line in @(Invoke-ApiRepositoryGit $Workspace @('-c','core.quotepath=false','worktree','list','--porcelain'))){
@@ -39,7 +39,10 @@ function Resolve-ModpackSource([string]$Workspace,[string]$Branch) {
         Invoke-ApiRepositoryGit $Workspace @('worktree','add',$root,$Branch)|Out-Null
     }
     $source=[ordered]@{Branch=$Branch;Root=[IO.Path]::GetFullPath($root);Commit=((Invoke-ApiRepositoryGit $root @('rev-parse','HEAD')) -join '').Trim()}
-    $null=Assert-ModpackSource $Workspace $source -Clean
+    if($AllowGeneratedOutputs){
+        $null=Assert-ModpackSource $Workspace $source
+        $null=Get-ModpackDirtyOutputs $source.Root
+    }else{$null=Assert-ModpackSource $Workspace $source -Clean}
     return $source
 }
 function Get-ModpackStateRoot([string]$Workspace,[bool]$Test) {

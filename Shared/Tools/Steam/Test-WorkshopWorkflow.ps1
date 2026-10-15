@@ -37,6 +37,8 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
 function MakeZip([string[]]$Names){$path=Join-Path $fixture ([guid]::NewGuid().ToString('N')+'.zip');$zip=[IO.Compression.ZipFile]::Open($path,[IO.Compression.ZipArchiveMode]::Create);try{foreach($name in $Names){[void]$zip.CreateEntry($name)}}finally{$zip.Dispose()};return $path}
 Assert-WorkshopContentZip (MakeZip @('SerpsMods.map','apishared-workshop.json','Payload/BepInEx/plugins/SerpsMods_Serp/Mods/Example.dll'));$checks++
+Assert-WorkshopContentZip (MakeZip @('SerpsMods.map','Payload\BepInEx\plugins\SerpsMods_Serp\info.json'));$checks++
+Reject {Assert-WorkshopContentZip (MakeZip @('Payload/BepInEx/plugins/SerpsMods_Serp/info.json','Payload\BepInEx\plugins\SerpsMods_Serp\info.json'))}
 foreach($names in @(@('../escape'),@('SerpsMods.map','serpsmods.map'),@('Payload/BepInEx/plugins/SerpsMods_Serp/CON.dll'),@('Payload/BepInEx/plugins/SerpsMods_Serp/config/settings.json'),@('Payload/BepInEx/plugins/SerpsMods_Serp/A','Payload/BepInEx/plugins/SerpsMods_Serp/A/b.dll'))){Reject {Assert-WorkshopContentZip (MakeZip $names)}}
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Create-SteamModPack.ps1'),[ref]$null,[ref]$null)
 $function=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-HostContentSignature'},$true)
@@ -67,7 +69,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Bootstrap environment regression failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Workshop cache/changelog regression failed.' }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '../ApiSharedRepository/Test-MainSource.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Pinned main/PR/Workshop BAT regression failed.' }
-foreach($test in @('Test-ModpackBranches.ps1','Test-PublishedSdkPolicy.ps1')){
+foreach($test in @('Test-ModpackBranches.ps1','Test-PublishedSdkPolicy.ps1','Test-PublishedModpack.ps1')){
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $test)
     if($LASTEXITCODE -ne 0){throw "$test failed."}
 }

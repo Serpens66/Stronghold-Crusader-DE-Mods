@@ -10,6 +10,7 @@ $noPauseRequested=@($Options|Where-Object {$_ -ieq '/nopause'}).Count -gt 0
 # Leave delegated work through this block so only the original caller owns the pause.
 :workflow do {
 try{
+    if($Action -eq 'Upload' -and -not @($Options|Where-Object {$_ -in @('/modpack','/apishared','/both')}).Count){$Options=@('/modpack')+$Options}
     $settings=Resolve-WorkshopOptions $Options
     if($settings.Target -eq 'Cancel'){exit 0}
     $config=Get-WorkshopConfiguration
@@ -20,9 +21,9 @@ try{
             if($settings.Branch -eq 'develop'){$settings.Test=$true}
             $source=Resolve-ModpackSource $config.Root $settings.Branch
         }else{
-            if($settings.Branch -eq 'develop'){$settings.Test=$true}
-            $source=Get-PreparedModpackSource $config.Root $settings.Test $settings.Branch
-            $settings.Branch=$source.Branch
+            if($settings.Branch -and $settings.Branch -cne 'main'){throw 'Uploads always use the latest published main release; /branch:develop is not supported.'}
+            $settings.Branch='main'
+            $source=Resolve-ModpackSource $config.Root 'main' -AllowGeneratedOutputs
         }
         $env:SHCDE_MODPACK_COORDINATOR=Get-ModpackCoordinator $config.Root
         $env:SHCDE_MODPACK_BRANCH=$source.Branch
@@ -39,7 +40,7 @@ try{
         }
     }
     $targets=if($settings.Target -eq 'Both'){@($config.APIShared,$config.SerpsMods)}else{@($config.($settings.Target))}
-    if($Action -eq 'Prepare'){
+    if($Action -eq 'Prepare' -or $settings.Target -in @('SerpsMods','Both')){
         $env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $config.Root
     }else{
         $preparedState=if($env:SHCDE_MODPACK_COORDINATOR){Get-ModpackStateRoot $config.Root $settings.Test}else{Join-Path $config.Root '.release-output/SteamWorkshop'}
@@ -61,6 +62,15 @@ try{
     $state=Get-WorkshopStateRoot $config $settings.Test;Assert-ApiWorkshopUnlinkedPath $state;[void][IO.Directory]::CreateDirectory($state)
     $lock=[IO.File]::Open((Join-Path $state 'workflow.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
     if($Action -eq 'Prepare' -and (-not $settings.Validate -or $env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1')){Ensure-ApiMainBuild $config.Root}
+    if($Action -eq 'Upload' -and $settings.Target -in @('SerpsMods','Both')){
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Prepare-LatestModpackUpload.ps1') -TestMode ([int]$settings.Test)
+        if($LASTEXITCODE -ne 0){throw 'Preparing the latest published main release failed; no upload started.'}
+        foreach($target in $targets){
+            $prepared=Assert-WorkshopPreparation $config $target $settings.Test
+            $selected=Assert-ApiMainDeliveryIdentity $config.Root $prepared.MainSource
+            if($selected -cne $env:SHCDE_API_SHARED_MAIN_SELECTION){throw 'Both uploads must use the same pinned public SDK.'}
+        }
+    }
     Invoke-WorkshopTargets $targets {param($target)
         Write-Host ('--- '+$target.Key+' ---')
         $previousBackups=@()

@@ -1,5 +1,5 @@
 @echo off
 setlocal EnableExtensions
-rem Configuration and target selection are shared by both Workshop drivers.
+rem Uploads the latest published main modpack release; preparation is refreshed automatically.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Tools\Steam\WorkshopWorkflow.ps1" -Action Upload %*
 exit /b %ERRORLEVEL%

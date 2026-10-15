@@ -4,6 +4,7 @@ $workshopApiToolsRoot=Get-WorkshopApiRoot ([IO.Path]::GetFullPath((Join-Path $PS
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 . (Join-Path $workshopApiToolsRoot 'tools/WorkshopUploader/PublisherBuildProof.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
+. (Join-Path $PSScriptRoot 'PublishedModpack.Common.ps1')
 function Get-WorkshopStateRoot($Config,[bool]$Test){$stateWorkspace=Get-ApiMainWorkspace $Config.Root;$path=Join-Path $stateWorkspace '.release-output/SteamWorkshop';if($Test){$path=Join-Path $path 'test'};return $path}
 function Get-WorkshopFolder($Config,$Target,[bool]$Test){if($Test){return (Join-Path $Config.Root ('.release-output/SteamWorkshop/test/packages/'+$Target.Key))};return $Target.Folder}
 function Get-WorkshopItemId($Config,$Target,[bool]$Test){
@@ -31,9 +32,9 @@ function Save-WorkshopReleaseReference($Config,[bool]$Test,[string]$Source){
     Assert-ApiWorkshopUnlinkedPath $Source;Assert-ApiWorkshopUnlinkedPath $path
     [void][IO.Directory]::CreateDirectory((Split-Path -Parent $path));Copy-Item -LiteralPath $Source -Destination $path -Force
 }
-function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,[string]$Commit,[string]$ReleaseTag,[string]$ReleaseNotes=''){
+function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,[string]$Commit,[string]$ReleaseTag,[string]$ReleaseNotes='',$PublishedRelease=$null){
     $proof=[ordered]@{SchemaVersion=1;Target=$Target.Key;PackageId=$Target.Guid;Version=$Version;Mode=$(if($Test){'Test'}else{'Production'});Commit=$Commit;ReleaseTag=$ReleaseTag;ReleaseNotes=$ReleaseNotes;Files=@(Get-WorkshopRecords (Get-WorkshopFolder $Config $Target $Test))}
-    if($Target.Key -eq 'SerpsMods' -and $env:SHCDE_MODPACK_BRANCH){
+    if($Target.Key -eq 'SerpsMods' -and $env:SHCDE_MODPACK_BRANCH -and -not $PublishedRelease){
         . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
         if($env:SHCDE_MODPACK_BRANCH -eq 'develop' -and -not $Test){throw 'Develop modpacks must be private tests.'}
         $source=Get-ModpackPreparationSource $Config.Root $env:SHCDE_MODPACK_BRANCH $Commit
@@ -41,6 +42,7 @@ function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,
         $proof.ModpackSource=$source
         $proof.PublishedSdk=[ordered]@{Version='0.9.2';Commit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d';DllSha256='2797b06042b0634ccc97ee5d2175c96944f95edfa1924d764776d9a6bde14758'}
     }
+    if($PublishedRelease){$proof.PublishedRelease=$PublishedRelease}
     if($env:SHCDE_API_SHARED_MAIN_SELECTION){$proof.MainSource=Get-ApiMainDeliveryIdentity $Config.Root}
     if($Target.Key -eq 'SerpsMods'){$reference=Join-Path (Get-WorkshopStateRoot $Config $Test) 'references/SerpsMods.provenance.json';$proof.ReleaseProvenance=$reference;$proof.ReleaseProvenanceSha256=Get-WorkshopFileHash $reference}
     Write-SteamWorkshopJson -Path (Join-Path (Get-WorkshopStateRoot $Config $Test) ('prepared/'+$Target.Key+'.json')) -Value $proof
@@ -51,6 +53,7 @@ function Assert-WorkshopPreparation($Config,$Target,[bool]$Test){
     if(-not(Test-Path -LiteralPath $path)){throw "Prepare $($Target.Key) first."}
     $proof=[IO.File]::ReadAllText($path)|ConvertFrom-Json
     if($proof.SchemaVersion -ne 1 -or $proof.Target -cne $Target.Key -or $proof.PackageId -cne $Target.Guid -or $proof.Mode -cne $(if($Test){'Test'}else{'Production'})){throw 'Preparation proof identity/mode mismatch.'}
+    if($proof.PSObject.Properties['PublishedRelease']){Assert-PublishedModpackPreparation $Config $proof}
     if($proof.PSObject.Properties['ModpackSource']){
         . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
         $source=Get-PreparedModpackSource $Config.Root $Test $env:SHCDE_MODPACK_BRANCH
@@ -81,14 +84,14 @@ function Assert-WorkshopContentZip([string]$ZipPath){
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip=[IO.Compression.ZipFile]::OpenRead($ZipPath);$seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     try{foreach($entry in $zip.Entries){
-        $name=$entry.FullName.TrimEnd('/')
+        $name=$entry.FullName.Replace('\','/').TrimEnd('/')
         if(-not $name -or $name.Contains('\') -or $name.StartsWith('/') -or $name.Contains(':') -or @($name.Split('/')|Where-Object {$_ -in @('','.', '..') -or $_ -match '[. ]$|[\x00-\x1f<>"|?*]|^(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)'}).Count -or -not $seen.Add($name) -or ((($entry.ExternalAttributes -shr 16)-band 0xF000)-eq 0xA000)){throw 'Unsafe or duplicate Workshop ZIP entry.'}
         if($name -notin @('SerpsMods.map','apishared-workshop.json','preview.png','Payload','Payload/BepInEx','Payload/BepInEx/plugins','Payload/BepInEx/plugins/SerpsMods_Serp') -and -not $name.StartsWith('Payload/BepInEx/plugins/SerpsMods_Serp/',[StringComparison]::Ordinal)){throw "Unexpected Workshop ZIP entry: $name"}
         if($name -match '/(?i:config|LobbyModSettings|APIShared_Serp|000shcdese)(/|$)'){throw 'Protected/settings target in Workshop ZIP.'}
     }
     $files=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach($entry in $zip.Entries){if(-not $entry.FullName.EndsWith('/')){[void]$files.Add($entry.FullName)}}
-    foreach($entry in $zip.Entries){$parent=$entry.FullName.TrimEnd('/');while($parent.Contains('/')){$parent=$parent.Substring(0,$parent.LastIndexOf('/'));if($files.Contains($parent)){throw 'File/directory overlap in Workshop ZIP.'}}}
+    foreach($entry in $zip.Entries){if(-not $entry.FullName.EndsWith('/')){[void]$files.Add($entry.FullName.Replace('\','/'))}}
+    foreach($entry in $zip.Entries){$parent=$entry.FullName.Replace('\','/').TrimEnd('/');while($parent.Contains('/')){$parent=$parent.Substring(0,$parent.LastIndexOf('/'));if($files.Contains($parent)){throw 'File/directory overlap in Workshop ZIP.'}}}
     }finally{$zip.Dispose()}
 }
 function Assert-PreparedWorkshopFolder([string]$Directory,[string]$Version,[string]$PackageId){
