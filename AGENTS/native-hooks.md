@@ -1,0 +1,39 @@
+# Native Hooks, Patches und RedBird
+
+**Lesen, wenn:** ein nativer oder verwalteter Laufzeithook, Inline-/Context-Hook, Detour, Byte-Patch, Trampolin oder RedBird-Code geplant, geändert oder diagnostiziert wird. Immer zusammen mit [native-analysis.md](native-analysis.md). Gilt zusätzlich zur Root-`AGENTS.md`.
+
+## Permanente Hooklebensdauer (Hard-Gate)
+
+- Nach Veröffentlichung eines nativen oder verwalteten Laufzeithooks dürfen ausführbare Speicherbereiche bis Prozessende nicht mehr zurück- oder umgepatcht werden. Das betrifft insbesondere laufzeitveränderliche `CodePatch.Write`-/`Marshal.Write*`-Stellen, `VirtualProtect`-Codeänderungen, RedBird-`Enable()`/`Disable()` und MonoMod-/`NativeDetour`-`Apply()`/`Undo()`/`Dispose()`.
+- Einstellungswechsel, Kartenwechsel, Fail-open und normale Runtime-/Plugin-Teardownpfade laufen über einen einmal installierten, dauerhaft verwurzelten Hook mit atomar veröffentlichtem logischem Aktivierungszustand; der deaktivierte Callback erhält Vanillas vollständige Semantik.
+- Nur ein noch nicht veröffentlichter Initialisierungskandidat darf bei fehlgeschlagener Installation vollständig zurückgerollt und freigegeben werden.
+- Vor jedem Build erkennt eine workspaceweite statische Regression (`Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1`, `Test-SharedBoundaries.ps1`) neue ausführbare Laufzeitmutationen und erreichbare Teardowns veröffentlichter Hooks.
+- Keine dauerhaften Byte-Patches für zur Laufzeit abschaltbare Funktionen, außer Apply/Restore ist nachweislich sicher an den Einstellungszustand gekoppelt. Prüfen, dass der Eingriff bei deaktivierter Mod inaktiv ist.
+
+## Überschreibspanne und Kontrollfluss
+
+- Vor jedem Inline-/Context-Hook die **tatsächliche** Überschreibspanne des verwendeten Hooktyps bestimmen: minimale Detourgröße aus der konkreten Implementierung ableiten und ab Hookadresse vollständige Instruktionen dekodieren, bis sie erreicht ist. Start, Ende, Einzelinstruktionslängen und erste Folgeinstruktion vor Installation fail-closed validieren und im Initialisierungslog ausgeben.
+- Kein ursprünglicher Kontrollfluss darf ins Innere der Spanne zeigen: für die gesamte umgebende Funktion alle direkten Sprünge und Calls sowie Xrefs, Sprungtabellen und funktionsfremde Einstiege prüfen. Jedes Ziel mit `hookStart < target < hookEnd` macht die Platzierung unzulässig, auch wenn es selten erreicht wird → Hook an eine Basic-Block-Grenze verschieben.
+- Alle Spannen einer Transaktion inkl. RIP-relativer Operanden, ausgehender Branchziele, Callback-Platzierung und benötigter Register/Flags vollständig validieren, bevor der erste Patch committed wird. Bei Abweichung die gesamte optionale Funktion unverändert lassen; keine teilweise installierten Hookverbunde, keine überlappenden Hooks, kein Einstieg in eine bereits ersetzte Spanne.
+- Tests führen alle bekannten Vorgänger und beide Seiten umgebender Branches aus, nicht nur den Erfolgsfall. Ein Installationslog beweist nur, dass der Detour geschrieben wurde. Ein harter Prozessabbruch ohne Managed-Exception vor dem ersten Callbackmarker gilt als möglicher Kontrollfluss-/Spannenfehler → zuerst Spanne, eingehende Ziele und relocierte Instruktionen prüfen.
+
+## In-place-Patches, Trampoline, Ersatzblöcke
+
+- Register-Liveness und Datenfluss über den gesamten überschriebenen Bereich und alle Ein-/Ausgangspfade dokumentieren. Ein Register erst als Scratch verwenden, wenn sein letzter benötigter Lesezugriff (auch in effektiven Adressen) abgeschlossen ist; implizite Zugriffe (`cdq`, `mul`/`div`, `push`/`pop`, Calls) mitprüfen. Stack, benötigte Flags, ABI-erhaltene Register und Übergabewert am Rücksprung entsprechen dem Originalvertrag.
+- Maschinenverträge statisch absichern: exakte Blocklänge und Endadresse, vollständige Ersatzbytes bzw. disassemblierte Instruktionen, Reihenfolge aller Reads vor clobbernden Writes. Reine Ergebnis-/Formeltests genügen nicht, wenn ein Register zugleich Pointer, Index oder Zwischenspeicher ist.
+
+## Funktionsziel vs. Call-Site (`HookTransaction.AddDetour`)
+
+- Kein mit `E8`, `E9` oder indirektem `FF /2`/`FF /4` beginnendes AOB-Muster direkt als Funktions-Detourziel übergeben; die Adresse einer Aufrufinstruktion ist kein Funktionseinstieg.
+- Ist die Funktion nur über ihren Aufrufer eindeutig erkennbar: Sprungziel ausdrücklich auflösen, gegen Modulgrenzen, Executable-Region, unabhängige Prolog-/Funktionsgrenzenevidenz und den DLL-Hash validieren und erst dann über `HookTarget.FromAddress(...)` übergeben.
+- Soll die Call-Site selbst instrumentiert werden, ausschließlich einen dafür ausgelegten Inline-/Context-Hook mit dokumentierter Instruktionsgrenze, Relokation und Rücksprungsemantik verwenden. Diese Trennung statisch testen; Call-Target-Heuristiken eines Frameworks beweisen den Zielvertrag nicht.
+
+## RedBird-Verträge
+
+- Referenz: [RedBird.NET](https://gitlab.com/Rawra/redbird). Immer zusätzlich die tatsächlich installierte RedBird-Version bzw. Implementierung prüfen; die Online-Version belegt den lokalen Vertrag nicht. Alle folgenden Backend-Verträge bei jedem RedBird-Update erneut prüfen.
+- **`X64InlineHook`/Context-Hooks:** `HookSize` ist eine Mindestlänge. Die geprüfte Implementierung dekodiert mindestens `Math.Max(minHookSize, 14)` Byte und rundet auf ganze Instruktionen auf (auch bei angeforderten 7 Byte ≥ 14 verdrängt). Nicht auf andere Backends übertragen. Den tatsächlichen Bereich inkl. Rücksprung validieren und `DisplacedByteCount` vor Freigabe der Transaktion gegen die analysierte Länge prüfen; bei Abweichung vollständig zurückrollen.
+- **`NativeDetour<T>`/`HookTransaction.AddDetour`:** eigener schemaabhängiger Vertrag, nie mit einem `X64InlineHook`-Probehook validieren. NativeX64-Backend: `Indirect` 6, `Absolute` 14, `PushRet` 12 Patchbytes, je Schema bis zur nächsten Instruktionsgrenze erweitert. Für jedes zugelassene Schema den möglichen Bereich inkl. eingehender Kanten und Trampolinfortsetzung auditieren oder fail-closed nur das bestätigte Schema akzeptieren. Tests verwenden dasselbe Backend wie die Runtime und prüfen mindestens `Scheme`, `DisplacedByteCount`, Zieladresse, Patchform und bei `Indirect` Pointer-Slot und Hook-Entry; nach dem Commit denselben Vertrag vor Veröffentlichung gegen den echten Hook erneut prüfen.
+- **Labels:** höchstens ein gebundenes Label pro Instruktion (`At most one label per instruction is allowed`). Nie zwei Labels ohne dazwischen emittierte Instruktion binden; letzten Fehlzweig einer Mapping-Schleife direkt zum gemeinsamen Fallback-Label führen. Produktive Generatoren vor Veröffentlichung mit Iced assemblieren und vollständig dekodieren.
+- **Ausführungsreihenfolge:** `BeforeCallback` führt die verdrängten Originalinstruktionen *vor* dem Callback aus; ein bedingter Sprung darin kann vor der gewünschten Registeränderung abzweigen. Hookgrenzen anhand des gesamten verdrängten Blocks wählen. Länge, Instruktionsgrenzen, Sprünge und Callback-/Rücksprungposition statisch testen; Längenbestimmung möglichst mit dem echten Backend auf kopiertem Bytepuffer testen.
+- **Registermaske:** ist eine Sicherungs-/Wiederherstellungsmaske, keine Auswahl der geänderten Register. Alle über den Callback benötigten Register erhalten, auch lebende volatile. `Registers.All` garantiert nicht XMM-/SIMD-Zustand und Flags; deren Erhalt bzw. Neuberechnung separat prüfen.
+- **Flags:** `ContextAssemblyGenerator.Generate` verändert Flags durch `sub rsp,144` vor `pushfq` (füllt `X64SmartCPUContext.Rflags`) und durch `add rsp,144` nach `popfq`. Ein Callback darf weder Originalflags aus `Rflags` ableiten noch einen Folgesprung allein über `Rflags` steuern. Hängt ein Sprung von der Callback-Entscheidung ab, die Bedingung nach dem letzten flagverändernden Wrapperbefehl neu berechnen und den Stub mit der installierten RedBird-Version assemblieren und dekodieren.

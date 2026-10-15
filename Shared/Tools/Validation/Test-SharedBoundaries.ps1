@@ -90,6 +90,8 @@ $activeFiles = @(foreach ($directory in $activeDirectories | Sort-Object -Unique
         $_.Name -ne 'legacy-shared-paths.json' -and $_.Name -notmatch '^\d.*\.(compatibility|release-hooks)\.json$'
     }
 }) + $(if ($modRoot) { $linkedSources } else { @() }) + @(Get-Item -LiteralPath (Join-Path $Workspace 'AGENTS.md'))
+# Topic-specific agent instructions are split out of the root AGENTS.md and must follow the same rules.
+$activeFiles += @(Get-ChildItem -LiteralPath (Join-Path $Workspace 'AGENTS') -File -Filter '*.md')
 foreach ($file in $activeFiles | Sort-Object FullName -Unique) {
     $text = [IO.File]::ReadAllText($file.FullName)
     if ($text -match '(?<!\r)\n') { throw "Text must use CRLF: $($file.FullName)" }
