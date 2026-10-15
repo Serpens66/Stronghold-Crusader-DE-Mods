@@ -21,6 +21,7 @@ foreach($relative in @('Shared/Tools/ApiSharedRepository/RepositoryProcess.Commo
  'Shared/Tools/Steam/ModpackSource.Common.ps1','Shared/Tools/Steam/WorkshopOptions.Common.ps1','Shared/Tools/Steam/WorkshopWorkflow.ps1',
  'Shared/Tools/Steam/WorkshopWorkflow.Common.ps1','Shared/Tools/Steam/WorkshopOutputRetention.ps1','Shared/Tools/Steam/SteamWorkshopHistory.ps1',
  'CreateSteamModPack.bat','UploadWorkshop.bat')){Put $relative ([IO.File]::ReadAllText((Join-Path $workspace $relative)))}
+Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll' 'original fixture build'
 Put '.gitignore' ".release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
 # External SDK/publisher services are inert fixtures; routing, policy, proofs, Git, BAT and PS children are real.
 $apiHelper=Join-Path $root 'Shared/Tools/ApiSharedRepository/MainSource.Common.ps1'
@@ -54,6 +55,9 @@ $id=Get-WorkshopItemId $config $config.$Target $test
 if($test -and $id -eq '3788821961'){throw 'Public ID leaked into test'}
 Write-Host ('FIXTURE_SOURCE='+$config.Root+';branch='+$env:SHCDE_MODPACK_BRANCH+';test='+$TestMode+';id='+$id)
 if($ValidateOnly){exit 0}
+if($Target -eq 'SerpsMods' -and $env:MODPACK_FIXTURE_HOST_BUILD -eq '1'){
+ [IO.File]::WriteAllText((Join-Path $config.Root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'),'built '+$env:SHCDE_MODPACK_BRANCH)
+}
 $folder=Get-WorkshopFolder $config $config.$Target $test
 $stage=Join-Path $config.Root ('.release-output/fixture-'+$Target)
 [void][IO.Directory]::CreateDirectory($stage)
@@ -77,6 +81,9 @@ Write-Host ('FIXTURE_UPLOAD='+$config.Root+';commit='+$proof.Commit+';test='+$Te
 '@
 Git @('add','-A')|Out-Null
 Git @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','-m','fixture')|Out-Null
+$cleanSource=Get-ModpackPreparationSource $root 'main' (((Git @('rev-parse','HEAD'))-join '').Trim())
+Assert-ModpackPreparedOutputs $root $cleanSource.GeneratedOutputs
+Check (@($cleanSource.GeneratedOutputs).Count -eq 0) 'Unchanged build outputs must produce and accept an empty snapshot'
 Git @('branch','develop')|Out-Null
 Git @('branch','caller')|Out-Null
 Git @('worktree','add',$caller,'caller')|Out-Null
@@ -86,16 +93,20 @@ Check (((Invoke-ApiRepositoryGit $caller @('branch','--show-current'))-join '').
 Put '.release-output/SteamWorkshop/test/items/3024040-APIShared.item-id' '222'
 Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '333'
 $log=Join-Path $fixture 'bat.log'
+$env:MODPACK_FIXTURE_HOST_BUILD='1'
 & (Join-Path $caller 'CreateSteamModPack.bat') /modpack /branch:main /nopause *> $log
 Check ($LASTEXITCODE -eq 0) ('Main preparation BAT: '+[IO.File]::ReadAllText($log))
+$mainOutput=Join-Path $root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
 $mainProof=Join-Path $root '.release-output/SteamWorkshop/prepared/SerpsMods.json'
 $before=Get-ApiRepositoryHash $mainProof
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /validate /nopause *> $log
 Check ($LASTEXITCODE -eq 0 -and (Get-ApiRepositoryHash $mainProof) -ceq $before) ('Cross-checkout upload: '+[IO.File]::ReadAllText($log))
+[IO.File]::WriteAllText($mainOutput,'original fixture build')
 & (Join-Path $caller 'CreateSteamModPack.bat') /modpack /branch:main /test /nopause *> $log
 Check ($LASTEXITCODE -eq 0) ('Explicit private main BAT: '+[IO.File]::ReadAllText($log))
 $privateMain=[IO.File]::ReadAllText((Join-Path $root '.release-output/SteamWorkshop/test/prepared/SerpsMods.json'))|ConvertFrom-Json
 Check ($privateMain.Mode -ceq 'Test' -and $privateMain.ModpackSource.Branch -ceq 'main') 'Private main selection lost'
+[IO.File]::WriteAllText($mainOutput,'original fixture build')
 # Exercise stdin through the actual BAT entrypoint, including cancellation before any SDK action.
 function Invoke-MenuBat([string]$Selection){
  $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=$env:ComSpec
@@ -123,11 +134,17 @@ Check ($LASTEXITCODE -eq 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before)
 $ErrorActionPreference='Continue' # Expected BAT failures may write native stderr in Windows PowerShell 5.1.
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /branch:main /test /validate /nopause *> $log
 Check ($LASTEXITCODE -ne 0) 'Conflicting prepared branch was accepted'
+$generated=Join-Path $source.Root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
+$generatedBytes=[IO.File]::ReadAllText($generated);[IO.File]::WriteAllText($generated,'changed generated build')
+& (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
+Check ($LASTEXITCODE -ne 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) 'Upload accepted changed generated output or rewrote provenance'
+[IO.File]::WriteAllText($generated,$generatedBytes)
 $payload=Join-Path $source.Root '.release-output/SteamWorkshop/test/packages/SerpsMods/payload.txt'
 $originalPayload=[IO.File]::ReadAllText($payload);[IO.File]::WriteAllText($payload,'tampered')
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
 Check ($LASTEXITCODE -ne 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) 'Changed payload accepted or proof rewritten on upload'
 [IO.File]::WriteAllText($payload,$originalPayload)
+[IO.File]::WriteAllText($generated,'original fixture build')
 Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '3788821961'
 & (Join-Path $caller 'CreateSteamModPack.bat') /modpack /branch:develop /validate /nopause *> $log
 Check ($LASTEXITCODE -ne 0) 'Public Workshop ID accepted in develop test'
@@ -136,4 +153,5 @@ Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '333'
 & (Join-Path $caller 'CreateSteamModPack.bat') /modpack /branch:develop /validate /nopause *> $log
 Check ($LASTEXITCODE -ne 0) 'Dirty selected source was accepted'
 Check (((Invoke-ApiRepositoryGit $caller @('branch','--show-current'))-join '').Trim() -ceq 'caller') 'Caller branch was switched'
+$env:MODPACK_FIXTURE_HOST_BUILD=''
 Write-Host "PASS: $checks modpack branch/menu/worktree/proof/ID checks with real BAT and PowerShell children. Fixtures: $fixture"
