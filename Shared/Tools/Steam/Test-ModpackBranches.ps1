@@ -41,6 +41,8 @@ function Get-WorkshopFileHash($Path){Get-ApiRepositoryHash $Path}
 '@
 Put 'APIShared/tools/WorkshopUploader/PublisherBuildProof.ps1' 'function Assert-WorkshopPublisherBuild($Root){}'
 Put 'Shared/Tools/Steam/WorkshopConfiguration.ps1' @'
+# Observe the real host prompt, which Windows PowerShell can omit from redirected output.
+function Read-Host([string]$Prompt){Write-Host ('FIXTURE_PROMPT='+$Prompt);Microsoft.PowerShell.Utility\Read-Host -Prompt $Prompt}
 function Get-WorkshopConfiguration {
  $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
  return [pscustomobject]@{Root=$root;AppId=3024040;APIShared=[pscustomobject]@{Key='APIShared';Guid='APIShared_Serp';ItemId='111';Folder=(Join-Path $root 'APISharedWorkshop')};SerpsMods=[pscustomobject]@{Key='SerpsMods';Guid='SerpsMods_Serp';ItemId='3788821961';Folder=(Join-Path $root 'SerpsMods')}}
@@ -54,6 +56,7 @@ $config=Get-WorkshopConfiguration;$test=$TestMode -eq 1
 $id=Get-WorkshopItemId $config $config.$Target $test
 if($test -and $id -eq '3788821961'){throw 'Public ID leaked into test'}
 Write-Host ('FIXTURE_SOURCE='+$config.Root+';branch='+$env:SHCDE_MODPACK_BRANCH+';test='+$TestMode+';id='+$id)
+if($env:MODPACK_FIXTURE_FAIL -eq '1'){Write-Host 'FIXTURE_FAILURE';exit 7}
 if($ValidateOnly){exit 0}
 if($Target -eq 'SerpsMods' -and $env:MODPACK_FIXTURE_HOST_BUILD -eq '1'){
  [IO.File]::WriteAllText((Join-Path $config.Root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'),'built '+$env:SHCDE_MODPACK_BRANCH)
@@ -76,6 +79,7 @@ param([int]$TestMode,[int]$ValidateOnly,[string]$Target)
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 $config=Get-WorkshopConfiguration
+if($env:MODPACK_FIXTURE_FAIL -eq '1'){Write-Host 'FIXTURE_FAILURE';exit 7}
 $proof=Assert-WorkshopPreparation $config $config.$Target ($TestMode -eq 1)
 Write-Host ('FIXTURE_UPLOAD='+$config.Root+';commit='+$proof.Commit+';test='+$TestMode)
 '@
@@ -93,9 +97,54 @@ Check (((Invoke-ApiRepositoryGit $caller @('branch','--show-current'))-join '').
 Put '.release-output/SteamWorkshop/test/items/3024040-APIShared.item-id' '222'
 Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '333'
 $log=Join-Path $fixture 'bat.log'
+# Real BAT/Windows PowerShell children must wait for Enter only in the original caller.
+function Test-CompletionMatrix([string]$Driver){
+ foreach($entryRoot in @($root,$caller)){
+  foreach($fail in @($false,$true)){
+   foreach($noPause in @($false,$true)){
+    $env:MODPACK_FIXTURE_FAIL=if($fail){'1'}else{'0'}
+    $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=$env:ComSpec
+    $flags='/modpack /branch:main /validate';if($noPause){$flags+=' /nopause'}
+    $start.Arguments='/d /s /c ""'+(Join-Path $entryRoot $Driver)+'" '+$flags+'"'
+    $start.WorkingDirectory=$entryRoot;$start.UseShellExecute=$false;$start.CreateNoWindow=$true
+    $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+    $process=[Diagnostics.Process]::new();$process.StartInfo=$start
+    $result=[Text.StringBuilder]::new();$sentEnter=$false
+    try{
+     [void]$process.Start();$errors=$process.StandardError.ReadToEndAsync()
+     if($noPause){$process.StandardInput.Close()}
+     # Read one character so a prompt without a newline cannot remain buffered.
+     $buffer=New-Object char[] 1;$deadline=[DateTime]::UtcNow.AddSeconds(45)
+     while($true){
+      $read=$process.StandardOutput.ReadAsync($buffer,0,$buffer.Length)
+      while(-not $read.Wait(100)){
+       if([DateTime]::UtcNow -gt $deadline){throw ("BAT completion timed out: $Driver root=$entryRoot fail=$fail nopause=$noPause / "+$result.ToString())}
+      }
+      $count=$read.Result;if($count -eq 0){break}
+      [void]$result.Append($buffer,0,$count)
+      if(-not $noPause -and -not $sentEnter -and $result.ToString().Contains('FIXTURE_PROMPT=Enter zum Schliessen')){
+       Check (-not $process.HasExited) 'BAT exited before receiving Enter'
+       $process.StandardInput.WriteLine();$process.StandardInput.Close();$sentEnter=$true
+      }
+     }
+     if(-not $process.WaitForExit(5000)){throw 'BAT did not exit after completion'}
+     $output=$result.ToString();$description="$Driver root=$entryRoot fail=$fail nopause=$noPause"
+     Check ($process.ExitCode -eq $(if($fail){1}else{0})) ("Wrong exit code: $description / $output / "+$errors.Result)
+     $prompts=[regex]::Matches($output,'FIXTURE_PROMPT=Enter zum Schliessen').Count
+     Check ($prompts -eq $(if($noPause){0}else{1}) -and ($noPause -or $sentEnter)) ("Wrong pause count: $description / $output")
+     $marker=if($fail){'FIXTURE_FAILURE'}elseif($Driver -eq 'CreateSteamModPack.bat'){'FIXTURE_SOURCE='}else{'FIXTURE_UPLOAD='}
+     Check ([regex]::Matches($output,$marker).Count -eq 1) ("Workflow executed more or less than once: $description / $output")
+    }finally{if(-not $process.HasExited){$process.Kill();$process.WaitForExit()};$process.Dispose()}
+   }
+  }
+ }
+ $env:MODPACK_FIXTURE_FAIL=''
+}
+Test-CompletionMatrix 'CreateSteamModPack.bat'
 $env:MODPACK_FIXTURE_HOST_BUILD='1'
 & (Join-Path $caller 'CreateSteamModPack.bat') /modpack /branch:main /nopause *> $log
 Check ($LASTEXITCODE -eq 0) ('Main preparation BAT: '+[IO.File]::ReadAllText($log))
+Test-CompletionMatrix 'UploadWorkshop.bat'
 $mainOutput=Join-Path $root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
 $mainProof=Join-Path $root '.release-output/SteamWorkshop/prepared/SerpsMods.json'
 $before=Get-ApiRepositoryHash $mainProof

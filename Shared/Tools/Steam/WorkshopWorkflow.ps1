@@ -7,6 +7,8 @@ $ErrorActionPreference='Stop'
 $exitCode=0;$settings=$null;$lock=$null
 $previousMainSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION
 $noPauseRequested=@($Options|Where-Object {$_ -ieq '/nopause'}).Count -gt 0
+# Leave delegated work through this block so only the original caller owns the pause.
+:workflow do {
 try{
     $settings=Resolve-WorkshopOptions $Options
     if($settings.Target -eq 'Cancel'){exit 0}
@@ -32,7 +34,8 @@ try{
             if($settings.Test){$argsForChild+='/test'}
             if($settings.Validate){$argsForChild+='/validate'}
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $source.Root 'Shared/Tools/Steam/WorkshopWorkflow.ps1') -Action $Action @argsForChild
-            exit $LASTEXITCODE
+            $exitCode=$LASTEXITCODE
+            break workflow
         }
     }
     $targets=if($settings.Target -eq 'Both'){@($config.APIShared,$config.SerpsMods)}else{@($config.($settings.Target))}
@@ -73,5 +76,6 @@ try{
         Write-Host ($target.Key+' completed.')
     }
 }catch{Write-Host $_.Exception.Message -ForegroundColor Red;$exitCode=1}finally{if($lock){$lock.Dispose()};$env:SHCDE_API_SHARED_MAIN_SELECTION=$previousMainSelection}
+}while($false)
 if(-not $noPauseRequested){[void](Read-Host 'Enter zum Schliessen')}
 exit $exitCode
