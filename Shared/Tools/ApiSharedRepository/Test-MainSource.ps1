@@ -141,7 +141,7 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'PR helper changed open file.'
     # Exercise both original BAT entrypoints with real policy/worktrees and inert target services.
     $steam=Join-Path $root 'Shared/Tools/Steam'
-    foreach($file in @('WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1')) {
+    foreach($file in @('WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1')) {
         Copy-Item -LiteralPath (Join-Path $workspace ('Shared/Tools/Steam/'+$file)) -Destination (Join-Path $steam $file)
     }
     foreach($file in @('CreateSteamModPack.bat','UploadWorkshop.bat')){Copy-Item -LiteralPath (Join-Path $workspace $file) -Destination (Join-Path $root $file)}
@@ -158,9 +158,24 @@ param([int]$TestMode,[int]$ValidateOnly,[string]$Target)
 $config=Get-WorkshopConfiguration;$selected=Assert-ApiMainSelection $config.Root $env:SHCDE_API_SHARED_MAIN_SELECTION
 Write-Host ("FIXTURE_MAIN="+$selected.Commit)
 if($ValidateOnly){exit 0}
+if($env:APISHARED_RETENTION_FIXTURE_FAIL -ceq 'child'){exit 17}
 $folder=Get-WorkshopFolder $config $config.$Target ($TestMode -eq 1)
-[void][IO.Directory]::CreateDirectory($folder)
-[IO.File]::WriteAllText((Join-Path $folder 'payload.map'),$selected.Commit)
+$stage=Join-Path $config.Root ('.release-output/fixture-stage/'+$Target)
+[void][IO.Directory]::CreateDirectory($stage)
+if($Target -ceq 'APIShared'){
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $stream=[IO.FileStream]::new((Join-Path $stage 'APIShared.map'),[IO.FileMode]::Create)
+    $zip=[IO.Compression.ZipArchive]::new($stream,[IO.Compression.ZipArchiveMode]::Create,$false)
+    try{
+        foreach($entry in @(@('info.json','{"GUID":"APIShared_Serp","Version":"1.0.0","Manifest":1}'),@('fixture.txt',$selected.Commit))){
+            $writer=[IO.StreamWriter]::new($zip.CreateEntry($entry[0]).Open());try{$writer.Write($entry[1])}finally{$writer.Dispose()}
+        }
+    }finally{$zip.Dispose();$stream.Dispose()}
+    [IO.File]::WriteAllText((Join-Path $stage 'preview.png'),'fixture preview')
+}else{[IO.File]::WriteAllText((Join-Path $stage 'payload.map'),$selected.Commit)}
+Publish-WorkshopFolder $stage $folder $config.Root
+if($env:APISHARED_RETENTION_FIXTURE_FAIL -ceq 'proof'){exit 18}
 $null=Write-WorkshopPreparation $config $config.$Target ($TestMode -eq 1) '1.0.0' $selected.Commit 'fixture'
 exit 0
 '@
@@ -179,6 +194,23 @@ exit 0
     $batLog=Join-Path $fixture 'workshop-bat.log'
     & (Join-Path $root 'CreateSteamModPack.bat') /both /nopause *> $batLog
     Check ($LASTEXITCODE -eq 0) ('Prepare BAT failed: '+[IO.File]::ReadAllText($batLog))
+    foreach($generation in 1..3){
+        & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
+        Check ($LASTEXITCODE -eq 0) ('Repeated prepare BAT failed: '+[IO.File]::ReadAllText($batLog))
+        Check (@(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq 1) 'Real BAT path did not bound predecessor folders.'
+    }
+    $backupsBefore=@(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*')
+    & (Join-Path $root 'CreateSteamModPack.bat') /apishared /validate /nopause *> $batLog
+    Check ($LASTEXITCODE -eq 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq $backupsBefore.Count) 'Validate-only preparation changed backups.'
+    $env:APISHARED_RETENTION_FIXTURE_FAIL='child'
+    & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
+    Check ($LASTEXITCODE -ne 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq $backupsBefore.Count) 'Failed child pruned backups.'
+    $env:APISHARED_RETENTION_FIXTURE_FAIL='proof'
+    & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
+    Check ($LASTEXITCODE -ne 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq ($backupsBefore.Count+1)) 'Failed proof write pruned backups.'
+    $env:APISHARED_RETENTION_FIXTURE_FAIL=''
+    & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
+    Check ($LASTEXITCODE -eq 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq 1) 'Successful BAT retry did not prune deferred backups.'
     $productionProof=Join-Path $root '.release-output/SteamWorkshop/prepared/APIShared.json'
     $production=[IO.File]::ReadAllText($productionProof)|ConvertFrom-Json
     Invoke-ApiRepositoryGit $author @('switch','main')|Out-Null
@@ -193,7 +225,7 @@ exit 0
     Check ($LASTEXITCODE -eq 0) ('Test prepare BAT failed: '+[IO.File]::ReadAllText($batLog))
     & (Join-Path $root 'UploadWorkshop.bat') /both /test /validate /nopause *> $batLog
     Check ($LASTEXITCODE -eq 0) 'Test upload BAT failed.'
-    [IO.File]::AppendAllText((Join-Path $root 'APISharedWorkshop/payload.map'),'tampered')
+    [IO.File]::AppendAllText((Join-Path $root 'APISharedWorkshop/APIShared.map'),'tampered')
     $tamperRejected=$false
     try {& (Join-Path $root 'UploadWorkshop.bat') /apishared /validate /nopause *> $batLog;$tamperRejected=$LASTEXITCODE -ne 0}
     catch {$tamperRejected=$_.Exception.Message -match 'Prepared file changed'}
@@ -212,5 +244,5 @@ exit 0
     [IO.File]::Delete((Join-Path $selected.Root '.local/WorkshopUploader/extra.dll'))
     Write-Host "PASS: $checks pinned-main, changed-worktree, publisher, preserved Dev, PR/conflict and real BAT checks. Fixtures: $fixture"
 } finally {
-    $env:SHCDE_API_SHARED_MAIN_SELECTION=$savedSelection;$env:SHCDE_API_SHARED_RELEASE_PROOF=$savedProof;$env:SHCDE_API_SHARED_DIR=$savedDirectory;$env:APISHARED_PR_FIXTURE='';$env:APISHARED_BUILD_FAIL=''
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=$savedSelection;$env:SHCDE_API_SHARED_RELEASE_PROOF=$savedProof;$env:SHCDE_API_SHARED_DIR=$savedDirectory;$env:APISHARED_PR_FIXTURE='';$env:APISHARED_BUILD_FAIL='';$env:APISHARED_RETENTION_FIXTURE_FAIL=''
 }

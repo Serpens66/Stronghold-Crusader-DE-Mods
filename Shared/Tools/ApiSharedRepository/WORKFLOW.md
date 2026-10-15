@@ -62,6 +62,14 @@ Select APIShared and `dev/Serpens66`, commit and Push origin. Personal branch
 commits need no tests. Ordinary local consumer builds use the freshly built Dev
 DLL; rebuild APIShared with its `build.bat` when its runtime inputs change.
 
+Consumer `build.bat` files accept the APIShared source explicitly:
+`/apishared:dev` (default) uses the local checkout and its current branch;
+`/apishared:main` pins public `main` in the isolated release worktree described
+below, builds it there with `/noinstall` if needed and compiles the consumer
+against it. `SHCDE_API_SHARED_BRANCH=main|dev` does the same for scripts. The
+development checkout and the installed game APIShared are not changed. Clarify
+the intended branch before every consumer build.
+
 `APIShared-PRCheck-develop.bat` opens an existing PR or the comparison from
 `dev/Serpens66` to `develop`. It fetches both public branches, refuses unpublished
 local branch commits, reports textual conflicts and opens the browser. It never

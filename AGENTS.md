@@ -54,6 +54,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - Textdateien verwenden CRLF (außer ausdrücklich für Linux); sicheres Konvertierungsverfahren → [build-release.md](AGENTS/build-release.md).
 - Ersetzt neuer Code alten Code oder Dateien, keinen Fallback oder veraltete Version ungefragt parallel behalten; vorher fragen.
 - Build: erst **alle** Prüfungen und Codekontrollen abschließen, dann einmal die passende `build.bat` direkt mit erhöhten Rechten und `/nopause` ausführen; nicht selbst bauen oder kopieren. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
+- APIShared-Branch: Vor jedem Build eines APIShared-Verbrauchers immer mit dem Nutzer abklären, gegen welche APIShared-Branch gebaut wird (`build.bat /apishared:main` = Release-Branch, `/apishared:dev` = lokaler Entwicklungs-Checkout), sofern er das für die aktuelle Aufgabe nicht bereits festgelegt hat → [build-release.md](AGENTS/build-release.md).
 - Versionen erst ändern, wenn ein Feature fertig oder ein Bug final behoben ist (im Zweifel fragen); dann modweit atomar und mit Konsistenzprüfung → [build-release.md](AGENTS/build-release.md).
 - Commits und Veröffentlichungen nur auf ausdrücklichen Nutzerauftrag.
 

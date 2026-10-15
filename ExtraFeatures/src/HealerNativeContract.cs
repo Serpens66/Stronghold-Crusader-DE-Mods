@@ -24,6 +24,11 @@ namespace ExtraFeatures
         internal const int ListCapacity = 10000;
         internal const int PlayerSlots = 9;
         internal const int ExpectedDisplacedBytes = 10;
+        // Raw GameUnit record fields that exclude a unit from the appended healer targets.
+        // 0x458 is the Script Extender's unnamed GameUnit.N000000DE (layout checked below);
+        // 0x29C has no Extender field and is only valid for the audited native hash.
+        internal const int TargetExclusionWordOffset = 0x29C;
+        internal const int TargetExclusionByteOffset = 0x458;
 
         // The first two complete instructions are five bytes each. This exact entry is not
         // an Extender or Fixes hook site in the audited native build.
@@ -78,7 +83,7 @@ namespace ExtraFeatures
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DD)).ToInt32() != 0x450 ||
-                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DE)).ToInt32() != 0x458)
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DE)).ToInt32() != TargetExclusionByteOffset)
                 throw new InvalidOperationException("Script Extender unit layout differs from the audited native layout.");
         }
 

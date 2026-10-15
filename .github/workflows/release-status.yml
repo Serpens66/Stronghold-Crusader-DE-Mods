@@ -20,6 +20,12 @@ jobs:
   update:
     runs-on: windows-latest
     steps:
+      - name: Enable long Git paths on Windows
+        shell: pwsh
+        run: |
+          git config --global core.longpaths true
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Check out repository
         uses: actions/checkout@v7
         with:

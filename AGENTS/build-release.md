@@ -7,6 +7,12 @@
 - Nach dem Erstellen oder Ändern eines Mods zuerst alle Prüfungen und Codekontrollen abschließen (z. B. `Test-SharedBoundaries.ps1`, `Test-DependencyMetadata.ps1`, `Test-PermanentNativeRuntimePatches.ps1`, mod-eigene `verify.ps1`, bei Modsettings die Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen.
 - Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) ausführen: `& '<Pfad>\build.bat' /nopause; exit $LASTEXITCODE`. Nicht selbst bauen oder kopieren; `build.bat` übernimmt Build und Installation in den Spieleordner. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
 
+## APIShared-Branch für Verbraucher-Builds (Pflichtabklärung)
+
+- Vor jedem Build eines Mods, der APIShared referenziert, beim Nutzer abklären, gegen welche APIShared-Branch gebaut werden soll, sofern er es für diese Aufgabe nicht bereits ausdrücklich festgelegt hat. Nicht stillschweigend den Default annehmen. Die getroffene Wahl in der Abschlussmeldung nennen.
+- Auswahl über das Argument der `build.bat`: `/apishared:main` baut gegen die öffentliche Release-Branch `main` (festgehaltener Commit in einem isolierten Worktree unter `.release-output/APIShared/main/<commit>/source`, bei Bedarf dort mit `/noinstall` gebaut; das installierte Spiel-APIShared und der Entwicklungs-Checkout bleiben unverändert). `/apishared:dev` baut gegen den lokalen Entwicklungs-Checkout `APIShared/` und dessen aktuell ausgecheckte Branch (normalerweise `dev/Serpens66`); dafür muss zuvor `APIShared/build.bat` für den aktuellen Stand gelaufen sein. Ohne Argument gilt `dev`, außer ein Release-Treiber hat das SDK bereits gepinnt. Skripte können dieselbe Wahl über `SHCDE_API_SHARED_BRANCH` treffen. Beispiel: `& '<Pfad>\build.bat' /nopause /apishared:main; exit $LASTEXITCODE`.
+- Andere Branches (`develop`, fremde dev-Branches) werden vom Treiber nicht unterstützt; dafür nicht den Entwicklungs-Checkout umschalten, sondern beim Nutzer nachfragen. Gemeinsame Logik: `Shared/Tools/ApiSharedRepository/Select-ApiSharedBranch.ps1`/`.cmd`; neue Verbraucher-`build.bat` rufen sie unmittelbar vor `Test-ConsumerPackage.ps1` mit `%*` auf.
+
 ## CRLF
 
 - Textdateien verwenden CRLF (Ausnahme: ausdrücklich für Linux gedachte Dateien). Vor einem Mod-Build alle betroffenen Textdateien prüfen.

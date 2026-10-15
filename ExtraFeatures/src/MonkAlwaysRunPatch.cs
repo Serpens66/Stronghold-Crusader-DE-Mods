@@ -33,6 +33,10 @@ namespace ExtraFeatures
         private const ulong RunningTargetFromReturnAddress = 0x02;
         private const ulong WalkingTargetFromReturnAddress = 0x19;
 
+        private static readonly object PublishedRootsSync = new object();
+        private static readonly System.Collections.Generic.List<MonkAlwaysRunPatch> PublishedRoots =
+            new System.Collections.Generic.List<MonkAlwaysRunPatch>();
+
         private readonly ManualLogSource log;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> movementDecisionHook =
@@ -86,6 +90,10 @@ namespace ExtraFeatures
 
                 transaction = pendingTransaction;
                 pendingTransaction = null;
+                // The runtime may drop its reference after a later logical failure; the
+                // published hook and its flag memory stay rooted until process exit.
+                lock (PublishedRootsSync)
+                    PublishedRoots.Add(this);
             }
             catch
             {
