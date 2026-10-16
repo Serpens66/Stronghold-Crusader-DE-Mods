@@ -1,0 +1,12 @@
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1 : D:\CDesktopLink\Unterlagen\Mods\Stronghold 
+Crusader DE\Meine Mods\APIShared\src\Compatibility\FixesWheatMemory.cs:22: runtime executable-memory mutation: private 
+static extern bool VirtualProtect(IntPtr address, UIntPtr size, uint protection, out uint old);
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIBuildDiagnoseTest\verify.ps1:302 
+Zeichen:1
++ & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNative ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Test-PermanentNativeRuntimePatches.ps1
+ 

@@ -99,7 +99,7 @@ Vor jedem Build: lokale Struktur-/Vertragsprüfung, `Test-SharedBoundaries.ps1`,
 - `Testmods/StartupPerformanceDiagnostic/patcher/StartupTimingPatcher.cs`: vorhandenes Patcherbeispiel; kein Beweis für die neue Hookkette.
 - Der BepInEx-Log ist appendend. Tests nur anhand des letzten vollständigen Startabschnitts auswerten, mit eigenen Millisekunden-Zeitstempeln.
 
-Status: Architektur und lokale Startverträge statisch untersucht; praktische Mono-/Spielnachweise und die produktive Integration stehen aus. Keine Extender- oder APIShared-Quelländerungen für diesen Testauftrag.
+Status am 16.10.2026: Beobachtung und aktive Hookkette im Unity-Mono-Spielstart bestanden (Details unten). Die Schattenstufe wird vorbereitet; produktive Korrektur und APIShared-Integration bleiben offen. Keine Extender- oder APIShared-Quelländerungen für diesen Testauftrag.
 ## Fortschritt des isolierten Machbarkeitsnachweises
 
 Der erste Spielstart nach dem Erstbuild (16.10.2026, 16:32 Uhr) erreichte Preloader.Finish und den späteren Render-Callback nach Startup-Cleanup. Die Hookvorbereitung scheiterte vor Veröffentlichung am Cecil-Resolver für BepInEx. Das ist ein konkreter Implementierungsfehler der Probe; die Hookkette selbst ist noch nicht nachgewiesen.
@@ -109,3 +109,13 @@ Nächster korrigierter Teststand: resolverfreie Closure-Zuordnung über IL-Feldr
 ## Korrektur nach schwarzem Bildschirm (16.10.2026)
 
 Der aktive Patcher-Build von 17:06:49 verursachte einen Startfehler; Entfernen des Patchers stellte den Start wieder her. Der frühe Finish-Hookansatz ist damit praktisch nicht freigegeben. Er wird ersetzt: Finish richtet ausschließlich Trace und Listener ein. Standard ist Observe ohne Hookvorbereitung. Erst nach bestandener Beobachtung darf der separate aktive Versuch die Vorbereitung synchron bei Chainloader ready ausführen (nach ThreadingHelper/Logging, aber vor der abschließenden _initialized-Zuweisung; keine manuellen Initialisierungsaufrufe). Die ursprüngliche Fehleroperation ist noch nicht abschließend isoliert. Auch der spätere Zeitpunkt ist erst nach eigenem Spieltest freigegeben. Details, Buildbindung, Tests und gezielte Entfernung stehen im aktualisierten Testmod-TESTPLAN. Die verschobenen fehlerhaften Desktop-Dateien bleiben unverändert.
+
+## Abgenommene Hookkette und Schatteninventar (16.10.2026)
+
+Observe bestand um 18:34 und 18:47 Uhr, Active um 19:22 Uhr: beide Methodenkopien transformiert, Delegate erzeugt und in Unity Mono JIT-vorbereitet; 21 Gewinner vor SE-Start erfasst, genau ein Eintritt in die Originalprüfung, unveränderte zwei Warnungen, Chainloader-Abschluss und Post-Cleanup-Render. Nutzer bestätigt normalen Start. Für Stufe 1 sind nach Nutzerentscheidung weder Save-/Simulationstest noch ein zusätzlicher deaktivierter Kontrollstart erforderlich. Spätere Laufzeit-/Koexistenzprüfungen für die tatsächliche Korrektur bleiben davon unberührt.
+
+Gesicherter Lauf samt Binäridentitäten: `_inspect/DependencyBootstrapProbe/Active-accepted-20261016-193043`. Die Abnahme gilt nur für diese geprüften Loaderidentitäten und beweist keine zukünftigen Awake-Erfolge aller Plugins.
+
+Die gemeinsame Offline-/Runtime-Schattenauswertung verwendet die ausgewählten Gewinner, begrenzte nächste Manifestzuordnung, harte transitive Pluginabhängigkeiten und konservative Manifestabhängigkeiten. Offline bleiben geeignete Kandidaten ungeklärt hinsichtlich Live-Index, KillSwitch und früheren Ladefehlern. Aktueller Offlinebefund: beide betroffenen Testmods benötigen BugfixesAndQoL mindestens 1.0.192, ausgewählt ist 1.0.192; Manifestidentität und statische harte Ketten passen. Quelle: `shadow-offline.json` im gesicherten Analyseordner; aktuelle DLL-Metadaten sind kein historischer Hashnachweis für sämtliche Gewinner.
+
+Der nächste Spielversuch vergleicht ausschließlich eine separate Kopie des tatsächlichen lokalen Extender-Index. Originaleinträge bleiben autoritativ. SE-Kandidatenleser prüft zusätzliche Quellen, temporäre Quellen werden freigegeben; keine Assetregistrierung oder Änderung an vorbereiteten Kandidaten. Die Original-Versionsprüfung bewertet beide Indizes, die reale Prüfung und Warnungen laufen danach unverändert. Einzelentscheidungen und Zählerinvarianten sind zwingende Logabnahme. Finish und Listener bleiben gegenüber dem bestandenen Build unverändert; bestehende Hash-/IL-/Stack-/Lebensdauerprüfungen werden erweitert, nicht abgeschwächt. Details im Testmod-TESTPLAN.

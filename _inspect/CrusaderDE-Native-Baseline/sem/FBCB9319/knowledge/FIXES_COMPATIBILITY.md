@@ -1,5 +1,9 @@
 # Fixes 1.25.1 compatibility
 
+For the installed 1.26.4.0 wheat-sale crash, see the separate
+[wheat startup audit](FIXES_WHEAT_STARTUP.md). Its confirmed wrong stack slot and
+startup-only correction do not change the historical provenance below.
+
 Source review date: 2026-10-07. Canonical external clone: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\shcde-fixes-main. Clean v1.25.1 source, commit 226e2e6960ad6f5992d4f5410d701161bb1cdc77, tree f65a826f16b8cc67d0c7a8acc80f41fd06796546. This identifies the reviewed source, not the installed Fixes assembly. Native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 matches the installed DLL and CURRENT.json. Native conclusions below are scoped to that hash.
 
 ## Preference integration contracts

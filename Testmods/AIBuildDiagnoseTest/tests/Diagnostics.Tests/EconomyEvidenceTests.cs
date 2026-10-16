@@ -14,6 +14,29 @@ namespace AIBuildDiagnoseTest.Tests
     public class EconomyEvidenceTests
     {
         [TestMethod]
+        public void ReleaseFixesCompatibilityRemovesOnlyTheControllerContract()
+        {
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => EconomyHookContract.Find(0x3F270));
+            foreach (int rva in new[] { 0x3EC90, 0x29650, 0x29700, 0x40740 })
+                Assert.AreEqual(rva, EconomyHookContract.Find(rva).Rva);
+        }
+        [TestMethod]
+        public void UnobservedControllerCannotBecomeAZeroCallSummaryFinding()
+        {
+            CollectionAssert.DoesNotContain(EconomyDiagnostics.SummaryStages, "trade-controller");
+            foreach (string stage in new[] { "purchase-decision", "ai-buy", "ai-sell" })
+                CollectionAssert.Contains(EconomyDiagnostics.SummaryStages, stage);
+        }
+        [TestMethod]
+        public void ControllerCoverageExplainsUnknownDecisionsAndWarns()
+        {
+            string detail = EconomyDiagnostics.TradeControllerCoverageDetail;
+            foreach (string boundary in new[] { "market-gate=unknown", "buy-sell-alternation=unknown", "aborted-sale-decisions=unknown", "not-evidence-of-no-trade" })
+                StringAssert.Contains(detail, boundary);
+            Assert.AreEqual(BepInEx.Logging.LogLevel.Warning, EconomyDiagnostics.GetLogLevel(
+                "AI_ECONOMY_CAPABILITY: feature=trade-controller, available=False, status=unsupported, detail=" + detail));
+        }
+        [TestMethod]
         public void InstalledInteropMatchesEverySnapshotRootAndIdentityLayout() => EconomyDiagnostics.ValidateLayout();
         [TestMethod]
         public void DecisionsAndTradesDoNotTurnMissingEvidenceIntoSuccess()

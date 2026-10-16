@@ -1,0 +1,69 @@
+2026-10-16 18:34:35.570 [DBP:SESSION] id=2e08ddf4dea745e8b67b25820c851f66
+2026-10-16 18:34:35.580 [DBP:FINISH] mode=Observe patcher=EA182E455F8E1F5D8630C0065690DC2AF55D92BDAD1522BA5EA9DC330AD83A26
+2026-10-16 18:34:35.583 [DBP:MODE] Observe
+2026-10-16 18:34:35.583 [DBP:LISTENER_ATTACHED] no hooks prepared in Finish
+2026-10-16 18:34:36.205 [DBP:READY_OBSERVED] mode=Observe; Initialize has not yet assigned _initialized
+2026-10-16 18:34:53.009 [DBP:PLUGIN_AWAKE] plugin=C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6 static render observer attached
+2026-10-16 18:34:53.890 [DBP:CHAIN_COMPLETE] snapshot=False extender=False checks=0
+2026-10-16 18:35:02.099 [DBP:POST_CLEANUP_RENDER] original Unity component destroyed; distinct render frames=120
+2026-10-16 18:47:04.521 [DBP:SESSION] id=578a35ee4d074909a1e30e46cb14e63d
+2026-10-16 18:47:04.524 [DBP:FINISH] mode=Observe patcher=EA182E455F8E1F5D8630C0065690DC2AF55D92BDAD1522BA5EA9DC330AD83A26
+2026-10-16 18:47:04.524 [DBP:MODE] Observe
+2026-10-16 18:47:04.524 [DBP:LISTENER_ATTACHED] no hooks prepared in Finish
+2026-10-16 18:47:05.158 [DBP:READY_OBSERVED] mode=Observe; Initialize has not yet assigned _initialized
+2026-10-16 18:47:20.625 [DBP:PLUGIN_AWAKE] plugin=C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6 static render observer attached
+2026-10-16 18:47:21.458 [DBP:CHAIN_COMPLETE] snapshot=False extender=False checks=0
+2026-10-16 18:47:29.799 [DBP:POST_CLEANUP_RENDER] original Unity component destroyed; distinct render frames=120
+2026-10-16 19:22:00.528 [DBP:SESSION] id=724ba42ac60f4682b7f517a8c72e130b
+2026-10-16 19:22:00.534 [DBP:FINISH] mode=Active patcher=EA182E455F8E1F5D8630C0065690DC2AF55D92BDAD1522BA5EA9DC330AD83A26
+2026-10-16 19:22:00.536 [DBP:MODE] Active
+2026-10-16 19:22:00.537 [DBP:LISTENER_ATTACHED] no hooks prepared in Finish
+2026-10-16 19:22:01.096 [DBP:READY_OBSERVED] mode=Active; Initialize has not yet assigned _initialized
+2026-10-16 19:22:01.101 [DBP:CHAIN_PREPARE] validating loaded assembly and Start
+2026-10-16 19:22:01.102 [DBP:CORE_BINARY] sha256=8255B28902886085C578B9E427D3073C97002DB85176D2090CDEDA90EF14CE70
+2026-10-16 19:22:01.111 [DBP:CHAIN_TRANSFORMED] copy validated and modified; compiling
+2026-10-16 19:22:01.112 [DBP:CHAIN_DELEGATE_BEGIN] generating delegate
+2026-10-16 19:22:01.126 [DBP:CHAIN_DELEGATE_END] delegate created
+2026-10-16 19:22:01.126 [DBP:CHAIN_JIT_BEGIN] preparing delegate
+2026-10-16 19:22:01.131 [DBP:CHAIN_JIT_END] delegate prepared
+2026-10-16 19:22:01.132 [DBP:CHAIN_COPY_COMPILED] transformed copy prepared, never invoked
+2026-10-16 19:22:01.134 [DBP:CHAIN_INSTALL] publishing permanent observer
+2026-10-16 19:22:01.148 [DBP:CHAIN_HOOK_INSTALLED] permanent; original control flow retained
+2026-10-16 19:22:01.150 [DBP:CHAIN_ENTER] Start callback
+2026-10-16 19:22:01.193 [DBP:SNAPSHOT] selected=21; selection is not an Awake success guarantee
+2026-10-16 19:22:01.193 [DBP:WINNER] guid=000shcdese version=2.14.1.0 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+2026-10-16 19:22:01.193 [DBP:WINNER] guid=uuimgui version=1.6.7 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\universal-unity-imgui-api.dll
+2026-10-16 19:22:01.193 [DBP:WINNER] guid=AIBuildDiagnoseTest_Serp version=0.2.1 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\AIBuildDiagnoseTest_Serp\AIBuildDiagnoseTest.dll
+2026-10-16 19:22:01.198 [DBP:WINNER] guid=APIShared_Serp version=0.9.2 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\APIShared_Serp\APIShared.dll
+2026-10-16 19:22:01.201 [DBP:WINNER] guid=DependencyBootstrapProbe_Serp version=0.1.0 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\DependencyBootstrapProbe_Serp\DependencyBootstrapProbe.dll
+2026-10-16 19:22:01.202 [DBP:WINNER] guid=fixes version=1.26.4.0 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\fixes\fixes.dll
+2026-10-16 19:22:01.203 [DBP:WINNER] guid=PopularityTest_Serp version=0.1.0 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\PopularityTest_Serp\PopularityTest.dll
+2026-10-16 19:22:01.206 [DBP:WINNER] guid=SavegameMissingMapFixTest_Serp version=0.1.0 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SavegameMissingMapFixTest_Serp\SavegameMissingMapFixTest.dll
+2026-10-16 19:22:01.207 [DBP:WINNER] guid=SerpsModsWorkshopBootstrap_Serp version=1.0.28 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsModsWorkshopBootstrap_Serp\SerpsModsWorkshopBootstrap_Serp.dll
+2026-10-16 19:22:01.208 [DBP:WINNER] guid=SerpsMods_Serp version=1.0.28 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\SerpsModsHost.dll
+2026-10-16 19:22:01.209 [DBP:WINNER] guid=SpectatorEditorBuildTest_Serp version=0.1.2 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SpectatorEditorBuildTest_Serp\SpectatorEditorBuildTest.dll
+2026-10-16 19:22:01.212 [DBP:WINNER] guid=BugfixesAndQoL_Serp version=1.0.192 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp\BugfixesAndQoL.dll
+2026-10-16 19:22:01.213 [DBP:WINNER] guid=BuildingCosts_Serp version=1.0.114 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\BuildingCosts_Serp\BuildingCosts.dll
+2026-10-16 19:22:01.214 [DBP:WINNER] guid=BuildingLimit_Serp version=1.0.32 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\BuildingLimit_Serp\BuildingLimit.dll
+2026-10-16 19:22:01.215 [DBP:WINNER] guid=CastlePlanner_Serp version=0.8.41 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\CastlePlanner_Serp\CastlePlanner.dll
+2026-10-16 19:22:01.218 [DBP:WINNER] guid=ExtendedData_Serp version=1.0.12 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\ExtendedData_Serp\ExtendedData.dll
+2026-10-16 19:22:01.219 [DBP:WINNER] guid=ExtraFeatures_Serp version=1.0.114 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\ExtraFeatures_Serp\ExtraFeatures.dll
+2026-10-16 19:22:01.220 [DBP:WINNER] guid=RandomEvents_Serp version=1.0.52 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\RandomEvents_Serp\RandomEvents.dll
+2026-10-16 19:22:01.220 [DBP:WINNER] guid=StartConditions_Serp version=1.0.32 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\StartConditions_Serp\StartConditions.dll
+2026-10-16 19:22:01.223 [DBP:WINNER] guid=UnitCosts_Serp version=1.0.36 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\UnitCosts_Serp\UnitCosts.dll
+2026-10-16 19:22:01.223 [DBP:WINNER] guid=UnitLimit_Serp version=1.0.106 path=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\SerpsMods_Serp\Mods\UnitLimit_Serp\UnitLimit.dll
+2026-10-16 19:22:01.487 [DBP:BEFORE_EXTENDER] snapshot=True type=SHCDESE.BepInEx.Bootstrap.Plugin
+2026-10-16 19:22:01.502 [DBP:SE_BINARY] sha256=E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3
+2026-10-16 19:22:01.515 [DBP:SE_PREPARE] validated signature; preparing copy
+2026-10-16 19:22:01.517 [DBP:SE_TRANSFORMED] copy modified; compiling
+2026-10-16 19:22:01.520 [DBP:SE_DELEGATE_BEGIN] generating delegate
+2026-10-16 19:22:01.531 [DBP:SE_DELEGATE_END] delegate created
+2026-10-16 19:22:01.532 [DBP:SE_JIT_BEGIN] preparing delegate
+2026-10-16 19:22:01.534 [DBP:SE_JIT_END] delegate prepared
+2026-10-16 19:22:01.536 [DBP:SE_COPY_COMPILED] transformed copy prepared, never invoked
+2026-10-16 19:22:01.537 [DBP:SE_INSTALL] publishing permanent observer
+2026-10-16 19:22:01.543 [DBP:SE_HOOK_INSTALLED] before AddComponent; original check unchanged
+2026-10-16 19:22:01.731 [DBP:COMPATIBILITY_ENTER] count=1
+2026-10-16 19:22:16.610 [DBP:PLUGIN_AWAKE] plugin=C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6 static render observer attached
+2026-10-16 19:22:17.504 [DBP:CHAIN_COMPLETE] snapshot=True extender=True checks=1
+2026-10-16 19:22:25.605 [DBP:POST_CLEANUP_RENDER] original Unity component destroyed; distinct render frames=120

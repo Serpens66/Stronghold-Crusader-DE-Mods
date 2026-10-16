@@ -16,6 +16,9 @@
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="patcher\ShadowInventory.cs" />
+    <Compile Include="patcher\ShadowRuntime.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="ProbeIdentity.cs" />
     <Compile Include="ProbeTrace.cs" />
     <Compile Include="patcher\DependencyBootstrapPatcher.cs" />

@@ -33,7 +33,6 @@ namespace AIBuildDiagnoseTest
             Pair(context, 0x2E1E0, "wood-eligibility");
             Pair(context, 0x2DBA0, "farm-eligibility");
             Pair(context, 0x3B360, "wood-retirement");
-            ActionPair(context, 0x3F270, "trade-controller");
             ActionPair(context, 0x3EC90, "purchase-decision");
             ActionPair(context, 0x40740, "ai-recruitment");
             var settlement = new Node<SettlementAction>();

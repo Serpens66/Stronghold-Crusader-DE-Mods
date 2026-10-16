@@ -1,0 +1,407 @@
+{
+  "session": "2026-10-16 19:22:00.528 [DBP:SESSION] id=724ba42ac60f4682b7f517a8c72e130b",
+  "traceSha256": "FD5569338ECA01A4079B37B9DEE4F2F4096271E03CF5397450E361DB486CDE86",
+  "limitation": "Current DLL bytes/metadata, recorded winner list; no plugin code executed. Original SE index, KillSwitch and prior failures not observed offline. Manifest dependency presence uses provisional selected versions. No correction is authorized by this report.",
+  "binaries": [
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll",
+      "sha256": "E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\universal-unity-imgui-api.dll",
+      "sha256": "D98415528BA84F0DFF17F283F72D0003D65ECA8F30993E5BAFE1D425BA8CE9B7"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AIBuildDiagnoseTest_Serp\\AIBuildDiagnoseTest.dll",
+      "sha256": "B1BCE72E1CB5CA64F0983F362BBAE88ECD46FE8F20071E4873E3159136B6A697"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+      "sha256": "4EF262A5F69F16EF6B6E5238606F5013B6400B83D2F8C354E5C53F4EFDD52BC1"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\DependencyBootstrapProbe.dll",
+      "sha256": "C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\fixes.dll",
+      "sha256": "6A4ED4F492812BDA9342766AC432954F483732CC864C4CAAD67F9172A4F9E5BA"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\PopularityTest_Serp\\PopularityTest.dll",
+      "sha256": "03374A03C306E117924F971316E4A09A3B150367FB3622D018D04AA2E9D0B7AE"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SavegameMissingMapFixTest_Serp\\SavegameMissingMapFixTest.dll",
+      "sha256": "A01F24BF5CD42C7D418D94331A014254ED3F3F70150DD3133DC2C9BA02706552"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsModsWorkshopBootstrap_Serp\\SerpsModsWorkshopBootstrap_Serp.dll",
+      "sha256": "94DC8DBC379B6A328B1EC781376427DB73CF4C5F57D30E94ABFB3ECEE134834B"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\SerpsModsHost.dll",
+      "sha256": "454709025E0845F4ECA036493E2798CA8078E1272EF99FCA212B34248EC98FD2"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll",
+      "sha256": "C013718742232B0F5B871E6913F67E58095655B772009A92782A97D94EBD7A53"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+      "sha256": "A8BD7DA4D053657BF025DFF0041E3EFB9A4821FF985A28C61D03BB673BC55F02"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingCosts_Serp\\BuildingCosts.dll",
+      "sha256": "833EBB2BCDCBA9AB3F00F8D6D2D0F48926DD313BFBA861C42AEFB58719A05BCB"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingLimit_Serp\\BuildingLimit.dll",
+      "sha256": "420C624AC39EBC3B8B26129B8061DB46614D5801D6BC9010A80B8E0831E33E37"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\CastlePlanner.dll",
+      "sha256": "DCFAECF7DE0B3820AF99D651FFE14049B6FF3A1DB1DC838F8694E50B9950AC32"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtendedData_Serp\\ExtendedData.dll",
+      "sha256": "50B4C3C74A7862BEFAEA1F3355B662775F6E520FBCB983B552597A6B340A9F77"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+      "sha256": "21E26F297204EC51CE430AA4257FEC4D276FD6942D8FE138E3DA06B9A0CBF517"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\RandomEvents_Serp\\RandomEvents.dll",
+      "sha256": "C0D47C8881D4C9D4AF072A2C11CA67D4BE5D417C3B9795768DC94009CAE41552"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\StartConditions_Serp\\StartConditions.dll",
+      "sha256": "CED6C5FD959951602018E3C9CD98829DE3574636F660F1D526338AE80D3AFFF8"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitCosts_Serp\\UnitCosts.dll",
+      "sha256": "D6290A7F8D74BB6B8971263813A5684FC94AD93E5F6599165D34CF2DE786B46C"
+    },
+    {
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitLimit_Serp\\UnitLimit.dll",
+      "sha256": "E40A14A685BA3A90684D09257D20CC96795C23483B6645F1BA3B646661E0C4F3"
+    }
+  ],
+  "candidates": [
+    {
+      "guid": "000shcdese",
+      "version": "2.14.1.0",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "uuimgui",
+      "version": "1.6.7",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\universal-unity-imgui-api.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "AIBuildDiagnoseTest_Serp",
+      "version": "0.2.1",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AIBuildDiagnoseTest_Serp\\AIBuildDiagnoseTest.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AIBuildDiagnoseTest_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "APIShared_Serp",
+      "version": "0.9.2",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "DependencyBootstrapProbe_Serp",
+      "version": "0.1.0",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\DependencyBootstrapProbe.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "fixes",
+      "version": "1.26.4.0",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\fixes.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "PopularityTest_Serp",
+      "version": "0.1.0",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\PopularityTest_Serp\\PopularityTest.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\PopularityTest_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "SavegameMissingMapFixTest_Serp",
+      "version": "0.1.0",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SavegameMissingMapFixTest_Serp\\SavegameMissingMapFixTest.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SavegameMissingMapFixTest_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "SerpsModsWorkshopBootstrap_Serp",
+      "version": "1.0.28",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsModsWorkshopBootstrap_Serp\\SerpsModsWorkshopBootstrap_Serp.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsModsWorkshopBootstrap_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "SerpsMods_Serp",
+      "version": "1.0.28",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\SerpsModsHost.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "SpectatorEditorBuildTest_Serp",
+      "version": "0.1.2",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\info.json",
+      "state": "Excluded",
+      "reason": "not a nested plugin"
+    },
+    {
+      "guid": "BugfixesAndQoL_Serp",
+      "version": "1.0.192",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "BuildingCosts_Serp",
+      "version": "1.0.114",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingCosts_Serp\\BuildingCosts.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingCosts_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "BuildingLimit_Serp",
+      "version": "1.0.32",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingLimit_Serp\\BuildingLimit.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingLimit_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "CastlePlanner_Serp",
+      "version": "0.8.41",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\CastlePlanner.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "ExtendedData_Serp",
+      "version": "1.0.12",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtendedData_Serp\\ExtendedData.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtendedData_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "ExtraFeatures_Serp",
+      "version": "1.0.114",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtraFeatures_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "RandomEvents_Serp",
+      "version": "1.0.52",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\RandomEvents_Serp\\RandomEvents.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\RandomEvents_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "StartConditions_Serp",
+      "version": "1.0.32",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\StartConditions_Serp\\StartConditions.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\StartConditions_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "UnitCosts_Serp",
+      "version": "1.0.36",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitCosts_Serp\\UnitCosts.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitCosts_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    },
+    {
+      "guid": "UnitLimit_Serp",
+      "version": "1.0.106",
+      "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitLimit_Serp\\UnitLimit.dll",
+      "manifest": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitLimit_Serp\\info.json",
+      "state": "Unclear",
+      "reason": "static checks passed; live SE source/KillSwitch and prior loader failures unverified"
+    }
+  ],
+  "dependencyComparisons": [
+    {
+      "consumer": "AIBuildDiagnoseTest_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.2",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "AIBuildDiagnoseTest_Serp",
+      "dependency": "BugfixesAndQoL_Serp",
+      "minimum": "1.0.192",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "fixes",
+      "dependency": "000shcdese",
+      "minimum": "2.14.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "PopularityTest_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.2",
+      "maximum": "",
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "SavegameMissingMapFixTest_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.2",
+      "maximum": "",
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "SerpsMods_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.2",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "SpectatorEditorBuildTest_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.2",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "SpectatorEditorBuildTest_Serp",
+      "dependency": "BugfixesAndQoL_Serp",
+      "minimum": "1.0.192",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "BugfixesAndQoL_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "BuildingCosts_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "BuildingLimit_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.9.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "CastlePlanner_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.6.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "ExtendedData_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.5.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "ExtraFeatures_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.7.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "RandomEvents_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.7.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "StartConditions_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.5.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "UnitCosts_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.6.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    },
+    {
+      "consumer": "UnitLimit_Serp",
+      "dependency": "APIShared_Serp",
+      "minimum": "0.6.0",
+      "maximum": null,
+      "selectedVersionIssue": null,
+      "liveIndexVerified": false
+    }
+  ]
+}

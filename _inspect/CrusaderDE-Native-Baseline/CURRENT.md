@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Fixes wheat-sale startup correction](./sem/FBCB9319/knowledge/FIXES_WHEAT_STARTUP.md): confirmed wrong player stack slot, second-start crash evidence, synchronous startup/engine-lock limits and pending runtime acceptance.
+
 - [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
 
 - [Offline AI test tools](./sem/FBCB9319/knowledge/SPECTATOR_TEST_TOOLS.md): full ally-order request path, exact Extender acceptance-event parameters, scoped forced acceptance, delivery reserves and private native-call monitor; static evidence with in-game acceptance still outstanding.

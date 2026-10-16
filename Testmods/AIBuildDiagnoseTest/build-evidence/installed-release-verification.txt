@@ -1,0 +1,8 @@
+Installed AIBuildDiagnoseTest 0.2.1.0
+SHA256=B1BCE72E1CB5CA64F0983F362BBAE88ECD46FE8F20071E4873E3159136B6A697
+PASS: installed DLL/PDB/info match build output.
+PASS: compiled installation and native contracts contain no 0x3F270 detour.
+PASS: all 134 protected installed dependency DLL/JSON hashes unchanged.
+PASS: 33 regressions, mandatory checks and build driver; 0 errors, 47 existing compiler warnings.
+APIShared main c7b210f00703 (0.9.2), SDK DLL byte-identical to installed release.
+No game acceptance performed.

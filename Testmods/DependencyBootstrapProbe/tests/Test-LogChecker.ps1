@@ -56,3 +56,27 @@ CheckFixture 'observe-hook' @($observe + '[DBP:CHAIN_INSTALL] unexpected') Obser
 CheckFixture 'observe-missing-ready' @($observe | Where-Object {$_ -notmatch 'READY_OBSERVED'}) Observe $false
 CheckFixture 'observe-duplicate-ready' @($observe + '[DBP:READY_OBSERVED] mode=Observe;') Observe $false
 CheckFixture 'observe-old-build' @($observe | ForEach-Object {$_.Replace($hashes[0],('0'*64))}) Observe $false
+$shadow = @($active | ForEach-Object {
+    if ($_ -match '\[DBP:SNAPSHOT\]') { '[DBP:SNAPSHOT] selected=1' } else { $_ }
+    if ($_ -match '\[DBP:CHAIN_PREPARE\]') { '[DBP:SHADOW_REQUIRED] stage=2' }
+    if ($_ -match '\[DBP:COMPATIBILITY_ENTER\]') {
+        '[DBP:SHADOW_BEGIN] read-only; failures=0'
+        '[DBP:SHADOW_INDEX] {"guid":"root","version":"1.0"}'
+        '[DBP:SHADOW_CANDIDATE] {"guid":"nested","state":"Eligible","reason":"fixture"}'
+        '[DBP:SHADOW_DEPENDENCY] {"consumer":"root","dependency":"nested","originalIssue":true,"shadowIssue":false}'
+        '[DBP:SHADOW_COMPLETE] candidates=1 original=1 added=1 dependencies=1 issuesBefore=1 issuesAfter=0 originalUnchanged=True'
+    }
+})
+CheckFixture 'shadow-valid' $shadow Active $true
+CheckFixture 'shadow-missing-summary' @($shadow | Where-Object { $_ -notmatch '\[DBP:SHADOW_COMPLETE\]' }) Active $false
+CheckFixture 'shadow-missing-candidate' @($shadow | Where-Object { $_ -notmatch '\[DBP:SHADOW_CANDIDATE\]' }) Active $false
+CheckFixture 'shadow-wrong-count' @($shadow | ForEach-Object { $_.Replace('added=1','added=2') }) Active $false
+CheckFixture 'shadow-original-mutated' @($shadow | ForEach-Object { $_.Replace('originalUnchanged=True','originalUnchanged=False') }) Active $false
+CheckFixture 'shadow-overwrites-original' @($shadow | ForEach-Object { if ($_ -match 'SHADOW_INDEX') { $_.Replace('root','nested') } else { $_ } }) Active $false
+CheckFixture 'shadow-error' @($shadow + '[DBP:ERROR] shadow callback failed') Active $false
+CheckFixture 'shadow-duplicate-summary' @($shadow + ($shadow | Where-Object { $_ -match 'SHADOW_COMPLETE' })) Active $false
+$oldActive = Join-Path $fixtureRoot 'active.log'
+$rejected = $false
+try { & $checker -Mode Active -RequireShadow -LogPath $oldActive -ExpectedArtifactRoot $fixtureRoot -GameDir $fixtureRoot } catch { $rejected = $true }
+if (-not $rejected) { throw 'Stage-1 log accepted as shadow proof.' }
+Write-Host 'PASS synthetic log case: stage-1 cannot pass required shadow check'

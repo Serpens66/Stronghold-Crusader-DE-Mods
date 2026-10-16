@@ -16,7 +16,7 @@ using MonoMod.Utils;
 
 namespace DependencyBootstrapProbe
 {
-    // Stage 1 only observes: no inventory edits, asset registration or compatibility overrides.
+    // Shadow stage: no original inventory edits, asset registration or compatibility overrides.
     internal static class HookRuntime
     {
         private static ILHook chainHook;
@@ -33,6 +33,7 @@ namespace DependencyBootstrapProbe
         {
             if (chainHook != null) return;
             Mark("CHAIN_PREPARE", "validating loaded assembly and Start");
+            Mark("SHADOW_REQUIRED", "stage=2; only a separate index copy may change");
             var assembly = typeof(BepInEx.Bootstrap.Chainloader).Assembly;
             Mark("CORE_BINARY", "sha256=" + ProbeIdentity.Hash(assembly.Location));
             if (!HashMatches(assembly.Location, CoreHash)) { Mark("SKIP", "unknown BepInEx binary"); return; }
@@ -74,6 +75,8 @@ namespace DependencyBootstrapProbe
             var sorts = instructions.Where(i => Calls(i, "BepInEx.Utility", "TopologicalSort")).ToArray();
             var adds = instructions.Where(i => Calls(i, "UnityEngine.GameObject", "AddComponent")).ToArray();
             var closure = FindWinnerClosure(il);
+            var failed = il.Body.Variables.Where(v => v.VariableType.FullName == "System.Collections.Generic.HashSet`1<System.String>").ToArray();
+            if (failed.Length != 1) throw new InvalidOperationException("Missing or ambiguous loader failure set");
             if (sorts.Length != 1 || adds.Length != 1 ||
                 !Calls(sorts[0].Next, "System.Linq.Enumerable", "ToList") ||
                 !Calls(adds[0].Previous, "System.Reflection.Assembly", "GetType"))
@@ -87,6 +90,7 @@ namespace DependencyBootstrapProbe
             cursor.Goto(adds[0], MoveType.Before);
             cursor.MoveAfterLabels();
             cursor.Emit(OpCodes.Dup); // PluginInfo, GameObject, Type -> same stack after callback.
+            cursor.Emit(OpCodes.Ldloc, failed[0]);
             cursor.Emit(OpCodes.Call, Callback(nameof(BeforePlugin)));
             cursor.Goto(sorts[0].Next, MoveType.After);
             cursor.Emit(OpCodes.Ldloc, closure); // The sorted list stays untouched below this object.
@@ -143,6 +147,8 @@ namespace DependencyBootstrapProbe
             {
                 var field = closure.GetType().GetField("pluginsByGUID", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 var winners = (IDictionary)field.GetValue(closure);
+                ShadowRuntime.Winners = new List<ShadowPlugin>();
+                foreach (DictionaryEntry entry in winners) ShadowRuntime.Winners.Add(ShadowRuntime.FromInfo((BepInEx.PluginInfo)entry.Value));
                 snapshotSeen = true;
                 Mark("SNAPSHOT", "selected=" + winners.Count + "; selection is not an Awake success guarantee");
                 foreach (DictionaryEntry entry in winners)
@@ -156,11 +162,12 @@ namespace DependencyBootstrapProbe
             catch (Exception ex) { Mark("ERROR", "Snapshot " + ex); }
         }
 
-        private static void BeforePlugin(Type type)
+        private static void BeforePlugin(Type type, object failed)
         {
             try
             {
                 if (type == null || type.Assembly.GetName().Name != "SHCDESE" || extenderSeen || compatibilityHook != null) return;
+                ShadowRuntime.Failed = new HashSet<string>((HashSet<string>)failed, StringComparer.Ordinal);
                 extenderSeen = true;
                 Mark("BEFORE_EXTENDER", "snapshot=" + snapshotSeen + " type=" + type.FullName);
                 Mark("SE_BINARY", "sha256=" + ProbeIdentity.Hash(type.Assembly.Location));
@@ -197,7 +204,22 @@ namespace DependencyBootstrapProbe
 
         internal static void ModifyCompatibility(ILContext il)
         {
+            // At the unique issues-list construction the complete local index exists, before any checks.
+            var sites = il.Body.Instructions.Where(i => i.OpCode == OpCodes.Newobj && i.Operand is MethodReference m &&
+                m.DeclaringType.FullName == "System.Collections.Generic.List`1<SHCDESE.API.Components.ModManager.ModCompatibilityIssue>").ToArray();
+            var indices = il.Body.Variables.Where(v => v.VariableType.FullName ==
+                "System.Collections.Generic.Dictionary`2<System.String,SHCDESE.API.Components.ModManager.GameAssetModManager/InstalledModVersion>").ToArray();
+            if (sites.Length != 1 || indices.Length != 1) throw new InvalidOperationException("SE shadow index contract mismatch");
+            // A branch to the list construction is expected; insert after its store instead, at a boundary with no incoming edges.
+            var store = sites[0].Next;
+            if (store == null || !store.OpCode.Name.StartsWith("stloc", StringComparison.Ordinal)) throw new InvalidOperationException("SE issue-list store changed");
+            RejectBoundary(il, store.Next);
             var cursor = new ILCursor(il);
+            cursor.Goto(store, MoveType.After);
+            cursor.Emit(OpCodes.Ldarg_0);
+            cursor.Emit(OpCodes.Ldloc, indices[0]);
+            cursor.Emit(OpCodes.Call, typeof(ShadowRuntime).GetMethod("Observe", BindingFlags.Static | BindingFlags.NonPublic));
+            cursor.Goto(0);
             cursor.Emit(OpCodes.Call, Callback(nameof(OnCompatibilityEnter)));
         }
 

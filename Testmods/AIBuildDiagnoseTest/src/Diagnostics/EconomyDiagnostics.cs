@@ -21,6 +21,11 @@ namespace AIBuildDiagnoseTest
     // Process-rooted by AIBuildDiagnoseRuntime. Native callbacks capture only; render drains copied logs.
     internal sealed unsafe class EconomyDiagnostics
     {
+        internal const string TradeControllerCoverageDetail =
+            "not-installed-for-release-fixes-compatibility; market-gate=unknown; buy-sell-alternation=unknown; " +
+            "aborted-sale-decisions=unknown; missing-controller-observations-are-not-evidence-of-no-trade; " +
+            "purchase-decision, ai-buy, ai-sell and price/extender events remain independent partial observations";
+        internal static readonly string[] SummaryStages = { "wood-eligibility", "farm-eligibility", "build-resources", "purchase-decision", "ai-buy", "ai-sell", "ai-recruitment", "wood-retirement", "emergency-demolition", "hovel-reduction" };
         [ThreadStatic] private static EconomyOperation current;
         private EconomyOperation Current => active ? current?.ForSession(session) : null;
         private readonly ManualLogSource log;
@@ -84,6 +89,7 @@ namespace AIBuildDiagnoseTest
                 return op == null ? null : (Action<int?, bool>)((result, evaluated) =>
                 { op.NativeOriginalEvaluated = evaluated; SafeEnd(op, result); });
             });
+            Coverage("trade-controller", false, TradeControllerCoverageDetail, expectedUnavailable: true);
             if (Chainloader.PluginInfos.ContainsKey("SpectatorEditorBuildTest_Serp"))
                 Coverage("resource-owner-subscriber", availability.Registered, availability.Detail);
             Coverage("protection-decisions", false,
@@ -256,7 +262,7 @@ namespace AIBuildDiagnoseTest
                     if (kind == "wood-eligibility" && nativeLayout) op.RawWoodPrecondition = Read(0x3505470);
                     if (kind == "build-resources")
                         Change(player + ":cost:" + a, "COSTS", player, op.Id, Costs(player, (eMappers)a));
-                    if (kind == "trade-controller" || kind == "purchase-decision" || kind == "build-resources" || kind.EndsWith("eligibility", StringComparison.Ordinal))
+                    if (kind == "purchase-decision" || kind == "build-resources" || kind.EndsWith("eligibility", StringComparison.Ordinal))
                         Change(player + ":" + kind + ":state", "DECISION_INPUT", player, op.Id, $"kind={kind}, {NativeState(player)}");
                 }
             });
@@ -409,7 +415,7 @@ namespace AIBuildDiagnoseTest
             {
                 if (!Observe(player)) continue;
                 var totals = new StringBuilder();
-                foreach (string stage in new[] { "wood-eligibility", "farm-eligibility", "build-resources", "trade-controller", "purchase-decision", "ai-buy", "ai-sell", "ai-recruitment", "wood-retirement", "emergency-demolition", "hovel-reduction" })
+                foreach (string stage in SummaryStages)
                 {
                     string key = player + ":" + stage + ":entered";
                     totals.Append(stage).Append("Calls=").Append(counters.TryGetValue(key, out long n) ? n : 0).Append(';');

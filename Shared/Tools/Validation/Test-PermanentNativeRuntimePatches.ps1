@@ -20,6 +20,12 @@ $files = foreach ($relativeRoot in $roots) {
 }
 
 $errors = [System.Collections.Generic.List[string]]::new()
+$wheatMemory = Join-Path $workspace 'APIShared\src\Compatibility\FixesWheatMemory.cs'
+if (Test-Path -LiteralPath $wheatMemory) {
+    # APIShared owns the expressly approved startup-only exception and its checks.
+    & (Join-Path $workspace 'APIShared\tools\Validation\Test-FixesWheatBoundary.ps1')
+    if (-not $?) { throw 'APIShared wheat startup boundary verification failed.' }
+}
 foreach ($file in $files) {
     if (-not $file.FullName.Contains('\APIShared\')) {
         $source = [IO.File]::ReadAllText($file.FullName)
@@ -36,7 +42,9 @@ foreach ($file in $files) {
             $line -match '\bGatehouseNativeMutation\b' -or
             $line -match '\bVirtualProtect\s*\(' -or
             $line -match '\bFlushInstructionCache\s*\(') {
-            $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
+            if ($file.FullName -ne $wheatMemory) {
+                $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
+            }
         }
 
         if ($line -notmatch '(classifierTransaction|transaction)\??\.Dispose\s*\(') { continue }

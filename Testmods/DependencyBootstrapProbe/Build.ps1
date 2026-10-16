@@ -28,4 +28,4 @@ foreach ($relative in $files) {
         if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($source)) -cne [Convert]::ToBase64String([IO.File]::ReadAllBytes($target))) { throw "Copy verification failed: $relative" }
     }
 }
-Write-Host "Stage 1 built. Installed=$(-not $NoInstall). Game/Mono feasibility still requires a full game start."
+Write-Host "Shadow probe built. Installed=$(-not $NoInstall). Game/Mono feasibility still requires a full game start."

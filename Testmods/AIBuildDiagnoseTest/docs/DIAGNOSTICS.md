@@ -58,8 +58,8 @@ availability, not proof of their historical effect. FIXES_PURCHASE_STATE reads a
 Wood/Iron/Ale override arrays when the installed reflection contract is available.
 No defaults or preference pairs are repaired. Unknown native fields retain raw names.
 
-DECISION_INPUT/RESULT distinguish eligibility, the actual resource gate, buy/sell
-controller, purchase selection and recruitment. COSTS reports active costs and
+DECISION_INPUT/RESULT distinguish eligibility, the actual resource gate,
+purchase selection and recruitment. COSTS reports active costs and
 available materials. PRICE_QUERY and PURCHASE_CONDITION are price/affordability
 evidence only. TRANSACTION_BEGIN/END reports measured gold/stock before and after.
 BALANCE reconciles actual gold change, attributed exclusive operation deltas and the
@@ -138,3 +138,52 @@ The 0.2.1 build driver completed with /nopause /apishared:main (c7b210f00703,
 APIShared 0.9.2), 30 tests passed, 0 build errors. Existing compiler warnings remain.
 Installed DLL, PDB and metadata match the build output. All 68 protected installed
 APIShared/Bugfix files and the APIShared checkout HEAD/status remain unchanged.
+
+## Release Fixes compatibility: controller observation removed (source only)
+
+The trade-controller detour at 0x3F270 and its exclusive machine contract are removed
+from future installation. Installed Release Fixes 1.26.4 has a wheat-sale stack-slot
+error in its deeper inline hook; this diagnostic avoids exposing it through a
+managed controller call. No register adjustment, replacement hook or dependency on
+a development APIShared/Bugfix build is introduced. Existing published hooks are
+never undone; this source change takes effect only after a later authorized build
+and a fresh game process. The currently installed diagnostic DLL is unchanged.
+
+COVERAGE explicitly reports trade-controller unavailable as an expected compatibility
+Warning. SUMMARY omits its call counter entirely. Missing controller records never
+mean no trade was attempted. Market-gate decisions, buy/sell alternation and aborted
+sale decisions remain unknown. Purchase selection (0x3EC90), actual purchases
+(0x29650), actual sales (0x29700), price events and Extender events remain independent
+partial observations; they do not restore complete controller coverage.
+
+Only non-compiling static checks are authorized for this change. Regression sources
+are prepared but not compiled or executed. The earlier 30-test/build evidence above
+describes the preceding installed version, not acceptance of this compatibility edit.
+A later build must target the currently installed Release dependencies, never
+development DLLs. Game acceptance then requires at least three fresh processes loading
+test_dusty.sav beyond tick 70 with the Fixes wheat setting retained, plus repeated
+loads in one process. Retain logs/crashes; successful runs do not repair or certify
+the unchanged Fixes hook for other callers. No version, build or install changes now.
+
+Static outcome (2026-10-16): native-byte/call-graph, runtime JSON/lifecycle and
+existing read-only checks reached the workspace-wide permanent-hook check without
+a preceding failure. The full verify.ps1 then stopped on the parallel, out-of-scope
+APIShared/src/Compatibility/FixesWheatMemory.cs VirtualProtect declaration. That
+file is untouched here. The remaining mod-only economy/owner/compatibility guards
+passed separately (compatibility-mod-checks.log); the full failed run is retained
+in compatibility-static-verification.log. Diff, CRLF and PowerShell syntax passed.
+All 136 installed plugin DLL/JSON hashes checked remained unchanged, including
+the diagnostic package. Three new regression methods are prepared, not compiled
+or run. Branch develop and version 0.2.1 are unchanged. No build/install occurred.
+
+## Authorized compatibility build/install, 2026-10-16
+
+The source-only restriction above describes the preceding work phase. Following
+explicit build authorization, build.bat /nopause /apishared:main completed against
+Release APIShared 0.9.2 (c7b210f00703, byte-identical SDK/installed DLL), installed
+BugfixesAndQoL 1.0.192 and installed Extender references. All 33 tests and required
+checks passed; 0 errors, 47 existing compiler warnings. Version remains 0.2.1.
+The installed DLL/PDB/metadata match the package; Cecil inspection confirms no
+controller RVA in the compiled installation or contract list. All 134 protected
+installed dependency DLL/JSON hashes are unchanged. Detailed evidence is in
+build-evidence/. Game acceptance across fresh processes is still pending.

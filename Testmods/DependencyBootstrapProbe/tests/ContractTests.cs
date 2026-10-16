@@ -18,7 +18,7 @@ namespace DependencyBootstrapProbe
         {
             game = args[0];
             AppDomain.CurrentDomain.AssemblyResolve += ResolveTestDependency;
-            try { Run(); return 0; }
+            try { Run(args); return 0; }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
         }
         private static Assembly ResolveTestDependency(object sender, ResolveEventArgs args)
@@ -32,7 +32,11 @@ namespace DependencyBootstrapProbe
             return null;
         }
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void Run() { ContractTests.Run(game); }
+        private static void Run(string[] args)
+        {
+            if (args.Length == 4 && args[1] == "offline") ShadowTests.Offline(game, args[2], args[3]);
+            else { ShadowTests.Run(); ContractTests.Run(game); }
+        }
     }
 
     internal static class ContractTests
@@ -65,6 +69,10 @@ namespace DependencyBootstrapProbe
                 string name = WinnerFields(il)[0].DeclaringType.FullName;
                 il.Body.Variables.Add(new VariableDefinition(il.Body.Variables.Single(v => v.VariableType.FullName == name).VariableType));
             });
+            Reject("missing failure set", il => {
+                var local = il.Body.Variables.Single(v => v.VariableType.FullName == "System.Collections.Generic.HashSet`1<System.String>");
+                local.VariableType = il.Module.TypeSystem.Object;
+            });
             Reject("changed AddComponent", il => {
                 ((MethodReference)il.Body.Instructions.Single(i => IsCall(i, "UnityEngine.GameObject", "AddComponent")).Operand).Name = "ChangedAdd";
             });
@@ -82,6 +90,24 @@ namespace DependencyBootstrapProbe
             var se = Assembly.LoadFrom(Path.Combine(game, "BepInEx/plugins/000shcdese/SHCDESE.dll"));
             var manager = se.GetType("SHCDESE.API.Components.ModManager.GameAssetModManager", true);
             var check = manager.GetMethod("PrepareAllAndCheckCompatibility", BindingFlags.NonPublic | BindingFlags.Instance);
+            foreach (string malformed in new[] { "missing index", "ambiguous index", "changed issues", "branch boundary" })
+            using (var copy = new DynamicMethodDefinition(check))
+            using (var context = new ILContext(copy.Definition))
+            {
+                var index = context.Body.Variables.Single(v => v.VariableType.FullName.Contains("Dictionary`2<System.String,SHCDESE.API.Components.ModManager.GameAssetModManager/InstalledModVersion>"));
+                var site = context.Body.Instructions.Single(i => i.OpCode == OpCodes.Newobj && i.Operand is MethodReference m && m.DeclaringType.FullName.Contains("List`1<SHCDESE.API.Components.ModManager.ModCompatibilityIssue>"));
+                if (malformed == "missing index") index.VariableType = context.Module.TypeSystem.Object;
+                if (malformed == "ambiguous index") context.Body.Variables.Add(new VariableDefinition(index.VariableType));
+                if (malformed == "changed issues") site.OpCode = OpCodes.Nop;
+                if (malformed == "branch boundary") context.Body.Instructions.Insert(0, Instruction.Create(OpCodes.Br, site.Next.Next));
+                var before = new BodySnapshot(context);
+                bool rejected = false;
+                try { HookRuntime.ModifyCompatibility(context); } catch (InvalidOperationException) { rejected = true; }
+                Require(rejected, "Malformed SE contract accepted: " + malformed);
+                before.AssertUnchanged(context);
+                Console.WriteLine("PASS: SE rejected before mutation: " + malformed);
+            }
+            ShadowTests.CompareExtender(manager);
             using (var copy = new DynamicMethodDefinition(check))
             using (var context = new ILContext(copy.Definition))
             {
@@ -218,7 +244,7 @@ namespace DependencyBootstrapProbe
                     Require(depth == initial, "Inserted block changes original stack height");
                     groups++;
                 }
-                Require(groups == (chain ? 3 : 1), "Unexpected insertion blocks");
+                Require(groups == (chain ? 3 : 2), "Unexpected insertion blocks");
             }
             private static int Pops(Instruction i)
             {

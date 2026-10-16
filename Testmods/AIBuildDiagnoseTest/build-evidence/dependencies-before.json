@@ -1,0 +1,538 @@
+[
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\blake3_dotnet.dll",
+    "Hash": "4BC8BD9869144B57C58B51A85915FD51E0D22F91E9CF7D6809341E85AB56F720"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Blake3.dll",
+    "Hash": "1258402A7FF3AC460F1B3AEE7DD20A61FEE9487D69406E442E1339D48A1F7624"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Iced.dll",
+    "Hash": "CC915D1C2E7BE60933C5B129842CA3D08D1FE3CDA6C6D6ADE8824DCDDE16191F"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\ICSharpCode.SharpZipLib.dll",
+    "Hash": "CB9C05B5A1E1DB26FF43490EE26F2E02ABAE3F321D2DD5DDD43A68DA48EAB83D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\ImCTE.NET.dll",
+    "Hash": "B903B77BD2CE5DE76F0F840C522B5C99750E57809B2F0FFAA559913A2639E6D0"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\ImGui.NET.dll",
+    "Hash": "24E65586DCFBC8CCF13426586C2B854F6CA747C2A1CA3232991BF50D285502BA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\ImNodes.NET.dll",
+    "Hash": "024052C39AF1EF8AFDFD415A280F227FD11AEFE65B70C00DD21BC457FFA213C4"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\ImPlot.NET.dll",
+    "Hash": "71B05552988290724C6BA546DCC309161E8533B80B5D5A16C76D32258A0C887E"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\ImPlot3D.NET.dll",
+    "Hash": "A0116BA8818813D90E2FB0CEDD1FC3E0BDE4BC72338922569123D145CD167FE1"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\info.json",
+    "Hash": "88F1540A9F97321C483EC29178DFCDCB235690ECE748D6192AD3F89F902CCE05"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\KeraLua.dll",
+    "Hash": "02095F7FE9D24C0999E2BD073038A1161B569C1A64BE894804116D5B195A858E"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Lepo.i18n.dll",
+    "Hash": "CDB6F31B609CC0C2092E179DDA995115F2A5840EEB5283E8EC2B63F7D95AFB9F"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Lepo.i18n.Json.dll",
+    "Hash": "905557EF9DE682A747F7EDE440F8090411F5D073BD977F60B1C321315C10CF4B"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\lua54.dll",
+    "Hash": "A563B9210BE2868728092E82D88D75EDCD9C8D95ED0EB399942B16BD4C88B87A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\MessagePack.Annotations.dll",
+    "Hash": "D6D77E65EDEF6B60CE8FB9E5CBA402D70FD97D1401C240C8B2C5389E08009315"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\MessagePack.dll",
+    "Hash": "DDDF11570BC44C5B7A99D46DE3E276D0BA1889F8B6E44326BDE934EFD248DD07"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Bcl.AsyncInterfaces.dll",
+    "Hash": "1009BAEA2F1A87F37530A1EECEDBE1E7F42227DF8CA9775799BF403CEE022325"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Bcl.TimeProvider.dll",
+    "Hash": "693242B67DA91AF78DDA4B91D6020E0B8CDA08D4C9102177A12522009EF9B940"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+    "Hash": "BEBE73DCC4667EF7103F470E6346677FE8FA5E6D6F62CC1DDD9B45FE766499E0"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Extensions.DependencyInjection.dll",
+    "Hash": "3D40AD658BFD68B67CAD63FB8CED46044E2A0C8909DDB684373FF5A2C0A0CE5D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Extensions.Logging.Abstractions.dll",
+    "Hash": "2FFE4217A536B447BA35CA5B6AD79B3A43DD3041DAB07B266615780786A33C17"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Extensions.Logging.dll",
+    "Hash": "9FA7EAD66657A4DA71D1EE8731314708042954101773A8549CB2B752AD79A346"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Extensions.Options.dll",
+    "Hash": "4AC292670C857A81372275A0340858B56520093C2235472902B8CD9636DB4D2B"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.Extensions.Primitives.dll",
+    "Hash": "A14FAB7827AB2560FB478CE1B7AA0C87AECB95CC6CC2246B24F7ED3986A02DC0"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Microsoft.NET.StringTools.dll",
+    "Hash": "81925A5E0E690DA37E64929511DC007DA32D59DB7134F701FE6E2706F8EB3895"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\msvcp140.dll",
+    "Hash": "639342EA9A67C0009122238CE070A8257E2E04D367D627509FEC29F8442AFB42"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\netstandard.dll",
+    "Hash": "FADA723DE68ECA78DC6E4279EBF1C886810DCD7B4A970290CB7AC068EF04B766"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\NLua.dll",
+    "Hash": "476FFF1274AA8A85D18DF8CA1CFC1F420ED4654DCF9ABA0957B93B978A3592F6"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\NVorbis.dll",
+    "Hash": "2C6C2281C29344679C97DF33A283897AB60C6A676C858D7C675209195315E982"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Pfim.dll",
+    "Hash": "5041386A568BD5729B416998FD7B6DFFE4C01AFFBDD0E443CA5C80A975883499"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\PolyHook2.NET.dll",
+    "Hash": "A72AB7089E333D84529C2116C9E7AE0FB4AEFD59328B1A5FD5E67F14B932FF23"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\R3.dll",
+    "Hash": "8D77D5E9B30F6BDC2AA60055A5950EA75D259C9D1C9667A04A7D598E1DA9D609"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\RedBird.Abstractions.dll",
+    "Hash": "339CECE116F66F59ECC7DA5E9A5C0B2DFE24F4E7A5E7EFC005864FA77C027A1E"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\RedBird.Backends.NativeX64.dll",
+    "Hash": "0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\RedBird.Core.dll",
+    "Hash": "EE4B036C486077F7D8898AE054F124EDDE73E6AE1A059E8991C361E2B720D29F"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\RedBird.X64.dll",
+    "Hash": "E085B83B2B87B5D2142C980090D8D9EC616A90A443BD125C17B41E0BB47A44EB"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Serilog.dll",
+    "Hash": "DD3F5A33A059E59B8C3D114CC6BF23C96FB178202B51C8C85FB3DE951FA03B90"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Serilog.Extensions.Logging.dll",
+    "Hash": "736C8A117B2FD1242D06FC6A10ACE6C4E14BEC9603854CDA4BCD9EC8227215A7"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Serilog.Sinks.Async.dll",
+    "Hash": "50516ED78347F0BC1FEAF213F5AD5F95BF7CCACCC9A49531ED0676057E9E9F2E"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Serilog.Sinks.Console.dll",
+    "Hash": "9BEF5CC4A2DAAE89A7A669B714ABAA25E86FDFE36E06136533FB83EF7EAACA76"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\Serilog.Sinks.File.dll",
+    "Hash": "F57DC69A0FCC22B908BC6F6C9C180D634013749EBDB25B07A85C83776BD75625"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll",
+    "Hash": "E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.NativeCrashHandler.dll",
+    "Hash": "13D9A8EA9DEC66DF9AB957577E9F64F9796AFD8C4ED4CE84E70306D75137F01A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Buffers.dll",
+    "Hash": "2D78D770C9CB997199154AE8C018B9F1D1EFBC86729F7264DDE6DBAD2A12CAC3"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Collections.Immutable.dll",
+    "Hash": "D5EC0837BB176ABF13DCD52C658C4E84C5264F67065B9C19679B6643F7D21564"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.ComponentModel.Annotations.dll",
+    "Hash": "04113C8549185519F3202790CEB23DF609644872B9C249A56D2BCF59566102C4"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Diagnostics.DiagnosticSource.dll",
+    "Hash": "07F1825F419F32F83C59A45ACD491A9E8C6BDC3A4A37FC27F7CAE27876B95A20"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.IO.Hashing.dll",
+    "Hash": "767F6EADA38CBC6F5F359E99B9E117B48A866E2A464673A46037C6E9281AAA7A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.IO.Pipelines.dll",
+    "Hash": "EB4D58A1769115FE6452437FA0E5E0BC22E140366D67E688B81D1DC8F61EC74A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Memory.dll",
+    "Hash": "D5E8E4866F9CFA66F7765660F84B210198893E55335487AFE5EBDA342C0E913D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Numerics.Vectors.dll",
+    "Hash": "20C2FA81B8C70D651099D762954F285FD4F942E63B2D7217C145DAB8D4B2F4C9"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Runtime.CompilerServices.Unsafe.dll",
+    "Hash": "08CBD7278B66F1E68425A82D4B97181A4130D93E3DD91831407ABA7212CCDACF"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Text.Encodings.Web.dll",
+    "Hash": "2CA6CAEE74E5E7C3714ED8284970813BEFABA446FC82E17D9D07397EED8D93D7"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Text.Json.dll",
+    "Hash": "8BC0E77A67553D9B16EEE8981365F1B13D9DE714A540CEF1051DAF0D1A392EBA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Threading.Channels.dll",
+    "Hash": "A42E45A1BB8E6528D244F8611CF1E3E731CAB481A67928C1BE815E635FFE8EC7"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Threading.Tasks.Extensions.dll",
+    "Hash": "AF4E13EF418FD89B432DE20CD1DFB7FA10A7179C8DD049C9856316E50C5949CA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.ValueTuple.dll",
+    "Hash": "400E432AF60A6A2B3EEDEC5908BE7E7AE0D063ECF0052595F7CD6CFFB7E4E98E"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\System.Xml.Linq.dll",
+    "Hash": "E30CA84D504878D66C592A9492F1EABC73A34CE7DFF3AB7CA3F66B64063A8357"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\universal-unity-imgui-api.dll",
+    "Hash": "D98415528BA84F0DFF17F283F72D0003D65ECA8F30993E5BAFE1D425BA8CE9B7"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\ARM64\\lua54.dll",
+    "Hash": "C21A8EE06181F33FCA889BDAAA04A2ECCDE8722325A935D2075F00B605EE77A2"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\data\\aobcache.json",
+    "Hash": "FBE35A3DB142B991A1A4AB2FF4298F7EF6A21A7053171224ED1A793CB0B69BAA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\data\\localization\\de-DE.json",
+    "Hash": "B21E733888A162F820B9ADC10A64CF82A94CA4F8715CD1A84C599F3BF073A86F"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\data\\localization\\en-US.json",
+    "Hash": "55006F92E21EE34ECC367C08F263E72B42CAB6ADCC000D11D88740F06165A452"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\data\\localization\\ja-JP.json",
+    "Hash": "64EB8FEA14380B82CCA2C5A09A8C7B6E7CC912DC52EC0B35ECCA9E6AA88CD202"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\data\\localization\\pl-PL.json",
+    "Hash": "8C3F4CFAAA3671479ACA72C3F9D2285F0F0D0BC96D8A440893CF1EED9307AA30"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\data\\localization\\zh-CN.json",
+    "Hash": "6A08AC4160F345E26617319B3851514C7896F82A45DA6CE8AD39394D3287EF24"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x64\\native\\asmjit.dll",
+    "Hash": "464F7BE5DFB6BC2A8EF6EC40DCE62784A8FC3BE246CE4044F31529A7B4F9687A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x64\\native\\asmtk.dll",
+    "Hash": "39A0E4049460F2612A370229F5338A75E9D72AAF2F374FA1CF21A4486475BA6A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x64\\native\\cpolyhook2.dll",
+    "Hash": "9E25D011CD22CA420469CCF4BD07BD37DB7F1E54992269BD34E95FF9F85188E9"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x64\\native\\PolyHook_2.dll",
+    "Hash": "A34EE0425D6766E513F3164F67A5C95FB65AA6F1EA657F17C8DE87358B8AEE96"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x64\\native\\Zydis.dll",
+    "Hash": "BAA4E175D08A697E9A81E8A5B9BFE22B4353D996036971587D16B2B8C150B7F0"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x86\\native\\asmjit.dll",
+    "Hash": "A8FAAA4A449D62C9FDC6C48B68CF6D9155BB8CBBF2DE46E1AB583CD29C451AFA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x86\\native\\asmtk.dll",
+    "Hash": "3C841E8B8D1BCB31027374B7E45CA8A1C468B0653620A5C3181B13968B0586FA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x86\\native\\cpolyhook2.dll",
+    "Hash": "DF55F3A3402507A9D4BFBB36910A05E12760C0979AAF05168B3341FCFA7C9AB8"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x86\\native\\PolyHook_2.dll",
+    "Hash": "4A8A6A3A6FCB2AB50B93DC959E2779244F68D112346ED6175FC0D0AC37FCC355"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\runtimes\\win-x86\\native\\Zydis.dll",
+    "Hash": "D498E69F28A60883C39F57386AEF32EEEF32F6E451F338D046242A019AC73AA5"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x64\\lua54.dll",
+    "Hash": "A563B9210BE2868728092E82D88D75EDCD9C8D95ED0EB399942B16BD4C88B87A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x86\\lua54.dll",
+    "Hash": "E70E33F4B68EDD118C79D6C98B80692009AE53E57E9B2E4B16005A6E51131236"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x86_64\\asmjit.dll",
+    "Hash": "CE523BAF7CB8215E3050A18A23604DF0775712E38334D12856F5955DD0D3404F"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x86_64\\asmtk.dll",
+    "Hash": "7C4CD833BD0BBA43379BCA1135D5B4B824D7622C9F0D35132C9F3069B4F71D0B"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x86_64\\cimguiaio.dll",
+    "Hash": "BF43F0854C7CA51C33862D092E53E39FAE8FC6528C8103E4563D000EAF507E80"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x86_64\\cpolyhook2.dll",
+    "Hash": "CEAAB4CF3F7C40979996D70F7E3C72641408C9DF779CCA5AF66654D1AF225284"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x86_64\\PolyHook_2.dll",
+    "Hash": "EA8514AC2D59F6B57DA23E3A9059526ACEA23B4803B81977033274CA5D71EAD2"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\x86_64\\Zydis.dll",
+    "Hash": "327474E73D25C9EDD8F090D9EA174C5933384022375A84A221E283D408A79D7D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\apishared-workshop-files.json",
+    "Hash": "A81FB81B125281DB817D90076A0592EF54E07827454ECF284EBD26F45882CE76"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+    "Hash": "4EF262A5F69F16EF6B6E5238606F5013B6400B83D2F8C354E5C53F4EFDD52BC1"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\info.json",
+    "Hash": "5F773D0C93BA3FC71A28E5A118A268AF45112CF0F0F0C7488D4C787A0CF80F3C"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\DependencyBootstrapProbe.dll",
+    "Hash": "C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\info.json",
+    "Hash": "6A7ABAD2E451CD5FBCACF46F9205D5A15DEE8BDE932D8A3B93DD8EE6C6C1177C"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\fixes.dll",
+    "Hash": "6A4ED4F492812BDA9342766AC432954F483732CC864C4CAAD67F9172A4F9E5BA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\info.json",
+    "Hash": "ADB208EF50F735DEE87ACC6A98503F3EB2AE22831455487AD0DE4CF16F2057CC"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\shcdese.manifest.json",
+    "Hash": "180350B0CA775735848D9969C5826159AEB6D233F9D642D4C0B1BCBA003DEC01"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\data\\aobcache.json",
+    "Hash": "791C715A5720165685DD03A28524A1D88765AF384F1D61F80EC379D5CBE95F65"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\data\\hopsFarmWhitelist.json",
+    "Hash": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\PopularityTest_Serp\\info.json",
+    "Hash": "583435631705071B46D9967ED3A6AB51C65588D0F9620A784F0941C6810552B5"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\PopularityTest_Serp\\PopularityTest.dll",
+    "Hash": "03374A03C306E117924F971316E4A09A3B150367FB3622D018D04AA2E9D0B7AE"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SavegameMissingMapFixTest_Serp\\info.json",
+    "Hash": "BF3997BDD1E5BA11848A4213467487F0DAB8F96D6BF068E2BA7B54DE89A4DC15"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SavegameMissingMapFixTest_Serp\\SavegameMissingMapFixTest.dll",
+    "Hash": "A01F24BF5CD42C7D418D94331A014254ED3F3F70150DD3133DC2C9BA02706552"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsModsWorkshopBootstrap_Serp\\info.json",
+    "Hash": "6739F86786CEFFE3320B97FE1022AEB068A90D0D8D5641DC922BE9FB1DD7D2BB"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsModsWorkshopBootstrap_Serp\\SerpsModsWorkshopBootstrap_Serp.dll",
+    "Hash": "94DC8DBC379B6A328B1EC781376427DB73CF4C5F57D30E94ABFB3ECEE134834B"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\apishared-workshop-files.json",
+    "Hash": "78186E26C2D115171AA118451AA13304E7D28AE6218FFEAC62A339B46043B8B7"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\info.json",
+    "Hash": "7B767213DCEBE05343433110A805FFFF421AD36B709FEDF3D615FFB7739BE31D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\serps-modpack.json",
+    "Hash": "46E79D6A1D31EDE4A1DEE5AACF140E06AAC6E56731F57C8F462EEFC80F49000C"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\SerpsModsHost.dll",
+    "Hash": "454709025E0845F4ECA036493E2798CA8078E1272EF99FCA212B34248EC98FD2"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+    "Hash": "A8BD7DA4D053657BF025DFF0041E3EFB9A4821FF985A28C61D03BB673BC55F02"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\info.json",
+    "Hash": "8AAD5702B8F6B82DA2ED6C6E422B626BCCDA0B551A3646B2CF486BB4FFE281D1"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\LobbyModSettings\\AiAivSelectionMemory.json",
+    "Hash": "E58B6155FE2EF760FF3EE1B1034F31FB00EDD822EC3EB819CE306597F5D33220"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\LobbyModSettings\\LobbyMapSelectionMemory.json",
+    "Hash": "A7614425EAB85C7706B98DEF7C005BE5205CA6EF9B8BE42AA3349F52975FE97D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingCosts_Serp\\BuildingCosts.dll",
+    "Hash": "833EBB2BCDCBA9AB3F00F8D6D2D0F48926DD313BFBA861C42AEFB58719A05BCB"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingCosts_Serp\\info.json",
+    "Hash": "2575A3BD7B1318EF7CEDB9E629187583DD11EF21631EEB67CA9857D83787D368"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingLimit_Serp\\BuildingLimit.dll",
+    "Hash": "420C624AC39EBC3B8B26129B8061DB46614D5801D6BC9010A80B8E0831E33E37"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingLimit_Serp\\info.json",
+    "Hash": "DA64D66A82CA64C72A3201DB33F308D0DB553AA22BA79B466B3CCFCFE566A556"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\AIVParser.Core.dll",
+    "Hash": "F38728C84F0351F117EB94C0FF9CE9E8FF21E8E8BB4C4E6BED3545D3F49743AF"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\AIVPlacement.Core.dll",
+    "Hash": "391702442A0DEE957084638C5AA5E1A6491A2D18B17525DC31ADE83626281C63"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\CastlePlanner.AIVPlacement.Core.dll",
+    "Hash": "C4F4652B57B02FA772E86198E6443C937BD738F842B899EE473F62AA1C5612DF"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\CastlePlanner.dll",
+    "Hash": "DCFAECF7DE0B3820AF99D651FFE14049B6FF3A1DB1DC838F8694E50B9950AC32"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\info.json",
+    "Hash": "3C42EC1D32B3E2B23F2C51FB8281B41E46D1760A86AD3CA03444B7FA653CBA10"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\MapParser.Core.dll",
+    "Hash": "753F378A355935E45706CD697A6333C7173C738EF65EE170DAC8F38F7101162F"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtendedData_Serp\\ExtendedData.Core.dll",
+    "Hash": "4D8BF43DC9AA34227E07716B94922C25AD5C1DBCE8BAE0F9A19973F8925311F2"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtendedData_Serp\\ExtendedData.dll",
+    "Hash": "50B4C3C74A7862BEFAEA1F3355B662775F6E520FBCB983B552597A6B340A9F77"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtendedData_Serp\\info.json",
+    "Hash": "25BEDF04AEF48782D85E08FEB77527D556192F73BF786B079666929FD2165B6A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+    "Hash": "21E26F297204EC51CE430AA4257FEC4D276FD6942D8FE138E3DA06B9A0CBF517"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtraFeatures_Serp\\info.json",
+    "Hash": "30F3CB467D116966AD81732D88A27D94FB82088FAA5F176A9F0EC53C67F6317D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\RandomEvents_Serp\\info.json",
+    "Hash": "6586AF18C2EC6E53718432330E9E2BE4C26F57B07CE781024F5C5BFC790F860B"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\RandomEvents_Serp\\RandomEvents.dll",
+    "Hash": "C0D47C8881D4C9D4AF072A2C11CA67D4BE5D417C3B9795768DC94009CAE41552"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\StartConditions_Serp\\info.json",
+    "Hash": "2AADD5E0450E3860081E23FC70D177DE9A825E2761DAF1FDE1F8CB9881F102B2"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\StartConditions_Serp\\StartConditions.dll",
+    "Hash": "CED6C5FD959951602018E3C9CD98829DE3574636F660F1D526338AE80D3AFFF8"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitCosts_Serp\\info.json",
+    "Hash": "C3A9B32CD91DD4AB07E0EDD8396B43AA8C87E003906F0CECCBCE8E465C8F2288"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitCosts_Serp\\UnitCosts.dll",
+    "Hash": "D6290A7F8D74BB6B8971263813A5684FC94AD93E5F6599165D34CF2DE786B46C"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitLimit_Serp\\info.json",
+    "Hash": "AEAE6482B494AEF324C66F1D6599A57F462E79615AAB63D057D060CD34BB9838"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitLimit_Serp\\UnitLimit.dll",
+    "Hash": "E40A14A685BA3A90684D09257D20CC96795C23483B6645F1BA3B646661E0C4F3"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Provenance\\pack-inputs.json",
+    "Hash": "7F8492CF48DBB764AF626F89CE56A11D6D5C23657990694DD30AFABAC0D57A3B"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\info.json",
+    "Hash": "13BCC5D9D5A202AC75A33F01CF879010EE324E9CA711FFDBED5A6258E6D9B680"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll",
+    "Hash": "C013718742232B0F5B871E6913F67E58095655B772009A92782A97D94EBD7A53"
+  }
+]

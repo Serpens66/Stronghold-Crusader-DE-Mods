@@ -341,3 +341,37 @@ if ($economyCapture -match 'AiEconomyObservation' -or $economyCapture -notmatch 
     throw 'Diagnostic must use retained installed Bugfix and explicitly report unavailable protection decisions.'
 }
 Write-Host 'PASS: unchanged installed Bugfix 1.0.192 reference and explicit protection coverage gap.'
+
+# Source-only regression: never compile or install to verify this compatibility boundary.
+$economyContracts = [IO.File]::ReadAllText((Join-Path $project 'src\Diagnostics\EconomyHookContract.cs'))
+if ($economyNative -match '(?i)0x3f270|trade-controller' -or
+    $economyContracts -match '(?i)0x3f270|4533C04863C24C69C83C5800004C8D158CCF62034789841128161300438B8411' -or
+    $economyCapture -match 'kind == "trade-controller"' -or
+    $economyCapture -notmatch 'Coverage\("trade-controller", false, TradeControllerCoverageDetail, expectedUnavailable: true\)' -or
+    $economyCapture -notmatch 'foreach \(string stage in SummaryStages\)') {
+    throw 'Release Fixes compatibility requires no controller detour/contract/active expectation and an explicit coverage gap.'
+}
+$summaryStages = [regex]::Match($economyCapture, 'string\[\] SummaryStages = \{([^}]+)\}').Groups[1].Value
+if (-not $summaryStages -or $summaryStages -match 'trade-controller') {
+    throw 'An unobserved controller must not produce a zero-call summary finding.'
+}
+foreach ($stage in @('purchase-decision', 'ai-buy', 'ai-sell')) {
+    if ($summaryStages -notmatch [regex]::Escape('"' + $stage + '"')) { throw "Lost partial trade summary: $stage" }
+}
+foreach ($entry in @('ActionPair(context, 0x3EC90, "purchase-decision")', 'ActionPair(context, 0x40740, "ai-recruitment")',
+    'Add(context, 0x29650, buy,', 'Add(context, 0x29700, sell,',
+    'owner.SafeBegin("ai-buy",', 'owner.SafeBegin("ai-sell",')) {
+    if (-not $economyNative.Contains($entry)) { throw "Lost retained observation: $entry" }
+}
+foreach ($wrapper in @('buy', 'sell', 'node')) {
+    $originalCall = [regex]::Escape($wrapper + '.Handle.Original(state, player')
+    $expectedCount = if ($wrapper -eq 'node') { 2 } else { 1 }
+    if ([regex]::Matches($economyNative, $originalCall).Count -ne $expectedCount) {
+        throw "Retained wrapper original-call count differs: $wrapper"
+    }
+}
+foreach ($boundary in @('market-gate=unknown', 'buy-sell-alternation=unknown', 'aborted-sale-decisions=unknown',
+    'missing-controller-observations-are-not-evidence-of-no-trade')) {
+    if (-not $economyCapture.Contains($boundary)) { throw "Lost controller coverage boundary: $boundary" }
+}
+Write-Host 'PASS: controller absent from installation/contracts/counters; retained partial trade observations and explicit unknown coverage.'

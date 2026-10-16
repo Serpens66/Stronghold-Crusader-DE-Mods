@@ -1,6 +1,7 @@
 param(
     [ValidateSet('Observe','Active','Disabled')][string]$Mode = 'Observe',
     [string]$LogPath,
+    [switch]$RequireShadow,
     [string]$ExpectedArtifactRoot = $PSScriptRoot,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 )
@@ -65,5 +66,28 @@ if ($Mode -ne 'Disabled') {
 }
 if ($finish.Detail -notmatch ('(?:^|\s)mode=' + $Mode + '(?:\s|$)')) { throw 'Startup mode mismatch.' }
 if ($plugin.Detail -notmatch ('(?:^|\s)plugin=' + $pluginHash + '(?:\s|$)')) { throw 'Stale or unidentified plugin build in latest start.' }
+if ($RequireShadow -or $events.Marker -contains 'SHADOW_REQUIRED') {
+    if ($Mode -ne 'Active') { throw 'Shadow requires Active mode.' }
+    Ordered @('READY_OBSERVED','SHADOW_REQUIRED','CHAIN_HOOK_INSTALLED','COMPATIBILITY_ENTER','SHADOW_BEGIN','SHADOW_COMPLETE','PLUGIN_AWAKE','CHAIN_COMPLETE')
+    $summary = One 'SHADOW_COMPLETE'
+    if ($summary.Detail -notmatch '^candidates=(\d+) original=(\d+) added=(\d+) dependencies=(\d+) issuesBefore=(\d+) issuesAfter=(\d+) originalUnchanged=True$') { throw 'Invalid shadow summary.' }
+    $counts = @(1..6 | ForEach-Object { [int]$Matches[$_] })
+    $candidateEvents = @($events | Where-Object Marker -eq 'SHADOW_CANDIDATE')
+    $dependencyEvents = @($events | Where-Object Marker -eq 'SHADOW_DEPENDENCY')
+    $indexEvents = @($events | Where-Object Marker -eq 'SHADOW_INDEX')
+    foreach ($event in @($candidateEvents) + @($dependencyEvents) + @($indexEvents)) {
+        if ($event.Line -le (One 'SHADOW_BEGIN').Line -or $event.Line -ge $summary.Line) { throw 'Shadow record outside evaluation phase.' }
+    }
+    $candidates = @($candidateEvents | ForEach-Object { $_.Detail | ConvertFrom-Json })
+    $dependencies = @($dependencyEvents | ForEach-Object { $_.Detail | ConvertFrom-Json })
+    $indices = @($indexEvents | ForEach-Object { $_.Detail | ConvertFrom-Json })
+    if ($counts[0] -ne $candidates.Count -or $counts[1] -ne $indices.Count -or $counts[2] -ne @($candidates | Where-Object state -eq 'Eligible').Count -or $counts[3] -ne $dependencies.Count -or $counts[4] -ne @($dependencies | Where-Object originalIssue -eq $true).Count -or $counts[5] -ne @($dependencies | Where-Object shadowIssue -eq $true).Count) { throw 'Shadow counts inconsistent.' }
+    if (@($candidates | Where-Object { $_.state -notin @('Eligible','Excluded','Unclear') -or -not $_.guid -or -not $_.reason }).Count) { throw 'Incomplete candidate decision.' }
+    if (@($candidates | Group-Object guid | Where-Object Count -gt 1).Count) { throw 'Duplicate shadow candidate.' }
+    if (@($dependencies | Where-Object { $_.originalIssue -isnot [bool] -or $_.shadowIssue -isnot [bool] -or (-not $_.originalIssue -and $_.shadowIssue) }).Count) { throw 'Invalid/regressing shadow result.' }
+    foreach ($c in @($candidates | Where-Object state -eq 'Eligible')) { if ($indices.guid -contains $c.guid) { throw 'Original index entry proposed for replacement.' } }
+    if ((One 'SNAPSHOT').Detail -notmatch '^selected=(\d+)' -or [int]$Matches[1] -ne $candidates.Count) { throw 'Incomplete shadow inventory.' }
+    Write-Host "PASS: shadow inventory complete; $($counts[2]) proposed additions; issues $($counts[4]) -> $($counts[5]); original index unchanged."
+}
 Write-Host "PASS: $Mode probe markers and exact build identities in latest session."
 Write-Host 'Manual acceptance still required: original warning unchanged and main menu usable. No dependency-fix or gameplay proof.'

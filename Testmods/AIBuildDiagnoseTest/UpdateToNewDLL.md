@@ -32,7 +32,6 @@ owners produce an explicit gap. All independent entries/events remain active.
 | 0x2DBA0 | 10 | int(profile root, player); actual farm eligibility result |
 | 0x3B360 | 10 | int(profile root, player); wood retirement, refund/delete inside original |
 | 0xCC420 | 10 | int(player manager, mapper, player, feedback); actual resource gate, including demand writes |
-| 0x3F270 | 6 | void(profile root, player); market presence gate and alternating buy/sell controller |
 | 0x3EC90 | 6 | void(profile root, player); request priority, emergency/popularity gates, affordability |
 | 0x29650 | 10 | int(profile root, player, goods index, signed quantity); actual AI purchase |
 | 0x29700 | 9 | void(profile root, player, goods index, signed quantity); actual AI sale; entry includes JS |
@@ -57,6 +56,13 @@ Costs use Extender's explicit mapper-to-structure conversion, mirroring 0xC77C0,
 and its active cost-table getters; observed costs alone are not an eligibility result.
 
 0x3F270 requires the player's market and alternates purchase processing with sales.
+It is deliberately NOT instrumented: the installed Release Fixes 1.26.4 wheat-sale
+hook at 0x3F0C9 reads an incorrect caller stack slot, exposed by the managed
+controller detour. The controller detour and its exclusive entry contract are removed
+for the next process start; no live hook is undone, register repaired or replacement
+instrumentation installed. This configuration does not depend on any APIShared fix.
+The trade-controller coverage notice marks the market gate, alternation and aborted
+sale decisions unknown; controller call counts are not emitted as false negative evidence.
 0x3EC90 reads 25 request slots, applies its emergency/popularity/request gates, asks
 0xCEB10 for the actual final price, then calls either the ally-request path 0x300F0
 or purchase 0x29650. Purchase calls stock-add 0xB58B0 and only then deducts gold and
