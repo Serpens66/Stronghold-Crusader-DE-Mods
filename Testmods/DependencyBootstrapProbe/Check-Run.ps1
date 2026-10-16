@@ -2,6 +2,7 @@ param(
     [ValidateSet('Observe','Active','Disabled')][string]$Mode = 'Observe',
     [string]$LogPath,
     [switch]$RequireShadow,
+    [switch]$RequireCorrection,
     [string]$ExpectedArtifactRoot = $PSScriptRoot,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 )
@@ -66,7 +67,7 @@ if ($Mode -ne 'Disabled') {
 }
 if ($finish.Detail -notmatch ('(?:^|\s)mode=' + $Mode + '(?:\s|$)')) { throw 'Startup mode mismatch.' }
 if ($plugin.Detail -notmatch ('(?:^|\s)plugin=' + $pluginHash + '(?:\s|$)')) { throw 'Stale or unidentified plugin build in latest start.' }
-if ($RequireShadow -or $events.Marker -contains 'SHADOW_REQUIRED') {
+if ($RequireShadow -or $RequireCorrection -or $events.Marker -contains 'SHADOW_REQUIRED') {
     if ($Mode -ne 'Active') { throw 'Shadow requires Active mode.' }
     Ordered @('READY_OBSERVED','SHADOW_REQUIRED','CHAIN_HOOK_INSTALLED','COMPATIBILITY_ENTER','SHADOW_BEGIN','SHADOW_COMPLETE','PLUGIN_AWAKE','CHAIN_COMPLETE')
     $summary = One 'SHADOW_COMPLETE'
@@ -89,5 +90,38 @@ if ($RequireShadow -or $events.Marker -contains 'SHADOW_REQUIRED') {
     if ((One 'SNAPSHOT').Detail -notmatch '^selected=(\d+)' -or [int]$Matches[1] -ne $candidates.Count) { throw 'Incomplete shadow inventory.' }
     Write-Host "PASS: shadow inventory complete; $($counts[2]) proposed additions; issues $($counts[4]) -> $($counts[5]); original index unchanged."
 }
+if ($RequireCorrection -or $events.Marker -contains 'CORRECTION_MODE') {
+    $correctionMode = (One 'CORRECTION_MODE').Detail
+    if ($correctionMode -notin @('Enabled','Disabled')) { throw 'Invalid correction mode.' }
+    if ($RequireCorrection -and $correctionMode -ne 'Enabled') { throw 'Correction was not enabled.' }
+    if ($events.Marker -contains 'CORRECTION_FALLBACK') { throw 'Correction fell back to original index.' }
+    Ordered @('SHADOW_REQUIRED','CORRECTION_MODE','COMPATIBILITY_ENTER','SHADOW_COMPLETE','ORIGINAL_RESULT','PLUGIN_AWAKE')
+    $result = One 'ORIGINAL_RESULT'
+    if ($result.Detail -notmatch '^issues=(\d+) expected=(\d+) correction=(True|False)$') { throw 'Invalid original result.' }
+    $actualCount=[int]$Matches[1]; $expectedCount=[int]$Matches[2]; $applied=$Matches[3] -eq 'True'
+    $issueEvents=@($events|Where-Object Marker -eq 'ORIGINAL_ISSUE')
+    $issues=@($issueEvents|ForEach-Object{$_.Detail|ConvertFrom-Json})
+    if ($actualCount -ne $expectedCount -or $actualCount -ne $issues.Count -or $applied -ne ($correctionMode -eq 'Enabled')) { throw 'Original result mismatch.' }
+    foreach($event in $issueEvents) { if($event.Line -le (One 'SHADOW_COMPLETE').Line -or $event.Line -ge $result.Line) { throw 'Original issue outside return phase.' } }
+    if ($applied) {
+        Ordered @('SHADOW_COMPLETE','CORRECTION_PREPARED','CORRECTION_APPLIED','ORIGINAL_RESULT')
+        if ((One 'CORRECTION_PREPARED').Detail -cne "original=$($counts[1]) effective=$($counts[1]+$counts[2]) added=$($counts[2]) expectedIssues=$($counts[5])" -or (One 'CORRECTION_APPLIED').Detail -cne "effective=$($counts[1]+$counts[2])" -or $actualCount -ne $counts[5]) { throw 'Effective correction counters mismatch.' }
+        $receipt=Get-Content -Raw -LiteralPath (Join-Path $ExpectedArtifactRoot 'trial\expectations.json')|ConvertFrom-Json
+        $controlPath=Join-Path $GameDir 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp\info.json'
+        if ((FileHash $controlPath) -cne $receipt.ManifestSHA256) { throw 'Control fixture identity mismatch.' }
+        $control=Get-Content -Raw -LiteralPath $controlPath|ConvertFrom-Json
+        if ($control.GUID -cne $receipt.ControlGuid -or $control.Dependencies.Count -ne 3 -or $actualCount -ne 3) { throw 'Expected exactly three control issues.' }
+        foreach($dep in $control.Dependencies) {
+            $hits=@($issues|Where-Object { $_.consumer -ceq $receipt.ControlGuid -and $_.dependency -ceq $dep.GUID -and [string]$_.minimum -ceq [string]$dep.MinimumVersion -and [string]$_.maximum -ceq [string]$dep.MaximumVersion -and -not [string]::IsNullOrWhiteSpace($_.reason) })
+            if($hits.Count -ne 1) { throw 'Original check did not preserve an exact control requirement.' }
+        }
+        foreach($pair in $receipt.ResolvedPairs) {
+            $hits=@($dependencies|Where-Object { $_.consumer -ceq $pair.consumer -and $_.dependency -ceq $pair.dependency -and $_.originalIssue -and -not $_.shadowIssue })
+            if($hits.Count -ne 1 -or @($issues|Where-Object { $_.consumer -ceq $pair.consumer -and $_.dependency -ceq $pair.dependency }).Count) { throw 'Known false warning was not corrected.' }
+        }
+        if ($indices.guid -contains $receipt.MissingGuid -or $candidates.guid -contains $receipt.MissingGuid) { throw 'Missing control provider unexpectedly present.' }
+        Write-Host 'PASS: local corrected index used; original check returned exactly the three expected control errors.'
+    } elseif ($events.Marker -contains 'CORRECTION_APPLIED' -or $events.Marker -contains 'CORRECTION_PREPARED' -or $actualCount -ne $counts[4]) { throw 'Shadow-only mode changed effective results.' }
+}
 Write-Host "PASS: $Mode probe markers and exact build identities in latest session."
-Write-Host 'Manual acceptance still required: original warning unchanged and main menu usable. No dependency-fix or gameplay proof.'
+Write-Host 'Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.'

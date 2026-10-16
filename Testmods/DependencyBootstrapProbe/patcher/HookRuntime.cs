@@ -34,6 +34,7 @@ namespace DependencyBootstrapProbe
             if (chainHook != null) return;
             Mark("CHAIN_PREPARE", "validating loaded assembly and Start");
             Mark("SHADOW_REQUIRED", "stage=2; only a separate index copy may change");
+            ShadowRuntime.Configure();
             var assembly = typeof(BepInEx.Bootstrap.Chainloader).Assembly;
             Mark("CORE_BINARY", "sha256=" + ProbeIdentity.Hash(assembly.Location));
             if (!HashMatches(assembly.Location, CoreHash)) { Mark("SKIP", "unknown BepInEx binary"); return; }
@@ -214,11 +215,21 @@ namespace DependencyBootstrapProbe
             var store = sites[0].Next;
             if (store == null || !store.OpCode.Name.StartsWith("stloc", StringComparison.Ordinal)) throw new InvalidOperationException("SE issue-list store changed");
             RejectBoundary(il, store.Next);
+            var returns = il.Body.Instructions.Where(i => i.OpCode == OpCodes.Ret).ToArray();
+            if (returns.Length != 1) throw new InvalidOperationException("SE result contract mismatch");
+            RejectBoundary(il, returns[0]);
             var cursor = new ILCursor(il);
+            cursor.Goto(returns[0], MoveType.Before);
+            cursor.Emit(OpCodes.Dup);
+            cursor.Emit(OpCodes.Call, typeof(ShadowRuntime).GetMethod("ObserveResult", BindingFlags.Static | BindingFlags.NonPublic));
             cursor.Goto(store, MoveType.After);
             cursor.Emit(OpCodes.Ldarg_0);
             cursor.Emit(OpCodes.Ldloc, indices[0]);
             cursor.Emit(OpCodes.Call, typeof(ShadowRuntime).GetMethod("Observe", BindingFlags.Static | BindingFlags.NonPublic));
+            cursor.Emit(OpCodes.Castclass, indices[0].VariableType);
+            cursor.Emit(OpCodes.Stloc, indices[0]);
+            cursor.Emit(OpCodes.Ldloc, indices[0]);
+            cursor.Emit(OpCodes.Call, typeof(ShadowRuntime).GetMethod("ConfirmIndex", BindingFlags.Static | BindingFlags.NonPublic));
             cursor.Goto(0);
             cursor.Emit(OpCodes.Call, Callback(nameof(OnCompatibilityEnter)));
         }

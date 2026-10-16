@@ -80,3 +80,43 @@ $rejected = $false
 try { & $checker -Mode Active -RequireShadow -LogPath $oldActive -ExpectedArtifactRoot $fixtureRoot -GameDir $fixtureRoot } catch { $rejected = $true }
 if (-not $rejected) { throw 'Stage-1 log accepted as shadow proof.' }
 Write-Host 'PASS synthetic log case: stage-1 cannot pass required shadow check'
+$controlDir=Join-Path $fixtureRoot 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp'
+[IO.Directory]::CreateDirectory($controlDir)|Out-Null
+$controlText='{"GUID":"control","Dependencies":[{"GUID":"missing"},{"GUID":"nested","MinimumVersion":"2.0"},{"GUID":"nested","MaximumVersion":"0.0"}]}'
+[IO.File]::WriteAllText((Join-Path $controlDir 'info.json'),$controlText)
+$sha=[Security.Cryptography.SHA256]::Create()
+try{$controlHash=[BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes((Join-Path $controlDir 'info.json')))).Replace('-','')}finally{$sha.Dispose()}
+[IO.Directory]::CreateDirectory((Join-Path $fixtureRoot 'trial'))|Out-Null
+$receipt=@{ManifestSHA256=$controlHash;ControlGuid='control';MissingGuid='missing';ResolvedPairs=@(@{consumer='root';dependency='nested'},@{consumer='root2';dependency='nested'})}
+[IO.File]::WriteAllText((Join-Path $fixtureRoot 'trial\expectations.json'),($receipt|ConvertTo-Json -Depth 5))
+$correct=@($shadow | ForEach-Object {
+    if($_ -match '\[DBP:SHADOW_COMPLETE\]'){
+        '[DBP:SHADOW_COMPLETE] candidates=1 original=1 added=1 dependencies=5 issuesBefore=5 issuesAfter=3 originalUnchanged=True'
+        '[DBP:CORRECTION_PREPARED] original=1 effective=2 added=1 expectedIssues=3'
+        '[DBP:CORRECTION_APPLIED] effective=2'
+        '[DBP:ORIGINAL_ISSUE] {"consumer":"control","dependency":"missing","reason":"missing"}'
+        '[DBP:ORIGINAL_ISSUE] {"consumer":"control","dependency":"nested","minimum":"2.0","reason":"too old"}'
+        '[DBP:ORIGINAL_ISSUE] {"consumer":"control","dependency":"nested","maximum":"0.0","reason":"too new"}'
+        '[DBP:ORIGINAL_RESULT] issues=3 expected=3 correction=True'
+    } else { $_ }
+    if($_ -match '\[DBP:SHADOW_REQUIRED\]'){ '[DBP:CORRECTION_MODE] Enabled' }
+    if($_ -match '\[DBP:SHADOW_DEPENDENCY\]'){
+        '[DBP:SHADOW_DEPENDENCY] {"consumer":"root2","dependency":"nested","originalIssue":true,"shadowIssue":false}'
+        '[DBP:SHADOW_DEPENDENCY] {"consumer":"control","dependency":"missing","originalIssue":true,"shadowIssue":true}'
+        '[DBP:SHADOW_DEPENDENCY] {"consumer":"control","dependency":"nested","originalIssue":true,"shadowIssue":true}'
+        '[DBP:SHADOW_DEPENDENCY] {"consumer":"control","dependency":"nested","originalIssue":true,"shadowIssue":true}'
+    }
+})
+CheckFixture 'correction-valid' $correct Active $true
+CheckFixture 'correction-no-apply' @($correct|Where-Object{$_ -notmatch '\[DBP:CORRECTION_APPLIED\]'}) Active $false
+CheckFixture 'correction-no-result' @($correct|Where-Object{$_ -notmatch '\[DBP:ORIGINAL_RESULT\]'}) Active $false
+CheckFixture 'correction-no-issue' @($correct|Where-Object{$_ -notmatch '\[DBP:ORIGINAL_ISSUE\].*"minimum"'}) Active $false
+CheckFixture 'correction-fallback' @($correct+'[DBP:CORRECTION_FALLBACK] original retained') Active $false
+CheckFixture 'correction-wrong-issue' @($correct|ForEach-Object{if($_ -match 'ORIGINAL_ISSUE'){ $_.Replace('"consumer":"control"','"consumer":"root"') }else{$_}}) Active $false
+CheckFixture 'correction-wrong-total' @($correct|ForEach-Object{$_.Replace('issues=3 expected=3','issues=2 expected=3')}) Active $false
+CheckFixture 'correction-wrong-effective' @($correct|ForEach-Object{$_.Replace('CORRECTION_APPLIED] effective=2','CORRECTION_APPLIED] effective=1')}) Active $false
+CheckFixture 'correction-disabled-apply' @($correct|ForEach-Object{$_.Replace('CORRECTION_MODE] Enabled','CORRECTION_MODE] Disabled')}) Active $false
+$rejected=$false
+try { & $checker -Mode Active -RequireCorrection -LogPath (Join-Path $fixtureRoot 'shadow-valid.log') -ExpectedArtifactRoot $fixtureRoot -GameDir $fixtureRoot } catch { $rejected=$true }
+if(-not $rejected){throw 'Shadow log passed correction acceptance.'}
+Write-Host 'PASS synthetic log case: shadow alone cannot pass required correction'

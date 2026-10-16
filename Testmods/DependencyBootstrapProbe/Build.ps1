@@ -1,8 +1,13 @@
-param([switch]$NoInstall)
+param([switch]$NoInstall, [switch]$CorrectionTrial)
 $ErrorActionPreference = 'Stop'
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { throw 'Close the game before building/installing.' }
+if ($CorrectionTrial) {
+    & (Join-Path $PSScriptRoot 'Test-CorrectionControl.ps1')
+    & (Join-Path $PSScriptRoot 'tests\Test-ControlLifecycle.ps1')
+    if (-not $NoInstall -and (Test-Path -LiteralPath (Join-Path $game 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp'))) { throw 'Control target already exists; preserve it.' }
+}
 & (Join-Path $PSScriptRoot 'verify.ps1')
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-SharedBoundaries.ps1') -ModDirectory 'Testmods\DependencyBootstrapProbe'
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-DependencyMetadata.ps1') -ProjectFiles (Join-Path $PSScriptRoot 'DependencyBootstrapProbe.csproj')
@@ -18,6 +23,10 @@ if (-not $NoInstall) { & (Join-Path $PSScriptRoot 'Set-ProbeMode.ps1') -Mode Obs
 $plugin = 'BepInEx\plugins\DependencyBootstrapProbe_Serp'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Destination (Join-Path $PSScriptRoot "$plugin\info.json") -Force
 $files = @('BepInEx\patchers\DependencyBootstrapProbe.Patcher.dll', "$plugin\DependencyBootstrapProbe.dll", "$plugin\info.json")
+if ($CorrectionTrial) {
+    $control = 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp\info.json'
+    $files += $control
+}
 foreach ($relative in $files) {
     $source = Join-Path $PSScriptRoot $relative
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing output: $relative" }
@@ -28,4 +37,4 @@ foreach ($relative in $files) {
         if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($source)) -cne [Convert]::ToBase64String([IO.File]::ReadAllBytes($target))) { throw "Copy verification failed: $relative" }
     }
 }
-Write-Host "Shadow probe built. Installed=$(-not $NoInstall). Game/Mono feasibility still requires a full game start."
+Write-Host "Correction-capable probe built. Installed=$(-not $NoInstall). Game/Mono feasibility still requires a full game start."

@@ -3,7 +3,8 @@ param(
     [ValidateSet('Observe','Active','Disabled','Remove')][string]$Mode = 'Disabled',
     [switch]$ConfirmMenuAndUnityLog,
     [string]$ObservedLogPath,
-    [string]$AcceptedStartupRoot
+    [string]$AcceptedStartupRoot,
+    [switch]$Correction
 )
 $ErrorActionPreference = 'Stop'
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
@@ -11,7 +12,9 @@ if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction Sile
 $root = [IO.Path]::GetFullPath((Join-Path $game 'BepInEx'))
 $active = Join-Path $root 'config\DependencyBootstrapProbe.active'
 $disabled = Join-Path $root 'config\DependencyBootstrapProbe.disabled'
-$ownFiles = @('patchers\DependencyBootstrapProbe.Patcher.dll','plugins\DependencyBootstrapProbe_Serp\DependencyBootstrapProbe.dll','plugins\DependencyBootstrapProbe_Serp\info.json','config\DependencyBootstrapProbe.active','config\DependencyBootstrapProbe.disabled')
+$correct = Join-Path $root 'config\DependencyBootstrapProbe.correct'
+if ($Correction -and ($Mode -ne 'Active' -or -not $AcceptedStartupRoot)) { throw 'Correction requires Active and an accepted shadow baseline.' }
+$ownFiles = @('patchers\DependencyBootstrapProbe.Patcher.dll','plugins\DependencyBootstrapProbe_Serp\DependencyBootstrapProbe.dll','plugins\DependencyBootstrapProbe_Serp\info.json','config\DependencyBootstrapProbe.active','config\DependencyBootstrapProbe.disabled','config\DependencyBootstrapProbe.correct')
 foreach ($relative in $ownFiles) {
     $absolute = [IO.Path]::GetFullPath((Join-Path $root $relative))
     if (-not $absolute.StartsWith($root+'\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Target escapes BepInEx root.' }
@@ -20,7 +23,7 @@ if ($Mode -eq 'Active') {
     if (-not $ConfirmMenuAndUnityLog) { throw 'First confirm usable menu and no new Unity initialization errors with -ConfirmMenuAndUnityLog.' }
     if ($AcceptedStartupRoot) {
         # A previously accepted active startup may authorize the unchanged early entry for the shadow extension.
-        & (Join-Path $PSScriptRoot 'Check-Run.ps1') -Mode Active -LogPath (Join-Path $AcceptedStartupRoot 'DependencyBootstrapProbe.trace.log') -ExpectedArtifactRoot $AcceptedStartupRoot -GameDir $AcceptedStartupRoot
+        & (Join-Path $PSScriptRoot 'Check-Run.ps1') -Mode Active -RequireShadow:$Correction -LogPath (Join-Path $AcceptedStartupRoot 'DependencyBootstrapProbe.trace.log') -ExpectedArtifactRoot $AcceptedStartupRoot -GameDir $AcceptedStartupRoot
         function HashFile([string]$p) {
             $s=[IO.File]::OpenRead($p); $h=[Security.Cryptography.SHA256]::Create()
             try { [BitConverter]::ToString($h.ComputeHash($s)).Replace('-','') } finally { $s.Dispose(); $h.Dispose() }
@@ -42,6 +45,11 @@ if ($Mode -eq 'Active') {
         & (Join-Path $PSScriptRoot 'Check-Run.ps1') -Mode Observe -LogPath $ObservedLogPath
     }
 }
+if ($Correction) {
+    & (Join-Path $PSScriptRoot 'Test-CorrectionControl.ps1')
+    $receipt=Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'trial\expectations.json')|ConvertFrom-Json
+    if ((HashFile (Join-Path $game 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp\info.json')) -cne $receipt.ManifestSHA256) { throw 'Installed trial controls differ from prepared controls.' }
+}
 if (-not $PSCmdlet.ShouldProcess($root,"Set probe mode: $Mode (only explicitly named probe files)")) { return }
 if ($Mode -eq 'Remove') {
     foreach ($relative in $ownFiles) {
@@ -52,12 +60,13 @@ if ($Mode -eq 'Remove') {
     return
 }
 [IO.Directory]::CreateDirectory((Join-Path $root 'config')) | Out-Null
-foreach ($file in @($active,$disabled)) { if (Test-Path -LiteralPath $file -PathType Leaf) { Remove-Item -LiteralPath $file -Force } }
+foreach ($file in @($active,$disabled,$correct)) { if (Test-Path -LiteralPath $file -PathType Leaf) { Remove-Item -LiteralPath $file -Force } }
 if ($Mode -eq 'Disabled') { [IO.File]::WriteAllText($disabled,'disabled until next explicit mode change') }
 if ($Mode -eq 'Active') {
     $stream=[IO.File]::OpenRead((Join-Path $root 'patchers\DependencyBootstrapProbe.Patcher.dll'))
     $sha=[Security.Cryptography.SHA256]::Create()
     try { $hash=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','') } finally {$sha.Dispose();$stream.Dispose()}
     [IO.File]::WriteAllText($active,$hash)
+    if ($Correction) { [IO.File]::WriteAllText($correct,$hash) }
 }
-Write-Host "Mode=$Mode; takes effect at next full game start."
+Write-Host "Mode=$Mode; Correction=$Correction; takes effect at next full game start."

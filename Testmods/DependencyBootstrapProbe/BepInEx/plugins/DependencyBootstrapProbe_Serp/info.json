@@ -3,7 +3,7 @@
   "Name": "Dependency Bootstrap Probe",
   "Author": "Serpens66",
   "Version": "0.1.0",
-  "Description": "Stage 1: observes early dependency startup without changing compatibility results.",
+  "Description": "Diagnostic probe: shadow inventory; optional build-bound local dependency index correction.",
   "Manifest": 1,
   "NetworkMode": 0
 }

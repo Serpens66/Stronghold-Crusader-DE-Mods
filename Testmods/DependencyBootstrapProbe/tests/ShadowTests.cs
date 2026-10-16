@@ -13,6 +13,7 @@ namespace DependencyBootstrapProbe
         private static void Require(bool ok, string name) { if (!ok) throw new Exception("Shadow fixture: " + name); }
         internal static void Run()
         {
+            TestIndexSwitch();
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shadow-fixtures");
             Directory.CreateDirectory(root);
             var original = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -68,6 +69,23 @@ namespace DependencyBootstrapProbe
             expect("Excluded", "manifest cycle");
             Require(original.Count == 0 && failed.Count == 0, "inputs unchanged");
             Console.WriteLine("PASS: shadow eligibility fixtures (manifest boundaries, versions, duplicates, process/exclusion, hard/soft/transitive/cyclic dependencies, source rejection and uncertainty).");
+        }
+        private static void TestIndexSwitch()
+        {
+            var value = new object();
+            var original = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { { "root", value } };
+            var prepared = new Dictionary<string, object>(original, StringComparer.OrdinalIgnoreCase) { { "nested", new object() } };
+            Require(ReferenceEquals(ShadowRuntime.SelectIndex(original, () => prepared, true), prepared), "complete copy selected");
+            Require(original.Count == 1 && ReferenceEquals(original["root"], value), "original immutable");
+            Require(ReferenceEquals(ShadowRuntime.SelectIndex(original, () => { throw new Exception(); }, true), original), "preparation exception fallback");
+            Require(ReferenceEquals(ShadowRuntime.SelectIndex(original, () => null, true), original), "null preparation fallback");
+            Require(ReferenceEquals(ShadowRuntime.SelectIndex(original, () => { throw new Exception("must not call"); }, false), original), "disabled preserves original");
+            prepared["root"] = new object();
+            Require(ReferenceEquals(ShadowRuntime.SelectIndex(original, () => prepared, true), original), "root replacement rejected");
+            prepared.Remove("root");
+            Require(ReferenceEquals(ShadowRuntime.SelectIndex(original, () => prepared, true), original), "missing original entry rejected");
+            Require(original.Count == 1 && ReferenceEquals(original["root"], value), "failed preparation preserves original");
+            Console.WriteLine("PASS: actual index selector, disabled path, complete copy, preparation failure and original-entry invariants.");
         }
         private static ShadowPlugin Plugin(string root, string guid)
         {

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.IO;
 
 namespace DependencyBootstrapProbe
 {
@@ -11,6 +12,18 @@ namespace DependencyBootstrapProbe
         internal static List<ShadowPlugin> Winners;
         internal static HashSet<string> Failed;
         private static int runs;
+        private static bool correction;
+        private static bool correctionReady;
+        private static object expectedIndex;
+        private static int expectedIssues;
+        internal static void Configure()
+        {
+            string path = Path.Combine(BepInEx.Paths.ConfigPath, "DependencyBootstrapProbe.correct");
+            correction = File.Exists(path);
+            if (correction && File.ReadAllText(path).Trim() != ProbeIdentity.Hash(typeof(ShadowRuntime).Assembly.Location))
+                throw new InvalidOperationException("Correction switch belongs to another build");
+            ProbeTrace.Mark("CORRECTION_MODE", correction ? "Enabled" : "Disabled");
+        }
         internal static ShadowPlugin FromInfo(BepInEx.PluginInfo info)
         {
             var result = new ShadowPlugin { Guid = info.Metadata.GUID, Version = info.Metadata.Version.ToString(), Path = info.Location };
@@ -20,10 +33,11 @@ namespace DependencyBootstrapProbe
             return result;
         }
         private static object Property(object value, string name) => value.GetType().GetProperty(name).GetValue(value, null);
-        internal static void Observe(object manager, object originalObject)
+        internal static object Observe(object manager, object originalObject)
         {
             try
             {
+                correctionReady = false;
                 if (++runs != 1 || Winners == null || Failed == null) throw new InvalidOperationException("shadow invocation/state mismatch");
                 ProbeTrace.Mark("SHADOW_BEGIN", "read-only; failures=" + Failed.Count);
                 foreach (var guid in Failed.OrderBy(g => g, StringComparer.Ordinal)) ProbeTrace.Mark("SHADOW_FAILED", guid);
@@ -78,8 +92,61 @@ namespace DependencyBootstrapProbe
                     throw new InvalidOperationException("shadow isolation invariant failed");
                 ProbeTrace.Mark("SHADOW_COMPLETE", "candidates=" + decisions.Count + " original=" + entries.Length + " added=" + added +
                     " dependencies=" + compared + " issuesBefore=" + before + " issuesAfter=" + after + " originalUnchanged=True");
+                expectedIssues = correction ? after : before;
+                expectedIndex = SelectIndex(original, () => shadow, correction);
+                if (correction && !ReferenceEquals(expectedIndex, shadow)) throw new InvalidOperationException("Prepared index rejected");
+                correctionReady = correction;
+                if (correction) ProbeTrace.Mark("CORRECTION_PREPARED", "original=" + entries.Length + " effective=" + shadow.Count + " added=" + added + " expectedIssues=" + after);
+                return expectedIndex;
             }
-            catch (Exception ex) { ProbeTrace.Mark("ERROR", "Shadow " + ex); }
+            catch (Exception ex)
+            {
+                expectedIndex = originalObject;
+                expectedIssues = -1;
+                ProbeTrace.Mark("ERROR", "Shadow " + ex);
+                if (correction) ProbeTrace.Mark("CORRECTION_FALLBACK", "original index retained");
+                return originalObject;
+            }
+        }
+        // Only a complete independent dictionary can replace the local. No original entry is ever overwritten.
+        internal static IDictionary SelectIndex(IDictionary original, Func<IDictionary> prepare, bool enabled)
+        {
+            if (!enabled) return original;
+            try
+            {
+                var candidate = prepare();
+                if (candidate == null || ReferenceEquals(candidate, original) || candidate.GetType() != original.GetType()) return original;
+                foreach (DictionaryEntry entry in original)
+                    if (!candidate.Contains(entry.Key) || !ReferenceEquals(candidate[entry.Key], entry.Value)) return original;
+                return candidate;
+            }
+            catch { return original; }
+        }
+        internal static void ConfirmIndex(object effective)
+        {
+            try
+            {
+                if (!ReferenceEquals(effective, expectedIndex)) throw new InvalidOperationException("Effective index differs from prepared index");
+                if (correctionReady) ProbeTrace.Mark("CORRECTION_APPLIED", "effective=" + ((IDictionary)effective).Count);
+            }
+            catch (Exception ex) { ProbeTrace.Mark("ERROR", "Index confirmation " + ex); }
+        }
+        internal static void ObserveResult(object result)
+        {
+            try
+            {
+                var issues = ((IEnumerable)result).Cast<object>().ToArray();
+                foreach (var issue in issues)
+                {
+                    var info = Property(issue, "Info"); var dependency = Property(issue, "Dependency");
+                    ProbeTrace.Mark("ORIGINAL_ISSUE", Line(new Dictionary<string, object> {
+                        {"consumer", Property(info, "GUID")}, {"dependency", Property(dependency, "GUID")},
+                        {"minimum", Property(dependency, "MinimumVersion")}, {"maximum", Property(dependency, "MaximumVersion")}, {"reason", Property(issue, "Reason")} }));
+                }
+                if (expectedIssues < 0 || issues.Length != expectedIssues) throw new InvalidOperationException("Original result differs from forecast");
+                ProbeTrace.Mark("ORIGINAL_RESULT", "issues=" + issues.Length + " expected=" + expectedIssues + " correction=" + correction);
+            }
+            catch (Exception ex) { ProbeTrace.Mark("ERROR", "Original result " + ex); }
         }
         private static string Line(object value) => Shared.DependencyFreeJson.Serialize(value).Replace("\r", "").Replace("\n", "");
         private static string ValidateCandidate(MethodInfo reader, string directory)

@@ -1,4 +1,4 @@
-# Dependency Bootstrap Probe: Schatteninventar
+# Dependency Bootstrap Probe: Schatteninventar und begrenzte Korrektur
 
 ## Abgeschlossene Startprüfung
 
@@ -45,3 +45,27 @@ Erst nach vollständigem Schattenbericht und erfolgreichem Spielstart die begren
 Build und Installation am 16.10.2026 19:44:18 erfolgreich. Modus Active mit passender Buildbindung gesetzt; lokale/installierte DLLs identisch. 32 Logpruefer-Faelle, zwoelf negative Hookvertraege, Policy-Fixtures, 75 originale SE-Abhaengigkeitsvergleiche und Pflichtpruefungen bestanden. Der neue Spielnachweis steht noch aus.
 
 Patcher SHA256: 46303CFE62CB69CA82F052E21EB272D5E11DB0B5B5E03670BDE24B0574F2778A. Plugin SHA256: C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6.
+
+## Abgenommene Schattenstufe und Korrekturversuch
+
+Der Schattenlauf vom 16.10.2026 19:46 bestand: 21 Gewinner, 10 originale Indexeinträge, 10 geeignete Ergänzungen, 8 geprüfte Anforderungen, Fehler 2 -> 0 ausschließlich in der Kopie. Alle 6 vorher erfüllten Anforderungen blieben erfüllt. Beide Originalwarnungen erschienen, keine gefundenen Startfehler, Chainloader-Abschluss und Post-Cleanup-Render vorhanden. Gesichert unter `_inspect/DependencyBootstrapProbe/Shadow-accepted-20261016-1946` einschließlich Vergleichsassemblies. Kein zusätzlicher Beobachtungs-/Disabled-Start erforderlich.
+
+Der nächste Build kann den geprüften Schattenindex lokal übernehmen. Finish/Listener sind unverändert. Erst die späte Hookruntime liest `BepInEx/config/DependencyBootstrapProbe.correct`; Inhalt muss genau dem Patcher-SHA256 entsprechen. Ohne diesen Schalter bleibt Active ein Schattenlauf. Ein veralteter Schalter verhindert die Hookvorbereitung; ein Vorbereitungsfehler im Callback gibt den Originalindex zurück. Keine teilweise Befüllung des Originals, kein Entfernen von Ergebnisfehlern, kein Dialoghook.
+
+Der vorhandene SE-Callback liefert den gewählten Index zurück; IL speichert ihn ausschließlich in der bisherigen lokalen Indexvariablen. Direkt danach bestätigt `CORRECTION_APPLIED` die wirklich gespeicherte Referenz. Ein stackneutraler Beobachter vor der originalen Rückgabe protokolliert jede `ORIGINAL_ISSUE` und `ORIGINAL_RESULT`. Der originale Ergebniswert wird unverändert zurückgegeben. `CORRECTION_PREPARED`, `CORRECTION_APPLIED` und übereinstimmendes Originalergebnis sind Pflichtnachweise; Schattenmarker allein genügen nicht.
+
+### Kombinierter positiver und negativer Versuch
+
+- `Prepare-CorrectionTrial.ps1 -AcceptedShadowRoot <gesicherter Schattenlauf>` erstellt ausschließlich im Workspace eine eigene leere Asset-Testkomponente. Positive Anforderungen werden aus den zwei im Schattenlauf gelösten Warnungen übernommen. Der Anbieter muss eindeutig geeignet sein.
+- Aktuelle drei Kontrollfehler: GUID `DependencyBootstrapProbe_IntentionallyMissing` fehlt; BugfixesAndQoL 1.0.192 erfüllt weder Mindestversion 2.0.0.0 noch Höchstversion 0.0.0.0. Grenzen werden aus der geprüften Version abgeleitet. Die Test-GUID darf im Ausgangsinventar nicht vorhanden sein.
+- Ziel ist ausschließlich `BepInEx/plugins/DependencyBootstrapProbeControl_Serp/info.json`; keine DLL/Assets. Der Name lautet `TEST ONLY - Dependency correction controls (3 expected errors)`. Vorhandene Zielordner werden nicht überschrieben.
+- `trial/expectations.json` hält Manifest-SHA256, Anbieter, ursprüngliche Version und positive Vergleichspaare fest. `Test-CorrectionControl.ps1` prüft Identität und Grenzwerte. Der Aufräumtest prüft WhatIf, fremde Dateien, veränderte Hashes und wiederholte Entfernung.
+- Nach allen Prüfungen `build.bat /nopause /correctiontrial` erhöht ausführen. Dieser Treiber installiert die zwei eigenen DLLs, das eigene reguläre Manifest und das Kontrollmanifest. Standard nach Build bleibt Observe.
+- Anschließend `Set-ProbeMode.ps1 -Mode Active -Correction -ConfirmMenuAndUnityLog -AcceptedStartupRoot <gesicherter Schattenlauf>`. Archivierter Schatten-PASS, unveränderter früher Quellpfad, Loaderhashes, lokale/installierte DLLs und Kontrollmanifest werden vor Aktivierung geprüft.
+- Nutzer startet einmal neu: Im Dialog ist nur die klar benannte Kontrollkomponente zu erwarten. Mit Ja fortsetzen, Menü bedienen und kurz warten. Die drei konkreten Kontrollfehler stehen im Log; die beiden bisherigen falschen Warnungen dürfen nicht mehr erscheinen. Kein Spielstand erforderlich.
+- Abnahme mit `Check-Run.ps1 -Mode Active -RequireCorrection` und aktuellen BepInEx-/Unity-Logs. Erwartung bei unveränderter Auswahl: 21 BepInEx-Gewinner, Originalindex 11 Einträge einschließlich Kontrollmanifest, 10 Ergänzungen, 11 Anforderungen, Fehler 5 -> 3; tatsächliche Originalrückgabe genau die drei Kontrollfehler. Keine sonstigen Fehler, vollständige Start-/Rendernachweise.
+- Erst nach erfolgreicher Auswertung und geschlossenem Spiel `Remove-CorrectionControl.ps1` ausführen. Es entfernt nur das hashbestätigte Kontrollmanifest und dessen dann leeren Ordner. Bei fremden Dateien, Reparse-Punkt oder verändertem Hash bleibt alles erhalten. Keine rekursive Löschung. Weitere vollständige Probeentfernung erfolgt separat über `Set-ProbeMode.ps1 -Mode Remove`.
+
+Status: Korrekturcode und Kontrollversuch vorbereitet; Spielnachweis dieser Stufe noch offen. APIShared-/Extender-Dateien bleiben unverändert; produktive Integration separat.
+
+Korrekturversuch am 16.10.2026 20:05:56 gebaut, installiert und mit Active + Correction aktiviert. Vier eigene Dateien lokal/installiert identisch; beide Aktivierungsschalter passen zum Patcher. Patcher-SHA256: 859A0F9A2AA63CE89CDBD8D7AE3C0A3AC56810CB3B8A19A20EBA9BD188AE1839. 42 synthetische Logpruefer-Faelle, 14 negative Hookvertraege, Indexwechsel-/Policy-/Aufraeumtests, 75 originale SE-Vergleiche und Pflichtpruefungen bestanden. Spielabnahme steht aus; Kontrollkomponente bis dahin installiert lassen.

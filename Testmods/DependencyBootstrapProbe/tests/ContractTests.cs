@@ -90,7 +90,7 @@ namespace DependencyBootstrapProbe
             var se = Assembly.LoadFrom(Path.Combine(game, "BepInEx/plugins/000shcdese/SHCDESE.dll"));
             var manager = se.GetType("SHCDESE.API.Components.ModManager.GameAssetModManager", true);
             var check = manager.GetMethod("PrepareAllAndCheckCompatibility", BindingFlags.NonPublic | BindingFlags.Instance);
-            foreach (string malformed in new[] { "missing index", "ambiguous index", "changed issues", "branch boundary" })
+            foreach (string malformed in new[] { "missing index", "ambiguous index", "changed issues", "branch boundary", "extra return", "return boundary" })
             using (var copy = new DynamicMethodDefinition(check))
             using (var context = new ILContext(copy.Definition))
             {
@@ -100,6 +100,8 @@ namespace DependencyBootstrapProbe
                 if (malformed == "ambiguous index") context.Body.Variables.Add(new VariableDefinition(index.VariableType));
                 if (malformed == "changed issues") site.OpCode = OpCodes.Nop;
                 if (malformed == "branch boundary") context.Body.Instructions.Insert(0, Instruction.Create(OpCodes.Br, site.Next.Next));
+                if (malformed == "extra return") context.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+                if (malformed == "return boundary") context.Body.Instructions.Insert(0, Instruction.Create(OpCodes.Br, context.Body.Instructions.Single(i => i.OpCode == OpCodes.Ret)));
                 var before = new BodySnapshot(context);
                 bool rejected = false;
                 try { HookRuntime.ModifyCompatibility(context); } catch (InvalidOperationException) { rejected = true; }
@@ -232,7 +234,7 @@ namespace DependencyBootstrapProbe
                     int start = pos;
                     while (pos < il.Body.Instructions.Count && !instructions.Contains(il.Body.Instructions[pos])) pos++;
                     var next = pos < il.Body.Instructions.Count ? il.Body.Instructions[pos] : null;
-                    bool duplicateType = next != null && IsCall(next, "UnityEngine.GameObject", "AddComponent");
+                    bool duplicateType = next != null && (IsCall(next, "UnityEngine.GameObject", "AddComponent") || next.OpCode == OpCodes.Ret);
                     int initial = duplicateType ? 1 : 0, depth = initial;
                     for (int n = start; n < pos; n++)
                     {
@@ -244,7 +246,7 @@ namespace DependencyBootstrapProbe
                     Require(depth == initial, "Inserted block changes original stack height");
                     groups++;
                 }
-                Require(groups == (chain ? 3 : 2), "Unexpected insertion blocks");
+                Require(groups == 3, "Unexpected insertion blocks");
             }
             private static int Pops(Instruction i)
             {
