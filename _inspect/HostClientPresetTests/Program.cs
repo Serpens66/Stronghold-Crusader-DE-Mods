@@ -26,10 +26,34 @@ internal static class Program
     private const int TrailSentinel = 900002;
     private const int AuthoritativeTrailSentinel = 900003;
 
+    internal static string PresetFixtureInstallRoot;
+
     private static int Main(string[] args)
     {
+        string documentsRoot = Path.Combine(Path.GetTempPath(), "HostClientDocuments-" + Guid.NewGuid().ToString("N"));
+        PresetFixtureInstallRoot = Path.Combine(documentsRoot, "installation");
+        Directory.CreateDirectory(PresetFixtureInstallRoot);
+        PersonalSettingsPaths.TestDocumentsDirectory = assembly =>
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return Path.Combine(documentsRoot, BitConverter.ToString(sha.ComputeHash(
+                    System.Text.Encoding.UTF8.GetBytes(Path.GetDirectoryName(assembly)))).Replace("-", "").Substring(0, 12));
+        };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "preset-storage")
+            {
+                TestLobbySettingsRouting();
+                TestPresetRegistrationWithoutExtenderPersistence();
+                TestSharedPerPlayerLobbyConvergence();
+                TestPersonalBundledExternalPresetSaveLoad();
+                TestPresetLocalRoundTrip();
+                TestDoNotPersistPresetExclusion();
+                DynamicPresetTests.Run();
+                Console.WriteLine("PASS: Documents storage, pre-binding registration, presets, authority and external configuration providers.");
+                return 0;
+            }
+
             if (args != null && args.Length == 1 && args[0] == "dynamic-presets") { DynamicPresetTests.Run(); return 0; }
 
             if (args != null && args.Length == 1 &&
@@ -143,8 +167,8 @@ internal static class Program
             TestUnitGoldCostSnapshot();
             TestSharedModSettingsSearchMatcher();
 
-            string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
-            string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
+            string pluginPath = Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll");
+            string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.HostClientTest").SettingsFile;
             if (File.Exists(settingsPath))
                 File.Delete(settingsPath);
 
@@ -310,15 +334,12 @@ internal static class Program
             GameNetworkAPI.Networked = true;
             GameNetworkAPI.LocalHost = true;
             var singleplayer = new MixedViewModel();
-            string singleplayerPath = Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                "LobbyModSettings",
-                "SingleplayerTrailTest.msgpack");
+            string singleplayerPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.SingleplayerTrailTest").SettingsFile;
             if (File.Exists(singleplayerPath))
                 File.Delete(singleplayerPath);
             singleplayer.PreparePresets(
                 null,
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SingleplayerTrailTest.dll"),
+                Path.Combine(PresetFixtureInstallRoot, "SingleplayerTrailTest.dll"),
                 "SingleplayerTrailTest");
             singleplayer.ActivatePresets();
 
@@ -356,7 +377,7 @@ internal static class Program
             GameNetworkAPI.MultiplayerGame = true;
 
             var activation = new ActivationViewModel();
-            activation.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Activation.dll"), "ActivationTest");
+            activation.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "Activation.dll"), "ActivationTest");
             GameNetworkAPI.LocalHost = true;
             activation.System_RefreshSettingsAccess();
             Check(activation.HasHostSettingsActivation && activation.HasClientSettingsActivation,
@@ -375,7 +396,7 @@ internal static class Program
                 "shared activation bindings did not preserve host/client authority");
 
             var hostOnly = new HostOnlyViewModel();
-            hostOnly.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HostOnly.dll"), "HostOnlyTest");
+            hostOnly.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "HostOnly.dll"), "HostOnlyTest");
             GameNetworkAPI.LocalHost = false;
             hostOnly.System_RefreshSettingsAccess();
             Check(!hostOnly.CanChangePreset, "pure host mod exposed a functional client preset");
@@ -390,7 +411,7 @@ internal static class Program
                 "client settings without a dedicated activation property exposed an unusable header switch");
 
             var conflicting = new ConflictingAttributesViewModel();
-            conflicting.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Conflicting.dll"), "ConflictingTest");
+            conflicting.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "Conflicting.dll"), "ConflictingTest");
             Check(conflicting.HasHostSettings && !conflicting.HasClientSettings, "SyncHostOnly did not take precedence over a conflicting client attribute");
 
             Console.WriteLine("PASS: routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels");
@@ -400,6 +421,11 @@ internal static class Program
         {
             Console.Error.WriteLine("FAIL: " + exception);
             return 1;
+        }
+        finally
+        {
+            PersonalSettingsPaths.TestDocumentsDirectory = null;
+            if (Directory.Exists(documentsRoot)) Directory.Delete(documentsRoot, true);
         }
     }
 
@@ -559,11 +585,10 @@ internal static class Program
     {
         const string modName = "PresetStorageOptOutProbe";
         const string targetGuid = "tests.preset-storage-opt-out-probe";
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, modName + ".dll");
-        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, modName + ".dll");
+        string settingsPath = Path.Combine(PresetFixtureInstallRoot,
             "LobbyModSettings", modName + ".msgpack");
-        string migratedPresetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings", "Presets", "Override", targetGuid,
+        string migratedPresetPath = Path.Combine(new PersonalSettingsPaths(pluginPath, targetGuid).Presets,
             "preset_legacy-preset-1.json");
         Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
         if (File.Exists(migratedPresetPath))
@@ -583,6 +608,7 @@ internal static class Program
         plugin.Info.Metadata.GUID = targetGuid;
         var viewModel = new HostOnlyViewModel();
         LobbyModSettingsPresetRegistration.Register(plugin, null, modName, viewModel, "unused.xaml");
+        settingsPath = new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile;
         Check(!manager.LastUseBuiltInPersistence &&
               viewModel.HostValue == 123,
             "preset registration did not restore legacy values before opting out of Extender persistence");
@@ -1966,8 +1992,8 @@ internal static class Program
         Check(observedSurrenderBody.SequenceEqual(new byte[] { 0x01 }),
             "surrender execution body is no longer the expected one-byte minimal payload");
 
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SurrenderAndStatisticsSetting.dll");
-        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "SurrenderAndStatisticsSettingTest.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "SurrenderAndStatisticsSetting.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.SurrenderAndStatisticsSettingTest").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -4395,11 +4421,8 @@ internal static class Program
 
     private static void TestMarketOrderPresetRoundTrip()
     {
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MarketOrderPresetTest.dll");
-        string settingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "MarketOrderPresetTest.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "MarketOrderPresetTest.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.MarketOrderPresetTest").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -4427,8 +4450,8 @@ internal static class Program
 
     private static void TestBuildPreviewLocalIntegration()
     {
-        string pluginPath=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"BuildPreviewPresetProbe.dll");
-        string settingsPath=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"LobbyModSettings","BuildPreviewPresetProbe.msgpack");
+        string pluginPath=Path.Combine(PresetFixtureInstallRoot,"BuildPreviewPresetProbe.dll");
+        string settingsPath=new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.BuildPreviewPresetProbe").SettingsFile;
         if(File.Exists(settingsPath)) File.Delete(settingsPath);
         GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
         var vm=new BuildPreviewPresetProbe();
@@ -4455,11 +4478,8 @@ internal static class Program
 
     private static void TestPresetLocalRoundTrip()
     {
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PresetLocalRoundTrip.dll");
-        string settingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "PresetLocalRoundTrip.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "PresetLocalRoundTrip.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.PresetLocalRoundTrip").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -4477,12 +4497,9 @@ internal static class Program
             "PresetLocal working value did not survive restart");
 
         string castlePlannerPluginPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
+            PresetFixtureInstallRoot,
             "CastlePlannerPresetProbe.dll");
-        string castlePlannerSettingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "CastlePlannerPresetProbe.msgpack");
+        string castlePlannerSettingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.CastlePlannerPresetProbe").SettingsFile;
         if (File.Exists(castlePlannerSettingsPath))
             File.Delete(castlePlannerSettingsPath);
 
@@ -4536,11 +4553,8 @@ internal static class Program
 
     private static void TestDoNotPersistPresetExclusion()
     {
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DoNotPersistPreset.dll");
-        string settingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "DoNotPersistPreset.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "DoNotPersistPreset.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.DoNotPersistPreset").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -4575,7 +4589,7 @@ internal static class Program
         const string targetGuid = "Tests.PresetCatalogProbe";
         string root = Path.Combine(Path.GetTempPath(), "PresetCatalogProbe-" + Guid.NewGuid().ToString("N"));
         string pluginPath = Path.Combine(root, "Probe.dll");
-        string personalDirectory = Path.Combine(root, "LobbyModSettings", "Presets", "Override", targetGuid);
+        string personalDirectory = new PersonalSettingsPaths(pluginPath, targetGuid).Presets;
         string bundledDirectory = Path.Combine(root, "Override", targetGuid);
         string externalRoot = Path.Combine(root, "ExternalProvider");
         string externalDirectory = Path.Combine(externalRoot, "Override", targetGuid);
@@ -4639,7 +4653,7 @@ internal static class Program
                 "fixed/player/default load modes did not materialize the editable working state");
             vm.HostValue = 504;
             Dictionary<string, byte[]> payload = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(
-                File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack")));
+                File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile));
             Check(MessagePackSerializer.Deserialize<bool>(payload["__SerpPresetDirty"]),
                 "editing loaded values did not persist the modified state");
 
@@ -4692,7 +4706,7 @@ internal static class Program
             string normalStatus = vm.System_TestPresetStatusText;
             Check(normalStatus.Contains("Based on: Same name"),
                 "normal lobby preset status lost its published source");
-            byte[] normalWorkingFile = File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"));
+            byte[] normalWorkingFile = File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile);
             vm.System_EnterMissionPreset(
                 new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
                 "Trail",
@@ -4704,7 +4718,7 @@ internal static class Program
                 "Customize load did not resolve player values from the suspended normal working state");
             Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider",
                 "loading a preset into editable Trail did not show its actual source");
-            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"))),
+            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "loading a preset into editable Trail changed the normal working-state file");
             vm.HostValue = 777;
             Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider (modified)",
@@ -4722,7 +4736,7 @@ internal static class Program
             vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Mod defaults");
             Check(vm.System_TestPresetStatusText == "Mod defaults",
                 "resetting to Mod defaults retained the previous published preset source");
-            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"))),
+            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "editing or resetting the Trail working copy changed the normal working-state file");
             vm.System_ExitMissionPreset();
             Check(vm.HostValue == 505 && vm.ClientValue == 611 && vm.LocalValue == 301,
@@ -4854,7 +4868,7 @@ internal static class Program
         viewModel.PreparePresets(
             null,
             Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
+                PresetFixtureInstallRoot,
                 "SnapshotCompletionProbe.dll"),
             "SnapshotCompletionProbe");
         viewModel.ActivatePresets();

@@ -33,14 +33,9 @@ internal static class AssassinCapturedGatePresetTests
         Check(new Probe().EnableAssassinCapturedGateProtectionFix, "new setting defaults to enabled");
         string guid = "AssassinCapturedGatePresetProbe";
         string targetGuid = "Tests." + guid;
-        string plugin = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
-        string file = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", guid + ".msgpack");
-        string personalPresetDirectory = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "Presets",
-            "Override",
-            targetGuid);
+        string plugin = Path.Combine(Program.PresetFixtureInstallRoot, "TestPlugin.dll");
+        string file = new PersonalSettingsPaths(plugin, targetGuid).SettingsFile;
+        string personalPresetDirectory = new PersonalSettingsPaths(plugin, targetGuid).Presets;
         if (File.Exists(file)) File.Delete(file);
         if (Directory.Exists(personalPresetDirectory)) Directory.Delete(personalPresetDirectory, true);
         GameNetworkAPI.ThrowOnRoleQuery = false;
@@ -66,7 +61,7 @@ internal static class AssassinCapturedGatePresetTests
             "remote sync changed the locally stored host working state");
         GameNetworkAPI.LocalHost = true;
         string legacyGuid = guid + "Legacy";
-        string legacyFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", legacyGuid + ".msgpack");
+        string legacyFile = new PersonalSettingsPaths(plugin, "Tests." + legacyGuid).SettingsFile;
         WritePresetBool(legacyFile, "RemovedOldSetting", false);
         var legacy = new Probe();
         legacy.PreparePresets(null, plugin, legacyGuid);

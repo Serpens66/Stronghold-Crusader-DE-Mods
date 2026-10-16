@@ -101,6 +101,7 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
