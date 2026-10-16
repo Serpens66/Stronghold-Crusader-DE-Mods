@@ -21,7 +21,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods\SpectatorEditorBuildTest"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
@@ -35,6 +35,8 @@ rem APIShared source: /apishared:main (release branch) or /apishared:dev (local 
 call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
 if errorlevel 1 exit /b 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0..\.." -PackageDirectory "%API_SHARED_DIR%"
+if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -Command "$manifest = Get-Content -LiteralPath (Join-Path $env:API_SHARED_DIR 'info.json') -Raw | ConvertFrom-Json; if ($manifest.Version -ne '0.9.2') { throw 'This test-tools task requires unchanged APIShared main 0.9.2.' }"
 if errorlevel 1 exit /b 1
 set "PLUGIN_NAME=SpectatorEditorBuildTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"

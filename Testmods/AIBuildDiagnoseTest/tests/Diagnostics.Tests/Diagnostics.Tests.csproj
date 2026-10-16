@@ -1,18 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net481</TargetFramework>
+    <AssemblyName>AIBuildDiagnoseTest</AssemblyName>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GameDir Condition="'$(GameDir)' == ''">$(SHCDE_GAME_DIR)</GameDir>
+    <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.5.1" />
     <PackageReference Include="MSTest.TestFramework" Version="4.5.1" />
+    <Reference Include="BugfixesAndQoL"><HintPath>$(GameDir)\BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp\BugfixesAndQoL.dll</HintPath></Reference>
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
+    <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath></Reference>
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
@@ -23,8 +29,18 @@
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath></Reference>
     <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath></Reference>
     <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath></Reference>
+    <Compile Include="../../../CanarariWoodTest/src/CanarariWoodPlugin.cs" Link="Companion/CanarariWoodPlugin.cs" />
+    <Compile Include="../../../CanarariWoodTest/src/FixesFarmFilterOverride.cs" Link="Companion/FixesFarmFilterOverride.cs" />
+    <Compile Include="../../../CanarariWoodTest/src/DisposableProbePolicy.cs" Link="Companion/DisposableProbePolicy.cs" />
+    <Compile Include="../../../CanarariWoodTest/src/CanarariWoodRuntime.cs" Link="Companion/CanarariWoodRuntime.cs" />
+    <Compile Include="../../../CanarariWoodTest/src/FarmSiteContractProbe.cs" Link="Companion/FarmSiteContractProbe.cs" />
+    <Compile Include="../../../CanarariWoodTest/src/CanariFarmSwapProbe.cs" Link="Companion/CanariFarmSwapProbe.cs" />
+    <Compile Include="../../../../Shared/Adapters/APIShared/MissionEventsAdapter.cs" Link="Production/MissionEventsAdapter.cs" />
+    <Compile Include="../../../SpectatorEditorBuildTest/src/AvailabilityObservation.cs" Link="Owner/AvailabilityObservation.cs" />
     <Compile Include="../../src/Diagnostics/*.cs" Link="Production/%(Filename)%(Extension)" />
-    <Compile Include="../../../../BugfixesAndQoL/src/Diagnostics/*.cs" Link="Observation/%(Filename)%(Extension)" />
+    <Compile Include="../../src/AIBuildDiagnosePlugin.cs" Link="Production/AIBuildDiagnosePlugin.cs" />
+    <Compile Include="../../src/AIBuildDiagnoseRuntime.cs" Link="Production/AIBuildDiagnoseRuntime.cs" />
+    <Compile Include="../../src/GeneralSiteSearchHooks.cs" Link="Production/GeneralSiteSearchHooks.cs" />
     <Compile Include="../../../../Shared/Runtime/Diagnostics/DebugLogHelper.cs" Link="Production/DebugLogHelper.cs" />
   </ItemGroup>
 </Project>

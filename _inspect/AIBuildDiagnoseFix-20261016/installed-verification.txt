@@ -1,0 +1,3 @@
+PASS: AIBuildDiagnoseTest 0.2.1 installed; DLL, PDB and metadata match build output.
+PASS: 68 protected installed APIShared/Bugfix files unchanged; APIShared HEAD/status unchanged.
+PASS: 30 regressions; build exit 0; live game acceptance pending.

@@ -1,0 +1,5 @@
+PASS: physical movement classification and reconstruction distance-field oracle.
+PASS: prior Git sources preserve native fallback, edge/cost/cache checks, heap and command wrapper contracts.
+PASS: actual cached validator/stage/complete reasons, post-stage physical rejection, observer failures and 1000 exact completions.
+ASSASSIN SEARCH MODEL units=900 dijkstraExpanded=4134441 astarExpanded=589409 dijkstraMs=2824,51 astarMs=433,37
+PASS: 16257 Assassin A*/Dijkstra assertions.

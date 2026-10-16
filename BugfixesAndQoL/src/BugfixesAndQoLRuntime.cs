@@ -199,6 +199,16 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "Assassin climb-state synchronization",
                 assassinClimbRuntime.InitializeNetwork);
+            // Map-scoped fix state that the native save omits. Each record fails independently.
+            TryInitializePersistentFeature(
+                "single-building pause save data",
+                InitializeMovedFeatureSaveData);
+            TryInitializePersistentFeature(
+                "Assassin climb-state save data",
+                assassinClimbRuntime.InitializeSaveData);
+            TryInitializePersistentFeature(
+                "troop movement synchronization save data",
+                troopMovementFixRuntime.InitializeSaveData);
             TryInitializePersistentFeature(
                 "Assassin climb cancellation event",
                 assassinClimbCancellationRuntime.Initialize);
@@ -276,7 +286,9 @@ namespace BugfixesAndQoL
                 TrailCustomizationLaunchOriginApi.MarkMapStarted();
             assassinPathfindingRuntime.BeginMap();
             assassinCapturedGateProtectionRuntime.BeginMap();
-            assassinClimbRuntime.BeginMap();
+            assassinClimbRuntime.BeginMap(context);
+            TryApplyFeature("single-building pause save restore", () => RestoreMovedFeatureSaveState(context));
+            TryApplyFeature("troop movement save restore", () => troopMovementFixRuntime.RestoreSessionState(context));
             multiplayerGameSpeedRuntime.ApplySetting();
             troopActionHudCoordinator.Refresh();
         }

@@ -1,0 +1,31 @@
+[DBP:SESSION] id=synthetic
+[Info:fixture] [DBP:FINISH] mode=Active patcher=8A1C1A2B7B0B2E1131ABA2A65F168FA2141662B0FD5BEE7AAB3103C5E8AD9866
+[Info:fixture] [DBP:MODE] Active
+[Info:fixture] [DBP:LISTENER_ATTACHED] 
+[Info:fixture] [DBP:READY_OBSERVED] mode=Active; fixture
+[Info:fixture] [DBP:CHAIN_PREPARE] 
+[Info:fixture] [DBP:CORE_BINARY] sha256=A948C81DAC166AB996BA8415146A2556034087EF105058E42883DD772E5DAF12
+[Info:fixture] [DBP:CHAIN_TRANSFORMED] 
+[Info:fixture] [DBP:CHAIN_DELEGATE_BEGIN] 
+[Info:fixture] [DBP:CHAIN_DELEGATE_END] 
+[Info:fixture] [DBP:CHAIN_JIT_BEGIN] 
+[Info:fixture] [DBP:CHAIN_JIT_END] 
+[Info:fixture] [DBP:CHAIN_COPY_COMPILED] 
+[Info:fixture] [DBP:CHAIN_INSTALL] 
+[Info:fixture] [DBP:CHAIN_HOOK_INSTALLED] 
+[Info:fixture] [DBP:CHAIN_ENTER] 
+[Info:fixture] [DBP:SNAPSHOT] 
+[Info:fixture] [DBP:BEFORE_EXTENDER] snapshot=True type=fixture
+[Info:fixture] [DBP:SE_BINARY] sha256=D1C8EA2FF82AC84BB867056656E58E2198D8042F6D6DD2920336150F771FEC55
+[Info:fixture] [DBP:SE_PREPARE] 
+[Info:fixture] [DBP:SE_TRANSFORMED] 
+[Info:fixture] [DBP:SE_DELEGATE_BEGIN] 
+[Info:fixture] [DBP:SE_DELEGATE_END] 
+[Info:fixture] [DBP:SE_JIT_BEGIN] 
+[Info:fixture] [DBP:SE_JIT_END] 
+[Info:fixture] [DBP:SE_INSTALL] 
+[Info:fixture] [DBP:SE_HOOK_INSTALLED] 
+[Info:fixture] [DBP:COMPATIBILITY_ENTER] count=1
+[Info:fixture] [DBP:PLUGIN_AWAKE] plugin=6155F9A44261F7464C96F6AF77A66028A4D0FAE0EC8485391C62BD8A139C63A4 static render observer attached
+[Info:fixture] [DBP:CHAIN_COMPLETE] snapshot=True extender=True checks=1
+[Info:fixture] [DBP:POST_CLEANUP_RENDER] original Unity component destroyed; distinct render frames=120

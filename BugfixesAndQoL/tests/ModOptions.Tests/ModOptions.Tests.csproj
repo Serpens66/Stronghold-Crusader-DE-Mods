@@ -18,6 +18,8 @@
     <Compile Include="..\..\src\PlagueHerdLedger.cs" />
     <Compile Include="..\..\src\PlaguePopularityFix.cs" />
     <Compile Include="..\..\src\PlaguePopularitySaveState.cs" />
+    <Compile Include="..\..\src\SessionSaveRecordSlot.cs" />
+    <Compile Include="..\..\src\FeatureSaveStates.cs" />
     <Compile Include="..\..\src\TimerCountdownFeature.cs" />
     <Compile Include="..\..\src\TimerCountdownPolicy.cs" />
   </ItemGroup>

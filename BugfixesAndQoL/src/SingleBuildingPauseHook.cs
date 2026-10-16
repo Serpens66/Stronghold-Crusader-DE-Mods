@@ -35,6 +35,7 @@ namespace BugfixesAndQoL
         private const int ChoreProtocolVersion = 2;
         private const int SetSingleBuildingAction = 1;
         private const int ResetBuildingTypeAction = 2;
+        private const string SaveDataIdentifier = "BugfixesAndQoL-SingleBuildingPause";
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -58,6 +59,7 @@ namespace BugfixesAndQoL
         private R3PacketEventHook<SingleBuildingPausePacket> pausePacketHook;
         private IDisposable pausePacketSubscription;
         private IDisposable buildingDeleteSubscription;
+        private SessionSaveRecordSlot<SingleBuildingPauseSaveState> saveSlot;
 
         public SingleBuildingPauseHook(
             ManualLogSource log,
@@ -150,6 +152,80 @@ namespace BugfixesAndQoL
         public void ClearOverrides(string reason)
         {
             ClearManualSleepOverrides();
+        }
+
+        // The native save keeps each building's sleep byte, but not the override that stops the
+        // periodic type-wide synchronizer from resetting it after a load.
+        public void InitializeSaveData()
+        {
+            if (saveSlot != null)
+                return;
+
+            saveSlot = SessionSaveRecordSlot<SingleBuildingPauseSaveState>.Register(
+                log,
+                SaveDataIdentifier,
+                CaptureSaveState,
+                state => MessagePack.MessagePackSerializer.Serialize(state),
+                bytes => MessagePack.MessagePackSerializer.Deserialize<SingleBuildingPauseSaveState>(bytes));
+        }
+
+        private SingleBuildingPauseSaveState CaptureSaveState()
+        {
+            SingleBuildingPauseOverride[] entries = overrides.Snapshot();
+            var records = new SingleBuildingPauseSaveEntry[entries.Length];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                SingleBuildingPauseOverride entry = entries[index];
+                records[index] = new SingleBuildingPauseSaveEntry
+                {
+                    BuildingId = entry.BuildingId,
+                    GlobalId = entry.GlobalId,
+                    Owner = entry.Owner,
+                    BuildingType = (int)entry.BuildingType,
+                    IsSleeping = entry.IsSleeping
+                };
+            }
+
+            return new SingleBuildingPauseSaveState { Entries = records };
+        }
+
+        // Runs at the loaded session's start, before its first simulation tick, on every peer
+        // with that peer's save copy. Only the override store is restored: the native save
+        // already holds the matching sleep bytes, and the next native synchronization applies
+        // any difference through the regular interception path.
+        internal unsafe void RestoreFromSave(Shared.GameplaySessionStartedContext context)
+        {
+            if (saveSlot == null || !saveSlot.TryTake(context, out SingleBuildingPauseSaveState state))
+                return;
+
+            ClearManualSleepOverrides();
+            if (state.Entries.Length == 0)
+                return;
+            if (!settings.EnableMod || !settings.EnableSingleBuildingPause)
+            {
+                LogInfo($"single-building pause save data ignored because the feature is disabled: overrides={state.Entries.Length}.");
+                return;
+            }
+
+            int restored = 0;
+            int rejected = 0;
+            foreach (SingleBuildingPauseSaveEntry entry in state.Entries)
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
+                    building->r_AliveState != AliveState.IsAlive ||
+                    (int)building->r_GlobalId != entry.GlobalId ||
+                    building->r_PlayerIdOwner != entry.Owner ||
+                    (int)building->r_BuildingType != entry.BuildingType ||
+                    !SetManualSleepOverride(entry.BuildingId, entry.IsSleeping))
+                {
+                    rejected++;
+                    continue;
+                }
+
+                restored++;
+            }
+
+            LogInfo($"single-building pause overrides restored from save: restored={restored}, rejected={rejected}.");
         }
 
         internal void SetSleepStateBridge(

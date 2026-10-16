@@ -21,7 +21,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods\AIBuildDiagnoseTest"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
@@ -44,7 +44,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 set "SHCDE_GAME_DIR=%GAME_DIR%"
 echo [%date% %time%] Run tests
-dotnet test "%PROJECT_DIR%tests\Diagnostics.Tests\Diagnostics.Tests.csproj" --configuration Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" --logger trx --results-directory "%PROJECT_DIR%tests\Diagnostics.Tests\TestResults"
+dotnet test "%PROJECT_DIR%tests\Diagnostics.Tests\Diagnostics.Tests.csproj" --configuration Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" --logger trx --results-directory "%PROJECT_DIR%tests\Diagnostics.Tests\TestResults"
 if errorlevel 1 goto failed
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify.ps1"

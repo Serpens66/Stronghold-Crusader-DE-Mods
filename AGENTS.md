@@ -4,7 +4,7 @@ Gilt für alle Coding-Agenten (z. B. ChatGPT Codex, Claude Code). Von diesen Reg
 
 ## 1. Themendateien: Pflichtlektüre nach Auslöser
 
-Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen Vorschlag, Codeeingriff, Build oder Test vollständig lesen; ihre Regeln sind dann genauso verbindlich wie diese Datei. Mehrere Auslöser → mehrere Dateien. Im Zweifel lieber lesen.
+Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen Vorschlag, Codeeingriff, Build oder Test vollständig lesen; ihre Regeln sind dann genauso verbindlich wie diese Datei. Mehrere Auslöser → mehrere Dateien. Im Zweifel lieber lesen. Das Lesen einer Themendatei macht nicht automatisch sämtliche darin genannten Tests erforderlich; für alle Mods gilt die [Auswahl nach Relevanz](AGENTS/build-release.md#auswahl-der-prüfungen).
 
 | Auslöser | Pflichtlektüre |
 |---|---|
@@ -35,7 +35,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - **XAML-Patches:** `<Content>` mit genau einem Wurzelelement.
 - **Events statt Polling:** immer prüfen, ob ein passendes Event existiert (z. B. `OnKeyDown` statt `onBeforeRender`).
 - **Kompatibilität:** Jeder neue Code muss mit dem Script Extender und dem Fixes-Mod kompatibel sein (lokaler Klon zuerst, siehe §6); nach dem Fixes-Mod zu laden ist eine erlaubte Lösung.
-- **Pflichtprüfungen vor jedem Runtime-Build:** `Shared/Tools/Validation/Test-SharedBoundaries.ps1` sowie die Prüfungen der zutreffenden Themendateien.
+- **Pflichtprüfungen vor jedem Runtime-Build:** `Shared/Tools/Validation/Test-SharedBoundaries.ps1` auf den zu bauenden Mod und seine relevanten Quellen begrenzen; weitere Prüfungen nach [Relevanz](AGENTS/build-release.md#auswahl-der-prüfungen) und den konkreten Auslösern der Themendateien auswählen.
 
 ## 3. Kommunikation und Entscheidungen
 
@@ -53,7 +53,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - Analysewerkzeuge und Artefakte in `.inspect`, `.tools`, `.native-analysis` u. ä. nicht anschließend löschen.
 - Textdateien verwenden CRLF (außer ausdrücklich für Linux); sicheres Konvertierungsverfahren → [build-release.md](AGENTS/build-release.md).
 - Ersetzt neuer Code alten Code oder Dateien, keinen Fallback oder veraltete Version ungefragt parallel behalten; vorher fragen.
-- Build: erst **alle** Prüfungen und Codekontrollen abschließen, dann einmal die passende `build.bat` direkt mit erhöhten Rechten und `/nopause` ausführen; nicht selbst bauen oder kopieren. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
+- Build: erst **alle für den Mod relevanten** Prüfungen und Codekontrollen gemäß [Prüfauswahl](AGENTS/build-release.md#auswahl-der-prüfungen) abschließen, dann einmal die passende `build.bat` direkt mit erhöhten Rechten und `/nopause` ausführen; nicht selbst bauen oder kopieren. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
 - APIShared-Branch: Vor jedem Build eines APIShared-Verbrauchers immer mit dem Nutzer abklären, gegen welche APIShared-Branch gebaut wird (`build.bat /apishared:main` = Release-Branch, `/apishared:dev` = lokaler Entwicklungs-Checkout), sofern er das für die aktuelle Aufgabe nicht bereits festgelegt hat → [build-release.md](AGENTS/build-release.md).
 - Versionen erst ändern, wenn ein Feature fertig oder ein Bug final behoben ist (im Zweifel fragen); dann modweit atomar und mit Konsistenzprüfung → [build-release.md](AGENTS/build-release.md).
 - Commits und Veröffentlichungen nur auf ausdrücklichen Nutzerauftrag.

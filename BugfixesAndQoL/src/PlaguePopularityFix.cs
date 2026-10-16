@@ -62,7 +62,7 @@ namespace BugfixesAndQoL
         private readonly DetourHandle<CreateHerdDelegate> createHerdHook = new DetourHandle<CreateHerdDelegate>();
         private readonly HookHandle<X64InlineHook> popularityExitHook = new HookHandle<X64InlineHook>();
         private volatile HerdCapture currentCapture;
-        private bool saveHandlerRegistered;
+        private SessionSaveRecordSlot<PlaguePopularitySaveState> saveSlot;
         private volatile bool mapActive;
         private volatile bool correctionAvailable = true;
         private bool callbackFailureLogged;
@@ -117,15 +117,17 @@ namespace BugfixesAndQoL
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetMapState));
                 settings.SettingChanged += OnSettingChanged;
 
-                if (!ModSaveDataAPI.Instance.RegisterModDataHandler(
-                        SaveDataIdentifier,
-                        SaveState,
-                        LoadState,
-                        ResetMapState))
-                {
-                    throw new InvalidOperationException("Plague popularity save-data handler registration failed.");
-                }
-                saveHandlerRegistered = true;
+                // Registered last: the slot is a process-lifetime registration and rolls itself
+                // back when it fails, so the rollback below never leaves a handler behind.
+                // Herds are keyed by projectile slot and global ID, which the native save
+                // restores; the record is applied at the loaded session's start, after both
+                // Extender load passes and before the first simulation tick.
+                saveSlot = SessionSaveRecordSlot<PlaguePopularitySaveState>.Register(
+                    log,
+                    SaveDataIdentifier,
+                    CaptureSaveState,
+                    state => MessagePackSerializer.Serialize(state),
+                    DeserializeSaveState);
             }
             catch
             {
@@ -145,11 +147,8 @@ namespace BugfixesAndQoL
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            if (saveHandlerRegistered)
-            {
-                ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
-                saveHandlerRegistered = false;
-            }
+            // A published save slot stays registered; a disposed fix captures nothing, so
+            // later saves write a nil record instead of keeping an older archive entry.
             ResetMapState();
         }
 
@@ -289,6 +288,8 @@ namespace BugfixesAndQoL
             lock (stateGate)
             {
                 mapActive = true;
+                if (saveSlot != null && saveSlot.TryTake(context, out PlaguePopularitySaveState state))
+                    RestoreSaveState(state);
                 LogDebug(
                     () => $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
                     $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
@@ -375,11 +376,13 @@ namespace BugfixesAndQoL
             }
         }
 
-        private byte[] SaveState(SaveContext context)
+        // Returns null (written as MessagePack nil) when this map has no trustworthy ledger.
+        // An empty ledger is still saved, so the loaded save's older record cannot return.
+        private PlaguePopularitySaveState CaptureSaveState()
         {
             lock (stateGate)
             {
-                if (!context.IsSaveFile || !mapActive || !correctionAvailable || managedPlayerIds.Count == 0)
+                if (disposed || !mapActive || !correctionAvailable)
                     return null;
 
                 try
@@ -389,13 +392,13 @@ namespace BugfixesAndQoL
                     managedPlayerIds.CopyTo(players);
                     Array.Sort(players);
 
-                    PlagueHerdSaveRecord[] records = herds.ToSaveRecords();
-
-                    return MessagePackSerializer.Serialize(new PlaguePopularitySaveState
+                    var state = new PlaguePopularitySaveState
                     {
                         ManagedPlayerIds = players,
-                        Herds = records
-                    });
+                        Herds = herds.ToSaveRecords()
+                    };
+                    ValidateSaveState(state);
+                    return state;
                 }
                 catch (Exception ex)
                 {
@@ -405,36 +408,41 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void LoadState(byte[] bytes, LoadContext context)
+        // Runs in the Extender's native-load callbacks; the slot only parks the result.
+        // A nil record decodes to null and leaves the loaded session at its default state.
+        private static PlaguePopularitySaveState DeserializeSaveState(byte[] bytes)
         {
-            lock (stateGate)
+            PlaguePopularitySaveState state = MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(bytes);
+            if (state != null)
+                ValidateSaveState(state);
+            return state;
+        }
+
+        // Runs under stateGate at the loaded session's start; the previous session's End
+        // already reset the ledger and the per-map correction availability.
+        private void RestoreSaveState(PlaguePopularitySaveState state)
+        {
+            if (!correctionAvailable)
+                return;
+
+            try
             {
-                if (!context.IsSaveFile || !correctionAvailable)
-                    return;
-
-                try
-                {
-                    PlaguePopularitySaveState state =
-                        MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(bytes);
-                    ValidateSaveState(state);
-
-                    CancelAllDiagnostics();
-                    herds.Load(state.Herds);
-                    managedPlayerIds.Clear();
-                    foreach (int playerId in state.ManagedPlayerIds)
-                        managedPlayerIds.Add(playerId);
-                    foreach (PlagueHerdSaveRecord record in state.Herds)
-                        managedPlayerIds.Add(record.PlayerId);
-                    foreach (int playerId in managedPlayerIds)
-                        ArmPopularityDiagnostic(playerId);
-                }
-                catch (Exception ex)
-                {
-                    CancelAllDiagnostics();
-                    herds.Clear();
-                    managedPlayerIds.Clear();
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:436", $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
-                }
+                CancelAllDiagnostics();
+                herds.Load(state.Herds);
+                managedPlayerIds.Clear();
+                foreach (int playerId in state.ManagedPlayerIds)
+                    managedPlayerIds.Add(playerId);
+                foreach (PlagueHerdSaveRecord record in state.Herds)
+                    managedPlayerIds.Add(record.PlayerId);
+                foreach (int playerId in managedPlayerIds)
+                    ArmPopularityDiagnostic(playerId);
+            }
+            catch (Exception ex)
+            {
+                CancelAllDiagnostics();
+                herds.Clear();
+                managedPlayerIds.Clear();
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:RestoreSaveState", $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
             }
         }
 

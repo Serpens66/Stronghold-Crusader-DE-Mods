@@ -31,7 +31,7 @@
 - Suchoberfläche selbst mit `shared:ModSettingsSearch.Exclude="True"` ausschließen.
 - Direkt bedienbare Treffer verwenden ein neues Control mit sicherer Kopie des Original-Noesis-Bindings und gleichem DataContext (Setter, Commands, Persistenz, MP-Sync bleiben bei der Mod) und übernehmen die effektive Bearbeitbarkeit. Nie über `PropertyInfo.SetValue(...)` oder ein paralleles System ändern; nicht sicher klonbare Bindings bleiben Navigationstreffer.
 - Treffer bleiben auf die Breite der SerpsModsHost-Modsettings begrenzt (kein horizontaler Ergebnis-Scroll); im Treffer nur Modname, lokalisierter Titel und möglichst originalgetreuer Editor, Beschreibung nur als umbrechender 60000-ms-Hover-Tooltip.
-- Der XAML-Audit prüft, dass alle Preset-Projekte die Suche über APIShared erhalten und jedes interaktive Setting automatisch eindeutig zuordenbar ist oder explizite Suchmetadaten hat; keine pauschalen oder sachfremden Sammelmarkierungen.
+- Bei Änderungen an der Modsettings-Suche prüft der XAML-Audit, dass die betroffenen Preset-Projekte die Suche über APIShared erhalten und jedes interaktive Setting automatisch eindeutig zuordenbar ist oder explizite Suchmetadaten hat; keine pauschalen oder sachfremden Sammelmarkierungen.
 
 ## Tooltips in Modoptionen
 
@@ -53,5 +53,7 @@
 
 ## Pflichttests vor dem Build
 
-- `_inspect/HostClientPresetTests` plus XAML-Audit (Tooltips, Locale-Key-Parität, CRLF). Aufruf wie in `_inspect/HostClientPresetTests/README.md` (MSBuild/EXE; `dotnet run` ist für das .NET-Framework-Projekt ungeeignet).
-- Die Test-EXE immer mit erhöhten Rechten bzw. außerhalb der Sandbox ausführen: Sie prüft Persistenz mit atomarem `File.Replace`; in einer Sandbox kann das erste Anlegen der `.msgpack` gelingen, das Ersetzen aber mit `UnauthorizedAccessException` scheitern, was (wegen unterdrückter Logausgabe) nur als verlorener Presetwert erscheint. Ein Persistenz-/Restart-Fehler aus einem sandboxierten Lauf ist keine Produktregression; zuerst dieselbe EXE unverändert erhöht wiederholen, erst bei erneutem Fehlschlag fachlich untersuchen.
+- Es gilt die allgemeine [Auswahl nach Relevanz](build-release.md#auswahl-der-prüfungen).
+- `_inspect/HostClientPresetTests` ist nur bei Änderungen an Presets, Settings-Persistenz, Rollenrechten, Settings-Synchronisierung oder deren Integration verpflichtend; bei modbezogenen Änderungen die einschlägigen Fälle prüfen, bei Änderungen am gemeinsamen System auch die dadurch betroffenen Verbraucher. Aufruf wie in `_inspect/HostClientPresetTests/README.md` (MSBuild/EXE; `dotnet run` ist für das .NET-Framework-Projekt ungeeignet).
+- XAML-, Tooltip- und Locale-Prüfungen unabhängig davon anhand der betroffenen Oberfläche auswählen (einschließlich Locale-Key-Parität und CRLF der geänderten Dateien). Reine XAML-, Tooltip- oder Locale-Änderungen ohne Auswirkungen auf das Presetsystem erfordern keine Preset-Tests.
+- Wenn die Preset-Tests erforderlich sind oder ausdrücklich angefordert wurden, deren Test-EXE immer mit erhöhten Rechten bzw. außerhalb der Sandbox ausführen: Sie prüft Persistenz mit atomarem `File.Replace`; in einer Sandbox kann das erste Anlegen der `.msgpack` gelingen, das Ersetzen aber mit `UnauthorizedAccessException` scheitern, was (wegen unterdrückter Logausgabe) nur als verlorener Presetwert erscheint. Ein Persistenz-/Restart-Fehler aus einem sandboxierten Lauf ist keine Produktregression; zuerst dieselbe EXE unverändert erhöht wiederholen, erst bei erneutem Fehlschlag fachlich untersuchen.

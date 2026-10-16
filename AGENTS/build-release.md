@@ -7,9 +7,18 @@
 - Im Modpack-Repository ist `main` der releasefertige Stand; aktive und noch nicht releasefertige Arbeit gehört nach `develop`. Der normale Entwicklungs-Workspace bleibt auf `develop`.
 - Release-Fixes auf `main` nur gezielt übernehmen und prüfen; danach nach `develop` zurückführen. Fertige Entwicklung regulär nach `main` mergen. Bestehende Release-Tags und veröffentlichte Historie nicht verschieben.
 - APIShared bleibt ein unabhängiges Repository mit eigenem Branch-Workflow. Beide Modpack-Branches ignorieren dessen lokalen Checkout und enthalten keinen APIShared-Gitlink. Releases verwenden den festgehaltenen öffentlichen APIShared-`main`-Stand.
+
+## Auswahl der Prüfungen
+
+- Für alle Mods nur Prüfungen ausführen, die für den zu bauenden Mod, seine betroffenen Funktionen und den tatsächlichen Änderungsumfang relevant sind. Das Lesen einer Themendatei allein verpflichtet nicht zu sämtlichen dort genannten Tests; deren konkrete Auslöser beachten.
+- Prüfungen möglichst auf das Modprojekt und seine relevanten Abhängigkeiten bzw. Quelllinks begrenzen (z. B. `Test-SharedBoundaries.ps1 -ModDirectory <Modpfad>`). Änderungen an gemeinsam genutztem Code erfordern zusätzlich die einschlägigen Prüfungen der dadurch betroffenen Verbraucher. Bietet ein Prüfer keine passende Eingrenzung, die relevanten Fälle separat prüfen; keine fachfremde Gesamtsuite allein wegen dieser technischen Einschränkung verlangen.
+- Eine unveränderte APIShared-Referenz oder die gemeinsame Installation anderer Mods begründet allein keinen Gesamttest. Die fachlichen Auslöser für Preset- und UI-Prüfungen stehen in [modsettings-ui.md](modsettings-ui.md#pflichttests-vor-dem-build).
+- Fachfremde Fehler blockieren den Build nicht und lösen keine ungefragten Reparaturen aus. Bei ausdrücklich angeforderten Gesamttests fachfremde Befunde separat ausweisen; Fehler im relevanten Prüfbereich bleiben vor dem Build zu klären.
+- Vor dem Build kurz festhalten, welche Prüfungen erforderlich sind und warum.
+
 ## Build-Ablauf
 
-- Nach dem Erstellen oder Ändern eines Mods zuerst alle Prüfungen und Codekontrollen abschließen (z. B. `Test-SharedBoundaries.ps1`, `Test-DependencyMetadata.ps1`, `Test-PermanentNativeRuntimePatches.ps1`, mod-eigene `verify.ps1`, bei Modsettings die Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen.
+- Nach dem Erstellen oder Ändern eines Mods zuerst alle nach der [Prüfauswahl](#auswahl-der-prüfungen) relevanten Prüfungen und Codekontrollen abschließen (z. B. modbezogene Shared-Boundary- und Abhängigkeitsprüfungen, mod-eigene `verify.ps1`, bei betroffenen Modsettings-/UI-Funktionen die einschlägigen Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen.
 - Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) ausführen: `& '<Pfad>\build.bat' /nopause; exit $LASTEXITCODE`. Nicht selbst bauen oder kopieren; `build.bat` übernimmt Build und Installation in den Spieleordner. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
 
 ## APIShared-Branch für Verbraucher-Builds (Pflichtabklärung)

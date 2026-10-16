@@ -1,0 +1,24 @@
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+Public installed member: GameUnit.r_AliveState : SHCDESE.Interop.Enums.AliveState
+Public installed member: GameUnit.r_UnitChimp : SHCDESE.Interop.eChimps
+Public installed member: GameUnit.r_CurrentPositionTileId : System.UInt32
+Public installed member: GameUnit.r_NextPositionTileId2 : System.UInt32
+Public installed member: GameUnit.r_AIState : System.UInt16
+Public installed member: GameUnit.r_GlobalId : System.UInt32
+Public installed member: GameUnit.r_AI_LastIssuedTribeCommand : System.UInt16
+Public installed member: GameUnit.r_ControllableForPlayerId : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_PathPlanStateBitFlags : System.UInt16
+Public installed member: GameUnit.r_MovementSubstep : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionX : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionY : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_IsKilledByProjectile : System.UInt16
+Public installed member: GameUnit.r_CurrentSpeed : System.UInt16
+System.Span`1<SHCDESE.Interop.GameUnit> SHCDESE.API.GameUnitManagerAPI::GetUnitsAsSpan()
+System.Void SHCDESE.API.GameTimeManagerAPI::add_OnTick(System.Action`1<System.Int32>)
+PASS: installed public static AssassinPathAPI.SetDirectGatehouseClimbing(string,bool).
+PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.

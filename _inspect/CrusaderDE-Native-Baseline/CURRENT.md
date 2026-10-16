@@ -1,5 +1,9 @@
 # Current CrusaderDE Native Baseline
 
+- [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
+
+- [Offline AI test tools](./sem/FBCB9319/knowledge/SPECTATOR_TEST_TOOLS.md): full ally-order request path, exact Extender acceptance-event parameters, scoped forced acceptance, delivery reserves and private native-call monitor; static evidence with in-game acceptance still outstanding.
+
 - [Crenelated wall construction](./sem/FBCB9319/knowledge/CRENELATED_WALLS.md): complete human/AI placement and redraw flow, sticky high pieces, read-only native availability, ownership decoding and corrected current Chore-25 field contract.
 
 - [Savegame modsettings load boundaries](./sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md): multiplayer map-load routing, installed archive-context mismatch, Solo/Coop boundaries and readiness validation limits.
@@ -113,3 +117,5 @@ Published coverage: 4,478 native functions, 436,211 independently verified instr
 Additional offline queries: `slice`, `memory`, `switch`, `summary`, `type` and `changes`. They expose bounded value slices, 76,794 reconstructed memory accesses, 788 recovered layouts and 3,818 historical function comparisons. Reconstruction and audited contracts remain separate; partial flows, aliasing and decompiler diagnostics are explicit. See [usage and limits](./tools/semantic/ANALYSIS.md).
 
 Mod sources are mutable integration snapshots. Later edits do not invalidate Vanilla machine facts or block feature and summary queries. Hook checks retain machine evidence but report incomplete current ownership when the source inventory has changed. Concurrent baseline knowledge is preserved by publication guards.
+
+- [Savegame metadata without the original map](./sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md): confirmed Vanilla map-availability rejection, embedded Lord presentation, safe serialization boundary and desktop-tested managed testmod.

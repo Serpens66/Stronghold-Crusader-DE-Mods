@@ -1,0 +1,69 @@
+param(
+    [ValidateSet('Observe','Active','Disabled')][string]$Mode = 'Observe',
+    [string]$LogPath,
+    [string]$ExpectedArtifactRoot = $PSScriptRoot,
+    [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
+)
+$ErrorActionPreference = 'Stop'
+if (-not $LogPath) { $LogPath = Join-Path $GameDir 'BepInEx\DependencyBootstrapProbe.trace.log' }
+function FileHash([string]$path) {
+    $stream = [IO.File]::OpenRead($path); $sha = [Security.Cryptography.SHA256]::Create()
+    try { [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','') } finally { $sha.Dispose(); $stream.Dispose() }
+}
+$patcherPath = 'BepInEx\patchers\DependencyBootstrapProbe.Patcher.dll'
+$pluginPath = 'BepInEx\plugins\DependencyBootstrapProbe_Serp\DependencyBootstrapProbe.dll'
+$patcherHash = FileHash (Join-Path $ExpectedArtifactRoot $patcherPath)
+$pluginHash = FileHash (Join-Path $ExpectedArtifactRoot $pluginPath)
+if ((FileHash (Join-Path $GameDir $patcherPath)) -cne $patcherHash -or (FileHash (Join-Path $GameDir $pluginPath)) -cne $pluginHash) { throw 'Installed probe differs from expected local build.' }
+$lines = @(Get-Content -LiteralPath $LogPath)
+$starts = @(for ($i=0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '\[DBP:SESSION\]' -or $lines[$i] -match '\[Message:\s*BepInEx\].*BepInEx .* - Stronghold Crusader Definitive Edition') { $i } })
+if ($starts.Count -eq 0) { throw 'No BepInEx session marker; cannot assign evidence to a start.' }
+$session = @($lines[$starts[-1]..($lines.Count-1)])
+$events = @(for ($i=0; $i -lt $session.Count; $i++) {
+    if ($session[$i] -match '\[DBP:([A-Z_]+)\]\s*(.*)$') { [pscustomobject]@{ Marker=$Matches[1]; Detail=$Matches[2]; Line=$i } }
+})
+function One([string]$name) {
+    $hits = @($events | Where-Object Marker -eq $name)
+    if ($hits.Count -ne 1) { throw "Missing or repeated marker: $name ($($hits.Count))" }
+    $hits[0]
+}
+function Ordered([string[]]$names) {
+    $previous = -1
+    foreach ($name in $names) { $entry = One $name; if ($entry.Line -le $previous) { throw "Out-of-order marker: $name" }; $previous = $entry.Line }
+}
+if ($events.Marker -contains 'ERROR' -or $events.Marker -contains 'SKIP') { throw 'Probe error or skipped hook in latest start.' }
+$finish = One 'FINISH'
+if ($finish.Detail -notmatch ('(?:^|\s)patcher=' + $patcherHash + '(?:\s|$)')) { throw 'Stale or unidentified patcher build in latest start.' }
+if ($Mode -eq 'Disabled') {
+    Ordered @('FINISH','DISABLED','LISTENER_ATTACHED','READY_OBSERVED','PLUGIN_DISABLED','CHAIN_COMPLETE')
+    if (@($events | Where-Object { $_.Marker -notin @('SESSION','FINISH','DISABLED','LISTENER_ATTACHED','READY_OBSERVED','PLUGIN_DISABLED','CHAIN_COMPLETE') }).Count) { throw 'Active instrumentation appeared during disabled control run.' }
+    $plugin = One 'PLUGIN_DISABLED'
+    if ((One 'CHAIN_COMPLETE').Detail -cne 'snapshot=False extender=False checks=0') { throw 'Disabled run counters changed.' }
+} elseif ($Mode -eq 'Observe') {
+    Ordered @('FINISH','MODE','LISTENER_ATTACHED','READY_OBSERVED','PLUGIN_AWAKE','CHAIN_COMPLETE','POST_CLEANUP_RENDER')
+    if ((One 'MODE').Detail -cne 'Observe' -or (One 'READY_OBSERVED').Detail -notmatch '^mode=Observe;') { throw 'Not an observation run.' }
+    if (@($events | Where-Object { $_.Marker -notin @('SESSION','FINISH','MODE','LISTENER_ATTACHED','READY_OBSERVED','PLUGIN_AWAKE','CHAIN_COMPLETE','POST_CLEANUP_RENDER') }).Count) { throw 'Unexpected instrumentation during observation.' }
+    if ((One 'CHAIN_COMPLETE').Detail -cne 'snapshot=False extender=False checks=0') { throw 'Observation changed runtime counters.' }
+    $plugin = One 'PLUGIN_AWAKE'
+} else {
+    if ((One 'MODE').Detail -cne 'Active' -or (One 'READY_OBSERVED').Detail -notmatch '^mode=Active;') { throw 'Not an active run.' }
+    if ($events.Marker -contains 'DISABLED' -or $events.Marker -contains 'PLUGIN_DISABLED') { throw 'Probe disabled; use -Mode Disabled for that control run.' }
+    Ordered @('FINISH','MODE','LISTENER_ATTACHED','READY_OBSERVED','CHAIN_PREPARE','CORE_BINARY','CHAIN_TRANSFORMED','CHAIN_DELEGATE_BEGIN','CHAIN_DELEGATE_END','CHAIN_JIT_BEGIN','CHAIN_JIT_END','CHAIN_COPY_COMPILED','CHAIN_INSTALL','CHAIN_HOOK_INSTALLED','CHAIN_ENTER','SNAPSHOT','BEFORE_EXTENDER','SE_BINARY','SE_PREPARE','SE_TRANSFORMED','SE_DELEGATE_BEGIN','SE_DELEGATE_END','SE_JIT_BEGIN','SE_JIT_END','SE_COPY_COMPILED','SE_INSTALL','SE_HOOK_INSTALLED','COMPATIBILITY_ENTER','PLUGIN_AWAKE','CHAIN_COMPLETE','POST_CLEANUP_RENDER')
+    $plugin = One 'PLUGIN_AWAKE'
+    if ((One 'CHAIN_COMPLETE').Detail -cne 'snapshot=True extender=True checks=1') { throw 'Unexpected completion counters.' }
+    if ((One 'BEFORE_EXTENDER').Detail -notmatch '^snapshot=True type=') { throw 'Snapshot not ready before Extender.' }
+    if ((One 'COMPATIBILITY_ENTER').Detail -cne 'count=1') { throw 'Compatibility check count mismatch.' }
+    $post = One 'POST_CLEANUP_RENDER'
+    if ($post.Detail -notmatch '^original Unity component destroyed; distinct render frames=(\d+)$' -or [int]$Matches[1] -lt 120) { throw 'Post-cleanup lifetime not proven.' }
+    $coreHash = FileHash (Join-Path $GameDir 'BepInEx\core\BepInEx.dll')
+    $seHash = FileHash (Join-Path $GameDir 'BepInEx\plugins\000shcdese\SHCDESE.dll')
+    if ((One 'CORE_BINARY').Detail -cne "sha256=$coreHash" -or (One 'SE_BINARY').Detail -cne "sha256=$seHash") { throw 'Core/SE binaries differ from tested startup.' }
+}
+if ($Mode -ne 'Disabled') {
+    $post = One 'POST_CLEANUP_RENDER'
+    if ($post.Detail -notmatch '^original Unity component destroyed; distinct render frames=(\d+)$' -or [int]$Matches[1] -lt 120) { throw 'Post-cleanup lifetime not proven.' }
+}
+if ($finish.Detail -notmatch ('(?:^|\s)mode=' + $Mode + '(?:\s|$)')) { throw 'Startup mode mismatch.' }
+if ($plugin.Detail -notmatch ('(?:^|\s)plugin=' + $pluginHash + '(?:\s|$)')) { throw 'Stale or unidentified plugin build in latest start.' }
+Write-Host "PASS: $Mode probe markers and exact build identities in latest session."
+Write-Host 'Manual acceptance still required: original warning unchanged and main menu usable. No dependency-fix or gameplay proof.'

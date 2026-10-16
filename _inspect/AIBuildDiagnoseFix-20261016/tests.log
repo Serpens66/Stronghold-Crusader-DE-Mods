@@ -1,0 +1,5 @@
+Testlauf für "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIBuildDiagnoseTest\tests\Diagnostics.Tests\bin\Release\net481\AIBuildDiagnoseTest.dll" (.NETFramework,Version=v4.8.1)
+Insgesamt 1 Testdateien stimmten mit dem angegebenen Muster überein.
+Ergebnisdatei: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\AIBuildDiagnoseFix-20261016\TestResults\Serpens66_PC-SERPW11_2026-10-16_18_00_56_net481.trx
+
+Bestanden!   : Fehler:     0, erfolgreich:    30, übersprungen:     0, gesamt:    30, Dauer: 1 s - AIBuildDiagnoseTest.dll (net481)

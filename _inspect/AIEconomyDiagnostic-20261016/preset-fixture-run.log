@@ -1,0 +1,4 @@
+PASS: fear-factor host working state, client lock, sync and persistence
+PASS: captured-gate default, stored false, old preset, client lock, host sync and persistence
+PASS: gate-routing default, stored false, old preset, client lock, host sync and persistence
+PASS: routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels

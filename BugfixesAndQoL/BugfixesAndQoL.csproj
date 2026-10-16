@@ -258,6 +258,8 @@
     <Compile Include="src\PlagueApothecaryStateTransitionFix.cs" />
     <Compile Include="src\PlagueNativePatternValidator.cs" />
     <Compile Include="src\PlaguePopularitySaveState.cs" />
+    <Compile Include="src\FeatureSaveStates.cs" />
+    <Compile Include="src\SessionSaveRecordSlot.cs" />
     <Compile Include="src\PlacementCancelMoveSuppressionFeature.cs" />
     <Compile Include="src\PlacementCancelRightClickPolicy.cs" />
     <Compile Include="src\RandomOpponentLobbyPolicy.cs" />

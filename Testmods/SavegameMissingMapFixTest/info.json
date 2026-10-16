@@ -1,0 +1,12 @@
+{
+  "GUID": "SavegameMissingMapFixTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Savegame Missing Map Fix Test",
+  "Description": "Preserves embedded Skirmish save metadata when the original map is unavailable; restart remains disabled without the original map.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0,
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.9.2", "MaximumVersion": "" }]
+}

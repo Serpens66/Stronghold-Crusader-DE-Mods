@@ -94,6 +94,7 @@ namespace BugfixesAndQoL
     internal sealed unsafe class AssassinClimbRuntime : IDisposable
     {
         private const int ChoreProtocolVersion = 1;
+        private const string SaveDataIdentifier = "BugfixesAndQoL-AssassinClimb";
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
@@ -102,6 +103,7 @@ namespace BugfixesAndQoL
         private readonly int[] lastOperationIds = new int[9];
         private R3PacketEventHook<AssassinClimbStatePacket> packetHook;
         private IDisposable packetSubscription;
+        private SessionSaveRecordSlot<AssassinClimbSaveState> saveSlot;
         private bool initialized;
         private bool networkInitialized;
         private bool renderStateKnown;
@@ -179,11 +181,43 @@ namespace BugfixesAndQoL
             buttonViewModel.Hide();
         }
 
-        public void BeginMap()
+        // The per-player mode steers Assassin pathfinding, so a loaded game must continue with the
+        // saved modes on every peer. Chore operation IDs restart at zero on all peers.
+        public void InitializeSaveData()
+        {
+            if (saveSlot != null)
+                return;
+
+            saveSlot = SessionSaveRecordSlot<AssassinClimbSaveState>.Register(
+                log,
+                SaveDataIdentifier,
+                CaptureSaveState,
+                state => MessagePack.MessagePackSerializer.Serialize(state),
+                bytes => MessagePack.MessagePackSerializer.Deserialize<AssassinClimbSaveState>(bytes));
+        }
+
+        public void BeginMap(Shared.GameplaySessionStartedContext context)
         {
             ResetPlayerStates();
+            if (saveSlot != null && saveSlot.TryTake(context, out AssassinClimbSaveState state))
+            {
+                foreach (int playerId in state.ForbiddenPlayerIds)
+                    climbingAllowed[playerId] = false;
+                LogDebug($"Assassin climb modes restored from save: forbiddenPlayers={string.Join(",", state.ForbiddenPlayerIds)}.");
+            }
             InvalidateRenderState();
             RefreshButtonVisibility();
+        }
+
+        private AssassinClimbSaveState CaptureSaveState()
+        {
+            var forbidden = new System.Collections.Generic.List<int>();
+            for (int playerId = 1; playerId < climbingAllowed.Length; playerId++)
+            {
+                if (!climbingAllowed[playerId])
+                    forbidden.Add(playerId);
+            }
+            return new AssassinClimbSaveState { ForbiddenPlayerIds = forbidden.ToArray() };
         }
 
         public void EndMap()

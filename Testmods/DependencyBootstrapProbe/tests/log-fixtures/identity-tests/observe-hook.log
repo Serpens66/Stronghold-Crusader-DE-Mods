@@ -1,0 +1,9 @@
+[DBP:SESSION] id=synthetic
+[DBP:FINISH] mode=Observe patcher=8A1C1A2B7B0B2E1131ABA2A65F168FA2141662B0FD5BEE7AAB3103C5E8AD9866
+[DBP:MODE] Observe
+[DBP:LISTENER_ATTACHED] fixture
+[DBP:READY_OBSERVED] mode=Observe; fixture
+[DBP:PLUGIN_AWAKE] plugin=6155F9A44261F7464C96F6AF77A66028A4D0FAE0EC8485391C62BD8A139C63A4 static render observer attached
+[DBP:CHAIN_COMPLETE] snapshot=False extender=False checks=0
+[DBP:POST_CLEANUP_RENDER] original Unity component destroyed; distinct render frames=120
+[DBP:CHAIN_INSTALL] unexpected
