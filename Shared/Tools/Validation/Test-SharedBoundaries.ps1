@@ -168,4 +168,4 @@ if (-not $?) { throw 'UnitAccess contract preflight failed.' }
 $preflightWatch.Stop()
 Write-Host ('[Preflight] Completed in {0:N1}s.' -f $preflightWatch.Elapsed.TotalSeconds)
 
-& (Join-Path $PSScriptRoot 'Test-IngameTooltips.ps1') -Workspace $Workspace -ModDirectories $(if ($modRoot) { $scopedRoots } else { @() })
+& (Join-Path $PSScriptRoot 'Test-IngameTooltips.ps1') -Workspace $Workspace -ModDirectories $(if ($modRoot) { @($modRoot) } else { @() })

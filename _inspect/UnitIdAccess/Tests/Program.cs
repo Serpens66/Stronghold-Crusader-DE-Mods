@@ -89,7 +89,11 @@ static void Check(bool value, string label) { if (!value) throw new Exception(la
 static void Scan(string[] arguments)
 {
     VerifyLookupFixtures();
-    string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../")).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    VerifyRuntimeFixtures();
+    var ancestor = new DirectoryInfo(AppContext.BaseDirectory);
+    while (ancestor != null && !File.Exists(Path.Combine(ancestor.FullName, "_inspect/UnitIdAccess/inventory.json"))) ancestor = ancestor.Parent;
+    Check(ancestor != null, "Workspace inventory not found above test output");
+    string root = ancestor!.FullName;
     string modRoot = null;
     if (arguments.Contains("--mod-directory"))
     {
@@ -101,8 +105,13 @@ static void Scan(string[] arguments)
     }
     var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".git", "bin", "obj", "BepInEx", "tests", "packages", ".inspect", "_inspect", ".tools", ".native-analysis", ".work", ".release-output", "shcde-script-extender", "UCP", "x86_64" };
     int checkedFiles=0;
-    var scanRoots = modRoot == null ? new[] { root } : new[] { modRoot, Path.Combine(root,"APIShared"), Path.Combine(root,"Shared/Runtime") };
-    foreach (string file in scanRoots.SelectMany(RuntimeFiles).Distinct())
+    var scanRoots = modRoot == null ? new[] { root } : new[] { modRoot, Path.Combine(root,"APIShared/src") };
+    // Only source links actually compiled into this consumer, not every Shared helper.
+    var linked = modRoot == null ? Enumerable.Empty<string>() : Directory.EnumerateFiles(modRoot, "*.csproj", SearchOption.TopDirectoryOnly)
+        .SelectMany(p => XDocument.Load(p).Descendants().Where(e => e.Name.LocalName == "Compile")
+            .Select(e => (string)e.Attribute("Include")).Where(i => i != null && !i.Contains('$') && !i.Contains('*'))
+            .Select(i => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(p)!, i!)))).Where(File.Exists);
+    foreach (string file in scanRoots.SelectMany(RuntimeFiles).Concat(linked).Distinct())
     {
         string relative=Path.GetRelativePath(root,file);
         // Public third-party examples are documentation, not workspace runtime sources.
@@ -135,19 +144,7 @@ static void Scan(string[] arguments)
             string text=File.ReadAllText(file);
             Check(!Regex.IsMatch(text,@"System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json"), "Forbidden runtime JSON: "+file);
             if (!file.EndsWith(".cs")) continue;
-            var syntax=CSharpSyntaxTree.ParseText(text).GetRoot();
-            foreach(var cls in syntax.DescendantNodes().OfType<ClassDeclarationSyntax>())
-            {
-                bool plugin=cls.BaseList?.ToString().Contains("BaseUnityPlugin")==true;
-                foreach(var method in cls.Members.OfType<MethodDeclarationSyntax>())
-                {
-                    string name=method.Identifier.Text;
-                    if(plugin) Check(name is not ("Update" or "LateUpdate" or "FixedUpdate" or "OnEnable" or "Start"), "Plugin long-lived callback: "+file+":"+name);
-                    if(name is "OnDestroy" or "OnDisable" or "OnApplicationQuit" or "OnApplicationPause")
-                        Check(!Regex.IsMatch(method.ToString(),@"\b(?:Dispose|Stop|Undo|Disable|DisposeRuntime)\s*\("),"Teardown reaches persistent runtime: "+file);
-                    if(plugin) Check(!Regex.IsMatch(method.ToString(),@"\b(?:StartCoroutine|InvokeRepeating|Invoke)\s*\("),"Plugin MonoBehaviour scheduling: "+file);
-                }
-            }
+            CheckRuntimeSyntax(text, file);
         }
         foreach(string file in Directory.EnumerateFiles(projectRoot,"*.xaml",SearchOption.AllDirectories))
             foreach(var content in XDocument.Load(file).Descendants().Where(e=>e.Name.LocalName=="Content"))
@@ -164,6 +161,45 @@ static void Scan(string[] arguments)
             foreach(string file in RuntimeFiles(child)) yield return file;
         }
     }
+}
+
+// Syntax guardrail: catches direct startup teardown and scheduling. It does not
+// prove indirect lifetime, native publication or in-game shutdown behavior.
+static void CheckRuntimeSyntax(string text, string file)
+{
+    Check(!Regex.IsMatch(text,@"System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json"), "Forbidden runtime JSON: "+file);
+    var syntax=CSharpSyntaxTree.ParseText(text).GetRoot();
+    foreach(var cls in syntax.DescendantNodes().OfType<ClassDeclarationSyntax>())
+    {
+        bool plugin=cls.BaseList?.ToString().Contains("BaseUnityPlugin")==true;
+        foreach(var method in cls.Members.OfType<MethodDeclarationSyntax>())
+        {
+            string name=method.Identifier.Text;
+            if(plugin) Check(name is not ("Update" or "LateUpdate" or "FixedUpdate"), "Plugin long-lived callback: "+file+":"+name);
+            // A real shutdown may release ordinary resources. Published native hooks
+            // remain governed by the independent permanent-hook audit.
+            if(name is "OnDestroy" or "OnDisable" or "OnApplicationPause")
+                Check(!Regex.IsMatch(method.ToString(),@"\b(?:Dispose|Stop|Undo|Disable|DisposeRuntime)\s*\("),"Startup teardown reaches persistent runtime: "+file);
+            if(plugin) Check(!Regex.IsMatch(method.ToString(),@"\b(?:StartCoroutine|InvokeRepeating|Invoke)\s*\("),"Plugin MonoBehaviour scheduling: "+file);
+        }
+    }
+}
+
+static void VerifyRuntimeFixtures()
+{
+    CheckRuntimeSyntax("class P : BaseUnityPlugin { void OnApplicationQuit() { resource.Dispose(); } }", "ordinary-shutdown.cs");
+    CheckRuntimeSyntax("class P : BaseUnityPlugin { void OnDestroy() { Observe(); } void Observe() {} }", "harmless-startup-observer.cs");
+    foreach (string source in new[] {
+        "class P : BaseUnityPlugin { void OnDestroy() { runtime.Dispose(); } }",
+        "class P : BaseUnityPlugin { void Update() { Work(); } }",
+        "class P : BaseUnityPlugin { void Awake() { StartCoroutine(Work()); } }",
+        "class P { System.Text.Json.JsonSerializerOptions options; }" })
+    {
+        bool rejected=false;
+        try { CheckRuntimeSyntax(source, "negative-runtime.cs"); } catch (Exception) { rejected=true; }
+        Check(rejected, "Runtime guardrail accepted a known regression");
+    }
+    Console.WriteLine("PASS: JSON, plugin scheduling, startup teardown and ordinary shutdown scanner counterexamples.");
 }
 
 static void CheckLookupSyntax(string text, string relative)

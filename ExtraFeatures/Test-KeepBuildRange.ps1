@@ -1,15 +1,19 @@
+[CmdletBinding()]
+param([string]$ExtenderDir = $env:SHCDESE_EXTENDER_DIR)
 $ErrorActionPreference = 'Stop'
 $policy = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'src\KeepBuildRangeOverride.cs')
 $tests = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'tests\KeepBuildRangeTests.cs')
 $runtime = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'src\KeepBuildRangeRuntime.cs')
 $harness = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'tests\KeepBuildRangeRuntimeHarness.cs')
-$redbird = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll'
+if (-not $ExtenderDir) { $ExtenderDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese' }
+$redbird = Join-Path $ExtenderDir 'RedBird.Core.dll'
 Add-Type -Path $redbird
 $body = [regex]::Replace(($policy + "`r`n" + $tests + "`r`n" + $runtime + "`r`n" + $harness), '(?m)^using [^;]+;\r?\n', '')
 $imports = 'using System; using APIShared; using BepInEx.Logging; using R3; using SHCDESE.API; using RedBird.Core.Memory.Managed;'
 Add-Type -TypeDefinition ($imports + "`r`n" + $body) -ReferencedAssemblies $redbird
 [ExtraFeatures.KeepBuildRangeTests]::Run()
 [ExtraFeatures.KeepBuildRangeRuntimeTests]::Run()
+# Supplementary integration guardrails only; not a runtime or network proof.
 $parentRuntime = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'src\ExtraFeaturesRuntime.cs')
 if ($parentRuntime -notmatch '(?s)if \(propertyName == nameof\(ExtraFeaturesViewModel.KeepBuildRange\)\)\s*\{\s*processKeepBuildRangeRuntime\?\.Refresh\(\);\s*return;' -or
     ($policy + $runtime) -match 'threadLock|SendPacket|EngineInterface') {
@@ -40,4 +44,4 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales')
         }
     }
 }
-Write-Output 'PASS: Keep range host setting, slider and locale contracts.'
+Write-Output 'PASS: Keep range settings, slider and locale integration guardrails (source/XML; no UI or network execution).'

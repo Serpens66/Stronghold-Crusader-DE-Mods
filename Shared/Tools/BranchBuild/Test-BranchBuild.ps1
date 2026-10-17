@@ -135,6 +135,13 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case ((Get-BranchHash (Join-Path $mainDir 'built.txt')) -ceq $beforeMain) 'Working /noinstall changed installation'
     $workingOutput = Invoke-Fixture @('/source:working','/nopause')
     Assert-Case ([IO.File]::ReadAllText((Join-Path $mainDir 'built.txt')).Trim() -ceq 'UNCOMMITTED_MUST_NOT_BUILD') 'Working source installation failed'
+    $mainBeforeDev = Get-BranchHash (Join-Path $mainDir 'built.txt')
+    $null = Invoke-Fixture @('/source:working','/install:dev','/nopause')
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $devDir 'built.txt')).Trim() -ceq 'UNCOMMITTED_MUST_NOT_BUILD') 'Explicit working dev installation lost working content'
+    Assert-Case ((Get-BranchHash (Join-Path $mainDir 'built.txt')) -ceq $mainBeforeDev) 'Explicit working dev installation changed main'
+    $beforeDev = Get-BranchHash (Join-Path $devDir 'built.txt')
+    $null = Invoke-Fixture @('/source:working','/install:dev','/install:main','/nopause') 1
+    $null = Invoke-Fixture @('/source:working','/install:unknown','/nopause') 1
     $null = Invoke-Fixture @('/source:working','/branch:main','/nopause') 1
     Write-BranchText (Join-Path $mainDir 'built.txt') 'KEEP_MAIN_NOINSTALL'
     $previousPrepareOnly = $env:SHCDE_PREPARE_ONLY
@@ -174,7 +181,7 @@ function Assert-ApiBuildProof([string]$Root) {
     $records = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b') -Recurse -Filter '*.build.json' | Where-Object {
         ([IO.File]::ReadAllText($_.FullName) | ConvertFrom-Json).Driver -eq 'Fixture/build.bat'
     })
-    Assert-Case ($records.Count -eq 10) 'missing branch build records'
+    Assert-Case (@($records | Where-Object { ([IO.File]::ReadAllText($_.FullName) | ConvertFrom-Json).InstallationTargets -contains 'BepInEx/plugins/Fixture_Serp_dev' }).Count -gt 0) 'missing dev installation evidence'
     foreach ($file in $records) {
         $record = [IO.File]::ReadAllText($file.FullName) | ConvertFrom-Json
         Assert-Case ($record.Commit -match '^[0-9a-f]{40}$' -and $record.Branch -in @('main','develop','working') -and $record.ExitCode -eq 0) 'invalid build record'

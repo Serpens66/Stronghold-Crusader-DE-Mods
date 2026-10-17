@@ -1,5 +1,6 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$GameDir, [Parameter(Mandatory)][string]$MSBuild)
+param([Parameter(Mandatory)][string]$GameDir, [Parameter(Mandatory)][string]$MSBuild, [string]$ExtenderDir)
+if (-not $ExtenderDir) { $ExtenderDir = Join-Path $GameDir 'BepInEx/plugins/000shcdese' }
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
@@ -8,7 +9,7 @@ $run = New-ShortWorkDirectory -Root $workspace -Kind t -Name cost-overrides -Ide
 $output = (Join-Path $run 'bin').Replace('\', '/') + '/'
 $intermediate = (Join-Path $run 'obj').Replace('\', '/') + '/'
 Write-Host ('[{0:HH:mm:ss.fff}] Cost ownership tests: {1}' -f (Get-Date), $run)
-& $MSBuild (Join-Path $PSScriptRoot 'CostOverrides.Tests.csproj') /nologo /verbosity:minimal /p:Configuration=Release "/p:GameDir=$GameDir" "/p:OutputPath=$output" "/p:BaseIntermediateOutputPath=$intermediate" "/p:IntermediateOutputPath=$intermediate" 2>&1 |
+& $MSBuild (Join-Path $PSScriptRoot 'CostOverrides.Tests.csproj') /nologo /verbosity:minimal /p:Configuration=Release "/p:GameDir=$GameDir" "/p:ExtenderDir=$ExtenderDir" "/p:OutputPath=$output" "/p:BaseIntermediateOutputPath=$intermediate" "/p:IntermediateOutputPath=$intermediate" 2>&1 |
     Tee-Object -FilePath (Join-Path $run 'build.log')
 if ($LASTEXITCODE -ne 0) { throw 'Cost ownership test build failed.' }
 & (Join-Path $output 'CostOverrides.Tests.exe') 2>&1 | Tee-Object -FilePath (Join-Path $run 'tests.log')

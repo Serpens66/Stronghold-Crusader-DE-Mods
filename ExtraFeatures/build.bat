@@ -34,7 +34,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "ExtraFeatures"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -54,8 +54,7 @@ echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
 if errorlevel 1 exit /b 1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
-if errorlevel 1 exit /b 1
+rem Package proof is checked at SDK selection and again at the MSBuild reference boundary.
 set "PLUGIN_NAME=ExtraFeatures_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
@@ -73,7 +72,7 @@ if errorlevel 1 (
 )
 
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify-repair.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify-repair.ps1" -GameDir "%GAME_DIR%" -ExtenderDir "%GAME_SCRIPT_EXTENDER_DIR%" -SkipSharedPreflight
 if errorlevel 1 goto build_failed
 
 if not exist "%MSBUILD%" goto build_failed
@@ -83,14 +82,14 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
 echo [%date% %time%] Cost ownership regression tests
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared.Tests\CostOverrides\Run-Tests.ps1" -GameDir "%GAME_DIR%" -MSBuild "%MSBUILD%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared.Tests\CostOverrides\Run-Tests.ps1" -GameDir "%GAME_DIR%" -MSBuild "%MSBUILD%" -ExtenderDir "%GAME_SCRIPT_EXTENDER_DIR%"
 if errorlevel 1 goto build_failed
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\ExtraFeaturesNativeTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\ExtraFeaturesNativeTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%GAME_SCRIPT_EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
-"%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\bin\ExtraFeaturesNativeTests.exe"
+"%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\bin\ExtraFeaturesNativeTests.exe" "%GAME_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
@@ -100,6 +99,10 @@ echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtraFeatures.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd
+
+echo [%date% %time%] Compiled classification and dependency contracts
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-CompiledContracts.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\ExtraFeatures.dll" -GameDir "%GAME_DIR%" -ExtenderDir "%EXTENDER_DIR%" -ApiSharedDir "%API_SHARED_DIR%"
+if errorlevel 1 goto build_failed
 
 echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul

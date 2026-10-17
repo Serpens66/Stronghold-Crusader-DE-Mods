@@ -56,6 +56,15 @@ function Get-BranchChoice([string[]]$DriverArguments) {
     if ($choices[0] -notin @('main','develop')) { throw 'Supported build branches: main, develop.' }
     return $choices[0]
 }
+function Get-BranchInstallSuffix([string]$Branch, [string[]]$DriverArguments) {
+    $choices = @($DriverArguments | Where-Object { $_ -match '^/install:' } | ForEach-Object { $_.Substring(9).ToLowerInvariant() } | Sort-Object -Unique)
+    if ($DriverArguments -icontains '/install' -or $choices.Count -gt 1 -or ($choices.Count -and $choices[0] -notin @('dev','main'))) {
+        throw 'Use one installation choice: /install:dev or /install:main.'
+    }
+    if ($choices.Count) { if ($choices[0] -eq 'dev') { return '_dev' }; return '' }
+    if ($Branch -eq 'develop') { return '_dev' }
+    return ''
+}
 function New-BranchSource([string]$Repository, [string]$Branch, [string]$Destination = '') {
     $commit = (Invoke-BranchGit $Repository @('rev-parse','--verify',$(if ($Branch -eq 'working') { 'HEAD^{commit}' } else { "refs/heads/${Branch}^{commit}" }))) -join ''
     if ($commit -cnotmatch '^[0-9a-f]{40}$') { throw "Missing local branch: $Branch" }
@@ -207,8 +216,8 @@ $installRelative = $relative -replace '^(BepInEx\\plugins\\[^\\]+)', '${1}_dev'
     return $Text
 }
 
-function Set-BranchBuildTools($Selection, [string]$ControllerRoot, [switch]$Api) {
-    $suffix = if ($Selection.Branch -eq 'develop') { '_dev' } else { '' }
+function Set-BranchBuildTools($Selection, [string]$ControllerRoot, [switch]$Api, [string[]]$DriverArguments) {
+    $suffix = Get-BranchInstallSuffix $Selection.Branch $DriverArguments
     $overrides = @()
     $tracked = @(Invoke-BranchGit $Selection.Root @('-c','core.quotepath=false','ls-files'))
     $installScripts = @('tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Testmods/MoatMove/tests/Install-Package.ps1',
@@ -248,7 +257,7 @@ function Invoke-SelectedBranchBuild {
     $selection = if ($SourceSelection) { $SourceSelection } else { New-BranchSource $Repository $Branch }
     $selectedDriver = Join-Path $selection.Root $Driver
     if (-not (Test-Path -LiteralPath $selectedDriver -PathType Leaf)) { throw "Driver $Driver does not exist on $Branch ($($selection.Commit))." }
-    $overrides = @(Set-BranchBuildTools $selection $ControllerRoot -Api:$Api)
+    $overrides = @(Set-BranchBuildTools $selection $ControllerRoot -Api:$Api -DriverArguments $DriverArguments)
     $oldEnvironment = @{}
     $names = @('SHCDE_BRANCH_SOURCE_ROOT','SHCDE_BRANCH_INSTALL_SUFFIX','SHCDE_BRANCH_NOINSTALL','SHCDE_BRANCH_API_ROOT','SHCDE_BRANCH_API_COMMIT',
         'SHCDE_API_SHARED_DIR','SHCDE_API_SHARED_BRANCH','SHCDE_API_SHARED_MAIN_SELECTION','SHCDE_BRANCH_NAME','SHCDE_BRANCH_COMMIT','SHCDE_BRANCH_MSBUILD_API',
@@ -258,7 +267,7 @@ function Invoke-SelectedBranchBuild {
     try {
         $env:SHCDE_BRANCH_SOURCE_ROOT = $selection.Root
         $env:SHCDE_BRANCH_NAME = $Branch; $env:SHCDE_BRANCH_COMMIT = $selection.Commit
-        $env:SHCDE_BRANCH_INSTALL_SUFFIX = if ($Branch -eq 'develop') { '_dev' } else { '' }
+        $env:SHCDE_BRANCH_INSTALL_SUFFIX = Get-BranchInstallSuffix $Branch $DriverArguments
         $env:SHCDE_BRANCH_NOINSTALL = if ($DriverArguments -icontains '/noinstall' -or $env:SHCDE_PREPARE_ONLY -eq '1') { '1' } else { '0' }
         $env:SHCDE_BRANCH_API_ROOT = $null; $env:SHCDE_BRANCH_API_COMMIT = $null
         $env:SHCDE_BRANCH_MSBUILD_API = $null
