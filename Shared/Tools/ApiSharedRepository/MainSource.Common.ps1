@@ -99,7 +99,11 @@ function Ensure-ApiMainBuild([string]$Workspace) {
         if(-not $env:SHCDESE_EXTENDER_DIR){$env:SHCDESE_EXTENDER_DIR=[string]$paths.ExtenderDir}
         if(-not $env:SHCDE_MSBUILD){$env:SHCDE_MSBUILD=[string]$paths.MSBuild}
     }
-    & (Join-Path $selection.Root 'build.bat') /nopause /noinstall
+    $previousBranchPinned = $env:SHCDE_BRANCH_PINNED
+    try {
+        $env:SHCDE_BRANCH_PINNED = $selection.Commit
+        & (Join-Path $selection.Root 'build.bat') /nopause /noinstall
+    } finally { $env:SHCDE_BRANCH_PINNED = $previousBranchPinned }
     if($LASTEXITCODE -ne 0){throw 'Pinned main build failed; consumers needing newer APIs must wait for a main release.'}
     $null=Assert-ApiBuildProof $selection.Root
     $null=Assert-ApiMainSelection $Workspace $env:SHCDE_API_SHARED_MAIN_SELECTION

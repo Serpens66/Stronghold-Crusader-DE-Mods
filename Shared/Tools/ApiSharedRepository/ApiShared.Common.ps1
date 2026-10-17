@@ -13,6 +13,14 @@ function Assert-ApiCheckout([string]$Workspace) {
     return $api
 }
 function Assert-ApiConsumerPackage([string]$Workspace, [string]$PackageDirectory, [switch]$Release) {
+    if ($env:SHCDE_BRANCH_API_ROOT -and -not $Release -and -not $env:SHCDE_API_SHARED_RELEASE_PROOF) {
+        $root = [IO.Path]::GetFullPath($env:SHCDE_BRANCH_API_ROOT).TrimEnd('\','/')
+        if (((Invoke-ApiGit $root @('rev-parse','HEAD')) -join '').Trim() -cne $env:SHCDE_BRANCH_API_COMMIT) { throw 'Selected SDK commit changed.' }
+        $expected = [IO.Path]::GetFullPath((Join-Path $root 'BepInEx/plugins/APIShared_Serp'))
+        if ($PackageDirectory -and [IO.Path]::GetFullPath($PackageDirectory).TrimEnd('\','/') -ine $expected) { throw 'SDK package differs from the selected branch build.' }
+        . (Join-Path $root 'tools/BuildProof.ps1')
+        return (Assert-ApiBuildProof $root)
+    }
     $api=if($env:SHCDE_API_SHARED_MAIN_SELECTION){Get-WorkshopApiRoot $Workspace}else{Assert-ApiCheckout $Workspace}
     if(-not $PackageDirectory -and $env:SHCDE_API_SHARED_RELEASE_PROOF){$PackageDirectory=$env:SHCDE_API_SHARED_DIR}
     if ($PackageDirectory -and $env:SHCDE_API_SHARED_RELEASE_PROOF) {

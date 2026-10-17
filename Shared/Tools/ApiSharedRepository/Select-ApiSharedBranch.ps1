@@ -21,6 +21,16 @@ function Write-Selection([string[]]$Lines) {
 }
 
 try {
+    if ($env:SHCDE_BRANCH_API_ROOT) {
+        $root = [IO.Path]::GetFullPath($env:SHCDE_BRANCH_API_ROOT)
+        $commit = ((Invoke-ApiGit $root @('rev-parse','HEAD')) -join '').Trim()
+        if ($commit -cne $env:SHCDE_BRANCH_API_COMMIT) { throw 'Selected branch SDK commit changed.' }
+        $null = Assert-ApiConsumerPackage $Workspace (Join-Path $root 'BepInEx/plugins/APIShared_Serp')
+        Write-Selection @(
+            'set "SHCDE_API_SHARED_MAIN_SELECTION="',
+            ('set "API_SHARED_DIR=' + (Join-Path $root 'BepInEx\plugins\APIShared_Serp') + '"'))
+        exit 0
+    }
     $Workspace = [IO.Path]::GetFullPath($Workspace).TrimEnd('\','/')
     $requested = @()
     foreach ($argument in @($DriverArguments)) {

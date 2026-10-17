@@ -1,0 +1,190 @@
+[CmdletBinding()]
+param([string]$Workspace)
+$ErrorActionPreference = 'Stop'
+if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
+. (Join-Path $PSScriptRoot 'BranchBuild.Common.ps1')
+$fixture = Join-Path ([IO.Path]::GetTempPath()) ('SHCDE Branch Build ' + [guid]::NewGuid().ToString('N'))
+[void][IO.Directory]::CreateDirectory($fixture)
+$repo = Join-Path $fixture 'repository'
+$game = Join-Path $fixture 'game'
+[void][IO.Directory]::CreateDirectory($repo)
+function Assert-Case([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message }; $script:cases++ }
+function Git-Fixture([string[]]$Arguments) { Invoke-BranchGit $repo $Arguments | Out-Null }
+function Invoke-Fixture([string[]]$Arguments, [int]$Expected = 0) {
+    $output = @(& (Join-Path $repo 'Fixture/build.bat') @Arguments 2>&1)
+    $code = $LASTEXITCODE
+    Assert-Case ($code -eq $Expected) ("Fixture exit $code, expected ${Expected}: " + ($output -join "`n"))
+    return $output
+}
+$cases = 0
+try {
+    Git-Fixture @('init','-b','main')
+    Git-Fixture @('config','user.name','Branch build fixture')
+    Git-Fixture @('config','user.email','fixture@example.invalid')
+    Git-Fixture @('config','core.autocrlf','false')
+    Write-BranchText (Join-Path $repo '.gitignore') ".release-output/`r`n"
+    Write-BranchText (Join-Path $repo 'Fixture/info.json') '{"GUID":"Fixture_Serp","Version":"1.0.0"}'
+    Write-BranchText (Join-Path $repo 'Fixture/Fixture.csproj') '<Project><ItemGroup><Reference Include="APIShared" /></ItemGroup></Project>'
+    $batch = @'
+@echo off
+setlocal EnableExtensions
+set "GAME_DIR=FIXTURE_GAME"
+set "PLUGIN_NAME=Fixture_Serp"
+set "PROJECT_DIR=%~dp0"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+echo BUILD_SOURCE:
+type "%~dp0source.txt"
+echo BUILD_ARGUMENTS=%*
+echo API_PACKAGE=%SHCDE_API_SHARED_DIR%
+type "%SHCDE_API_SHARED_DIR%\APIShared.dll"
+if exist "%~dp0fail.txt" exit /b 27
+if not exist "%GAME_PLUGIN_DIR%\" mkdir "%GAME_PLUGIN_DIR%"
+copy /Y "%~dp0source.txt" "%GAME_PLUGIN_DIR%\built.txt" >nul
+if errorlevel 1 exit /b 1
+exit /b 0
+'@.Replace('FIXTURE_GAME',$game)
+    Write-BranchText (Join-Path $repo 'Fixture/build.bat') $batch
+    Write-BranchText (Join-Path $repo 'Fixture/source.txt') "MAIN_COMMITTED`r`n"
+    Git-Fixture @('add','.')
+    Git-Fixture @('commit','-m','main fixture')
+    Git-Fixture @('checkout','-b','develop')
+    Write-BranchText (Join-Path $repo 'Fixture/source.txt') "DEVELOP_COMMITTED`r`n"
+    Git-Fixture @('add','.')
+    Git-Fixture @('commit','-m','develop fixture')
+    Write-BranchText (Join-Path $repo 'Fixture/source.txt') "UNCOMMITTED_MUST_NOT_BUILD`r`n"
+    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1')) {
+        Write-BranchText (Join-Path $repo ('Shared/Tools/BranchBuild/' + $name)) ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)))
+    }
+    # Independent fake APIShared: no game binaries, compiler or network are used.
+    $apiRepo = Join-Path $repo 'APIShared'
+    [void][IO.Directory]::CreateDirectory($apiRepo)
+    Invoke-BranchGit $apiRepo @('init','-b','main') | Out-Null
+    Invoke-BranchGit $apiRepo @('config','user.name','Branch build fixture') | Out-Null
+    Invoke-BranchGit $apiRepo @('config','user.email','fixture@example.invalid') | Out-Null
+    Write-BranchText (Join-Path $apiRepo '.gitignore') "BepInEx/`r`n.release-output/`r`n"
+    Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_MAIN'
+    Write-BranchText (Join-Path $apiRepo 'build.bat') @'
+@echo off
+setlocal EnableExtensions
+set "API_NOINSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "API_NOINSTALL=1"
+if "%API_NOINSTALL%"=="0" exit /b 91
+if not exist "%~dp0BepInEx\plugins\APIShared_Serp" mkdir "%~dp0BepInEx\plugins\APIShared_Serp"
+copy /Y "%~dp0source.txt" "%~dp0BepInEx\plugins\APIShared_Serp\APIShared.dll" >nul
+exit /b 0
+'@
+    Write-BranchText (Join-Path $apiRepo 'tools/BuildProof.ps1') @'
+function Assert-ApiBuildProof([string]$Root) {
+    if ([IO.File]::ReadAllText((Join-Path $Root 'source.txt')) -cne [IO.File]::ReadAllText((Join-Path $Root 'BepInEx/plugins/APIShared_Serp/APIShared.dll'))) { throw 'Fake SDK proof mismatch.' }
+    return [pscustomobject]@{ Commit=(& git -C $Root rev-parse HEAD) }
+}
+'@
+    Invoke-BranchGit $apiRepo @('add','.') | Out-Null
+    Invoke-BranchGit $apiRepo @('commit','-m','API main fixture') | Out-Null
+    Invoke-BranchGit $apiRepo @('checkout','-b','develop') | Out-Null
+    Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_DEVELOP'
+    Invoke-BranchGit $apiRepo @('add','.') | Out-Null
+    Invoke-BranchGit $apiRepo @('commit','-m','API develop fixture') | Out-Null
+    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1')) {
+        Write-BranchText (Join-Path $apiRepo ('tools/BranchBuild/' + $name)) ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)))
+    }
+    $entry = [IO.File]::ReadAllText((Join-Path $Workspace 'BuildingCosts/build.bat'))
+    $prefixEnd = $entry.IndexOf(":shcde_branch_selected`r`nendlocal`r`n")
+    if ($prefixEnd -lt 0) { throw 'Missing production dispatcher prefix.' }
+    $prefix = $entry.Substring(0,$prefixEnd + ":shcde_branch_selected`r`nendlocal`r`n".Length)
+    $prefix = $prefix.Replace('BuildingCosts/build.bat','Fixture/build.bat')
+    Write-BranchText (Join-Path $repo 'Fixture/build.bat') ($prefix + 'exit /b 99' + "`r`n")
+    $mainDir = Join-Path $game 'BepInEx/plugins/Fixture_Serp'
+    $devDir = Join-Path $game 'BepInEx/plugins/Fixture_Serp_dev'
+    Write-BranchText (Join-Path $mainDir 'sentinel.txt') 'main sentinel'
+    Write-BranchText (Join-Path $devDir 'sentinel.txt') 'dev sentinel'
+    $output = Invoke-Fixture @('/branch:main','/nopause')
+    Assert-Case (($output -join "`n") -match 'MAIN_COMMITTED' -and ($output -join "`n") -notmatch 'UNCOMMITTED_MUST_NOT_BUILD') 'main source selection failed'
+    Assert-Case (($output -join "`n") -match 'API_MAIN' -and ($output -join "`n") -notmatch 'API_DEVELOP') 'main did not select APIShared main'
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $mainDir 'built.txt')).Trim() -ceq 'MAIN_COMMITTED') 'main installation failed'
+    Assert-Case (-not (Test-Path -LiteralPath (Join-Path $devDir 'built.txt'))) 'main touched develop installation'
+    $output = Invoke-Fixture @('/branch:develop','/nopause')
+    Assert-Case (($output -join "`n") -match 'DEVELOP_COMMITTED' -and ($output -join "`n") -notmatch 'UNCOMMITTED_MUST_NOT_BUILD') 'develop source selection failed'
+    Assert-Case (($output -join "`n") -match 'API_DEVELOP') 'develop did not select APIShared develop'
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $devDir 'built.txt')).Trim() -ceq 'DEVELOP_COMMITTED') 'develop installation failed'
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $mainDir 'built.txt')).Trim() -ceq 'MAIN_COMMITTED') 'develop overwrote main'
+    Write-BranchText (Join-Path $mainDir 'built.txt') 'KEEP_MAIN_NOINSTALL'
+    Write-BranchText (Join-Path $devDir 'built.txt') 'KEEP_DEV_NOINSTALL'
+    $beforeMain = Get-BranchHash (Join-Path $mainDir 'built.txt'); $beforeDev = Get-BranchHash (Join-Path $devDir 'built.txt')
+    $null = Invoke-Fixture @('/branch:main','/nopause','/noinstall')
+    $null = Invoke-Fixture @('/branch:develop','/nopause','/noinstall')
+    Assert-Case ((Get-BranchHash (Join-Path $mainDir 'built.txt')) -ceq $beforeMain -and (Get-BranchHash (Join-Path $devDir 'built.txt')) -ceq $beforeDev) '/noinstall changed installations'
+    $output = Invoke-Fixture @('/branch:develop','/apishared:main','/nopause','/noinstall','/fixture-extra')
+    Assert-Case (($output -join "`n") -match 'API_MAIN' -and ($output -join "`n") -match 'BUILD_ARGUMENTS=.*?/fixture-extra') 'explicit SDK choice or argument forwarding failed'
+    $null = Invoke-Fixture @('/branch:main','/apishared:main','/apishared:develop','/nopause') 1
+    $null = Invoke-Fixture @('/nopause') 1
+    $null = Invoke-Fixture @('/branch:wrong','/nopause') 1
+    $null = Invoke-Fixture @('/branch:main','/branch:develop','/nopause') 1
+    Write-BranchText (Join-Path $repo 'Missing/build.bat') "@echo LOCAL_FALLBACK_MUST_NOT_RUN`r`n"
+    $missingOutput = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'Shared/Tools/BranchBuild/Invoke-BranchBuild.ps1') -Repository $repo -Driver 'Missing/build.bat' /branch:main /nopause 2>&1)
+    Assert-Case ($LASTEXITCODE -eq 1 -and ($missingOutput -join "`n") -notmatch 'LOCAL_FALLBACK_MUST_NOT_RUN') 'Missing branch driver fell back to working sources'
+    Invoke-BranchGit $apiRepo @('checkout','-b','dev/fixture') | Out-Null
+    Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_PERSONAL_DIRTY'
+    Write-BranchText (Join-Path $apiRepo 'BepInEx/plugins/APIShared_Serp/APIShared.dll') 'API_PERSONAL_DIRTY'
+    $output = Invoke-Fixture @('/branch:main','/apishared:dev','/nopause','/noinstall')
+    Assert-Case (($output -join "`n") -match 'API_PERSONAL_DIRTY') 'explicit personal SDK was not retained'
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $apiRepo 'source.txt')) -ceq 'API_PERSONAL_DIRTY') 'personal SDK sources changed'
+    $previousPrepareOnly = $env:SHCDE_PREPARE_ONLY
+    try {
+        $env:SHCDE_PREPARE_ONLY = '1'
+        $null = Invoke-Fixture @('/branch:main','/nopause')
+        Assert-Case ((Get-BranchHash (Join-Path $mainDir 'built.txt')) -ceq $beforeMain) 'inherited prepare-only mode installed files'
+    } finally { $env:SHCDE_PREPARE_ONLY = $previousPrepareOnly }
+    $previousPinned = $env:SHCDE_BRANCH_PINNED
+    try {
+        $env:SHCDE_BRANCH_PINNED = ((Invoke-BranchGit $repo @('rev-parse','HEAD')) -join '')
+        $null = Invoke-Fixture @('/nopause') 99
+    } finally { $env:SHCDE_BRANCH_PINNED = $previousPinned }
+    # Exercise the real Read-Host menu through a fresh PowerShell/BAT process.
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = 'powershell.exe'
+    $entryPath = (Join-Path $repo 'Fixture/build.bat').Replace("'", "''")
+    $start.Arguments = '-NoProfile -Command "& ''' + $entryPath + '''; exit $LASTEXITCODE"'
+    $start.UseShellExecute = $false; $start.CreateNoWindow = $true
+    $start.RedirectStandardInput = $true; $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
+    try {
+        $null = $process.Start()
+        $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
+        $process.StandardInput.WriteLine('1'); $process.StandardInput.WriteLine('')
+        $process.StandardInput.Close()
+        if (-not $process.WaitForExit(30000)) { $process.Kill(); throw 'Interactive branch selection timed out.' }
+        $menuOutput = $stdout.Result + $stderr.Result
+        Assert-Case ($process.ExitCode -eq 0 -and $menuOutput -match 'MAIN_COMMITTED' -and $menuOutput -match 'separate _dev installation') ('Interactive selection failed: ' + $menuOutput)
+    } finally { $process.Dispose() }
+    Assert-Case (((Invoke-BranchGit $repo @('branch','--show-current')) -join '') -ceq 'develop') 'working branch moved'
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $repo 'Fixture/source.txt')).Trim() -ceq 'UNCOMMITTED_MUST_NOT_BUILD') 'dirty working file changed'
+    $records = @(Get-ChildItem -LiteralPath (Join-Path $repo '.release-output/branch-builds') -Recurse -Filter '*.build.json' | Where-Object {
+        ([IO.File]::ReadAllText($_.FullName) | ConvertFrom-Json).Driver -eq 'Fixture/build.bat'
+    })
+    Assert-Case ($records.Count -eq 8) 'missing branch build records'
+    foreach ($file in $records) {
+        $record = [IO.File]::ReadAllText($file.FullName) | ConvertFrom-Json
+        Assert-Case ($record.Commit -match '^[0-9a-f]{40}$' -and $record.Branch -in @('main','develop') -and $record.ExitCode -eq 0) 'invalid build record'
+    }
+    # Failure and missing-driver handling never fall back to the working tree.
+    Write-BranchText (Join-Path $repo 'Fixture/fail.txt') 'fail'
+    Git-Fixture @('add','Fixture/fail.txt')
+    Git-Fixture @('commit','-m','failure fixture')
+    $null = Invoke-Fixture @('/branch:develop','/nopause') 27
+    Assert-Case ((Get-BranchHash (Join-Path $devDir 'built.txt')) -ceq $beforeDev) 'failed build installed files'
+
+    # Adapt every currently maintained driver and both committed branch variants.
+    $drivers = @(Invoke-BranchGit $Workspace @('ls-files','*build.bat') | Where-Object { $_ -notmatch '^(_inspect|shcde-script-extender)/' })
+    foreach ($branch in @('main','develop')) {
+        $available = @(Invoke-BranchGit $Workspace @('ls-tree','-r','--name-only',$branch))
+        foreach ($relative in @($drivers | Where-Object { $_ -in $available })) {
+            $original = @(Invoke-BranchGit $Workspace @('show',"${branch}:$relative"))
+            $text = ($original -join "`r`n") + "`r`n"
+            $adapted = Convert-BranchBatch $text $relative '_dev'
+            Assert-Case ($adapted -notmatch '%GAME_DIR%\\BepInEx\\plugins\\(?!000shcdese|APIShared_Serp)([^\\"\r\n]+)(?<!_dev)(?:"|\\)') "Unsuffixed target: $branch/$relative"
+        }
+    }
+    Write-Host "PASS: $cases branch, source, BAT, no-install, installation isolation and driver adaptation checks."
+    Write-Host "Fixture evidence retained: $fixture"
+} catch { Write-Host "Fixture evidence retained: $fixture"; throw }

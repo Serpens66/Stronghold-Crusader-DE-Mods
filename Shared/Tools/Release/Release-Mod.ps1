@@ -93,7 +93,9 @@ try {
     Push-Location $metadata.ModDir
     $apiSharedEnvironmentWasDefined = Test-Path -LiteralPath 'Env:SHCDE_API_SHARED_DIR'
     $previousApiSharedEnvironment = $env:SHCDE_API_SHARED_DIR
+    $previousBranchPinned = $env:SHCDE_BRANCH_PINNED
     try {
+        $env:SHCDE_BRANCH_PINNED = $commit
         if ($null -ne $apiSharedPackage) {
             $env:SHCDE_API_SHARED_DIR = $apiSharedPackage.Directory
         }
@@ -103,6 +105,7 @@ try {
         $buildOutput = @($buildResult.Output)
         $buildExitCode = $buildResult.ExitCode
     } finally {
+        $env:SHCDE_BRANCH_PINNED = $previousBranchPinned
         if ($apiSharedEnvironmentWasDefined) {
             $env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment
         } else {

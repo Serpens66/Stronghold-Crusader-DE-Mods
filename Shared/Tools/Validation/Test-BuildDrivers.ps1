@@ -9,14 +9,19 @@ $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('SHCDE Build Drivers ' + [g
 [IO.Directory]::CreateDirectory($fixtureRoot) | Out-Null
 $previousDirectory = (Get-Location).Path
 $cases = 0
+$standardDrivers = 0
 try {
     Set-Location -LiteralPath $fixtureRoot
     foreach ($relative in $drivers) {
         $source = Join-Path $Workspace $relative
         $text = [IO.File]::ReadAllText($source)
         if ($text -match '(?<!\r)\n') { throw "Bare LF: $relative" }
+        $dispatchEnd = $text.IndexOf(":shcde_branch_selected`r`nendlocal`r`n", [StringComparison]::Ordinal)
+        if ($dispatchEnd -ge 0) { $text = $text.Substring($dispatchEnd + ":shcde_branch_selected`r`nendlocal`r`n".Length) }
         $split = $text.IndexOf(":build_driver_main`r`n", [StringComparison]::Ordinal)
-        if ($split -lt 0) { throw "Missing entrypoint: $relative" }
+        # Bespoke drivers are exercised by BranchBuild/Test-BranchBuild.ps1.
+        if ($split -lt 0) { continue }
+        $standardDrivers++
         $prefix = $text.Substring(0, $split + ":build_driver_main`r`n".Length)
         $fixture = Join-Path $fixtureRoot ($relative.Replace('/','_').Replace('\','_'))
         # Exercise the real batch control flow with an isolated external boundary.
@@ -74,6 +79,6 @@ try {
             $process.Dispose()
         }
     }
-    Write-Host "PASS: $($drivers.Count) build drivers; $cases isolated success/error, argument, working-directory and interactive-pause cases."
+    Write-Host "PASS: $standardDrivers standard build drivers; $cases isolated success/error, argument, working-directory and interactive-pause cases."
     Write-Host "Fixture evidence: $fixtureRoot"
 } finally { Set-Location -LiteralPath $previousDirectory }
