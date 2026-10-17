@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$RunTests)
+param([switch]$RunTests, [string]$ApiSharedDir = $env:SHCDE_API_SHARED_DIR)
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $source = Join-Path $PSScriptRoot 'src\GatehouseLivingCapture'
@@ -33,7 +33,8 @@ foreach ($file in Get-ChildItem (Join-Path $PSScriptRoot 'Locales') -File -Filte
 }
 # No Assembly-CSharp member is introduced. Validate the actually installed public SE/API contracts.
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $game 'BepInEx\core\Mono.Cecil.dll')))
-$api = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $game 'BepInEx\plugins\APIShared_Serp\APIShared.dll'))
+if (-not $ApiSharedDir) { $ApiSharedDir = Join-Path $game 'BepInEx\plugins\APIShared_Serp' }
+$api = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $ApiSharedDir 'APIShared.dll'))
 try {
     $access = @($api.MainModule.Types | Where-Object FullName -eq 'APIShared.UnitAccess')[0]
     foreach ($parameter in @('SHCDESE.Interop.GameUnit&','SHCDESE.Interop.GameUnit*')) {

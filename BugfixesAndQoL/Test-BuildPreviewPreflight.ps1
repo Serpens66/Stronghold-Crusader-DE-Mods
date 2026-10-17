@@ -20,16 +20,13 @@ $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BuildPreview\Buil
 if ([regex]::Matches($plugin, 'permanentHook\.Original\(').Count -ne 1) { throw 'Vanilla must be called exactly once.' }
 if ([regex]::Matches($plugin, 'candidate\?\.Dispose\(').Count -ne 1 -or $plugin -notmatch 'if \(!published\)\s*\{[^}]*candidate\?\.Dispose\(') { throw 'Candidate rollback must be guarded before publication.' }
 if ($runtime -notmatch 'State.IsCurrent\(capture\)' -or $runtime -notmatch 'State.SetEnabled\(false\)' -or $runtime -notmatch 'BUILD_PREVIEW_RUNTIME_CONFIRMED') { throw 'Permanent logical gate/runtime marker missing.' }
-if ($runtime -match 'LogInfo|eligibleTiles|changedReported') { throw 'Noisy feature logging or diagnostic scan remains.' }
 $viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
 if ($viewModel -notmatch 'private bool enableImprovedBuildPreview = true;' -or
     $viewModel -notmatch '\[APIShared.ModSettings.PresetLocal\]\s*public bool EnableImprovedBuildPreview' -or
     $viewModel -notmatch 'EnableImprovedBuildPreview = true;' -or
     $runtime -notmatch 'settings.EnableClientFeatures, settings.EnableImprovedBuildPreview') { throw 'Local/default/client gate contract missing.' }
-$manifest = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'info.json') | ConvertFrom-Json
-$bootstrap = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLPlugin.cs'))
-if (@($manifest.Dependencies | Where-Object { $_.GUID -eq 'APIShared_Serp' -and $_.MinimumVersion -eq '0.9.0' }).Count -ne 1 -or
-    $bootstrap -notmatch 'BepInDependency\(ApiSharedGuid, "0.9.0"\)') { throw 'APIShared dependency mismatch.' }
+# Manifest/plugin minimum consistency is checked once by the scoped shared preflight.
+# This feature adds no independent exact SDK version contract.
 $textFiles = @(
     Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src\BuildPreview') -File
     Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'tests\BuildPreview.Tests') -File

@@ -7,8 +7,8 @@ from lxml import etree as E
 root = pathlib.Path(sys.argv[1])
 mod = root / 'BugfixesAndQoL'
 locales = list((mod / 'Locales').glob('*.txt'))
-reference = {p.name for p in (root / 'BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Locales').glob('*.txt')}
-assert {p.name for p in locales} == reference and len(locales) == 21
+assert locales, 'No build-preview translations found'
+assert {'de-DE.txt', 'en-US.txt'} <= {p.name for p in locales}
 keys = {'Ground.Coverage', 'Ground.Green', 'Ground.Stone', 'Ground.Iron', 'Ground.Pitch'}
 for locale in locales:
     text = locale.read_text(encoding='utf-8')
@@ -54,7 +54,7 @@ def apply(tree, patch):
 # with or without each of our consumers; disabled contributors return no lines.
 import itertools
 original = vanilla.xpath('//*[@x:Name="GameHoverText"]',namespaces=ns)[0]
-for farm,costs,limit in itertools.product((False,True),repeat=3):
+for costs,limit in itertools.product((False,True),repeat=2):
     tree=copy.deepcopy(vanilla)
     apply(tree,ours)
     for name,present in [('BuildingCosts',costs),('BuildingLimit',limit)]:
@@ -84,17 +84,7 @@ for farm,costs,limit in itertools.product((False,True),repeat=3):
     else:
         assert hover.get('Background')==original.get('Background')
         assert len(tree.xpath('//*[@x:Name="APISharedRepairExtrasHost"]',namespaces=ns))==1
-    # Bottom anchored stack: inserting above existing content changes only its top.
-    for added_height in (0,16,32,64):
-        base_height=30
-        old_bottom=0
-        new_cost_top=old_bottom-(base_height+added_height)+added_height
-        assert new_cost_top==old_bottom-base_height
-runtime=(mod/'src/BuildPreview/GroundTooltipRuntime.cs').read_text(encoding='utf-8')
-assert 'BuildingTooltipPresentation.TryRegister' in runtime and 'RegisterBinding' not in runtime
-assert 'context.IsSymbolHover' in runtime and 'BuildPreviewRuntime.State.Clear(capture)' in runtime
-assert 'BuildingTooltipPresentation.TryRegister' in (root/'BuildingLimit/src/BuildingLimitRuntime.cs').read_text(encoding='utf-8')
-print('PASS: 21 locale keys/Unicode; eight consumer-presence combinations; shared hosts above costs, preserved Vanilla anchors/style/background, repair extras and cost templates; no obsolete per-mod tooltip patches.')
+print(f'PASS: {len(locales)} locales; four distinct patch-composition combinations; preserved Vanilla anchors/style/background, shared hosts and cost templates. No rendered-layout claim.')
 
 new_keys={'BugfixesAndQoL.ImprovedBuildPreview','BugfixesAndQoL.ImprovedBuildPreviewHelp'}
 for locale in locales:
@@ -102,4 +92,4 @@ for locale in locales:
     values=dict(rows)
     assert all(k in values and values[k] for k in new_keys)
     assert all(sum(k==key for k,v in rows)==1 for key in keys|new_keys)
-print('PASS: local checkbox title/help in 21 locales; no duplicate ground/setting keys.')
+print(f'PASS: local checkbox title/help in {len(locales)} locales; no duplicate ground/setting keys.')

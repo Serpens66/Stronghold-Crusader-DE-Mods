@@ -494,26 +494,8 @@ namespace BugfixesAndQoL
                   Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(1) &&
                   Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(10000),
                 "selection count policy accepts only Vanilla's 0..10000 capacity");
-            string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
-            string formation = string.Join(Environment.NewLine, Directory.GetFiles(Path.Combine("src", "Formations"), "FormationRuntime.*.cs").Select(File.ReadAllText));
-            string assassin = File.ReadAllText(Path.Combine("src", "AssassinClimbRuntime.cs"));
-            Check(health.Contains(
-                    "int unitId = state.selectedChimps[index];" + Environment.NewLine +
-                    "                    if (unitId <= 0) continue;") &&
-                  formation.Contains("APIShared.LocalSelectionAPI.TryCapture(playerId") &&
-                  formation.Contains("selected.Count < 2") &&
-                  assassin.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
-                  assassin.Contains("ReferenceEquals(selected, lastSelectionSnapshot)") &&
-                  assassin.Contains("!lastSelectionHasAssassin && !lastSelectionHasAssassinType") &&
-                  assassin.Contains("selected[index].UnitType != (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN") &&
-                  assassin.Contains("lastSelectionHasAssassinType = hasAssassinType;") &&
-                  assassin.Contains("lastSelectionSnapshot = null;") &&
-                  assassin.Contains("lastSelectionHasAssassinType = false;") &&
-                  Regex.IsMatch(assassin, @"public void BeginMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
-                  Regex.IsMatch(assassin, @"public void EndMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
-                  !formation.Contains("GetSelectedChimps") &&
-                  !assassin.Contains("GetSelectedChimps"),
-                "selection failures and changed Assassin ownership invalidate cached button decisions");
+            // Ownership/cache/failure behavior executes the actual production methods in
+            // AssassinPathfinding.Tests/SelectionCacheTests.cs; source wording is not a proof.
         }
 
         private static void TestFriendlyMoatCursorIdGuard()

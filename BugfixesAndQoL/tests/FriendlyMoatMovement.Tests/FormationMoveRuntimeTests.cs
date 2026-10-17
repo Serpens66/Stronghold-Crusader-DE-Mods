@@ -136,6 +136,11 @@ namespace BugfixesAndQoL.UnitCommands {
         private void ResetTransientState() {drag=null;ClearPreview();}
         private void FailOpen(string stage,Exception error) {Enabled=false;ResetTransientState();throw new Exception(stage,error);}
         private void RequireMainThread(string context) {}
+        // Speech is an independent side effect in this movement fixture. Its
+        // production capture/frame/queue/error paths execute in FormationSpeech.Tests.
+        private sealed class FormationSpeechRequest {}
+        private FormationSpeechRequest CaptureSpeech(ActiveDrag state)=>null;
+        private void QueueSpeech(FormationSpeechRequest request) {}
         private void AgeReleaseConsumptionWatch() {}
         private void LogDebugNoThrow(string text) {} private void LogWarningNoThrow(string text) {}
         private void LogTargetRejection(APIShared.Internal.GroundMovePreviewRejection r,GroundTarget t) {}

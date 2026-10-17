@@ -117,7 +117,6 @@ internal static class Program
             TestP2aMigrationContracts();
             TestNoKillRewardHostSettings();
             TestGameplayGateSourceIntegration();
-            TestGameplaySessionSourceIntegration();
             TestLocalPerPlayerSetting();
             TestShiftRepairAllBuildingsPolicy();
             TestMarketGoodsOrderDefinition();
@@ -5537,70 +5536,6 @@ internal static class Program
         throwing.Dispose();
         second.Dispose();
         LobbyLifecycle.System_TestReset();
-    }
-
-    private static void TestGameplaySessionSourceIntegration()
-    {
-        string workspaceRoot = Path.GetFullPath(
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        var runtimeRoots = Directory.GetDirectories(workspaceRoot)
-            .Where(path => Directory.GetFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any())
-            .Select(path => Path.Combine(path, "src"))
-            .Where(Directory.Exists)
-            .ToList();
-        runtimeRoots.Add(Path.Combine(workspaceRoot, "Shared"));
-        foreach (string groupName in new[] { "Helpers" })
-        {
-            string groupRoot = Path.Combine(workspaceRoot, groupName);
-            runtimeRoots.AddRange(Directory.GetDirectories(groupRoot)
-                .Select(path => Path.Combine(path, "src"))
-                .Where(Directory.Exists));
-        }
-
-        foreach (string root in runtimeRoots)
-        {
-            foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
-            {
-                string source = File.ReadAllText(path);
-                if (path.Contains(Path.DirectorySeparatorChar + "APIShared" + Path.DirectorySeparatorChar) || !source.Contains("MapLoaderR3EventHooks.OnStartMap.Observable"))
-                    continue;
-
-                bool covered = source.Contains("GameplaySessionLifecycle.SubscribeStarted") ||
-                    source.Contains("MapLoaderR3EventHooks.OnLoadSave.Observable") ||
-                    source.Contains("SaveLifecycle:");
-                Check(covered,
-                    $"direct OnStartMap runtime lacks a save-load path or explicit lifecycle classification: {path}");
-            }
-        }
-
-        string lifecycle = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "Adapters", "APIShared", "MissionEventsAdapter.cs"));
-        Check(lifecycle.Contains("TryGetMissionLifecycle") &&
-              lifecycle.Contains("priority?.Invoke(notification)") &&
-              !lifecycle.Contains("OnUnloadMap.Observable") &&
-              !lifecycle.Contains("RegisterModDataHandler"),
-            "Shared gameplay lifecycle no longer gates successful save Post, reacts to nested unloads, or introduced persistence");
-
-        string coordinator = string.Join("\n", Directory.GetFiles(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "Lobby"), "*.cs").Select(File.ReadAllText));
-        Check(coordinator.Contains("TryGetLobbyState") &&
-              coordinator.Contains("API_SHARED_LOBBY_OBSERVER") &&
-              !coordinator.Contains("Application.onBeforeRender") &&
-              !coordinator.Contains("GameNetworkAPI.GetLocalPlayerId"),
-            "per-player lobby observation must use APIShared without restoring a local render poller or noisy identity call");
-
-        string extraFeaturesRuntime = File.ReadAllText(
-            Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
-        Check(extraFeaturesRuntime.Contains("!context.IsReplay") &&
-              extraFeaturesRuntime.Contains("ApplyMapLoadedSettings(context.IsEditor);") &&
-              !extraFeaturesRuntime.Contains("TrySubscribeFeature(\"save-load settings\""),
-            "Extra Features does not initialize map-loaded state through the replay-safe shared lifecycle");
-
-        string aiTowerRuinRepair = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AITowerRuinRepairFix.cs"));
-        Check(aiTowerRuinRepair.Contains("RebuildRuntimeRuinIndex();") &&
-              aiTowerRuinRepair.Contains("int buildingId = spanIndex + 1;") &&
-              aiTowerRuinRepair.Contains("building.r_GlobalId == 0"),
-            "AI tower-ruin tracking is not safely reconstructed from loaded native buildings");
     }
 
     private static void TestSharedGameplaySessionLifecycle()

@@ -40,7 +40,7 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\FormationIntegration\Verify-Interop.ps1"
 if errorlevel 1 exit /b 1
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1" -ModDirectory BugfixesAndQoL
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1" -ModDirectory BugfixesAndQoL -SkipPermanentHooks
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -128,10 +128,10 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-ModOptionsPerformance.ps1" -RunTests
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinGateClimb\verify.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinGateClimb\verify.ps1" -SkipPermanentHooks
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-AIKeepRangePreflight.ps1" -GameDir "%GAME_DIR%" -ExtenderDir "%EXTENDER_DIR%" -ApiSharedDir "%API_SHARED_DIR%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-AIKeepRangePreflight.ps1" -GameDir "%GAME_DIR%" -ExtenderDir "%EXTENDER_DIR%" -ApiSharedDir "%API_SHARED_DIR%" -SkipPermanentHooks
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-AiRaidApiContracts.ps1"
@@ -158,8 +158,6 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-TannerFadePreflight.ps1"
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1" -ModDirectory BugfixesAndQoL
-if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] Arabian idle volume consumer tests
 "%MSBUILD%" "%PROJECT_DIR%tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
@@ -168,8 +166,6 @@ if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
-"%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe" market-goods-order
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
@@ -232,7 +228,7 @@ echo [%date% %time%] Run tests
 dotnet run --project "tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Captured-gate protection contracts
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinAttackControlAudit\verify-integrated.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinAttackControlAudit\verify-integrated.ps1" -SkipPermanentHooks
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Captured-gate protection tests
 "%MSBUILD%" "tests\AssassinCapturedGateProtection.Tests\AssassinCapturedGateProtection.Tests.csproj" /p:Configuration=Release

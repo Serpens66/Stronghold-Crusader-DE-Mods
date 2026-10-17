@@ -124,7 +124,7 @@ if (-not $cadence.Contains('Interlocked.CompareExchange(ref *terrainEnabledFlag,
     -not $cadence.Contains('terrainCaptureHook.Hook.DisplacedByteCount != 14') -or
     -not $cadence.Contains('returnAddress != instructions[0].IP + 14') -or
     -not $cadence.Contains('EmitTerrainRestore(assembler);') -or
-    -not $cadence.Contains('terrainTransaction?.Dispose(); // Unpublished optional initialization rollback only.')) {
+    -not $cadence.Contains('terrainTransaction?.Dispose();')) {
     throw 'Rally terrain native publication, epoch or boundary contract is missing.'
 }
 $keys = @('BugfixesAndQoL.EnableRallyTerrainSlowdownFix', 'BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp')

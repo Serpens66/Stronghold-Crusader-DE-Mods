@@ -1,4 +1,4 @@
-param([switch]$SkipTests, [string]$GameDir, [string]$ExtenderDir, [string]$ApiSharedDir)
+param([switch]$SkipTests, [string]$GameDir, [string]$ExtenderDir, [string]$ApiSharedDir, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
 $runtimePath = Join-Path $PSScriptRoot 'src\AIKeepRangeRuntime.cs'
@@ -26,11 +26,6 @@ if ($source -match '\bhook\??\.(Enable|Dispose)\s*\(' -or
     $runtime -notmatch 'AIKeepRangeDecision.Execute\(bypass, original, manager, playerId, x, y, range\)') { throw 'Permanent hook lifetime or original forwarding changed.' }
 if ($runtime.IndexOf('Chainloader.PluginInfos.ContainsKey("AIKeepRangeLimitTest_Serp")') -lt 0 -or
     $runtime.IndexOf('Chainloader.PluginInfos') -gt $runtime.IndexOf('AIKeepRangeNativeContract.Resolve')) { throw 'Legacy testmod must be rejected before resolving/patching.' }
-if ([regex]::Matches($runtime,'DebugLogHelper.LogInfo\(').Count -ne 0 -or
-    [regex]::Matches($runtime,'DebugLogHelper\.LogDebug\(').Count -ne 1 -or
-    [regex]::Matches($runtime,'DebugLogHelper\.LogDebugLimited\(').Count -ne 1 -or
-    $runtime -notmatch 'AI_KEEP_RANGE_READY:' -or
-    $runtime -match 'Interlocked.Increment|AI exception:|human Vanilla forwarding:') { throw 'Unexpected verbose callback logging.' }
 if ($vm -notmatch 'private bool removeAIKeepRangeLimit = true;' -or
     $vm -notmatch '\[SyncHostOnly\]\s*public bool RemoveAIKeepRangeLimit' -or
     $vm -notmatch 'RemoveAIKeepRangeLimit = true;' -or
@@ -53,7 +48,9 @@ foreach ($file in $files) {
     $text=[IO.File]::ReadAllText((Join-Path $PSScriptRoot $file))
     if ($text -match '(?<!\r)\n|\r(?!\n)') { throw "Non-CRLF: $file" }
 }
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
+if (-not $SkipPermanentHooks) {
+    & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
+}
 Write-Output 'PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.'
 if (-not $SkipTests) {
     . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')

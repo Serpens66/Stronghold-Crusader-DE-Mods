@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$CheckTestApi)
+param([switch]$CheckTestApi, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $roots = @('APIShared', 'BugfixesAndQoL')
@@ -27,14 +27,17 @@ foreach ($relative in $roots) {
         }
     }
 }
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
+if (-not $SkipPermanentHooks) {
+    & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
+}
 if (-not $?) { throw 'Workspace hook regression failed' }
 $api = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinPathAPI.cs'))
 if ($api -match '\b(transaction|endpointHooks|builderHook)\??\.Dispose\s*\(' -or
-    $api -match '(?<!NativeHookPublication)\.(Enable|Disable|Undo)\s*\(' -or $api -notmatch 'NativeHookPublication\.HasStarted\(pending\)' -or
-    $api -notmatch 'NativeHookPublication\.RollbackUnpublished\(pending\)') {
-    throw 'Shared published hook teardown or missing unpublished rollback guard'
+    $api -match '(?<!NativeHookPublication)\.(Enable|Disable|Undo)\s*\(') {
+    throw 'Direct shared hook teardown or executable toggle (source guard only)'
 }
+# The selected SDK build checks NativeHookPublicationTests. Matching private helper
+# names here cannot prove partial-publication safety and rejects equivalent owners.
 $main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AssassinPathfindingRuntime.cs'))
 $reconstruction = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AssassinPathReconstructionPatch.cs'))
 if ($main -match 'AddDetour|AddInline|new HookTransaction' -or $reconstruction -match 'AddDetour|AddInline|new HookTransaction' -or

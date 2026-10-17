@@ -1592,16 +1592,16 @@ namespace BugfixesAndQoL.GateRouting
                     !AiTacticalTargetAdapterEmitter.IsTileIndexInRange(320800) &&
                     AiTacticalTargetAdapterEmitter.IsTileIndexInRange(320799),
                 "AI tactical adapters fail open outside the native tile capacity");
-            Assert((0xFF & 0x04) != 0 && (0xFB & 0x04) == 0,
-                "the immutable direction mask leaves ordinary edges visible and hides only cleared gate edges");
 
             string runtime = MigrationSources.Read(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string hooks = MigrationSources.Read("GateRoutingNativeHooks.cs");
             Assert(hooks.IndexOf("aiTacticalTarget = AddDetour", StringComparison.Ordinal) >= 0 &&
                     hooks.IndexOf("for (int index = 0; index < tacticalEdgeHooks.Length; index++)",
-                        StringComparison.Ordinal) >= 0 &&
-                    hooks.IndexOf("!aiTacticalTarget.Matches(installed)", StringComparison.Ordinal) >= 0,
-                "AI tactical scope and all three adapters are members of the atomic hook transaction");
+                        StringComparison.Ordinal) >= 0,
+                "AI tactical scope/adapters remain registered (source guard only)");
+            // Private validation helper names do not prove atomic publication.
+            // GateNativeDetourTests executes the actual ABI/state contract; the
+            // selected SDK's publication fixtures cover failed/partial writes.
             string filter = ExtractMethodBody(runtime, "FilterAiTacticalTarget");
             Assert(filter.IndexOf("NativeTribeRecordStride", StringComparison.Ordinal) >= 0 &&
                     filter.IndexOf("NativeTribePlayerIdOffset", StringComparison.Ordinal) >= 0 &&

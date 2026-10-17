@@ -39,7 +39,8 @@ internal static class Program
             TestPreviewMarkerNormalization();
             TestNativeDetourEntryContract();
             TestInstalledRedBirdMarkerSpan();
-            TestSourceSafetyContracts();
+            TestMenuXamlContract();
+            TestSelectionMigration();
             Console.WriteLine($"PASS: Formations ({assertions} assertions).");
             return 0;
         }
@@ -1096,87 +1097,22 @@ internal static class Program
         }
     }
 
-    private static void TestSourceSafetyContracts()
+    private static void TestMenuXamlContract()
     {
-        string main = FindProjectRoot();
-        string shared = Path.Combine(Directory.GetParent(main).FullName, "BugfixesAndQoL", "src", "UnitCommands");
-        string ReadSharedSource(string filename) => File.ReadAllText(Directory.GetFiles(shared, filename, SearchOption.AllDirectories).Single());
-        string runtime = string.Join("\n", Array.ConvertAll(Directory.GetFiles(Path.Combine(main, "src", "Formations"), "FormationRuntime.*.cs", SearchOption.AllDirectories), File.ReadAllText));
-        string slots = ReadSharedSource("NativeFormationSlots.cs");
-        string common = ReadSharedSource("MoatPlacement.cs");
-        string markers = File.ReadAllText(Path.Combine(main, "src", "Formations", "Markers", "LargeMoveTargetMarkerRenderer.cs"));
-        string feature = File.ReadAllText(Path.Combine(main, "src", "FormationFeature.cs"));
-        string source = runtime + slots + common + markers + feature;
-        foreach (string forbidden in new[] {
-            "System.Text.Json", "Newtonsoft.Json", "JavaScriptSerializer", "JsonUtility",
-            "OnDestroy(", "OnDisable(", "OnApplicationQuit(", "StartCoroutine(",
-            "MainViewModel.instance", "CodePatch.Write(", "VirtualProtect(" })
-            Check(!source.Contains(forbidden), "forbidden runtime pattern: " + forbidden);
-        Check(!runtime.Contains("AddDetour(") && !runtime.Contains("AddContextHook("),
-            "formation runtime cannot install competing native hooks");
-        Check(slots.Contains("formationRuntime.TryChooseStandardFormationSlot") &&
-              slots.Contains("formationRuntime.TryChooseAssassinFormationSlot") &&
-              common.Contains("formationRuntime.CommonGroupMoveHook"),
-            "all placement providers use shared native dispatch");
-        Check(runtime.Contains("settings.EnableMod && settings.EnableMoveFormationEnhancements") &&
-              runtime.Contains("if (!Enabled)"), "checkbox and runtime fault gate input and received commands");
-        string dispatch = ReadSharedSource("PermanentCommandHooks.cs");
-        string unitDispatch = ReadSharedSource("UnitMovementContext.cs");
-        Check(dispatch.Contains("formationRuntime?.OnTribeIssueOrderMoveHere(args)") &&
-              unitDispatch.Contains("formationRuntime?.OnUnitMoveHere(args)"), "existing Extender order and terminal dispatch used");
-        Check(unitDispatch.IndexOf("formationRuntime?.OnUnitMoveHere(args)", StringComparison.Ordinal) <
-              unitDispatch.IndexOf("ObserveUnitMoveOrder(args)", StringComparison.Ordinal), "formation target precedes pathfinding observation");
-        string queue = File.ReadAllText(Path.Combine(main, "src", "ExtendedShiftCommandQueueRuntime.cs"));
-        Check(queue.Contains("!IsShiftPressed() || UnitCommandPathAPI.FormationDispatchActive"), "accepted packets cannot become Shift waypoints in flight");
-        Check(runtime.Contains("InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown)") &&
-              runtime.Contains("InputR3EventHooks.OnKey.Observable.Subscribe(OnKeyHeld)") &&
-              runtime.Contains("InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnKeyUp)"), "input uses persistent events");
-        Check(runtime.Contains("FORMATION_RUNTIME_AFTER_STARTUP_CLEANUP") &&
-              feature.Contains("private static FormationRuntime runtime;"), "runtime survives startup component cleanup");
-        string engine = ExtractMethodBody(runtime, "private int EngineRunHook(");
-        Check(CountOccurrences(engine, "TryDispatch(packet,") == 1 &&
-              engine.Contains("RunOriginalAfterReleaseConsumed(") && !engine.Contains("UpdateGesture("),
-            "release has a single dispatch and no render/Unity polling");
-        string consume = ExtractMethodBody(runtime, "private int RunOriginalAfterReleaseConsumed(");
-        Check(consume.Contains("FormationReleaseStateModel.Consume()") && !consume.Contains("originalState.Restore"),
-            "accepted release is permanently consumed");
-        Check(runtime.Contains("ProtocolVersion = 6") && runtime.Contains("actualPlanHash != packet.PlanHash") &&
-              runtime.Contains("result.Sort((left, right) => left.UnitId.CompareTo(right.UnitId))"),
-            "deterministic unit order and synchronized plan validation retained");
-        Check(runtime.Contains("APIShared.UnitAccess.IsReallyAlive(unit)") && runtime.Contains("unit->r_GlobalId == globalId"),
-            "native death marker and identity validation retained");
-        Check(runtime.Contains("IsShiftHeld()") && runtime.Contains("EvaluateFormationTargetBounds(state.Target)") &&
-              engine.Contains("ValidateActiveDrag(state)") && engine.Contains("!state.Authorization.IsConfirmed"),
-            "Shift, changed context, invalid bounds and unconfirmed commands retain Vanilla");
-        Check(runtime.Contains("state.Authorization.Observe(feedback, generation, coherent)") &&
-              markers.Contains("previewCheckedThisPass"), "preview authorization is shared and evaluated per native pass");
-        Check(markers.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
-              markers.Contains("Placement = OverwrittenInstructionPlacement.AfterCallback"), "shared marker displacement contract");
-        Check(!Directory.GetFiles(Path.Combine(main, "src"), "MoveFormationDrag*.cs").Any(), "obsolete drag implementation removed");
-        Check(!File.Exists(Path.Combine(shared, "MoveFormationSpacingPolicy.cs")), "obsolete spacing implementation removed");
-        Check(feature.IndexOf("runtime = new FormationRuntime", StringComparison.Ordinal) <
-              feature.IndexOf("runtime.Initialize();", StringComparison.Ordinal), "runtime rooted before hook publication");
-        string wheel = ExtractMethodBody(runtime, "private void UpdateGesture(");
-        Check(wheel.Contains("state.Geometry.ApplyWheel(wheel, frame)") &&
-              !wheel.Contains("state.Density =") && wheel.Contains("lastWheelFrame != frame"),
-            "runtime samples wheel once without changing density");
-        string direction = ExtractMethodBody(runtime, "private static void ResolveDirectionAndWidth(");
-        Check(!direction.Contains("dragDistance") && direction.Contains("state.Rows"),
-            "mouse distance cannot resize the formation");
-        string reachable = ExtractMethodBody(runtime, "private List<NativeDestination> CaptureReachableCandidates(");
-        Check(reachable.Contains("pending.Count != 0") && reachable.Contains("pending.Remove(current.TileId)") &&
-              reachable.Contains("FormationPlacementModel.EnumerateReachabilityProbes(desiredSlots)") &&
-              reachable.Contains("components[tile] == component") && reachable.Contains("0x10000100"),
-            "reachability search covers desired extent and preserves component/Assassin gates");
-        Check(runtime.Contains("width does not match rows") && runtime.Contains("packet.Rows == 0"),
-            "malformed row/width packets are rejected");
-        string menu = File.ReadAllText(Path.Combine(main, "src", "FormationMenuViewModel.cs"));
-        string xaml = File.ReadAllText(Path.Combine(main, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
+        // Command values and resource references are the XAML/runtime boundary.
+        // Private callback names, exact diagnostics and source ordering are not.
+        var document = new System.Xml.XmlDocument();
+        document.Load(Path.Combine(FindProjectRoot(), "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
+        var elements = document.SelectNodes("//*").Cast<System.Xml.XmlElement>().ToArray();
         foreach (string kind in new[] { "Vanilla", "Block", "Line", "Column", "Wedge", "Circle" })
-            Check(menu.Contains("public bool Is" + kind) && menu.Contains("OnChanged(nameof(Is" + kind + "))") &&
-                  CountOccurrences(xaml, "{StaticResource BugfixesFormationIcon" + kind + "}") == 1 &&
-                  xaml.Contains("CommandParameter=\"" + kind + "\""), "menu icon template and Config notification " + kind);
-        TestSelectionMigration();
+        {
+            var commands = elements.Where(element => element.LocalName == "Button" && element.GetAttribute("CommandParameter") == kind).ToArray();
+            Check(commands.Length == 1 && commands[0].GetAttribute("Command").Contains("SelectFormationCommand"),
+                "Exactly one selectable formation menu entry for " + kind);
+            string resource = "BugfixesFormationIcon" + kind;
+            Check(elements.Count(element => element.GetAttribute("Key", "http://schemas.microsoft.com/winfx/2006/xaml") == resource) == 1,
+                "Formation icon resource resolves once for " + kind);
+        }
     }
 
     private static void TestSelectionMigration()
@@ -1217,37 +1153,6 @@ internal static class Program
             current = current.Parent;
         }
         throw new DirectoryNotFoundException("Formations project root not found.");
-    }
-
-    private static string ExtractMethodBody(string source, string signature)
-    {
-        int signatureIndex = source.IndexOf(signature, StringComparison.Ordinal);
-        if (signatureIndex < 0)
-            throw new InvalidOperationException("Method signature not found: " + signature);
-        int openingBrace = source.IndexOf('{', signatureIndex);
-        if (openingBrace < 0)
-            throw new InvalidOperationException("Method body not found: " + signature);
-        int depth = 0;
-        for (int index = openingBrace; index < source.Length; index++)
-        {
-            if (source[index] == '{')
-                depth++;
-            else if (source[index] == '}' && --depth == 0)
-                return source.Substring(openingBrace, index - openingBrace + 1);
-        }
-        throw new InvalidOperationException("Method body is incomplete: " + signature);
-    }
-
-    private static int CountOccurrences(string source, string value)
-    {
-        int count = 0;
-        int index = 0;
-        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            index += value.Length;
-        }
-        return count;
     }
 
     private static long SquaredRadius(FormationPoint point) =>

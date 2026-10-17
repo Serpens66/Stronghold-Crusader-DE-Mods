@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([switch]$SkipPermanentHooks)
 $ErrorActionPreference='Stop'
 function Get-Sha256([string]$Path) {
     $stream=[IO.File]::OpenRead($Path)
@@ -29,10 +29,12 @@ foreach($root in $roots) {
         }
     }
 }
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
-if(-not $?) { throw 'Workspace permanent-hook regression failed' }
+if (-not $SkipPermanentHooks) {
+    & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
+    if(-not $?) { throw 'Workspace permanent-hook regression failed' }
+}
 $guard=[IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinAttackControlAPI.cs'))
-if($guard -match '\b(transaction|hook)\??\.Dispose\s*\(' -or $guard -match '\.(Enable|Disable|Undo)\s*\(' -or $guard -notmatch 'if \(hook == candidate\) throw;') { throw 'Published Assassin hook teardown' }
+if($guard -match '\b(transaction|hook)\??\.Dispose\s*\(' -or $guard -match '(?<!NativeHookPublication)\.(Enable|Disable|Undo)\s*\(') { throw 'Direct Assassin hook teardown (source guard only)' }
 $project=[IO.File]::ReadAllText((Join-Path $mod 'BugfixesAndQoL.csproj'))
 if($project -match 'publicized') { throw 'Mainmod must reference real Unity assembly' }
 $native='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
@@ -42,8 +44,7 @@ $runtimeSource=[IO.File]::ReadAllText((Join-Path $mod 'src\AssassinCapturedGateP
 if($runtimeSource -match 'AlternativeSearch|CaptureTraversal|MoveToTile|OnTick|SortedDictionary|BuildGoals|AdvanceSearch') { throw 'Captured-gate runtime must not search, queue or issue movement orders' }
 if($guard -match 'IAssassinTraversalView|RegisterTraversal|CaptureTraversal|IsTraversalAvailable' -or
     $guard -notmatch 'RegisterGuard\(ownerGuid, callback, AssassinObstacleCompletionMode.IdleOnly\)' -or
-    $guard -notmatch 'AssassinObstacleCompletion.Complete' -or
-    ([regex]::Matches($guard,'hook\.Original\(\)').Count -ne 1)) { throw 'Assassin public/default/original completion contract' }
+    $guard -notmatch 'AssassinObstacleCompletion.Complete') { throw 'Assassin public/default completion integration guard' }
 $completion=[IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinObstacleCompletion.cs'))
 if($completion -notmatch 'unit->r_AIObjectiveRole2' -or $completion -notmatch 'finally') { throw 'Objective/exception completion contract' }
 

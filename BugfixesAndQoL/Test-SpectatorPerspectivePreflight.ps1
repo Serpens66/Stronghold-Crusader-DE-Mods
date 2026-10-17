@@ -1,4 +1,8 @@
 $ErrorActionPreference = 'Stop'
+# Execute the production save/marker policies as well as the bounded integration
+# guardrails below. Source presence alone cannot prove save recognition.
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-SpectatorSavePolicy.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Spectator save recognition behavior tests failed.' }
 $projectRoot = $PSScriptRoot
 $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter 'Spectator*.cs' -File)
 $projectFile = Get-Item -LiteralPath (Join-Path $projectRoot 'BugfixesAndQoL.csproj')
@@ -244,7 +248,7 @@ if ($metadata.NetworkMode -ne 1) { throw 'Gameplay-affecting ally actions requir
 $patchPath = Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
 [xml]$patch = Get-Content -LiteralPath $patchPath -Raw
 $contents = @($patch.SelectNodes('/Patch/Operation/Content'))
-if ($contents.Count -ne 3 -or @($contents | Where-Object { $_.OuterXml -match 'BugfixesAndQoLFormationPreviewCanvas' }).Count -ne 1) {
+if (@($contents | Where-Object { $_.OuterXml -match 'BugfixesAndQoLFormationPreviewCanvas' }).Count -ne 1) {
     throw 'Expected ForeignTroopHud, spectator and integrated formation XAML operations.'
 }
 if ($patch.OuterXml -notmatch 'ForeignTroopHudPanel') { throw 'Existing ForeignTroopHud XAML was lost.' }
