@@ -121,8 +121,7 @@ namespace SpectatorEditorBuildTest
             RestoreVanillaPowerToolbar(true);
             CancelPowerSelection();
             ClearGateSelection();
-            consumePowerGesture = false;
-            powerMouseState = toolMouseState = 0;
+            toolMouseState = 0;
             observedGate = null;
             amountInput?.Detach();
             amountInput = null;
@@ -166,8 +165,8 @@ namespace SpectatorEditorBuildTest
         private static void RefreshHumanControls(bool eligible)
         {
             if (humanPanel == null || toolsModel == null) return;
-            bool show = eligible && (IsEditorToolsSession() || MainViewModel.Instance.Show_HUD_Main || selectedGate != null) &&
-                !MainViewModel.Instance.Show_HUD_Briefing;
+            bool show = eligible && MainViewModel.Instance.UIVisible && MainViewModel.Instance.Show_InGameUI &&
+                !MainViewModel.Instance.Show_HUD_Briefing && !MainViewModel.Instance.Show_HUD_MissionOver;
             humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
             if (!show) return;
             toolsModel.RefreshLocale();
@@ -201,7 +200,7 @@ namespace SpectatorEditorBuildTest
                     RefreshPlayerFace("TargetFace" + owner, owner);
                 }
             }
-            if (!IsSelectableAi(humanSelectedOwner))
+            if (!spectatorSelectionLinked && !IsSelectableAi(humanSelectedOwner))
             {
                 humanSelectedOwner = firstAi;
                 if (firstAi < 0) MainControls.instance?.StopAllPlacement();
@@ -209,7 +208,7 @@ namespace SpectatorEditorBuildTest
             for (int owner = 1; owner <= 8; owner++)
                 humanOwnerButtons[owner].Background = owner == humanSelectedOwner ? ownerSelectedBrush : ownerNormalBrush;
             toolsModel.SetRecipientAvailable(IsSelectableAi(humanSelectedOwner));
-            humanToggle.IsEnabled = humanPlacementMode || firstAi > 0;
+            humanToggle.IsEnabled = humanPlacementMode || IsSelectableAi(humanSelectedOwner);
             humanToggleText.Text = SerpLocalization.Get(humanPlacementMode ? "Tools.StopPlacement" : "Tools.Placement");
             humanOwners.Visibility = toolsModel.Expanded ? Visibility.Visible : Visibility.Collapsed;
             toolsModel.SelectedPlayer = SerpLocalization.Get("Tools.Actor") + ": " +
@@ -261,11 +260,13 @@ namespace SpectatorEditorBuildTest
         private static void ExecuteToolsCommandCore(string command)
         {
             if (!IsToolsSession() || toolsModel == null) return;
+            SyncSpectatorSelection();
             if (command == "StopCursor" || command == "CancelPower") amountInput?.EndEditing();
             if (command == "StopCursor") { CancelPowerSelection(); MainControls.instance?.StopAllPlacement(); return; }
             if (command == "CancelPower") { CancelPowerSelection(); return; }
             if (command == "EnablePowers" || command == "DisablePowers")
             { QueueTestAction(new TestAction { Kind = TestActionKind.PowerToggle, Actor = humanSelectedOwner, Force = command == "EnablePowers" }); return; }
+            if (command == "ResetAmount") { amountInput?.ResetAmount(); return; }
             if (command == "Credit") { QueueCredit(toolsModel.Good, toolsModel.Amount); return; }
             if (command == "Attack") { QueueOrder(TestActionKind.Attack, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Defend") { QueueOrder(TestActionKind.Defend, toolsModel.Target, toolsModel.ForceAcceptance); return; }
@@ -363,12 +364,15 @@ namespace SpectatorEditorBuildTest
         private static void ToggleHumanMode(object sender, RoutedEventArgs args)
         {
             if (!IsHumanSingleplayerSession()) return;
+            SyncSpectatorSelection();
+            if (!humanPlacementMode && spectatorSelectionLinked && !IsSelectableAi(humanSelectedOwner)) return;
             CancelPowerSelection();
             amountInput?.EndEditing();
             HUD_Main hud = MainViewModel.Instance.HUDmain;
             if (hud == null || MainControls.instance == null) return;
             if (IsEditorToolsSession())
             {
+                EnterPlacementHud(MainViewModel.Instance);
                 MainControls.instance.StopAllPlacement();
                 humanPlacementMode = !humanPlacementMode;
                 Interlocked.Exchange(ref revealHiddenActive, 0);
@@ -385,7 +389,8 @@ namespace SpectatorEditorBuildTest
                 RestoreDateLayout();
                 MainViewModel.Instance.SubMode = humanSavedSubMode;
                 hud.SetupNewBuildScreen(-1000);
-                if (humanSavedScreen != 0) hud.SetupNewBuildScreen(humanSavedScreen);
+                EnterPlacementHud(MainViewModel.Instance);
+                hud.SetupNewBuildScreen(GateHudLifecycle.IsBuildScreen(humanSavedScreen) ? humanSavedScreen : 1);
                 hud.StartScrollSwish();
                 RadioButton[] tabs = NormalTabs(hud);
                 if (humanSavedTabs != null)
@@ -403,7 +408,7 @@ namespace SpectatorEditorBuildTest
                     if (IsSelectableAi(owner)) { firstAi = owner; break; }
                 if (firstAi < 0) return;
                 humanSavedScreen = MainViewModel.Instance.buildScreenID;
-                if (humanSavedScreen < 0 || humanSavedScreen >= 23) humanSavedScreen = 1;
+                if (!GateHudLifecycle.IsBuildScreen(humanSavedScreen)) humanSavedScreen = 1;
                 humanSavedSubMode = MainViewModel.Instance.SubMode;
                 RadioButton[] tabs = NormalTabs(hud);
                 humanSavedTabs = new bool?[tabs.Length];
@@ -417,6 +422,7 @@ namespace SpectatorEditorBuildTest
                     visualResourceDetour != null ? 1 : 0);
                 if (Volatile.Read(ref revealHiddenActive) == 0)
                     log.LogWarning("SPECTATOR_EDITOR_VISUAL_UNAVAILABLE: audited native hooks are not installed");
+                EnterPlacementHud(MainViewModel.Instance);
                 hud.SetupNewBuildScreen(1);
                 RefreshBuildIcons(hud, humanSelectedOwner, "human-enter");
                 log.LogInfo("SPECTATOR_EDITOR_HUMAN_MODE_ON owner=" + humanSelectedOwner +
@@ -428,6 +434,18 @@ namespace SpectatorEditorBuildTest
         private static void SelectHumanAi(int owner)
         {
             if (!IsHumanSingleplayerSession() || !IsSelectableAi(owner)) return;
+            SyncSpectatorSelection();
+            if (spectatorSelectionLinked)
+            {
+                if (!spectatorSelection.TrySelect(owner)) return;
+                SyncSpectatorSelection();
+            }
+            else ApplyHumanAi(owner);
+            RefreshHumanControls(true);
+        }
+
+        private static void ApplyHumanAi(int owner)
+        {
             if (humanSelectedOwner == owner) return;
             CancelPowerSelection();
             ClearGateSelection();
@@ -435,9 +453,8 @@ namespace SpectatorEditorBuildTest
             activeWall = null;
             activeSpecial = null;
             humanSelectedOwner = owner;
-            if (humanPlacementMode && MainViewModel.Instance.HUDmain != null)
+            if (owner > 0 && humanPlacementMode && MainViewModel.Instance.HUDmain != null)
                 RefreshBuildIcons(MainViewModel.Instance.HUDmain, owner, "human-owner");
-            RefreshHumanControls(true);
             log.LogInfo("SPECTATOR_EDITOR_HUMAN_OWNER owner=" + owner);
         }
 
@@ -501,6 +518,7 @@ namespace SpectatorEditorBuildTest
                     humanEligible && humanPlacementMode && !IsEditorToolsSession() && visualMapDetour != null &&
                     visualFrameDetour != null && visualResourceDetour != null ? 1 : 0);
                 if (humanEligible) EnsureHumanControls();
+                SyncSpectatorSelection();
                 RefreshHumanControls(humanEligible);
                 if (humanEligible) { RefreshPowers(); RefreshVanillaPowerToolbar(); RefreshGateState(); }
                 else { RestoreVanillaPowerToolbar(false); CancelPowerSelection(); ClearGateSelection(); }

@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'patcher\HookRuntime.cs'))
-foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src'),(Join-Path $PSScriptRoot 'patcher') -Filter '*.cs') + @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.csproj') + @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.cs')) {
+foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src'),(Join-Path $PSScriptRoot 'patcher') -Filter '*.cs' -Recurse) + @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.csproj') + @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.cs')) {
     $text = [IO.File]::ReadAllText($file.FullName)
     if ($text -match 'System\.Text\.Json|Newtonsoft|JavaScriptSerializer|System\.Web\.Extensions|DataContractJsonSerializer|JsonUtility|Assembly-CSharp|APIShared\.dll') { throw "Forbidden dependency: $($file.Name)" }
     if ($text -match '\b(OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(|\.(Undo|Dispose|Apply)\s*\(|-=') { throw "Unexpected lifecycle mutation: $($file.Name)" }

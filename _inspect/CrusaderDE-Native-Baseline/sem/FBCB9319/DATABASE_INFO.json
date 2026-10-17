@@ -4,15 +4,15 @@
     "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/index-50932c3d7459.sqlite",
     "schemaVersion": 6,
     "referenceSize": 1943207936,
-    "referenceSha256": "ACCC9CF84E37A5ABD84E8B62DBC563DC75D9C4FEC227912F5FBB73F132B0E743",
+    "referenceSha256": "92686962E214B0654EC2EA4312351AD82169D653B106D52528C4739BFAFA0AD8",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
     "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
     "managedHash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
     "oldNativeHash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
-    "scriptExtenderCommit": "5908e1f12437deb7ef5f5b1dc2d64e301178fba3",
-    "scriptExtenderTree": "c238441ea12db35ee36c5c5668d3c8fce0897295"
+    "scriptExtenderCommit": "10628df85cd432184742a50a1dee3969a66cf89e",
+    "scriptExtenderTree": "a612b537010c88e2837bb8895c9657e730365423"
   },
   "binaries": [
     {
@@ -85,8 +85,8 @@
   "inputs": [
     {
       "path": "sem/FBCB9319/IDENTITY.json",
-      "sha256": "4200B11A6F3BF8AD9A5581E2EA841D697578F607A65EFD81B68E792DB62318E1",
-      "bytes": 405
+      "sha256": "8DC866B4B4BDFD46261239B0D367BA8F885416C8B68B408E427538C84DD73794",
+      "bytes": 426
     },
     {
       "path": "diff/17F8DD4A-FBCB9319/IDENTITY.json",
@@ -225,27 +225,27 @@
     },
     {
       "path": "sem/FBCB9319/sources/pattern-matches.jsonl",
-      "sha256": "1829C96B426E45C305F8220561DA424B78D850DCF7D891AB0E10294FE37B9E04",
+      "sha256": "2E1D2CB5B507BDBD09812B8A747A9084B431FABE0B5F03EEDDE09C0F0E2B4D3D",
       "bytes": 441002
     },
     {
       "path": "sem/FBCB9319/sources/source-types.jsonl",
-      "sha256": "1115FFDC72D9F4BCA5A6A2E352386C18538BE71454B4DB9F500A3332E5ACDC13",
+      "sha256": "B486DDB2C8EA0CEDB12CF3E9F67011782E5B224695B6B20DF828766C876CFD63",
       "bytes": 722119
     },
     {
       "path": "sem/FBCB9319/sources/type-fields.jsonl",
-      "sha256": "CF372E73791E7C055ADA2A37040C0E1ADC6896ACEEEABC59976B0986D30D8B27",
+      "sha256": "48262A2EE63E14D0B13F9BB81EB1036DABFADA8C83AFA6E8F6A4740C381E16F5",
       "bytes": 3549606
     },
     {
       "path": "sem/FBCB9319/sources/vtable-members.jsonl",
-      "sha256": "A0243BBF4B8DC000C3987846EF8A8A47E81D71399F7C90070DCD91FF56C5A301",
+      "sha256": "EBC71541CA55A64B8FD43A2E34FE6060CEAD9203577C59F7536A31FAE711D2A8",
       "bytes": 170249
     },
     {
       "path": "sem/FBCB9319/sources/delegates.jsonl",
-      "sha256": "0FB8C900B24D6B2E9EAF54B7D08017B17ACDD6B7B18241FDBBC1137FB8811AA3",
+      "sha256": "D6A74BB303A18E01BDBD4696CE01F056E080CD49B45D48E4A9C6A0CA4590BAE2",
       "bytes": 96323
     },
     {
@@ -484,6 +484,21 @@
       "bytes": 10898357
     },
     {
+      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/memory-000.jsonl",
+      "sha256": "9D920478742FCA623A7C6FFEDA6F07CC1C1E7EFF105919F9E26079C01DF0FAFA",
+      "bytes": 33553539
+    },
+    {
+      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/memory-001.jsonl",
+      "sha256": "822F73DA4045B17903D73BCC187B4ECF8B168FFFBFA1DC8D82B48CB6924D043B",
+      "bytes": 33554277
+    },
+    {
+      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/memory-002.jsonl",
+      "sha256": "53025022D0FC01B973E02A03D01129B066B6DABF5DC2CCE1E343D2D10F489CA2",
+      "bytes": 18564556
+    },
+    {
       "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-000.jsonl",
       "sha256": "2FA61566560308B71B13CBE832236C277674D377C26093E7009FD777F60C4658",
       "bytes": 33521193
@@ -694,19 +709,24 @@
       "bytes": 22804878
     },
     {
-      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/memory-000.jsonl",
-      "sha256": "9D920478742FCA623A7C6FFEDA6F07CC1C1E7EFF105919F9E26079C01DF0FAFA",
-      "bytes": 33553539
+      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/historical-types.json",
+      "sha256": "A77D4BB226B94675C1C60E8E180FD1320D039E640854E40250183FF82176784F",
+      "bytes": 264392
     },
     {
-      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/memory-001.jsonl",
-      "sha256": "822F73DA4045B17903D73BCC187B4ECF8B168FFFBFA1DC8D82B48CB6924D043B",
-      "bytes": 33554277
+      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/decompiler-diagnostics.json",
+      "sha256": "B9D8798F870C38F48C82D5A793DBBBE4F9142218828EA9C989FB9A8A48BE15A7",
+      "bytes": 1273
     },
     {
-      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/memory-002.jsonl",
-      "sha256": "53025022D0FC01B973E02A03D01129B066B6DABF5DC2CCE1E343D2D10F489CA2",
-      "bytes": 18564556
+      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/historical/decompiler-diagnostics.json",
+      "sha256": "337CC7FC2CF2ABD1E3AE42C14EC33964F74772E21CB2EAC10B07B10015985A35",
+      "bytes": 1149
+    },
+    {
+      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/advanced.json",
+      "sha256": "4453AFC89383DB6A423C3FB2340315FEBEB0CF2A3540E2C8EB846D81AB0CCFE9",
+      "bytes": 17335606
     },
     {
       "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/profile.json",
@@ -732,26 +752,6 @@
       "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/backends.json",
       "sha256": "ADF286BE18651C8E04F68F494F878FCE3A5C5876F59D795FEFAF8D0BB9160648",
       "bytes": 1200
-    },
-    {
-      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/advanced.json",
-      "sha256": "4453AFC89383DB6A423C3FB2340315FEBEB0CF2A3540E2C8EB846D81AB0CCFE9",
-      "bytes": 17335606
-    },
-    {
-      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/historical-types.json",
-      "sha256": "A77D4BB226B94675C1C60E8E180FD1320D039E640854E40250183FF82176784F",
-      "bytes": 264392
-    },
-    {
-      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/decompiler-diagnostics.json",
-      "sha256": "B9D8798F870C38F48C82D5A793DBBBE4F9142218828EA9C989FB9A8A48BE15A7",
-      "bytes": 1273
-    },
-    {
-      "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/historical/decompiler-diagnostics.json",
-      "sha256": "337CC7FC2CF2ABD1E3AE42C14EC33964F74772E21CB2EAC10B07B10015985A35",
-      "bytes": 1149
     },
     {
       "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/backend/inline.cs",

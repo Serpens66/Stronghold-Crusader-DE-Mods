@@ -97,11 +97,12 @@ namespace SavegameMissingMapFixTest
                 for (int i = 0; i < 6; i++) { uint length = reader.ReadUInt32(); reader.BaseStream.Seek(length, SeekOrigin.Current); }
                 payload = reader.ReadBytes(reader.ReadInt32());
             }
+            RestartTests.Run(payload);
             using (var decode = new DynamicMethodDefinition(SavegameFix.Decode))
             using (var encode = new DynamicMethodDefinition(SavegameFix.Encode))
             {
-                using (var il = new ILContext(decode.Definition)) { SavegameFix.ModifyDecode(il); Isolate(il); }
-                using (var il = new ILContext(encode.Definition)) SavegameFix.ModifyEncode(il);
+                using (var il = new ILContext(decode.Definition)) { il.Invoke(SavegameFix.ModifyDecode); Isolate(il); }
+                using (var il = new ILContext(encode.Definition)) il.Invoke(SavegameFix.ModifyEncode);
                 var read = (Func<byte[], bool, Restart>)decode.Generate().CreateDelegate(typeof(Func<byte[],bool,Restart>));
                 var write = (Func<Restart, byte[]>)encode.Generate().CreateDelegate(typeof(Func<Restart,byte[]>));
                 SavegameFix.Enabled = false;
@@ -118,9 +119,9 @@ namespace SavegameMissingMapFixTest
                 Require(SavegameFix.Missing(second), "Missing-map state not attached to second object.");
                 var menu = (HUD_IngameMenu)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(HUD_IngameMenu));
                 menu.restartSkirmishMapInfo = second;
-                Require(SavegameFix.BlockAction(menu, 5) && !SavegameFix.BlockAction(menu, 1), "Restart guard changed other menu actions.");
+                Require(SavegameFix.BlockRestart(menu), "Restart guard changed other menu actions.");
                 SavegameFix.Enabled = false;
-                Require(!SavegameFix.BlockAction(menu, 5), "Inactive action guard changed Vanilla.");
+                Require(!SavegameFix.BlockRestart(menu), "Inactive action guard changed Vanilla.");
                 SavegameFix.Enabled = true;
                 Require(read(new byte[] { 60, 8 }, false) == null, "Truncated data accepted.");
                 installed = new FileHeader { workshopMap = true, fileName = "Tactical Boardgame (2 Player)" };
@@ -128,7 +129,7 @@ namespace SavegameMissingMapFixTest
                 Require(ReferenceEquals(normal.selectedHeader, installed) && !SavegameFix.Missing(normal), "Installed map changed.");
                 Require(write(normal).SequenceEqual(payload), "Installed-map encoding changed.");
                 menu.restartSkirmishMapInfo = normal;
-                Require(!SavegameFix.BlockAction(menu, 5), "Installed-map restart was blocked.");
+                Require(!SavegameFix.BlockRestart(menu), "Installed-map restart was blocked.");
                 installed = null;
                 byte[] local = (byte[])payload.Clone(); local[5 + 8 * 12] = 0;
                 Require(write(read(local, false)).SequenceEqual(local), "Local map identity lost.");
@@ -141,10 +142,10 @@ namespace SavegameMissingMapFixTest
                 Require(ReferenceEquals(read(trail, false).selectedHeader, installedTrail), "Available custom-trail fallback was bypassed.");
                 Console.WriteLine("PASS: transformed installed Vanilla decoder/encoder executed; disabled, missing/installed/local/builtin, portrait/AIC/AIV, repeated roundtrip and corruption cases.");
             }
-            foreach (var pair in new[] { Tuple.Create(SavegameFix.Menu, (ILContext.Manipulator)SavegameFix.ModifyMenu), Tuple.Create(SavegameFix.Action, (ILContext.Manipulator)SavegameFix.ModifyAction) })
+            foreach (var pair in new[] { Tuple.Create(SavegameFix.Menu, (ILContext.Manipulator)SavegameFix.ModifyMenu), Tuple.Create(SavegameFix.RestartConfirmation, (ILContext.Manipulator)SavegameFix.ModifyRestartConfirmation) })
                 using (var copy = new DynamicMethodDefinition(pair.Item1))
                 {
-                    using (var il = new ILContext(copy.Definition)) pair.Item2(il);
+                    using (var il = new ILContext(copy.Definition)) il.Invoke(pair.Item2);
                     GC.KeepAlive(copy.Generate());
                 }
             using (var copy = new DynamicMethodDefinition(SavegameFix.Encode))
@@ -152,12 +153,14 @@ namespace SavegameMissingMapFixTest
             {
                 var target = il.Body.Instructions.First(i => i.Operand is FieldReference f && f.Name == "selectedHeader");
                 ((FieldReference)target.Operand).Name = "changedHeader";
-                string before = string.Join("\n", il.Body.Instructions.Select(i => i.ToString()));
+                il.Invoke(context => {
+                string before = RestartTests.Snapshot(il);
                 bool rejected = false;
                 try { SavegameFix.ModifyEncode(il); } catch (InvalidOperationException) { rejected = true; }
-                Require(rejected && before == string.Join("\n", il.Body.Instructions.Select(i => i.ToString())), "Changed IL was not rejected atomically.");
+                Require(rejected && before == RestartTests.Snapshot(il), "Changed IL was not rejected atomically.");
+                });
             }
-            Console.WriteLine("PASS: actual menu/action IL transformed and generated; changed encoder contract rejected before mutation.");
+            Console.WriteLine("PASS: actual menu/confirmation IL transformed and generated; changed encoder contract rejected before mutation.");
         }
     }
 }

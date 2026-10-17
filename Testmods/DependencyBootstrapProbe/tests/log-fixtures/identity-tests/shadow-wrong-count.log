@@ -30,7 +30,7 @@
 [Info:fixture] [DBP:COMPATIBILITY_ENTER] count=1
 [DBP:SHADOW_BEGIN] read-only; failures=0
 [DBP:SHADOW_INDEX] {"guid":"root","version":"1.0"}
-[DBP:SHADOW_CANDIDATE] {"guid":"nested","state":"Eligible","reason":"fixture"}
+[DBP:SHADOW_CANDIDATE] {"guid":"nested","version":"1.0","path":"C:/fixture.dll","state":"Eligible","reason":"fixture"}
 [DBP:SHADOW_DEPENDENCY] {"consumer":"root","dependency":"nested","originalIssue":true,"shadowIssue":false}
 [DBP:SHADOW_COMPLETE] candidates=1 original=1 added=2 dependencies=1 issuesBefore=1 issuesAfter=0 originalUnchanged=True
 [Info:fixture] [DBP:PLUGIN_AWAKE] plugin=6155F9A44261F7464C96F6AF77A66028A4D0FAE0EC8485391C62BD8A139C63A4 static render observer attached

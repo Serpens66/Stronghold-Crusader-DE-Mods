@@ -82,6 +82,7 @@ namespace SpectatorEditorBuildTest
             DetachHumanControls();
             humanPlacementMode = false;
             humanSelectedOwner = -1;
+            spectatorSelectionLinked = false;
             humanSavedScreen = 1;
             humanSavedSubMode = 0;
             humanSavedTabs = null;

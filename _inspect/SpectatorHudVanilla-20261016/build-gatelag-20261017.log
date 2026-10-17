@@ -1,0 +1,108 @@
+[17.10.2026  1:18:05,81] START SpectatorEditorBuildTest
+[17.10.2026  1:18:05,81] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: Testmods\SpectatorEditorBuildTest, APIShared and explicit project/source dependencies.
+[Preflight] Checking 13 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: narrow Fixes wheat startup mutation boundary (source checks only; no backend/game execution).
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 13 projects, 39 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 2 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Checking centralized UnitAccess contract...
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.
+PASS: 292 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: narrow Fixes wheat startup mutation boundary (source checks only; no backend/game execution).
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 13,2s.
+[Preflight] Completed in 41,7s.
+PASS: 1 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[17.10.2026  1:18:47,70] PowerShell checks / build step
+Building the pinned main source; no game installation will be changed.
+[17.10.2026  1:18:54,28] START APIShared
+[17.10.2026  1:18:54,28] PowerShell checks / build step
+[Build] APIShared: checking toolchain and installed game references...
+[Build] Validating runtime, XAML, native hooks and real interop contracts...
+PASS: generic dependency declarations, arbitrary GUIDs, constants, presence-only and optional dependencies; 6 malformed fixtures rejected.
+PASS: APIShared has no executable-memory toggles or published transaction teardown.
+PASS: documentation links (200 local targets/anchors); no external workspace references.
+PASS: exact/repeatable Workshop assets, safe paths, inventory completeness, settings exclusion, hashes, ZIP ownership/layout and archive roundtrip.
+PASS: complete publisher inventory, Linux launcher hashes, narrow ZIP tool ownership, tampering and extra DLL rejection. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\APISharedPublisher-fc98baaf828f4ac1a87e52fc2177d7ec
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+PASS: content-identical commits, retained provenance, changed runtime rejection, package tampering, dirty release rejection, cross-shell fingerprint, local path recovery and child inheritance.
+Build proof fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiSharedProof-42f001e53fcc4e3692da56addc6f141c
+INFO: maintainer workspace drivers are unavailable in this standalone checkout; their extra integration tests run locally.
+PASS: PS 5.1 standalone release probe/publication decision, missing/existing releases, authentication/access/network failures, strict missing detection, pipe capture, argument quoting and commit/mode conflicts. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\APIShared release test 6f4aaa4ce0604829a3b7856fc1b8a4ff
+PASS: rooted startup coordination, UI removal, Linux launcher, batch protocol and upload isolation.
+PASS: runtime differs from published 0.9.0 only in Workshop and the release version.
+PASS: shell scripts contain no bare negated assertions.
+SKIP: host Bash runtime fixtures require an explicitly supplied environment with flock/coreutils. Windows fixtures still run.
+Checking windows user-pattern recovery: 882 operations, 779 completed, 84 applied changes...
+PASS: windows user-pattern recovery restores all 882 original states, saves 84 changed targets, ignores stale cancellation and permits the next update without New copies.
+PASS: windows recovery protocol, full preflight, independent/overlapping transactions, cancelled handoff, repair, subsequent update and legacy rollback.
+Recovery fixture evidence retained: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\.local\recovery-tests\2c04b103bc12491c8f8af594987106a7
+Checking Windows updater coordination: backup
+Checking Windows updater coordination: first-write
+Checking Windows updater coordination: receipt
+Checking Windows updater coordination: restore
+Checking Windows updater coordination: timeout
+Checking Windows updater coordination: two-pauses
+Checking Windows updater coordination: changed-target
+Checking Windows updater coordination: changed-source
+Checking Windows updater coordination: changed-backup
+Checking Windows updater coordination: changed-operations
+Checking Windows updater coordination: staging
+Checking Windows updater coordination: killed
+Checking Windows updater coordination: completed
+PASS: real fixture game detection, exclusive writer/readable status, backup/apply/receipt/restore pauses, validation, timeout, process termination and post-commit safety. Evidence: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\.local\coordination-tests\b5767732
+PASS: 100 updates, two retained backups, legacy timestamps, staging removal, repeatability and protected receipts/publishing/uploads/game files.
+PASS: per-package retention preserves whole mixed batches.
+PASS: open, unknown, malformed timestamp and corrupted operations remain protected.
+PASS: retired failed source is removed before its successful replacement proof.
+PASS: locked predecessor keeps replacement evidence; partial deletion resumes after unlocking.
+PASS: pending dependency pins protect a proof even after partial reference metadata removal.
+PASS: deletion resumes across individual payload and metadata deletion boundaries.
+PASS: recovery snapshots follow the retention of their original transaction.
+PASS: changed pending cleanup targets are preserved.
+PASS: corrupted pending worklist cannot authorize deletion.
+PASS: concurrent updater and external manager prevent cleanup.
+PASS: linked content is retained without touching its target.
+Workshop maintenance warning after completion: isolated unexpected maintenance failure
+PASS: an unexpected post-commit maintenance exception cannot roll back payload or receipt.
+Maintenance fixture evidence retained: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\.local\maintenance-tests\f247385e804a4fdba711391310863ed2
+PASS: historical APIShared version ordering, ambiguous/missing metadata rejection and central bootstrap gate. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\ApiMigrationVersion-0eec60bca70047b89c07cc2ec85b3fca
+Audio public field: SHCDESE.Interop.eChimps SHCDESE.Interop.GameUnit::r_UnitChimp
+Audio public field: System.UInt16 SHCDESE.Interop.GameUnit::r_AIState
+Audio public field: System.UInt16 SHCDESE.Interop.GameUnit::r_CurrentTilePositionX
+Audio public field: System.UInt16 SHCDESE.Interop.GameUnit::r_CurrentTilePositionY
+PASS: real installed audio access signatures; private effect-table access is explicitly encapsulated and validated.
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\tools\Build.ps1 : Workshop hook 
+audit must be renewed for this installed Extender (SHA-256 
+577f9aab5de504be0bfa2193c7deb734b26076ecbbaf0a408fc9abc4cc5e7175).
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\tools\Build.ps1:95 Zeichen:11
++ } catch { Write-Error $_; exit 1 }
++           ~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,Build.ps1
+ 
+[17.10.2026  1:20:10,29] END: exit code 1
+APIShared branch selection failed: Pinned main build failed; consumers needing newer APIs must wait for a main release.
+[17.10.2026  1:20:10,33] END: exit code 1

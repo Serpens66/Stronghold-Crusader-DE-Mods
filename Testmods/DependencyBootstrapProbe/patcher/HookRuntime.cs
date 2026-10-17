@@ -25,7 +25,7 @@ namespace DependencyBootstrapProbe
         private static bool extenderSeen;
         private static int checks;
         public const string CoreHash = "8255B28902886085C578B9E427D3073C97002DB85176D2090CDEDA90EF14CE70";
-        public const string ExtenderHash = "E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3";
+        public const string ExtenderHash = "577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175";
 
         // Avoid resolving/JITing Chainloader before the preloader invokes Finish.
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -173,6 +173,7 @@ namespace DependencyBootstrapProbe
                 Mark("BEFORE_EXTENDER", "snapshot=" + snapshotSeen + " type=" + type.FullName);
                 Mark("SE_BINARY", "sha256=" + ProbeIdentity.Hash(type.Assembly.Location));
                 if (!snapshotSeen || !HashMatches(type.Assembly.Location, ExtenderHash)) { Mark("SKIP", "SE binary or snapshot mismatch"); return; }
+                LifecycleHook.Install(type.Assembly);
                 var manager = type.Assembly.GetType("SHCDESE.API.Components.ModManager.GameAssetModManager", true);
                 var method = manager.GetMethod("PrepareAllAndCheckCompatibility", BindingFlags.Instance | BindingFlags.NonPublic,
                     null, new[] { typeof(string) }, null);

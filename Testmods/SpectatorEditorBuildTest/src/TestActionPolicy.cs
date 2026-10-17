@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace SpectatorEditorBuildTest
 {
-    internal enum TestActionKind { Credit, Attack, Defend, Cancel, Power, Gate, PowerToggle }
+    internal enum TestActionKind { Credit, Attack, Defend, Cancel, Power, Gate, GateAutomation, PowerToggle }
 
     // Pure policy used by both the runtime and its independent behavioral checks.
     internal static class CreditMath

@@ -1,0 +1,98 @@
+[
+  {
+    "path": ".inspect/workshop-output-git-ceca36b1eb0f48eb82d3263779599883/ExampleMod/source.cs",
+    "bytes": 7,
+    "sha256": "D67E2E944994496C8D8EC76EED0CF9F09679448D584B532BEBF941852A37F5ED",
+    "creator": "Shared/Tools/Steam/Test-WorkshopOutputGit.ps1"
+  },
+  {
+    "path": ".inspect/workshop-output-git-ceca36b1eb0f48eb82d3263779599883/SerpsModsHost/new-source.cs",
+    "bytes": 10,
+    "sha256": "EB326958738D171E78BDFF8117386308557C0F4D19783441BCA3DEA03314D2BC",
+    "creator": "Shared/Tools/Steam/Test-WorkshopOutputGit.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-009dc4aa6369479fb8d624cdbe0c70fc/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-2cadbaf624aa40f6856ac2bf00a60bd1/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-3f53b9168e9248d0bfd8badb650d25a9/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-5b7a035e6b8545069be842136a58bd2a/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-7baaf51fa25e4a79b434478c73241f08/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-7c907420a7e24c61b3f58507ace26723/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-89b240edddb1437a957b2d4f3998a7c5/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-9014ea79d0bc408187e91677c80c587c/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-bcb33d2061fd429db9545eec2b2df64a/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-ceb06ad8ecef4a4fa1e78e6bf329c555/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-d25f669225b24bc693c0875e0729ad6a/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-e28a40e429664efa9775cd0e9c45d873/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-ef161ac5024c41cd859497e83b0f5d97/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  },
+  {
+    "path": ".inspect/workshop-workflow-f1b2fa4db0074062947f5a4c501278c3/SerpsModsHost/src/Host.cs",
+    "bytes": 13,
+    "sha256": "1913B8494215000BC1D1424C9C40F9325975CECDAEC9EA6967CEA836C4978743",
+    "creator": "Shared/Tools/Steam/Test-WorkshopWorkflow.ps1"
+  }
+]

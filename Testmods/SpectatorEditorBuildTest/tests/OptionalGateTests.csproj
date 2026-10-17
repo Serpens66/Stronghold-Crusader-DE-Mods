@@ -1,0 +1,6 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputType>Exe</OutputType><AssemblyName>OptionalGateTests</AssemblyName><LangVersion>latest</LangVersion></PropertyGroup>
+  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/>
+    <Compile Include="OptionalGateTests.cs"/><Compile Include="GateBindingFixture.cs"/><Compile Include="..\src\GateAutomationBinding.cs"/><Compile Include="..\src\OptionalGateAutomation.cs"/>
+  </ItemGroup><Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

@@ -41,6 +41,12 @@ namespace SpectatorEditorBuildTest
                 nativePower = (PowerCall)Marshal.GetDelegateForFunctionPointer(new IntPtr(toolsImage + PowerRva), typeof(PowerCall));
                 nativeGate = (GateCall)Marshal.GetDelegateForFunctionPointer(new IntPtr(toolsImage + GateRva), typeof(GateCall));
                 nativeBridge = (GateCall)Marshal.GetDelegateForFunctionPointer(new IntPtr(toolsImage + BridgeRva), typeof(GateCall));
+                try
+                {
+                    if (powerContext == null) powerContext = new NativePowerContext(context, NativePowerQuery, image);
+                    log.LogInfo("TEST_POWER_CONTEXT_READY spans=105593/14,8CAF8/14,8CE20/18,105627/14; Vanilla targeting; explicit actor; permanent hooks");
+                }
+                catch (Exception error) { log.LogError("TEST_POWER_CONTEXT_DISABLED: " + error); }
                 log.LogInfo("TEST_NATIVE_ACTIONS_READY powers=0xCD630 gate=0xD5810 bridge=0xD57B0 mode=call-only; live ownership checked per action");
             }
             catch (Exception error) { log.LogError("TEST_NATIVE_ACTIONS_DISABLED: " + error); }

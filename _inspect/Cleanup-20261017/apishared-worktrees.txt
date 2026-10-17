@@ -1,0 +1,40 @@
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/APIShared
+HEAD ab95ec3e354b7b532cc1c151f002946ecd591f01
+branch refs/heads/dev/Serpens66
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.inspect/APIMerge-1016
+HEAD 89ab87bd57cdf7e4a0ed8343a09ae659ed7b0b43
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.inspect/APISharedGovernance-20261014/develop
+HEAD 7ecab2c35bfc5e5c21c32e5b32fe9d909c1fac74
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.inspect/APISharedGovernance-20261014/main
+HEAD 859a2ec116c3ba83a9f6b4f5b685f0a91c36d199
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.inspect/APISharedReadyHandoff-20261015/source
+HEAD 9b8d2d6b61bdb58392632b907fe9a00bc7d64acf
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.inspect/APISharedRelease092-20261015/develop
+HEAD ec764837c9859c69542ca75c95bf0cfbdf841a2b
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.inspect/APISharedRelease092-20261015/source
+HEAD c7b210f007035ff8edaf4d359a21f7bfbcbe479d
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.inspect/APISharedWorkshopHotfix-20261015/source
+HEAD 6f1ab4ad6f7683b0db175f3626db194abf815370
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.release-output/APIShared/main/693bed805a99783b2b858848629b05584625290f/source
+HEAD 693bed805a99783b2b858848629b05584625290f
+detached
+
+worktree D:/CDesktopLink/Unterlagen/Mods/Stronghold Crusader DE/Meine Mods/.release-output/APIShared/main/c7b210f007035ff8edaf4d359a21f7bfbcbe479d/source
+HEAD c7b210f007035ff8edaf4d359a21f7bfbcbe479d
+detached
+

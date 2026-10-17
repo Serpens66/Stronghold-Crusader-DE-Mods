@@ -3,10 +3,13 @@ param(
     [string]$LogPath,
     [switch]$RequireShadow,
     [switch]$RequireCorrection,
+    [switch]$RequireLifecycle,
+    [string]$LifecycleReportPath,
     [string]$ExpectedArtifactRoot = $PSScriptRoot,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 )
 $ErrorActionPreference = 'Stop'
+if($RequireLifecycle){$RequireCorrection=$true;$RequireShadow=$true}
 if (-not $LogPath) { $LogPath = Join-Path $GameDir 'BepInEx\DependencyBootstrapProbe.trace.log' }
 function FileHash([string]$path) {
     $stream = [IO.File]::OpenRead($path); $sha = [Security.Cryptography.SHA256]::Create()
@@ -107,6 +110,7 @@ if ($RequireCorrection -or $events.Marker -contains 'CORRECTION_MODE') {
         Ordered @('SHADOW_COMPLETE','CORRECTION_PREPARED','CORRECTION_APPLIED','ORIGINAL_RESULT')
         if ((One 'CORRECTION_PREPARED').Detail -cne "original=$($counts[1]) effective=$($counts[1]+$counts[2]) added=$($counts[2]) expectedIssues=$($counts[5])" -or (One 'CORRECTION_APPLIED').Detail -cne "effective=$($counts[1]+$counts[2])" -or $actualCount -ne $counts[5]) { throw 'Effective correction counters mismatch.' }
         $receipt=Get-Content -Raw -LiteralPath (Join-Path $ExpectedArtifactRoot 'trial\expectations.json')|ConvertFrom-Json
+        if(-not $RequireLifecycle){
         $controlPath=Join-Path $GameDir 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp\info.json'
         if ((FileHash $controlPath) -cne $receipt.ManifestSHA256) { throw 'Control fixture identity mismatch.' }
         $control=Get-Content -Raw -LiteralPath $controlPath|ConvertFrom-Json
@@ -115,13 +119,46 @@ if ($RequireCorrection -or $events.Marker -contains 'CORRECTION_MODE') {
             $hits=@($issues|Where-Object { $_.consumer -ceq $receipt.ControlGuid -and $_.dependency -ceq $dep.GUID -and [string]$_.minimum -ceq [string]$dep.MinimumVersion -and [string]$_.maximum -ceq [string]$dep.MaximumVersion -and -not [string]::IsNullOrWhiteSpace($_.reason) })
             if($hits.Count -ne 1) { throw 'Original check did not preserve an exact control requirement.' }
         }
+        }
         foreach($pair in $receipt.ResolvedPairs) {
             $hits=@($dependencies|Where-Object { $_.consumer -ceq $pair.consumer -and $_.dependency -ceq $pair.dependency -and $_.originalIssue -and -not $_.shadowIssue })
             if($hits.Count -ne 1 -or @($issues|Where-Object { $_.consumer -ceq $pair.consumer -and $_.dependency -ceq $pair.dependency }).Count) { throw 'Known false warning was not corrected.' }
         }
         if ($indices.guid -contains $receipt.MissingGuid -or $candidates.guid -contains $receipt.MissingGuid) { throw 'Missing control provider unexpectedly present.' }
-        Write-Host 'PASS: local corrected index used; original check returned exactly the three expected control errors.'
+        if($RequireLifecycle){Write-Host 'PASS: correction retained; original results match evaluated requirements.'}else{Write-Host 'PASS: local corrected index used; original check returned exactly the three expected control errors.'}
     } elseif ($events.Marker -contains 'CORRECTION_APPLIED' -or $events.Marker -contains 'CORRECTION_PREPARED' -or $actualCount -ne $counts[4]) { throw 'Shadow-only mode changed effective results.' }
+}
+if($RequireLifecycle){
+    Ordered @('READY_OBSERVED','BEFORE_EXTENDER','LIFECYCLE_PREPARE','LIFECYCLE_TRANSFORMED','LIFECYCLE_DELEGATE_BEGIN','LIFECYCLE_DELEGATE_END','LIFECYCLE_JIT_BEGIN','LIFECYCLE_JIT_END','LIFECYCLE_INSTALL','LIFECYCLE_HOOK_INSTALLED','COMPATIBILITY_ENTER')
+    if((One 'LIFECYCLE_PREPARE').Detail -cne "binary=$seHash"){throw 'Lifecycle binary mismatch.'}
+    if(-not $LifecycleReportPath){$LifecycleReportPath=Join-Path $GameDir 'BepInEx/DependencyBootstrapProbe.lifecycle.json'}
+    $pathEvents=@($events|Where-Object Marker -eq 'LIFECYCLE_PATHS')
+    $stageEvents=@($events|Where-Object Marker -eq 'LIFECYCLE_STAGED')
+    $reportEvents=@($events|Where-Object Marker -eq 'LIFECYCLE_REPORT')
+    if(-not $pathEvents.Count -or $pathEvents.Count -ne $stageEvents.Count -or $pathEvents.Count -ne $reportEvents.Count){throw 'Missing lifecycle invocation phase.'}
+    $lastLine=(One 'LIFECYCLE_HOOK_INSTALLED').Line
+    $seen=@{}
+    for($invocation=0;$invocation -lt $pathEvents.Count;$invocation++){
+    $pathEvent=$pathEvents[$invocation];$stageEvent=$stageEvents[$invocation];$reportEvent=$reportEvents[$invocation]
+    if($pathEvent.Line -le $lastLine -or $stageEvent.Line -le $pathEvent.Line -or $reportEvent.Line -le $stageEvent.Line){throw 'Lifecycle invocation order mismatch.'}
+    $lastLine=$reportEvent.Line
+    if($reportEvent.Detail -cnotmatch '^run=([a-f0-9]{32}) sha256=[A-F0-9]{64} complete=True$'){throw 'Invalid lifecycle report marker.'}
+    $id=$Matches[1];if($seen.ContainsKey($id)){throw 'Repeated lifecycle identity.'};$seen[$id]=$true
+    $snapshotPath=Join-Path (Split-Path $LifecycleReportPath) ('DependencyBootstrapProbe.lifecycle.'+$id+'.json')
+    $report=Get-Content -LiteralPath $snapshotPath -Raw|ConvertFrom-Json
+    if($report.Schema -ne 1 -or $report.Complete -isnot [bool] -or -not $report.Complete -or $report.RemovalAuthorized -isnot [bool] -or $report.RemovalAuthorized -or @($report.Errors).Count){throw 'Incomplete or unsafe lifecycle report.'}
+    if($report.RunId -cne $id -or $reportEvent.Detail -cne "run=$id sha256=$(FileHash $snapshotPath) complete=True" -or $pathEvent.Detail -cne "run=$id count=$(@($report.WorkshopPaths).Count)" -or $stageEvent.Detail -cne "run=$id before deployment decision"){throw 'Lifecycle report is not bound to this run.'}
+    if($report.PatcherSHA256 -cne $patcherHash -or $report.PluginSHA256 -cne $pluginHash -or $report.CoreSHA256 -cne $coreHash -or $report.ExtenderSHA256 -cne $seHash){throw 'Lifecycle build mismatch.'}
+    if(@($report.Maps).Count -ne @($report.WorkshopPaths).Count -or @($report.Owners).Count -ne $candidates.Count -or @($report.Owners|Group-Object Guid|Where-Object Count -gt 1).Count){throw 'Lifecycle inventory incomplete.'}
+    foreach($owner in $report.Owners){
+        $candidate=@($candidates|Where-Object guid -ceq $owner.Guid)
+        if($candidate.Count -ne 1 -or $candidate[0].version -cne $owner.Version -or $candidate[0].path -ine $owner.Path){throw 'Lifecycle owner differs from selected inventory.'}
+        if($owner.Guid -cnotin $candidates.guid -or $owner.State -notin @('Unique','Ambiguous','NotFound','Unverifiable') -or -not $owner.Reason -or -not $owner.Path -or -not $owner.Version -or $owner.SHA256 -cnotmatch '^[A-F0-9]{64}$'){throw 'Invalid ownership decision.'}
+        if(($owner.State -eq 'Unique' -and @($owner.Claims).Count -ne 1) -or ($owner.State -eq 'Ambiguous' -and @($owner.Claims).Count -lt 2) -or ($owner.State -eq 'NotFound' -and @($owner.Claims).Count -ne 0)){throw 'Ownership evidence inconsistent.'}
+    }
+    Write-Host 'PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.'
+    }
+    if((FileHash $LifecycleReportPath) -cne (FileHash $snapshotPath)){throw 'Latest lifecycle report does not match final invocation.'}
 }
 Write-Host "PASS: $Mode probe markers and exact build identities in latest session."
 Write-Host 'Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.'

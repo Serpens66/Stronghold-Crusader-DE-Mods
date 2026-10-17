@@ -54,7 +54,8 @@
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
                 <TextBlock Text="{Binding Text[Amount]}" Foreground="White" FontSize="15" VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <TextBox x:Name="TestToolsAmount" Width="145" Height="30" FontSize="18" Text="0" VerticalContentAlignment="Center" ToolTip="{Binding Text[AmountHelp]}" ToolTipService.ShowDuration="60000"/>
-                <Button Width="250" Height="30" Margin="10,0,0,0" Style="{StaticResource ToolsButton}" Content="{Binding Text[Credit]}" Command="{Binding ActionCommand}" CommandParameter="Credit" IsEnabled="{Binding CanCredit}" ToolTip="{Binding Text[CreditHelp]}" ToolTipService.ShowDuration="60000"/>
+                <Button Width="120" Height="30" Margin="10,0,0,0" Style="{StaticResource ToolsButton}" Content="{Binding Text[Credit]}" Command="{Binding ActionCommand}" CommandParameter="Credit" IsEnabled="{Binding CanCredit}" ToolTip="{Binding Text[CreditHelp]}" ToolTipService.ShowDuration="60000"/>
+                <Button Width="36" Height="30" Margin="6,0,0,0" Style="{StaticResource ToolsButton}" Content="0" Command="{Binding ActionCommand}" CommandParameter="ResetAmount" ToolTip="{Binding Text[ResetAmountHelp]}" ToolTipService.ShowDuration="60000"/>
               </StackPanel>
             </StackPanel>
             <StackPanel Visibility="{Binding OrdersVisibility}" Margin="0,4,0,0">

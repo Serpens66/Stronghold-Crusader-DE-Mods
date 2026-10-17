@@ -1,0 +1,205 @@
+[
+  {
+    "generation": "g0CD52D98D9DE",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 67,
+    "flowStatuses": {
+      "complete": 2600,
+      "not-selected": 1875,
+      "failed": 3
+    },
+    "compactedExports": 37,
+    "exportsIdenticalToCurrent": 0,
+    "archivePreservedExports": 37,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "g21F204C92A08",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 66,
+    "flowStatuses": {
+      "complete": 2600,
+      "not-selected": 1875,
+      "failed": 3
+    },
+    "compactedExports": 33,
+    "exportsIdenticalToCurrent": 0,
+    "archivePreservedExports": 33,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "g30FEA0A39E6A",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 66,
+    "flowStatuses": {
+      "complete": 2600,
+      "not-selected": 1875,
+      "failed": 3
+    },
+    "compactedExports": 33,
+    "exportsIdenticalToCurrent": 0,
+    "archivePreservedExports": 33,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "g3C07E6DB2A62",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 69,
+    "flowStatuses": {
+      "complete": 2601,
+      "not-selected": 1874,
+      "failed": 3
+    },
+    "compactedExports": 91,
+    "exportsIdenticalToCurrent": 88,
+    "archivePreservedExports": 3,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "g4F7B6F1F0530",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 67,
+    "flowStatuses": {
+      "complete": 2600,
+      "not-selected": 1875,
+      "failed": 3
+    },
+    "compactedExports": 37,
+    "exportsIdenticalToCurrent": 0,
+    "archivePreservedExports": 37,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "g7CB3EE4E38DD",
+    "nativeHash": null,
+    "functions": null,
+    "instructions": null,
+    "features": null,
+    "flowStatuses": null,
+    "compactedExports": 13,
+    "exportsIdenticalToCurrent": 0,
+    "archivePreservedExports": 13,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "gADF6C34DA15D",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 67,
+    "flowStatuses": {
+      "complete": 2600,
+      "not-selected": 1875,
+      "failed": 3
+    },
+    "compactedExports": 37,
+    "exportsIdenticalToCurrent": 0,
+    "archivePreservedExports": 37,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "gC811E45209EF",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 69,
+    "flowStatuses": {
+      "complete": 2601,
+      "not-selected": 1874,
+      "failed": 3
+    },
+    "compactedExports": 91,
+    "exportsIdenticalToCurrent": 91,
+    "archivePreservedExports": 0,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  },
+  {
+    "generation": "gEEA67B221E49",
+    "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "functions": 4478,
+    "instructions": 436211,
+    "features": 69,
+    "flowStatuses": {
+      "complete": 2601,
+      "not-selected": 1874,
+      "failed": 3
+    },
+    "compactedExports": 91,
+    "exportsIdenticalToCurrent": 91,
+    "archivePreservedExports": 0,
+    "retainedMetadata": [
+      "profile.json",
+      "sources.json",
+      "features.json",
+      "coverage.json",
+      "backends.json",
+      "acceptance.json"
+    ]
+  }
+]

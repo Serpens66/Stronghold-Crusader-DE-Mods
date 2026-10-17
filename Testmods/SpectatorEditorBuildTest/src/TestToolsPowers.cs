@@ -17,26 +17,21 @@ namespace SpectatorEditorBuildTest
     {
         private sealed class PowerSelection
         {
-            internal long Session;
+            internal long Session, Generation;
             internal int Actor;
             internal ToolPower Power;
+            internal bool Rejected;
         }
         private static PowerSelection pendingPower;
         private static long powerGeneration;
-        private static int toolMouseState, powerMouseState;
-        private static bool consumePowerGesture;
-        private static IDisposable powerEscapeSubscription;
+        private static int toolMouseState;
+        private static NativePowerContext powerContext;
+        [ThreadStatic] private static bool selectingTestPower;
+        private static int powerCallbackFailure;
         private static DateTime nextPowerRefresh;
         private static int powerRefreshActor;
 
-        private static void RegisterPowerInput()
-        {
-            RegisterVanillaPowerActions();
-            powerEscapeSubscription = InputR3EventHooks.OnKeyDown.Observable.Subscribe(args => {
-                if (args.Phase == EventHookPhase.Pre && args.Key == KeyCode.Escape && pendingPower != null)
-                { CancelPowerSelection(); args.Result = false; }
-            });
-        }
+        private static void RegisterPowerInput() => RegisterVanillaPowerActions();
 
         private static ToolPower DescribePower(int id)
         {
@@ -45,7 +40,7 @@ namespace SpectatorEditorBuildTest
                 Name = SerpLocalization.Get("Tools.Power" + id), Help = "",
                 Sprite = "extreme power " + (id + 1) };
             OptionalExtremePowers.Describe(power);
-            power.Enabled = nativePower != null && power.TargetKind >= 0 && power.TargetKind <= 1 &&
+            power.Enabled = nativePower != null && powerContext?.Ready == true && power.TargetKind >= 0 && power.TargetKind <= 1 &&
                 GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled() && IsSelectableAi(humanSelectedOwner);
             if (humanPanel != null)
             {
@@ -61,6 +56,10 @@ namespace SpectatorEditorBuildTest
         private static void RefreshPowers()
         {
             if (toolsModel == null) return;
+            if (pendingPower != null && (!IsCurrentSession(pendingPower.Session) || pendingPower.Actor != humanSelectedOwner ||
+                !GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled())) CancelPowerSelection();
+            else if (pendingPower != null && powerContext?.Ready == true && powerContext.Mode != 4 && powerContext.Mode != 5)
+                pendingPower = null; // Native confirmation/cancellation finished; no synthetic key handling.
             toolsModel.RefreshPowerFlag(GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled());
             // Optional API has no metadata-change event; this bounded refresh never samples input.
             if (powerRefreshActor == humanSelectedOwner && DateTime.UtcNow < nextPowerRefresh) return;
@@ -80,112 +79,93 @@ namespace SpectatorEditorBuildTest
         private static void SelectPower(int id)
         {
             amountInput?.EndEditing();
-            CancelPowerSelection();
-            MainControls.instance?.StopAllPlacement();
-            if ((uint)id > (uint)ExtremePower.RockVolley || !IsSelectableAi(humanSelectedOwner)) return;
-            ToolPower power = DescribePower(id);
-            if (!power.Enabled) { toolsModel.Status = SerpLocalization.Get("Tools.PowerUnavailable"); return; }
-            if (power.TargetKind == 0)
-                QueueTestAction(new TestAction { Kind = TestActionKind.Power, Actor = humanSelectedOwner, Power = power, Tile = -1 });
-            else
+            lock (engineLock)
             {
-                pendingPower = new PowerSelection { Session = CurrentSessionId, Actor = humanSelectedOwner, Power = power };
-                toolsModel.Status = SerpLocalization.Get("Tools.PowerChooseTarget");
+                CancelPowerSelection();
+                MainControls.instance?.StopAllPlacement();
+                if ((uint)id > (uint)ExtremePower.RockVolley || !IsSelectableAi(humanSelectedOwner)) return;
+                ToolPower power = DescribePower(id);
+                if (!power.Enabled) { toolsModel.Status = SerpLocalization.Get("Tools.PowerUnavailable"); return; }
+                pendingPower = new PowerSelection { Session = CurrentSessionId, Generation = powerGeneration,
+                    Actor = humanSelectedOwner, Power = power };
+                selectingTestPower = true;
+                try
+                {
+                    if (power.Replacement != null && power.TargetKind == 0)
+                        NativePowerQuery(3);
+                    else
+                    {
+                        int nativeId = power.Id == (int)ExtremePower.GrantGold && power.TargetKind == 1
+                            ? (int)ExtremePower.ArrowVolley : power.Id;
+                        ToolPolicy.WithoutCost(() => ReadMana(humanSelectedOwner), value => WriteMana(humanSelectedOwner, value),
+                            (uint)Math.Max(power.Cost, (nativeId + 1) * 636), () => {
+                                powerContext.Select(nativeId, humanSelectedOwner); return true;
+                            });
+                        if (pendingPower != null && powerContext.Mode == 5)
+                            powerContext.SetSelectedPower(power.Id); // Same Gold-map-target mapping as ExtremePowers.
+                        else if (pendingPower != null) pendingPower = null; // Vanilla refused selection (e.g. player paused).
+                    }
+                }
+                catch { CancelPowerSelection(); throw; }
+                finally { selectingTestPower = false; }
             }
         }
 
         private static void CancelPowerSelection()
         {
-            powerGeneration++;
-            if (pendingPower != null && toolsModel != null) toolsModel.Status = SerpLocalization.Get("Tools.PowerCancelled");
-            pendingPower = null;
+            if (engineLock == null) { pendingPower = null; powerGeneration++; return; }
+            lock (engineLock)
+            {
+                PowerSelection previous = pendingPower;
+                pendingPower = null; powerGeneration++;
+                if (previous != null && IsCurrentSession(previous.Session) && powerContext?.Ready == true &&
+                    (powerContext.Mode == 4 || powerContext.Mode == 5) && powerContext.SelectedPower == previous.Power.Id)
+                    powerContext.Cancel();
+            }
         }
 
-        // Called by the existing EditorDirector mouse adapter, before native selection sees the gesture.
-        private static void ObserveToolMouse(ref int state, ref bool rightDown, ref bool rightUp)
+        // Called inside Vanilla under its engine monitor. Never read Noesis or change a bound ViewModel here.
+        private static int NativePowerQuery(int site)
         {
-            toolMouseState = state;
-            if (pendingPower != null && (!IsToolsSession() || pendingPower.Actor != humanSelectedOwner ||
-                !IsCurrentSession(pendingPower.Session) || !GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled()))
-                CancelPowerSelection();
-            if (pendingPower == null && !consumePowerGesture) return;
-            powerMouseState = state;
-            if (state == 1) consumePowerGesture = true;
-            if (rightDown || rightUp) CancelPowerSelection();
-            state = 0; rightDown = rightUp = false;
-            if (powerMouseState == 3) consumePowerGesture = false;
+            PowerSelection selected = pendingPower;
+            if (powerContext?.Ready != true || selected == null || (site == 0 || site == 3) && !selectingTestPower) return 0;
+            try
+            {
+                if (selected.Rejected)
+                {
+                    if (site >= 2) pendingPower = null;
+                    return site >= 2 ? 1 : selected.Actor;
+                }
+                if (!ToolPolicy.PowerContextMatches(selected.Session, CurrentSessionId, selected.Actor, humanSelectedOwner,
+                    selected.Generation, powerGeneration, IsCurrentSession(selected.Session) &&
+                    GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled())) return site >= 2 ? 1 : 0;
+                if (site < 2) return selected.Actor;
+                // Atomically consume the native confirmation, retaining the captured AI/session for the queue.
+                if (!ReferenceEquals(System.Threading.Interlocked.CompareExchange(ref pendingPower, null, selected), selected)) return 1;
+                testActions.Enqueue(new TestAction { Kind = TestActionKind.Power, Actor = selected.Actor,
+                    Session = selected.Session, PowerGeneration = selected.Generation, Power = selected.Power,
+                    Tile = site == 3 ? -1 : powerContext.TargetTile,
+                    Operation = System.Threading.Interlocked.Increment(ref nextTestAction) });
+                return 1;
+            }
+            catch (Exception error)
+            {
+                selected.Rejected = true;
+                if (site >= 2) pendingPower = null;
+                if (System.Threading.Interlocked.Exchange(ref powerCallbackFailure, 1) == 0)
+                    log.LogError("TEST_POWER_CONTEXT_CALLBACK: " + error);
+                return site >= 2 ? 1 : selected.Actor;
+            }
         }
+
+        // Observes clicks only for gates. Power input is never consumed or remapped by the mod.
+        private static void ObserveToolMouse(ref int state, ref bool rightDown, ref bool rightUp) => toolMouseState = state;
 
         private static void CompleteToolMouse(int x, int y)
         {
-            int state = powerMouseState; powerMouseState = 0;
-            if (pendingPower != null && state == 1 && x >= 0 && y >= 0 && !EditorDirector.instance.overUI())
-            {
-                PowerSelection selected = pendingPower;
-                var tiles = GameTileManagerAPI.Instance;
-                if (tiles.IsTileInsideMapBounds(x, y))
-                {
-                    int tile = tiles.GetTileId(x, y);
-                    if (ValidPowerTarget(selected.Power, selected.Actor, tile, out string reason))
-                    {
-                        pendingPower = null;
-                        QueueTestAction(new TestAction { Kind = TestActionKind.Power, Actor = selected.Actor,
-                            Power = selected.Power, Tile = tile });
-                    }
-                    else toolsModel.Status = reason;
-                }
-            }
-            else if (pendingPower == null && !consumePowerGesture && toolMouseState == 1 &&
-                MainControls.instance?.CurrentAction == 0 && !EditorDirector.instance.overUI())
-                SelectTestGate(x, y);
+            if (pendingPower == null && toolMouseState == 1 && MainControls.instance?.CurrentAction == 0 &&
+                !EditorDirector.instance.overUI()) SelectTestGate(x, y);
             toolMouseState = 0;
-        }
-
-        private static unsafe bool ValidPowerTarget(ToolPower power, int actor, int tile, out string reason)
-        {
-            reason = SerpLocalization.Get("Tools.PowerInvalidTarget");
-            var players = GamePlayerManagerAPI.Instance;
-            if (!players.TryGetPlayerResourcesById(actor, out GamePlayerResources* own) || own->r_IsPaused != 0) return false;
-            if (power.TargetKind == 0) return true;
-            var tiles = GameTileManagerAPI.Instance;
-            if (!tiles.IsValidTileId(tile)) return false;
-            var point = tiles.GetTileVectorFromId(tile);
-            if (!tiles.IsTileInsideMapBounds(point.X, point.Y)) return false;
-            bool spawn = power.Id == (int)ExtremePower.SpawnSpearmen || power.Id == (int)ExtremePower.SpawnEngineers ||
-                power.Id == (int)ExtremePower.SpawnMacemen || power.Id == (int)ExtremePower.SpawnKnights;
-            if (!spawn) return true;
-            uint flags = (uint)tiles.GetTilePropertyFlag(tile);
-            // Audited Vanilla target mask, not a replacement walkability approximation.
-            if ((flags & 0x40501481u) != 0 || tiles.GetPathConnectionLayer()[tile] == 0 ||
-                (power.Id == (int)ExtremePower.SpawnKnights && (flags & (uint)TilePropertyFlag.IsWall) != 0)) return false;
-            int radius = power.Id == (int)ExtremePower.SpawnEngineers ? 0x3100 : 0x9c4;
-            bool aroundLord = Marshal.ReadInt32(new IntPtr(toolsImage + PowersAroundLordRva)) != 0;
-            bool nearHome = ToolPolicy.InRadius(point.X, point.Y, (int)own->r_KeepTilePositionX, (int)own->r_KeepTilePositionY, radius);
-            if (aroundLord && TryLordPosition(actor, out int lordX, out int lordY))
-                nearHome |= ToolPolicy.InRadius(point.X, point.Y, lordX, lordY, radius);
-            if (!nearHome) return false;
-            var state = GameData.Instance.lastGameState;
-            if (state.teams == null || state.teams.Length <= 8) return false;
-            for (int enemy = 1; enemy <= 8; enemy++)
-            {
-                if (enemy == actor || state.teams[enemy] == state.teams[actor] ||
-                    !players.TryGetPlayerResourcesById(enemy, out GamePlayerResources* other) ||
-                    other->r_LordUnitId == 0 || other->r_WinLossState == WinLossState.Loss) continue;
-                if (!ToolPolicy.InRadius(point.X, point.Y, (int)other->r_KeepTilePositionX, (int)other->r_KeepTilePositionY, 624)) continue;
-                if (!aroundLord || (TryLordPosition(enemy, out int enemyX, out int enemyY) &&
-                    ToolPolicy.InRadius(point.X, point.Y, enemyX, enemyY, radius - 1))) return false;
-            }
-            return true;
-        }
-
-        private static unsafe bool TryLordPosition(int player, out int x, out int y)
-        {
-            x = y = 0;
-            var players = GamePlayerManagerAPI.Instance;
-            int id = players.GetLordUnitId(player), global = players.GetLordUnitGlobalId(player);
-            if (id <= 0 || global == 0 || !APIShared.UnitAccess.TryGetById(GameUnitManagerAPI.Instance, id, out GameUnit* unit, out _) ||
-                !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId != unchecked((uint)global)) return false;
-            x = unit->r_CurrentTilePositionX; y = unit->r_CurrentTilePositionY; return true;
         }
 
         private static unsafe uint ReadMana(int actor)
@@ -208,7 +188,7 @@ namespace SpectatorEditorBuildTest
             if (!GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled()) return SerpLocalization.Get("Tools.PowerUnavailable");
             ToolPower current = DescribePower(action.Power.Id);
             if (!action.Power.SameContract(current)) return SerpLocalization.Get("Tools.PowerChanged");
-            if (!current.Enabled || !ValidPowerTarget(current, action.Actor, action.Tile, out string reason))
+            if (!current.Enabled || (current.TargetKind == 1 && !GameTileManagerAPI.Instance.IsValidTileId(action.Tile)))
                 return SerpLocalization.Get("Tools.PowerInvalidTarget");
             RequireActionEntry(PowerRva, powerEntry, true);
             uint required = (uint)Math.Max((current.Id + 1) * 636, current.Cost);

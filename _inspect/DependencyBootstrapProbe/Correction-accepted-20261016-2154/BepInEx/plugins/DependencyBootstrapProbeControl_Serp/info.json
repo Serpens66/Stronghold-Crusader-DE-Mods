@@ -1,0 +1,22 @@
+{
+    "GUID":  "DependencyBootstrapProbeControl_Serp",
+    "Name":  "TEST ONLY - Dependency correction controls (3 expected errors)",
+    "Author":  "Serpens66",
+    "Version":  "0.1.0",
+    "Manifest":  0,
+    "NetworkMode":  0,
+    "Description":  "Temporary empty asset test: missing provider and two deliberately impossible version bounds.",
+    "Dependencies":  [
+                         {
+                             "GUID":  "DependencyBootstrapProbe_IntentionallyMissing"
+                         },
+                         {
+                             "GUID":  "BugfixesAndQoL_Serp",
+                             "MinimumVersion":  "2.0.0.0"
+                         },
+                         {
+                             "GUID":  "BugfixesAndQoL_Serp",
+                             "MaximumVersion":  "0.0.0.0"
+                         }
+                     ]
+}

@@ -9,6 +9,7 @@ using CrusaderDE;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
+using MonoMod.Utils;
 
 namespace SavegameMissingMapFixTest
 {
@@ -23,13 +24,84 @@ namespace SavegameMissingMapFixTest
         internal static readonly MethodInfo Decode = RestartType.GetMethod("decode", new[] { typeof(byte[]), typeof(bool) });
         internal static readonly MethodInfo Encode = RestartType.GetMethod("encode", Type.EmptyTypes);
         internal static readonly MethodInfo Menu = typeof(HUD_IngameMenu).GetMethod("SetAsNormal", BindingFlags.Instance | BindingFlags.NonPublic);
-        internal static readonly MethodInfo Action = typeof(HUD_IngameMenu).GetMethod("ButtonIngameMenuFunction", new[] { typeof(int) });
+        internal static MethodInfo RestartConfirmation { get; private set; }
+        internal static MethodInfo[] HookTargets => new[] { Decode, Encode, Menu, RestartConfirmation };
+        internal static ILContext.Manipulator[] HookTransforms => new ILContext.Manipulator[] { ModifyDecode, ModifyEncode, ModifyMenu, ModifyRestartConfirmation };
         private static readonly FieldInfo RestartButton = typeof(HUD_IngameMenu).GetField("RefButtonRestart", BindingFlags.Instance | BindingFlags.NonPublic);
 
         internal static void ValidateMembers()
         {
-            if (Decode == null || Encode == null || Menu == null || Action == null || RestartButton == null || RestartButton.FieldType != typeof(Noesis.Button))
+            if (Decode == null || Encode == null || Menu == null || RestartButton == null || RestartButton.FieldType != typeof(Noesis.Button))
                 throw new InvalidOperationException("Installed game member contract changed.");
+            RestartConfirmation = FindRestartConfirmation();
+        }
+
+        private static MethodInfo FindRestartConfirmation()
+        {
+            var outer = typeof(HUD_IngameMenu).GetMethod("ButtonIngameMenuFunction", new[] { typeof(int) });
+            if (outer == null) throw new InvalidOperationException("Menu delegate owner missing.");
+            var candidates = new List<MethodInfo>();
+            // Read only: hooking this owner re-executes the Extender's non-idempotent exit-hook installer.
+            using (var copy = new DynamicMethodDefinition(outer))
+                foreach (var i in copy.Definition.Body.Instructions)
+                {
+                    if (i.OpCode != OpCodes.Ldftn || i.Previous?.OpCode != OpCodes.Ldarg_0 ||
+                        i.Next?.OpCode != OpCodes.Newobj || !(i.Next.Operand is MethodReference ctor) ||
+                        ctor.DeclaringType.FullName != "System.Action") continue;
+                    var method = ((MethodReference)i.Operand).ResolveReflection() as MethodInfo;
+                    if (method == null || method.DeclaringType != typeof(HUD_IngameMenu) || !method.IsPrivate ||
+                        method.IsStatic || method.ReturnType != typeof(void) || method.GetParameters().Length != 0) continue;
+                    using (var callback = new DynamicMethodDefinition(method))
+                        if (callback.Definition.Body.Instructions.Count(IsSkirmishRestartCall) == 1) candidates.Add(method);
+                }
+            if (candidates.Count != 1) throw new InvalidOperationException("Restart confirmation delegate contract changed.");
+            return candidates[0];
+        }
+
+        private static bool IsSkirmishRestartCall(Instruction i) => i.OpCode == OpCodes.Callvirt &&
+            i.Operand is MethodReference m && m.DeclaringType.FullName == "CrusaderDE.FRONT_Multiplayer" &&
+            m.Name == "RestartSkirmishGame" && m.ReturnType.FullName == "System.Void" && m.Parameters.Count == 1 &&
+            m.Parameters[0].ParameterType.FullName == "CrusaderDE.HUD_IngameMenu/RestartSkirmishMapInfo";
+
+        internal static void RunHookPlan(MethodInfo[] methods, ILContext.Manipulator[] transforms,
+            Action beforePublish, Action<MethodInfo, ILContext.Manipulator> publish)
+        {
+            if (methods.Length != transforms.Length) throw new InvalidOperationException("Hook plan length mismatch.");
+            for (int i = 0; i < methods.Length; i++)
+            {
+                try
+                {
+                    using (var copy = new DynamicMethodDefinition(methods[i]))
+                    using (var il = new ILContext(copy.Definition)) il.Invoke(transforms[i]);
+                }
+                catch (Exception ex) { throw HookFailure("preflight", methods[i], ex); }
+            }
+            beforePublish();
+            for (int i = 0; i < methods.Length; i++)
+            {
+                var method = methods[i];
+                var transform = transforms[i];
+                try
+                {
+                    publish(method, il =>
+                    {
+                        try { transform(il); }
+                        catch (Exception ex) { throw HookFailure("runtime-manipulator", method, ex); }
+                    });
+                }
+                catch (Exception ex) { throw HookFailure("installation", method, ex); }
+            }
+        }
+
+        private static Exception HookFailure(string phase, MethodInfo method, Exception error) =>
+            new InvalidOperationException("Hook phase=" + phase + "; target=" + method.DeclaringType.FullName + "::" + method.Name + "; " + error.Message, error);
+
+        internal static Instruction ResolveBranchTarget(ILContext il, object operand)
+        {
+            var target = operand is ILLabel label ? label.Target : operand as Instruction;
+            if (target == null || !il.Body.Instructions.Contains(target))
+                throw new InvalidOperationException("Restart confirmation branch target is missing, unsupported or outside the method body.");
+            return target;
         }
 
         private sealed class MapIdentity
@@ -94,9 +166,9 @@ namespace SavegameMissingMapFixTest
             if (Missing(menu.restartSkirmishMapInfo) && RestartButton.GetValue(menu) is Noesis.Button button) button.IsEnabled = false;
         }
 
-        internal static bool BlockAction(HUD_IngameMenu menu, int button)
+        internal static bool BlockRestart(HUD_IngameMenu menu)
         {
-            if (button != 5 || !Missing(menu.restartSkirmishMapInfo)) return false;
+            if (!Missing(menu.restartSkirmishMapInfo)) return false;
             Log("RESTART_BLOCKED: original map is not installed; current save remains active.");
             return true;
         }
@@ -152,18 +224,30 @@ namespace SavegameMissingMapFixTest
             c.EmitDelegate<Action<HUD_IngameMenu>>(UpdateMenu); c.Emit(OpCodes.Ret);
         }
 
-        internal static void ModifyAction(ILContext il)
+        internal static void ModifyRestartConfirmation(ILContext il)
         {
-            bool instance = il.Method.HasThis && il.Method.Parameters.Count == 1;
-            bool copiedInstance = !il.Method.HasThis && il.Method.Parameters.Count == 2 &&
+            bool instance = il.Method.HasThis && il.Method.Parameters.Count == 0;
+            bool copiedInstance = !il.Method.HasThis && il.Method.Parameters.Count == 1 &&
                 il.Method.Parameters[0].ParameterType.FullName == "CrusaderDE.HUD_IngameMenu";
-            if ((!instance && !copiedInstance) || il.Method.Parameters.Last().ParameterType.FullName != "System.Int32")
-                throw new InvalidOperationException("Menu action contract changed.");
-            var first = il.Body.Instructions[0];
-            var c = new ILCursor(il);
-            c.Emit(OpCodes.Ldarg_0); c.Emit(OpCodes.Ldarg_1);
-            c.EmitDelegate<Func<HUD_IngameMenu, int, bool>>(BlockAction);
-            c.Emit(OpCodes.Brfalse, first); c.Emit(OpCodes.Ret);
+            var branches = il.Body.Instructions.Where(i => (i.OpCode == OpCodes.Blt_S || i.OpCode == OpCodes.Blt) &&
+                i.Previous?.OpCode == OpCodes.Ldc_I4_0 && i.Previous.Previous?.Operand is MethodReference m &&
+                m.DeclaringType.FullName == "GameData" && m.Name == "get_SkirmishTrailType").ToArray();
+            if (branches.Length != 1) throw new InvalidOperationException("Restart confirmation requires exactly one signed SkirmishTrailType < 0 branch; found " + branches.Length);
+            var target = ResolveBranchTarget(il, branches[0].Operand);
+            var exit = il.Body.Instructions.Last();
+            if ((!instance && !copiedInstance) || il.Method.ReturnType.FullName != "System.Void" ||
+                il.Body.Instructions.Count(IsSkirmishRestartCall) != 1 || target?.OpCode != OpCodes.Ldarg_0 ||
+                target.Next?.OpCode != OpCodes.Ldfld || !(target.Next.Operand is FieldReference field) ||
+                field.DeclaringType.FullName != "CrusaderDE.HUD_IngameMenu" || field.Name != "restartSkirmishMapInfo" ||
+                exit.OpCode != OpCodes.Ret)
+                throw new InvalidOperationException("Restart confirmation contract requires void instance callback, one RestartSkirmishGame call, HUD restartSkirmishMapInfo load at branch target and terminal ret.");
+            // Keep the branch destination intact. Campaign and built-in trails never enter this block.
+            var c = new ILCursor(il); c.Goto(target, MoveType.After);
+            c.EmitDelegate<Func<HUD_IngameMenu, bool>>(BlockRestart);
+            var exitLabel = c.DefineLabel();
+            exitLabel.Target = exit;
+            c.Emit(OpCodes.Brtrue, exitLabel);
+            c.Emit(OpCodes.Ldarg_0);
         }
     }
 }

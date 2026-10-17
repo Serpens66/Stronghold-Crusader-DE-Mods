@@ -1,0 +1,97 @@
+ D AIBuildDiagnoseTest-Fixes-Kompatibilitaetsplan.md
+ M APIShared-Abhaengigkeitspruefung-Modpacks.md
+ M Testmods/DependencyBootstrapProbe/TESTPLAN.md
+ M Testmods/SavegameMissingMapFixTest/AUDIT.md
+ M Testmods/SavegameMissingMapFixTest/BepInEx/plugins/SavegameMissingMapFixTest_Serp/SavegameMissingMapFixTest.dll
+ M Testmods/SavegameMissingMapFixTest/BepInEx/plugins/SavegameMissingMapFixTest_Serp/SavegameMissingMapFixTest.pdb
+ M Testmods/SavegameMissingMapFixTest/src/Plugin.cs
+ M Testmods/SavegameMissingMapFixTest/src/RuntimeStartup.cs
+ M Testmods/SavegameMissingMapFixTest/src/SavegameFix.cs
+ M Testmods/SavegameMissingMapFixTest/tests/Tests.cs
+ M Testmods/SavegameMissingMapFixTest/tests/Tests.csproj
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/ar.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/cs-CZ.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/de-DE.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/el-GR.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/en-US.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/es-ES.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/fr-FR.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/hu-HU.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/it-IT.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/ja-JP.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/ko-KR.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/nl-NL.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/pl-PL.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/pt-BR.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/ru-RU.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/sv-SE.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/th-TH.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/tr-TR.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/uk-UA.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/zh-CN.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/Locales/zh-HK.txt
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/SpectatorEditorBuildTest.dll
+ M Testmods/SpectatorEditorBuildTest/BepInEx/plugins/SpectatorEditorBuildTest_Serp/SpectatorEditorBuildTest.pdb
+ M Testmods/SpectatorEditorBuildTest/Locales/ar.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/cs-CZ.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/de-DE.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/el-GR.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/en-US.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/es-ES.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/fr-FR.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/hu-HU.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/it-IT.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/ja-JP.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/ko-KR.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/nl-NL.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/pl-PL.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/pt-BR.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/ru-RU.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/sv-SE.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/th-TH.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/tr-TR.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/uk-UA.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/zh-CN.txt
+ M Testmods/SpectatorEditorBuildTest/Locales/zh-HK.txt
+ M Testmods/SpectatorEditorBuildTest/SpectatorEditorBuildTest.csproj
+ M Testmods/SpectatorEditorBuildTest/UpdateToNewDLL.md
+ M Testmods/SpectatorEditorBuildTest/src/OptionalExtremePowers.cs
+ M Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.Hud.cs
+ M Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs
+ M Testmods/SpectatorEditorBuildTest/src/TestActionPolicy.cs
+ M Testmods/SpectatorEditorBuildTest/src/TestToolsGates.cs
+ M Testmods/SpectatorEditorBuildTest/src/TestToolsNativeActions.cs
+ M Testmods/SpectatorEditorBuildTest/src/TestToolsPowers.cs
+ M Testmods/SpectatorEditorBuildTest/src/TestToolsRuntime.cs
+ M Testmods/SpectatorEditorBuildTest/src/VanillaPowerToolbar.cs
+ M Testmods/SpectatorEditorBuildTest/tests/ActionPolicyTests.cs
+ M Testmods/SpectatorEditorBuildTest/tests/OptionalPowerFixture.cs
+ M Testmods/SpectatorEditorBuildTest/tests/OptionalPowerTests.cs
+ M Testmods/SpectatorEditorBuildTest/tests/Test-ActionPolicy.ps1
+ M Testmods/SpectatorEditorBuildTest/tests/Test-InstalledContracts.ps1
+ M Testmods/SpectatorEditorBuildTest/verify.ps1
+ M _inspect/CrusaderDE-Native-Baseline/tools/semantic/Build-SemanticBaseline.ps1
+?? Testmods/DependencyBootstrapProbe/PACKAGE-INTEGRATION.md
+?? Testmods/DependencyBootstrapProbe/tests/PackagePairModel.ps1
+?? Testmods/DependencyBootstrapProbe/tests/Test-PackageLifecycle.ps1
+?? Testmods/SavegameMissingMapFixTest/tests/RestartTests.cs
+?? Testmods/SavegameMissingMapFixTest/tests/verification.log
+?? Testmods/SpectatorEditorBuildTest/src/GateHudLifecycle.cs
+?? Testmods/SpectatorEditorBuildTest/src/NativePowerAssembly.cs
+?? Testmods/SpectatorEditorBuildTest/src/NativePowerContext.cs
+?? Testmods/SpectatorEditorBuildTest/src/OptionalGateAutomation.cs
+?? Testmods/SpectatorEditorBuildTest/tests/NativePowerTests.cs
+?? Testmods/SpectatorEditorBuildTest/tests/NativePowerTests.csproj
+?? Testmods/SpectatorEditorBuildTest/tests/OptionalGateTests.cs
+?? Testmods/SpectatorEditorBuildTest/tests/OptionalGateTests.csproj
+?? Testmods/SpectatorEditorBuildTest/tests/Test-NativePowerContext.ps1
+?? Testmods/SpectatorEditorBuildTest/tests/Test-OptionalGates.ps1
+?? Testmods/SpectatorEditorBuildTest/tests/audit_power_context.py
+?? _inspect/DependencyBootstrapProbe/Correction-accepted-20261016-2154/
+?? _inspect/DependencyBootstrapProbe/package-lifecycle/
+?? _inspect/ScriptExtender2142Audit/
+?? _inspect/SpectatorHudVanilla-20261016/
+?? _inspect/SpectatorPowersGates-20261016/fixtures/c0b65137f2c24481b3b30929aa10a44c/
+?? _inspect/SpectatorPowersGates-20261016/fixtures/ce513ade931a4d4dac9aaa89e316b161/
+?? _inspect/SpectatorVanillaToolbar-20261016/focus/337f320f2c3a4053aa0108c8b3bd28d4/
+?? _inspect/SpectatorVanillaToolbar-20261016/focus/46988279b91a46d2b776738a988e0e32/

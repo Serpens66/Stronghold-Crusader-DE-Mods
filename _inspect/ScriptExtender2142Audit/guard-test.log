@@ -1,0 +1,1 @@
+PASS: default behavior preserved; explicit guard blocks unexpected Ghidra work and allows unchanged inputs.

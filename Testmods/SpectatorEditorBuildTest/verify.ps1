@@ -73,4 +73,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Credit input focus tests failed.' }
 & (Join-Path $root 'tests\Test-NativeActions.ps1')
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\Test-OptionalPowers.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Optional ExtremePowers adapter tests failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\Test-NativePowerContext.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Native power context tests failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\Test-OptionalGates.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Optional ExtraFeatures adapter tests failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\Test-SpectatorSelection.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Spectator selection integration tests failed.' }
 Write-Host 'SpectatorEditorBuildTest prebuild checks passed.'

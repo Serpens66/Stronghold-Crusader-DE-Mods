@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "sourceCommit": "10628df85cd432184742a50a1dee3969a66cf89e",
+  "sourceTree": "a612b537010c88e2837bb8895c9657e730365423",
+  "protectedFilesUnchanged": 1284,
+  "analysisGenerationPreserved": true,
+  "schemaVersion": 6,
+  "ghidraRun": false,
+  "sourceContractsUnchangedExceptProvenance": [
+    "delegates.jsonl",
+    "patterns.jsonl",
+    "source-types.jsonl",
+    "type-fields.jsonl",
+    "vtable-members.jsonl"
+  ],
+  "assetSourceHashConfirmed": true,
+  "jsonAndCrlfChecked": [
+    "_inspect/CrusaderDE-Native-Baseline/CURRENT.md",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/DATABASE_INFO.json",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/IDENTITY.json",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/SEMANTIC_INFO.md",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/delegates.jsonl",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/pattern-matches.jsonl",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/patterns.jsonl",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/source-files.jsonl",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/source-summary.json",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/source-types.jsonl",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/type-fields.jsonl",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/vtable-members.jsonl",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/validation/script-extender-update.json",
+    "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/validation/validation-report.json",
+    "_inspect/CrusaderDE-Native-Baseline/tools/semantic/Build-SemanticBaseline.ps1",
+    "Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.compatibility.json",
+    "Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.review.md"
+  ],
+  "runtimeAcceptance": "Not performed; installed SE remains 2.14.1.0."
+}

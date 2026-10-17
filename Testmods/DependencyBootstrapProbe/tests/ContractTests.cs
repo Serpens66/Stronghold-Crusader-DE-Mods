@@ -35,7 +35,7 @@ namespace DependencyBootstrapProbe
         private static void Run(string[] args)
         {
             if (args.Length == 4 && args[1] == "offline") ShadowTests.Offline(game, args[2], args[3]);
-            else { ShadowTests.Run(); ContractTests.Run(game); }
+            else { ShadowTests.Run(); ContractTests.Run(game); LifecycleTests.Run(game); }
         }
     }
 
@@ -189,7 +189,7 @@ namespace DependencyBootstrapProbe
             }
         }
 
-        private sealed class BodySnapshot
+        internal sealed class BodySnapshot
         {
             private readonly Instruction[] instructions;
             private readonly OpCode[] codes;
@@ -223,7 +223,7 @@ namespace DependencyBootstrapProbe
                 for (int n = 0; n < labels.Length; n++) Require(labels[n].Target == targets[n], "Original branch target changed");
                 for (int n = 0; n < handlers.Length; n++) Require(boundaries[n].SequenceEqual(Boundaries(handlers[n])), "Exception boundary changed");
             }
-            internal void AssertPreserved(ILContext il, bool chain)
+            internal void AssertPreserved(ILContext il, bool chain, int expectedGroups = 3)
             {
                 AssertOriginals(il);
                 Require(instructions.SequenceEqual(il.Body.Instructions.Where(i => instructions.Contains(i))), "Original order changed");
@@ -234,7 +234,7 @@ namespace DependencyBootstrapProbe
                     int start = pos;
                     while (pos < il.Body.Instructions.Count && !instructions.Contains(il.Body.Instructions[pos])) pos++;
                     var next = pos < il.Body.Instructions.Count ? il.Body.Instructions[pos] : null;
-                    bool duplicateType = next != null && (IsCall(next, "UnityEngine.GameObject", "AddComponent") || next.OpCode == OpCodes.Ret);
+                    bool duplicateType = il.Body.Instructions[start].OpCode == OpCodes.Dup;
                     int initial = duplicateType ? 1 : 0, depth = initial;
                     for (int n = start; n < pos; n++)
                     {
@@ -246,7 +246,7 @@ namespace DependencyBootstrapProbe
                     Require(depth == initial, "Inserted block changes original stack height");
                     groups++;
                 }
-                Require(groups == 3, "Unexpected insertion blocks");
+                Require(groups == expectedGroups, "Unexpected insertion blocks");
             }
             private static int Pops(Instruction i)
             {

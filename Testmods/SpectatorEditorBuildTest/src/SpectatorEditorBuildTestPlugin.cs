@@ -36,6 +36,7 @@ namespace SpectatorEditorBuildTest
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("CheatMod_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtremePowers_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public sealed partial class SpectatorEditorBuildTestPlugin : BaseUnityPlugin
     {
@@ -260,6 +261,11 @@ namespace SpectatorEditorBuildTest
                     nameof(BeforeBuildControlsFreeze), postfix: false, typeof(bool));
                 Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.CanPlaceMapper),
                     nameof(AfterCanPlaceMapper), postfix: true, typeof(object));
+                Patch(candidate, typeof(GameData), nameof(GameData.setGameState), nameof(AfterToolsPlayState), true, typeof(EngineInterface.PlayState));
+                Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.InBuildingGameAction), nameof(BeforeVanillaHudTransition), false);
+                Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.TroopsSelectedGameAction), nameof(BeforeVanillaTroopTransition), false, typeof(bool));
+                Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.DefaultGameUIGameAction), nameof(BeforeVanillaHudTransition), false, typeof(bool));
+                Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.DefaultMapEditorUIGameAction), nameof(BeforeVanillaHudTransition), false);
                 Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.setUpInbuilding),
                     nameof(BeforeGatePanel), postfix: false, typeof(int), typeof(int));
                 Patch(candidate, typeof(MainViewModel), "ButtonGateControls", nameof(BeforeTestGateCommand), false, typeof(object));

@@ -23,6 +23,9 @@
     <Compile Include="ProbeTrace.cs" />
     <Compile Include="patcher\DependencyBootstrapPatcher.cs" />
     <Compile Include="patcher\HookRuntime.cs" />
+    <Compile Include="patcher\Lifecycle\LifecycleHook.cs" />
+    <Compile Include="patcher\Lifecycle\LifecycleCapture.cs" />
+    <Compile Include="patcher\Lifecycle\LifecycleOwnership.cs" />
     <Compile Include="patcher\ReadyGate.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

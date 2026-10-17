@@ -2,6 +2,31 @@ $ErrorActionPreference = 'Stop'
 $gameDirectory = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 # Metadata-only reader; loading its bytes avoids mutating Windows Zone.Identifier on game files.
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $gameDirectory 'BepInEx\core\Mono.Cecil.dll')))
+# Optional reflection contracts must match real access modifiers, not just the fixture signatures.
+foreach ($providerFile in Get-ChildItem -LiteralPath (Join-Path $gameDirectory 'BepInEx\plugins') -Recurse -Filter 'ExtraFeatures.dll' -File) {
+    $provider = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($providerFile.FullName)
+    try {
+        $gate = $provider.MainModule.GetType('Shared.GameplayModActivationGate')
+        $methods = @($gate.Methods | Where-Object { $_.Name -eq 'IsEnabled' -and $_.IsStatic -and $_.IsAssembly -and
+            $_.ReturnType.FullName -eq 'System.Boolean' -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.Boolean' })
+        if ($methods.Count -ne 1) { throw 'Installed ExtraFeatures internal activation contract changed.' }
+        Write-Host 'PASS: installed ExtraFeatures activation gate is internal static bool IsEnabled(bool).'
+    } finally { $provider.Dispose() }
+}
+foreach ($providerFile in Get-ChildItem -LiteralPath (Join-Path $gameDirectory 'BepInEx\plugins') -Recurse -Filter 'BugfixesAndQoL.dll' -File) {
+    $provider = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($providerFile.FullName)
+    try {
+        $type = $provider.MainModule.GetType('BugfixesAndQoL.SpectatorPerspectiveRuntime')
+        $active = @($type.Methods | Where-Object { $_.Name -eq 'IsActiveSpectator' -and $_.IsStatic -and $_.IsAssembly -and $_.ReturnType.FullName -eq 'System.Boolean' -and $_.Parameters.Count -eq 0 })
+        $select = @($type.Methods | Where-Object { $_.Name -eq 'SelectPlayer' -and $_.IsStatic -and $_.IsPrivate -and $_.ReturnType.FullName -eq 'System.Void' -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.Int32' })
+        if ($active.Count -ne 1 -or $select.Count -ne 1) { throw 'Installed spectator selection contract changed.' }
+        $calls = @($select[0].Body.Instructions | Where-Object { $_.Operand -is [Mono.Cecil.MethodReference] } | ForEach-Object { $_.Operand.Name })
+        foreach ($required in @('TrySetSpectatorView', 'SetSelected', 'WaitForFreshReport', 'WaitForFreshAllies')) {
+            if ($required -notin $calls) { throw "Installed spectator selection no longer calls $required" }
+        }
+        Write-Host 'PASS: installed spectator selection validates perspective and updates portraits/reports/allies.'
+    } finally { $provider.Dispose() }
+}
 $managed = Join-Path $gameDirectory 'Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($managed)
 try {
@@ -15,7 +40,14 @@ try {
         @('Platform_Multiplayer','getSkirmishName','method'),
         @('OnScreenText','getComputerName','method'),
         @('CrusaderDE.MainViewModel','setUpInbuilding','method'),
-        @('CrusaderDE.MainViewModel','InBuildingGameAction','method')
+        @('CrusaderDE.MainViewModel','InBuildingGameAction','method'),
+        @('CrusaderDE.MainViewModel','TroopsSelectedGameAction','method'),
+        @('CrusaderDE.MainViewModel','DefaultGameUIGameAction','method'),
+        @('CrusaderDE.MainViewModel','DefaultMapEditorUIGameAction','method'),
+        @('GameData','setGameState','method'),
+        @('CrusaderDE.PropEx','Sprite1Property','field'),
+        @('CrusaderDE.PropEx','Sprite2Property','field'),
+        @('CrusaderDE.HUD_Buildings','RefHUDBuildingFullClickMask','field')
     )) {
         $type = $assembly.MainModule.GetType($entry[0])
         if (-not $type -or -not $type.IsPublic) { throw "Missing public game type: $($entry[0])" }
@@ -43,7 +75,10 @@ try {
     foreach ($name in @('SelectionStart','SelectionLength')) {
         if (-not @($noesis.MainModule.GetType('Noesis.TextBox').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public selection property: $name" }
     }
-    Write-Host 'PASS: Noesis input, paste rollback and focus contracts.'
+    $binding = $noesis.MainModule.GetType('Noesis.Binding')
+    if (-not @($binding.Properties | Where-Object { $_.Name -eq 'Source' -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count -or
+        -not @($binding.Methods | Where-Object { $_.IsConstructor -and $_.IsPublic -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.String' }).Count) { throw 'Missing public explicit-source Binding contract.' }
+    Write-Host 'PASS: Noesis input, paste rollback, focus and explicit-source binding contracts.'
     foreach ($entry in @(@('Noesis.BindingOperations','GetBindingBase'),@('Noesis.BindingOperations','SetBinding'),@('Noesis.DependencyObject','ReadLocalValue'),@('Noesis.Keyboard','ClearFocus'),@('Noesis.Keyboard','get_FocusedElement'),@('Noesis.VisualTreeHelper','GetChild'),@('Noesis.VisualTreeHelper','GetChildrenCount'))) {
         if (-not @($noesis.MainModule.GetType($entry[0]).Methods | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic }).Count) { throw "Missing public toolbar/focus member: $($entry -join '.')" }
     }

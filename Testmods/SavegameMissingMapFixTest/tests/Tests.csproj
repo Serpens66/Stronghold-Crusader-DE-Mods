@@ -20,7 +20,7 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
-    <Compile Include="..\src\SavegameFix.cs" /><Compile Include="..\src\RuntimeStartup.cs" /><Compile Include="StartupTests.cs" /><Compile Include="Tests.cs" /><None Include="App.config" />
+    <Compile Include="..\src\SavegameFix.cs" /><Compile Include="..\src\RuntimeStartup.cs" /><Compile Include="StartupTests.cs" /><Compile Include="RestartTests.cs" /><Compile Include="Tests.cs" /><None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

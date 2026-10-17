@@ -31,7 +31,7 @@
 [Info:fixture] [DBP:COMPATIBILITY_ENTER] count=1
 [DBP:SHADOW_BEGIN] read-only; failures=0
 [DBP:SHADOW_INDEX] {"guid":"root","version":"1.0"}
-[DBP:SHADOW_CANDIDATE] {"guid":"nested","state":"Eligible","reason":"fixture"}
+[DBP:SHADOW_CANDIDATE] {"guid":"nested","version":"1.0","path":"C:/fixture.dll","state":"Eligible","reason":"fixture"}
 [DBP:SHADOW_DEPENDENCY] {"consumer":"root","dependency":"nested","originalIssue":true,"shadowIssue":false}
 [DBP:SHADOW_DEPENDENCY] {"consumer":"root2","dependency":"nested","originalIssue":true,"shadowIssue":false}
 [DBP:SHADOW_DEPENDENCY] {"consumer":"control","dependency":"missing","originalIssue":true,"shadowIssue":true}

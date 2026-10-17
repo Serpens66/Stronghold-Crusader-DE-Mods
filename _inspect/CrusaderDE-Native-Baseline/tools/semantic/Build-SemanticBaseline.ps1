@@ -2,7 +2,8 @@ param(
     [ValidateSet('Analysis', 'Validate', 'ValidateFast', 'UpdateForScriptExtender', 'Knowledge', 'Curated', 'Resources', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
     [string]$Stage = 'Validate',
     [string]$ScriptExtenderCommit,
-    [string]$PreviousScriptExtenderCommit
+    [string]$PreviousScriptExtenderCommit,
+    [switch]$RequireUnchangedGhidraInputs
 )
 
 $ErrorActionPreference = 'Stop'
@@ -279,6 +280,9 @@ if ($Stage -eq 'UpdateForScriptExtender') {
     [IO.Directory]::CreateDirectory((Split-Path -Parent $decisionPath)) | Out-Null
     [IO.File]::WriteAllText($decisionPath, (($decision | ConvertTo-Json -Depth 6) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
     Write-Host "Script Extender semantic input review: Ghidra required=$runGhidraCurrent; changed inputs=$($changedGhidraInputs.Count)."
+    if ($RequireUnchangedGhidraInputs -and $runGhidraCurrent) {
+        throw "Unexpected Ghidra inputs require review before continuing. See $decisionPath."
+    }
 }
 
 if ($runResources) {

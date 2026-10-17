@@ -1,0 +1,93 @@
+2026-10-17T14:10:00.534+02:00 Inventory without traversing reparse points
+2026-10-17T14:10:30.003+02:00 Hashing 971 protected baseline files and checking manifest inputs
+2026-10-17T14:12:14.314+02:00 Preparation complete: {"Standard build output of retained top-level regression test project": {"files": 3575, "bytes": 319301487}, "Superseded analysis export; preserve exact unique bytes in content-addressed ZIP or current identical file": {"files": 463, "bytes": 15398106354}, "Non-selected candidate or restore-check SQLite index; active manifest database retained": {"files": 7, "bytes": 12173189120}, "Reproducible Ghidra per-function checkpoint; published restoration uses exported shards, not work directories": {"files": 111973, "bytes": 15704263625}, "Regenerable synthetic bridge fixture; Program.cs Capture writes fixture=True and a new GUID directory": {"files": 1278, "bytes": 37022968375}, "Regenerable GUID fixture created by maintained Workshop regression test": {"files": 3295, "bytes": 97629897}}
+2026-10-17T14:15:55.644+02:00 Revalidated 0/120591 candidate identities
+2026-10-17T14:15:59.261+02:00 Revalidated 10000/120591 candidate identities
+2026-10-17T14:16:02.632+02:00 Revalidated 20000/120591 candidate identities
+2026-10-17T14:16:05.889+02:00 Revalidated 30000/120591 candidate identities
+2026-10-17T14:16:09.079+02:00 Revalidated 40000/120591 candidate identities
+2026-10-17T14:16:12.220+02:00 Revalidated 50000/120591 candidate identities
+2026-10-17T14:16:15.414+02:00 Revalidated 60000/120591 candidate identities
+2026-10-17T14:16:18.584+02:00 Revalidated 70000/120591 candidate identities
+2026-10-17T14:16:21.771+02:00 Revalidated 80000/120591 candidate identities
+2026-10-17T14:16:24.950+02:00 Revalidated 90000/120591 candidate identities
+2026-10-17T14:16:28.140+02:00 Revalidated 100000/120591 candidate identities
+2026-10-17T14:16:31.223+02:00 Revalidated 110000/120591 candidate identities
+2026-10-17T14:16:35.603+02:00 Revalidated 120000/120591 candidate identities
+2026-10-17T14:16:35.983+02:00 Revalidated 120591 candidates; preparing lossless compaction before any deletion
+2026-10-17T14:16:36.073+02:00 Compaction 0/463, unique objects=0
+2026-10-17T14:16:37.457+02:00 Compaction 50/463, unique objects=0
+2026-10-17T14:16:38.728+02:00 Compaction 100/463, unique objects=0
+2026-10-17T14:16:39.757+02:00 Compaction 150/463, unique objects=0
+2026-10-17T14:16:43.141+02:00 Compaction 200/463, unique objects=19
+2026-10-17T14:16:48.401+02:00 Compaction 250/463, unique objects=50
+2026-10-17T14:16:49.766+02:00 Compaction 300/463, unique objects=50
+2026-10-17T14:16:51.128+02:00 Compaction 350/463, unique objects=50
+2026-10-17T14:16:59.150+02:00 Compaction 400/463, unique objects=94
+2026-10-17T14:17:04.457+02:00 Compaction 450/463, unique objects=119
+2026-10-17T14:17:04.846+02:00 Reading back all archived objects and checking SHA-256
+2026-10-17T14:17:13.808+02:00 Archive verified; deleting individually revalidated manifest files
+2026-10-17T14:17:15.847+02:00 Deleted 2000 files, 0.23 GiB
+2026-10-17T14:17:19.994+02:00 Deleted 4000 files, 5.32 GiB
+2026-10-17T14:17:21.939+02:00 Deleted 6000 files, 5.38 GiB
+2026-10-17T14:17:23.876+02:00 Deleted 8000 files, 5.43 GiB
+2026-10-17T14:17:25.847+02:00 Deleted 10000 files, 5.85 GiB
+2026-10-17T14:17:27.927+02:00 Deleted 12000 files, 6.17 GiB
+2026-10-17T14:17:29.975+02:00 Deleted 14000 files, 6.50 GiB
+2026-10-17T14:17:31.878+02:00 Deleted 16000 files, 6.55 GiB
+2026-10-17T14:17:33.843+02:00 Deleted 18000 files, 6.74 GiB
+2026-10-17T14:17:35.870+02:00 Deleted 20000 files, 7.03 GiB
+2026-10-17T14:17:39.904+02:00 Deleted 22000 files, 13.96 GiB
+2026-10-17T14:17:41.550+02:00 Deleted 24000 files, 14.01 GiB
+2026-10-17T14:17:43.159+02:00 Deleted 26000 files, 14.07 GiB
+2026-10-17T14:17:44.790+02:00 Deleted 28000 files, 14.48 GiB
+2026-10-17T14:17:46.440+02:00 Deleted 30000 files, 14.79 GiB
+2026-10-17T14:17:48.083+02:00 Deleted 32000 files, 15.13 GiB
+2026-10-17T14:17:49.690+02:00 Deleted 34000 files, 15.18 GiB
+2026-10-17T14:17:51.406+02:00 Deleted 36000 files, 15.38 GiB
+2026-10-17T14:17:53.047+02:00 Deleted 38000 files, 15.66 GiB
+2026-10-17T14:17:55.515+02:00 Deleted 40000 files, 17.22 GiB
+2026-10-17T14:17:57.123+02:00 Deleted 42000 files, 17.27 GiB
+2026-10-17T14:17:58.836+02:00 Deleted 44000 files, 17.32 GiB
+2026-10-17T14:18:00.477+02:00 Deleted 46000 files, 17.65 GiB
+2026-10-17T14:18:02.447+02:00 Deleted 48000 files, 18.52 GiB
+2026-10-17T14:18:04.050+02:00 Deleted 50000 files, 18.62 GiB
+2026-10-17T14:18:06.774+02:00 Deleted 52000 files, 22.98 GiB
+2026-10-17T14:18:08.440+02:00 Deleted 54000 files, 23.34 GiB
+2026-10-17T14:18:10.046+02:00 Deleted 56000 files, 23.39 GiB
+2026-10-17T14:18:11.674+02:00 Deleted 58000 files, 23.50 GiB
+2026-10-17T14:18:13.315+02:00 Deleted 60000 files, 23.80 GiB
+2026-10-17T14:18:16.996+02:00 Deleted 62000 files, 27.02 GiB
+2026-10-17T14:18:18.622+02:00 Deleted 64000 files, 27.20 GiB
+2026-10-17T14:18:20.242+02:00 Deleted 66000 files, 27.24 GiB
+2026-10-17T14:18:21.872+02:00 Deleted 68000 files, 27.62 GiB
+2026-10-17T14:18:23.489+02:00 Deleted 70000 files, 27.87 GiB
+2026-10-17T14:18:25.160+02:00 Deleted 72000 files, 28.32 GiB
+2026-10-17T14:18:26.984+02:00 Deleted 74000 files, 28.37 GiB
+2026-10-17T14:18:28.624+02:00 Deleted 76000 files, 28.51 GiB
+2026-10-17T14:18:30.290+02:00 Deleted 78000 files, 28.79 GiB
+2026-10-17T14:18:32.921+02:00 Deleted 80000 files, 30.44 GiB
+2026-10-17T14:18:34.507+02:00 Deleted 82000 files, 30.64 GiB
+2026-10-17T14:18:37.184+02:00 Deleted 84000 files, 32.50 GiB
+2026-10-17T14:18:38.840+02:00 Deleted 86000 files, 32.59 GiB
+2026-10-17T14:18:40.618+02:00 Deleted 88000 files, 34.91 GiB
+2026-10-17T14:18:42.425+02:00 Deleted 90000 files, 35.37 GiB
+2026-10-17T14:18:44.037+02:00 Deleted 92000 files, 35.42 GiB
+2026-10-17T14:18:45.760+02:00 Deleted 94000 files, 35.56 GiB
+2026-10-17T14:18:47.438+02:00 Deleted 96000 files, 35.94 GiB
+2026-10-17T14:18:49.121+02:00 Deleted 98000 files, 36.39 GiB
+2026-10-17T14:18:50.795+02:00 Deleted 100000 files, 36.56 GiB
+2026-10-17T14:18:52.415+02:00 Deleted 102000 files, 36.60 GiB
+2026-10-17T14:18:54.053+02:00 Deleted 104000 files, 36.89 GiB
+2026-10-17T14:18:56.451+02:00 Deleted 106000 files, 39.64 GiB
+2026-10-17T14:18:58.045+02:00 Deleted 108000 files, 40.00 GiB
+2026-10-17T14:18:59.694+02:00 Deleted 110000 files, 40.05 GiB
+2026-10-17T14:19:01.330+02:00 Deleted 112000 files, 40.17 GiB
+2026-10-17T14:19:02.955+02:00 Deleted 114000 files, 40.46 GiB
+2026-10-17T14:19:05.906+02:00 Deleted 116000 files, 75.05 GiB
+2026-10-17T14:19:07.666+02:00 Deleted 118000 files, 75.08 GiB
+2026-10-17T14:19:09.076+02:00 Deleted 120000 files, 75.13 GiB
+2026-10-17T14:19:10.779+02:00 Execution complete: 120591 files, 75.17 GiB gross; verifying protected baseline
+2026-10-17T14:20:33.797+02:00 Exact captured fixture sources restored and SHA-256 verified: 16 files
+2026-10-17T14:20:48.779+02:00 Additional source-confirmed fixtures removed: 3336 files
+2026-10-17T14:21:17.448+02:00 Protected hashes and database counts unchanged; coverage has only expected removed synthetic-source warnings

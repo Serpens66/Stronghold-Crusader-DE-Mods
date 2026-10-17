@@ -1,0 +1,146 @@
+[
+  {
+    "Path": "package/CONTRACT.md",
+    "SHA256": "8287e12839dc2289662f9c47c29303faa51b36ab22e4c3ad67085bb7a10139fe"
+  },
+  {
+    "Path": "package/Invoke-PostExitRemoval.ps1",
+    "SHA256": "52173564e6a507ec8686a821b55a2109fdbd14f01cab0b6a41cfa1744bf2c79b"
+  },
+  {
+    "Path": "package/Pair.ps1",
+    "SHA256": "5e1d4c570098a3d16769c3b12542354e6fe29dda0692b7caf958f39decbafee5"
+  },
+  {
+    "Path": "package/Removal.ps1",
+    "SHA256": "582270f9d13cbda31944727b1f040485a933871c3342ea4e7f5076fab3c30104"
+  },
+  {
+    "Path": "package/VerifiedFileDeletion.cs",
+    "SHA256": "5584cc200b3f108ac87623dac7b96c6f4a77aa80db557c69a3aea0822295d885"
+  },
+  {
+    "Path": "patcher/DependencyBootstrapPatcher.cs",
+    "SHA256": "0bffb8e912f2dcee55a0bdfa1d0d861fae4ad6f5c6d1d8f7dcb94b99031228e9"
+  },
+  {
+    "Path": "patcher/HookRuntime.cs",
+    "SHA256": "431d9799c06b0cd9d9a890fd3173d00822a3a1b72f5fd65d9405ccb1a4aa8acb"
+  },
+  {
+    "Path": "patcher/ReadyGate.cs",
+    "SHA256": "2de1ef2204ef6f10c31c81da6086765a179e2772007626283e3959c9aaf26eba"
+  },
+  {
+    "Path": "patcher/ShadowInventory.cs",
+    "SHA256": "00f7c0cb33844a3320119b1bb933b475f127eb25709314f83d92639cfc13b5ef"
+  },
+  {
+    "Path": "patcher/ShadowRuntime.cs",
+    "SHA256": "553557dca216e9eb675c5599008588d5bb406515fcff87fbda4d1fdcc7bbc0b5"
+  },
+  {
+    "Path": "src/ProbePlugin.cs",
+    "SHA256": "e5a3f30516606adb52d802713c09ec9b60603df0d3cf97d5efd932c6b32ff092"
+  },
+  {
+    "Path": "Analyze-Shadow.ps1",
+    "SHA256": "6747f7a991316c06a15dda264cc6f7d30dd9b9b651081370510974ca1cedbbce"
+  },
+  {
+    "Path": "AssemblyInfo.cs",
+    "SHA256": "958b55d07ac547af5f8a83915f83412d4578ac344469e8caa21f7cf30743a953"
+  },
+  {
+    "Path": "build.bat",
+    "SHA256": "4d8198d074642024a7de220bb601c1b2406988617cfcfb59e00fc9a3f635ff6f"
+  },
+  {
+    "Path": "Build.ps1",
+    "SHA256": "07e8a002760009c8e3260cf6cf9ee5a0ad24ee61565a1717237f10498761e01d"
+  },
+  {
+    "Path": "Check-Run.ps1",
+    "SHA256": "ed1c337f8d716b127e076898638dcd59e9e12bf44be71d060a693d1d81bb6413"
+  },
+  {
+    "Path": "DependencyBootstrapProbe.csproj",
+    "SHA256": "3269157504509970099da48133c00be5be12141e13cb4c6deea2dac0daaf3419"
+  },
+  {
+    "Path": "DependencyBootstrapProbe.Patcher.csproj",
+    "SHA256": "505a33e0b3e96970f4099d3fd194ed92f29fb94c198124c58861e6c751e0aceb"
+  },
+  {
+    "Path": "info.json",
+    "SHA256": "bf34b371448a19f32ada63a456813fdf6ffe6fd2b1637a437ba1769ac65c3021"
+  },
+  {
+    "Path": "PACKAGE-INTEGRATION.md",
+    "SHA256": "d1fc33da2ed323b501c6f9a601436803b20f292315554c7aa0479db613cf4843"
+  },
+  {
+    "Path": "Prepare-CorrectionTrial.ps1",
+    "SHA256": "2da9a8bcb96a709afd849887d7d3fe93defdc79e34b0a39a1975f2148a6bfad4"
+  },
+  {
+    "Path": "ProbeIdentity.cs",
+    "SHA256": "177cc70320692a64d8a01aa08f84cb28b47eb1a244e70ef323dda1fe329fb439"
+  },
+  {
+    "Path": "ProbeTrace.cs",
+    "SHA256": "b079751ddd349829f36f7bda797bd3d4fc87a29783e4c24d22739f70375fe610"
+  },
+  {
+    "Path": "Remove-CorrectionControl.ps1",
+    "SHA256": "ca91cc6c1157420d5f3fd336ccaed99e21b23c73a53f89b6e280f6b370afd55d"
+  },
+  {
+    "Path": "Set-ProbeMode.ps1",
+    "SHA256": "7972858a8b3c769b63ecc6191f52f066cedafe6b0f1291365b323721a0bff31d"
+  },
+  {
+    "Path": "Test-CorrectionControl.ps1",
+    "SHA256": "b0477a56c41b2eee48a2c310d02387e0a8056ce55985ef9d75efc83b74b912e7"
+  },
+  {
+    "Path": "TESTPLAN.md",
+    "SHA256": "f33b16067f6960842991107eed4a691cb00bb048659a0f246bf9c5d123553040"
+  },
+  {
+    "Path": "verify.ps1",
+    "SHA256": "b55f965aa89e191d4e5be78c0eb439c584cc43b4586e6f7ca615cdd1a866f45b"
+  },
+  {
+    "Path": "tests/App.config",
+    "SHA256": "fc744c0e507689da17525ebfdd5cee3685301b723d92ae97365d56155d951393"
+  },
+  {
+    "Path": "tests/ContractTests.cs",
+    "SHA256": "411705fc6f25a0d6073bd4b22c35a3f1ea2a9c259b24ad9a4509110ab30c033d"
+  },
+  {
+    "Path": "tests/DependencyBootstrapProbe.Tests.csproj",
+    "SHA256": "302bc3c2afb45ed097894f3f31672b4b68d23e8b3d8f74c67911cb48fb9ef0d4"
+  },
+  {
+    "Path": "tests/Run-Tests.ps1",
+    "SHA256": "0a168bdc77fb02e1c09636ca7f18323e4438526a7dc738b7f7e04f9bf608eafb"
+  },
+  {
+    "Path": "tests/ShadowTests.cs",
+    "SHA256": "bea1251f45b0c0d62093c2570199c3204355b703effcf33f0f1b863c74c9bfa5"
+  },
+  {
+    "Path": "tests/Test-ControlLifecycle.ps1",
+    "SHA256": "956e97e45199cc8d4700a1c2632f3e783d1e189342fd5a2d5d648b59d30ec635"
+  },
+  {
+    "Path": "tests/Test-LogChecker.ps1",
+    "SHA256": "2ebf48b3778e0013e9e654226b4b49fbc6a74d9ef30b6da0f7eee8af18215fb9"
+  },
+  {
+    "Path": "tests/Test-PackageLifecycle.ps1",
+    "SHA256": "647ba7fe7c7c92f0a9a9607745a894edd09958bebdc3f70cad08175cccd3a2c4"
+  }
+]

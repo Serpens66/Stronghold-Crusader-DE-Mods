@@ -21,7 +21,7 @@ namespace SavegameMissingMapFixTest
                 {
                     initialize();
                     activate(true);
-                    log("READY: decoder, encoder, restart menu and action validated; permanent hooks active.");
+                    log("READY: decoder, encoder, restart menu and isolated confirmation callback validated; permanent hooks active.");
                 }
                 catch (Exception ex)
                 {

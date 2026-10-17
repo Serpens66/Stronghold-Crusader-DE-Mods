@@ -1,0 +1,59 @@
+{
+    "Schema":  1,
+    "Accepted":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\DependencyBootstrapProbe\\Correction-accepted-20261016-2154",
+    "Files":  [
+                  {
+                      "Path":  "BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll",
+                      "SHA256":  "859A0F9A2AA63CE89CDBD8D7AE3C0A3AC56810CB3B8A19A20EBA9BD188AE1839"
+                  },
+                  {
+                      "Path":  "BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll",
+                      "SHA256":  "C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6"
+                  },
+                  {
+                      "Path":  "BepInEx/plugins/DependencyBootstrapProbe_Serp/info.json",
+                      "SHA256":  "BF34B371448A19F32ADA63A456813FDF6FFE6FD2B1637A437BA1769AC65C3021"
+                  },
+                  {
+                      "Path":  "BepInEx/config/DependencyBootstrapProbe.active",
+                      "SHA256":  "55901F6D7DFC628F1F192EDCACCB5D5B0C6237C1373DE165BC5AD29AFC6F17B6"
+                  },
+                  {
+                      "Path":  "BepInEx/config/DependencyBootstrapProbe.correct",
+                      "SHA256":  "55901F6D7DFC628F1F192EDCACCB5D5B0C6237C1373DE165BC5AD29AFC6F17B6"
+                  }
+              ],
+    "Loaders":  [
+                    {
+                        "SHA256":  "8255B28902886085C578B9E427D3073C97002DB85176D2090CDEDA90EF14CE70",
+                        "Path":  "BepInEx/core/BepInEx.dll"
+                    },
+                    {
+                        "SHA256":  "577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175",
+                        "Path":  "BepInEx/plugins/000shcdese/SHCDESE.dll"
+                    }
+                ],
+    "APISharedSHA256":  "4EF262A5F69F16EF6B6E5238606F5013B6400B83D2F8C354E5C53F4EFDD52BC1",
+    "Early":  {
+                  "value":  [
+                                {
+                                    "Path":  "patcher\\DependencyBootstrapPatcher.cs",
+                                    "Hash":  "0BFFB8E912F2DCEE55A0BDFA1D0D861FAE4AD6F5C6D1D8F7DCB94B99031228E9"
+                                },
+                                {
+                                    "Path":  "patcher\\ReadyGate.cs",
+                                    "Hash":  "2DE1EF2204EF6F10C31C81DA6086765A179E2772007626283E3959C9AAF26EBA"
+                                },
+                                {
+                                    "Path":  "ProbeTrace.cs",
+                                    "Hash":  "B079751DDD349829F36F7BDA797BD3D4FC87A29783E4C24D22739F70375FE610"
+                                },
+                                {
+                                    "Path":  "ProbeIdentity.cs",
+                                    "Hash":  "177CC70320692A64D8A01AA08F84CB28B47EB1A244E70EF323DDA1FE329FB439"
+                                }
+                            ],
+                  "Count":  4
+              },
+    "RuntimeAcceptance":  "Pending new probe and Extender 2.14.2 game start"
+}

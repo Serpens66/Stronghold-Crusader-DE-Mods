@@ -1,0 +1,285 @@
+{
+  "functions": [
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0x3770",
+      "name": "FUN_180003770",
+      "signature": "undefined FUN_180003770(void)",
+      "comment": null,
+      "excerpt": " … 180339310)[uVar5] = cVar1;\n          uVar5 = uVar5 + 1;\n        } while (cVar1 != '\\0');\n        c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n      }\n    }\n  }\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0x38A0",
+      "name": "FUN_1800038a0",
+      "signature": "undefined FUN_1800038a0(void)",
+      "comment": null,
+      "excerpt": " … 180339310)[lVar3] = cVar1;\n        lVar3 = lVar3 + 1;\n      } while (cVar1 != '\\0');\n      c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n    }\n  }\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0x39A0",
+      "name": "FUN_1800039a0",
+      "signature": "undefined FUN_1800039a0(void)",
+      "comment": null,
+      "excerpt": " … FUN_180004200(local_58,\"fx\\\\speech\\\\%s\",param_2);\n  c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0x3A60",
+      "name": "FUN_180003a60",
+      "signature": "undefined FUN_180003a60(void)",
+      "comment": null,
+      "excerpt": "/* FUNCTION FUN_180003a60 VA=0x180003A60 RVA=0x3A60 */\n\n/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */\n\nvoid FUN … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0x3B20",
+      "name": "FUN_180003b20",
+      "signature": "undefined FUN_180003b20(void)",
+      "comment": null,
+      "excerpt": " … FUN_180004200(local_58,\"fx\\\\speech\\\\%s\",param_2);\n      c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n    }\n  }\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0x3BC0",
+      "name": "FUN_180003bc0",
+      "signature": "undefined FUN_180003bc0(void)",
+      "comment": null,
+      "excerpt": " … 1;\n        } while (cVar2 != '\\0');\n        c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_78);\n      }\n    }\n  }\nswitchD_180003c14_caseD_6:\nswitchD_180003c14 … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xEDF0",
+      "name": "c_game_soundmanager_play_mono_sound",
+      "signature": "undefined c_game_soundmanager_play_mono_sound(void)",
+      "comment": "[semantic:confirmed] AOB 48 89 5C 24 ?? 57 48 83 EC ?? 83 79 from src/SHCDESE.BepInEx/Detours/BulkSoundDetours.cs:23; matched 18000edf0\n[semantic:confirmed] Evidence 48 89 5C 24 ?? 57 48 83 EC ?? 83 79 from src/SHCDESE.BepInEx/Detours/BulkSoundDetours.cs:23; matched 18000edf0",
+      "excerpt": "/* FUNCTION c_game_soundmanager_play_mono_[sound] VA=0x18000EDF0 RVA=0xEDF0 */\n\n/* WARNING: Globals starting with '_' overlap smaller symbols at the … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0x30B90",
+      "name": "FUN_180030b90",
+      "signature": "undefined FUN_180030b90(void)",
+      "comment": null,
+      "excerpt": " … 10,lVar6,param_2);\n        c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,\"fx\\\\speech\\\\ally_request09.wav\");\n      }\n      *(int *)(&DAT_18379b2dc … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xD7360",
+      "name": "FUN_1800d7360",
+      "signature": "undefined FUN_1800d7360(void)",
+      "comment": null,
+      "excerpt": " … speech\\\\ally_request11.wav\";\n  }\n  c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,pcVar1);\nLAB_1800d741a:\n  *(undefined4 *)(&DAT_18379e61c + lVar3) = 0 … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xD7450",
+      "name": "FUN_1800d7450",
+      "signature": "undefined FUN_1800d7450(void)",
+      "comment": null,
+      "excerpt": " … 0x10,param_2,0,0,0);\n    c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,\"fx\\\\speech\\\\ally_request14.wav\");\n  }\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xD7580",
+      "name": "FUN_1800d7580",
+      "signature": "undefined FUN_1800d7580(void)",
+      "comment": null,
+      "excerpt": " … 3,0,0,0);\n          c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,\"fx\\\\speech\\\\ally_request16.wav\");\n        }\n      }\n      *(undefined4 *)(&DAT_18379e61c … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xD77D0",
+      "name": "FUN_1800d77d0",
+      "signature": "undefined FUN_1800d77d0(void)",
+      "comment": null,
+      "excerpt": " … speech\\\\ally_request13.wav\";\n  }\n  c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,pcVar1);\nLAB_1800d788a:\n  *(undefined4 *)(&DAT_18379e61c + lVar3) = 0 … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xD78C0",
+      "name": "FUN_1800d78c0",
+      "signature": "undefined FUN_1800d78c0(void)",
+      "comment": null,
+      "excerpt": " … 4,0,0,0);\n          c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,\"fx\\\\speech\\\\ally_request15.wav\");\n        }\n      }\n    }\n  }\n  else if ((&DAT … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xD7AD0",
+      "name": "FUN_1800d7ad0",
+      "signature": "undefined FUN_1800d7ad0(void)",
+      "comment": null,
+      "excerpt": " … param_3,param_2);\n      c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,\"fx\\\\speech\\\\ally_request09.wav\");\n    }\n    if (param_4 … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xF7360",
+      "name": "FUN_1800f7360",
+      "signature": "undefined FUN_1800f7360(void)",
+      "comment": null,
+      "excerpt": "/* FUNCTION FUN_1800f7360 VA=0x1800F7360 RVA=0xF7360 */\n\n/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */\n\nvoid FUN … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xF7950",
+      "name": "FUN_1800f7950",
+      "signature": "undefined FUN_1800f7950(void)",
+      "comment": null,
+      "excerpt": "/* FUNCTION FUN_1800f7950 VA=0x1800F7950 RVA=0xF7950 */\n\n/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */\n/* WARNING: Type … "
+    },
+    {
+      "binary_hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+      "rva": "0xFEE50",
+      "name": "FUN_1800fee50",
+      "signature": "undefined FUN_1800fee50(void)",
+      "comment": null,
+      "excerpt": "/* FUNCTION FUN_1800fee50 VA=0x1800FEE50 RVA=0xFEE50 */\n\n/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */\n\nvoid FUN … "
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0x3770",
+      "name": "FUN_180003770",
+      "signature": "undefined FUN_180003770(void)",
+      "comment": null,
+      "excerpt": " … 180339310)[uVar5] = cVar1;\n          uVar5 = uVar5 + 1;\n        } while (cVar1 != '\\0');\n        c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n      }\n    }\n  }\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0x38A0",
+      "name": "FUN_1800038a0",
+      "signature": "undefined FUN_1800038a0(void)",
+      "comment": null,
+      "excerpt": " … 180339310)[lVar3] = cVar1;\n        lVar3 = lVar3 + 1;\n      } while (cVar1 != '\\0');\n      c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n    }\n  }\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0x39A0",
+      "name": "FUN_1800039a0",
+      "signature": "undefined FUN_1800039a0(void)",
+      "comment": null,
+      "excerpt": " … FUN_180004200(local_58,\"fx\\\\speech\\\\%s\",param_2);\n  c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0x3A60",
+      "name": "FUN_180003a60",
+      "signature": "undefined FUN_180003a60(void)",
+      "comment": null,
+      "excerpt": "/* FUNCTION FUN_180003a60 VA=0x180003A60 RVA=0x3A60 */\n\n/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */\n\nvoid FUN … "
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0x3B20",
+      "name": "FUN_180003b20",
+      "signature": "undefined FUN_180003b20(void)",
+      "comment": null,
+      "excerpt": " … FUN_180004200(local_58,\"fx\\\\speech\\\\%s\",param_2);\n      c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_58);\n    }\n  }\n  return;\n}\n\n\n\n"
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0x3BC0",
+      "name": "FUN_180003bc0",
+      "signature": "undefined FUN_180003bc0(void)",
+      "comment": null,
+      "excerpt": " … 1;\n        } while (cVar2 != '\\0');\n        c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,local_78);\n      }\n    }\n  }\nswitchD_180003c14_caseD_6:\nswitchD_180003c14 … "
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xEDF0",
+      "name": "FUN_18000edf0",
+      "signature": "undefined FUN_18000edf0(void)",
+      "comment": null,
+      "excerpt": "/* FUNCTION c_game_soundmanager_play_mono_[sound] VA=0x18000EDF0 RVA=0xEDF0 */\n\n/* WARNING: Globals starting with '_' overlap smaller symbols at the … "
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0x30B30",
+      "name": "FUN_180030b30",
+      "signature": "undefined FUN_180030b30(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xD6570",
+      "name": "FUN_1800d6570",
+      "signature": "undefined FUN_1800d6570(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xD6660",
+      "name": "FUN_1800d6660",
+      "signature": "undefined FUN_1800d6660(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xD6790",
+      "name": "FUN_1800d6790",
+      "signature": "undefined FUN_1800d6790(void)",
+      "comment": null,
+      "excerpt": "/* FUNCTION FUN_1800d6790 VA=0x1800D6790 RVA=0xD6790 */\n\nvoid FUN_1800d6790(undefined4 param_1)\n\n{\n  int iVar1;\n  DWORD DVar2;\n  \n  if (DAT_183665f28 … "
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xD69E0",
+      "name": "FUN_1800d69e0",
+      "signature": "undefined FUN_1800d69e0(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xD6AD0",
+      "name": "FUN_1800d6ad0",
+      "signature": "undefined FUN_1800d6ad0(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xD6CE0",
+      "name": "FUN_1800d6ce0",
+      "signature": "undefined FUN_1800d6ce0(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xD78C0",
+      "name": "FUN_1800d78c0",
+      "signature": "undefined FUN_1800d78c0(void)",
+      "comment": null,
+      "excerpt": " … 4,0,0,0);\n          c_game_soundmanager_play_mono_[sound](&DAT_1888e72d0,\"fx\\\\speech\\\\ally_request15.wav\");\n        }\n      }\n    }\n  }\n  else if ((&DAT … "
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xF64D0",
+      "name": "FUN_1800f64d0",
+      "signature": "undefined FUN_1800f64d0(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xF6AC0",
+      "name": "FUN_1800f6ac0",
+      "signature": "undefined FUN_1800f6ac0(void)",
+      "comment": null,
+      "excerpt": ""
+    },
+    {
+      "binary_hash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+      "rva": "0xFDF70",
+      "name": "FUN_1800fdf70",
+      "signature": "undefined FUN_1800fdf70(void)",
+      "comment": null,
+      "excerpt": ""
+    }
+  ],
+  "chores": []
+}

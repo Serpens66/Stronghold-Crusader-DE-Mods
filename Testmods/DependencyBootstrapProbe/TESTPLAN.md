@@ -1,5 +1,126 @@
 # Dependency Bootstrap Probe: Schatteninventar und begrenzte Korrektur
 
+## Aktueller Arbeitsschritt: echte Lifecycle-Zustandsaufnahme (17.10.2026)
+
+Beobachter, Offline-Prüfungen, Build und Installation sind abgeschlossen.
+Nach beendetem Spiel und Rückgabe des vom Nutzer verschobenen Pluginordners lief
+`build.bat /nopause /lifecycle` erfolgreich. Sicherung, installierte DLL-Identitäten
+und erneute Korrekturbindung sind geprüft; APIShared und Loader unverändert.
+Der eigene Spielnachweis steht noch aus. Ziel ist die tatsächlich installierte
+SE 2.14.2.0, Hash `577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175`.
+Die erneute Prüfung dieser Version wurde ausdrücklich freigegeben. Historische
+Spielnachweise mit 2.14.1 sind keine Laufzeitabnahme dieser Kombination.
+
+`patcher/Lifecycle` trennt Hook, Datenerfassung und Eigentümerbewertung.
+Finish bleibt unverändert. Der permanente Hook beobachtet die ursprüngliche
+Workshop-Pfadliste, bereits geladene Archive und den Zustand nach Verarbeitung,
+vor der Neustartentscheidung. Keine zusätzliche Workshop-Abfrage, Extraktion,
+Updateausführung oder automatische Entfernung durch die Probe.
+
+Der Bericht `BepInEx/DependencyBootstrapProbe.lifecycle.json` enthält Build-/Run-ID,
+Gewinner, Paketansprüche, lokale _SE-Metadaten, Staging und Löschliste. Unique ist
+eine eindeutige beobachtete Pfadzuordnung, kein Eigentums- oder Löschbeleg.
+Externe Verwaltung bleibt ohne autoritative Informationen offen; ein vorhandenes
+SCDEModManagerLaunchId wird nur als Hinweis erfasst. Konflikte bleiben ungeklärt.
+Der bestehende Startlog belegt zwei originale Workshop-Aufrufe pro Start.
+Jeder Aufruf erhält deshalb eine eigene ID und eine unveränderliche
+`DependencyBootstrapProbe.lifecycle.<ID>.json`; die feste Datei zeigt den letzten
+Bericht. Der Prüfer verlangt alle Aufrufe vollständig und in korrekter Reihenfolge.
+
+Abnahme: `Check-Run.ps1 -Mode Active -RequireLifecycle`, Menübedienung und aktuelle
+Unity-/BepInEx-Fehler prüfen. Der Prüfer verlangt vollständige, zum Start und Build
+passende Marker/Berichte sowie weiterhin wirksame Indexkorrektur. Die entfernte
+TEST-ONLY-Komponente wird nicht neu installiert. `Preview-Lifecycle.ps1` verwendet
+danach ausschließlich die lesende Paarprüfung; ohne Paarmanifest ist deren
+Ablehnung erwartbar. Der Entfernungstreiber wird nicht aufgerufen.
+
+Build: `build.bat /nopause /lifecycle`, nur bei geschlossenem Spiel. Eigene Dateien,
+Schalter und Logs werden vorher gesichert; die alte Korrekturbindung wird geprüft
+und ausdrücklich auf die neue DLL geschrieben. APIShared und Loaderidentitäten
+werden gegen Änderungen während des Vorgangs geschützt. Bei Startfehlern zuerst
+Logs sichern, dann geschlossenes Spiel und ausschließlich eigene Sicherungen
+wiederherstellen. Die historische Probe korrigiert unter 2.14.2 wegen ihres alten
+Binärvertrags nicht; die Wiederherstellung ist kein SE-Downgrade.
+
+Nachweise/Audit: `_inspect/DependencyBootstrapProbe/lifecycle-runtime` im Workspace.
+Historische Paketfixtures wurden auf Nutzerwunsch unter `compacted/` verlustfrei
+nach Inhalts-Hash zusammengefasst. Ergebnisse und wichtige Logs bleiben direkt
+lesbar; ZIP-manifest.json ordnet sämtliche früheren Pfade den gespeicherten Bytes zu.
+Ein erfolgreicher Start beweist Zustandsaufnahme, noch kein echtes Update/Abbestellen.
+APIShared bleibt unverändert. Dort gelten SE-Mindestversion 2.14.0, keine gesetzte
+Höchstversion und keine SE-Hash-Freigabesperre dieses Bootstraps.
+
+## Abgeschlossener vorheriger Schritt: unabhängiger Paketlebenszyklus (17.10.2026)
+
+APIShared wird in diesem Schritt weder geändert noch gebaut oder installiert.
+`tests/Test-PackageLifecycle.ps1` prüft die tatsächlichen eigenständigen Komponenten
+unter `package/`: Paarprüfung, Aktivierungsentscheidung und Post-Exit-Entfernung.
+Die bisherige Modellimplementierung ist aus dem aktiven Testpfad entfernt und im
+Analysearchiv erhalten. Es gibt keine APIShared-Imports oder Quelllinks.
+
+96 Offline-Fälle bestehen in frischem Windows PowerShell: alle sechs Kopierreihenfolgen,
+unterbrochene Paare, Gewinnerbindung, nachträgliche Änderungen, echte Dateisperren,
+Prozessende, Hardlinks, Junctions und idempotente Entfernung. Der Worker prüft Hash
+und Dateiidentität auf demselben Handle und darf ausschließlich Workspace-Fixtures
+bearbeiten. Transformations-/Inventartests und Logprüfertests bestehen weiterhin.
+
+Eigentümer-/Abonnementzustände sind noch explizite Fixtures. Automatische Integration
+in den Extender, Laufzeitaktivierung dieser Paketlogik und koordinierte Live-Entfernung
+sind damit nicht nachgewiesen. Die installierte Probe bleibt unverändert.
+Vertrag: [unabhängiger Paketvertrag](package/CONTRACT.md).
+Nachweise: `_inspect/DependencyBootstrapProbe/lifecycle-implementation/22a0aeb6bd3e4b9892369d214308c39f` (Workspace).
+
+
+## Entwicklungsstruktur am 17.10.2026
+
+APIShared bleibt auf `dev/Serpens66`. Der eigenständige Bootstrap ist unter
+`bootstrap/src` nach `EarlyEntry`, `DependencyCorrection`, `Package` und
+`Diagnostics` gegliedert; Tests und Paketwerkzeuge folgen den vorhandenen
+APIShared-Projektbereichen. Der abschließende NoInstall-Nachweis wird unter
+`APIShared/.local/dependency-bootstrap-evidence/STATUS.md` festgehalten.
+Installation, eigener Unity-Mono-Nachweis und automatische Bereinigung bleiben
+separate Schritte; die installierte Release-Version und Probe bleiben unverändert.
+
+## Nachfolgende APIShared-Entwicklung
+
+Die getestete Korrektur wird separat im APIShared-Checkout auf `dev/Serpens66`
+übertragen und nur mit `/noinstall` gebaut. Die Probe bleibt unverändert installiert.
+Der neue Bootstrap verweigert seine Hookinstallation bei erkannter Diagnoseprobe.
+Die APIShared-Fassung benötigt später einen eigenen Spielnachweis; der bestandene
+Probe-Lauf ist keine automatische Freigabe. Details stehen in
+`APIShared/docs/DEPENDENCY_BOOTSTRAP.md` (workspace-relativ).
+
+## Aktuell abgeschlossen: Korrekturversuch 16.10.2026, 21:54 Uhr
+
+`Check-Run.ps1 -Mode Active -RequireCorrection` besteht: 21 Gewinner, Originalindex
+11 Einträge, 10 Ergänzungen, 11 Anforderungen, Fehler 5 -> 3. Der lokale Index
+wurde tatsächlich übernommen. Die originale Prüfung lieferte genau die drei
+Kontrollfehler; beide bisherigen falschen BugfixesAndQoL-Warnungen verschwanden.
+Chainloader-Abschluss, genau ein Prüfeintritt und Post-Cleanup-Render vorhanden.
+Aktuelle BepInEx-/Unity-Logs ohne gefundene neue Startfehler. Nutzer bestätigt nur
+TEST-ONLY-Meldung; separate ausdrückliche Menübedienbestätigung nicht protokolliert.
+
+Archiv mit erneut bestandenem Prüflauf:
+`_inspect/DependencyBootstrapProbe/Correction-accepted-20261016-2154` (workspace-relativ).
+Reproduktion: `Check-Run.ps1 -Mode Active -RequireCorrection -GameDir <Archiv>
+-ExpectedArtifactRoot <Archiv> -LogPath <Archiv>/BepInEx/DependencyBootstrapProbe.trace.log`.
+Die drei Kontrollfehler werden ausschließlich mit diesem archivierten Kontroll-
+inventar geprüft. Nach Entfernung der Kontrollkomponente ist derselbe Live-Aufruf
+kein geeigneter Prüfer für weitere normale Nutzerstarts: er erwartet absichtlich
+genau die drei Kontrollfehler. Das ist kein Fehler der weiterhin aktiven Korrektur.
+
+Kontrollmanifest und leerer Ordner wurden bei geschlossenem Spiel hashgeprüft
+entfernt. Probe-DLLs, eigene reguläre info.json, Active-/Correction-Schalter und
+installierte APIShared-Version bleiben unverändert. Kein neuer Spielstart nötig.
+
+Nächste Stufe: [isolierter Paketvertrag](PACKAGE-INTEGRATION.md), ausführbar mit
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+Testmods/DependencyBootstrapProbe/tests/Test-PackageLifecycle.ps1` aus dem Workspace.
+Keine APIShared-Codeänderung oder Installation in dieser Stufe.
+
+Nachfolgende Abschnitte sind chronologische Versuchsstände. Frühere Aussagen zu
+ausstehenden Spielnachweisen werden durch den aktuellen Status oben abgelöst.
+
 ## Abgeschlossene Startprüfung
 
 Observe bestand am 16.10.2026 um 18:34 und 18:47 Uhr. Der aktive Start um 19:22 Uhr bestand beide Transformationen, Delegate-Erzeugung und JIT-Vorbereitung im Unity-Mono-Prozess, Gewinneraufnahme vor SE-Start, genau einen Eintritt in die Originalprüfung, Chainloader-Abschluss und 120 Renderframes nach Startup-Cleanup. Der Nutzer bestätigte den korrekten Start. Beide bisherigen Warnungen blieben erhalten; in den geprüften Logs fehlten die früheren Initialisierungsfehler.

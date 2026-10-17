@@ -81,6 +81,18 @@ namespace SpectatorEditorBuildTest
             control.Text = "12bad"; Check(control.Text == "4120", "invalid paste rolls back entire input");
             control.Text = "2147483648"; Check(control.Text == "4120", "overflow paste rolls back");
             control.Text = "2147483647"; Check(model.Amount == "2147483647", "max paste accepted");
+            foreach (string value in new[] { "", "4120", "2147483647" })
+            {
+                control.Text = value;
+                string capturedCredit = model.Amount;
+                input.ResetAmount();
+                Check(control.Text == "0" && model.Amount == "0", "reset synchronizes text/model " + value);
+                Check(capturedCredit == value, "reset leaves captured credit unchanged " + value);
+                control.Text = "bad";
+                Check(control.Text == "0", "reset updates valid paste rollback buffer " + value);
+                keyboard.Focus(control); control.Select(0, 1); control.Type("125");
+                Check(model.Amount == "125", "editing works after reset " + value);
+            }
             control.Text = ""; keyboard.ClearFocus();
             Check(control.Text == "0" && model.Amount == "0", "empty normalized on blur");
             Check(!FatControler.instance.NoesisHasKeyboard, "game keyboard restored");

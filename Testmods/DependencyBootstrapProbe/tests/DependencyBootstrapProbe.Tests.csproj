@@ -23,8 +23,11 @@
     <Compile Include="..\ProbeTrace.cs" />
     <Compile Include="..\patcher\DependencyBootstrapPatcher.cs" />
     <Compile Include="..\patcher\HookRuntime.cs" />
+    <Compile Include="..\patcher\Lifecycle\LifecycleHook.cs" />
+    <Compile Include="..\patcher\Lifecycle\LifecycleCapture.cs" />
+    <Compile Include="..\patcher\Lifecycle\LifecycleOwnership.cs" />
     <Compile Include="..\patcher\ReadyGate.cs" />
-      <Compile Include="ContractTests.cs" />
+      <Compile Include="ContractTests.cs" /><Compile Include="LifecycleTests.cs" />
       <Compile Include="ShadowTests.cs" />
     <None Include="App.config" />
   </ItemGroup>

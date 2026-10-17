@@ -87,24 +87,98 @@ player for range, enemy and pause checks and writes that ID into Chore 119.
 Its handler 0x1ABF0 passes the explicit player to dispatcher 0xCD630. The latter
 has no spectator veto and uses its player argument for all eight effects.
 
-The test mod therefore intercepts only the managed ExtremePower action through
-the existing APIShared main 0.9.2 GameActionEvents broker. It vetoes local selection
-and schedules the existing explicit-AI targeting/dispatcher path outside the
-publisher. No new native hook or global-player mutation is needed. Session,
-actor and cancellation generation are checked again before execution.
-Vanilla button bindings are saved and restored, while the test context supplies
-button eligibility and an AI/unlimited label. ExtremePowers' sprite/hover and
-dispatcher hooks remain installed; the match setter continues to notify CheatMod.
-Recheck keyboard ownership, button bindings, command payload and competing HUD
-updates after managed or optional-mod updates. Automated tests do not establish
-in-game visual rendering or the eventual effect of a native void call.
+The test mod intercepts the managed ExtremePower action through APIShared main 0.9.2
+GameActionEvents and schedules selection outside the publisher. Vanilla's target
+mode, cursor, previews, configured SH1 RTS controls and cancellation stay native.
+There is no mod-owned power mouse/keyboard handler or duplicate target algorithm.
+
+## Vanilla power context and gate HUD repair (2026-10-16)
+
+The canonical native hash above remains mandatory. NativePowerAssembly/NativePowerContext
+own four permanent, non-overlapping inline spans. RedBird X64InlineHook rounds to
+at least 14 bytes; the installed backend is probed before publication. The complete
+parent-function baseline xrefs (including jump-table references) have no interior
+entry into these spans. The callback wrapper preserves volatile GPR/XMM state;
+RAX and flags are separately saved. Callback decisions test fresh flags after the
+wrapper. Inactive paths execute all displaced instructions exactly once.
+
+| RVA / span | Function / contract |
+|---|---|
+| `0x105593` / 14 | Selection: replace the local actor load into RDX only inside our selection call; retain `RCX=RDX*0x583C`. |
+| `0x8CAF8` / 14 | Native power-target branch only: retain R10 tile manager; replace R15 actor for native keep/Lord/team/pause checks. |
+| `0x8CE20` / 18 | Native accepted target: capture already written tile `0x86C1330`, enqueue the captured AI action once, suppress duplicate Chore, preserve `R8D=2` continuation. |
+| `0x105627` / 14 | Native immediate Gold confirmation: own selection captures one action; other selections preserve native Chore 119. |
+
+A process-lived gateway has the exact Vanilla selection prologue (`push rbx`,
+32-byte shadow frame, EBX=power), receives actor as its second Int32 argument,
+sets RAX=actor and enters `0x105548`. It bypasses only the local-human availability
+prefix and first local-identity load; the original cost, pause, selection, audio,
+switch table and epilogue remain authoritative. Its initial write is before
+publication; no subsequent executable mutation or release occurs.
+Selection function `0x105510`, 326 bytes, SHA-256
+`003599E68B7384B75515EAE73EA17EBA7D8B58BD34A748EADDE447FE28E5D88D`.
+Cancellation is original `0x897F0`, 119 bytes, SHA-256
+`5A244DF882A8C45FE8E7E8C15560986570BF2EADD2C898A23B49D54470B75ADA`.
+Target mode `0x60AD56C` (4/5), selected power `0x60AD574`, and the native
+submission argument at `0x86C1330` are hash-bound Int32 data contracts. Global
+player identity `0x88E3D70` is never written. Cancellation calls Vanilla only
+while the same session still owns the matching pending power.
+
+All live selection-body bytes `105541..105656`, power-target bytes `8CAD2..8CF15`
+and cancellation bytes are checked against the canonical executable PE sections
+before installation. Hook-site bytes have independent exact signatures. These
+blocks depend on surrounding branch/register/data contracts, so finding identical
+bytes at another address is not a valid relocation fallback. Unknown bytes or
+image hash disable only the AI-power adapter. ExtremePowers may own the original
+selection/dispatcher entry: the gateway avoids its entry hook, metadata supplies
+replacement target kind and costs, and the existing effect dispatcher/API remains
+authoritative. No competing dispatcher hook or backend initialization is added.
+Inactive ExtremePowers readiness retains Vanilla metadata and behavior.
+
+Gate selection records input intent under the engine monitor and waits for a
+completed managed PlayState revision. Main-thread rendering acquires one lease
+bound to the session, owner, building/global IDs and concrete HUD objects. Only
+the lease's own `InBuildingGameAction` scope overrides panel parameters. Full
+Vanilla HUD transitions release without restoring obsolete flags; a direct panel
+setup invalidates pending intentions before rebuilding. Only the four gate/bridge
+button sprites and optional button bindings are restored; never snapshot the
+whole visual tree or restore old HUD flags. Without a newer transition, release
+routes through the current PlayState's Vanilla HUD method. Placement explicitly
+opens the main/editor HUD before selecting a supported build page.
+The Extender-registered automation host DataContext is never overwritten: its
+visibility binding has an explicit test-model Source, and only its child button
+receives the test DataContext. A HUD replacement never restores flags into
+its new instance. The test toolbar follows global UI visibility, not a particular
+bottom HUD tab. Native building selection and global player identity stay intact.
+
+ExtraFeatures 1.0.114 supplies the optional existing gate/bridge button host and
+viewmodel. The encapsulated internal adapter verifies version/member contracts,
+uses `IsManualOnlyBuilding` and `ApplyManualState(player,global,automatic,source)`,
+and preserves the provider's native-ready, map-ready, loading, enabled and mode
+gates. Only the test viewmodel command changes; the provider retains its sole
+resolver and persistence. Unknown versions hide the integration, not direct
+gate commands. Re-audit this internal adapter when ExtraFeatures changes.
+The activation predicate is internal static bool IsEnabled(bool), resolved with
+NonPublic/Static flags and cached once along with the readiness field contracts.
+A provider refresh failure latches the optional adapter off and hides its button;
+later frames must not throw again or format another stack trace. Regression tests
+match the installed access modifier and exercise 1000 frames after a failure.
+
+
+Validation: production-generator tests execute real installed RedBird hooks on
+private native buffers, both inactive/active branches, AI IDs 2/8, all eight
+original selection paths, register/flag preservation and duplicate-Chore
+suppression. Pure lifecycle and production optional-adapter tests cover delayed
+HUD readiness, repeated transitions, rejection and provider state. Real-game
+target effects, visual HUD recovery and combined-mod acceptance remain separate.
 
 ## Existing native contracts
 
 Referenz bleibt ausschliesslich die installierte DLL mit SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-Alle neuen Adapter sind Call-only; sie installieren keinen nativen Hook und aendern
-weder globale Spieleridentitaet noch Diplomatie oder native Auswahl-IDs.
+Die folgenden Ausfuehrungsadapter sind Call-only; die vier oben dokumentierten
+Kontexthooks ergaenzen die native Kraftbedienung. Globale Spieleridentitaet und
+Diplomatie bleiben unveraendert.
 
 | Vertrag | RVA / Laenge | Herleitung und Fehlerverhalten |
 |---|---|---|
@@ -153,3 +227,21 @@ Gebaeudefeldlayout, alle drei Vollfunktionen/Calls und beide Ziel-/Auswahlpfade
 erneut pruefen. Danach Vanilla, CheatMod, ExtremePowers und beide zusammen im
 Spiel testen, einschliesslich geaenderter Kosten und Gold-Ersatz mit Kartenziel.
 
+
+## Zuschauer-Auswahl: verwalteter Anbieteradapter
+
+Der Testmod verwendet bei aktiver lokaler Zuschauerfunktion den bestehenden
+BugfixesAndQoL-Auswahlweg (auditierter Stand 1.0.192):
+`SpectatorPerspectiveRuntime.IsActiveSpectator(): bool` (internal static) und
+`SelectPlayer(int): void` (private static). Signaturen werden einmal aufgelöst;
+Delegates bleiben prozessweit verwurzelt. Kein neuer nativer Hook und kein direktes
+Umschreiben der Spieleridentität. Der Anbieter aktualisiert Perspektive,
+Porträtmarkierung sowie Berichts-/Verbündetenansicht. Die bestätigte Auswahl liest
+`PlayerPerspectiveAPI.GetViewedPlayerId()` aus dem veröffentlichten main-0.9.2-SDK.
+Da dieser Vertrag kein Änderungsereignis bietet, erfolgt der Abgleich im bereits
+auf einmal pro Frame begrenzten Hauptthread-Pfad und vor eigenen UI-Aktionen.
+Unveränderte IDs lösen keine Auswahlaktion aus. Ungültige/nicht-KI-Perspektiven
+sperren die KI-Aktionen; außerhalb des aktiven Zuschaueranbieters bleibt die
+bisherige eigenständige Auswahl bestehen. Fehler deaktivieren den Adapter mit
+einer einmaligen Warnung. Bei Anbieterupdates die installierten Methodenkörper
+und den Integrationstest erneut prüfen; native Kraft-/Gebäudeverträge unverändert.

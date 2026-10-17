@@ -4,11 +4,18 @@ param(
     [switch]$ConfirmMenuAndUnityLog,
     [string]$ObservedLogPath,
     [string]$AcceptedStartupRoot,
-    [switch]$Correction
+    [switch]$Correction,
+    [string]$ContinuationRoot
 )
 $ErrorActionPreference = 'Stop'
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { throw 'Close the game first.' }
+if ($ContinuationRoot) {
+    if($Mode -ne 'Active' -or -not $Correction){throw 'Continuation requires explicit Active correction.'}
+    . (Join-Path $PSScriptRoot 'tools/ProbeContinuation.ps1')
+    if($PSCmdlet.ShouldProcess($game,'Rebind previously accepted correction to new installed probe')){Complete-ProbeContinuation $PSScriptRoot $game $ContinuationRoot}
+    return
+}
 $root = [IO.Path]::GetFullPath((Join-Path $game 'BepInEx'))
 $active = Join-Path $root 'config\DependencyBootstrapProbe.active'
 $disabled = Join-Path $root 'config\DependencyBootstrapProbe.disabled'

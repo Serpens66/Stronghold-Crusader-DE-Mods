@@ -1,0 +1,26 @@
+{
+    "APISharedSHA256":  "60E71B7BDA1C69AE5097E933ACC6F231C25B0908E9E92AE6BFD04E35D5FABCA3",
+    "Schema":  1,
+    "Files":  [
+                  {
+                      "SHA256":  "38427FA8F24E73174ACD041EDA934244F340DB448F748D4DDDD75EE0D7FF5EFE",
+                      "Path":  "BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll"
+                  },
+                  {
+                      "SHA256":  "B5D97942CF140D26701B6122776718A2F2ED17AE8D5CC3F4F1DE6822AC908F2D",
+                      "Path":  "BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll"
+                  },
+                  {
+                      "SHA256":  "EB67CDD6921CA652FE3CB86377920D0FD14EA89BA99EEE580FFBF03C73096A21",
+                      "Path":  "BepInEx/plugins/DependencyBootstrapProbe_Serp/info.json"
+                  },
+                  {
+                      "SHA256":  "215006A00D73A7C168CAFE8E5F0D85F8CBD9AFDC84D3433CE1FE4E48A4E89FA6",
+                      "Path":  "BepInEx/config/DependencyBootstrapProbe.active"
+                  },
+                  {
+                      "SHA256":  "215006A00D73A7C168CAFE8E5F0D85F8CBD9AFDC84D3433CE1FE4E48A4E89FA6",
+                      "Path":  "BepInEx/config/DependencyBootstrapProbe.correct"
+                  }
+              ]
+}

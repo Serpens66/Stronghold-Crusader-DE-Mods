@@ -60,6 +60,15 @@ namespace SpectatorEditorBuildTest
             ReleaseKeyboard(keyboard?.FocusedElement);
         }
 
+        internal void ResetAmount()
+        {
+            EndEditing();
+            control.Text = "0";
+            model.Amount = validText = "0";
+            control.SelectionStart = validStart = 0;
+            control.SelectionLength = validLength = 0;
+        }
+
         private void BeforeTextInput(object sender, TextCompositionEventArgs args)
         {
             if (!CreditInput.TryReplace(control.Text ?? "", control.SelectionStart,

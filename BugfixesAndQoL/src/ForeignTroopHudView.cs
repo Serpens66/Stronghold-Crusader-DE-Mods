@@ -18,11 +18,6 @@ namespace BugfixesAndQoL
         private readonly List<ForeignTroopEntry> visibleEntries = new List<ForeignTroopEntry>();
         private readonly List<ForeignTroopEntry> visibleEntryPool = new List<ForeignTroopEntry>();
         private readonly ForeignTroopEntry[] drawnEntries = new ForeignTroopEntry[8];
-        private static readonly SolidColorBrush[] PlayerBrushes = {
-            Brush(210, 204, 188), Brush(235, 72, 56), Brush(238, 156, 55),
-            Brush(237, 212, 72), Brush(87, 147, 229), Brush(163, 158, 155),
-            Brush(171, 105, 203), Brush(107, 211, 223), Brush(103, 207, 92)
-        };
         private Canvas panel;
         private TextBlock pageText;
         private Button previous;
@@ -142,6 +137,7 @@ namespace BugfixesAndQoL
                     if (entries[i].Owner != visibleEntries[i].Owner ||
                         entries[i].Type != visibleEntries[i].Type ||
                         entries[i].ColorId != visibleEntries[i].ColorId ||
+                        entries[i].OwnerColorArgb != visibleEntries[i].OwnerColorArgb ||
                         entries[i].Count != visibleEntries[i].Count ||
                         entries[i].CurrentHealth != visibleEntries[i].CurrentHealth ||
                         entries[i].MaxHealth != visibleEntries[i].MaxHealth)
@@ -158,6 +154,7 @@ namespace BugfixesAndQoL
                     copy.Owner = entry.Owner;
                     copy.Type = entry.Type;
                     copy.ColorId = entry.ColorId;
+                    copy.OwnerColorArgb = entry.OwnerColorArgb;
                     copy.Count = entry.Count;
                     copy.CurrentHealth = entry.CurrentHealth;
                     copy.MaxHealth = entry.MaxHealth;
@@ -326,7 +323,6 @@ namespace BugfixesAndQoL
                 if (drawn == null) slots[i].Visibility = Visibility.Visible;
                 if (identityChanged)
                 {
-                    ownerLabels[i].Foreground = PlayerBrush(entry.ColorId);
                     ownerLabels[i].Text = "P" + entry.Owner;
                     int portraitCode = entry.Type < PortraitCodes.Length ? PortraitCodes[entry.Type] : 0;
                     ImageSource source = entry.Type == 55 ? Shared.LordPortraitPalette.Get(entry.ColorId) :
@@ -342,6 +338,8 @@ namespace BugfixesAndQoL
                     typeLabels[i].Text = "Typ " + entry.Type;
                     typeLabels[i].Visibility = source == null ? Visibility.Visible : Visibility.Collapsed;
                 }
+                if (drawn == null || drawn.OwnerColorArgb != entry.OwnerColorArgb)
+                    ownerLabels[i].Foreground = PlayerBrush(entry.OwnerColorArgb);
                 if (drawn == null || drawn.Count != entry.Count) counts[i].Text = entry.Count.ToString();
                 if (drawn == null || drawn.CurrentHealth != entry.CurrentHealth || healthChanged)
                     currentHealth[i].Text = showHealth ? ScaleHealth(entry.CurrentHealth) : string.Empty;
@@ -354,6 +352,7 @@ namespace BugfixesAndQoL
                 drawn.Owner = entry.Owner;
                 drawn.Type = entry.Type;
                 drawn.ColorId = entry.ColorId;
+                drawn.OwnerColorArgb = entry.OwnerColorArgb;
                 drawn.Count = entry.Count;
                 drawn.CurrentHealth = entry.CurrentHealth;
                 drawn.MaxHealth = entry.MaxHealth;
@@ -410,13 +409,9 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static SolidColorBrush PlayerBrush(int colorId)
-        {
-            return colorId >= 1 && colorId < PlayerBrushes.Length ? PlayerBrushes[colorId] : PlayerBrushes[0];
-        }
-
-        private static SolidColorBrush Brush(byte r, byte g, byte b) =>
-            new SolidColorBrush(Noesis.Color.FromArgb(255, r, g, b));
+        private static SolidColorBrush PlayerBrush(uint argb) =>
+            new SolidColorBrush(Noesis.Color.FromArgb((byte)(argb >> 24),
+                (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));
 
         private static int[] CreatePortraitCodes()
         {

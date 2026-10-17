@@ -17,7 +17,8 @@ namespace BugfixesAndQoL
     {
         internal int Owner;
         internal int Type;
-        internal int ColorId;
+        internal int ColorId; // UI portrait order, not the material palette or unit sprite slot.
+        internal uint OwnerColorArgb;
         internal int Count;
         internal ulong CurrentHealth;
         internal ulong MaxHealth;
@@ -28,6 +29,7 @@ namespace BugfixesAndQoL
         private static readonly Dictionary<int, ForeignTroopEntry> grouped = new Dictionary<int, ForeignTroopEntry>();
         private static readonly List<ForeignTroopEntry> entries = new List<ForeignTroopEntry>();
         private static readonly List<ForeignTroopEntry> entryPool = new List<ForeignTroopEntry>();
+        private static readonly ForeignTroopPlayerColors playerColors = new ForeignTroopPlayerColors();
         private static ManualLogSource log;
         private static ForeignTroopHudView view;
         private static IMissionLifecycleCapability lifecycle;
@@ -148,6 +150,7 @@ namespace BugfixesAndQoL
                     grouped.Clear();
                     entries.Clear();
                     entryPool.Clear();
+                    playerColors.Reset();
                     view.ResetForMap();
                 }
                 if (surfaces == 0) return;
@@ -250,6 +253,7 @@ namespace BugfixesAndQoL
             }
             grouped.Clear();
             entries.Clear();
+            playerColors.Reset();
             int usedEntries = 0;
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             bool invalidCachedId = false;
@@ -301,7 +305,9 @@ namespace BugfixesAndQoL
                     entry = entryPool[usedEntries++];
                     entry.Owner = owner;
                     entry.Type = type;
-                    entry.ColorId = (int)unit.r_SpritePlayerColorId;
+                    ForeignTroopPlayerColor color = playerColors.Get(owner);
+                    entry.ColorId = color.PortraitColorId;
+                    entry.OwnerColorArgb = color.LabelArgb;
                     entry.Count = 0;
                     entry.CurrentHealth = 0;
                     entry.MaxHealth = 0;

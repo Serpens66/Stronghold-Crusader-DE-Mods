@@ -39,3 +39,6 @@ $hud = [IO.File]::ReadAllText((Join-Path $root 'src\SpectatorEditorBuildTestPlug
 if ($model -match 'private bool expanded\s*=' -or $model -match 'OwnerPage|TargetPage|CreditMath.Adjust') { throw 'Default expansion or obsolete model state remains.' }
 if ($hud -notmatch 'button.Visibility = available \? Visibility.Visible : Visibility.Collapsed' -or $hud -notmatch 'target.Visibility = targetAvailable \? Visibility.Visible : Visibility.Collapsed') { throw 'Unavailable cards must collapse and reflow.' }
 Write-Host 'PASS: compact layout structure, all eight slots, 1/4/8-slot row geometry, inline action and zero default.'
+
+$reset = $xml.SelectSingleNode('//Button[@CommandParameter="ResetAmount"]')
+if ($credit.Width -ne '120' -or $reset.Width -ne '36' -or $reset.Content -ne '0' -or $reset.ParentNode -ne $credit.ParentNode) { throw 'Send/reset layout contract changed.' }

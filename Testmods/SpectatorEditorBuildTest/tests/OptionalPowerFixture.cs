@@ -25,12 +25,15 @@ namespace ExtremePowers.API
         public TargetKind TargetKind { get; set; }
     }
     public sealed class Tuning { public int[] Costs { get; set; } }
+    public sealed class Readiness { public bool Ready { get; set; } }
     public sealed class FixtureApi
     {
         public bool NativeBackendAvailable { get; set; }
         public Tuning Current { get; set; }
         public Replacement Replacement;
         public bool Reject;
+        public bool SessionReady = true;
+        internal Readiness GetSessionReadiness() => new Readiness { Ready = SessionReady };
         public int Calls;
         public Context Last;
         public bool TryGetReplacement(ExtremePowerId id, out Replacement replacement)

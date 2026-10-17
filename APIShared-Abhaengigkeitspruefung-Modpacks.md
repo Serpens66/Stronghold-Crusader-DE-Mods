@@ -1,5 +1,85 @@
 # APIShared: frühe Abhängigkeitsprüfung für Modpack-Module
 
+## Laufende Vorbereitung: tatsächliche Extender-Zustände (17.10.2026)
+
+Die eigenständige Probe erhält eine rein beobachtende Lifecycle-Erfassung bei
+weiter aktiver Indexkorrektur. Nach dem erkannten Extender-Wechsel hat der Nutzer
+die erneute Prüfung und Probe-Installation für die installierte SE 2.14.2 ausdrücklich
+freigegeben. Offline-Prüfungen, Build und Probe-Installation sind bestanden;
+die alte Probe ist gesichert, der Korrekturschalter ausdrücklich neu gebunden.
+APIShared und Loader bleiben unverändert. Der neue Spielnachweis steht noch aus.
+Mehrfache originale Workshop-Aufrufe werden getrennt und vollständig geprüft.
+Details und Abnahme stehen im [Probe-Testplan](Testmods/DependencyBootstrapProbe/TESTPLAN.md).
+Der historische 2.14.1-Erfolg wird nicht als Nachweis für 2.14.2 ausgegeben.
+
+APIShared bleibt unverändert auf dev/Serpens66. Geprüft: SE-Mindestversion 2.14.0,
+keine gesetzte Höchstversion, keine SE-Hash-Freigabesperre für diese Korrektur;
+Signatur-/IL-Prüfungen bleiben maßgeblich. Die feste Binärbindung der Diagnoseprobe
+ist eine separate Testbedingung, keine neue APIShared-Versionsgrenze.
+
+## Aktueller nächster Nachweis: eigenständiger Testmod (17.10.2026)
+
+APIShared bleibt vorerst unverändert und wird nicht neu gebaut. Der Paketlebenszyklus
+wird unter `Testmods/DependencyBootstrapProbe/package` unabhängig implementiert und
+mit tatsächlichen Dateioperationen in Workspace-Fixtures geprüft. Die 96 neuen
+Paket-/Entfernungsfälle ersetzen den bisherigen Modelltest als aktiven Prüfpfad.
+Die installierte Release-APIShared und Korrekturprobe bleiben erhalten. Nachweise
+und Grenzen stehen im Testmod-[Paketvertrag](Testmods/DependencyBootstrapProbe/package/CONTRACT.md).
+Die nachfolgenden APIShared-Buildangaben beschreiben den bereits abgeschlossenen
+Entwicklungsstand; sie beauftragen keinen weiteren Build in dieser Teststufe.
+
+
+## Entwicklungsstruktur am 17.10.2026
+
+APIShared bleibt auf `dev/Serpens66`. Der eigenständige Bootstrap ist unter
+`bootstrap/src` nach `EarlyEntry`, `DependencyCorrection`, `Package` und
+`Diagnostics` gegliedert; Tests und Paketwerkzeuge folgen den vorhandenen
+APIShared-Projektbereichen. Der abschließende NoInstall-Nachweis wird unter
+`APIShared/.local/dependency-bootstrap-evidence/STATUS.md` festgehalten.
+Installation, eigener Unity-Mono-Nachweis und automatische Bereinigung bleiben
+separate Schritte; die installierte Release-Version und Probe bleiben unverändert.
+
+## APIShared-Entwicklungsübertragung, 16.10.2026
+
+Die gestufte Übertragung wird auf `dev/Serpens66` umgesetzt: eigenständiger Bootstrap,
+APIShared-eigene Policy/JSON-Quellen, tatsächliche Gewinnerbindung, lokaler Indexwechsel,
+Paarmanifest, ZIP-/Map-Prüfer und Buildnachweise. Die übertragenen Quellen werden
+direkt getestet; die früheren 80 Modellfälle gelten nicht als Ersatz dafür.
+
+Der Entwicklungsbuild erfolgt ausschließlich mit `/nopause /noinstall`. Installierte
+Release-Version, aktive Diagnoseprobe und Schalter bleiben erhalten. Das Paket ist
+bis zu eigenem Unity-Mono-Spielnachweis und geprüftem automatischem Lebenszyklus
+nicht installations-/releasefreigegeben. Automatische Bootstrap-Bereinigung bleibt
+zurückgestellt; ein manuelles Werkzeug bietet standardmäßig nur eine Vorschau.
+Verbindlicher neuer Vertrag: [APIShared-Entwicklungsdokumentation](APIShared/docs/DEPENDENCY_BOOTSTRAP.md).
+Der Build- und Unverändertheitsnachweis liegt lokal unter
+`APIShared/.local/dependency-bootstrap-evidence`.
+
+## Aktueller Status nach dem Korrekturlauf 16.10.2026, 21:54 Uhr
+
+Beobachtung, aktive Hookkette, Schatteninventar und begrenzte Indexkorrektur im
+Testmod sind bestanden. Die Originalprüfung meldete genau die drei absichtlichen
+Kontrollfehler; beide BugfixesAndQoL-Fehlalarme verschwanden. Originaldictionary,
+Assetregistrierung und APIShared-Dateien blieben unverändert. Chainloader-Abschluss
+und Post-Cleanup-Render sind belegt; keine neuen Startfehler in den geprüften Logs.
+Der Nutzer sah ausschließlich die TEST-ONLY-Meldung. Das beweist keine zukünftigen
+Awake-Erfolge aller Plugins und noch keine produktive APIShared-Integration.
+
+Archiv: `_inspect/DependencyBootstrapProbe/Correction-accepted-20261016-2154` mit
+Logs, Binäridentitäten, Kontrollmanifest und erneut bestandenem Archiv-Prüflauf.
+Die hashgeprüfte Kontrollkomponente wurde anschließend bei geschlossenem Spiel
+entfernt; aktive Probe und Korrekturschalter bleiben für weitere Nutzertests erhalten.
+
+Nächster Entwicklungsvertrag und isolierte Pakettests:
+[PACKAGE-INTEGRATION.md](Testmods/DependencyBootstrapProbe/PACKAGE-INTEGRATION.md).
+APIShared bleibt auf `dev/Serpens66`; spätere Änderungen ausschließlich dort und
+Build ausschließlich mit `/nopause /noinstall`. Die installierte Version bleibt
+unangetastet. Der Paketversuch ändert noch keinen APIShared-Code.
+
+Die folgenden Abschnitte enthalten die ursprüngliche Planung und chronologische
+Zwischenstände. Aussagen wie „Spielnachweis noch offen“ gelten für den jeweils
+datierten damaligen Versuch; für den aktuellen Status gilt dieser Abschnitt.
+
 Stand: 16. Oktober 2026. Korrigierter Arbeitsplan; die produktive Erweiterung ist noch nicht implementiert. Zielbranch für eine spätere Umsetzung: `dev/Serpens66`. Beim erneuten Prüfen während der Testmod-Erstellung steht APIShared auf `dev/Serpens66` (zuvor `main`); den vorhandenen Checkout weder ändern noch ungefragt umschalten. Bei paralleler Arbeit einen passenden isolierten Checkout verwenden. Keine Commits oder Veröffentlichungen ohne Nutzerauftrag.
 
 ## Problem und nachgewiesener Ablauf

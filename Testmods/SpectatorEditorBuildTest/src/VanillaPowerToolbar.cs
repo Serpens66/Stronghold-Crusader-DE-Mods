@@ -13,8 +13,6 @@ namespace SpectatorEditorBuildTest
         private static Grid powerToolbarRoot;
         private static UIElement powerToolbarHost;
         private static FrameworkElement powerMeter;
-        private static TextBlock powerToolbarLabel;
-        private static Canvas powerToolbarNote;
         private static readonly Button[] vanillaPowerButtons = new Button[8];
         private static readonly List<ToolbarProperty> toolbarProperties = new List<ToolbarProperty>();
         private static bool powerToolbarOwned;
@@ -106,16 +104,7 @@ namespace SpectatorEditorBuildTest
                 CollectPowerButtons(powerToolbar);
                 for (int i = 0; i < 8; i++)
                     if (vanillaPowerButtons[i] == null || powerToolbarRoot == null || powerToolbarHost == null)
-                    { RestoreVanillaPowerToolbar(true); LogOnce("TEST_POWER_TOOLBAR_UNAVAILABLE: Vanilla toolbar contract changed."); return; }
-                powerToolbarLabel = new TextBlock { Width = 180, FontSize = 14, Foreground = Brushes.White,
-                    TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right,
-                    IsHitTestVisible = false };
-                // Zero-size overlay leaves the Vanilla Viewbox's measure/scale and hit area intact.
-                powerToolbarNote = new Canvas { Width = 0, Height = 0, HorizontalAlignment = HorizontalAlignment.Right,
-                    VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 48, 0), IsHitTestVisible = false };
-                Canvas.SetLeft(powerToolbarLabel, -180);
-                powerToolbarNote.Children.Add(powerToolbarLabel);
-                powerToolbarRoot.Children.Add(powerToolbarNote);
+                    { RestoreVanillaPowerToolbar(true); nextToolbarSearch = DateTime.UtcNow.AddMilliseconds(250); return; }
                 log.LogInfo("TEST_POWER_TOOLBAR_READY: eight Vanilla buttons connected; explicit AI actor and free test actions.");
             }
             if (!powerToolbarOwned)
@@ -128,9 +117,6 @@ namespace SpectatorEditorBuildTest
             powerToolbarHost.Visibility = MainViewModel.Instance.UIVisible && !MainViewModel.Instance.Show_HUD_Briefing
                 ? Visibility.Visible : Visibility.Collapsed;
             if (powerMeter != null) powerMeter.Height = 236;
-            powerToolbarLabel.Visibility = Visibility.Visible;
-            powerToolbarLabel.Text = SerpLocalization.Get("Tools.PowerToolbarContext", "Player", PlayerLabel(humanSelectedOwner));
-            if (pendingPower != null) powerToolbarLabel.Text += "\n" + SerpLocalization.Get("Tools.PowerChooseTarget");
             for (int id = 0; id < 8; id++) vanillaPowerButtons[id].IsEnabled = toolsModel.Powers[id].Enabled;
         }
 
@@ -142,10 +128,8 @@ namespace SpectatorEditorBuildTest
                 toolbarProperties.Clear();
                 powerToolbarOwned = false;
             }
-            if (powerToolbarLabel != null) powerToolbarLabel.Visibility = Visibility.Collapsed;
             if (!detach) return;
-            if (powerToolbarNote != null) powerToolbarRoot?.Children.Remove(powerToolbarNote);
-            powerToolbarNote = null; powerToolbarLabel = null; powerToolbarRoot = null; powerToolbar = null; powerToolbarHost = null; powerMeter = null;
+            powerToolbarRoot = null; powerToolbar = null; powerToolbarHost = null; powerMeter = null;
             Array.Clear(vanillaPowerButtons, 0, vanillaPowerButtons.Length);
             nextToolbarSearch = DateTime.MinValue;
         }

@@ -33,8 +33,8 @@ use a serialization-only FileHeader. It is never registered as an installed map,
 assigned to selectedHeader, loaded or written to disk as a map.
 
 SetAsNormal is private and is targeted by a validated IL hook. RefButtonRestart
-is private and accessed through a type-validated FieldInfo. The public menu action
-is guarded before opening the restart confirmation. APIShared already owns
+is private and accessed through a type-validated FieldInfo. The separate restart confirmation callback is guarded in its custom skirmish
+branch. The shared public menu action is never hooked by this mod. APIShared already owns
 RestartSkirmishGame interception; this mod does not hook it. FRONT_Multiplayer
 doOpen clears selectedMPHeader before populating its actual installed map list.
 Returning to a lobby therefore requires selecting an installed map for a new game.
@@ -77,3 +77,43 @@ duplicate callbacks, and failures before validation/each hook publication.
 An actual byte-loaded game assembly reproduces the empty-Location condition in
 the desktop test; missing files and mismatched hashes must also be rejected.
 These tests do not replace the still-pending post-fix Unity runtime acceptance.
+
+Crash correction (2026-10-16): the previous additional IL hook on
+ButtonIngameMenuFunction rebuilt the Extender 2.14.1 owner's IL chain. Its
+manipulator installed another exit-Yes hook and replaced a shared trampoline,
+causing recursive unload notifications and EXCEPTION_STACK_OVERFLOW. The log
+contains 2,494 Lua unload notifications from 21:59:50.560 to 21:59:51.054.
+The owner hook is removed from the installation list, not undone at runtime.
+A fresh process is required to use the correction.
+
+The replacement target is resolved from the owner's ldarg.0/ldftn/Action delegate
+construction and a unique call to FRONT_Multiplayer.RestartSkirmishGame. In the
+validated game assembly this private callback is <ButtonIngameMenuFunction>b__24_0.
+Its get_SkirmishTrailType < 0 branch enters the custom skirmish block; the guard
+runs there before reading restartSkirmishMapInfo. Campaign and built-in trail
+branches bypass it. The separate exit callback and APIShared target stay untouched.
+No Extender/APIShared binary or source modifications are necessary.
+
+Regression tests now execute the transformed callback with isolated game services,
+and exercise real installed MonoMod hooks on an outer method and separate inner
+callback. Hooking the inner callback must not rerun the outer manipulator; an
+additional outer hook is a positive control. These desktop checks do not prove
+in-game exit/lobby behavior. Fresh-process game acceptance is still pending.
+
+ILLabel correction (2026-10-17): the 01:39 run installed the first three hooks,
+then disabled the fix while installing the restart callback. ILContext.Invoke
+wraps instruction branch operands in ILLabel before calling the manipulator.
+The former direct-call tests and preflight skipped this conversion. Switching
+the unmodified callback test to Invoke reproduced the same contract exception.
+
+The resolver now accepts ILLabel.Target and direct Instructions only when the
+target belongs to the current method. Signed blt and blt.s are accepted; field,
+method, callback signature and unique branch contracts remain enforced. The
+existing target is preserved, and the added exit branch uses an explicit ILLabel.
+RunHookPlan preflights every method on a fresh copy via ILContext.Invoke before
+any observer registration or hook publication; errors identify phase and target.
+All transformation regressions now run inside Invoke. Negative tests snapshot
+inside the callback using label-aware operand formatting. Both branch widths,
+invalid/out-of-body targets and failure of the fourth preflight are covered.
+The original common-menu hook remains absent. Fresh-process game acceptance
+(portraits, save/reload, restart blocking and exit/lobby) is still pending.

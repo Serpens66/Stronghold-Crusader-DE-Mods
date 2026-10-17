@@ -17,7 +17,7 @@ namespace SpectatorEditorBuildTest
 {
     public sealed partial class SpectatorEditorBuildTestPlugin
     {
-        private static readonly Queue<TestAction> testActions = new Queue<TestAction>();
+        private static readonly ConcurrentQueue<TestAction> testActions = new ConcurrentQueue<TestAction>();
         private static readonly TestActionLedger actionLedger = new TestActionLedger();
         private static long nextTestAction;
         private static TestToolsViewModel toolsModel;
@@ -124,7 +124,7 @@ namespace SpectatorEditorBuildTest
             { if (toolsModel != null) toolsModel.Status = SerpLocalization.Get("Tools.InvalidTarget"); return; }
             action.Session = CurrentSessionId;
             action.PowerGeneration = powerGeneration;
-            action.Operation = ++nextTestAction;
+            action.Operation = Interlocked.Increment(ref nextTestAction);
             testActions.Enqueue(action);
             toolsModel.Status = SerpLocalization.Get("Tools.Queued");
         }
@@ -132,9 +132,8 @@ namespace SpectatorEditorBuildTest
         private static void DrainTestActions()
         {
             // Runs once per Unity render frame, including pause/editor; identical lock to Vanilla native calls.
-            while (testActions.Count != 0)
+            while (testActions.TryDequeue(out TestAction action))
             {
-                TestAction action = testActions.Dequeue();
                 string result;
                 try
                 {
@@ -149,6 +148,12 @@ namespace SpectatorEditorBuildTest
                             case TestActionKind.Credit: result = ExecuteCredit(action); break;
                             case TestActionKind.Power: result = ExecutePower(action); break;
                             case TestActionKind.Gate: result = ExecuteGate(action); break;
+                            case TestActionKind.GateAutomation:
+                                if (!GateIsCurrent(action.Gate) || action.Actor != humanSelectedOwner || gateAutomation == null)
+                                    result = SerpLocalization.Get("Tools.InvalidTarget");
+                                else { gateAutomation.Apply(action.Actor, action.Gate.Id, action.Gate.Global, action.Force);
+                                    result = SerpLocalization.Get(action.Force ? "Tools.GateAutomatic" : "Tools.GateFixed"); }
+                                break;
                             case TestActionKind.PowerToggle:
                                 CancelPowerSelection();
                                 GamePlayerManagerAPI.Instance.SetLocalPlayerExtremePowersEnabled(action.Force);
@@ -223,7 +228,7 @@ namespace SpectatorEditorBuildTest
 
         private static void ResetTestActions(long session)
         {
-            testActions.Clear();
+            while (testActions.TryDequeue(out _)) { }
             nextTestAction = 0;
             actionLedger.Reset(session);
             toolsModel = null;

@@ -1,0 +1,26 @@
+[
+  {
+    "File": "CONTRACT.md",
+    "SHA256": "8287e12839dc2289662f9c47c29303faa51b36ab22e4c3ad67085bb7a10139fe"
+  },
+  {
+    "File": "Invoke-PostExitRemoval.ps1",
+    "SHA256": "52173564e6a507ec8686a821b55a2109fdbd14f01cab0b6a41cfa1744bf2c79b"
+  },
+  {
+    "File": "Pair.ps1",
+    "SHA256": "5e1d4c570098a3d16769c3b12542354e6fe29dda0692b7caf958f39decbafee5"
+  },
+  {
+    "File": "Removal.ps1",
+    "SHA256": "582270f9d13cbda31944727b1f040485a933871c3342ea4e7f5076fab3c30104"
+  },
+  {
+    "File": "VerifiedFileDeletion.cs",
+    "SHA256": "5584cc200b3f108ac87623dac7b96c6f4a77aa80db557c69a3aea0822295d885"
+  },
+  {
+    "File": "Test-PackageLifecycle.ps1",
+    "SHA256": "647ba7fe7c7c92f0a9a9607745a894edd09958bebdc3f70cad08175cccd3a2c4"
+  }
+]

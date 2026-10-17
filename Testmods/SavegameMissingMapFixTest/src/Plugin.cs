@@ -1,12 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using APIShared;
 using BepInEx;
 using BepInEx.Logging;
-using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using MonoMod.Utils;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 
@@ -37,17 +34,17 @@ namespace SavegameMissingMapFixTest
         {
             Write("ASSEMBLY_VALIDATED: " + RuntimeStartup.ValidateGameAssembly(Paths.ManagedPath));
             SavegameFix.ValidateMembers();
-            var methods = new[] { SavegameFix.Decode, SavegameFix.Encode, SavegameFix.Menu, SavegameFix.Action };
-            ILContext.Manipulator[] transforms = { SavegameFix.ModifyDecode, SavegameFix.ModifyEncode, SavegameFix.ModifyMenu, SavegameFix.ModifyAction };
-            // Validate every transform before publishing any hook. Published hooks are permanent.
-            for (int i = 0; i < methods.Length; i++)
-                using (var copy = new DynamicMethodDefinition(methods[i]))
-                using (var il = new ILContext(copy.Definition)) transforms[i](il);
-            if (!ApiShared.Current.TryGetMissionLifecycle(Guid, out lifecycle, out var diagnostic) ||
-                !lifecycle.TryRegisterObserver("save-data-diagnostics", OnStart, null, null, out diagnostic))
-                throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
-            GameTimeManagerAPI.Instance.OnTick += OnTick;
-            for (int i = 0; i < methods.Length; i++) hooks.Add(new ILHook(methods[i], transforms[i]));
+            SavegameFix.RunHookPlan(SavegameFix.HookTargets, SavegameFix.HookTransforms, () =>
+            {
+                if (!ApiShared.Current.TryGetMissionLifecycle(Guid, out lifecycle, out var diagnostic) ||
+                    !lifecycle.TryRegisterObserver("save-data-diagnostics", OnStart, null, null, out diagnostic))
+                    throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
+                GameTimeManagerAPI.Instance.OnTick += OnTick;
+            }, (method, transform) =>
+            {
+                hooks.Add(new ILHook(method, transform));
+                Write("HOOK_ACTIVE: " + method.DeclaringType.FullName + "::" + method.Name);
+            });
         }
         private static void OnStart(MissionLifecycleNotification notification)
         {

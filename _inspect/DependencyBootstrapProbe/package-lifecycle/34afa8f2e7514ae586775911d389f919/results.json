@@ -1,0 +1,286 @@
+﻿[
+    {
+        "Case":  "complete first installation",
+        "Passed":  true
+    },
+    {
+        "Case":  "RBP first=False prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "RBP first=False prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "RBP first=False prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "RBP first=True prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "RBP first=True prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "RBP first=True prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "RPB first=False prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "RPB first=False prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "RPB first=False prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "RPB first=True prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "RPB first=True prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "RPB first=True prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "BRP first=False prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "BRP first=False prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "BRP first=False prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "BRP first=True prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "BRP first=True prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "BRP first=True prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "BPR first=False prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "BPR first=False prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "BPR first=False prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "BPR first=True prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "BPR first=True prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "BPR first=True prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "PRB first=False prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "PRB first=False prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "PRB first=False prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "PRB first=True prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "PRB first=True prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "PRB first=True prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "PBR first=False prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "PBR first=False prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "PBR first=False prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "PBR first=True prefix=1",
+        "Passed":  true
+    },
+    {
+        "Case":  "PBR first=True prefix=2",
+        "Passed":  true
+    },
+    {
+        "Case":  "PBR first=True prefix=3",
+        "Passed":  true
+    },
+    {
+        "Case":  "missing BepInEx/plugins/APIShared_Serp/APIShared.dll",
+        "Passed":  true
+    },
+    {
+        "Case":  "missing BepInEx/patchers/APIShared.DependencyBootstrap.dll",
+        "Passed":  true
+    },
+    {
+        "Case":  "missing BepInEx/plugins/APIShared_Serp/dependency-bootstrap-pair.json",
+        "Passed":  true
+    },
+    {
+        "Case":  "same version different runtime",
+        "Passed":  true
+    },
+    {
+        "Case":  "same version different bootstrap",
+        "Passed":  true
+    },
+    {
+        "Case":  "swapped payloads",
+        "Passed":  true
+    },
+    {
+        "Case":  "malformed manifest {broken",
+        "Passed":  true
+    },
+    {
+        "Case":  "malformed manifest {}",
+        "Passed":  true
+    },
+    {
+        "Case":  "malformed manifest {\"Schema\":2}",
+        "Passed":  true
+    },
+    {
+        "Case":  "competing bootstrap",
+        "Passed":  true
+    },
+    {
+        "Case":  "development probe coexistence refused",
+        "Passed":  true
+    },
+    {
+        "Case":  "different selected path with identical hash",
+        "Passed":  true
+    },
+    {
+        "Case":  "selected metadata hash differs",
+        "Passed":  true
+    },
+    {
+        "Case":  "selected version differs",
+        "Passed":  true
+    },
+    {
+        "Case":  "disk changed after bootstrap load",
+        "Passed":  true
+    },
+    {
+        "Case":  "existing inventory writer accepts pair metadata",
+        "Passed":  true
+    },
+    {
+        "Case":  "inventory remains plugin relative",
+        "Passed":  true
+    },
+    {
+        "Case":  "inventory includes pair manifest",
+        "Passed":  true
+    },
+    {
+        "Case":  "unsubscribe exact owner receipt",
+        "Passed":  true
+    },
+    {
+        "Case":  "foreign subscribed payload claim protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "unknown ownership protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "staged replacement protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "external manager protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "unsubscribe still has owner protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "update exactly one owner",
+        "Passed":  true
+    },
+    {
+        "Case":  "update competing owners protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "update missing owner protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "changed bootstrap protected",
+        "Passed":  true
+    },
+    {
+        "Case":  "deletion target stays inside workspace fixture",
+        "Passed":  true
+    },
+    {
+        "Case":  "exact bootstrap removed",
+        "Passed":  true
+    },
+    {
+        "Case":  "foreign file preserved",
+        "Passed":  true
+    },
+    {
+        "Case":  "repeated removal harmless",
+        "Passed":  true
+    },
+    {
+        "Case":  "manual complete reinstall restores valid pair",
+        "Passed":  true
+    },
+    {
+        "Case":  "manual reinstall preserves foreign file",
+        "Passed":  true
+    }
+]

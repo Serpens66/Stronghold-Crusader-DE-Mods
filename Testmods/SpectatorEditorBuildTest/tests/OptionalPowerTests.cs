@@ -40,6 +40,11 @@ namespace SpectatorEditorBuildTest
             Expect((int)target.GetType().GetField("Tile").GetValue(target) == 1234 && (int)api.GetType().GetField("Calls").GetValue(api) == 1, "map target and exactly one callback");
             api.GetType().GetField("Reject").SetValue(api, true);
             Expect(!OptionalExtremePowers.ExecuteReplacement(spawn, 7, 1234, 992, 42, out reason) && reason == "fixture rejection", "provider rejection retained");
+            api.GetType().GetField("SessionReady").SetValue(api, false);
+            var disabled = new ToolPower { Id=5, Cost=3816, TargetKind=0 };
+            OptionalExtremePowers.Describe(disabled);
+            Expect(disabled.Api==null && disabled.Replacement==null && disabled.Cost==3816 && disabled.TargetKind==0, "inactive provider retains Vanilla power");
+            api.GetType().GetField("SessionReady").SetValue(api, true);
             api.GetType().GetProperty("NativeBackendAvailable").SetValue(api, false, null);
             bool unavailable = false;
             try { OptionalExtremePowers.Describe(new ToolPower { Id = 0 }); } catch (System.InvalidOperationException) { unavailable = true; }

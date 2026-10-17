@@ -41,6 +41,10 @@ namespace SpectatorEditorBuildTest
             Type type = provider.GetType();
             if (!(bool)type.GetProperty("NativeBackendAvailable").GetValue(provider, null))
                 throw new InvalidOperationException("ExtremePowers native backend unavailable.");
+            MethodInfo readinessMethod = type.GetMethod("GetSessionReadiness", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (readinessMethod == null) throw new InvalidOperationException("Unknown ExtremePowers readiness contract.");
+            object readiness = readinessMethod.Invoke(provider, null);
+            if (!(bool)readiness.GetType().GetProperty("Ready").GetValue(readiness, null)) return;
             power.Api = provider;
             object tuning = type.GetProperty("Current").GetValue(provider, null);
             power.Cost = ((int[])tuning.GetType().GetProperty("Costs").GetValue(tuning, null))[power.Id];

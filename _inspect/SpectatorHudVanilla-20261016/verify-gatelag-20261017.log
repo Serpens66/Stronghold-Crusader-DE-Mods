@@ -1,0 +1,51 @@
+PASS: 164 action policy checks (amounts, overflow, exactly once, sessions, force isolation).
+PASS: compact layout structure, all eight slots, 1/4/8-slot row geometry, inline action and zero default.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+PASS: 12 production input adapter checks (focus, typing, paste, overflow, hiding and detach).
+PASS: installed ExtraFeatures activation gate is internal static bool IsEnabled(bool).
+Validated public member: System.Boolean CrusaderDE.MainViewModel::viewModelLoaded
+Validated public member: Noesis.ImageSource CrusaderDE.MainViewModel::getAIFace(System.Int32,System.Boolean)
+Validated public member: System.Void CrusaderDE.MainViewModel::SetNoesisKeyboardState(System.Boolean)
+Validated public member: System.Boolean FatControler::get_NoesisHasKeyboard()
+Validated public member: System.Void FatControler::SetNoesisKeyboardState(System.Boolean)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(System.String)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(System.String,System.Int32)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(Enums/eTextSections,Enums/eTextValues)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(Enums/eTextSections,System.Int32)
+Validated public member: System.String Platform_Multiplayer::getSkirmishName(System.Int32,System.Boolean)
+Validated public member: System.String OnScreenText::getComputerName(System.Int32,System.Int32)
+Validated public member: System.Void CrusaderDE.MainViewModel::setUpInbuilding(System.Int32,System.Int32)
+Validated public member: System.Void CrusaderDE.MainViewModel::InBuildingGameAction()
+Validated public member: System.Void CrusaderDE.MainViewModel::TroopsSelectedGameAction(System.Boolean)
+Validated public member: System.Void CrusaderDE.MainViewModel::DefaultGameUIGameAction(System.Boolean)
+Validated public member: System.Void CrusaderDE.MainViewModel::DefaultMapEditorUIGameAction()
+Validated public member: System.Void GameData::setGameState(EngineInterface/PlayState)
+Validated public member: Noesis.DependencyProperty CrusaderDE.PropEx::Sprite1Property
+Validated public member: Noesis.DependencyProperty CrusaderDE.PropEx::Sprite2Property
+Validated private static object EngineInterface.threadLock (encapsulated reflection).
+PASS: Noesis input, paste rollback and focus contracts.
+Validated Extender API: System.Void SHCDESE.API.GamePlayerManagerAPI::AddIncomingGood(System.Int32,SHCDESE.Interop.eGoods,System.Int32)
+Validated Extender API: System.Boolean SHCDESE.API.GamePlayerManagerAPI::AddPlayerGold(System.Int32,System.Int32)
+Validated Extender API: System.Int32 SHCDESE.API.GamePlayerManagerAPI::GetPlayerGold(System.Int32)
+Validated Extender API: System.Boolean SHCDESE.API.GamePlayerManagerAPI::TryGetPlayerResourcesById(System.Int32,SHCDESE.Interop.GamePlayerResources*&)
+Validated Extender API: System.Void SHCDESE.API.GamePlayerManagerAPI::SetLocalPlayerExtremePowersEnabled(System.Boolean)
+Validated Extender API: System.Boolean SHCDESE.API.GamePlayerManagerAPI::IsLocalPlayerExtremePowersEnabled()
+Validated Extender API: System.Int32 SHCDESE.API.GamePlayerManagerAPI::GetLordUnitId(System.Int32)
+Validated Extender API: System.Int32 SHCDESE.API.GamePlayerManagerAPI::GetLordUnitGlobalId(System.Int32)
+PASS: installed game visibility, Extender APIs, events and all Vanilla goods-button IDs.
+PASS: full 587-byte native order function decodes; defend/attack acceptance and attack preparation calls match.
+PASS: complete power/gate/bridge instruction fixtures and effect/coupling call targets.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+PASS: 11 production optional-adapter checks (absence, tuning, replacement, explicit AI, once, rejection, unavailable).
+PASS span 0x105593 14 complete parent 0x105510 326 baseline xrefs checked
+PASS span 0x8caf8 14 complete parent 0x8c5f0 14865 baseline xrefs checked
+PASS span 0x8ce20 18 complete parent 0x8c5f0 14865 baseline xrefs checked
+PASS span 0x105627 14 complete parent 0x105510 326 baseline xrefs checked
+CONTRACT 0x105510 326 003599E68B7384B75515EAE73EA17EBA7D8B58BD34A748EADDE447FE28E5D88D
+CONTRACT 0x897f0 119 5A244DF882A8C45FE8E7E8C15560986570BF2EADD2C898A23B49D54470B75ADA
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+PASS: 105 native power generator/backend checks (inactive, AI 2/8, registers, flags, exactly-once submission).
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+PASS: 17 production ExtraFeatures adapter checks.
+SpectatorEditorBuildTest prebuild checks passed.

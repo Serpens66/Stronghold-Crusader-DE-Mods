@@ -7,11 +7,48 @@ namespace SpectatorEditorBuildTest
         { checks++; if (!condition) throw new System.Exception("Failed: " + name); }
         public static int Run()
         {
+            var hud = new GateHudLifecycle();
+            hud.Request(10);
+            Expect(!hud.TryConsume(10, true), "gate waits for completed state update");
+            Expect(!hud.TryConsume(11, false), "unready HUD retains intention");
+            hud.Release();
+            Expect(hud.TryConsume(11, true), "Vanilla transition preserves pending gate click");
+            hud.Acquire();
+            hud.Request(11); hud.Transition();
+            Expect(!hud.TryConsume(12, true), "newer Vanilla HUD supersedes pending gate intent");
+            Expect(hud.Generation == 1, "transition invalidates selection generation");
+            Expect(!hud.TryConsume(12, true), "gate view acquired exactly once");
+            Expect(hud.Release(), "native troop transition releases owned gate");
+            Expect(!hud.Release(), "later foreign HUD cannot be restored over");
+            hud.Request(20); hud.Request(21);
+            Expect(!hud.TryConsume(21, true) && hud.TryConsume(22, true), "rapid clicks retain only newest revision");
+            hud.Request(30); hud.CancelPending();
+            Expect(!hud.TryConsume(31, true), "HUD/session replacement cancels pending click");
+            for (int n=0; n<40; n++)
+            {
+                hud.Request(n); Expect(hud.TryConsume(n+1,true), "repeat gate acquisition");
+                hud.Acquire(); Expect(hud.Release() && !hud.Owned, "repeat empty/unit/native release");
+            }
             Expect(ToolPolicy.PowerContextMatches(5, 5, 2, 2, 10, 10, true), "toolbar retains actor and session");
             Expect(!ToolPolicy.PowerContextMatches(5, 6, 2, 2, 10, 10, true), "toolbar request rejected after session change");
             Expect(!ToolPolicy.PowerContextMatches(5, 5, 2, 3, 10, 10, true), "toolbar request rejected after AI change");
             Expect(!ToolPolicy.PowerContextMatches(5, 5, 2, 2, 10, 11, true), "toolbar request rejected after cancel/view change");
             Expect(!ToolPolicy.PowerContextMatches(5, 5, 2, 2, 10, 10, false), "toolbar request rejected after disable");
+            foreach (int screen in new[] { -1000, 0, 15, 17, 18, 21, 22, 23 })
+                Expect(!GateHudLifecycle.IsBuildScreen(screen), "do not resurrect non-build page " + screen);
+            Expect(GateHudLifecycle.IsBuildScreen(1) && GateHudLifecycle.IsBuildScreen(14), "valid build page retained");
+            Expect(GateHudLifecycle.Route(16, 10, false) == ToolsHudRoute.Building, "other building keeps Vanilla building view");
+            Expect(GateHudLifecycle.Route(14, 61, false) == ToolsHudRoute.Troops, "troop view remains selected");
+            Expect(GateHudLifecycle.Route(14, 62, false) == ToolsHudRoute.Troops, "alternate troop view remains selected");
+            Expect(GateHudLifecycle.Route(14, 10, false) == ToolsHudRoute.Main, "empty map returns main view");
+            Expect(GateHudLifecycle.Route(12, 0, true) == ToolsHudRoute.Editor, "editor returns editor view");
+            Expect(GateHudLifecycle.Route(5, 0, false) == ToolsHudRoute.None, "unrelated screen is not overwritten");
+            hud.Acquire(); hud.Request(50);
+            Expect(!hud.ObservePresentation(true, true, false, false), "unchanged own HUD preserves pending intent");
+            Expect(hud.ObservePresentation(true, false, false, true) && !hud.TryConsume(51, true), "QoL property-only troop HUD cancels stale empty-map intent");
+            hud.Release(); hud.Acquire(); hud.Request(60);
+            Expect(hud.ObservePresentation(false, true, false, false) && !hud.TryConsume(61, true), "replacement HUD rejects old intent before rendering");
+            hud.Release();
             int amount;
             foreach (string invalid in new[] { null, "", "0", "-1", "+1", "1.5", "1,000", " 1", "2147483648" })
                 Expect(!CreditMath.TryParse(invalid, out amount), "reject invalid amount " + invalid);

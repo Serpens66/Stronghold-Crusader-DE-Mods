@@ -62,7 +62,7 @@ $shadow = @($active | ForEach-Object {
     if ($_ -match '\[DBP:COMPATIBILITY_ENTER\]') {
         '[DBP:SHADOW_BEGIN] read-only; failures=0'
         '[DBP:SHADOW_INDEX] {"guid":"root","version":"1.0"}'
-        '[DBP:SHADOW_CANDIDATE] {"guid":"nested","state":"Eligible","reason":"fixture"}'
+        '[DBP:SHADOW_CANDIDATE] {"guid":"nested","version":"1.0","path":"C:/fixture.dll","state":"Eligible","reason":"fixture"}'
         '[DBP:SHADOW_DEPENDENCY] {"consumer":"root","dependency":"nested","originalIssue":true,"shadowIssue":false}'
         '[DBP:SHADOW_COMPLETE] candidates=1 original=1 added=1 dependencies=1 issuesBefore=1 issuesAfter=0 originalUnchanged=True'
     }
@@ -120,3 +120,42 @@ $rejected=$false
 try { & $checker -Mode Active -RequireCorrection -LogPath (Join-Path $fixtureRoot 'shadow-valid.log') -ExpectedArtifactRoot $fixtureRoot -GameDir $fixtureRoot } catch { $rejected=$true }
 if(-not $rejected){throw 'Shadow log passed correction acceptance.'}
 Write-Host 'PASS synthetic log case: shadow alone cannot pass required correction'
+$reportPath=Join-Path $fixtureRoot 'lifecycle.json'
+$report=@{Schema=1;RunId=('a'*32);Complete=$true;RemovalAuthorized=$false;Errors=@();PatcherSHA256=$hashes[0];PluginSHA256=$hashes[1];CoreSHA256=$hashes[2];ExtenderSHA256=$hashes[3];WorkshopPaths=@();Maps=@();Owners=@(@{Guid='nested';Version='1.0';Path='C:/fixture.dll';SHA256=$hashes[1];State='NotFound';Claims=@();Reason='Manual installation possible'})}
+function LifecycleFixture([string]$name,[bool]$accept,[string]$mutation=''){
+    [IO.File]::WriteAllText($reportPath,($report|ConvertTo-Json -Depth 8))
+    Copy-Item -LiteralPath $reportPath -Destination (Join-Path $fixtureRoot ('DependencyBootstrapProbe.lifecycle.'+$report.RunId+'.json')) -Force
+    $hasher=[Security.Cryptography.SHA256]::Create()
+    try{$digest=[BitConverter]::ToString($hasher.ComputeHash([IO.File]::ReadAllBytes($reportPath))).Replace('-','')}finally{$hasher.Dispose()}
+    $rows=@($correct|ForEach-Object{
+        $_
+        if($_ -match '\[DBP:BEFORE_EXTENDER\]'){
+            "[DBP:LIFECYCLE_PREPARE] binary=$($hashes[3])"
+            foreach($phase in @('TRANSFORMED','DELEGATE_BEGIN','DELEGATE_END','JIT_BEGIN','JIT_END','INSTALL','HOOK_INSTALLED')){"[DBP:LIFECYCLE_$phase] fixture"}
+        }
+    })+@("[DBP:LIFECYCLE_PATHS] run=$($report.RunId) count=0","[DBP:LIFECYCLE_STAGED] run=$($report.RunId) before deployment decision","[DBP:LIFECYCLE_REPORT] run=$($report.RunId) sha256=$digest complete=True")
+    if($mutation -eq 'missing'){$rows=@($rows|Where-Object {$_ -notmatch 'LIFECYCLE_JIT_END'})}
+    if($mutation -eq 'duplicate'){$rows+= $rows[-1]}
+    if($mutation -eq 'wrongrun'){$rows[-1]=$rows[-1].Replace($report.RunId,('b'*32))}
+    if($mutation -eq 'changedreport'){[IO.File]::AppendAllText($reportPath,' ')}
+    if($mutation -eq 'order'){$rows=@($rows[-1])+$rows[0..($rows.Count-2)]}
+    if($mutation -eq 'repeat'){
+        $repeat=$report.Clone();$repeat.RunId='b'*32
+        [IO.File]::WriteAllText($reportPath,($repeat|ConvertTo-Json -Depth 8))
+        Copy-Item -LiteralPath $reportPath -Destination (Join-Path $fixtureRoot ('DependencyBootstrapProbe.lifecycle.'+$repeat.RunId+'.json')) -Force
+        $hasher=[Security.Cryptography.SHA256]::Create()
+        try{$repeatDigest=[BitConverter]::ToString($hasher.ComputeHash([IO.File]::ReadAllBytes($reportPath))).Replace('-','')}finally{$hasher.Dispose()}
+        $rows+=@("[DBP:LIFECYCLE_PATHS] run=$($repeat.RunId) count=0","[DBP:LIFECYCLE_STAGED] run=$($repeat.RunId) before deployment decision","[DBP:LIFECYCLE_REPORT] run=$($repeat.RunId) sha256=$repeatDigest complete=True")
+    }
+    $file=Join-Path $fixtureRoot ($name+'.log');[IO.File]::WriteAllLines($file,$rows)
+    $passed=$false
+    try{& $checker -Mode Active -RequireLifecycle -LogPath $file -LifecycleReportPath $reportPath -ExpectedArtifactRoot $fixtureRoot -GameDir $fixtureRoot;$passed=$true}catch{if($accept){throw}}
+    if($passed -ne $accept){throw "Unexpected lifecycle result: $name"}
+    Write-Host "PASS lifecycle checker: $name"
+}
+LifecycleFixture 'lifecycle-valid' $true
+LifecycleFixture 'two-original-invocations' $true 'repeat'
+foreach($mutation in @('missing','duplicate','wrongrun','changedreport','order')){LifecycleFixture $mutation $false $mutation}
+$report.Complete=$false;LifecycleFixture 'incomplete' $false;$report.Complete=$true
+$report.PatcherSHA256='0'*64;LifecycleFixture 'old-build' $false;$report.PatcherSHA256=$hashes[0]
+$report.Owners=@();LifecycleFixture 'missing-owner' $false
