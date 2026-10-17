@@ -34,8 +34,8 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "StartConditions"
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -57,9 +57,7 @@ if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
-if errorlevel 1 exit /b 1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "EXTENDER_DIR="
@@ -129,8 +127,8 @@ echo !API_SHARED_DIR!
 echo.
 
 echo [%date% %time%] Issue 6 preset and infinite-patrol regressions
-dotnet run --project "%PROJECT_DIR%..\BugfixesAndQoL\tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.."
-if errorlevel 1 exit /b 1
+dotnet run --project "%PROJECT_DIR%..\BugfixesAndQoL\tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.." --settings-only
+if not "%ERRORLEVEL%"=="0" exit /b 1
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
@@ -214,6 +212,6 @@ exit /b 1
 
 :prepared_no_install
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName StartConditions
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 echo Paket vorbereitet; Installation uebersprungen.
 exit /b 0

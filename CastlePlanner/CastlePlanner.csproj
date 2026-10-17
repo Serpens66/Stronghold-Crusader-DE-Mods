@@ -255,9 +255,13 @@
   <!-- Shared game/Extender libraries are supplied by the declared dependencies.
        Only our four private companion assemblies belong in this thin package. -->
   <Target Name="FilterThinPackageReferences" AfterTargets="ResolveReferences">
+    <PropertyGroup>
+      <_CastlePlannerOwnedReferenceNames>;@(Reference->WithMetadataValue('Private', 'true')->'%(Identity)');</_CastlePlannerOwnedReferenceNames>
+    </PropertyGroup>
     <ItemGroup>
+      <!-- Keep exactly the dependencies declared private by this project. -->
       <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
-        Condition="'%(ReferenceCopyLocalPaths.Filename)' != 'CastlePlanner.AIVPlacement.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'AIVPlacement.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'AIVParser.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'MapParser.Core'" />
+        Condition="!$([System.String]::Copy('$(_CastlePlannerOwnedReferenceNames)').Contains(';%(ReferenceCopyLocalPaths.Filename);'))" />
     </ItemGroup>
   </Target>
 

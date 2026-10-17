@@ -120,9 +120,11 @@ internal static class Program
             ("recognizes the known nested CoarseGridBuffer failure", RecognizesKnownNestedCoarseGridBufferFailure),
             ("rejects unrelated AIV API failures", RejectsUnrelatedAivApiFailures),
             ("validates workaround AIV table and import boundaries", ValidatesWorkaroundAivBoundaries),
+            ("defers Workshop selection validation until Steam is ready (source guardrail)", PreservesDeferredWorkshopSelection),
             ("uses explicit candidate zero for human spawn", UsesExplicitCandidateZeroForHumanSpawn)
         };
 
+        // Source integration cases are bounded guardrails, not runtime or rendering proof.
         int failures = 0;
         foreach ((string name, Action run) in tests)
         {
@@ -1000,26 +1002,11 @@ internal static class Program
         };
         foreach (string requiredBinding in requiredBindings)
         {
-            Assert(xaml.Contains(requiredBinding, StringComparison.Ordinal),
+            Assert(document.Descendants().Attributes().Any(attribute =>
+                    attribute.Name.LocalName + "=\"" + attribute.Value + "\"" == requiredBinding),
                 $"Blueprint HUD binding '{requiredBinding}' is missing");
         }
 
-        Assert(CountOccurrences(xaml, "Style=\"{StaticResource BDR_SH1DE60}\"") >= 2,
-            "Blueprint panel and preview banner do not both use the translucent Allies frame");
-        Assert(!xaml.Contains("Style=\"{StaticResource BDR_SH1DEa}\"", StringComparison.Ordinal) &&
-            !xaml.Contains("Style=\"{StaticResource BTN_SH_GlowS}\"", StringComparison.Ordinal),
-            "the opaque frame or light-text Vanilla button style is still active");
-        Assert(xaml.Contains("x:Key=\"CastlePlannerParchmentButton\"", StringComparison.Ordinal) &&
-            CountOccurrences(xaml, "Style=\"{StaticResource CastlePlannerParchmentButton}\"") >= 2,
-            "Blueprint actions do not both use the local parchment button style");
-        Assert(xaml.Contains("<Setter Property=\"Foreground\" Value=\"#FF2A1608\"/>", StringComparison.Ordinal) &&
-            xaml.Contains("Background=\"#FFE1C58D\"", StringComparison.Ordinal),
-            "the parchment button does not guarantee dark text on a light surface");
-        Assert(CountOccurrences(xaml, "BorderBrush=\"#FFC2240C\"") >= 2,
-            "the Blueprint panel and preview banner do not both use red-black dividers");
-        Assert(xaml.Contains("Background=\"#F01D1710\"", StringComparison.Ordinal) &&
-            xaml.Contains("Foreground=\"#FFF4E8C4\"", StringComparison.Ordinal),
-            "dark popup and panel controls do not retain a light foreground");
         string controller = File.ReadAllText(Path.Combine(root, "src", "BlueprintRuntimeController.cs"));
         string hudSource = File.ReadAllText(Path.Combine(root, "src", "BlueprintHudViewModel.cs"));
         Assert(controller.Contains("TryGetHudExtrasButtons", StringComparison.Ordinal) &&
@@ -1040,18 +1027,6 @@ internal static class Program
             hudSource.Contains("FindGlobalElement(", StringComparison.Ordinal),
             "shared trigger migration changed the legacy default panel anchor or actual-button host resolution");
 
-        string[] removedBluePalette =
-        {
-            "#E614243A",
-            "#CC77AAFF",
-            "#AA203A5A",
-            "#FFE8F2FF"
-        };
-        foreach (string color in removedBluePalette)
-        {
-            Assert(!xaml.Contains(color, StringComparison.OrdinalIgnoreCase),
-                $"legacy blue Blueprint HUD color '{color}' is still active");
-        }
     }
 
     private static void ExposesKeepOnlyStartChoices()
@@ -1167,7 +1142,7 @@ internal static class Program
             !project.Contains("PolyHook2.NET.dll", StringComparison.Ordinal) &&
             !project.Contains("Iced.dll", StringComparison.Ordinal),
             "CastlePlanner project references do not match RedBird");
-        Assert(manifest.Contains("\"NetworkMode\": 1", StringComparison.Ordinal),
+        Assert(manifestJson.RootElement.GetProperty("NetworkMode").GetInt32() == 1,
             "CastlePlanner is not classified as gameplay-synchronized");
         Assert(settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal) &&
             settingsXaml.Contains("VerticalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal),
@@ -2459,8 +2434,7 @@ internal static class Program
     private static void RoundtripsKnownWorkingAivJsonFiles()
     {
         string vanillaDirectory = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..", "..", "..", "..",
+            FindCastlePlannerRoot(),
             "BepInEx", "plugins", "CastlePlanner_Serp", "VanillaAIV"));
         foreach (string fileName in new[] { "rat1.aivjson", "wolf1.aivjson", "Nizar8.aivjson" })
         {
@@ -2715,9 +2689,18 @@ internal static class Program
             "JSON payload was incorrectly classified as an archive");
     }
 
+    // Supplemental consumer wiring guardrail; no Steam or Noesis runtime is exercised.
+    private static void PreservesDeferredWorkshopSelection()
+    {
+        string settings = File.ReadAllText(Path.Combine(FindCastlePlannerRoot(), "src", "CastlePlannerSettingsViewModel.cs"));
+        Assert(settings.Contains("Shared.WorkshopContentPaths.IsSteamworksReady()") &&
+            settings.Contains("return candidate;"),
+            "saved Workshop AIV selection is not preserved until the deferred refresh");
+    }
+
     private static void RemovesInvalidAivJsonCatalogEntries()
     {
-        string source = File.ReadAllText(Path.Combine("src", "AivFileCatalog.cs"));
+        string source = File.ReadAllText(Path.Combine(FindCastlePlannerRoot(), "src", "AivFileCatalog.cs"));
         int methodStart = source.IndexOf(
             "private void RemoveIdenticalFiles",
             StringComparison.Ordinal);

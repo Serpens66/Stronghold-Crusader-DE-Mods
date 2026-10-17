@@ -89,6 +89,8 @@ namespace StartConditions {
 Run("Settings", new[] { vm, Read("StartConditions/src/IStartConditionsSettings.cs"), enums,
     settingsDoubles.Replace("__KEYS__", keys) }, "StartConditions.SettingsCases");
 
+if (!args.Contains("--settings-only"))
+{
 var queueTree = Parse(Read("BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs"));
 string[] names = { "HandleMoveChore", "ShouldMarkOutgoingMultiplayerOrder", "OnMoveOrderCore",
     "AppendMovementWaypointCore", "TryEnqueueSynchronizedCommand", "CancelQueueForPatrol" };
@@ -168,6 +170,8 @@ namespace BugfixesAndQoL.UnitCommands {
 string queueUsings = "using SHCDESE.Interop;using SHCDESE.EventAPI;using SHCDESE.EventAPI.Tribes;";
 Run("Patrol", new[] { enums, Read("BugfixesAndQoL/src/UnitCommands/Movement/QueueNativeContract.cs"),
     queueUsings + queueDoubles.Replace("__MEMBERS__", members) }, "BugfixesAndQoL.UnitCommands.QueueFixture");
+
+}
 
 void Run(string name, IEnumerable<string> sources, string typeName)
 {

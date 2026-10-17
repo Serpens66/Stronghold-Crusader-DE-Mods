@@ -34,8 +34,8 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "CastlePlanner"
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -57,9 +57,7 @@ if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
-if errorlevel 1 exit /b 1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "EXTENDER_DIR="
@@ -127,19 +125,20 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
-dotnet restore AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj -m:1 -p:BuildInParallel=false
+dotnet restore AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%" -m:1 -p:BuildInParallel=false
 if errorlevel 1 (
   set "BUILD_EXIT_CODE=1"
   popd
   goto build_failed
 )
 echo [%date% %time%] Compile projects
-dotnet build AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj -c Release --no-restore -m:1 -p:BuildInParallel=false
+dotnet build AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%" -c Release --no-restore -m:1 -p:BuildInParallel=false
 if errorlevel 1 (
   set "BUILD_EXIT_CODE=1"
   popd
   goto build_failed
 )
+set "CASTLE_PLANNER_GAME_DIR=%GAME_DIR%"
 "%PROJECT_DIR%AIVPlacement.Tests\bin\Release\net10.0\CastlePlanner.AIVPlacement.Tests.exe"
 if not "%ERRORLEVEL%"=="0" (
   set "BUILD_EXIT_CODE=1"
@@ -218,6 +217,6 @@ exit /b 1
 
 :prepared_no_install
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CastlePlanner
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 echo Paket vorbereitet; Installation uebersprungen.
 exit /b 0

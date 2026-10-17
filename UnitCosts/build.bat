@@ -34,8 +34,8 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "UnitCosts"
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -110,8 +110,8 @@ echo !EXTENDER_DIR!
 echo.
 
 echo [%date% %time%] Cost ownership regression tests
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared.Tests\CostOverrides\Run-Tests.ps1" -GameDir "%GAME_DIR%" -MSBuild "%MSBUILD%"
-if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared.Tests\CostOverrides\Run-Tests.ps1" -GameDir "%GAME_DIR%" -MSBuild "%MSBUILD%" -ExtenderDir "%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" exit /b 1
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
@@ -189,6 +189,6 @@ exit /b 1
 
 :prepared_no_install
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName UnitCosts
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 echo Paket vorbereitet; Installation uebersprungen.
 exit /b 0

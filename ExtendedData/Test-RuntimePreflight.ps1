@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
+    [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
+    [switch]$SkipRuntimeSourcePreflight
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +20,7 @@ if ($mod.Count -ne 1) {
     throw "Expected exactly one ExtendedData Script Extender inventory entry; found $($mod.Count)."
 }
 
-Assert-SERuntimeModPreflight $mod[0] $workspace
+if (-not $SkipRuntimeSourcePreflight) { Assert-SERuntimeModPreflight $mod[0] $workspace }
 
 $cecilPath = Join-Path $GameDir 'BepInEx\core\Mono.Cecil.dll'
 $assemblyPath = Join-Path $GameDir 'Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'

@@ -1,10 +1,15 @@
 [CmdletBinding()]
-param([string]$Workspace)
+param([string]$Workspace, [string[]]$ModDirectories)
 $ErrorActionPreference = 'Stop'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
 $drivers = @(& git -C $Workspace ls-files -- '**/build.bat' | Where-Object { $_ -notmatch '^(_inspect|shcde-script-extender)/' })
 $drivers += 'APIShared/build.bat'
 $drivers = @($drivers | Sort-Object -Unique)
+if ($ModDirectories) {
+    $selected = @($ModDirectories | ForEach-Object { $_.Replace('\','/').TrimEnd('/') + '/build.bat' })
+    $drivers = @($drivers | Where-Object { $_ -in $selected })
+    if (@($selected | Where-Object { $_ -notin $drivers }).Count) { throw 'A selected build driver was not found.' }
+}
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 $fixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BuildDrivers'
 [IO.Directory]::CreateDirectory($fixtureRoot) | Out-Null
@@ -42,13 +47,20 @@ try {
         }
         # The first real external check must fail before subsequent build steps.
         $body = $text.Substring($split + ":build_driver_main`r`n".Length)
-        $firstCheck = [regex]::Match($body, '(?m)^powershell\.exe[^\r\n]*\r\nif errorlevel 1 exit /b 1')
+        # Both equivalent positive-failure forms are supported; preserve the real
+        # gate rather than replacing it with the fixture's own implementation.
+        $firstCheck = [regex]::Match($body, '(?m)^powershell\.exe[^\r\n]*\r\n(?<gate>if (?:errorlevel 1|not "%ERRORLEVEL%"=="0") exit /b 1)')
         if ($firstCheck.Success) {
-            $body = $body.Substring(0,$firstCheck.Index) + 'powershell.exe -NoProfile -Command "exit 27"' + "`r`nif errorlevel 1 exit /b 1`r`necho ERROR_UNREACHABLE`r`nexit /b 99`r`n"
-            [IO.File]::WriteAllText($fixture,$prefix + $body,[Text.UTF8Encoding]::new($false))
-            $output = @(& $fixture /nopause 2>&1)
-            $cases++
-            if ($LASTEXITCODE -ne 1 -or $output -match 'ERROR_UNREACHABLE' -or -not ($output -match 'END: exit code 1')) { throw "Early preflight failure not propagated: $relative" }
+            $gate = $firstCheck.Groups['gate'].Value
+            $failureCodes = @(27)
+            if ($gate.StartsWith('if not ')) { $failureCodes += -1073741819 }
+            foreach ($failureCode in $failureCodes) {
+                $failureBody = $body.Substring(0,$firstCheck.Index) + 'powershell.exe -NoProfile -Command "exit ' + $failureCode + '"' + "`r`n" + $gate + "`r`necho ERROR_UNREACHABLE`r`nexit /b 99`r`n"
+                [IO.File]::WriteAllText($fixture,$prefix + $failureBody,[Text.UTF8Encoding]::new($false))
+                $output = @(& $fixture /nopause 2>&1)
+                $cases++
+                if ($LASTEXITCODE -ne 1 -or $output -match 'ERROR_UNREACHABLE' -or -not ($output -match 'END: exit code 1')) { throw "Early preflight failure not propagated: $relative ($failureCode)" }
+            }
         }
     }
     foreach ($code in @(0,27)) {
