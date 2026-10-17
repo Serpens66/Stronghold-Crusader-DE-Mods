@@ -6,6 +6,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Player;
 using SHCDESE.GameGlobals;
 using System;
+using System.Collections.Generic;
 
 namespace PopularityTest
 {
@@ -27,6 +28,8 @@ namespace PopularityTest
         private IDisposable calculationSubscription;
         private long session;
         private bool started, callbackLogged;
+        private bool[] appliedParameters;
+        private PopularityPresentation presentation;
 
         internal PopularityRuntime(ManualLogSource log, PopularitySettings settings)
         { this.log = log; this.settings = settings; overrides = new OverrideBatch(message => Error("POPULARITY_OWNERSHIP " + message)); }
@@ -38,6 +41,8 @@ namespace PopularityTest
                 !missions.TryRegisterObserver("popularity-session", Started, Ended, Initializing, out diagnostic))
                 throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
             calculationSubscription = PlayerR3EventHooks.OnPlayerCalculatePopularity.Observable.Subscribe(Calculated);
+            presentation = new PopularityPresentation(CapturePresentationValues, Info, Error);
+            presentation.Register();
             Info("POPULARITY_READY parameters=41; durable publishers=APIShared missions,SE popularity; no native hooks.");
         }
 
@@ -88,6 +93,7 @@ namespace PopularityTest
             try
             {
                 if (!overrides.Apply(desired)) return;
+                appliedParameters = Array.ConvertAll(desired, request => request.Value.HasValue);
                 foreach (var request in desired)
                 {
                     if (request.Value.HasValue)
@@ -100,7 +106,23 @@ namespace PopularityTest
                 Error("POPULARITY_APPLY_FAILED own overrides released: " + ex);
             }
         }
-        private void Release() => overrides.Release();
+        private void Release() { appliedParameters = null; overrides.Release(); }
+        private KeyValuePair<long, IReadOnlyDictionary<string, int>> CapturePresentationValues()
+        {
+            lock (sync)
+            {
+                if (!started || appliedParameters == null || overrides.Count == 0) return default;
+                var values = new Dictionary<string, int>();
+                for (int i = 0; i < appliedParameters.Length; i++)
+                    if (appliedParameters[i])
+                    {
+                        var parameter = PopularityCatalog.All[i];
+                        // Read the effective top of the SE stack, including a later foreign overlay.
+                        values.Add(parameter.Name, parameter.Resolve(GameGlobalsManager.Instance).GetValue());
+                    }
+                return new KeyValuePair<long, IReadOnlyDictionary<string, int>>(session, values);
+            }
+        }
         private void Calculated(PlayerCalculatePopularityEventArgs args)
         {
             lock (sync)

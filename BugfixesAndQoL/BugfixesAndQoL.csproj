@@ -66,6 +66,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\Runtime\Gameplay\SelectedChimpsSnapshotPolicy.cs"><Link>Shared\Runtime\Gameplay\SelectedChimpsSnapshotPolicy.cs</Link></Compile>
+    <Compile Include="src\SavegameMissingMap\SavegameFix.cs" />
+    <Compile Include="src\SavegameMissingMap\RuntimeStartup.cs" />
+    <Compile Include="src\SavegameMissingMap\SavegameMissingMapFeature.cs" />
+    <Compile Include="src\SavegameMissingMap\SavegameMissingMapDiagnostics.cs" />
     <Compile Include="src\LocalSelectionSnapshot.cs" />
     <Compile Include="src\AiRaidRetargetFixRuntime.cs" />
     <Compile Include="src\RaidActivationState.cs" />

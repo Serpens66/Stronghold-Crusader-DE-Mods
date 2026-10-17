@@ -65,8 +65,9 @@ popularity accumulator and its worst-source selection, then resumes the remainin
 native path. Plague and other timed events continue afterwards; the existing
 BugfixesAndQoL plague correction at 0xCB57C remains outside this mod's ownership.
 Vanilla clamps the final total to 0..10000 and retains its popularity-change
-speech/history decisions. Report producer 0x19D960 and FatControler consume these
-values; reporting is not a separate manually maintained mod calculation.
+speech/history decisions. Report producer 0x19D960 independently recomputes component values using hardcoded
+Vanilla constants; it does NOT consume the SE replacement contribution fields.
+The original 2026-10-16 claim that these report fields followed SE values was incorrect.
 
 Religion also adds `(uint)combinedReligionContribution / 25` to
 `r_UnknownPopularityAccumulationByCurrentDividedBy25`. The SE preserves this
@@ -80,3 +81,38 @@ effects and report presentation still require runtime acceptance.
 No game UI or real multiplayer acceptance is inferred from source/type checks.
 PopularityTest's independent catalog/UI checks compare all 41 SE defaults and
 exercise signed settings, persistence and anonymous-stack ownership separately.
+
+## Display-path correction audit (2026-10-17)
+
+Native hash above unchanged; managed SHA-256
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+Installed SE 2.14.2 still replaces the simulation block only. Latest game log:
+15:37:34 applied 17 overrides; 15:37:40 callback accumulator=10025 with 17 active
+(overall final delta is not logged). The earlier loaded save had zero overrides.
+
+Confirmed static flow: native 0x19D960 -> PlayStateReturnData ->
+EngineInterface.CopyPlayStateStruct -> GameMap -> GameData.setGameState ->
+FatControler.NoesisGUIUpdateChecksInGame -> public MainViewModel properties.
+The native report contains hardcoded contributions for all eight groups and builds
+upcoming_total_popularity from these plus the existing event amounts. Ration and
+tax modes incorporate the selected panel preview. food_types_available carries
+the same native preferred-food field used by the simulation. Fear uses the signed
+fear_factor. Crowding report amounts identify its selected tier (-50..-250).
+Religion coverage thresholds: 25/50/75/95, ale: 25/50/75/100.
+
+Vanilla church_adjustment (25/50/75) is copied from byte to sbyte and serves both
+as a numeric bonus and building identity for localized labels. Do not replace it
+with configurable values: signed/large settings overflow and break label dispatch.
+PopularityTest corrects only public HUD text properties after the existing
+APIShared GuiChecks publisher, preserving PlayState and native simulation.
+The report's zero-population ration value is zero whereas simulation uses +200;
+when that explicit fallback is enabled its absolute effective value is displayed.
+Thus that known Vanilla discrepancy is not a valid default-equality assertion.
+
+The GUI callback also owns the increase/decrease booleans and event-details-button
+visibility (the latter depends on the displayed event sum). Public text setters
+update their associated face icons. Panel wire values 16:{2,3,4,69,72,73,79} are
+Vanilla protocol constants; SE exposes no corresponding panel enum. Normal GUI
+checks also run paused. No new native hook ownership is introduced.
+
+Runtime acceptance of the correction, including multiplayer, remains pending.

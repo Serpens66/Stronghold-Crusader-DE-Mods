@@ -14,6 +14,7 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
 
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="ProbeVersion.cs" />
     <Compile Include="ProbeIdentity.cs" />
     <Compile Include="ProbeTrace.cs" />
     <Compile Include="src\ProbePlugin.cs" />

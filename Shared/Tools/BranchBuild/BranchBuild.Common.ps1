@@ -186,7 +186,7 @@ function Set-BranchBuildTools($Selection, [string]$ControllerRoot, [switch]$Api)
     $tracked = @(Invoke-BranchGit $Selection.Root @('-c','core.quotepath=false','ls-files'))
     $installScripts = @('tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Testmods/MoatMove/tests/Install-Package.ps1',
         'Testmods/DependencyBootstrapProbe/Build.ps1','Testmods/PopularityTest/install.ps1',
-        'Testmods/SavegameMissingMapFixTest/verify-installed.ps1','Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1')
+        'Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1')
     foreach ($relative in $tracked) {
         if ($relative -match '^(_inspect|\.inspect|shcde-script-extender)/') { continue }
         $path = Join-Path $Selection.Root $relative

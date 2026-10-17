@@ -92,11 +92,12 @@ namespace DependencyBootstrapProbe
                     throw new InvalidOperationException("shadow isolation invariant failed");
                 ProbeTrace.Mark("SHADOW_COMPLETE", "candidates=" + decisions.Count + " original=" + entries.Length + " added=" + added +
                     " dependencies=" + compared + " issuesBefore=" + before + " issuesAfter=" + after + " originalUnchanged=True");
-                expectedIssues = correction ? after : before;
-                expectedIndex = SelectIndex(original, () => shadow, correction);
-                if (correction && !ReferenceEquals(expectedIndex, shadow)) throw new InvalidOperationException("Prepared index rejected");
-                correctionReady = correction;
-                if (correction) ProbeTrace.Mark("CORRECTION_PREPARED", "original=" + entries.Length + " effective=" + shadow.Count + " added=" + added + " expectedIssues=" + after);
+                bool enabled = PairActivation.AllowsCorrection(correction, PairActivation.Bound);
+                expectedIssues = enabled ? after : before;
+                expectedIndex = SelectIndex(original, () => shadow, enabled);
+                if (enabled && !ReferenceEquals(expectedIndex, shadow)) throw new InvalidOperationException("Prepared index rejected");
+                correctionReady = enabled;
+                if (enabled) ProbeTrace.Mark("CORRECTION_PREPARED", "original=" + entries.Length + " effective=" + shadow.Count + " added=" + added + " expectedIssues=" + after);
                 return expectedIndex;
             }
             catch (Exception ex)
@@ -144,7 +145,7 @@ namespace DependencyBootstrapProbe
                         {"minimum", Property(dependency, "MinimumVersion")}, {"maximum", Property(dependency, "MaximumVersion")}, {"reason", Property(issue, "Reason")} }));
                 }
                 if (expectedIssues < 0 || issues.Length != expectedIssues) throw new InvalidOperationException("Original result differs from forecast");
-                ProbeTrace.Mark("ORIGINAL_RESULT", "issues=" + issues.Length + " expected=" + expectedIssues + " correction=" + correction);
+                ProbeTrace.Mark("ORIGINAL_RESULT", "issues=" + issues.Length + " expected=" + expectedIssues + " correction=" + correctionReady);
             }
             catch (Exception ex) { ProbeTrace.Mark("ERROR", "Original result " + ex); }
         }

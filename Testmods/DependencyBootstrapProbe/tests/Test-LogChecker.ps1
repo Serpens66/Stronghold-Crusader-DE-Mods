@@ -123,6 +123,10 @@ Write-Host 'PASS synthetic log case: shadow alone cannot pass required correctio
 $reportPath=Join-Path $fixtureRoot 'lifecycle.json'
 $report=@{Schema=1;RunId=('a'*32);Complete=$true;RemovalAuthorized=$false;Errors=@();PatcherSHA256=$hashes[0];PluginSHA256=$hashes[1];CoreSHA256=$hashes[2];ExtenderSHA256=$hashes[3];WorkshopPaths=@();Maps=@();Owners=@(@{Guid='nested';Version='1.0';Path='C:/fixture.dll';SHA256=$hashes[1];State='NotFound';Claims=@();Reason='Manual installation possible'})}
 function LifecycleFixture([string]$name,[bool]$accept,[string]$mutation=''){
+    $pairCase=$mutation -like 'pair*'
+    $savedOwners=$report.Owners
+    $ownPath=[IO.Path]::GetFullPath((Join-Path $fixtureRoot $paths[1]))
+    if($pairCase){$report.Owners=@(@{Guid='DependencyBootstrapProbe_Serp';Version='1.0';Path=$ownPath;SHA256=$hashes[1];State='NotFound';Claims=@();Reason='manual'})}
     [IO.File]::WriteAllText($reportPath,($report|ConvertTo-Json -Depth 8))
     Copy-Item -LiteralPath $reportPath -Destination (Join-Path $fixtureRoot ('DependencyBootstrapProbe.lifecycle.'+$report.RunId+'.json')) -Force
     $hasher=[Security.Cryptography.SHA256]::Create()
@@ -147,15 +151,56 @@ function LifecycleFixture([string]$name,[bool]$accept,[string]$mutation=''){
         try{$repeatDigest=[BitConverter]::ToString($hasher.ComputeHash([IO.File]::ReadAllBytes($reportPath))).Replace('-','')}finally{$hasher.Dispose()}
         $rows+=@("[DBP:LIFECYCLE_PATHS] run=$($repeat.RunId) count=0","[DBP:LIFECYCLE_STAGED] run=$($repeat.RunId) before deployment decision","[DBP:LIFECYCLE_REPORT] run=$($repeat.RunId) sha256=$repeatDigest complete=True")
     }
+    if($pairCase){
+        $pairPath=Join-Path (Split-Path $ownPath) 'dependency-bootstrap-pair.json'
+        $pair=@{Schema=1;Guid='DependencyBootstrapProbe_Serp';Version='1.0';RuntimeSHA256=$hashes[1].ToLowerInvariant();BootstrapSHA256=$hashes[0].ToLowerInvariant()}
+        [IO.File]::WriteAllText($pairPath,($pair|ConvertTo-Json))
+        $hasher=[Security.Cryptography.SHA256]::Create()
+        try{$pairDigest=[BitConverter]::ToString($hasher.ComputeHash([IO.File]::ReadAllBytes($pairPath))).Replace('-','')}finally{$hasher.Dispose()}
+        $rows=@($rows|ForEach-Object{
+            if($_ -match '\[DBP:CHAIN_PREPARE\]'){"[DBP:PAIR_PREPARED] manifest=$pairDigest"}
+            $_.Replace('nested','DependencyBootstrapProbe_Serp').Replace('C:/fixture.dll',$ownPath.Replace('\','\\'))
+            if($_ -match '\[DBP:SNAPSHOT\]'){"[DBP:PAIR_BOUND] guid=DependencyBootstrapProbe_Serp version=1.0 runtime=$($hashes[1])"}
+        })
+        if($mutation -eq 'pair-missing-bound'){$rows=@($rows|Where-Object {$_ -notmatch '\[DBP:PAIR_BOUND\]'})}
+        if($mutation -eq 'pair-changed'){[IO.File]::AppendAllText($pairPath,' ')}
+        if($mutation -eq 'pair-rejected'){$rows+='[DBP:PAIR_REJECTED] fixture rejection'}
+        if($mutation -like 'pair-stage*'){$rows=@($rows|Where-Object {$_ -notmatch '\[DBP:(PLUGIN_AWAKE|CHAIN_COMPLETE|POST_CLEANUP_RENDER)\]'})}
+        if($mutation -eq 'pair-stage-no-original'){$rows=@($rows|Where-Object {$_ -notmatch '\[DBP:ORIGINAL_RESULT\]'})}
+    }
     $file=Join-Path $fixtureRoot ($name+'.log');[IO.File]::WriteAllLines($file,$rows)
     $passed=$false
-    try{& $checker -Mode Active -RequireLifecycle -LogPath $file -LifecycleReportPath $reportPath -ExpectedArtifactRoot $fixtureRoot -GameDir $fixtureRoot;$passed=$true}catch{if($accept){throw}}
+    try{& $checker -Mode Active -RequireLifecycle -RequirePair:$pairCase -UpdateStage:($mutation -like 'pair-stage*') -LogPath $file -LifecycleReportPath $reportPath -ExpectedArtifactRoot $fixtureRoot -GameDir $fixtureRoot;$passed=$true}catch{if($accept){throw}}
     if($passed -ne $accept){throw "Unexpected lifecycle result: $name"}
     Write-Host "PASS lifecycle checker: $name"
+    $report.Owners=$savedOwners
 }
 LifecycleFixture 'lifecycle-valid' $true
+LifecycleFixture 'pair-valid' $true 'pair'
+LifecycleFixture 'pair-stage' $true 'pair-stage'
+LifecycleFixture 'pair-stage-no-original' $false 'pair-stage-no-original'
+foreach($case in @('pair-missing-bound','pair-changed','pair-rejected')){LifecycleFixture $case $false $case}
 LifecycleFixture 'two-original-invocations' $true 'repeat'
 foreach($mutation in @('missing','duplicate','wrongrun','changedreport','order')){LifecycleFixture $mutation $false $mutation}
 $report.Complete=$false;LifecycleFixture 'incomplete' $false;$report.Complete=$true
 $report.PatcherSHA256='0'*64;LifecycleFixture 'old-build' $false;$report.PatcherSHA256=$hashes[0]
 $report.Owners=@();LifecycleFixture 'missing-owner' $false
+
+# Re-evaluate the real captured inventory without copying its assemblies into fixtures.
+$accepted=Join-Path $PSScriptRoot '../../../_inspect/DependencyBootstrapProbe/Lifecycle-accepted-20261017-152951'
+& $checker -Mode Active -RequireLifecycle -ExpectedArtifactRoot $accepted -GameDir $accepted
+$real=@(Get-Content -LiteralPath (Join-Path $accepted 'BepInEx/DependencyBootstrapProbe.trace.log'))
+$testLog=Join-Path $fixtureRoot 'current-inventory-missing-requirement.log'
+# Preserve counts and outcomes, but remove the required pair for a present consumer.
+$missing=@($real|ForEach-Object {if($_ -match '\[DBP:SHADOW_DEPENDENCY\].*SpectatorEditorBuildTest_Serp.*BugfixesAndQoL_Serp'){ $_.Replace('BugfixesAndQoL_Serp','UnexpectedProvider') }else{$_}})
+[IO.File]::WriteAllLines($testLog,$missing)
+$rejected=$false
+try{& $checker -Mode Active -RequireLifecycle -LogPath $testLog -ExpectedArtifactRoot $accepted -GameDir $accepted}catch{$rejected=$true}
+if(-not $rejected){throw 'Present consumer lost its expected requirement without rejection.'}
+# Keep dependency/count bookkeeping consistent while introducing a regression.
+$regression=@($real|ForEach-Object {if($_ -match '\[DBP:SHADOW_DEPENDENCY\].*PopularityTest_Serp'){ $_.Replace('"shadowIssue": false','"shadowIssue": true') }elseif($_ -match '\[DBP:SHADOW_COMPLETE\]'){ $_.Replace('issuesAfter=0','issuesAfter=1') }else{$_}})
+[IO.File]::WriteAllLines($testLog,$regression)
+$rejected=$false
+try{& $checker -Mode Active -RequireLifecycle -LogPath $testLog -ExpectedArtifactRoot $accepted -GameDir $accepted}catch{$rejected=$true}
+if(-not $rejected){throw 'Dependency regression accepted.'}
+Write-Host 'PASS: absent historical consumer allowed; missing requirement for present consumer and regression rejected.'

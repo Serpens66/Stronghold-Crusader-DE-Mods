@@ -181,6 +181,7 @@ namespace BugfixesAndQoL
 
         public void InitializeNetwork()
         {
+            SavegameMissingMap.SavegameMissingMapFeature.Initialize(log, () => settings.EnableClientFeatures);
             TryInitializePersistentFeature(
                 "placement-cancel move suppression",
                 EnsurePlacementCancelMoveSuppressionFeature);

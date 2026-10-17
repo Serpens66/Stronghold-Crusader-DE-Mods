@@ -1,0 +1,47 @@
+{
+    "Schema":  1,
+    "TrialId":  "9c3e5d4f196046249d850958c5aaa7b3",
+    "MapSHA256":  "4D6C4BC9F84729464561FAC43B71860142851E1A291DD17AD7F23714E45C60B6",
+    "Payload":  [
+                    {
+                        "SHA256":  "891CDBC4CA26BE17B43EAFD98DB4956D3362BEF34682924B76C4EC4B3FC0F12C",
+                        "Path":  "BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll"
+                    },
+                    {
+                        "SHA256":  "ACCEF411E7C31D82C001E64C671F64179F5ED560E9E78D39A4F06414DA44B824",
+                        "Path":  "BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll"
+                    },
+                    {
+                        "SHA256":  "C49491616C73CF354F67760965623AFF088F9FD9EBB793F5355464DE69215B83",
+                        "Path":  "BepInEx/plugins/DependencyBootstrapProbe_Serp/info.json"
+                    },
+                    {
+                        "SHA256":  "6A5C93C469E6F0C78BB65E3181099476D84B19F4EF91AECCF3B470EC1C8DB6F0",
+                        "Path":  "BepInEx/plugins/DependencyBootstrapProbe_Serp/dependency-bootstrap-pair.json"
+                    },
+                    {
+                        "SHA256":  "7FCCB5B4C4F78AF415D0E0AC981A25625AD0663F743323F1412B08D0F35FEEED",
+                        "Path":  "BepInEx/config/DependencyBootstrapProbe.active"
+                    },
+                    {
+                        "SHA256":  "7FCCB5B4C4F78AF415D0E0AC981A25625AD0663F743323F1412B08D0F35FEEED",
+                        "Path":  "BepInEx/config/DependencyBootstrapProbe.correct"
+                    }
+                ],
+    "Builds":  [
+                   {
+                       "PatcherSHA256":  "B8D119DF981415EBE8991056D10F8D80C122CBBAC628AAF0DE3A8525C5E9312A",
+                       "Version":  "0.1.1",
+                       "RuntimeSHA256":  "9E200DE767F6F4CE3BC9E9B1BCCBBCD86B0A2787F71F84175E49A226694D7EB3"
+                   },
+                   {
+                       "PatcherSHA256":  "ACCEF411E7C31D82C001E64C671F64179F5ED560E9E78D39A4F06414DA44B824",
+                       "Version":  "0.1.2",
+                       "RuntimeSHA256":  "891CDBC4CA26BE17B43EAFD98DB4956D3362BEF34682924B76C4EC4B3FC0F12C"
+                   }
+               ],
+    "UpdaterSHA256":  "627BE3BCCEBEFD57749B5E8C938F6312AB3110E8BC9D9D13E9EE16F52AFBFC1A",
+    "APISharedSHA256":  "4EF262A5F69F16EF6B6E5238606F5013B6400B83D2F8C354E5C53F4EFDD52BC1",
+    "SyntheticReceipt":  "_SE/DependencyBootstrapProbeLocalTrial.json",
+    "BaselineReceiptSHA256":  "6CE474698D825EA1500C17954900EB062BFE260DA05CB650E9263D1BCD0A1BCD"
+}

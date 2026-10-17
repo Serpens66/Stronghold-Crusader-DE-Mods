@@ -35,7 +35,8 @@ namespace DependencyBootstrapProbe
         private static void Run(string[] args)
         {
             if (args.Length == 4 && args[1] == "offline") ShadowTests.Offline(game, args[2], args[3]);
-            else { ShadowTests.Run(); ContractTests.Run(game); LifecycleTests.Run(game); }
+            else if (args.Length == 3 && args[1] == "update-package") UpdateTrialTests.Package(game, args[2]);
+            else { ShadowTests.Run(); ContractTests.Run(game); LifecycleTests.Run(game); PairTests.Run(); UpdateTrialTests.Run(); }
         }
     }
 
@@ -235,6 +236,8 @@ namespace DependencyBootstrapProbe
                     while (pos < il.Body.Instructions.Count && !instructions.Contains(il.Body.Instructions[pos])) pos++;
                     var next = pos < il.Body.Instructions.Count ? il.Body.Instructions[pos] : null;
                     bool duplicateType = il.Body.Instructions[start].OpCode == OpCodes.Dup;
+                    if (il.Body.Instructions[start].OpCode == OpCodes.Call && il.Body.Instructions[start].Operand is MethodReference adapter &&
+                        adapter.DeclaringType.FullName == typeof(LocalUpdateTrial).FullName && adapter.Name == "Apply") duplicateType = true;
                     int initial = duplicateType ? 1 : 0, depth = initial;
                     for (int n = start; n < pos; n++)
                     {

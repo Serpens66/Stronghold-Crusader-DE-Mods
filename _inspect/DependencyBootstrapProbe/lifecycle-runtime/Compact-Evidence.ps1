@@ -1,3 +1,8 @@
+param(
+    [ValidateSet('package-lifecycle','lifecycle-implementation','lifecycle-runtime/source-snapshot')][string[]]$Names=@('package-lifecycle','lifecycle-implementation'),
+    [ValidatePattern('^[a-z0-9-]*$')][string]$Suffix='',
+    [switch]$CompactReports
+)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -14,10 +19,11 @@ function Inventory([string]$Directory){
         else{$entry}
     }
 }
-foreach($name in @('package-lifecycle','lifecycle-implementation')){
+foreach($name in $Names){
     $root=[IO.Path]::GetFullPath((Join-Path $base $name))
     if(-not $root.StartsWith($base+'\',[StringComparison]::Ordinal) -or ((Get-Item -LiteralPath $root).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Unsafe fixture root.'}
-    $zipPath=Join-Path $archiveRoot ($name+'-deduplicated.zip')
+    $archiveName=$name.Replace('/','-')+$Suffix
+    $zipPath=Join-Path $archiveRoot ($archiveName+'-deduplicated.zip')
     if(Test-Path -LiteralPath $zipPath){throw 'Archive already exists; preserve it.'}
     $entries=@(Inventory $root)
     $records=@(foreach($entry in $entries){
@@ -53,19 +59,19 @@ foreach($name in @('package-lifecycle','lifecycle-implementation')){
             if((Get-Item -LiteralPath $path -Force).PSIsContainer){[IO.Directory]::Delete($path,$false)}else{Remove-Item -LiteralPath $path -Force}
         }
         if(@(Inventory $root|Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}).Count){throw 'Remaining links.'}
-        if($root -cne (Join-Path $base $name)){throw 'Deletion target changed.'}
+        if($root -cne [IO.Path]::GetFullPath((Join-Path $base $name))){throw 'Deletion target changed.'}
         Remove-Item -LiteralPath $root -Recurse -Force
         [IO.Directory]::CreateDirectory($root)|Out-Null
         # Keep useful reports directly readable at their previous paths; payloads and sources are in the archive.
-        foreach($row in $records|Where-Object {-not $_.Link -and ([IO.Path]::GetExtension($_.Path) -in @('.md','.log') -or [IO.Path]::GetFileName($_.Path) -match '^(results|provenance|sources|installed-before|installed-after|probe-source-hashes)\.json$')}){
+        foreach($row in $records|Where-Object {-not $CompactReports -and -not $_.Link -and ([IO.Path]::GetExtension($_.Path) -in @('.md','.log') -or [IO.Path]::GetFileName($_.Path) -match '^(results|provenance|sources|installed-before|installed-after|probe-source-hashes)\.json$')}){
             $target=[IO.Path]::GetFullPath((Join-Path $root $row.Path))
             if(-not $target.StartsWith($root+'\')){throw 'Restore outside root.'}
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))|Out-Null
             [IO.Compression.ZipFileExtensions]::ExtractToFile($zip.GetEntry('objects/'+$row.SHA256),$target)
         }
     }finally{$zip.Dispose()}
-    $records|Export-Csv -LiteralPath (Join-Path $archiveRoot ($name+'-index.csv')) -NoTypeInformation -Encoding UTF8
+    $records|Export-Csv -LiteralPath (Join-Path $archiveRoot ($archiveName+'-index.csv')) -NoTypeInformation -Encoding UTF8
     $summary=[ordered]@{FixtureRoot=$name;OriginalFiles=@($records|Where-Object {-not $_.Link}).Count;OriginalBytes=($records|Measure-Object Length -Sum).Sum;UniqueObjects=$unique.Count;ArchiveBytes=(Get-Item -LiteralPath $zipPath).Length;ArchiveSHA256=Digest $zipPath;LinksRecordedNotFollowed=@($records|Where-Object Link).Count}
-    $summary|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $archiveRoot ($name+'-summary.json')) -Encoding UTF8
+    $summary|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $archiveRoot ($archiveName+'-summary.json')) -Encoding UTF8
     $summary|ConvertTo-Json
 }

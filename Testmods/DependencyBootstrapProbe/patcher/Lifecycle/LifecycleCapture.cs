@@ -140,7 +140,8 @@ namespace DependencyBootstrapProbe
                     Unlinked(winner.Path);
                     string full = Path.GetFullPath(winner.Path);
                     string relative = full.StartsWith(game.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) ? full.Substring(game.TrimEnd('\\').Length + 1).Replace('\\', '/') : null;
-                    owners.Add(LifecycleOwnership.Evaluate(winner.Guid, winner.Version, full, ProbeIdentity.Hash(full), relative, packages, errors.Count == 0));
+                    owners.Add(LifecycleOwnership.Evaluate(winner.Guid, winner.Version, full, ProbeIdentity.Hash(full), relative,
+                        packages.Where(p => !LocalUpdateTrial.IsSyntheticPackage(p.Path)).ToList(), errors.Count == 0));
                 }
                 bool complete = errors.Count == 0 && maps.Count == paths.Length;
                 var report = new { Schema = 1, RunId = run, AtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
@@ -150,7 +151,8 @@ namespace DependencyBootstrapProbe
                     Complete = complete, SubscriptionCompleteness = "Unknown: observed Extender paths, not proof of all Steam subscriptions",
                     ExternalManagement = "Unverifiable: audited Extender method exposes no authoritative external package-manager ownership",
                     ExternalManagerLaunchSignal = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SCDEModManagerLaunchId")),
-                    WorkshopPaths = paths, Maps = maps, Packages = packages, Owners = owners, LocalManifests = local,
+                    WorkshopPaths = LocalUpdateTrial.OriginalPaths ?? paths, EffectivePaths = paths, SyntheticPaths = LocalUpdateTrial.AddedPaths,
+                    Maps = maps, Packages = packages, Owners = owners, LocalManifests = local,
                     StagedFiles = staged, DeleteManifest = deletions, Errors = errors, RemovalAuthorized = false };
                 string target = Path.Combine(BepInEx.Paths.BepInExRootPath, "DependencyBootstrapProbe.lifecycle.json");
                 string snapshot = Path.Combine(BepInEx.Paths.BepInExRootPath, "DependencyBootstrapProbe.lifecycle." + run + ".json");

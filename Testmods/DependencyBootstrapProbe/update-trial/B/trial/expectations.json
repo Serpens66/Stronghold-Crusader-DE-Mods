@@ -1,0 +1,18 @@
+{
+    "ManifestSHA256":  "0C2470CEC23AAE4EA756226C9184700F30511E2DF8AEC0F34DE44AC2D7CE7DD0",
+    "ControlGuid":  "DependencyBootstrapProbeControl_Serp",
+    "MissingGuid":  "DependencyBootstrapProbe_IntentionallyMissing",
+    "Provider":  "BugfixesAndQoL_Serp",
+    "ProviderVersion":  "1.0.192",
+    "ResolvedPairs":  [
+                          {
+                              "consumer":  "AIBuildDiagnoseTest_Serp",
+                              "dependency":  "BugfixesAndQoL_Serp"
+                          },
+                          {
+                              "consumer":  "SpectatorEditorBuildTest_Serp",
+                              "dependency":  "BugfixesAndQoL_Serp"
+                          }
+                      ],
+    "Baseline":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\DependencyBootstrapProbe\\Shadow-accepted-20261016-1946"
+}

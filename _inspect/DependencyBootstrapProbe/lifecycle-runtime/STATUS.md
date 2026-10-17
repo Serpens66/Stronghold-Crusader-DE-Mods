@@ -1,3 +1,22 @@
+# Aktueller Stand: Paarbindung gebaut und installiert — 17.10.2026
+
+- Lifecycle-Start 15:29:51: regulärer korrigierter Prüfer bestanden; separate
+  manuelle Menübestätigung bleibt offen. Archiv: ../Lifecycle-accepted-20261017-152951.
+- Workspace-Testbuild ausdrücklich autorisiert; build.bat /workspaceprobe /nopause
+  /lifecycle erfolgreich. APIShared und Loader unverändert (pair-installed.json).
+- Runtime-Paar-, Transformations-, Logprüfer- und Übernahmetests bestanden;
+  96 Paket-/Entfernungsfälle bestanden. Details in pair-*-tests.log und pair-build.log.
+- Neue Patcher-SHA256: 09CB29804A9ED6BB6EF48328C2368F11677D8B80EB812C27A14A405E98FA2D72.
+- Rückfallsicherung: backup-f73ee48f0d184dba8fb5c74ed1339bd2. Vorher war kein
+  Paarmanifest installiert; dies steht im Sicherungsnachweis. Beim Rückweg nur
+  eigene gesicherte Komponenten/Schalter und das hashgeprüfte neue Manifest beachten.
+- Noch offen: ein neuer Start, Check-Run.ps1 -Mode Active -RequirePair, Hauptmenü,
+  aktuelle Fehlerlogs. Keine Update-/Entfernungsfreigabe aus Paketzuordnungen.
+- Wiederholte Fixtures und alter Quellsnapshot sind unter ../compacted gebündelt;
+  package-runs.csv fasst die erhaltenen Ergebnislisten zusammen.
+
+## Historische Zwischenstände
+
 # Lifecycle observation installed — game acceptance pending
 
 Completion 17.10.2026: canonical `build.bat /nopause /lifecycle` succeeded after

@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup><BaseIntermediateOutputPath>obj/ReportTests/</BaseIntermediateOutputPath><MSBuildProjectExtensionsPath>obj/ReportTests/</MSBuildProjectExtensionsPath></PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType><EnableDefaultCompileItems>false</EnableDefaultCompileItems><OutputPath>bin/ReportTests/</OutputPath></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ReportTests.cs" />
+    <Compile Include="PresentationFixture.cs" />
+    <Compile Include="../src/PopularityPresentation.cs" />
+    <Compile Include="../src/PopularityReport.cs" />
+    <Compile Include="../../../shcde-script-extender/src/SHCDESE.BepInEx/Interop/Enums/RationsMode.cs" />
+    <Compile Include="../../../shcde-script-extender/src/SHCDESE.BepInEx/Interop/Enums/TaxesMode.cs" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

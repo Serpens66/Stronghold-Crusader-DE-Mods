@@ -32,6 +32,7 @@ namespace DependencyBootstrapProbe
         internal static void Install()
         {
             if (chainHook != null) return;
+            if (!PairActivation.Prepare()) return;
             Mark("CHAIN_PREPARE", "validating loaded assembly and Start");
             Mark("SHADOW_REQUIRED", "stage=2; only a separate index copy may change");
             ShadowRuntime.Configure();
@@ -152,6 +153,7 @@ namespace DependencyBootstrapProbe
                 foreach (DictionaryEntry entry in winners) ShadowRuntime.Winners.Add(ShadowRuntime.FromInfo((BepInEx.PluginInfo)entry.Value));
                 snapshotSeen = true;
                 Mark("SNAPSHOT", "selected=" + winners.Count + "; selection is not an Awake success guarantee");
+                PairActivation.Bind(ShadowRuntime.Winners);
                 foreach (DictionaryEntry entry in winners)
                 {
                     var info = entry.Value;

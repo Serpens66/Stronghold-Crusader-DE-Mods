@@ -16,6 +16,8 @@ Assert-SERuntimeModPreflight ([pscustomobject]@{ Name='PopularityTest'; Project=
 if ($LASTEXITCODE -ne 0) { throw 'Signature checker compilation failed.' }
 & dotnet (Join-Path $PSScriptRoot 'tests\bin\Debug\net10.0\RuntimeSignatures.dll') $PSScriptRoot
 if ($LASTEXITCODE -ne 0) { throw 'Actual installed API / public game assembly signature check failed.' }
+& dotnet run --project (Join-Path $PSScriptRoot 'tests\ReportTests.csproj') -- $PSScriptRoot
+if ($LASTEXITCODE -ne 0) { throw 'Popularity report calculation regression failed.' }
 & dotnet msbuild (Join-Path $PSScriptRoot 'tests\PopularityTest.PresetTests.csproj') /t:Build /p:Configuration=Release /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { throw 'Preset/settings integration test compilation failed.' }
 # Run this verifier elevated: the preset harness exercises atomic File.Replace.

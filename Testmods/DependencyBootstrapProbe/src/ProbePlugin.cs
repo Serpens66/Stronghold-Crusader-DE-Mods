@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace DependencyBootstrapProbe
 {
-    [BepInPlugin("DependencyBootstrapProbe_Serp", "Dependency Bootstrap Probe", "0.1.0")]
+    [BepInPlugin("DependencyBootstrapProbe_Serp", "Dependency Bootstrap Probe", ProbeVersion.Value)]
     public sealed class ProbePlugin : BaseUnityPlugin
     {
         private static ManualLogSource rootedLog;

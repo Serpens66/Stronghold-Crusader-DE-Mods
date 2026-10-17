@@ -19,16 +19,14 @@
 ## Build-Ablauf
 
 - Nach dem Erstellen oder Ändern eines Mods zuerst alle nach der [Prüfauswahl](#auswahl-der-prüfungen) relevanten Prüfungen und Codekontrollen abschließen (z. B. modbezogene Shared-Boundary- und Abhängigkeitsprüfungen, mod-eigene `verify.ps1`, bei betroffenen Modsettings-/UI-Funktionen die einschlägigen Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen.
-- Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) und der zuvor gewählten Branch ausführen, z. B.: `& '<Pfad>\build.bat' /branch:develop /nopause; exit $LASTEXITCODE`. Nicht selbst bauen oder kopieren; `build.bat` übernimmt Build und Installation in den Spieleordner. Nach Codeänderungen ist ein erneuter Lauf erlaubt; uncommittete Quellen gehören nicht zum ausgewählten Branchbuild.
+- Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) und `/nopause` gemäß der Nutzerwahl ausführen. Nicht selbst bauen oder kopieren; `build.bat` übernimmt Build und Installation. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
 
-## APIShared-Branch für Verbraucher-Builds (Pflichtabklärung)
+## Buildstand und SDK: Nutzerwahl vor Standard
 
-- Lokale `build.bat` bieten ohne Argument ein Menü für `main` und `develop`. Automatisierte Aufrufe benötigen `/branch:main` oder `/branch:develop`; `/nopause` ohne Auswahl bricht ab. Beide Optionen bauen ausschließlich den letzten lokalen Commit in einem eigenen Worktree unter `.release-output/branch-builds/`, ohne Fetch, Branchwechsel oder Übernahme uncommitteter Projekt-/Runtime-Änderungen. Aktuelle Buildsteuerung passt nur Buildskripte und Installationspfade an; die Anpassungen stehen im Buildnachweis neben dem Worktree.
-- Die gewählte Modbranch legt zugleich die APIShared-Branch fest (`main` → `main`, `develop` → `develop`). Damit ist die Standard-SDK-Wahl autorisiert; eine abweichende Wahl zuvor mit dem Nutzer klären und im Abschluss nennen. `/apishared:main|develop` beziehungsweise `SHCDE_API_SHARED_BRANCH` wählen ausdrücklich einen anderen lokalen Branchstand. Das SDK wird isoliert mit `/noinstall` gebaut; das installierte APIShared bleibt unverändert.
-- `/apishared:dev` bleibt die ausdrückliche Ausnahme für das bereits gebaute Paket des lokalen persönlichen Checkouts (gewöhnlich `dev/Serpens66`); dessen Buildnachweis muss aktuell sein. Der normale Branchdialog bietet diesen persönlichen Arbeitsstand nicht an.
-- `develop` installiert Plugins und zusätzliche Patcher-/Werkzeugordner mit `_dev`; Bereinigung und Einstellungen betreffen nur die gewählte Variante. Die andere Installation wird manuell entfernt. `/noinstall` verändert keine Spielinstallation. Bestehende Installationssperren gelten weiterhin.
-- Release-Treiber und deren Unterbuilds behalten ihren bereits geprüften Commit und ihr gepinntes SDK ohne neues Auswahlmenü. Sie setzen `SHCDE_BRANCH_PINNED` nur für den geprüften Aufruf; diese interne Variable ist kein Ersatz für die Branchwahl bei normalen Builds.
-- Beispiel: `& '<Pfad>\build.bat' /branch:develop /nopause; exit $LASTEXITCODE`. Gemeinsame Steuerung: `Shared/Tools/BranchBuild/`; APIShared enthält dieselben eigenständig nutzbaren Buildwerkzeuge unter `tools/BranchBuild/`.
+- Ausdrückliche Nutzerwünsche bestimmen Quellstand (auch uncommittierter Arbeitsstand), Branch und SDK. Es gibt keine allgemeine Pflicht, vor einem Build zu committen, eine bestimmte Branch zu wählen oder ausschließlich deren letzten Commit zu bauen.
+- Die vorhandenen Branchmenüs, Commit-Worktrees und zugehörigen SDK-Auswahlen in `build.bat` sind Standardabläufe für Aufrufe ohne abweichenden Nutzerauftrag. Sie sind keine Einschränkung ausdrücklich gewünschter Arbeitsstand- oder SDK-Builds. Fehlt dafür ein expliziter Treiberweg, ihn gezielt ergänzen; keine interne Release-Pinningvariable als versteckte Umgehung verwenden.
+- Ohne abweichenden Auftrag bleiben vorhandene Release-Pins, Installationsvarianten und Bereinigungsgrenzen der Treiber erhalten. Ein gewählter Buildstand autorisiert weder Commits noch Branchwechsel, Stash, Reset oder eine Veröffentlichung.
+- Unverändert verlangte SDKs und installierte Abhängigkeiten vor/nach dem Build prüfen und weder neu bauen noch ersetzen. Prüfungen und Installationssperren gelten unabhängig vom gewählten Quellstand.
 
 ## CRLF
 

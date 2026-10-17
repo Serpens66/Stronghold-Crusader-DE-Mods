@@ -36,6 +36,15 @@ internal static class RuntimeSignatures
                 paths.Select(p => MetadataReference.CreateFromFile(p)), new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
             string[] errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()).ToArray();
             Check(errors.Length == 0, "Actual dependency signature errors:\n" + string.Join("\n", errors));
+            foreach (var pair in new[] {
+                ("RationsMode", new[] { "None", "Half", "Full", "Extra", "Double" }),
+                ("TaxesMode", new[] { "HugeDonation", "BigDonation", "SmallDonation", "None", "Low", "Moderate", "High", "Mean", "Usurious", "Cruel", "MostCruel", "Cruellest" }) })
+            {
+                var enumType = compilation.GetTypeByMetadataName("SHCDESE.Interop.Enums." + pair.Item1);
+                for (int index = 0; index < pair.Item2.Length; index++)
+                    Check(enumType.GetMembers(pair.Item2[index]).OfType<IFieldSymbol>().Any(f => f.HasConstantValue && Convert.ToInt64(f.ConstantValue) == index),
+                        "Installed enum contract: " + pair.Item1 + "." + pair.Item2[index]);
+            }
             var names = new HashSet<string>();
             for (var type = compilation.GetTypeByMetadataName("PopularityTest.PopularitySettings"); type != null; type = type.BaseType)
                 foreach (var member in type.GetMembers()) if (member.DeclaredAccessibility == Accessibility.Public) names.Add(member.Name);

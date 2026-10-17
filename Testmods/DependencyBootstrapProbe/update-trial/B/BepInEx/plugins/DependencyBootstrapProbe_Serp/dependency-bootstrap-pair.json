@@ -1,0 +1,7 @@
+{
+    "Schema":  1,
+    "Guid":  "DependencyBootstrapProbe_Serp",
+    "Version":  "0.1.2",
+    "RuntimeSHA256":  "891cdbc4ca26be17b43eafd98db4956d3362bef34682924b76c4ec4b3fc0f12c",
+    "BootstrapSHA256":  "accef411e7c31d82c001e64c671f64179f5ed560e9e78d39a4f06414da44b824"
+}

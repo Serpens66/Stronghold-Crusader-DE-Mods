@@ -27,6 +27,11 @@ RejectChange (Join-Path $game 'BepInEx/plugins/APIShared_Serp/APIShared.dll') {A
 RejectChange (Join-Path $game 'BepInEx/plugins/000shcdese/SHCDESE.dll') {Assert-ProbeContinuation $game $backup -BeforeCopy}
 RejectChange (Join-Path $game 'BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll') {Complete-ProbeContinuation $probe $game $backup}
 foreach($base in @($game,$probe)){[IO.File]::AppendAllText((Join-Path $base 'BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll'),'NEW BUILD')}
+foreach($base in @($game,$probe)){
+    $pair=@{Schema=1;Guid='DependencyBootstrapProbe_Serp';Version='1.0.0';RuntimeSHA256=(Get-ContinuationHash (Join-Path $base 'BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll')).ToLowerInvariant();BootstrapSHA256=(Get-ContinuationHash (Join-Path $base 'BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll')).ToLowerInvariant()}
+    [IO.File]::WriteAllText((Join-Path $base 'BepInEx/plugins/DependencyBootstrapProbe_Serp/dependency-bootstrap-pair.json'),($pair|ConvertTo-Json))
+}
+RejectChange (Join-Path $game 'BepInEx/plugins/DependencyBootstrapProbe_Serp/dependency-bootstrap-pair.json') {Complete-ProbeContinuation $probe $game $backup}
 Complete-ProbeContinuation $probe $game $backup
 Assert-CorrectionBinding $game
 Write-Host 'PASS: continuation rejects stale switches, backup changes, changed old/new DLLs and APIShared; explicit new binding succeeds.'

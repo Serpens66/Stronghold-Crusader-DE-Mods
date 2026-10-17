@@ -91,7 +91,9 @@ namespace DependencyBootstrapProbe
                 throw new InvalidOperationException("Lifecycle data flow changed");
             foreach (var target in new[] { paths.Next, map.Next, load.Next, reset, attempts }) Boundary(il, target);
             var cursor = new ILCursor(il);
-            cursor.Goto(paths, MoveType.After); cursor.Emit(OpCodes.Dup); Emit(cursor, "Paths");
+            cursor.Goto(paths, MoveType.After);
+            cursor.Emit(OpCodes.Call, typeof(LocalUpdateTrial).GetMethod("Apply", BindingFlags.Static | BindingFlags.NonPublic));
+            cursor.Emit(OpCodes.Dup); Emit(cursor, "Paths");
             cursor.Goto(map, MoveType.After); cursor.Emit(OpCodes.Dup); cursor.Emit(OpCodes.Ldloc, folder); Emit(cursor, "MapPath");
             cursor.Goto(load, MoveType.After); cursor.Emit(OpCodes.Dup); cursor.Emit(OpCodes.Ldloc, archive); cursor.Emit(OpCodes.Ldloc, mapPath); Emit(cursor, "Archive");
             foreach (var target in new[] { reset, attempts }) { cursor.Goto(target, MoveType.Before); Emit(cursor, "Staged"); }

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Workspace, [string]$ModDirectory)
+param([string]$Workspace, [string]$ModDirectory, [switch]$IndependentRuntime)
 $ErrorActionPreference = 'Stop'
 $preflightWatch = [Diagnostics.Stopwatch]::StartNew()
 Write-Host '[Preflight] Discovering active projects and explicit source links...'
@@ -15,7 +15,9 @@ if ($ModDirectory) {
         throw 'ModDirectory must be a directory inside the workspace.'
     }
 }
-$discoveryRoots = if ($modRoot) { @($modRoot, $apiRoot) } else { @($Workspace) }
+if ($IndependentRuntime -and -not $modRoot) { throw 'IndependentRuntime requires an explicit mod scope.' }
+$scopedRoots = @($modRoot) + $(if (-not $IndependentRuntime) { @($apiRoot) } else { @() })
+$discoveryRoots = if ($modRoot) { $scopedRoots } else { @($Workspace) }
 $projects = @(Get-ChildItem -LiteralPath $discoveryRoots -Recurse -File -Filter '*.csproj' | Where-Object {
     $_.FullName -notmatch '[\\/](shcde-script-extender|bin|obj|BepInEx|\.tools|\.inspect|_inspect|\.native-analysis|\.release-output|before)[\\/]'
 })
@@ -26,7 +28,7 @@ if ($modRoot) {
     $activeProjects = @($activeProjects | Where-Object {
         $candidate = [IO.Path]::GetFullPath((Join-Path $Workspace $_))
         $candidate.StartsWith($modRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
-        $candidate.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase)
+        (-not $IndependentRuntime -and $candidate.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase))
     })
 }
 $projects = @($projects) + @($activeProjects | ForEach-Object { Get-Item -LiteralPath (Join-Path $Workspace $_) })
@@ -47,7 +49,15 @@ if ($ModDirectory) {
             if ($projects.FullName -notcontains $dependency.FullName) { $projects += $dependency }
         }
     }
-    Write-Host "[Preflight] Mod scope: $ModDirectory, APIShared and explicit project/source dependencies."
+    if ($IndependentRuntime) {
+        foreach ($project in $projects) {
+            [xml]$independentXml = [IO.File]::ReadAllText($project.FullName)
+            foreach ($entry in $independentXml.SelectNodes('//*[local-name()="Reference" or local-name()="ProjectReference" or local-name()="Compile"]')) {
+                if ($entry.OuterXml -match '(?i)APIShared') { throw 'IndependentRuntime cannot exclude a declared APIShared dependency.' }
+            }
+        }
+    }
+    Write-Host "[Preflight] Mod scope: $ModDirectory; IndependentRuntime=$IndependentRuntime; explicit project/source dependencies included."
 }
 $linkedSources = @()
 $links = 0
@@ -77,7 +87,7 @@ $legacy = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'legacy-shared-
 Write-Host '[Preflight] Checking active references and CRLF...'
 $legacyPattern = '(?<![A-Za-z0-9_])(?:' + (($legacy.PSObject.Properties.Name | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $legacyRegex = [regex]::new($legacyPattern, [Text.RegularExpressions.RegexOptions]::Compiled)
-$activeDirectories = if ($modRoot) { @($modRoot, $apiRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) } else { @($apiRoot, $sharedRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) }
+$activeDirectories = if ($modRoot) { $scopedRoots + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) } else { @($apiRoot, $sharedRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) }
 $activeFiles = @(foreach ($directory in $activeDirectories | Sort-Object -Unique) {
     Get-ChildItem -LiteralPath $directory -Recurse -File | Where-Object {
         $_.FullName -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect)[\\/]' -and
@@ -158,4 +168,4 @@ if (-not $?) { throw 'UnitAccess contract preflight failed.' }
 $preflightWatch.Stop()
 Write-Host ('[Preflight] Completed in {0:N1}s.' -f $preflightWatch.Elapsed.TotalSeconds)
 
-& (Join-Path $PSScriptRoot 'Test-IngameTooltips.ps1') -Workspace $Workspace -ModDirectories $(if ($modRoot) { @($modRoot, $apiRoot) } else { @() })
+& (Join-Path $PSScriptRoot 'Test-IngameTooltips.ps1') -Workspace $Workspace -ModDirectories $(if ($modRoot) { $scopedRoots } else { @() })

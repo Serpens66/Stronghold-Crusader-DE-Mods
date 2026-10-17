@@ -1,0 +1,224 @@
+PASS: shadow inventory complete; 10 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+Probe backup: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\DependencyBootstrapProbe\lifecycle-runtime\backup-f73ee48f0d184dba8fb5c74ed1339bd2
+Probe preflight passed: exact binaries, insertion sites/control-flow boundaries, references, lifecycle, CRLF.
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: Testmods\DependencyBootstrapProbe, APIShared and explicit project/source dependencies.
+[Preflight] Checking 10 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: narrow Fixes wheat startup mutation boundary (source checks only; no backend/game execution).
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 10 projects, 65 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 3 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Checking centralized UnitAccess contract...
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.
+PASS: 285 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: narrow Fixes wheat startup mutation boundary (source checks only; no backend/game execution).
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 14,6s.
+[Preflight] Completed in 43,8s.
+PASS: 1 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 1 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+
+  DependencyBootstrapProbe.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\tests\bin\DependencyBootstrapProbe.Tests.exe
+PASS: actual index selector, disabled path, complete copy, preparation failure and original-entry invariants.
+PASS: shadow eligibility fixtures (manifest boundaries, versions, duplicates, process/exclusion, hard/soft/transitive/cyclic dependencies, source rejection and uncertainty).
+PASS: early entry has no Unity/MonoMod/Chainloader/HookRuntime type tokens; missing/foreign/duplicate/error listener tests.
+PASS: actual DMD Chainloader transform, stack neutrality, original flow and desktop delegate generation (never invoked; Unity JIT checked in game).
+PASS: rejected before mutation: missing field
+PASS: rejected before mutation: wrong field type
+PASS: rejected before mutation: ambiguous local
+PASS: rejected before mutation: missing failure set
+PASS: rejected before mutation: changed AddComponent
+PASS: rejected before mutation: changed ToList
+PASS: rejected before mutation: branch into injection site
+PASS: rejected before mutation: exception boundary at injection site
+PASS: SE rejected before mutation: missing index
+PASS: SE rejected before mutation: ambiguous index
+PASS: SE rejected before mutation: changed issues
+PASS: SE rejected before mutation: branch boundary
+PASS: SE rejected before mutation: extra return
+PASS: SE rejected before mutation: return boundary
+PASS: real SE version parser and 75 dependency comparisons agree; compatibility method never executed.
+PASS: actual SE DMD transform and desktop delegate generation; no check invoked.
+PASS lifecycle: repeated original invocations receive distinct evidence identities
+PASS lifecycle: overlapping or incomplete invocation rejected
+PASS lifecycle: duplicate completion rejected
+PASS lifecycle: real DMD, five neutral observer blocks, original calls/branches/EH retained; delegate never invoked
+PASS lifecycle: reject before mutation: GetListOfSubscribedItemsPaths
+PASS lifecycle: reject before mutation: TryLoad
+PASS lifecycle: reject before mutation: GetFirstMapFileInDirectory
+PASS lifecycle: reject before mutation: ResetDeployAttempts
+PASS lifecycle: reject before mutation: ReadDeployAttempts
+PASS lifecycle: reject before mutation: TryStageModUpdate
+PASS lifecycle: reject before mutation: MessageBoxA
+PASS lifecycle: reject before mutation: wrong archive local
+PASS lifecycle: reject before mutation: incoming branch to capture boundary
+PASS lifecycle: reject before mutation: ambiguous getter
+PASS lifecycle: reject before mutation: changed map return signature
+PASS lifecycle: reject before mutation: exception boundary at capture
+PASS lifecycle: manual installation not treated as unsubscribe
+PASS lifecycle: single exact payload claim
+PASS lifecycle: conflicting local management metadata
+PASS lifecycle: missing local receipt explicitly recorded, path claim is not ownership
+PASS lifecycle: incomplete data cannot establish exclusive ownership
+PASS lifecycle: case-conflicting competing package
+PASS lifecycle: failed archive is not accepted as an owner
+PASS lifecycle: asset archive cannot claim installed BepInEx payload
+PASS lifecycle: invalid local metadata rejected
+PASS lifecycle: invalid local metadata rejected
+PASS lifecycle: unreadable local metadata rejected
+PASS: actual runtime pair code, selected identity, changed/missing/mixed files, duplicates, invalid metadata, original-index fallback
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: active (accepted=True)
+PASS: Disabled probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: disabled (accepted=True)
+PASS synthetic log case: missing-se-copy (accepted=False)
+PASS synthetic log case: missing-awake (accepted=False)
+PASS synthetic log case: duplicate-awake (accepted=False)
+PASS synthetic log case: duplicate-post (accepted=False)
+PASS synthetic log case: stale-patcher (accepted=False)
+PASS synthetic log case: stale-plugin (accepted=False)
+PASS synthetic log case: stale-core (accepted=False)
+PASS synthetic log case: last-start-empty (accepted=False)
+PASS synthetic log case: error (accepted=False)
+PASS synthetic log case: skip (accepted=False)
+PASS synthetic log case: wrong-count (accepted=False)
+PASS synthetic log case: too-few-frames (accepted=False)
+PASS synthetic log case: post-before-awake (accepted=False)
+PASS synthetic log case: active-in-disabled (accepted=False)
+PASS synthetic log case: disabled-as-active (accepted=False)
+PASS synthetic log case: active-as-disabled (accepted=False)
+Synthetic fixtures only: this does not certify a game run.
+PASS: Observe probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: observe (accepted=True)
+PASS synthetic log case: observe-hook (accepted=False)
+PASS synthetic log case: observe-missing-ready (accepted=False)
+PASS synthetic log case: observe-duplicate-ready (accepted=False)
+PASS synthetic log case: observe-old-build (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: shadow-valid (accepted=True)
+PASS synthetic log case: shadow-missing-summary (accepted=False)
+PASS synthetic log case: shadow-missing-candidate (accepted=False)
+PASS synthetic log case: shadow-wrong-count (accepted=False)
+PASS synthetic log case: shadow-original-mutated (accepted=False)
+PASS synthetic log case: shadow-overwrites-original (accepted=False)
+PASS synthetic log case: shadow-error (accepted=False)
+PASS synthetic log case: shadow-duplicate-summary (accepted=False)
+PASS synthetic log case: stage-1 cannot pass required shadow check
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: local corrected index used; original check returned exactly the three expected control errors.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: correction-valid (accepted=True)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-no-apply (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-no-result (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-no-issue (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-fallback (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-wrong-issue (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-wrong-total (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-wrong-effective (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-disabled-apply (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 1 -> 0; original index unchanged.
+PASS synthetic log case: shadow alone cannot pass required correction
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS lifecycle checker: lifecycle-valid
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: complete package and actual selected provider bound before correction.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS lifecycle checker: pair-valid
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: pair-missing-bound
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: pair-changed
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: pair-rejected
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS lifecycle checker: two-original-invocations
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: missing
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: duplicate
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: wrongrun
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: changedreport
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: order
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: incomplete
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: old-build
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: missing-owner
+PASS: shadow inventory complete; 10 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS: shadow inventory complete; 10 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: absent historical consumer allowed; missing requirement for present consumer and regression rejected.
+Continued accepted correction mode; lifecycle observation requires a new game acceptance.
+PASS: continuation rejects stale switches, backup changes, changed old/new DLLs and APIShared; explicit new binding succeeds.
+PASS: 96 actual package/removal checks. Evidence: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\DependencyBootstrapProbe\lifecycle-implementation\351a827ae7134a6d8da56230f0c7ae57\run-cfdee48656b0478c845e985555790741
+
+  DependencyBootstrapProbe.Patcher -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\BepInEx\patchers\DependencyBootstrapProbe.Patcher.dll
+
+  DependencyBootstrapProbe -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\BepInEx\plugins\DependencyBootstrapProbe_Serp\DependencyBootstrapProbe.dll
+Continued accepted correction mode; lifecycle observation requires a new game acceptance.
+Correction-capable probe built. Installed=True. Game/Mono feasibility still requires a full game start.

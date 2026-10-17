@@ -1,0 +1,139 @@
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: active (accepted=True)
+PASS: Disabled probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: disabled (accepted=True)
+PASS synthetic log case: missing-se-copy (accepted=False)
+PASS synthetic log case: missing-awake (accepted=False)
+PASS synthetic log case: duplicate-awake (accepted=False)
+PASS synthetic log case: duplicate-post (accepted=False)
+PASS synthetic log case: stale-patcher (accepted=False)
+PASS synthetic log case: stale-plugin (accepted=False)
+PASS synthetic log case: stale-core (accepted=False)
+PASS synthetic log case: last-start-empty (accepted=False)
+PASS synthetic log case: error (accepted=False)
+PASS synthetic log case: skip (accepted=False)
+PASS synthetic log case: wrong-count (accepted=False)
+PASS synthetic log case: too-few-frames (accepted=False)
+PASS synthetic log case: post-before-awake (accepted=False)
+PASS synthetic log case: active-in-disabled (accepted=False)
+PASS synthetic log case: disabled-as-active (accepted=False)
+PASS synthetic log case: active-as-disabled (accepted=False)
+Synthetic fixtures only: this does not certify a game run.
+PASS: Observe probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: observe (accepted=True)
+PASS synthetic log case: observe-hook (accepted=False)
+PASS synthetic log case: observe-missing-ready (accepted=False)
+PASS synthetic log case: observe-duplicate-ready (accepted=False)
+PASS synthetic log case: observe-old-build (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: shadow-valid (accepted=True)
+PASS synthetic log case: shadow-missing-summary (accepted=False)
+PASS synthetic log case: shadow-missing-candidate (accepted=False)
+PASS synthetic log case: shadow-wrong-count (accepted=False)
+PASS synthetic log case: shadow-original-mutated (accepted=False)
+PASS synthetic log case: shadow-overwrites-original (accepted=False)
+PASS synthetic log case: shadow-error (accepted=False)
+PASS synthetic log case: shadow-duplicate-summary (accepted=False)
+PASS synthetic log case: stage-1 cannot pass required shadow check
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: local corrected index used; original check returned exactly the three expected control errors.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS synthetic log case: correction-valid (accepted=True)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-no-apply (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-no-result (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-no-issue (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-fallback (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-wrong-issue (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-wrong-total (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-wrong-effective (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS synthetic log case: correction-disabled-apply (accepted=False)
+PASS: shadow inventory complete; 1 proposed additions; issues 1 -> 0; original index unchanged.
+PASS synthetic log case: shadow alone cannot pass required correction
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS lifecycle checker: lifecycle-valid
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: complete package and actual selected provider bound before correction.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS lifecycle checker: pair-valid
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: complete package and actual selected provider bound before correction.
+PASS: Active probe markers and exact build identities in latest session.
+Staging-phase markers only: no completion/menu proof; validate exact staged payload before accepting original dialog.
+PASS lifecycle checker: pair-stage
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS lifecycle checker: pair-stage-no-original
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: pair-missing-bound
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: pair-changed
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: pair-rejected
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS lifecycle checker: two-original-invocations
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: missing
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: duplicate
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: wrongrun
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS lifecycle checker: changedreport
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: order
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: incomplete
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: old-build
+PASS: shadow inventory complete; 1 proposed additions; issues 5 -> 3; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS lifecycle checker: missing-owner
+PASS: shadow inventory complete; 10 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS: shadow inventory complete; 10 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: absent historical consumer allowed; missing requirement for present consumer and regression rejected.

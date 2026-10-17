@@ -55,7 +55,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - Textdateien verwenden CRLF (außer ausdrücklich für Linux); sicheres Konvertierungsverfahren → [build-release.md](AGENTS/build-release.md).
 - Ersetzt neuer Code alten Code oder Dateien, keinen Fallback oder veraltete Version ungefragt parallel behalten; vorher fragen.
 - Build: erst **alle für den Mod relevanten** Prüfungen und Codekontrollen gemäß [Prüfauswahl](AGENTS/build-release.md#auswahl-der-prüfungen) abschließen, dann einmal die passende `build.bat` direkt mit erhöhten Rechten und `/nopause` ausführen; nicht selbst bauen oder kopieren. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
-- Build-Branch vor dem Aufruf festlegen (`/branch:main` oder `/branch:develop`); gebaut wird ausschließlich deren letzter lokaler Commit. APIShared folgt standardmäßig derselben Branch; abweichende SDK-Auswahl nur nach Nutzerfestlegung (`/apishared:main|develop|dev`) → [build-release.md](AGENTS/build-release.md).
+- Buildskripte bieten Standardabläufe; ausdrückliche Nutzerwünsche bestimmen Quellstand (einschließlich Arbeitsstand), Branch und SDK. Keine allgemeine Commit- oder Branchpflicht für Builds → [build-release.md](AGENTS/build-release.md).
 - Versionen erst ändern, wenn ein Feature fertig oder ein Bug final behoben ist (im Zweifel fragen); dann modweit atomar und mit Konsistenzprüfung → [build-release.md](AGENTS/build-release.md).
 - Commits und Veröffentlichungen nur auf ausdrücklichen Nutzerauftrag.
 

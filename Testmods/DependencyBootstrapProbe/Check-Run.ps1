@@ -4,11 +4,17 @@ param(
     [switch]$RequireShadow,
     [switch]$RequireCorrection,
     [switch]$RequireLifecycle,
+    [switch]$RequirePair,
+    [switch]$UpdateStage,
+    [string]$RecordedGameDir,
     [string]$LifecycleReportPath,
     [string]$ExpectedArtifactRoot = $PSScriptRoot,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 )
 $ErrorActionPreference = 'Stop'
+if(-not $RecordedGameDir){$RecordedGameDir=$GameDir}
+if($UpdateStage){$RequirePair=$true}
+if($RequirePair){$RequireLifecycle=$true}
 if($RequireLifecycle){$RequireCorrection=$true;$RequireShadow=$true}
 if (-not $LogPath) { $LogPath = Join-Path $GameDir 'BepInEx\DependencyBootstrapProbe.trace.log' }
 function FileHash([string]$path) {
@@ -53,26 +59,31 @@ if ($Mode -eq 'Disabled') {
 } else {
     if ((One 'MODE').Detail -cne 'Active' -or (One 'READY_OBSERVED').Detail -notmatch '^mode=Active;') { throw 'Not an active run.' }
     if ($events.Marker -contains 'DISABLED' -or $events.Marker -contains 'PLUGIN_DISABLED') { throw 'Probe disabled; use -Mode Disabled for that control run.' }
-    Ordered @('FINISH','MODE','LISTENER_ATTACHED','READY_OBSERVED','CHAIN_PREPARE','CORE_BINARY','CHAIN_TRANSFORMED','CHAIN_DELEGATE_BEGIN','CHAIN_DELEGATE_END','CHAIN_JIT_BEGIN','CHAIN_JIT_END','CHAIN_COPY_COMPILED','CHAIN_INSTALL','CHAIN_HOOK_INSTALLED','CHAIN_ENTER','SNAPSHOT','BEFORE_EXTENDER','SE_BINARY','SE_PREPARE','SE_TRANSFORMED','SE_DELEGATE_BEGIN','SE_DELEGATE_END','SE_JIT_BEGIN','SE_JIT_END','SE_COPY_COMPILED','SE_INSTALL','SE_HOOK_INSTALLED','COMPATIBILITY_ENTER','PLUGIN_AWAKE','CHAIN_COMPLETE','POST_CLEANUP_RENDER')
-    $plugin = One 'PLUGIN_AWAKE'
-    if ((One 'CHAIN_COMPLETE').Detail -cne 'snapshot=True extender=True checks=1') { throw 'Unexpected completion counters.' }
+    $required=@('FINISH','MODE','LISTENER_ATTACHED','READY_OBSERVED','CHAIN_PREPARE','CORE_BINARY','CHAIN_TRANSFORMED','CHAIN_DELEGATE_BEGIN','CHAIN_DELEGATE_END','CHAIN_JIT_BEGIN','CHAIN_JIT_END','CHAIN_COPY_COMPILED','CHAIN_INSTALL','CHAIN_HOOK_INSTALLED','CHAIN_ENTER','SNAPSHOT','BEFORE_EXTENDER','SE_BINARY','SE_PREPARE','SE_TRANSFORMED','SE_DELEGATE_BEGIN','SE_DELEGATE_END','SE_JIT_BEGIN','SE_JIT_END','SE_COPY_COMPILED','SE_INSTALL','SE_HOOK_INSTALLED','COMPATIBILITY_ENTER')
+    if(-not $UpdateStage){$required+=@('PLUGIN_AWAKE','CHAIN_COMPLETE','POST_CLEANUP_RENDER')}
+    Ordered $required
     if ((One 'BEFORE_EXTENDER').Detail -notmatch '^snapshot=True type=') { throw 'Snapshot not ready before Extender.' }
     if ((One 'COMPATIBILITY_ENTER').Detail -cne 'count=1') { throw 'Compatibility check count mismatch.' }
+    if(-not $UpdateStage){
+    $plugin = One 'PLUGIN_AWAKE'
+    if ((One 'CHAIN_COMPLETE').Detail -cne 'snapshot=True extender=True checks=1') { throw 'Unexpected completion counters.' }
     $post = One 'POST_CLEANUP_RENDER'
     if ($post.Detail -notmatch '^original Unity component destroyed; distinct render frames=(\d+)$' -or [int]$Matches[1] -lt 120) { throw 'Post-cleanup lifetime not proven.' }
+    }
     $coreHash = FileHash (Join-Path $GameDir 'BepInEx\core\BepInEx.dll')
     $seHash = FileHash (Join-Path $GameDir 'BepInEx\plugins\000shcdese\SHCDESE.dll')
     if ((One 'CORE_BINARY').Detail -cne "sha256=$coreHash" -or (One 'SE_BINARY').Detail -cne "sha256=$seHash") { throw 'Core/SE binaries differ from tested startup.' }
 }
-if ($Mode -ne 'Disabled') {
+if ($Mode -ne 'Disabled' -and -not $UpdateStage) {
     $post = One 'POST_CLEANUP_RENDER'
     if ($post.Detail -notmatch '^original Unity component destroyed; distinct render frames=(\d+)$' -or [int]$Matches[1] -lt 120) { throw 'Post-cleanup lifetime not proven.' }
 }
 if ($finish.Detail -notmatch ('(?:^|\s)mode=' + $Mode + '(?:\s|$)')) { throw 'Startup mode mismatch.' }
-if ($plugin.Detail -notmatch ('(?:^|\s)plugin=' + $pluginHash + '(?:\s|$)')) { throw 'Stale or unidentified plugin build in latest start.' }
+if (-not $UpdateStage -and $plugin.Detail -notmatch ('(?:^|\s)plugin=' + $pluginHash + '(?:\s|$)')) { throw 'Stale or unidentified plugin build in latest start.' }
 if ($RequireShadow -or $RequireCorrection -or $events.Marker -contains 'SHADOW_REQUIRED') {
     if ($Mode -ne 'Active') { throw 'Shadow requires Active mode.' }
-    Ordered @('READY_OBSERVED','SHADOW_REQUIRED','CHAIN_HOOK_INSTALLED','COMPATIBILITY_ENTER','SHADOW_BEGIN','SHADOW_COMPLETE','PLUGIN_AWAKE','CHAIN_COMPLETE')
+    $required=@('READY_OBSERVED','SHADOW_REQUIRED','CHAIN_HOOK_INSTALLED','COMPATIBILITY_ENTER','SHADOW_BEGIN','SHADOW_COMPLETE')
+    if(-not $UpdateStage){$required+=@('PLUGIN_AWAKE','CHAIN_COMPLETE')};Ordered $required
     $summary = One 'SHADOW_COMPLETE'
     if ($summary.Detail -notmatch '^candidates=(\d+) original=(\d+) added=(\d+) dependencies=(\d+) issuesBefore=(\d+) issuesAfter=(\d+) originalUnchanged=True$') { throw 'Invalid shadow summary.' }
     $counts = @(1..6 | ForEach-Object { [int]$Matches[$_] })
@@ -98,7 +109,8 @@ if ($RequireCorrection -or $events.Marker -contains 'CORRECTION_MODE') {
     if ($correctionMode -notin @('Enabled','Disabled')) { throw 'Invalid correction mode.' }
     if ($RequireCorrection -and $correctionMode -ne 'Enabled') { throw 'Correction was not enabled.' }
     if ($events.Marker -contains 'CORRECTION_FALLBACK') { throw 'Correction fell back to original index.' }
-    Ordered @('SHADOW_REQUIRED','CORRECTION_MODE','COMPATIBILITY_ENTER','SHADOW_COMPLETE','ORIGINAL_RESULT','PLUGIN_AWAKE')
+    $required=@('SHADOW_REQUIRED','CORRECTION_MODE','COMPATIBILITY_ENTER','SHADOW_COMPLETE','ORIGINAL_RESULT')
+    if(-not $UpdateStage){$required+='PLUGIN_AWAKE'};Ordered $required
     $result = One 'ORIGINAL_RESULT'
     if ($result.Detail -notmatch '^issues=(\d+) expected=(\d+) correction=(True|False)$') { throw 'Invalid original result.' }
     $actualCount=[int]$Matches[1]; $expectedCount=[int]$Matches[2]; $applied=$Matches[3] -eq 'True'
@@ -107,6 +119,9 @@ if ($RequireCorrection -or $events.Marker -contains 'CORRECTION_MODE') {
     if ($actualCount -ne $expectedCount -or $actualCount -ne $issues.Count -or $applied -ne ($correctionMode -eq 'Enabled')) { throw 'Original result mismatch.' }
     foreach($event in $issueEvents) { if($event.Line -le (One 'SHADOW_COMPLETE').Line -or $event.Line -ge $result.Line) { throw 'Original issue outside return phase.' } }
     if ($applied) {
+        $forecast=@($dependencies|Where-Object shadowIssue -eq $true|ForEach-Object { $_.consumer+'|'+$_.dependency }|Sort-Object)
+        $returned=@($issues|ForEach-Object { $_.consumer+'|'+$_.dependency }|Sort-Object)
+        if(($forecast -join "`n") -cne ($returned -join "`n")){throw 'Original errors do not match predicted consumer/dependency pairs.'}
         Ordered @('SHADOW_COMPLETE','CORRECTION_PREPARED','CORRECTION_APPLIED','ORIGINAL_RESULT')
         if ((One 'CORRECTION_PREPARED').Detail -cne "original=$($counts[1]) effective=$($counts[1]+$counts[2]) added=$($counts[2]) expectedIssues=$($counts[5])" -or (One 'CORRECTION_APPLIED').Detail -cne "effective=$($counts[1]+$counts[2])" -or $actualCount -ne $counts[5]) { throw 'Effective correction counters mismatch.' }
         $receipt=Get-Content -Raw -LiteralPath (Join-Path $ExpectedArtifactRoot 'trial\expectations.json')|ConvertFrom-Json
@@ -121,6 +136,7 @@ if ($RequireCorrection -or $events.Marker -contains 'CORRECTION_MODE') {
         }
         }
         foreach($pair in $receipt.ResolvedPairs) {
+            if($RequireLifecycle -and $pair.consumer -cnotin $candidates.guid){continue}
             $hits=@($dependencies|Where-Object { $_.consumer -ceq $pair.consumer -and $_.dependency -ceq $pair.dependency -and $_.originalIssue -and -not $_.shadowIssue })
             if($hits.Count -ne 1 -or @($issues|Where-Object { $_.consumer -ceq $pair.consumer -and $_.dependency -ceq $pair.dependency }).Count) { throw 'Known false warning was not corrected.' }
         }
@@ -146,10 +162,11 @@ if($RequireLifecycle){
     $id=$Matches[1];if($seen.ContainsKey($id)){throw 'Repeated lifecycle identity.'};$seen[$id]=$true
     $snapshotPath=Join-Path (Split-Path $LifecycleReportPath) ('DependencyBootstrapProbe.lifecycle.'+$id+'.json')
     $report=Get-Content -LiteralPath $snapshotPath -Raw|ConvertFrom-Json
+    $effectivePaths=if($report.PSObject.Properties.Name -contains 'EffectivePaths'){@($report.EffectivePaths)}else{@($report.WorkshopPaths)}
     if($report.Schema -ne 1 -or $report.Complete -isnot [bool] -or -not $report.Complete -or $report.RemovalAuthorized -isnot [bool] -or $report.RemovalAuthorized -or @($report.Errors).Count){throw 'Incomplete or unsafe lifecycle report.'}
-    if($report.RunId -cne $id -or $reportEvent.Detail -cne "run=$id sha256=$(FileHash $snapshotPath) complete=True" -or $pathEvent.Detail -cne "run=$id count=$(@($report.WorkshopPaths).Count)" -or $stageEvent.Detail -cne "run=$id before deployment decision"){throw 'Lifecycle report is not bound to this run.'}
+    if($report.RunId -cne $id -or $reportEvent.Detail -cne "run=$id sha256=$(FileHash $snapshotPath) complete=True" -or $pathEvent.Detail -cne "run=$id count=$($effectivePaths.Count)" -or $stageEvent.Detail -cne "run=$id before deployment decision"){throw 'Lifecycle report is not bound to this run.'}
     if($report.PatcherSHA256 -cne $patcherHash -or $report.PluginSHA256 -cne $pluginHash -or $report.CoreSHA256 -cne $coreHash -or $report.ExtenderSHA256 -cne $seHash){throw 'Lifecycle build mismatch.'}
-    if(@($report.Maps).Count -ne @($report.WorkshopPaths).Count -or @($report.Owners).Count -ne $candidates.Count -or @($report.Owners|Group-Object Guid|Where-Object Count -gt 1).Count){throw 'Lifecycle inventory incomplete.'}
+    if(@($report.Maps).Count -ne $effectivePaths.Count -or @($report.Owners).Count -ne $candidates.Count -or @($report.Owners|Group-Object Guid|Where-Object Count -gt 1).Count){throw 'Lifecycle inventory incomplete.'}
     foreach($owner in $report.Owners){
         $candidate=@($candidates|Where-Object guid -ceq $owner.Guid)
         if($candidate.Count -ne 1 -or $candidate[0].version -cne $owner.Version -or $candidate[0].path -ine $owner.Path){throw 'Lifecycle owner differs from selected inventory.'}
@@ -160,5 +177,17 @@ if($RequireLifecycle){
     }
     if((FileHash $LifecycleReportPath) -cne (FileHash $snapshotPath)){throw 'Latest lifecycle report does not match final invocation.'}
 }
+if($RequirePair -or $events.Marker -contains 'PAIR_PREPARED'){
+    Ordered @('READY_OBSERVED','PAIR_PREPARED','CHAIN_PREPARE','SNAPSHOT','PAIR_BOUND','BEFORE_EXTENDER','CORRECTION_APPLIED')
+    $manifest=Join-Path $GameDir 'BepInEx/plugins/DependencyBootstrapProbe_Serp/dependency-bootstrap-pair.json'
+    $pair=Get-Content -LiteralPath $manifest -Raw|ConvertFrom-Json
+    if($pair.Schema -ne 1 -or $pair.Guid -cne 'DependencyBootstrapProbe_Serp' -or $pair.RuntimeSHA256 -cne $pluginHash.ToLowerInvariant() -or $pair.BootstrapSHA256 -cne $patcherHash.ToLowerInvariant()){throw 'Pair identities differ from current build.'}
+    if((One 'PAIR_PREPARED').Detail -cne ('manifest='+ (FileHash $manifest))){throw 'Pair manifest differs from startup.'}
+    $own=@($candidates|Where-Object guid -ceq $pair.Guid)
+    if($own.Count -ne 1 -or $own[0].version -cne $pair.Version -or [IO.Path]::GetFullPath($own[0].path) -ine [IO.Path]::GetFullPath((Join-Path $RecordedGameDir $pluginPath))){throw 'Wrong selected pair provider.'}
+    if((One 'PAIR_BOUND').Detail -cne ('guid='+$pair.Guid+' version='+$pair.Version+' runtime='+$pluginHash)){throw 'Pair winner binding mismatch.'}
+    if($events.Marker -contains 'PAIR_REJECTED'){throw 'Pair rejected.'}
+    Write-Host 'PASS: complete package and actual selected provider bound before correction.'
+}
 Write-Host "PASS: $Mode probe markers and exact build identities in latest session."
-Write-Host 'Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.'
+if($UpdateStage){Write-Host 'Staging-phase markers only: no completion/menu proof; validate exact staged payload before accepting original dialog.'}else{Write-Host 'Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.'}

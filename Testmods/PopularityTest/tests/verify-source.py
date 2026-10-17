@@ -62,7 +62,7 @@ for file in root.rglob('*'):
     if file.suffix in ['.cs','.csproj'] and 'tests' not in file.relative_to(root).parts:
         text=body.decode('utf-8-sig')
         assert not re.search(r'Newtonsoft|System\.Text\.Json|JsonUtility|JavaScriptSerializer|Assembly-CSharp-publicized|\b(?:OnDestroy|OnDisable|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(',text), str(file)
-snapshot=json.loads(read(root/'tests/dependency-before.json'))
+snapshot=json.loads(read(root/'tests/dependency-display-before.json'))
 def state(folder):
     files={p for p in folder.iterdir() if p.is_file() and not p.name.startswith('.')}
     if folder == workspace/'APIShared':

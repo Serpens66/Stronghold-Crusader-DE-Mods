@@ -107,7 +107,7 @@ exit /b 0
     & $traceDriver
     Assert-Install ($LASTEXITCODE -eq 0 -and [IO.File]::GetLastWriteTimeUtc($traceConfig) -eq $writeTime) 'Identical trace settings were rewritten'
     # Parse every adapted PowerShell installer under Windows PowerShell 5.1.
-    foreach ($relative in @('APIShared/tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Testmods/MoatMove/tests/Install-Package.ps1','Testmods/DependencyBootstrapProbe/Build.ps1','Testmods/PopularityTest/install.ps1','Testmods/SavegameMissingMapFixTest/verify-installed.ps1','Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1')) {
+    foreach ($relative in @('APIShared/tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Testmods/MoatMove/tests/Install-Package.ps1','Testmods/DependencyBootstrapProbe/Build.ps1','Testmods/PopularityTest/install.ps1','Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1')) {
         $path = Join-Path $Workspace $relative
         $key = $relative -replace '^APIShared/', ''
         $text = Convert-BranchPowerShell ([IO.File]::ReadAllText($path)) $key '_dev'

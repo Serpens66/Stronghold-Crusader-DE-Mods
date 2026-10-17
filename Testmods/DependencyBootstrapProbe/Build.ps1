@@ -1,14 +1,15 @@
-param([switch]$NoInstall, [switch]$CorrectionTrial, [switch]$LifecycleObservation)
+param([switch]$NoInstall, [switch]$CorrectionTrial, [switch]$LifecycleObservation, [switch]$LocalUpdate)
 $ErrorActionPreference = 'Stop'
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+if($LocalUpdate){$LifecycleObservation=$true;. (Join-Path $PSScriptRoot 'tools/ProbeContinuation.ps1');. (Join-Path $PSScriptRoot 'tools/UpdateTrialPackage.ps1');Assert-LocalUpdateTargets $game}
 if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { throw 'Close the game before building/installing.' }
 if($LifecycleObservation -and $CorrectionTrial){throw 'Lifecycle observation does not reinstall control errors.'}
 $backup=$null
 if($LifecycleObservation -and -not $NoInstall){
     . (Join-Path $PSScriptRoot 'tools/ProbeContinuation.ps1')
     $backup=Join-Path $workspace ('_inspect/DependencyBootstrapProbe/lifecycle-runtime/backup-'+[guid]::NewGuid().ToString('N'))
-    New-ProbeContinuation $PSScriptRoot $game (Join-Path $workspace '_inspect/DependencyBootstrapProbe/Correction-accepted-20261016-2154') $backup
+    New-ProbeContinuation $PSScriptRoot $game (Join-Path $workspace '_inspect/DependencyBootstrapProbe/Pair-accepted-20261017-161346') $backup
     Write-Host "Probe backup: $backup"
 }
 if ($CorrectionTrial) {
@@ -17,13 +18,14 @@ if ($CorrectionTrial) {
     if (-not $NoInstall -and (Test-Path -LiteralPath (Join-Path $game 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp'))) { throw 'Control target already exists; preserve it.' }
 }
 & (Join-Path $PSScriptRoot 'verify.ps1')
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-SharedBoundaries.ps1') -ModDirectory 'Testmods\DependencyBootstrapProbe'
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-SharedBoundaries.ps1') -ModDirectory 'Testmods\DependencyBootstrapProbe' -IndependentRuntime
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-DependencyMetadata.ps1') -ProjectFiles (Join-Path $PSScriptRoot 'DependencyBootstrapProbe.csproj')
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
+# SharedBoundaries above checks this mod's permanent hooks; no unrelated workspace suite.
 & (Join-Path $PSScriptRoot 'tests\Run-Tests.ps1')
 & (Join-Path $PSScriptRoot 'tests\Test-LogChecker.ps1')
 & (Join-Path $PSScriptRoot 'tests\Test-Continuation.ps1')
-& (Join-Path $PSScriptRoot 'tests\Test-PackageLifecycle.ps1')
+if($LocalUpdate){& (Join-Path $PSScriptRoot 'tests/Test-UpdateStaging.ps1')}
+if(-not $LocalUpdate){& (Join-Path $PSScriptRoot 'tests\Test-PackageLifecycle.ps1')}
 $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
 foreach ($project in @('DependencyBootstrapProbe.Patcher.csproj','DependencyBootstrapProbe.csproj')) {
     & $msbuild (Join-Path $PSScriptRoot $project) /nologo /verbosity:minimal /p:Configuration=Release
@@ -33,6 +35,14 @@ if (-not $NoInstall -and -not $LifecycleObservation) { & (Join-Path $PSScriptRoo
 $plugin = 'BepInEx\plugins\DependencyBootstrapProbe_Serp'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Destination (Join-Path $PSScriptRoot "$plugin\info.json") -Force
 $files = @('BepInEx\patchers\DependencyBootstrapProbe.Patcher.dll', "$plugin\DependencyBootstrapProbe.dll", "$plugin\info.json")
+. (Join-Path $PSScriptRoot 'package/Pair.ps1')
+$metadata=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Raw|ConvertFrom-Json
+$pair=[ordered]@{Schema=1;Guid=$metadata.GUID;Version=$metadata.Version;RuntimeSHA256=Get-ProbeHash (Join-Path $PSScriptRoot "$plugin/DependencyBootstrapProbe.dll");BootstrapSHA256=Get-ProbeHash (Join-Path $PSScriptRoot 'BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll')}
+$pairRelative="$plugin/dependency-bootstrap-pair.json"
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot $pairRelative),($pair|ConvertTo-Json))
+$null=Read-ProbePair $PSScriptRoot
+$files+=$pairRelative
+if($LocalUpdate){$updateRoot=New-LocalUpdatePackage $PSScriptRoot $game $msbuild}
 if ($CorrectionTrial) {
     $control = 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp\info.json'
     $files += $control
@@ -52,4 +62,5 @@ foreach ($relative in $files) {
     }
 }
 if($backup){& (Join-Path $PSScriptRoot 'Set-ProbeMode.ps1') -Mode Active -Correction -ContinuationRoot $backup}
+if($LocalUpdate -and -not $NoInstall){Install-LocalUpdateRequest $PSScriptRoot $game $updateRoot}
 Write-Host "Correction-capable probe built. Installed=$(-not $NoInstall). Game/Mono feasibility still requires a full game start."

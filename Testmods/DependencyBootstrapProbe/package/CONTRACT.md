@@ -18,7 +18,7 @@ file handle for deletion, rejecting reparse points, directories and multiple lin
 The pair describes consistency, not publisher authentication. Unknown fields,
 invalid versions/hashes, partial copies, mismatched winners or loaded identities
 reject activation. Original installed hooks and their settings are not changed.
-The runtime activation adapter is not implemented by this offline PowerShell code.
+The installed runtime adapter now lives in patcher/Package. It independently validates the same fixed schema using Shared.DependencyFreeJson, rejects competing bootstrap identities, and binds the actual Chainloader winner before allowing correction. Pair plus the build-bound switch are both required. Runtime tests execute this C# code; PowerShell removal remains fixture-only.
 
 Deletion is restricted in code to descendants of the workspace evidence directory
 _inspect/DependencyBootstrapProbe/lifecycle-implementation. That restriction must

@@ -1,6 +1,8 @@
 @echo off
 setlocal EnableExtensions
-rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+rem Explicit user-selected working sources; default branch menu remains available.
+for %%A in (%*) do if /I "%%~A"=="/working" goto :shcde_branch_selected
+rem SHCDE_BRANCH_DISPATCH: default committed branch build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
 if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Testmods/PopularityTest/build.bat" %*

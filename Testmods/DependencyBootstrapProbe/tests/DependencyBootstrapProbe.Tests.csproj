@@ -16,6 +16,9 @@
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\AssemblyInfo.cs" />
+    <Compile Include="..\ProbeVersion.cs" />
+    <Compile Include="..\patcher\UpdateTrial\LocalUpdateTrial.cs" />
+    <Compile Include="UpdateTrialTests.cs" />
     <Compile Include="..\patcher\ShadowInventory.cs" />
     <Compile Include="..\patcher\ShadowRuntime.cs" />
     <Compile Include="..\..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
@@ -23,6 +26,10 @@
     <Compile Include="..\ProbeTrace.cs" />
     <Compile Include="..\patcher\DependencyBootstrapPatcher.cs" />
     <Compile Include="..\patcher\HookRuntime.cs" />
+    <Compile Include="..\patcher\Package\PairContract.cs" />
+    <Compile Include="..\patcher\Package\PairActivation.cs" />
+    <Compile Include="..\patcher\Package\PairDiagnostics.cs" />
+    <Compile Include="PairTests.cs" />
     <Compile Include="..\patcher\Lifecycle\LifecycleHook.cs" />
     <Compile Include="..\patcher\Lifecycle\LifecycleCapture.cs" />
     <Compile Include="..\patcher\Lifecycle\LifecycleOwnership.cs" />

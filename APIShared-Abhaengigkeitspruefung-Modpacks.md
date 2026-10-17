@@ -1,5 +1,74 @@
 # APIShared: frühe Abhängigkeitsprüfung für Modpack-Module
 
+## Lokaler Extender-Paketwechsel: vorbereiteter Versuch (17.10.2026)
+
+Build/Installation abgeschlossen: A 0.1.1 ist installiert, B 0.1.2 liegt ausschließlich
+unter `Testmods/DependencyBootstrapProbe/update-trial` bereit. Der installierte
+Extender hat das echte Archiv gelesen; seine originale Versionsentscheidung erkennt
+A -> B und lehnt B -> B ab. Alle relevanten Probeprüfungen bestanden. Die 96
+unveränderten Dateilebenszyklusfälle wurden nicht wiederholt. APIShared und Updater
+sind hashgleich zum Ausgangsstand. Hashnachweis: `_inspect/DependencyBootstrapProbe/local-update/installation.json`.
+Der echte Austausch und der anschließende B-Spielstart sind ausdrücklich noch offen.
+
+Der gemeinsame Quellenprüfer besitzt nun den expliziten Modus IndependentRuntime:
+er benötigt einen Modpfad und lehnt deklarierte APIShared-Referenzen/Quelllinks ab.
+Damit blockiert ein unabhängiger APIShared-Befund diese Probe nicht; der normale
+Prüfumfang bleibt unverändert. Bei dieser Arbeit wurde APIShared nicht bearbeitet.
+
+Der Paarbindungslauf vom 17.10.2026 16:13:46.761 ist bestanden und unter
+`_inspect/DependencyBootstrapProbe/Pair-accepted-20261017-161346` samt Prüfergebnis,
+Originalberichten, Logs und Hashliste archiviert. 20 Gewinner, zehn Ergänzungen,
+sechs Anforderungen, Fehler 1 -> 0, zwei Lifecycle-Aufnahmen und Post-Cleanup.
+Die Nutzerbestätigung des abgeschlossenen Starts bleibt getrennt vom Lognachweis.
+
+Der nächste Versuch prüft ausschließlich den echten Extender-Dateiaustausch:
+A 0.1.1 -> B 0.1.2. Beide ausführbaren Pakete haben dieselbe Implementierung;
+die Versionsdifferenz ist ausschließlich für diesen Updateversuch erforderlich.
+Der optionale Adapter kopiert die vom originalen Workshop-Aufruf gelieferte Liste
+und ergänzt einen festen Workspace-Pfad. Originalabfrage und Originalliste bleiben
+erhalten. Auftrag, beide freigegebenen DLL-Paare und Map-Hash müssen passen.
+Reale und künstliche Pfade werden getrennt erfasst; der Testpfad begründet keine
+Abonnement-, Eigentums- oder Löschberechtigung. Finish bleibt unverändert.
+
+Das lokale B-Archiv enthält ausschließlich Runtime, Bootstrap, info.json,
+Paarmanifest und zwei für B gebundene Schalter. Ein eigener künstlicher
+`_SE/DependencyBootstrapProbeLocalTrial.json` stellt den Ausgangsstand A dar.
+Dieser Aufbau testet weder Steam-Downloads noch automatische Bootstrap-Entfernung.
+APIShared und die installierten Extender-Updaterskripte bleiben unverändert.
+
+Ablauf: Start mit A; am ursprünglichen Update-/Neustartdialog warten, noch nicht
+bestätigen. `Check-UpdateTrial.ps1 -Phase Stage` muss genau die sechs B-Dateien
+und den eigenen Verwaltungsdatensatz nachweisen, ohne fremde Dateien oder
+Löschaufträge. Dieser absichtlich unterbrochene Start benötigt keinen Menümarker.
+Erst nach Prüfung den Originaldialog bestätigen. Nach Neustart Menü bedienen;
+`-Phase After` prüft B, Paarbindung, Korrektur, leeres Staging und Post-Cleanup.
+Kein Save-Test und kein zusätzlicher unveränderter Start erforderlich.
+
+Nach erfolgreicher Abnahme und geschlossenem Spiel entfernt
+`Finish-UpdateTrial.ps1 -Apply` nur den unveränderten eigenen Verwaltungsdatensatz
+und Versuchsauftrag; ohne Apply erfolgt nur Vorschau. Die funktionierende Probe
+bleibt installiert. Bis dahin den festen Ordner `update-trial/remote` erhalten.
+Automatische Entfernung bleibt offen; Desktopprüfungen ersetzen den Spielversuch nicht.
+
+
+## Aktuell: Paketbindung ausschließlich in der Probe (17.10.2026)
+
+Der Lifecycle-Lauf von 15:29:51 besteht den korrigierten Offline-Logprüfer:
+20 Gewinner, zehn Ergänzungen, sechs Anforderungen, ein Fehlalarm beseitigt;
+zwei vollständige Zustandsaufnahmen, keine Updates oder Löschaufträge.
+Die historische Erwartung eines inzwischen entfernten Testverbrauchers ist
+im Lifecycle-Modus korrigiert; vorhandene Anforderungen bleiben verpflichtend.
+
+Die eigenständige C#-Paarbindung ist getestet, gebaut und ausschließlich als Probe
+installiert. Sie bindet feste Paketpfade und beide DLL-Hashes vor der Hookinstallation
+sowie den tatsächlichen Gewinner nach der Chainloader-Auswahl. Die Korrektur benötigt
+zusätzlich den buildgebundenen Schalter. Ein eigener Spielnachweis steht noch aus.
+APIShared wurde weder geändert noch gebaut oder installiert; sein Checkout wurde
+nicht umgeschaltet. Keine automatische Bereinigung oder Updateausführung.
+Details: [Probe-Testplan](Testmods/DependencyBootstrapProbe/TESTPLAN.md).
+Die nachfolgenden datierten Abschnitte beschreiben frühere Zwischenstände.
+
+
 ## Laufende Vorbereitung: tatsächliche Extender-Zustände (17.10.2026)
 
 Die eigenständige Probe erhält eine rein beobachtende Lifecycle-Erfassung bei

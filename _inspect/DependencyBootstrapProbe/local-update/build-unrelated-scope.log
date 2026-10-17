@@ -1,0 +1,28 @@
+PASS: shadow inventory complete; 10 proposed additions; issues 1 -> 0; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: complete package and actual selected provider bound before correction.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+Probe backup: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\DependencyBootstrapProbe\lifecycle-runtime\backup-ddd7c997937146eb9fb1655202648e12
+Probe preflight passed: exact binaries, insertion sites/control-flow boundaries, references, lifecycle, CRLF.
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: Testmods\DependencyBootstrapProbe, APIShared and explicit project/source dependencies.
+[Preflight] Checking 10 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: narrow Fixes wheat startup mutation boundary (source checks only; no backend/game execution).
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 10 projects, 71 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+APIShared declares duplicate BepInEx dependency 000shcdese.
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\APIShared\tools\Validation\DependencyMetadata.Common.ps1:22 Zeichen:52
++ ... cy.GUID)) { throw "$Name declares duplicate BepInEx dependency $($dep ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (APIShared decla...ncy 000shcdese.:String) [], RuntimeException
+    + FullyQualifiedErrorId : APIShared declares duplicate BepInEx dependency 000shcdese.
+ 
