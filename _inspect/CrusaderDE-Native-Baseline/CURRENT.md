@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Minimap last-frame speech ownership](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, managed video/speech lifecycle, channel replacement defect and isolated regression limits.
+
 - [Foreign troop HUD player colors](./sem/FBCB9319/knowledge/FOREIGN_TROOP_PLAYER_COLORS.md): current owner mapping, loaded-player remapping, material tint versus UI portrait order, and pending in-game acceptance.
 
 - [Script Extender 2.14.2 source compatibility review](../../Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.review.md): music-only managed change; source baseline refresh, installed extender remains 2.14.1; runtime acceptance pending.

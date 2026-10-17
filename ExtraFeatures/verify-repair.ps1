@@ -156,11 +156,9 @@ foreach ($path in @($info)) {
 if (-not $activeVersion) {
     throw 'Plugin version is missing.'
 }
-$addedCode = & git -C $workspace diff --unified=0 -- '*.cs' '*.csproj'
-if ($LASTEXITCODE -ne 0) { throw 'Workspace diff audit failed.' }
-$addedLines = @($addedCode | Where-Object { $_ -match '^\+[^+]' }) -join "`n"
-if ($addedLines -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Apply\s*\(|\.Enable\s*\(|\.Disable\s*\(') {
-    throw 'New executable runtime mutation detected.'
-}
-Write-Host 'Repair preflight passed: binary hashes, JSON, lifecycle, hook rollback, XAML, CRLF, versions and workspace mutations.'
+# Inspect actual hook/memory contracts in this mod and its source links. A method
+# named Apply can also update ordinary data and is not evidence of a code patch.
+& (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1') -ModDirectory 'ExtraFeatures'
+if (-not $?) { throw 'ExtraFeatures executable runtime mutation audit failed.' }
+Write-Host 'Repair preflight passed: binary hashes, JSON, lifecycle, hook rollback, XAML, CRLF, versions and scoped runtime mutations.'
 & (Join-Path $project 'Test-KeepBuildRange.ps1')

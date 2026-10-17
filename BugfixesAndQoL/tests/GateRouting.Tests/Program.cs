@@ -741,7 +741,7 @@ namespace BugfixesAndQoL.GateRouting
                 "PCL-graph filter is registered");
             Assert(hooks.IndexOf("builderPrecheckCapturedByFilterHook,", StringComparison.Ordinal) >= 0,
                 "builder-precheck filter is registered");
-            Assert(hooks.IndexOf("OwnsHooks = false", StringComparison.Ordinal) >= 0,
+            Assert(hooks.IndexOf("OwnsHooks = true", StringComparison.Ordinal) >= 0,
                 "process-lifetime hook ownership is explicit");
             Assert(hooks.IndexOf("commitResult.IsCompleteSuccess", StringComparison.Ordinal) >= 0,
                 "transaction commit result is checked");
@@ -752,8 +752,9 @@ namespace BugfixesAndQoL.GateRouting
                 "RedBird spans are probed before publication");
             Assert(hooks.IndexOf("DisplacedByteCount", StringComparison.Ordinal) >= 0,
                 "committed RedBird spans are checked");
-            Assert(hooks.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) >= 0,
-                "unexpected committed spans roll back before publication");
+            Assert(hooks.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) < 0 &&
+                    hooks.IndexOf("ValidateMovement(false)", StringComparison.Ordinal) < hooks.IndexOf("NativeHookPublication.Enable(transaction, result", StringComparison.Ordinal),
+                "prepared spans are checked before publication without unpatching live hooks");
             Assert(runtimeSource.IndexOf("typeof(X64InlineHook).Assembly.GetName().Version",
                     StringComparison.Ordinal) >= 0 &&
                     runtimeSource.IndexOf("new Version(1, 1, 0, 0)",
@@ -1599,7 +1600,7 @@ namespace BugfixesAndQoL.GateRouting
             Assert(hooks.IndexOf("aiTacticalTarget = AddDetour", StringComparison.Ordinal) >= 0 &&
                     hooks.IndexOf("for (int index = 0; index < tacticalEdgeHooks.Length; index++)",
                         StringComparison.Ordinal) >= 0 &&
-                    hooks.IndexOf("!aiTacticalTarget.Committed", StringComparison.Ordinal) >= 0,
+                    hooks.IndexOf("!aiTacticalTarget.Matches(installed)", StringComparison.Ordinal) >= 0,
                 "AI tactical scope and all three adapters are members of the atomic hook transaction");
             string filter = ExtractMethodBody(runtime, "FilterAiTacticalTarget");
             Assert(filter.IndexOf("NativeTribeRecordStride", StringComparison.Ordinal) >= 0 &&

@@ -82,6 +82,10 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
 ) else goto build_failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
+echo [%date% %time%] Cost ownership regression tests
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared.Tests\CostOverrides\Run-Tests.ps1" -GameDir "%GAME_DIR%" -MSBuild "%MSBUILD%"
+if errorlevel 1 goto build_failed
+
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\ExtraFeaturesNativeTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%"

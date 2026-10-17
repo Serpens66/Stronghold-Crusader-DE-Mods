@@ -7,8 +7,11 @@ param(
 )
 . (Join-Path $PSScriptRoot 'BranchBuild.Common.ps1')
 try {
+    $Repository = [IO.Path]::GetFullPath($Repository).TrimEnd('\','/')
     $branch = Get-BranchChoice $DriverArguments
-    $null = Invoke-SelectedBranchBuild -Repository $Repository -Driver $Driver -Branch $branch -DriverArguments $DriverArguments -ControllerRoot $Repository -Api:$Api
+    $working = $branch -eq 'working'
+    $source = if ($working) { New-WorkingSource $Repository } else { $null }
+    $null = Invoke-SelectedBranchBuild -Repository $Repository -Driver $Driver -Branch $branch -DriverArguments $DriverArguments -ControllerRoot $Repository -Api:$Api -SourceSelection $source
     exit 0
 } catch {
     Write-BranchMessage ('ERROR: ' + $_.Exception.Message)

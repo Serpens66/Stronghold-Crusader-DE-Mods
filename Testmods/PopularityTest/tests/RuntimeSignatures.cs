@@ -21,6 +21,10 @@ internal static class RuntimeSignatures
             var project = XDocument.Load(Path.Combine(mod, "PopularityTest.csproj")); XNamespace ns = project.Root.Name.Namespace;
             var trees = project.Descendants(ns + "Compile").Select(e => Path.GetFullPath(Path.Combine(mod, (string)e.Attribute("Include"))))
                 .Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), path: p)).ToList();
+            string apiRoot=Path.GetFullPath(Path.Combine(mod, "../../APIShared"));
+            foreach (var path in Directory.GetFiles(Path.Combine(apiRoot,"src/ScriptExtenderFixes/Popularity"),"*.cs"))
+                trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(path), path:path));
+            string sdk=Environment.GetEnvironmentVariable("SHCDE_API_SHARED_DIR") ?? Path.Combine(apiRoot,"BepInEx/plugins/APIShared_Serp");
             var paths = new HashSet<string>(Directory.GetFiles(framework, "*.dll", SearchOption.AllDirectories).Where(p => {
                 using var stream = File.OpenRead(p); using var pe = new PEReader(stream);
                 return pe.HasMetadata && pe.GetMetadataReader().IsAssembly;
@@ -29,7 +33,7 @@ internal static class RuntimeSignatures
             {
                 string hint = (string)reference.Element(ns + "HintPath"); if (hint == null) continue;
                 hint = hint.Replace("$(GameDir)", game).Replace("$(ExtenderDir)", game + "/BepInEx/plugins/000shcdese")
-                    .Replace("$(ApiSharedDir)", game + "/BepInEx/plugins/APIShared_Serp");
+                    .Replace("$(ApiSharedDir)", sdk);
                 Check(File.Exists(hint), "Missing reference: " + hint); paths.Add(Path.GetFullPath(hint));
             }
             var compilation = CSharpCompilation.Create("PopularityTest.Preflight", trees,
@@ -51,7 +55,7 @@ internal static class RuntimeSignatures
             string xaml = File.ReadAllText(Path.Combine(mod, "Override/ScriptExtenderUI/PopularitySettings.xaml"));
             foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(xaml, @"\{Binding ([A-Za-z_][A-Za-z0-9_]*)"))
                 Check(names.Contains(match.Groups[1].Value), "Missing XAML binding: " + match.Groups[1].Value);
-            Console.WriteLine("PASS: all production sources and XAML bindings against installed SE/APIShared 0.9.2 and true game assembly; no runtime DLL emitted.");
+            Console.WriteLine("PASS: all production sources and XAML bindings against installed SE/selected APIShared SDK and true game assembly; no runtime DLL emitted.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

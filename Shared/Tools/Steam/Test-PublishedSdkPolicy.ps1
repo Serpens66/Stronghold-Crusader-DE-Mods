@@ -1,7 +1,8 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/frozen-sdk-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedSdkPolicy'
 [void][IO.Directory]::CreateDirectory((Join-Path $fixture 'tools'))
 $checks=0
 function Check($Ok,$Message){if(-not $Ok){throw $Message};$script:checks++}

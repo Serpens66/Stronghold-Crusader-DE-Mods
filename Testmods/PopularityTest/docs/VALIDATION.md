@@ -2,13 +2,11 @@
 
 ## Dependency contract
 
-Use the existing installed APIShared 0.9.2 assembly, SHA-256
-`4EF262A5F69F16EF6B6E5238606F5013B6400B83D2F8C354E5C53F4EFDD52BC1`.
-This is the explicitly requested exception to the development consumer-package
-selection. The project validates that identity, does not build APIShared, and
-does not package or copy any dependency DLL. `tests/dependency-before.json` records
-the initial installed files and local APIShared sources/package. Verification
-compares these unchanged snapshots before and after installation.
+The testmod now consumes the local APIShared development package (minimum 0.10.0).
+An explicit `ApiSharedDir`/`SHCDE_API_SHARED_DIR` may select another compatible package.
+It never packages APIShared. Display correction belongs to APIShared ScriptExtenderFixes;
+settings, presets and owned simulation overrides remain in this mod. Earlier dependency
+snapshots below describe completed historical tasks, not a permanent SDK pin.
 
 ## Automated checks
 
@@ -26,9 +24,10 @@ zero/negative overrides, map-boundary restoration, duplicate checkpoints, rollba
 and foreign overlay retention. These fixtures do not replace installed-assembly
 type checks or prove actual Steam delivery.
 
-The canonical build/install entry is `build.bat /nopause`. It runs preflight,
-requires the game to be closed, builds only PopularityTest, installs only its own
-plugin directory, verifies installed file hashes and rechecks dependencies.
+Use `build.bat /working /nopause /noinstall` to verify/build this working tree without
+installation. Without `/noinstall`, the driver installs only this mod and checks that
+the game is closed. The APIShared development package must already be built.
+The automatic report regression suite now lives independently in APIShared/tests/PopularityDisplay.Tests.
 
 ## In-game acceptance still required
 
@@ -36,9 +35,8 @@ plugin directory, verifies installed file hashes and rechecks dependencies.
   inactive grey sliders, preset loading/saving and reset.
 - New game and editor: default checkboxes cause no overrides. Activate one source
   before a new map; confirm its component report matches the chosen point value.
-- Check `POPULARITY_BOOT`, `POPULARITY_READY`, `POPULARITY_SESSION` and a later
-  `POPULARITY_CALLBACK` in LogOutput.log; inspect errors rather than treating READY
-  alone as a surviving runtime.
+- Check `POPULARITY_BOOT`, compact `POPULARITY_SESSION`/`POPULARITY_END` and APIShared
+  `SE_POPULARITY_DISPLAY` when non-Vanilla values are active; inspect errors.
 - Test ration/no-food branches, all tax and coverage tiers, signed religion/ale
   values and fear-factor multiplication. Negative religion retains the SE's
   unsigned auxiliary religion counter behavior; its meaning remains unconfirmed.
@@ -49,7 +47,7 @@ plugin directory, verifies installed file hashes and rechecks dependencies.
   effective settings, late join, map transition and saved-game restoration. No
   real multiplayer pass may be inferred from the preset fixture.
 
-## Display correction verification (2026-10-17)
+## Historical testmod display verification (2026-10-17, before transfer)
 
 The previous build's correct simulation parameters did not update Vanilla's
 independent report calculation. The new presentation adapter registers at

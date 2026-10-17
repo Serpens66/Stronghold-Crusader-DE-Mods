@@ -10,6 +10,25 @@ namespace BugfixesAndQoL.SavegameMissingMap
         private static void Require(bool value, string reason) { if (!value) throw new Exception(reason); }
         internal static void Run(string game)
         {
+            // Chainloader's static initializer needs BepInEx paths even in a desktop test.
+            // Keep its config/cache writes in the fixture, never in the game installation.
+            string host = TestWorkDirectory.New("SavegameMissingMapHost");
+            typeof(BepInEx.Paths).GetMethod("SetExecutablePath", BindingFlags.Static | BindingFlags.NonPublic)
+                .Invoke(null, new object[] { Path.Combine(host, "Fixture.exe"), Path.Combine(host, "BepInEx"),
+                    Path.Combine(game, "Stronghold Crusader Definitive Edition_Data", "Managed"), new string[0] });
+            // Exercise the real entry, including the Chainloader lookup and one-shot guard.
+            // A null logger deliberately checks that a failed skip diagnostic cannot escape.
+            var plugins = BepInEx.Bootstrap.Chainloader.PluginInfos;
+            plugins.Add(SavegameMissingMapFeature.LegacyGuid, null);
+            try
+            {
+                SavegameMissingMapFeature.Initialize(null, () => { throw new Exception("Recovery predicate evaluated during skip."); });
+                Require(!SavegameFix.Enabled && SavegameFix.RestartConfirmation == null, "Legacy conflict reached hook initialization.");
+            }
+            finally { plugins.Remove(SavegameMissingMapFeature.LegacyGuid); }
+            SavegameMissingMapFeature.Initialize(null, () => true);
+            Require(!SavegameFix.Enabled && SavegameFix.RestartConfirmation == null, "Skipped feature retried installation in the same process.");
+            Console.WriteLine("PASS: actual feature entry skips legacy plugin once and survives logger failure.");
             int installs = 0, skipLogs = 0;
             SavegameMissingMapFeature.InitializeUnlessLegacy(true, () => installs++, message => { skipLogs++; throw new IOException("logger"); });
             Require(installs == 0 && skipLogs == 1, "Legacy plugin conflict installed duplicate hooks or failed on logger.");
@@ -20,7 +39,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
             var memoryAssembly = Assembly.Load(File.ReadAllBytes(Path.Combine(managed, "Assembly-CSharp.dll")));
             Require(string.IsNullOrEmpty(memoryAssembly.Location), "Regression fixture must have an empty assembly location.");
             Require(File.Exists(RuntimeStartup.ValidateGameAssembly(managed)), "Installed assembly validation failed with a byte-loaded game assembly.");
-            string scratch = Path.Combine(Path.GetTempPath(), "SavegameMissingMapFixTest-" + Guid.NewGuid().ToString("N"));
+            string scratch = TestWorkDirectory.New("SavegameMissingMapFixTes");
             Directory.CreateDirectory(scratch);
             try
             {

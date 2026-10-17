@@ -102,6 +102,24 @@ specific documentation commit if only that correction is needed. Avoid copying e
 files over branch-specific edits. Likewise, prepare workspace instruction changes
 separately and defer their application until the active workspace chats are finished.
 
+## Durable rules and dated working-state observations
+
+The repository AGENTS.md rules distinguish supported contracts from replaceable
+implementation details. Apply that distinction to workflow code, tests and docs:
+use source-of-truth metadata and current Git observations rather than assuming
+that a private name, checkout layout, commit status or version stays unchanged.
+The documented branch policy remains policy; an observed checkout branch is a
+dated fact to verify, not a command to keep that checkout forever in that state.
+
+Local `.work/INDEX.json` records are navigation aids. Their observations of a dirty
+working tree, detached HEAD or failed build identify a time and evidence; recheck
+Git and relevant build proofs before continuing. Keep historical build records
+unchanged and update active observations when verified state changes. Protect
+needed work and evidence, including clean but unintegrated or untransferred commits;
+do not infer that an old status must still hold or that a later clean tree permits
+deletion. Review protection notes after preservation/integration is established
+and within the authorized task.
+
 ## Synchronization and conflicts
 
 In Desktop, Fetch origin/Pull origin first. Stay on `dev/Serpens66` and choose
@@ -120,7 +138,7 @@ there is no automatic update or background synchronization.
 `CreateSteamModPack.bat` retains APIShared / SerpsMods / Both and `/test`,
 `/validate`, `/nopause`. It resolves public `main` once and pins that commit for
 all targets. An isolated detached worktree is created/reused under
-`.release-output/APIShared/main/<commit>/source`. This is the explicitly approved
+`.work/b/api-main/<number>`, with the full commit in selection metadata. Existing pinned evidence retains its original path. This is the explicitly approved
 exception to the single DEVELOPMENT-checkout rule. Changed or unexpected worktrees
 are preserved and rejected, never reset or overwritten.
 

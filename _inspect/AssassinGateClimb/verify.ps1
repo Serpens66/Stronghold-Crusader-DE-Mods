@@ -31,7 +31,8 @@ foreach ($relative in $roots) {
 if (-not $?) { throw 'Workspace hook regression failed' }
 $api = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinPathAPI.cs'))
 if ($api -match '\b(transaction|endpointHooks|builderHook)\??\.Dispose\s*\(' -or
-    $api -match '\.(Enable|Disable|Undo)\s*\(' -or $api -notmatch 'if \(builderHook == pendingBuilder\) throw;') {
+    $api -match '(?<!NativeHookPublication)\.(Enable|Disable|Undo)\s*\(' -or $api -notmatch 'NativeHookPublication\.HasStarted\(pending\)' -or
+    $api -notmatch 'NativeHookPublication\.RollbackUnpublished\(pending\)') {
     throw 'Shared published hook teardown or missing unpublished rollback guard'
 }
 $main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AssassinPathfindingRuntime.cs'))
@@ -74,17 +75,18 @@ foreach ($contract in @(@('SHCDESE.API.GameUnitManagerAPI','GetUnitsAsSpan'), @(
     if ($method.Count -ne 1 -or -not $method[0].IsPublic) { throw "Installed API contract: $contract" }
     Write-Host $method[0].FullName
 }
-$installedShared = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $game 'BepInEx\plugins\APIShared_Serp\APIShared.dll'))
+$sharedAssemblyPath = if ($env:SHCDE_API_SHARED_DIR) { Join-Path $env:SHCDE_API_SHARED_DIR 'APIShared.dll' } else { Join-Path $game 'BepInEx\plugins\APIShared_Serp\APIShared.dll' }
+$installedShared = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($sharedAssemblyPath)
 $pathApi = @($installedShared.MainModule.Types | Where-Object FullName -eq 'APIShared.AssassinPathAPI')[0]
 $settingMethod = @($pathApi.Methods | Where-Object Name -eq 'SetDirectGatehouseClimbing')
 if ($settingMethod.Count -ne 1 -or -not $settingMethod[0].IsPublic -or -not $settingMethod[0].IsStatic -or
     $settingMethod[0].ReturnType.FullName -ne 'System.Void' -or $settingMethod[0].Parameters.Count -ne 2 -or
     $settingMethod[0].Parameters[0].ParameterType.FullName -ne 'System.String' -or
-    $settingMethod[0].Parameters[1].ParameterType.FullName -ne 'System.Boolean') { throw 'Installed shared climb setting contract changed' }
-Write-Host 'PASS: installed public static AssassinPathAPI.SetDirectGatehouseClimbing(string,bool).'
+    $settingMethod[0].Parameters[1].ParameterType.FullName -ne 'System.Boolean') { throw 'Selected SDK shared climb setting contract changed' }
+Write-Host ('PASS: selected SDK public static AssassinPathAPI.SetDirectGatehouseClimbing(string,bool): ' + $sharedAssemblyPath)
 Write-Host 'PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.'
 if ($CheckTestApi) {
-$apiAssembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $game 'BepInEx\plugins\APIShared_Serp\APIShared.dll'))
+$apiAssembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($sharedAssemblyPath)
 foreach ($contract in @(@('APIShared.ApiShared','WhenReady'), @('APIShared.IApiShared','TryGetMissionLifecycle'), @('APIShared.IMissionLifecycleCapability','TryRegisterObserver'))) {
     $type = @($apiAssembly.MainModule.Types | Where-Object FullName -ceq $contract[0])[0]
     $method = @($type.Methods | Where-Object Name -ceq $contract[1])

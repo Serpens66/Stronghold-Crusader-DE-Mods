@@ -199,3 +199,55 @@ Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CE
 Ordinary mode 1 initializes file 6B/image 0/command 1/detail 0. Object interactions and attacks set distinct detail values (1..6, 10..12, etc.); rejected routes use detail -10, file AC/image 41. Final kind 3 plus the accepted file/image/command pair and detail 0 classifies ordinary Move; hovered-unit identity alone does not invalidate it. Attack Here remains a separate mode even when staging a preliminary Move. Confidence: confirmed-static; visible game and multiplayer acceptance remain separate.
 
 Formation uses separate authorization from the unchanged strict queue ground policy. A candidate waits for a newer EngineInterface.run and coherent terminal-render cursor feedback at its captured anchor. The render callback can execute inside DLL_RunTick, before run returns; it uses the active run generation so immediate dragging does not miss the first confirmed anchor. A no-buffer run never reaches the terminal render callback and returns zero without advancing the completed generation. The real managed run calls preDLLCallActions then DLL_RunTick when a free buffer exists; its no-buffer path returns zero. Proof is read in the existing first tile-render callback before the render tail clears cursor kind. Later hover affects facing only. Selection/player/group/mode and map identity changes invalidate proof; unconfirmed releases remain untouched for Vanilla. Existing accepted-release consumption and per-slot placement checks remain authoritative.
+
+## 2026-10-17: infinite patrol versus extended Shift queue
+
+Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Rechecked the complete Chore-17 pack/unpack function 0x10AE0 against its current
+hash-bound dataset. Stager 0x195E30 writes parameter 5 to 0x86C1338; the handler
+serializes one byte and sign-extends it before 0x196100 -> 0x11B520. The native
+patrol field is therefore distinct from the move-type field at 0x86C133C.
+Chore 71 reaches 0x11C3A0 through 0x176C0 and writes the indexed point, point
+count and patrol mode; collapsing it to a plain queued Move loses that mode.
+The Extender source and referenced assembly agree: PatrolInfinite=1, PatrolOnce=-1.
+These data-flow findings are confirmed-static; internal function names remain
+candidate-level. Consumer regression tests execute production capture and marker
+entrypoints with boundary doubles; native gameplay and real multiplayer looping
+remain untested by those fixtures. No new native hooks were installed.
+
+
+## 2026-10-17: local formation command speech
+
+Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Confirmed-static complete command feedback chain: 195E30 enqueues Chore17 before
+selecting voice at 11A1B0, representative at 18D460, exclusions/route checks and
+busy test E0E0; its terminal 1960DC call invokes 3BC0 with dialogue manager
+64C4490. Voice selection returns EAX (the decompiled void signature is incomplete).
+Near response6 uses inclusive +/-72 on EACH axis relative to the tribe leader and
+passes the packed target tile; distant response10 and reject9 pass zero.
+Default move type excludes types22,23,39 (not type38); types40,41,61 are silent.
+Representative type30 with native unit field at public GameUnit+388 !=0 is silent.
+18D460 temporarily changes current-unit global9302C4; callers using it as a pure
+query must save/restore that scratch value. 3BC0 owns voice variants, special-type
+branches, duplicate suppression and downstream 3770/38A0 -> EDF0 -> native audio.
+
+RunTick86680 updates sound-channel inputs before render41D60; draw reset41D10 is
+at its end, before dialogue41C0, native sound handling and return-data export.
+This existing reset hook can emit local accepted-gesture feedback without staging
+another move. Formation consumes its own local release and calls group movement
+directly, bypassing 195E30 feedback; incoming synchronized commands must not emit
+that local acknowledgement on every peer. The speech callback does not certify
+that each selected unit moved. Data layouts remain canonical-hash bound.
+
+Implementation/update contract: BugfixesAndQoL/UpdateToNewDLL.md, Formation command
+speech. Offline behavior and native-contract checks are separate from pending
+audible/Mono/real multiplayer acceptance. No additional native hook is installed.
+
+Capture acquires the real private static object EngineInterface.threadLock by
+validated reflection and nonblocking Monitor.TryEnter. A busy engine omits only
+that optional response. Both the temporary 18D460 scratch write and its restore
+are inside this lock. The render-end emitter also requires Monitor.IsEntered
+on the same object. EngineInterface.run holds it around preDLLCallActions,
+DLL_RunTick and play-state copying; no new native call races the simulation.
+The offline test checks this field against the real Assembly-CSharp metadata,
+not a publicized assembly, and exercises busy/unprotected/protected cases.

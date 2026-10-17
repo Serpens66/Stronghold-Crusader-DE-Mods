@@ -1,6 +1,7 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'RepositoryProcess.Common.ps1')
-$temp=Join-Path ([IO.Path]::GetTempPath()) ('APIShared independent '+[Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$temp = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'IndependentRepository'
 $env:GIT_ALLOW_PROTOCOL='file'
 function G([string]$Root,[string[]]$Arguments){return Invoke-ApiRepositoryGit $Root $Arguments}
 function Check([bool]$Value,[string]$Message){if(-not $Value){throw $Message}}

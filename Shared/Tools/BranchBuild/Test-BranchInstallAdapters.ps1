@@ -3,7 +3,8 @@ param([string]$Workspace)
 $ErrorActionPreference = 'Stop'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
 . (Join-Path $PSScriptRoot 'BranchBuild.Common.ps1')
-$fixture = Join-Path ([IO.Path]::GetTempPath()) ('SHCDE Branch Install ' + [guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BranchInstallAdapters'
 [void][IO.Directory]::CreateDirectory($fixture)
 $game = Join-Path $fixture 'game'
 $cases = 0
@@ -115,7 +116,7 @@ exit /b 0
         Assert-Install ($errors.Count -eq 0) "Adapted PowerShell syntax failed: $relative"
     }
     Assert-Install ($adapted -match 'development-only|uses fixed main installation paths') 'Probe continuation guard missing'
-    Assert-Install ($apiBuild -match "throw 'Dependency bootstrap is development-only") 'APIShared installation gate removed'
+    Assert-Install ($apiBuild -notmatch "throw 'Dependency bootstrap is development-only") 'Obsolete APIShared development installation gate'
     Write-Host "PASS: $cases installer, patcher, publisher, guard and PowerShell syntax checks."
     Write-Host "Fixture evidence retained: $fixture"
 } catch { Write-Host "Fixture evidence retained: $fixture"; throw }

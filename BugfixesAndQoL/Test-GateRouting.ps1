@@ -16,7 +16,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Actual gate feature activation regression failed.' }
     & dotnet run --no-build --project '_inspect/GateMigrationFeatureTests' -- --config-save-fails
     if ($LASTEXITCODE -ne 0) { throw 'Config save failure broke feature orchestration.' }
-    & dotnet run --project '_inspect/AssassinDescentRuntimeTests' --no-restore
+    # A fresh isolated worktree has no NuGet assets yet.
+    & dotnet run --project '_inspect/AssassinDescentRuntimeTests'
     if ($LASTEXITCODE -ne 0) { throw 'Actual descent reader regression failed.' }
     & dotnet run --project '_inspect/TemporaryGateAcceptanceRuntimeTests' -- $root
     if ($LASTEXITCODE -ne 0) { throw 'Actual route/observer regression failed.' }

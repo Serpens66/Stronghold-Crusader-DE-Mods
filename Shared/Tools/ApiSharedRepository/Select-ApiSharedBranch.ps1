@@ -6,7 +6,7 @@ param(
 )
 # Selects the APIShared source a consumer build.bat compiles against.
 #   /apishared:main  pinned public main (release branch), isolated worktree under
-#                    .release-output/APIShared/main/<commit>/source, built with /noinstall
+#                    .work/b/api-main/<number>, built with /noinstall
 #   /apishared:dev   local development checkout APIShared/ (its current branch)
 # SHCDE_API_SHARED_BRANCH supplies the same choice for scripted builds.
 # The caller applies the result through the generated cmd file; nothing is installed here.

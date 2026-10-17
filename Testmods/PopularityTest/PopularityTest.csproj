@@ -8,7 +8,7 @@
     <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
     
-    <ApiSharedDir>$(GameDir)/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
+    <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(MSBuildThisFileDirectory)../../APIShared/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" /><Reference Include="System.Core" />
@@ -32,9 +32,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
   
-  <PropertyGroup><ApiSharedDir>$(GameDir)/BepInEx/plugins/APIShared_Serp</ApiSharedDir></PropertyGroup>
   <ItemGroup><Reference Update="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath><Private>false</Private></Reference></ItemGroup>
   <Target Name="ValidateWorkspaceApiSharedPackage" BeforeTargets="ResolveAssemblyReferences">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)verify-api.ps1&quot;" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)verify-api.ps1&quot; -ApiSharedDir &quot;$(ApiSharedDir)&quot;" />
   </Target>
-<ItemGroup><Compile Include="src/PopularityReport.cs" /><Compile Include="src/PopularityPresentation.cs" /><Compile Include="src/AssemblyInfo.cs" /><Compile Include="src/OverrideBatch.cs" /><Compile Include="src/OwnedOverride.cs" /><Compile Include="src/Plugin.cs" /><Compile Include="src/PopularityCatalog.cs" /><Compile Include="src/PopularityRuntime.cs" /><Compile Include="src/PopularitySettings.cs" /><Compile Include="../../Shared/Runtime/Localization/SerpLocalization.cs" /><Content Include="Override/**/*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content><Content Include="Locales/*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup></Project>
+<ItemGroup><Compile Include="src/AssemblyInfo.cs" /><Compile Include="src/OverrideBatch.cs" /><Compile Include="src/OwnedOverride.cs" /><Compile Include="src/Plugin.cs" /><Compile Include="src/PopularityCatalog.cs" /><Compile Include="src/PopularityRuntime.cs" /><Compile Include="src/PopularitySettings.cs" /><Compile Include="../../Shared/Runtime/Localization/SerpLocalization.cs" /><Content Include="Override/**/*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content><Content Include="Locales/*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup></Project>

@@ -2,6 +2,8 @@
 
 **Lesen, wenn:** APIShared genutzt, erweitert, getestet oder veröffentlicht wird, Dateien unter `Shared/` betroffen sind oder Mod-Abhängigkeiten/Mindestversionen geändert werden. Im APIShared-Checkout gelten zusätzlich dessen `AGENTS.md` und `CONTRIBUTING.md`. Gilt zusätzlich zur Root-`AGENTS.md`.
 
+Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlungen und Standardverhalten, keine unveränderlichen Buildregeln. Der ausdrückliche Nutzerauftrag bestimmt Quellstand, Branch, SDK, Prüfungsumfang, Buildweg und Installation. Auftragsbezogene Einschränkungen nie als allgemeine Verbote übernehmen. Technische Voraussetzungen und gültige Pfade bleiben erforderlich.
+
 ## Quellzuständigkeit
 
 - `Shared/Runtime`: nur gemeinsam quellverlinkte Hilfen unserer Mods, nach Funktion gegliedert. `Shared/Adapters/APIShared`: modseitige Adapter für die öffentliche APIShared-Assembly. `Shared/Tools`: Workspace-Werkzeuge. Details: `Shared/Docs/SOURCE_OWNERSHIP.md`.
@@ -30,7 +32,7 @@
 - `APIShared/` ist ein vom Mod-Repo ignorierter eigenständiger Checkout von https://github.com/SHCDE-APIShared/APIShared und bleibt auf `dev/Serpens66`. Persönliche dev-Branches: Experimente ohne Testpflicht; `develop`: fertige, testbereite Änderungen mit bestandenen Quellprüfungen und spielunabhängigen CLI-Tests; `main`: releasefertig mit bestandenen CLI-Tests und bei Runtime-Änderungen passenden Build-, Integrations- und Spieltests. Einfache Doku-Korrekturen dürfen direkt auf `main` und werden danach in `develop` integriert.
 - Persönliche Branches während laufender Arbeit nicht bewegen. Workflow: `Shared/Tools/ApiSharedRepository/WORKFLOW.md`; gelöschte Status-/Aktualisieren-BATs nicht wiederherstellen. APIShared und Mod-Repo unabhängig committen; kein APIShared-Quellzeiger im Mod-Repo. Neue Workspaces mit `Shared/Tools/ApiSharedRepository/Initialize-ApiShared.ps1` einrichten; vorhandene Ordner nie automatisch überschreiben. Kein automatischer Branchwechsel, Stash, Reset oder Commit im Entwicklungs-Checkout.
 - Verbraucher-Builds folgen der vom Nutzer gewünschten Quellstand-, Branch- und SDK-Auswahl. Die Branch-/SDK-Auswahl der Buildskripte ist nur der Standard ohne abweichenden Auftrag; es besteht keine allgemeine Commit- oder Branchpflicht. Details: [build-release.md](build-release.md).
-- Workshop-Vorbereitung und Upload behalten den festgehaltenen öffentlichen `main`-Stand (isolierte Release-Worktrees unter `.release-output/APIShared/main/<commit>/source` sind erlaubt). Veröffentlichte Mindestversionen bleiben unverändert.
+- Workshop-Vorbereitung und Upload behalten den festgehaltenen öffentlichen `main`-Stand (neue isolierte Release-Worktrees unter `.work/b/api-main/<laufnummer>`; bestehende gepinnte Nachweise behalten ihren bisherigen Pfad). Veröffentlichte Mindestversionen bleiben unverändert.
 - Gewünschte GitHub-Schutzpolitik: erfolgreiche CI auf `main`, keine verpflichtende Review-Freigabe; Doku-Korrekturen durch beide Maintainer direkt möglich. Das behauptet keine bereits erfolgte technische Aktivierung.
 - Releases über das `release.bat` des eigenständigen Repos; keine neuen APIShared-Releases im alten Mod-Repo. Das APIShared-`build.bat` sucht keine Nachbardateien. Admin-Einladungen erst nach ausdrücklicher Auswahl des Nutzers.
 

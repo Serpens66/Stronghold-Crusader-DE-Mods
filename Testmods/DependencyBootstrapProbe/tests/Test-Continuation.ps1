@@ -1,6 +1,7 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot '../tools/ProbeContinuation.ps1')
-$root=Join-Path $PSScriptRoot ('continuation-fixtures/'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../../../Shared/Tools/Paths/WorkPaths.ps1')
+$root = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'Continuation'
 $game=Join-Path $root 'game';$backup=Join-Path $root 'backup';$probe=Join-Path $root 'probe'
 foreach($base in @($game,$backup,$probe)){
     foreach($p in @(Get-ContinuationFiles)+@('BepInEx/plugins/APIShared_Serp/APIShared.dll','BepInEx/core/BepInEx.dll','BepInEx/plugins/000shcdese/SHCDESE.dll')){

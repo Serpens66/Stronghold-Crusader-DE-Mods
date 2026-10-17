@@ -1,0 +1,1098 @@
+[
+  {
+    "Path": "BepInEx/plugins/000shcdese/blake3_dotnet.dll",
+    "SHA256": "4bc8bd9869144b57c58b51a85915fd51e0d22f91e9cf7d6809341e85ab56f720"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Blake3.dll",
+    "SHA256": "1258402a7ff3ac460f1b3aee7dd20a61fee9487d69406e442e1339d48a1f7624"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Iced.dll",
+    "SHA256": "cc915d1c2e7be60933c5b129842ca3d08d1fe3cda6c6d6ade8824dcdde16191f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ICSharpCode.SharpZipLib.dll",
+    "SHA256": "cb9c05b5a1e1db26ff43490ee26f2e02abae3f321d2dd5ddd43a68da48eab83d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ImCTE.NET.dll",
+    "SHA256": "b903b77bd2ce5de76f0f840c522b5c99750e57809b2f0ffaa559913a2639e6d0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ImGui.NET.dll",
+    "SHA256": "24e65586dcfbc8ccf13426586c2b854f6ca747c2a1ca3232991bf50d285502ba"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ImNodes.NET.dll",
+    "SHA256": "024052c39af1ef8afdfd415a280f227fd11aefe65b70c00dd21bc457ffa213c4"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ImPlot.NET.dll",
+    "SHA256": "71b05552988290724c6ba546dcc309161e8533b80b5d5a16c76d32258a0c887e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ImPlot3D.NET.dll",
+    "SHA256": "a0116ba8818813d90e2fb0cedd1fc3e0bde4bc72338922569123d145cd167fe1"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/info.json",
+    "SHA256": "befaa6747b2fead9446f60dd17afe49027a5946500d5c5cc5d687fe524a22e9e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/KeraLua.dll",
+    "SHA256": "02095f7fe9d24c0999e2bd073038a1161b569c1a64be894804116d5b195a858e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Lepo.i18n.dll",
+    "SHA256": "cdb6f31b609cc0c2092e179dda995115f2a5840eeb5283e8ec2b63f7d95afb9f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Lepo.i18n.Json.dll",
+    "SHA256": "905557ef9de682a747f7ede440f8090411f5d073bd977f60b1c321315c10cf4b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/liblua54.dylib",
+    "SHA256": "8512860db04647e90d6ca64f8abb73af619fa83d5e21e62c8f301b88d285c52e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/liblua54.so",
+    "SHA256": "b018b0dbecbfc6c0609cd5def1035f816901d48201b7c2f2e29a60532d8fc8e0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/libredbird_thread_patch.so",
+    "SHA256": "b0321e5621ee1aee8cb07c5579cb5d21a30fb8ca68b3553450ec968374384ba3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/lua54.dll",
+    "SHA256": "a563b9210be2868728092e82d88d75edcd9c8d95ed0eb399942b16bd4c88b87a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/MessagePack.Annotations.dll",
+    "SHA256": "d6d77e65edef6b60ce8fb9e5cba402d70fd97d1401c240c8b2c5389e08009315"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/MessagePack.dll",
+    "SHA256": "dddf11570bc44c5b7a99d46de3e276d0ba1889f8b6e44326bde934efd248dd07"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Bcl.AsyncInterfaces.dll",
+    "SHA256": "1009baea2f1a87f37530a1eecedbe1e7f42227df8ca9775799bf403cee022325"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Bcl.TimeProvider.dll",
+    "SHA256": "693242b67da91af78dda4b91d6020e0b8cda08d4c9102177a12522009ef9b940"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+    "SHA256": "bebe73dcc4667ef7103f470e6346677fe8fa5e6d6f62cc1ddd9b45fe766499e0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Extensions.DependencyInjection.dll",
+    "SHA256": "3d40ad658bfd68b67cad63fb8ced46044e2a0c8909ddb684373ff5a2c0a0ce5d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Extensions.Logging.Abstractions.dll",
+    "SHA256": "2ffe4217a536b447ba35ca5b6ad79b3a43dd3041dab07b266615780786a33c17"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Extensions.Logging.dll",
+    "SHA256": "9fa7ead66657a4da71d1ee8731314708042954101773a8549cb2b752ad79a346"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Extensions.Options.dll",
+    "SHA256": "4ac292670c857a81372275a0340858b56520093c2235472902b8cd9636db4d2b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.Extensions.Primitives.dll",
+    "SHA256": "a14fab7827ab2560fb478ce1b7aa0c87aecb95cc6cc2246b24f7ed3986a02dc0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Microsoft.NET.StringTools.dll",
+    "SHA256": "81925a5e0e690da37e64929511dc007da32d59db7134f701fe6e2706f8eb3895"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/msvcp140.dll",
+    "SHA256": "639342ea9a67c0009122238ce070a8257e2e04d367d627509fec29f8442afb42"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/netstandard.dll",
+    "SHA256": "fada723de68eca78dc6e4279ebf1c886810dcd7b4a970290cb7ac068ef04b766"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/NLua.dll",
+    "SHA256": "476fff1274aa8a85d18df8ca1cfc1f420ed4654dcf9aba0957b93b978a3592f6"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/NVorbis.dll",
+    "SHA256": "2c6c2281c29344679c97df33a283897ab60c6a676c858d7c675209195315e982"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Pfim.dll",
+    "SHA256": "5041386a568bd5729b416998fd7b6dffe4c01affbdd0e443ca5c80a975883499"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/PolyHook2.NET.dll",
+    "SHA256": "a72ab7089e333d84529c2116c9e7ae0fb4aefd59328b1a5fd5e67f14b932ff23"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/R3.dll",
+    "SHA256": "8d77d5e9b30f6bdc2aa60055a5950ea75d259c9d1c9667a04a7d598e1da9d609"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/RedBird.Abstractions.dll",
+    "SHA256": "339cece116f66f59ecc7da5e9a5c0b2dfe24f4e7a5e7efc005864fa77c027a1e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/RedBird.Backends.NativeX64.dll",
+    "SHA256": "0843dd4c381a3e77dd6d8b51d5ccf95465b3fb49bfdf2980f39a212d774aadb0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/RedBird.Core.dll",
+    "SHA256": "ee4b036c486077f7d8898ae054f124edde73e6ae1a059e8991c361e2b720d29f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/RedBird.X64.dll",
+    "SHA256": "e085b83b2b87b5d2142c980090d8d9ec616a90a443bd125c17b41e0bb47a44eb"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Serilog.dll",
+    "SHA256": "dd3f5a33a059e59b8c3d114cc6bf23c96fb178202b51c8c85fb3de951fa03b90"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Serilog.Extensions.Logging.dll",
+    "SHA256": "736c8a117b2fd1242d06fc6a10ace6c4e14bec9603854cda4bcd9ec8227215a7"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Serilog.Sinks.Async.dll",
+    "SHA256": "50516ed78347f0bc1feaf213f5ad5f95bf7ccaccc9a49531ed0676057e9e9f2e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Serilog.Sinks.Console.dll",
+    "SHA256": "9bef5cc4a2daae89a7a669b714abaa25e86fdfe36e06136533fb83ef7eaaca76"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Serilog.Sinks.File.dll",
+    "SHA256": "f57dc69a0fcc22b908bc6f6c9c180d634013749ebdb25b07a85c83776bd75625"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/SHCDESE.dll",
+    "SHA256": "577f9aab5de504be0bfa2193c7deb734b26076ecbbaf0a408fc9abc4cc5e7175"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/shcdese.manifest.json",
+    "SHA256": "363e83a179065e6bddd242b39bea078e3f74751f9e958f634a7bbd09348e2a88"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/shcdese.manifest.sig",
+    "SHA256": "0bd0966f2b10044a3c7db8145710638cdb81d2f486e47b01730a793fe2141b84"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/SHCDESE.NativeCrashHandler.dll",
+    "SHA256": "51538cf7c80613fab6f2e33bd4b89c885f803bb86bee1cfb5646c1d160af7443"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/SHCDESE.pdb",
+    "SHA256": "2102af5d98512b9f8f77d5dac6efb57d205967bf437e9529a81453b1bfaa6a4e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/SHCDESE.xml",
+    "SHA256": "8c743d72b3c86d4595ecc21430bcc475083acbef77af54f2833045b042f8eb2b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Buffers.dll",
+    "SHA256": "2d78d770c9cb997199154ae8c018b9f1d1efbc86729f7264dde6dbad2a12cac3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Collections.Immutable.dll",
+    "SHA256": "d5ec0837bb176abf13dcd52c658c4e84c5264f67065b9c19679b6643f7d21564"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.ComponentModel.Annotations.dll",
+    "SHA256": "04113c8549185519f3202790ceb23df609644872b9c249a56d2bcf59566102c4"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Diagnostics.DiagnosticSource.dll",
+    "SHA256": "07f1825f419f32f83c59a45acd491a9e8c6bdc3a4a37fc27f7cae27876b95a20"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.IO.Hashing.dll",
+    "SHA256": "767f6eada38cbc6f5f359e99b9e117b48a866e2a464673a46037c6e9281aaa7a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.IO.Pipelines.dll",
+    "SHA256": "eb4d58a1769115fe6452437fa0e5e0bc22e140366d67e688b81d1dc8f61ec74a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Memory.dll",
+    "SHA256": "d5e8e4866f9cfa66f7765660f84b210198893e55335487afe5ebda342c0e913d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Numerics.Vectors.dll",
+    "SHA256": "20c2fa81b8c70d651099d762954f285fd4f942e63b2d7217c145dab8d4b2f4c9"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Runtime.CompilerServices.Unsafe.dll",
+    "SHA256": "08cbd7278b66f1e68425a82d4b97181a4130d93e3dd91831407aba7212ccdacf"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Text.Encodings.Web.dll",
+    "SHA256": "2ca6caee74e5e7c3714ed8284970813befaba446fc82e17d9d07397eed8d93d7"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Text.Json.dll",
+    "SHA256": "8bc0e77a67553d9b16eee8981365f1b13d9de714a540cef1051daf0d1a392eba"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Threading.Channels.dll",
+    "SHA256": "a42e45a1bb8e6528d244f8611cf1e3e731cab481a67928c1be815e635ffe8ec7"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Threading.Tasks.Extensions.dll",
+    "SHA256": "af4e13ef418fd89b432de20cd1dfb7fa10a7179c8dd049c9856316e50c5949ca"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.ValueTuple.dll",
+    "SHA256": "7cd7ac314a72774b5e2255fd798f876926c63e19f9b8304cae25df012beabbcb"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/System.Xml.Linq.dll",
+    "SHA256": "e30ca84d504878d66c592a9492f1eabc73a34ce7dff3ab7ca3f66b64063a8357"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/universal-unity-imgui-api.dll",
+    "SHA256": "d98415528ba84f0dff17f283f72d0003d65eca8f30993e5bafe1d425ba8ce9b7"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ARM64/liblua54.so",
+    "SHA256": "b0a0b47ba5421bf8f4e65c5e26f71bc970befe716362bf7172d02203b3f9edeb"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/ARM64/lua54.dll",
+    "SHA256": "c21a8ee06181f33fca889bdaaa04a2eccde8722325a935d2075f00b605ee77a2"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/aobcache.json",
+    "SHA256": "fbe35a3db142b991a1a4ab2ff4298f7ef6a21a7053171224ed1a793cb0b69baa"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/mod-updater.ps1",
+    "SHA256": "627be3bccebefd57749b5e8c938f6312ab3110e8bc9d9d13e9ee16f52afbfc1a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/mod-updater.sh",
+    "SHA256": "b408e37e924f71f0a19403b561672c598d6ad7f9b8b29886a303145c91621a88"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/fonts/FiraCode-Regular.ttf",
+    "SHA256": "5992ab9640e2df491b2f609467b1de60e8bc39b2c28db184342a0592d98f6117"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/fonts/MonaspaceKrypton-Medium.otf",
+    "SHA256": "327a3e46939a37a8e78f1441108dbc60811e68d10dc22d5db3f3c2e13e0b2351"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/fonts/NotoSans-Regular.ttf",
+    "SHA256": "fe8c022f48d8dd29f17b744d16f9346f4357e16f7d4f7be58b000ae7c291b614"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/fonts/NotoSansJP-Regular.ttf",
+    "SHA256": "f32915916d2d6f35bb0d3d7ef0784504914bf0235afb02eec552bd14d06d3552"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/fonts/NotoSansSC-Regular.ttf",
+    "SHA256": "dc71173babc38dfd019912965f2b4b3421fb347ebd854e7b96f64ad63673924a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/fonts/UbuntuMono-Regular.ttf",
+    "SHA256": "3b83b9ca3a1186b4bf8fbcbc8078b360bdb78a77a859f8eeabc9b14fb165da9a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/localization/de-DE.json",
+    "SHA256": "b21e733888a162f820b9adc10a64cf82a94ca4f8715cd1a84c599f3bf073a86f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/localization/en-US.json",
+    "SHA256": "55006f92e21ee34ecc367c08f263e72b42cab6adcc000d11d88740f06165a452"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/localization/ja-JP.json",
+    "SHA256": "64eb8fea14380b82cca2c5a09a8c7b6e7cc912dc52ec0b35ecca9e6aa88cd202"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/localization/pl-PL.json",
+    "SHA256": "8c3f4cfaaa3671479aca72c3f9d2285f0f0d0bc96d8a440893cf1eed9307aa30"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/data/localization/zh-CN.json",
+    "SHA256": "6a08ac4160f345e26617319b3851514c7896f82a45da6ce8ad39394d3287ef24"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/AIV/.gitignore",
+    "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/AssetBundles/shcdese_logoanalogvideo_bundle",
+    "SHA256": "93a2850233e090b0c0d73de5fe43d720bddf6ee706b0a001b9061eec966742f8"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/AssetBundles/shcdese_logoanalogvideo_bundle.manifest",
+    "SHA256": "bd73e4d3a404c8a7f010e8887b7400980ebf12455db078447306ee15a4774949"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/000shcdese.png",
+    "SHA256": "64b1fd60acc65631ca3b236c770765dd2a6d7528f2cdfca2e4719d627cd64f90"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/loadedmodspanel.png",
+    "SHA256": "e55c0a463efab50bb21c0da8f5fb2d64eb9ebc97035d69947e9c5b714f88a2cc"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/modsettingspanel.png",
+    "SHA256": "2799e60e8abf54e4c30dd4b23dbcf89b380e52ee76d667a9c2aad22519d1b4e5"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/selogo_1.png",
+    "SHA256": "4449b968318986dc05cfee51dcb7e1f7ceaccfef754f23d3282798353e281d48"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/selogo_2.png",
+    "SHA256": "a9fc9dd1b34b34202d97734ca44ba26a60cce6e4405af50d7ec5433d29a16585"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/selogo_3.png",
+    "SHA256": "2097fae7e85882183d3fbf32b98c639ebcce72a55deb1630f6c4df34c8de6b5e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/selogo_c_1.png",
+    "SHA256": "3a08ac7a5c8eab96f01f0bf648e3247e4c60cb2a3c9ee2b27cf4fa3e5067dbf8"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/selogo_c_2.png",
+    "SHA256": "426f6945c74e7182b8351f37cbdd3a3f65fc0a6985022d0e21c4db40c1d8252d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/selogo_c_3.png",
+    "SHA256": "d482305f1e3677293dec8ed250679a3edfb25d1689fb317da3ba9b89e3ea9775"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/UI-Colour1Atlas.xaml",
+    "SHA256": "da8da489b2035457c57cbcc998096c3d98238ab62962e9c9b19c49f09961ea81"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/UI-Colour2Atlas.xaml",
+    "SHA256": "16e1f095596c55ed8f76864ba3e7d2c9a6a29e3383728de13454ca46a053d049"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/UI-MasterAtlas.xaml",
+    "SHA256": "b4092a81bdef00449f65b37d3988c432c1862f409d085ff84c039a71007cfb88"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Sprites/UI-TrailAtlas.xaml",
+    "SHA256": "37ba6fa45f79ba3cd98cda69357ccf0f1cd79cf8a18ea817b69493c2ea2f47ae"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/1.webm",
+    "SHA256": "61ff1bed796fb63d00561bb9f9dc1e43e7f7cc1e52f9be84333e16572d10fe3b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/2.webm",
+    "SHA256": "c0d40d9b50ec33133d330bd523a0f1f24a95de660c6e933fef6f85a9bd80add6"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/3.webm",
+    "SHA256": "37e7f0ea4216b3079a246712664ee3f8df099454c756054fbb61b916823eddf9"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/4.webm",
+    "SHA256": "eac8c6c57fc01d7407053eb1f96d4452cbd6df386804382ba76b44210923085f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/5.webm",
+    "SHA256": "2149c8c582ee1489fb5c60e1534d6d5e1fd563cc99416f91d3c6c79634ef9dda"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/6.webm",
+    "SHA256": "2080a73d5063a658e8d7a4ce89e10e05f273f62d9d538943245c900e3af87134"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/7.webm",
+    "SHA256": "fb01abc6465fd088fef822ad4edb8be8857814ebd019a76d4034597ea28be2ee"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/8.webm",
+    "SHA256": "b1518ae84c98bae8ee203a1db7fe69738343314df198c886be4f518370f7be49"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/Video/SELogo/9.webm",
+    "SHA256": "78892e1136ed6878704a2fe08a2930100668b2667b1c6f8ff397563c296e530f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAML/FrontendMenus.xaml",
+    "SHA256": "a803f69596bc4f8d2f8d04263e7d27acf2d64b5ed5b40fbacea95154e39d4e62"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAML/IngameUIScreens.xaml",
+    "SHA256": "eacfc6e29b7bb4905bcd0cd1f9a7a6386884edd0333d7cc4e6aee0bd582c51f6"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAML/IntroSequence.xaml",
+    "SHA256": "3f4ca42d0188229f6f50311d6f0b784261f3b1268fc530439a276c407b676115"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAML/MainHUD.xaml",
+    "SHA256": "dd22f6f6daf45f682ffaff2a32c4690ddce186bd77d3a469e58c776345e8dec5"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAML/MasterController.xaml",
+    "SHA256": "d7d26a6ce1b8a89f78ba8a095b90b90d52b791454f0da767a73c3376e0ca34fa"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/ApplicationResources.xaml",
+    "SHA256": "5d39bb43ba2753e0d697d6aa87fc0150f694aa4fbdbc05bfec4ec834efc53993"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BackgroundScreens.xaml",
+    "SHA256": "4cb846d09797564d259af500e5f39d108632b22f31cabd98eda845e43a965d8b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BDR_Stronghold.xaml",
+    "SHA256": "b8d7b2fec5cd2341a6319708894642eab419905b7fed5eb805920d3eabfbf8ff"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_Building.xaml",
+    "SHA256": "7b87128e62a9ad4eb0b7b4193d0c0099aa95672edadee82b0df3486a9a35416f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_FrontMenu.xaml",
+    "SHA256": "b74f94b64e18993a53f1b44ab9244badb03034d83f80faa15f5fb74be92c4867"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_Image.xaml",
+    "SHA256": "a07ca16617c7f9e6019902d3c9658c4834e9a505d35bedda78e6222659bf5e69"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_NewFrontend.xaml",
+    "SHA256": "a973e3e04fe645079ededd76ebe80e817b9397743d6c55a2e636968a74c30e11"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_RADIO_Image.xaml",
+    "SHA256": "fe118b88611804da657db5c19a27b056dd0c7f1913530faf65742b5be62a559d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_SH_BuySell.xaml",
+    "SHA256": "8f57198caf7b686be1aff51b43c22bd632ca96454775c081252d64ece106e3e3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_SH_Glow.xaml",
+    "SHA256": "3cca859bf022563a6dc736b789fbb5cd42fbf60e05be3c4fb4402344e0b1e4d4"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_SH_Plain.xaml",
+    "SHA256": "b2b074a8c4cb4c0f6e69e48f067bcecab50860e6aa3b66298c0f27555f7c51e0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/BTN_StartingGood.xaml",
+    "SHA256": "1c602f2415a9323560b57f856f80a6d8090a922481a6d1c18b698e17ecd82930"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/CheckBox_Template.xaml",
+    "SHA256": "0a50c99fa1223b612ef4a8307a8d84979d55a7e8d8a5002af52ce5313d74117a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_CoopTrail1.xaml",
+    "SHA256": "1194408d4d783e81472caf53c891c71d50c04d3e8b781d4f8d9561804069deb3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_CoopTrail2.xaml",
+    "SHA256": "27637bc45a4631aff947cbe0897ced75989bef8215f04b16bb41bec47ac30193"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_CoopTrail3.xaml",
+    "SHA256": "f3935ba395912d8c438254b0d22ea1a559631d7241b24caabb32bdfcbc192805"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_CoopTrail4.xaml",
+    "SHA256": "02c9a91588ad5934b716820a942f2f1ba3418ce20175583d806850db0096a4a3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Credits.xaml",
+    "SHA256": "43563c01665a0f55d72e5c6d042fdbee68a26036ffced9aacc482312961414a7"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_EditorSetup.xaml",
+    "SHA256": "e19985aba50fea9b71cdd7be757f8fed5d9147841f91ba0d9b18149868770e1b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Extra1Campaign.xaml",
+    "SHA256": "7fe06e527405bef6f54a52871758d564375652adda8781e0d754b55dae6fe8d7"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Extra2Campaign.xaml",
+    "SHA256": "877ff1daa7b9df248e3eea421baac055b28fad48690d4173f389958b83ab00e9"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Extra3Campaign.xaml",
+    "SHA256": "268f6740b152476fc33b1ec8ce093b9ce57e5db098e5c122961bd30988e667ca"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Extra4Campaign.xaml",
+    "SHA256": "f17f654180704c575c150e3b2c129b809277ccec2e322b1f94a738d44848eb5d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Extra5Campaign.xaml",
+    "SHA256": "11ba7adf41513ffcc662c37acf76245e67a6e34a71d311e74f705f87324300f4"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Extra6Campaign.xaml",
+    "SHA256": "aaba66d965fef91f3511c4f18eaad46903e5b284540422ac5d59e507b81881eb"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Extra7Campaign.xaml",
+    "SHA256": "c5976198eadea95cdfd10432e2e359b80fe66f1bd7099b60b90d6bbab1c58ba8"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_ManageTrail.xaml",
+    "SHA256": "767129c0fbadb13568ed4c5b841c3696faa17db5a7011534da013128841bc8c6"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Multiplayer_AISettings.xaml",
+    "SHA256": "8c2b00f7103d8c751967c56abc835a55979582b0c4ea26f0e28f927a12240553"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml",
+    "SHA256": "616c411c2f9fe75366ef8edfa1460b63ceda2c6791a03e93ce715f05c9f222cf"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml",
+    "SHA256": "56a06e0d770303d58b1b6b266b450d59dc4506f4b17cc800b37f3f79b7fa17e0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail1.xaml",
+    "SHA256": "d24942a502c5267589b4a5817a2a1fcbc1805492d5a3821e8eb581c05b039977"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail2.xaml",
+    "SHA256": "da1f119aa796dc74b570045b97a3d16cd58dde589dcf4599b3540e7b91a278aa"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail3.xaml",
+    "SHA256": "f4e3471f9d6f33c94b548e9104275d32c3bbbf12fdf14700c557d5d0b6eb7a96"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail4.xaml",
+    "SHA256": "3069f7699941b2295eb1908e1a3812831bda296959304a0668483ca292bef948"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail5.xaml",
+    "SHA256": "b321ff88075c11c8f0e6087ae950fcbbeaebfa7e29f8a6c2a1edb2fa0632f955"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail6.xaml",
+    "SHA256": "45180cab53af6dbb5a5f3476f63b5369140c59057635788c3d3242a3f7697795"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail7.xaml",
+    "SHA256": "ef08a8cafac6d5688f53dba58db840f8d7288539a5b1535d23f418df0131b2cd"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SandsTrail8.xaml",
+    "SHA256": "32829c3936143b67f3a1001dde98fec8542209324da7344c7b62d9b5a85cd1de"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_SkirmishMasters.xaml",
+    "SHA256": "8e1391e1e3cc7fcc6e42af02136881a8cbdeb5495199436701bd8c57bbe4bfef"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_StandaloneMission.xaml",
+    "SHA256": "e479a64ed9ede6423ea07dd7da579e11fc68ccb37c32246c05628f72d7d339dc"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Story.xaml",
+    "SHA256": "2992d757e75b510c7e0aa29705b49b218765e3fef5f8d31ca5f1129dc3e88eb8"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Trail.xaml",
+    "SHA256": "244dfddc02973fbd8576f0dec117aab7ed2a9f6a5a3c6c12d23726977abcb269"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Trail2.xaml",
+    "SHA256": "08cacd92786a99d564d6255c0438a343a0a872f24ce8c045cba31ab46fe64dae"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/FRONT_Trail3.xaml",
+    "SHA256": "78bc547c51d06d037802f4e734cff0cb86bb6ace0c668af376e17acdd53d6411"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_AlliesPanel.xaml",
+    "SHA256": "6c927ac4a28fa181b06ef2327c7a084de5c828cc0e4f4a4de46a42dbb40ed0d6"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Briefing.xaml",
+    "SHA256": "4f2cf0ed6d4d76779e186264bf8c2c1352cd0825a88fc3a804b8243e9299aca5"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Buildings.xaml",
+    "SHA256": "2fc64ba15eed1db69aeae846379c0d2dff24b1df4dd1c070ab0c24cbd34a90c2"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_CoatOfArms.xaml",
+    "SHA256": "c0c956159426245f235d0114f7470596e6ca1726e4404a3db1474ac6c9751fe8"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_ConfirmationPopup.xaml",
+    "SHA256": "5bf3f58acbbc8c8ff96bfff5e25d7e7999269da3251c3f23d16de35615cb5993"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_ControlGroups.xaml",
+    "SHA256": "2205ed07a7125656bf0bbf63036d0a0756753e5aea52c959db5619aa9b4a8616"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_CustomTrailsSelect.xaml",
+    "SHA256": "8624213a8f168e943879ae66973f55f7462ef17f09592d49228bbe1d5c7fc612"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_EditorWarning.xaml",
+    "SHA256": "760f139945b033c4ee5c2ec7c4fcb4bee17566cd1485b776282dd1436db101b1"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_ExtremePowers.xaml",
+    "SHA256": "00209f7478b11123dfb9086985e45831c96eda17dc7431f7ae8bb712a0ec1c6d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_FreebuildMenu.xaml",
+    "SHA256": "5f8e33135587ebf42d28c586b9b61e8e9f884cd183156c352819589cd94b3456"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Goods.xaml",
+    "SHA256": "81927731a0246e6e1033d807d31842f2909fddf68b0e3a11ce5b09bf5fc1ff32"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Help.xaml",
+    "SHA256": "8697fe68330dee3c159669ecb6d691bbb1c53e6c8b8df5d616ff2e5d1e662c5d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_IngameMenu.xaml",
+    "SHA256": "91b1326747d2af993bc26e3a0ffb360145a0e37c1b1c99750401fa8bd763d296"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Leaderboard.xaml",
+    "SHA256": "4103d6a347e5451b7c266bc9d5c6c8a5c3d94ae8c52c4a6642e11fde08e2b289"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_LoadSaveRequester.xaml",
+    "SHA256": "ee23b26b12e78dd7940f40274d9397daac00d126501cc948c27fcd2d163c5d2a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Main.xaml",
+    "SHA256": "b84c40b60ac4b790f9ecb5ae712234664ddedb3c73a69988dd5a8b8187a4ab74"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Markers.xaml",
+    "SHA256": "4f1e3a9faf13be02a688c591c76392443c254a9fbdd5fc623b8aaeaac02f79db"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_MeritPanel.xaml",
+    "SHA256": "f63fac67a414310366f38bb1f10faa1ff743de3c05f7f223fce9de895ed7b034"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_MissionOver.xaml",
+    "SHA256": "5aaff1d5aa915d49dc6d28a37fb913475c7b612639f0b2433842272adcfdf90d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_MPChatMessages.xaml",
+    "SHA256": "9c815ae0be1072fe9b7a7e5c1ac3382e6b824ce3ce92e49561eacadfeae23712"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_MPChatPanel.xaml",
+    "SHA256": "a6bd7c1e19bfde2ff2c305797dbb9349e8834f6f1f4fe7e8350755753adf2415"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_MPConnectionIssue.xaml",
+    "SHA256": "a5281c301ca15a802fa9da6f8661a51a7f0cdc0fd8e086dc16d46ac52ac69f92"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_MPInviteWarning.xaml",
+    "SHA256": "9f7455b94d35e354685c56c4ce1b8109732178a6f09ac7b1eee1a2c69ee3f3e2"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_MPResync.xaml",
+    "SHA256": "18549b622017e4a0088179a7fd0abbbbf25cb9b0bef4e9aacbe33412023d0ba0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Objectives.xaml",
+    "SHA256": "6568fb6499d2a598f6c26dfc70558ff1eecba9bd25929db486d1afaa30a47f0c"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Options.xaml",
+    "SHA256": "026fda5e1c279dc354dfe42e9d3732b093ea0a9569d7b0101b7321f2fefa1de3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_RightClick.xaml",
+    "SHA256": "b0f400f56cd25109a5a4d38e33ca588be2cc449b9f8af509b9b9e49d9044297b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Scenario_Popup.xaml",
+    "SHA256": "86575a0991714f2a1985c79ea2280fa35a35b21014132d00cdf9aca42b6343c4"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Scenario.xaml",
+    "SHA256": "db3fe87f3bf4964051231b90e49bd780d42fca78a5d9503d225573c8440bd5f1"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_ScenarioSpecial.xaml",
+    "SHA256": "93b84e9120fb2a038e1df67a93755de96f422f43211586afda6d1170533ad0cd"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Troops.xaml",
+    "SHA256": "5d409346c3d7d5869e606b43e5edb71e790abd2c870ef2144caa6988649e21ff"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_Tutorial.xaml",
+    "SHA256": "d809c8525ed3d9fc61541a394845845bd8049920a83a6a8c8e03ca128aaebcc9"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/HUD_WorkshopUploader.xaml",
+    "SHA256": "c28e82001da692b20d3c8116b4a3d00c3892cb5001c48dca5d75acac6f2f3885"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/ListViewItem_Styles.xaml",
+    "SHA256": "4446f27f90dc9cb098d4f7f3e46ec07a6d25994e8f26368e7b3bce9f9ce3edb4"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/LST_SH_BuildingAvailable.xaml",
+    "SHA256": "e28af12eac7f26977bbaa91a89f15ef1786c08f9c1b949908a7ada5c06d8c58d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/LST_SH_HotKeys.xaml",
+    "SHA256": "9adfbcec9845648a0fdb4fd6e2d207615b8af664b43bf2a372a2539890f44d4a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/OST_Koth.xaml",
+    "SHA256": "e3eef525003b86f6a490c017de49e126881694e6ed8793328320285a167768c4"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/OST_Pings.xaml",
+    "SHA256": "21c9ae15842e86fca1c49467da45a27c517e080f5daf1f2cbf1c235746a5ce3d"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/OST_StartingGoods.xaml",
+    "SHA256": "2fe822e7afda24cb4547e38b0a5b43ef4a33dacf3da8f914ce8d7f4e90d31841"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/SDR_SH_Plain.xaml",
+    "SHA256": "3aede9d05da6e09309e09db2aa05f1f02bb1922b5e498af74d0da8210cf19dd1"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/SVG_Images.xaml",
+    "SHA256": "dbc5b8a3bd2c331c390bc071a13cced25262d637f50cedfedae34e0588bf8d3a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/Theme.Brushes.DarkRed.xaml",
+    "SHA256": "c7a042146148e67cb83536a7225329ffac2f87cd0534a0e3455da99f3ede6d00"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/Theme.DarkRed.xaml",
+    "SHA256": "5de952c102a4e6218c141c5018deab278c9f2d8ab24417be26290bfa6be180f3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/TOOLTIPS.xaml",
+    "SHA256": "5ba43e11307f0a7cb4a5299e24364d3ada4d45d6c1a60b337f138a02abb529c3"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/WGT_Heading.xaml",
+    "SHA256": "ef3f5f3ed06c5c6ea809fda0bc79b7c3bf4ebcf6c22c0b5c22c1d8afeb38bd8b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/WGT_Heading2.xaml",
+    "SHA256": "dbe0a8a7c2fb6d6594da7a2ea4073e2efb5f4f2570c85f582c38fb99f19dfa30"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/WGT_Objective.xaml",
+    "SHA256": "9c20a0085114f3a97a60089a622fcca138bc799b3cd55eeb1e2a77e612078905"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/WGT_Popularity.xaml",
+    "SHA256": "5ed239da3c9cad73afbc7bdadf09bc6143b5cee3794b970c3fe8a7e5790a2a55"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/Assets/GUI/XAMLResources/WGT_SkirmishMastersRow.xaml",
+    "SHA256": "ba5cf47fc7727efc0ada6273878af2ed64a5936aa92e19c2cfcb8a5314c14cbd"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/ScriptExtenderUI/.gitignore",
+    "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Override/ScriptExtenderUI/Shaders/SELogoAnalogVideo.shader",
+    "SHA256": "748327df57383c93cec05f6c915748ff18d33e9355648ebdceaadb2667ff3987"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Patches/.gitignore",
+    "SHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Patches/Assets/GUI/XAML/FrontendMenus.xaml",
+    "SHA256": "b5ad72688b2b96104161fcfd20a7fd1948f19c8b9e414e28c1bde6024276a8cb"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer_Setup.xaml",
+    "SHA256": "2a8f6c7102a67cc8af0a8fe2d67c587875b5741416675129fbdb522f3f9fb90e"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml",
+    "SHA256": "4a1c89276fe5f117eda1a4ca652b43d68d1c1efb2d7cd1740d3bf3bff78fd3db"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Patches/Assets/GUI/XAMLResources/HUD_Options.xaml",
+    "SHA256": "25cc9ec5267c0e93615b05ccf48cc86537765ddbd8595e75d61a5b063b82b7a2"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/Patches/Assets/GUI/XAMLResources/TOOLTIPS.xaml",
+    "SHA256": "c48dc70a91b2aa9e5e8d13d90ab237820f4741141a41b424b68710b497886974"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/linux-x64/native/libcpolyhook2.so",
+    "SHA256": "6e22190cb09fdfab4d1f47d728141b1d9a5bc48efe4f5f360ce03b2595a0ebb7"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/asmjit.dll",
+    "SHA256": "464f7be5dfb6bc2a8ef6ec40dce62784a8fc3be246ce4044f31529a7b4f9687a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/asmjit.pdb",
+    "SHA256": "502fb3de38f5ae03b7a8d8aaecd606d9eef0c34831ca730eec7bcba4dbfab205"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/asmtk.dll",
+    "SHA256": "39a0e4049460f2612a370229f5338a75e9d72aaf2f374fa1cf21a4486475ba6a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/asmtk.pdb",
+    "SHA256": "e6df8f828e651fc5805cc01424f1ea1de29f88f3ae3558134823847809480665"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/cpolyhook2.dll",
+    "SHA256": "9e25d011cd22ca420469ccf4bd07bd37db7f1e54992269bd34e95ff9f85188e9"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/PolyHook_2.dll",
+    "SHA256": "a34ee0425d6766e513f3164f67a5c95fb65aa6f1ea657f17c8de87358b8aee96"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/PolyHook_2.pdb",
+    "SHA256": "4255218ccb3c84a1fa4a35ddfa264dc5d0394bf54486ec608c6c83bc2461747b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/Zydis.dll",
+    "SHA256": "baa4e175d08a697e9a81e8a5b9bfe22b4353d996036971587d16b2b8c150b7f0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x64/native/Zydis.pdb",
+    "SHA256": "fbc5ec50107f53fd0f0b4bf2dd0bd8d4430c1e09dc2d75f16a4c5c0b7f3c0a1b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/asmjit.dll",
+    "SHA256": "a8faaa4a449d62c9fdc6c48b68cf6d9155bb8cbbf2de46e1ab583cd29c451afa"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/asmjit.pdb",
+    "SHA256": "1c3ccdc523a3754bfc9c356dd988d8a220c4459fa943fdc5ec77e56343752009"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/asmtk.dll",
+    "SHA256": "3c841e8b8d1bcb31027374b7e45ca8a1c468b0653620a5c3181b13968b0586fa"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/asmtk.pdb",
+    "SHA256": "7db12aee736840753f746b947443775ce3955d90824a72235805df3d6a4d5c3b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/cpolyhook2.dll",
+    "SHA256": "df55f3a3402507a9d4bfbb36910a05e12760c0979aaf05168b3341fcfa7c9ab8"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/PolyHook_2.dll",
+    "SHA256": "4a8a6a3a6fcb2ab50b93dc959e2779244f68d112346ed6175fc0d0ac37fcc355"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/PolyHook_2.pdb",
+    "SHA256": "ca5c64fc4afbaa62ff6c342eb70d7c9450c6bb71af16396434820f3a13fbf522"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/Zydis.dll",
+    "SHA256": "d498e69f28a60883c39f57386aef32eeef32f6e451f338d046242a019ac73aa5"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/runtimes/win-x86/native/Zydis.pdb",
+    "SHA256": "014e0397caf78e109350ff7d86c49df4cc95e00836968e7728f4ec9e265ffa1c"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x64/liblua54.so",
+    "SHA256": "b018b0dbecbfc6c0609cd5def1035f816901d48201b7c2f2e29a60532d8fc8e0"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x64/lua54.dll",
+    "SHA256": "a563b9210be2868728092e82d88d75edcd9c8d95ed0eb399942b16bd4c88b87a"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x86/lua54.dll",
+    "SHA256": "e70e33f4b68edd118c79d6c98b80692009ae53e57e9b2e4b16005a6e51131236"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x86_64/asmjit.dll",
+    "SHA256": "ce523baf7cb8215e3050a18a23604df0775712e38334d12856f5955dd0d3404f"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x86_64/asmtk.dll",
+    "SHA256": "7c4cd833bd0bba43379bca1135d5b4b824d7622c9f0d35132c9f3069b4f71d0b"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x86_64/cimguiaio.dll",
+    "SHA256": "bf43f0854c7ca51c33862d092e53e39fae8fc6528c8103e4563d000eaf507e80"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x86_64/cpolyhook2.dll",
+    "SHA256": "ceaab4cf3f7c40979996d70f7e3c72641408c9df779cca5af66654d1af225284"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x86_64/PolyHook_2.dll",
+    "SHA256": "ea8514ac2d59f6b57da23e3a9059526acea23b4803b81977033274ca5d71ead2"
+  },
+  {
+    "Path": "BepInEx/plugins/000shcdese/x86_64/Zydis.dll",
+    "SHA256": "327474e73d25c9edd8f090d9ea174c5933384022375a84a221e283d408a79d7d"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/fixes.dll",
+    "SHA256": "47d77ac11585423aa2b054873c11ec3af888cf92e955a0ba376f24ba1b7ece2a"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/fixes.pdb",
+    "SHA256": "9ede5d02892dee11ec27eb51192ea1f9f82612a7323d5b8d55abf8455c009a04"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/info.json",
+    "SHA256": "116ccb7d13bfa317d0660da49114fd7f0cb4396dcd9567c9c24d47613cef47a2"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/shcdese.manifest.json",
+    "SHA256": "6869dfcbdb3f855fff3c6c4a5017fa0258425842bdd018b0df25d08793845e92"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/shcdese.manifest.sig",
+    "SHA256": "32c1cc2d06710307ea5479f10f5497cdbf161262b673b256d1a25b7f9e0763b4"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/data/aobcache.json",
+    "SHA256": "791c715a5720165685dd03a28524a1d88765af384f1d61f80ec379d5cbe95f65"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/data/hopsFarmWhitelist.json",
+    "SHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/LobbyModSettings/Fixes.msgpack",
+    "SHA256": "564ac0426067fdfc1520a2021ac8bd5ec70d1e66ebca7d3185ccce47158d4dac"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/AIV/SK_PHILLIP_7.aivjson",
+    "SHA256": "1e77f5c249410443662ab3b2ca5213b844d4a09e3cde34bbf40522e213aff4d9"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/AIV/SK_SHERIFF_7.aivjson",
+    "SHA256": "081cfb2458b2faa89e8b79e454b650fbb79ad5beb23ef73363144c83556e4922"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/AIV/SK_SNAKE_4.aivjson",
+    "SHA256": "5ac0e53862526556b013c17d17e4f4b5c2f7e546f64830fb79b447ff9644364b"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/AIV/SK_SURGEON_3.aivjson",
+    "SHA256": "0869936afcd831c98c3156ec03564b4f013de6651116c6979408aa99faa81f44"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/AIV/SK_WOLF_1.aivjson",
+    "SHA256": "f986930b40f3cf5550a5037273da6c25450e93b9084450805259b82da7f68163"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/Assets/GUI/Sprites/fixes_option_banner.png",
+    "SHA256": "8294a1e77444b9e9f5e8cba01d8cf17851cec5459537f62578731b76388cc770"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/Assets/GUI/Sprites/fixes_option_vm_bg.png",
+    "SHA256": "b14ff95a1137da661cd4d274310e7bc544c6641a81f746bb92f0a7cd2b7b1a5f"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/Assets/GUI/Sprites/fixes.png",
+    "SHA256": "8587095d4ae6cd74caa15ec2661af6681c142460b32f6ba5746e37cf50d75f99"
+  },
+  {
+    "Path": "BepInEx/plugins/fixes/Override/ScriptExtenderUI/FixesSettings.xaml",
+    "SHA256": "8d9b2dc5c0e9799aadc9a817b62684f90c0965892614afb7e1c1221648447df8"
+  },
+  {
+    "Path": "BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll",
+    "SHA256": "accef411e7c31d82c001e64c671f64179f5ed560e9e78d39a4f06414da44b824"
+  },
+  {
+    "Path": "BepInEx/patchers/StartupPerformanceDiagnostic.Patcher.dll",
+    "SHA256": "9e57c3a37f7abc437ce5d7c4671684b6c3980ed75ba2bc375c034ac7aec61898"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/blake3_dotnet.dll",
+    "SHA256": "4bc8bd9869144b57c58b51a85915fd51e0d22f91e9cf7d6809341e85ab56f720"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/Blake3.dll",
+    "SHA256": "1258402a7ff3ac460f1b3aee7dd20a61fee9487d69406e442e1339d48a1f7624"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/BouncyCastle.Cryptography.dll",
+    "SHA256": "4f96977e9c67334742c683410b3a361258219f0d3084a5e0bc10fba96cf23a0d"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/Microsoft.Bcl.AsyncInterfaces.dll",
+    "SHA256": "1009baea2f1a87f37530a1eecedbe1e7f42227df8ca9775799bf403cee022325"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/SHCDESE.KillSwitch.Preloader.dll",
+    "SHA256": "8ef2b4561785ccb365c942e30330c483f9f2fdad0ad9ff1a81bf380216e70a12"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/SHCDESE.KillSwitch.Preloader.pdb",
+    "SHA256": "8fd3777da0fac4f68377ba122af3278897729de4ba110b4e7ef39ae186e8f8a9"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.Buffers.dll",
+    "SHA256": "2d78d770c9cb997199154ae8c018b9f1d1efbc86729f7264dde6dbad2a12cac3"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.IO.Pipelines.dll",
+    "SHA256": "eb4d58a1769115fe6452437fa0e5e0bc22e140366d67e688b81d1dc8f61ec74a"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.Memory.dll",
+    "SHA256": "d5e8e4866f9cfa66f7765660f84b210198893e55335487afe5ebda342c0e913d"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.Numerics.Vectors.dll",
+    "SHA256": "20c2fa81b8c70d651099d762954f285fd4f942e63b2d7217c145dab8d4b2f4c9"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.Runtime.CompilerServices.Unsafe.dll",
+    "SHA256": "08cbd7278b66f1e68425a82d4b97181a4130d93e3dd91831407aba7212ccdacf"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.Text.Encodings.Web.dll",
+    "SHA256": "2ca6caee74e5e7c3714ed8284970813befaba446fc82e17d9d07397eed8d93d7"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.Text.Json.dll",
+    "SHA256": "8bc0e77a67553d9b16eee8981365f1b13d9de714a540cef1051daf0d1a392eba"
+  },
+  {
+    "Path": "BepInEx/patchers/SHCDESE.KillSwitch/System.Threading.Tasks.Extensions.dll",
+    "SHA256": "af4e13ef418fd89b432de20cd1dfb7fa10a7179c8dd049c9856316e50c5949ca"
+  }
+]

@@ -1,8 +1,0 @@
-Close the game before building/installing.
-In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\Build.ps1:5 
-Zeichen:97
-+ ... entlyContinue) { throw 'Close the game before building/installing.' }
-+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OperationStopped: (Close the game ...ing/installing.:String) [], RuntimeException
-    + FullyQualifiedErrorId : Close the game before building/installing.
- 

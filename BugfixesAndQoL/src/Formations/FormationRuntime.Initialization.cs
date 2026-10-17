@@ -126,6 +126,7 @@ namespace BugfixesAndQoL.UnitCommands
                 pendingKeyUp = null;
                 commandRuntime.formationRuntime = this;
                 initialized = true;
+                InitializeSpeech();
 
                 APIShared.Internal.DebugLogHelper.LogInfo(
                     log,

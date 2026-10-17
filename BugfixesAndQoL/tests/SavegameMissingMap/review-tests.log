@@ -1,0 +1,19 @@
+PASS: actual feature entry skips legacy plugin once and survives logger failure.
+PASS: legacy testplugin skips installation even with a failing logger; absence permits initialization.
+PASS: throwing WAITING/READY/error loggers preserve success, real failure and one-time initialization.
+PASS: byte-loaded assembly with empty Location, installed path/hash validation, immediate/deferred/repeated events and failures before each hook.
+PASS: Invoke short/long labels, preserved targets, invalid/external operands, all-four preflight before publication.
+PASS: installed MonoMod isolated-callback hook does not rerun owner IL manipulator; positive control detects owner rehook.
+PASS: actual restart callback executed: missing/installed/disabled, campaign, built-in/custom trails; changed contract rejected.
+Isolated Vanilla decoder exception: System.ArgumentException: Das Zielarray ist nicht lang genug, um alle Elemente in der Sammlung zu kopieren. Überprüfen Sie Arrayindex und -länge.
+   bei System.ThrowHelper.ThrowArgumentException(ExceptionResource resource)
+   bei System.BitConverter.ToInt32(Byte[] value, Int32 startIndex)
+   bei DMD<CrusaderDE.HUD_IngameMenu+RestartSkirmishMapInfo::decode>(Byte[] data, Boolean customTrailMission)
+PASS: throwing logger preserves recovery, repeated byte-identical roundtrip, restart blocking and corruption rejection.
+PASS: disabling client features rejects new recovery but preserves existing encoding and restart protection.
+Isolated Vanilla decoder exception: System.ArgumentException: Das Zielarray ist nicht lang genug, um alle Elemente in der Sammlung zu kopieren. Überprüfen Sie Arrayindex und -länge.
+   bei System.ThrowHelper.ThrowArgumentException(ExceptionResource resource)
+   bei System.BitConverter.ToInt32(Byte[] value, Int32 startIndex)
+   bei DMD<CrusaderDE.HUD_IngameMenu+RestartSkirmishMapInfo::decode>(Byte[] data, Boolean customTrailMission)
+PASS: transformed installed Vanilla decoder/encoder executed; disabled, missing/installed/local/builtin, portrait/AIC/AIV, repeated roundtrip and corruption cases.
+PASS: actual menu/confirmation IL transformed and generated; changed encoder contract rejected before mutation.

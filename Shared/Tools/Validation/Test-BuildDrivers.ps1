@@ -5,7 +5,8 @@ if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptR
 $drivers = @(& git -C $Workspace ls-files -- '**/build.bat' | Where-Object { $_ -notmatch '^(_inspect|shcde-script-extender)/' })
 $drivers += 'APIShared/build.bat'
 $drivers = @($drivers | Sort-Object -Unique)
-$fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('SHCDE Build Drivers ' + [guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BuildDrivers'
 [IO.Directory]::CreateDirectory($fixtureRoot) | Out-Null
 $previousDirectory = (Get-Location).Path
 $cases = 0

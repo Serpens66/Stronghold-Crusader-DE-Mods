@@ -3,12 +3,29 @@ $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../package/Removal.ps1')
-if(-not $EvidenceRoot){$EvidenceRoot=Join-Path $workspace ('_inspect/DependencyBootstrapProbe/lifecycle-implementation/'+[guid]::NewGuid().ToString('N'))}
+if(-not $EvidenceRoot){$EvidenceRoot=Join-Path $workspace '_inspect/DependencyBootstrapProbe/lifecycle-implementation/final'}
 Assert-ProbeFixtureRoot $EvidenceRoot
 $EvidenceRoot=[IO.Path]::GetFullPath($EvidenceRoot)
 [IO.Directory]::CreateDirectory($EvidenceRoot)|Out-Null
-$root=Join-Path $EvidenceRoot ('run-'+[guid]::NewGuid().ToString('N'))
+# One short, temporary tree per invocation; only the latest report survives.
+$root=Join-Path (Split-Path $EvidenceRoot) ('t-'+[guid]::NewGuid().ToString('N').Substring(0,8))
+Assert-ProbeFixtureRoot $root
 [IO.Directory]::CreateDirectory($root)|Out-Null
+$previousTemp=$env:TEMP;$previousTmp=$env:TMP
+$results=New-Object 'Collections.Generic.List[object]'
+$failure=$null
+function Remove-FixtureTree([string]$Path) {
+    $full=[IO.Path]::GetFullPath($Path)
+    if($full -ine $root -and -not $full.StartsWith($root+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe fixture cleanup'}
+    $item=Get-Item -LiteralPath $full -Force
+    if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){
+        if($item.PSIsContainer){[IO.Directory]::Delete($full)}else{[IO.File]::Delete($full)}
+    } elseif($item.PSIsContainer){
+        foreach($child in Get-ChildItem -LiteralPath $full -Force){Remove-FixtureTree $child.FullName}
+        [IO.Directory]::Delete($full)
+    } else {[IO.File]::Delete($full)}
+}
+try {
 $env:TEMP=Join-Path $root 'temp';$env:TMP=$env:TEMP
 [IO.Directory]::CreateDirectory($env:TEMP)|Out-Null
 $results=New-Object 'Collections.Generic.List[object]'
@@ -133,10 +150,18 @@ Move-Item -LiteralPath $patchers -Destination $saved
 $null=New-Item -ItemType Junction -Path $patchers -Target $saved
 Check 'post-plan reparse replacement preserved' ((Invoke-ProbeRemoval $linkReceipt -Apply).Status -eq 'Rejected' -and [IO.File]::Exists((Join-Path $saved 'DependencyBootstrapProbe.Patcher.dll')))
 Reject 'linked activation path rejected' {Get-PairPath $linked $script:BootstrapRelative}
-$sourceArchive=Join-Path $root 'sources';[IO.Directory]::CreateDirectory($sourceArchive)|Out-Null
-$sourceFiles=@(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '../package') -File)+@(Get-Item -LiteralPath $PSCommandPath)
-$sourceEvidence=@(foreach($file in $sourceFiles){Copy-Item -LiteralPath $file.FullName -Destination $sourceArchive;[ordered]@{File=$file.Name;SHA256=Get-ProbeHash $file.FullName}})
-WriteText (Join-Path $root 'sources.json') ($sourceEvidence|ConvertTo-Json)
-WriteText (Join-Path $root 'results.json') ($results|ConvertTo-Json)
-WriteText (Join-Path $root 'limitations.txt') 'Offline implementation evidence only. Ownership/selection inputs are fixtures, not captured Steam/Extender state. Revision B is synthetic opaque bytes, not an executable package. Windows deletion validates hashes and link identity on the same locked handle; concurrent ownership/staging changes still require a coordinated live updater protocol. No runtime hook or updater integration is enabled.'
-Write-Host "PASS: $($results.Count) actual package/removal checks. Evidence: $root"
+Write-Host "PASS: $($results.Count) actual package/removal checks. Report: $EvidenceRoot"
+} catch {
+    $failure=$_.ToString()
+    throw
+} finally {
+    $sourceFiles=@(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '../package') -File)+@(Get-Item -LiteralPath $PSCommandPath)
+    $sourceEvidence=@(foreach($file in $sourceFiles){[ordered]@{File=$file.Name;SHA256=Get-ProbeHash $file.FullName}})
+    try {
+        $report=[ordered]@{Schema=1;Utc=[DateTime]::UtcNow.ToString('o');Passed=($null -eq $failure);Failure=$failure;Cases=@($results.ToArray());Sources=$sourceEvidence;Limits='Offline fixtures; no Steam/Extender ownership or live updater proof. Assemblies are opaque data, never executed.'}
+        [IO.File]::WriteAllText((Join-Path $EvidenceRoot 'result.json'),($report|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
+    } finally {
+        $env:TEMP=$previousTemp;$env:TMP=$previousTmp
+        Remove-FixtureTree $root
+    }
+}

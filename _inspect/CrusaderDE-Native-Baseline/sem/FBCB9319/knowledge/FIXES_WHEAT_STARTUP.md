@@ -77,3 +77,55 @@ No diagnostic source is changed by the APIShared implementation task.
 
 Source/static checks only at this stage; no build, installed correction, backend
 execution or game acceptance is claimed. See APIShared's guide for pending tests.
+
+## Installed-binary recheck, 2026-10-17
+
+Native/managed game hashes still match the full identities at the start of this
+audit. Installed Fixes 1.26.5.0 has SHA-256
+47D77AC11585423AA2B054873C11EC3AF888CF92E955A0BA376F24BA1B7ECE2A;
+SHCDESE 2.14.2.0 has SHA-256
+577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175.
+All other binaries pinned by the startup correction retain their original hashes.
+The installed Fixes generator still passes [rsp+0x50] to TestNativeFlag before
+its helper pushes R8, so the original player derivation and +0x78 correction hold.
+Flags, categories, displaced instructions and continuation retain their contracts.
+
+APISharedTests.FixesWheatStartupTests.InstalledFixesGeneratorMatchesCompleteAuditedStub
+invokes a private copy of the installed emitter with only its flag-address source
+substituted. All 61 emitted body bytes match. A private executable fixture applies
+the production correction and executes the full stub for players 1..8, enabled
+and disabled flags, wheat and another good, independent other-player flags and
+three unrelated values in the old stack slot. Those cases pass on the desktop
+x64 runtime. No foreign game hook is constructed or patched by the fixture.
+The complete production binary preflight also passes. Unity byte-loaded managed
+assembly paths now use the installed GameRootPath image with hash/name/MVID checks.
+These are new fixture observations; the earlier historical evidence is unchanged.
+Actual Unity startup and gameplay acceptance remain separate requirements.
+
+## Unity startup confirmation and contract refinement, 2026-10-17 23:14 CEST
+
+The startup trace at 23:10:49 showed initialized=true, loaded=false, own plugin
+instance absent, Director/GameMap CLR-null and Awake/Application frame indices
+2/6. The loader was the dependency bootstrap's registered MonoMod DMD body, so
+the old exact Start-name check missed it (index -1). This was a false refusal,
+not evidence that correction had moved into gameplay. Read-only inspection of
+the installed MonoMod ILHook.Context.Refresh and Detour runtime pins establishes
+the original Method -> active Detour.Target -> pinned runtime handle mapping.
+APIShared now uses that mapping, without accepting a generated method by name.
+Original startup order/state, repeated checks, lock and one-write bounds remain.
+
+The fresh Unity run at 23:14:48.819 confirmed CORRECTED, full live 75-byte stub,
+site RVA 0x3F0C9 and player displacement 0x78. APIShared reached Ready and the
+current startup segment had no Error/Fatal. Save/editor/actual trade acceptance
+is not inferred from this menu startup.
+
+Fixes and Extender whole-file hashes above now describe observations, not managed
+version allowlists. Their full loaded/disk identity and MVID must match; the actual
+foreign object, live native entry, full stub and continuation remain decisive.
+The native game and private backend contracts stay hash-bound. The installed
+MonoMod.RuntimeDetour/Utils hashes are respectively
+40E49BB314391CD7BDDC2644F8553EEBA92C194B940836B103DF16955C464E0C and
+9D1495F147AC93C4F81F84538C1A326E8F8A6AEFC78D6289D798F3CE1162C5E9.
+Tests accept either audited player displacement, including no write when already
+corrected, and reject an unregistered generated loader copy. This supersedes the
+earlier whole-managed-binary refusal policy without changing native byte safety.

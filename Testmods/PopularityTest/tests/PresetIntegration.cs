@@ -48,7 +48,7 @@ namespace PopularityTest.Tests
                 int generic = (int)typeof(global::Program).GetMethod("Main", BindingFlags.Static | BindingFlags.NonPublic)
                     .Invoke(null, new object[] { new[] { "preset-storage" } });
                 Check(generic == 0, "Maintained host/client preset storage regression");
-                string fixture = Path.Combine(Path.GetTempPath(), "PopularityPreset-" + Guid.NewGuid().ToString("N"));
+                string fixture = TestWorkDirectory.New("PopularityPreset");
                 Directory.CreateDirectory(fixture);
                 PersonalSettingsPaths.TestDocumentsDirectory = _ => fixture;
                 string plugin = Path.Combine(fixture, "PopularityTest.dll");

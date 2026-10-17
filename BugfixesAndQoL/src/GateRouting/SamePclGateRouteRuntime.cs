@@ -242,9 +242,11 @@ namespace BugfixesAndQoL.GateRouting
         private volatile PlayerKindSnapshot playerKinds = PlayerKindSnapshot.Empty;
         private volatile TribePlayerSnapshot tribePlayers = TribePlayerSnapshot.Empty;
         private readonly bool ownerConflict;
-        private BuildingConsumerDelegate originalAlternateConsumer;
-        private CandidateSearchDelegate originalCandidateSearch;
-        private AiTacticalTargetDelegate originalAiTacticalTarget;
+        // APIShared publishes originals before any patch. Read them directly: a native call can
+        // arrive before InstallMovement returns and before this provider can copy its results.
+        private BuildingConsumerDelegate originalAlternateConsumer => nativeHooks.OriginalAlternateConsumer;
+        private CandidateSearchDelegate originalCandidateSearch => nativeHooks.OriginalCandidateSearch;
+        private AiTacticalTargetDelegate originalAiTacticalTarget => nativeHooks.OriginalAiTacticalTarget;
         private readonly DirectTileSearchDelegate originalDirectTileSearch;
         private readonly PclReachabilityDelegate originalPclReachability;
         private long queries, preserved, rejectedEdges, successWithRejectedEdges, negativeWithRejectedEdges;
@@ -330,9 +332,6 @@ namespace BugfixesAndQoL.GateRouting
         {
             nativeHooks.InstallMovement(threadSlots,tacticalThreadSlots,FilterAlternateConsumer,
                 FilterCandidateSearch,FilterAiTacticalTarget,FilterDirectCursorSearch,FilterCursorPclDecision);
-            originalAlternateConsumer=nativeHooks.OriginalAlternateConsumer;
-            originalCandidateSearch=nativeHooks.OriginalCandidateSearch;
-            originalAiTacticalTarget=nativeHooks.OriginalAiTacticalTarget;
             hooksInstalled=true;
         }
 

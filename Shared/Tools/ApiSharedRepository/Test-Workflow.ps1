@@ -1,7 +1,8 @@
 # Integration fixtures exercise Git itself; package fixtures double only external files.
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
-$temp=Join-Path ([IO.Path]::GetTempPath()) ('ApiSharedWorkflow-'+[Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$temp = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'Workflow'
 $oldProtocol=$env:GIT_ALLOW_PROTOCOL
 $env:GIT_ALLOW_PROTOCOL='file'
 function Check([bool]$value,[string]$message) { if(-not$value){throw $message} }

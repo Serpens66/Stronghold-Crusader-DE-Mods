@@ -1,2 +1,0 @@
-Continued accepted correction mode; lifecycle observation requires a new game acceptance.
-PASS: continuation rejects stale switches, backup changes, changed old/new DLLs and APIShared; explicit new binding succeeds.

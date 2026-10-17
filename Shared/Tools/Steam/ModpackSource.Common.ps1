@@ -33,9 +33,9 @@ function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$Allow
         if($line -ceq ('branch refs/heads/'+$Branch)){$root=$candidate}
     }
     if(-not $root){
-        $root=Join-Path (Get-ModpackCoordinator $Workspace) ('.release-output/Modpack/'+$Branch+'/source')
+        $root=New-ShortWorkDirectory -Root (Get-ModpackCoordinator $Workspace) -Kind b -Name ('modpack-'+$Branch) -Identity (((Invoke-ApiRepositoryGit $Workspace @('rev-parse',$Branch))-join '').Trim())
         Assert-ApiMainUnlinkedPath $root
-        if(Test-Path -LiteralPath $root){throw 'Unregistered modpack worktree exists; inspect it before continuing.'}
+        if(@(Get-ChildItem -LiteralPath $root -Force).Count){throw 'Allocated modpack worktree is not empty.'}
         Invoke-ApiRepositoryGit $Workspace @('worktree','add',$root,$Branch)|Out-Null
     }
     $source=[ordered]@{Branch=$Branch;Root=[IO.Path]::GetFullPath($root);Commit=((Invoke-ApiRepositoryGit $root @('rev-parse','HEAD')) -join '').Trim()}

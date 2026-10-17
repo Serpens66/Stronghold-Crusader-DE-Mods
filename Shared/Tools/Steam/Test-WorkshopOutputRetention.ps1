@@ -30,7 +30,8 @@ if($ResumeFixture){
     }finally{$lock.Dispose()}
 }
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/workshop-output-retention-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopOutputRetention'
 [void][IO.Directory]::CreateDirectory($fixture)
 function New-Case([string]$Name,[string]$Key='APIShared',[bool]$Test=$false){
     $root=Join-Path $fixture $Name

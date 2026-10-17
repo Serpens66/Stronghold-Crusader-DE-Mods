@@ -99,7 +99,7 @@ static void Scan(string[] arguments)
         Check(Directory.Exists(modRoot) && modRoot.StartsWith(root + Path.DirectorySeparatorChar,
             StringComparison.OrdinalIgnoreCase), "Mod directory must be inside the workspace");
     }
-    var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".git", "bin", "obj", "BepInEx", "tests", "packages", ".inspect", "_inspect", ".tools", ".native-analysis", ".release-output", "shcde-script-extender", "UCP", "x86_64" };
+    var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".git", "bin", "obj", "BepInEx", "tests", "packages", ".inspect", "_inspect", ".tools", ".native-analysis", ".work", ".release-output", "shcde-script-extender", "UCP", "x86_64" };
     int checkedFiles=0;
     var scanRoots = modRoot == null ? new[] { root } : new[] { modRoot, Path.Combine(root,"APIShared"), Path.Combine(root,"Shared/Runtime") };
     foreach (string file in scanRoots.SelectMany(RuntimeFiles).Distinct())

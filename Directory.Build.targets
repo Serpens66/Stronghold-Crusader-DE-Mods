@@ -12,4 +12,5 @@
   <Target Name="ValidateWorkspaceApiSharedPackage" BeforeTargets="ResolveAssemblyReferences" Condition="'@(Reference->WithMetadataValue('Identity', 'APIShared'))' != ''">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1&quot; -Workspace &quot;$(ModWorkspaceRoot)&quot; -PackageDirectory &quot;$(ApiSharedDir)&quot;" />
   </Target>
+  <Import Project="$(MSBuildThisFileDirectory)Shared/Tools/Paths/Paths.targets" />
 </Project>

@@ -38,8 +38,17 @@ namespace BugfixesAndQoL
 
         private static int failures;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--notifications")
+            {
+                TestNotificationSkipPolicy();
+                TestNotificationManagedContracts();
+                TestNotificationQueueNearCallResolver();
+                TestNotificationSkipIntegration();
+                Console.WriteLine("Notification policy and integration checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             TestSurrenderGameOverPolicy();
             TestSurrenderSelectionCleanup();
             TestCoopCustomLordSelectionPolicy();
@@ -1858,6 +1867,7 @@ namespace BugfixesAndQoL
         private static void TestNotificationSkipIntegration()
         {
             string feature = File.ReadAllText(Path.Combine("src", "NotificationSkipFeature.cs"));
+            string speechPlayback = File.ReadAllText(Path.Combine("src", "NotificationSpeechPlayback.cs"));
             string behavior = File.ReadAllText(Path.Combine("src", "NotificationSkipBehavior.cs"));
             string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
             string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
@@ -1868,7 +1878,7 @@ namespace BugfixesAndQoL
             string mainHudPatch = File.ReadAllText(mainHudPatchPath);
 
             Check(feature.Contains("MainViewModel.Instance.HUDRoot.RadarME_Ended();") &&
-                  feature.Contains("StopSpeechChannel1(MyAudioManager.Instance);") &&
+                  feature.Contains("speech.StopSpeechChannel1(MyAudioManager.Instance);") &&
                   feature.Contains("Enums.eOnScreenText.OST_MESSAGE_BAR") &&
                   feature.Contains("MainViewModel.Instance.OST_Message_Bar_Vis = false;") &&
                   feature.Contains("ImmediateCommandIdOffset") &&
@@ -1892,7 +1902,7 @@ namespace BugfixesAndQoL
                       behavior.IndexOf("CompleteFromNotificationSurfaceRightClick(surface, args)", StringComparison.Ordinal) &&
                   behavior.Contains("private static NotificationSkipFeature feature;") &&
                   feature.Contains("NotificationSkipBehavior.Configure(this);") &&
-                  feature.Contains("source?.Stop();"),
+                  speechPlayback.Contains("source?.Stop();"),
                 "left-click exits in the static behavior before feature inspection and paused channel 1 stops");
             Check(feature.Contains("surface == NotificationSkipSurface.Minimap") &&
                   feature.Contains("NotificationSkipPolicy.ShouldArmMinimap") &&
@@ -1903,16 +1913,11 @@ namespace BugfixesAndQoL
                   feature.Contains("NotificationSkipPolicy.AudioPathMatches") &&
                   feature.Contains("The immediate notification audio path is not null-terminated"),
                 "video and videoless minimap clicks are classified separately, including a transparent RadarME overlay, and only matching notification audio is stopped");
-            Check(feature.Contains("initializationStage = \"channel-1 speech hook\"") &&
-                  feature.Contains("initializationStage = \"native notification-update detour\"") &&
-                  feature.Contains("RollbackFailedInitialization(pendingLoadHook, pendingNativeTransaction)") &&
-                  feature.IndexOf("speechSource1Field = FindField", StringComparison.Ordinal) <
-                      feature.IndexOf("pendingLoadHook = new Hook", StringComparison.Ordinal) &&
-                  feature.IndexOf("pendingLoadHook = new Hook", StringComparison.Ordinal) <
-                      feature.IndexOf("pendingNativeTransaction.Commit()", StringComparison.Ordinal) &&
-                  feature.IndexOf("NotificationSkipBehavior.Configure(this);", StringComparison.Ordinal) <
-                      feature.IndexOf("catch (Exception ex)", StringComparison.Ordinal),
-                "audio and native hook failures have distinct context and share fail-closed publication");
+            Check(feature.Contains("speech = NotificationSpeechPlayback.Get(log);") &&
+                  feature.Contains("speech.SetNotificationClassifier(IsActiveNotificationAudioLoad);") &&
+                  feature.Contains("RollbackFailedInitialization(pendingNativeTransaction)") &&
+                  !feature.Contains("new Hook("),
+                "native skip reuses the independent managed speech owner and publishes its classifier only after initialization");
             int updateCallback = feature.IndexOf(
                 "private void UpdateNotificationQueue(IntPtr manager)", StringComparison.Ordinal);
             int messageBarHelper = feature.IndexOf(
@@ -1940,9 +1945,9 @@ namespace BugfixesAndQoL
                   !feature.Contains("skipRequestGeneration") &&
                   !feature.Contains("RequestedTimestamp"),
                 "notification requests remain identity-bound while routine click logs and diagnostic-only state are omitted");
-            Check(feature.Contains("speechChannel1Generation") &&
-                  feature.Contains("loadedClip?.UnloadAudioData();") &&
-                  feature.Contains("generation != Volatile.Read"),
+            Check(speechPlayback.Contains("speechChannel1Generation") &&
+                  speechPlayback.Contains("loadedClip?.UnloadAudioData();") &&
+                  speechPlayback.Contains("!IsCurrent(audio, generation)"),
                 "superseded channel-1 loads cannot replay skipped notification audio");
             Check(feature.Contains("RollbackFailedInitialization") &&
                   !feature.Contains("public void Dispose()"),
@@ -2051,15 +2056,14 @@ namespace BugfixesAndQoL
                   xaml.Contains("IsChecked=\"{Binding EnableNotificationLastFrame, Mode=TwoWay}\""),
                 "last-frame setting is local, saved per player, reset off, and visible in client UI");
             Check(lastFrame.Contains("originalPlayBink(self, binkName, loop, waitForSpeech);") &&
-                  lastFrame.Contains("!feature.Enabled || loop") &&
+                  lastFrame.Contains("!feature.Enabled || loop || !waitForSpeech") &&
                   lastFrame.Contains("value + \"**\"") &&
-                  lastFrame.Contains("if (feature == null || !feature.Enabled)") &&
                   lastFrame.Contains("originalVideoEnded(self, sender, args);") &&
-                  lastFrame.Contains("media.Pause();") &&
-                  lastFrame.Contains("media.Opacity = 1f;") &&
-                  lastFrame.Contains("sfx.requestBinkPlayState != 3") &&
+                  lastFrame.Contains("PresentationOperation.GuiChecks") &&
+                  lastFrame.Contains("speech.IsCurrent") &&
+                  !lastFrame.Contains("binkWaitForSpeech = true") &&
                   !lastFrame.Contains("public void Dispose()"),
-                "both permanent video hooks preserve Vanilla when disabled and retain the last frame only during speech");
+                "last-frame hooks bind the video to its speech generation and retain the shared GUI publisher");
             Check(runtime.Contains("private static NotificationLastFrameFeature processNotificationLastFrameFeature;") &&
                   runtime.Contains("new NotificationLastFrameFeature(log, settings)"),
                 "last-frame feature is rooted for the process lifetime");

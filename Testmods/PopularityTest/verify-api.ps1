@@ -1,10 +1,9 @@
+[CmdletBinding()]
+param([string]$ApiSharedDir = $env:SHCDE_API_SHARED_DIR)
 $ErrorActionPreference = 'Stop'
-$gameDirectory = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
-$apiFile = Join-Path $gameDirectory 'BepInEx\plugins\APIShared_Serp\APIShared.dll'
-$workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-. (Join-Path $workspace 'Shared\Tools\Release\Release.Common.ps1')
-if ([Reflection.AssemblyName]::GetAssemblyName($apiFile).Version.ToString() -cne '0.9.2.0' -or
-    (Get-Sha256Hex $apiFile) -cne '4ef262a5f69f16ef6b6e5238606f5013b6400b83d2f8c354e5c53f4efdd52bc1') {
-    throw 'The user-selected existing APIShared 0.9.2 SDK changed. Do not rebuild or replace it.'
-}
-Write-Host 'PASS: existing installed APIShared 0.9.2 identity; no dependency build/copy.'
+if (-not $ApiSharedDir) { $ApiSharedDir = Join-Path $PSScriptRoot '../../APIShared/BepInEx/plugins/APIShared_Serp' }
+$apiFile = Join-Path $ApiSharedDir 'APIShared.dll'
+$manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Raw | ConvertFrom-Json
+$minimum = [version]($manifest.Dependencies | Where-Object GUID -eq 'APIShared_Serp').MinimumVersion
+if ([Reflection.AssemblyName]::GetAssemblyName($apiFile).Version -lt $minimum) { throw "Build the selected APIShared development SDK first (minimum $minimum)." }
+Write-Host "PASS: selected APIShared SDK $apiFile; no dependency build or installation."

@@ -1,19 +1,15 @@
 // Feature: Fully finish a queued AI/event notification when its video or videoless minimap is right-clicked.
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.GameGlobals;
 using System;
-using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
-using UnityEngine;
 
 namespace BugfixesAndQoL
 {
@@ -25,34 +21,18 @@ namespace BugfixesAndQoL
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate ulong NotificationFinalizeDelegate(IntPtr manager);
 
-        private delegate void LoadSpeechClipDelegate(
-            MyAudioManager self,
-            int channel,
-            string folder,
-            string soundName,
-            bool unitsSpeech,
-            bool ignorePauseState);
-
         private static readonly BindingFlags InstanceMembers =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly IntPtr messageManager;
         private readonly IntPtr notificationPendingFlag;
-        private readonly Hook loadSpeechClipHook;
-        private readonly LoadSpeechClipDelegate loadSpeechClipOriginal;
-        private readonly FieldInfo speechSource1Field;
-        private readonly FieldInfo speechClip1Field;
-        private readonly FieldInfo speechMode1Field;
-        private readonly FieldInfo speechPausedField;
-        private readonly FieldInfo ignoreSpeechMutingField;
-        private readonly MethodInfo loadClipByPathMethod;
+        private readonly NotificationSpeechPlayback speech;
         private readonly DetourHandle<NotificationUpdateDelegate> notificationUpdateHook =
             new DetourHandle<NotificationUpdateDelegate>();
         private readonly HookTransaction notificationUpdateTransaction;
         private readonly NotificationFinalizeDelegate finalizeNotification;
         private PendingSkipRequest pendingSkipRequest;
-        private int speechChannel1Generation;
 
         public NotificationSkipFeature(
             ManualLogSource log,
@@ -75,28 +55,14 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("The Script Extender did not expose a valid MessageManager address.");
             messageManager = new IntPtr(unchecked((long)messageManagerAddress));
 
-            Hook pendingLoadHook = null;
             HookTransaction pendingNativeTransaction = null;
             string initializationStage = "managed message-bar contract";
             try
             {
                 ValidateMessageBarContract();
 
-                initializationStage = "channel-1 speech contract";
-                speechSource1Field = FindField("speechSource1", typeof(AudioSource));
-                speechClip1Field = FindField("speechClip1", typeof(AudioClip));
-                speechMode1Field = FindField("speechMode1", typeof(int));
-                speechPausedField = FindField("speechPaused", typeof(bool));
-                ignoreSpeechMutingField = FindField("ignoreSpeechMuting", typeof(bool));
-                loadClipByPathMethod = FindLoadClipByPathMethod();
-
-                initializationStage = "channel-1 speech hook";
-                pendingLoadHook = new Hook(FindLoadSpeechClipMethod(), (LoadSpeechClipDelegate)LoadSpeechClipHook);
-                LoadSpeechClipDelegate pendingLoadOriginal =
-                    pendingLoadHook.GenerateTrampoline<LoadSpeechClipDelegate>();
-
-                loadSpeechClipOriginal = pendingLoadOriginal;
-                loadSpeechClipHook = pendingLoadHook;
+                initializationStage = "shared channel-1 speech owner";
+                speech = NotificationSpeechPlayback.Get(log);
 
                 ulong moduleBase = unchecked((ulong)libraryHandle.ToInt64());
                 finalizeNotification = Marshal.GetDelegateForFunctionPointer<NotificationFinalizeDelegate>(
@@ -117,10 +83,11 @@ namespace BugfixesAndQoL
                 notificationUpdateTransaction = pendingNativeTransaction;
                 initializationStage = "notification UI behavior publication";
                 NotificationSkipBehavior.Configure(this);
+                speech.SetNotificationClassifier(IsActiveNotificationAudioLoad);
             }
             catch (Exception ex)
             {
-                RollbackFailedInitialization(pendingLoadHook, pendingNativeTransaction);
+                RollbackFailedInitialization(pendingNativeTransaction);
                 throw new InvalidOperationException(
                     $"The notification {initializationStage} could not be initialized.",
                     ex);
@@ -234,7 +201,7 @@ namespace BugfixesAndQoL
             {
                 try
                 {
-                    StopSpeechChannel1(MyAudioManager.Instance);
+                    speech.StopSpeechChannel1(MyAudioManager.Instance);
                 }
                 catch (Exception ex)
                 {
@@ -370,52 +337,6 @@ namespace BugfixesAndQoL
                 MainViewModel.Instance.OST_Message_Bar_Vis = false;
         }
 
-        private void StopSpeechChannel1(MyAudioManager audio)
-        {
-            if (audio == null)
-                return;
-
-            Interlocked.Increment(ref speechChannel1Generation);
-            AudioSource source = (AudioSource)speechSource1Field.GetValue(audio);
-            AudioClip clip = (AudioClip)speechClip1Field.GetValue(audio);
-            source?.Stop();
-            if (clip != null)
-                clip.UnloadAudioData();
-            speechClip1Field.SetValue(audio, null);
-            speechMode1Field.SetValue(audio, 0);
-
-            bool otherSpeechPlaying = audio.isSpeechPlaying(2) || audio.isSpeechPlaying(3);
-            bool ignoreSpeechMuting = (bool)ignoreSpeechMutingField.GetValue(audio);
-            audio.setMusicFadedState(
-                otherSpeechPlaying &&
-                ConfigSettings.Settings_ReduceMusicVolumeForSpeech &&
-                !ignoreSpeechMuting);
-        }
-
-        private void LoadSpeechClipHook(
-            MyAudioManager self,
-            int channel,
-            string folder,
-            string soundName,
-            bool unitsSpeech,
-            bool ignorePauseState)
-        {
-            if (channel != 1 || !IsActiveNotificationAudioLoad(soundName))
-            {
-                loadSpeechClipOriginal(self, channel, folder, soundName, unitsSpeech, ignorePauseState);
-                return;
-            }
-
-            int generation = Interlocked.Increment(ref speechChannel1Generation);
-            LoadSpeechChannel1Async(
-                self,
-                folder,
-                soundName,
-                unitsSpeech,
-                ignorePauseState,
-                generation);
-        }
-
         private bool IsActiveNotificationAudioLoad(string soundName)
         {
             if (!settings.EnableMod ||
@@ -464,92 +385,6 @@ namespace BugfixesAndQoL
             return length == 0 ? string.Empty : Marshal.PtrToStringAnsi(pathAddress, length);
         }
 
-        private async void LoadSpeechChannel1Async(
-            MyAudioManager audio,
-            string folder,
-            string soundName,
-            bool unitsSpeech,
-            bool ignorePauseState,
-            int generation)
-        {
-            AudioClip loadedClip = null;
-            try
-            {
-                string path = folder == "*"
-                    ? soundName
-                    : (ConfigSettings.Settings_EnglishSpeech || FatControler.UsesEnglishSpeechFolder()
-                        ? Path.Combine(Application.streamingAssetsPath, "EnglishSpeech", folder, soundName)
-                        : Path.Combine(Application.dataPath, "Assets", "GUI", "Speech", folder, soundName));
-                Task<AudioClip> loadTask =
-                    (Task<AudioClip>)loadClipByPathMethod.Invoke(audio, new object[] { path });
-                loadedClip = await loadTask;
-
-                if (generation != Volatile.Read(ref speechChannel1Generation))
-                {
-                    loadedClip?.UnloadAudioData();
-                    return;
-                }
-
-                speechClip1Field.SetValue(audio, loadedClip);
-                AudioSource source = (AudioSource)speechSource1Field.GetValue(audio);
-                float volume = (unitsSpeech
-                        ? ConfigSettings.Settings_UnitSpeechVolume
-                        : ConfigSettings.Settings_SpeechVolume) *
-                    MyAudioManager.GetMasterVolume();
-                source.volume = volume;
-                source.PlayOneShot(loadedClip);
-                speechMode1Field.SetValue(audio, 2);
-                if ((bool)speechPausedField.GetValue(audio) && !ignorePauseState)
-                    source.Pause();
-                else
-                    audio.setMusicFadedState(
-                        ConfigSettings.Settings_ReduceMusicVolumeForSpeech &&
-                        !(bool)ignoreSpeechMutingField.GetValue(audio));
-            }
-            catch (Exception ex)
-            {
-                if (generation == Volatile.Read(ref speechChannel1Generation))
-                {
-                    loadedClip?.UnloadAudioData();
-                    speechClip1Field.SetValue(audio, null);
-                    speechMode1Field.SetValue(audio, 0);
-                }
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/NotificationSkipFeature.cs:527", $"Bugfixes and QoL channel-1 speech loading failed: {ex}");
-            }
-        }
-
-        private static MethodInfo FindLoadSpeechClipMethod()
-        {
-            MethodInfo method = typeof(MyAudioManager).GetMethod(
-                "LoadClip",
-                InstanceMembers,
-                null,
-                new[] { typeof(int), typeof(string), typeof(string), typeof(bool), typeof(bool) },
-                null);
-            return method ?? throw new MissingMethodException(typeof(MyAudioManager).FullName, "LoadClip(int,...)");
-        }
-
-        private static MethodInfo FindLoadClipByPathMethod()
-        {
-            MethodInfo method = typeof(MyAudioManager).GetMethod(
-                "LoadClip",
-                InstanceMembers,
-                null,
-                new[] { typeof(string) },
-                null);
-            if (method == null || method.ReturnType != typeof(Task<AudioClip>))
-                throw new MissingMethodException(typeof(MyAudioManager).FullName, "LoadClip(string)");
-            return method;
-        }
-
-        private static FieldInfo FindField(string name, Type expectedType)
-        {
-            FieldInfo field = typeof(MyAudioManager).GetField(name, InstanceMembers);
-            if (field == null || field.FieldType != expectedType)
-                throw new MissingFieldException(typeof(MyAudioManager).FullName, name);
-            return field;
-        }
-
         private static void ValidateMessageBarContract()
         {
             Type ostType = typeof(OnScreenText.OST);
@@ -588,15 +423,9 @@ namespace BugfixesAndQoL
                 throw new MissingFieldException(declaringType.FullName, name);
         }
 
-        private static void RollbackFailedInitialization(
-            Hook managedCandidate,
-            HookTransaction nativeCandidate)
+        private static void RollbackFailedInitialization(HookTransaction nativeCandidate)
         {
             nativeCandidate?.Dispose();
-            if (managedCandidate == null)
-                return;
-            managedCandidate.Undo();
-            managedCandidate.Dispose();
         }
 
         private sealed class PendingSkipRequest

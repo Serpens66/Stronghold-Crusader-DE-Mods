@@ -30,6 +30,7 @@ namespace BugfixesAndQoL.UnitCommands
         {
             lock (stateSync)
             {
+                speechQueue.Clear();
                 if (drag == null && pendingCommand == null && activeCommand == null) return;
                 drag = null;
                 pendingCommand = null;
@@ -85,6 +86,7 @@ namespace BugfixesAndQoL.UnitCommands
             localInputFailed = true;
             lock (stateSync)
             {
+                speechQueue.Clear();
                 drag = null;
                 releaseConsumptionWatch = null;
             }

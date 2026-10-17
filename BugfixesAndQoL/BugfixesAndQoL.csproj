@@ -212,6 +212,7 @@
     <Compile Include="src\NotificationSkipBehavior.cs" />
     <Compile Include="src\NotificationSkipFeature.cs" />
     <Compile Include="src\NotificationLastFrameFeature.cs" />
+    <Compile Include="src\NotificationSpeechPlayback.cs" />
     <Compile Include="src\NotificationSkipPolicy.cs" />
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueModel.cs" />

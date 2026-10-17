@@ -56,7 +56,12 @@ foreach ($file in $files) {
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 Write-Output 'PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.'
 if (-not $SkipTests) {
-    & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect\AIKeepRangeLimit\audit.py')
+    . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
+    $auditWork=New-ShortWorkDirectory -Root $workspace -Kind a -Name keep -Identity (([IO.File]::ReadAllText((Join-Path $workspace '_inspect/CrusaderDE-Native-Baseline/CURRENT.json')) | ConvertFrom-Json).currentNativeHash)
+    $auditOutput=Join-Path $auditWork 'EEF90.bin'
+    & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect/AIKeepRangeLimit/test_audit_paths.py') --fixture $auditWork
+    if ($LASTEXITCODE -ne 0) { throw 'Native baseline path resolution tests failed.' }
+    & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect\AIKeepRangeLimit\audit.py') --output $auditOutput
     if ($LASTEXITCODE -ne 0) { throw 'Native identity/xref audit failed.' }
     $buildArguments = @('/t:Build', '/p:Configuration=Release', '/verbosity:minimal')
     foreach ($dependency in @(@('GameDir', $GameDir), @('ExtenderDir', $ExtenderDir), @('ApiSharedDir', $ApiSharedDir))) {
@@ -66,6 +71,6 @@ if (-not $SkipTests) {
     }
     & dotnet msbuild (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\AIKeepRange.Tests.csproj') @buildArguments
     if ($LASTEXITCODE -ne 0) { throw 'AI keep range tests compilation failed.' }
-    & (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe') (Join-Path $workspace '_inspect\AIKeepRangeLimit\EEF90.bin')
+    & (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe') $auditOutput
     if ($LASTEXITCODE -ne 0) { throw 'AI keep range native/runtime tests failed.' }
 }

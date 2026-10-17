@@ -70,12 +70,12 @@ SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unve
 SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
 SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
 SomeSettings.MarketPriceMultipliersTitle=Marktpreise
-SomeSettings.MarketGoodPriceMultipliersHelp=Bei jedem Gut steuert der obere Regler den Kauf und der untere Regler den Verkauf. Jeder einzelne Faktor wird mit dem entsprechenden allgemeinen Faktor multipliziert; 1,0x laesst dieses Gut unveraendert.
+SomeSettings.MarketGoodPriceMultipliersHelp=Der obere Regler steuert den Kauf, der untere den Verkauf. Der individuelle Faktor wird mit dem allgemeinen Faktor multipliziert. Ein Gesamtfaktor von 1,0 lässt aktuelle Preise unverändert. Andere Faktoren skalieren Vanilla-Preise; abweichende direkte Preise anderer Mods haben Vorrang und bleiben erhalten. Zurücksetzen nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketGoodPriceMultiplierHelp={Good} - {Direction}: {Value}. Dieser einzelne Faktor wird mit dem entsprechenden allgemeinen Marktfaktor multipliziert.
 SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
-SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketBuyPriceMultiplierHelp=Faktor für Vanilla-Kaufpreise: 1,0 lässt aktuelle Preise unverändert, 0,0 = kostenlos, 5,0 = fünffacher Vanilla-Preis. Wird mit dem individuellen Warenfaktor kombiniert. Abweichende direkte Preise anderer Mods haben Vorrang; Deaktivieren nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
-SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketSellPriceMultiplierHelp=Faktor für Vanilla-Verkaufspreise: 1,0 lässt aktuelle Preise unverändert, 0,0 = kein Erlös, 5,0 = fünffacher Vanilla-Preis. Wird mit dem individuellen Warenfaktor kombiniert. Abweichende direkte Preise anderer Mods haben Vorrang; Deaktivieren nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketPricesAlsoForAI=Auch fuer KI anwenden
 SomeSettings.MarketPricesAlsoForAIHelp=Wenn aktiviert, verwendet die KI die eingestellten Marktpreise fuer Entscheidungen, Kaeufe und Verkaeufe. Wenn deaktiviert, verwendet die KI Vanilla-Preise. Die eingestellten Marktpreise beeinflussen die Modsetting Wirtschaftsboni unabhaengig von dieser Option.
 SomeSettings.EnableKnightDismount=Ritter auf- und absitzen aktivieren

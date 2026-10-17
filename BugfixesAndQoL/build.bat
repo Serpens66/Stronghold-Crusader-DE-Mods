@@ -40,7 +40,7 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\FormationIntegration\Verify-Interop.ps1"
 if errorlevel 1 exit /b 1
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1" -ModDirectory BugfixesAndQoL
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -95,7 +95,12 @@ if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
 ) else goto build_failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
+rem /checks:notifications selects the relevant behavior suite for a notification-only change.
+rem Common source, dependency and runtime safety checks remain mandatory.
+set "NOTIFICATION_CHECKS=0"
+for %%A in (%*) do if /I "%%~A"=="/checks:notifications" set "NOTIFICATION_CHECKS=1"
 pushd "%PROJECT_DIR%"
+if "%NOTIFICATION_CHECKS%"=="1" goto notification_checks
 echo [%date% %time%] Lobby save loading and visibility contracts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-LobbySaveLoading.ps1" -RunTests
 if errorlevel 1 goto build_failed_popd
@@ -153,7 +158,7 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-TannerFadePreflight.ps1"
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1" -ModDirectory BugfixesAndQoL
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] Arabian idle volume consumer tests
 "%MSBUILD%" "%PROJECT_DIR%tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
@@ -169,6 +174,9 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 dotnet test tests\Formations.Core.Tests\Formations.Core.Tests.csproj --configuration Release --logger trx --results-directory tests\Formations.Core.Tests\TestResults
+if errorlevel 1 goto build_failed_popd
+echo [%date% %time%] Formation speech regression tests
+dotnet run --project tests\FormationSpeech.Tests\FormationSpeech.Tests.csproj --configuration Release -p:ExtenderDir="%EXTENDER_DIR%" -- "%PROJECT_DIR%.."
 if errorlevel 1 goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" tests\Formations.Tests\Formations.Tests.csproj /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
@@ -217,6 +225,9 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 dotnet run --project "tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommandQueue.Tests.csproj"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Issue 6 preset and infinite-patrol regressions
+dotnet run --project "tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.."
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 dotnet run --project "tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
@@ -232,6 +243,20 @@ set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
 echo [%date% %time%] Run tests
 dotnet run --project "tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+goto checks_completed
+
+:notification_checks
+echo [%date% %time%] Notification-scoped runtime and behavior checks
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
+if errorlevel 1 goto build_failed_popd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-NotificationLastFramePreflight.ps1"
+if errorlevel 1 goto build_failed_popd
+"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe" --notifications
+if errorlevel 1 goto build_failed_popd
+
+:checks_completed
 popd
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"

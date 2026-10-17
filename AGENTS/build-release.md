@@ -2,6 +2,8 @@
 
 **Lesen, wenn:** ein Mod gebaut, eine Version geändert, Textdateien nach CRLF konvertiert, Hashprüfungen in Treibern geschrieben oder ein Release/Steam-Modpack vorbereitet wird. PowerShell-Aufrufdetails: [shell-windows.md](shell-windows.md). Gilt zusätzlich zur Root-`AGENTS.md`.
 
+Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlungen und Standardverhalten, keine unveränderlichen Buildregeln. Der ausdrückliche Nutzerauftrag bestimmt Quellstand, Branch, SDK, Prüfungsumfang, Buildweg und Installation. Auftragsbezogene Einschränkungen nie als allgemeine Verbote übernehmen. Technische Voraussetzungen und gültige Pfade bleiben erforderlich.
+
 ## Modpack-Branches
 
 - Im Modpack-Repository ist `main` der releasefertige Stand; aktive und noch nicht releasefertige Arbeit gehört nach `develop`. Der normale Entwicklungs-Workspace bleibt auf `develop`.
@@ -11,22 +13,29 @@
 ## Auswahl der Prüfungen
 
 - Für alle Mods nur Prüfungen ausführen, die für den zu bauenden Mod, seine betroffenen Funktionen und den tatsächlichen Änderungsumfang relevant sind. Das Lesen einer Themendatei allein verpflichtet nicht zu sämtlichen dort genannten Tests; deren konkrete Auslöser beachten.
-- Prüfungen möglichst auf das Modprojekt und seine relevanten Abhängigkeiten bzw. Quelllinks begrenzen (z. B. `Test-SharedBoundaries.ps1 -ModDirectory <Modpfad>`). Änderungen an gemeinsam genutztem Code erfordern zusätzlich die einschlägigen Prüfungen der dadurch betroffenen Verbraucher. Bietet ein Prüfer keine passende Eingrenzung, die relevanten Fälle separat prüfen; keine fachfremde Gesamtsuite allein wegen dieser technischen Einschränkung verlangen.
+- Prüfungen möglichst auf das Modprojekt und seine relevanten Abhängigkeiten bzw. Quelllinks begrenzen (z. B. `Test-SharedBoundaries.ps1 -ModDirectory <Modpfad>`). Bei Änderungen an gemeinsam genutztem Code empfehlen sich zusätzlich die einschlägigen Prüfungen der dadurch betroffenen Verbraucher. Bietet ein Prüfer keine passende Eingrenzung, die relevanten Fälle separat prüfen; keine fachfremde Gesamtsuite allein wegen dieser technischen Einschränkung verlangen.
 - Eine unveränderte APIShared-Referenz oder die gemeinsame Installation anderer Mods begründet allein keinen Gesamttest. Die fachlichen Auslöser für Preset- und UI-Prüfungen stehen in [modsettings-ui.md](modsettings-ui.md#pflichttests-vor-dem-build).
-- Fachfremde Fehler blockieren den Build nicht und lösen keine ungefragten Reparaturen aus. Bei ausdrücklich angeforderten Gesamttests fachfremde Befunde separat ausweisen; Fehler im relevanten Prüfbereich bleiben vor dem Build zu klären.
-- Vor dem Build kurz festhalten, welche Prüfungen erforderlich sind und warum.
+- Fachfremde Fehler blockieren den Build nicht und lösen keine ungefragten Reparaturen aus. Bei ausdrücklich angeforderten Gesamttests fachfremde Befunde separat ausweisen; Fehler im relevanten Prüfbereich sollten vor dem Build geklärt oder als bewusste Einschränkung ausgewiesen werden.
+- Vor dem Build kurz festhalten, welche Prüfungen vorgesehen sind und warum.
+
+## Belastbare Tests und Zustandsnachweise
+
+- Die Grundregel zu Verträgen und Momentaufnahmen aus der Root-AGENTS.md gilt auch für Tests, Buildtreiber, Konfigurationen und technische Markdown-Dateien. Verhalten, Ergebnisse und relevante Sicherheitsinvarianten prüfen; gleichwertige Umstrukturierungen sollen Tests nicht brechen.
+- Exakte Quelltextfragmente, private Membernamen, Methodenaufteilungen oder interne Ordnerstrukturen nur als Prüfbedingung verwenden, wenn deren konkrete Form für den nachzuweisenden Vertrag erforderlich ist. Den Grund und die Grenzen der Prüfung am Test festhalten. Andernfalls geeignete Verhaltenstests, Metadaten oder strukturelle Prüfungen verwenden; keine bloßen Wortlautprüfungen als Sicherheitsnachweis ausgeben.
+- Fixtures übernehmen relevante Eingaben und Abhängigkeiten aus der maßgeblichen Quelle bzw. einer bewusst festgelegten Testspezifikation. Eine exakte Pfadlänge ist beispielsweise im expliziten Grenzfalltest zulässig; andere Tests benötigen nur die für ihr Verhalten relevanten Eigenschaften. Ein absichtlicher Kompatibilitätsbruch oder eine reale Sicherheitsregression darf weiterhin fehlschlagen.
+- Branch, HEAD, Dirty-Status, Verfügbarkeit und Buildfehler vor einer darauf beruhenden Entscheidung erneut feststellen. Zustandsberichte nennen Zeitpunkt, geprüften Quellstand und Nachweis/Prüfbefehl. Ein Commit nach einer früheren „uncommitted“-Beobachtung oder ein später erfolgreicher Build widerlegt keine historische Beobachtung und darf nicht durch diese blockiert werden.
 
 ## Build-Ablauf
 
-- Nach dem Erstellen oder Ändern eines Mods zuerst alle nach der [Prüfauswahl](#auswahl-der-prüfungen) relevanten Prüfungen und Codekontrollen abschließen (z. B. modbezogene Shared-Boundary- und Abhängigkeitsprüfungen, mod-eigene `verify.ps1`, bei betroffenen Modsettings-/UI-Funktionen die einschlägigen Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen.
-- Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) und `/nopause` gemäß der Nutzerwahl ausführen. Nicht selbst bauen oder kopieren; `build.bat` übernimmt Build und Installation. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
+- Nach dem Erstellen oder Ändern eines Mods empfohlen: zunächst die nach der [Prüfauswahl](#auswahl-der-prüfungen) relevanten Prüfungen und Codekontrollen abschließen (z. B. modbezogene Shared-Boundary- und Abhängigkeitsprüfungen, mod-eigene `verify.ps1`, bei betroffenen Modsettings-/UI-Funktionen die einschlägigen Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen; der Nutzer kann einen anderen Prüfungsumfang wählen.
+- Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) und `/nopause` gemäß der Nutzerwahl ausführen. Standardmäßig übernimmt `build.bat` Build und Installation; andere ausdrücklich gewünschte Buildwege sind zulässig. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
 
 ## Buildstand und SDK: Nutzerwahl vor Standard
 
 - Ausdrückliche Nutzerwünsche bestimmen Quellstand (auch uncommittierter Arbeitsstand), Branch und SDK. Es gibt keine allgemeine Pflicht, vor einem Build zu committen, eine bestimmte Branch zu wählen oder ausschließlich deren letzten Commit zu bauen.
 - Die vorhandenen Branchmenüs, Commit-Worktrees und zugehörigen SDK-Auswahlen in `build.bat` sind Standardabläufe für Aufrufe ohne abweichenden Nutzerauftrag. Sie sind keine Einschränkung ausdrücklich gewünschter Arbeitsstand- oder SDK-Builds. Fehlt dafür ein expliziter Treiberweg, ihn gezielt ergänzen; keine interne Release-Pinningvariable als versteckte Umgehung verwenden.
 - Ohne abweichenden Auftrag bleiben vorhandene Release-Pins, Installationsvarianten und Bereinigungsgrenzen der Treiber erhalten. Ein gewählter Buildstand autorisiert weder Commits noch Branchwechsel, Stash, Reset oder eine Veröffentlichung.
-- Unverändert verlangte SDKs und installierte Abhängigkeiten vor/nach dem Build prüfen und weder neu bauen noch ersetzen. Prüfungen und Installationssperren gelten unabhängig vom gewählten Quellstand.
+- Unverändert verlangte SDKs und installierte Abhängigkeiten vor/nach dem Build prüfen und weder neu bauen noch ersetzen. Prüfungen sind der empfohlene Standard; technische Installationsfehler sind vom gewählten Quellstand unabhängig.
 
 ## CRLF
 
@@ -56,3 +65,22 @@
 - Vor Einzel- und Packreleases ZIP-/Map-Hash, Provenance, GUID, Version, kompilierte Soft-Abhängigkeit und extrahierten Inhalt prüfen; ein Teilfehler ist kein erfolgreicher Packbuild.
 - Host-eigene Fehler mit ms-Zeitstempel und Fehlerkennung ins BepInEx-Log; Error-/Fatal-Meldungen enthaltener Mods zusätzlich in der begrenzten Host-Diagnoseansicht, ohne sie rekursiv erneut zu loggen.
 - Rückwärtskompatibilität modinterner Implementierungen ist nur für bereits als „SerpsMods“ auf Steam veröffentlichten Code nötig (APIShared: siehe [apishared.md](apishared.md)).
+
+## Short development paths
+
+New branch sources use `.work/b/<branch>/<number>`; full commits remain in build records.
+`build.bat /source:working /nopause /noinstall` builds an isolated copy of current
+tracked and untracked sources without committing or switching the checkout.
+`/noinstall` is optional and independent of this source selection. Automated
+`/nopause` calls without a source choice default to the working tree; calls without
+arguments retain the branch menu.
+Do not combine it with `/branch`. Mod consumers can select a previously validated
+package explicitly with `/apishared:package` and `SHCDE_API_SHARED_DIR`; the package
+is verified, never rebuilt. Test and analysis work uses `.work/t` and `.work/a`.
+Historical evidence and published package paths retain their original locations.
+
+Native audits resolve the database through CURRENT.json and its database manifest.
+Branch builds pass SHCDE_NATIVE_BASELINE_ROOT for read-only access to local baseline
+artifacts; audit code must verify that source and shared metadata identify the same
+dataset. Missing databases use the documented RestoreDatabase command, never an
+older guessed filename. Generated audit buffers belong in .work/a.

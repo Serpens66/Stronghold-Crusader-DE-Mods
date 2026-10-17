@@ -1,4 +1,5 @@
 . (Join-Path $PSScriptRoot 'RepositoryProcess.Common.ps1')
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 function Assert-ApiMainUnlinkedPath([string]$Path) {
     for($part=[IO.Path]::GetFullPath($Path);$part;$part=[IO.Path]::GetDirectoryName($part)) {
         if((Test-Path -LiteralPath $part) -and ([IO.File]::GetAttributes($part)-band [IO.FileAttributes]::ReparsePoint)){throw "Linked release path: $part"}
@@ -37,9 +38,17 @@ function Assert-ApiMainSelection([string]$Workspace,[string]$Path) {
     Assert-ApiMainUnlinkedPath $Path
     $selection=[IO.File]::ReadAllText($Path)|ConvertFrom-Json
     if($selection.SchemaVersion -ne 1 -or $selection.Commit -cnotmatch '^[0-9a-f]{40}$' -or $selection.Branch -cne 'main'){throw 'Invalid main selection identity.'}
-    $base=Join-Path $Workspace ('.release-output/APIShared/main/'+$selection.Commit)
-    $expectedPath=[IO.Path]::GetFullPath((Join-Path $base 'selection.json'))
-    $root=[IO.Path]::GetFullPath((Join-Path $base 'source'))
+    $shortBase = [IO.Path]::GetFullPath((Join-Path $Workspace '.work/b/api-main'))
+    $selectedRoot = [IO.Path]::GetFullPath([string]$selection.Root)
+    if ($selectedRoot -match ('^' + [regex]::Escape($shortBase) + '\\[0-9]+$')) {
+        $root=$selectedRoot
+        $expectedPath=$root+'.selection.json'
+    } else {
+        # Historical pinned SDK evidence retains its exact original location.
+        $base=Join-Path $Workspace ('.release-output/APIShared/main/'+$selection.Commit)
+        $expectedPath=[IO.Path]::GetFullPath((Join-Path $base 'selection.json'))
+        $root=[IO.Path]::GetFullPath((Join-Path $base 'source'))
+    }
     if(-not [string]::Equals([IO.Path]::GetFullPath($Path),$expectedPath,[StringComparison]::OrdinalIgnoreCase) -or
         -not [string]::Equals([string]$selection.Root,$root,[StringComparison]::OrdinalIgnoreCase)){throw 'main selection is outside its commit-specific worktree.'}
     Assert-ApiRepositoryOrigin $root
@@ -61,13 +70,19 @@ function Resolve-ApiMainSelection([string]$Workspace) {
     }
     $remote=@(Invoke-ApiRepositoryGit $api @('ls-remote','--heads','origin','refs/heads/main'))
     if($remote.Count -ne 1 -or $remote[0] -cnotmatch '^([0-9a-f]{40})\s+refs/heads/main$'){throw 'Cannot resolve public main.'}
-    $commit=$Matches[1];$base=Join-Path $Workspace ('.release-output/APIShared/main/'+$commit)
-    $root=Join-Path $base 'source';$path=Join-Path $base 'selection.json'
+    $commit=$Matches[1]
+    $shortBase=Join-Path $Workspace '.work/b/api-main'
+    foreach ($existing in @(Get-ChildItem -LiteralPath $shortBase -Filter '*.selection.json' -File -ErrorAction SilentlyContinue)) {
+        $candidate=[IO.File]::ReadAllText($existing.FullName)|ConvertFrom-Json
+        if ($candidate.Commit -ceq $commit) { $null=Assert-ApiMainSelection $Workspace $existing.FullName; return $existing.FullName }
+    }
+    $base=New-ShortWorkDirectory -Root $Workspace -Kind b -Name api-main -Identity $commit
+    $root=$base;$path=$base+'.selection.json'
     Assert-ApiMainUnlinkedPath $base
     if(Test-Path -LiteralPath $path){$null=Assert-ApiMainSelection $Workspace $path;return $path}
     Invoke-ApiRepositoryGit $api @('fetch','--no-tags','origin','+refs/heads/main:refs/remotes/origin/main')|Out-Null
     # Never adopt an unexpected pre-existing directory or reset existing work.
-    if(Test-Path -LiteralPath $root){throw "Unregistered main worktree already exists: $root. Inspect it; no files were overwritten."}
+    if (@(Get-ChildItem -LiteralPath $root -Force).Count) { throw "Allocated main worktree is not empty: $root" }
     [void][IO.Directory]::CreateDirectory($base)
     Invoke-ApiRepositoryGit $api @('worktree','add','--detach',$root,$commit)|Out-Null
     $selection=[ordered]@{SchemaVersion=1;Branch='main';Commit=$commit;Root=[IO.Path]::GetFullPath($root);SourceFingerprint=(Get-ApiMainSourceFingerprint $root)}

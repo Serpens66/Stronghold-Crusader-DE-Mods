@@ -136,6 +136,7 @@ namespace BugfixesAndQoL
         private IntPtr choreCommandOrTileXPointer;
         private IntPtr choreTileYPointer;
         private IntPtr choreMoveTypePointer;
+        private IntPtr chorePatrolModePointer;
         private bool installed;
         private bool multiplayerSynchronizationReady;
         private bool multiplayerMarkerFailureLogged;
@@ -394,6 +395,7 @@ namespace BugfixesAndQoL
                 choreCommandOrTileXPointer = libraryHandle + QueueNativeContract.ChoreCommandOrTileXRva;
                 choreTileYPointer = libraryHandle + QueueNativeContract.ChoreTileYRva;
                 choreMoveTypePointer = libraryHandle + QueueNativeContract.ChoreMoveTypeRva;
+                chorePatrolModePointer = libraryHandle + QueueNativeContract.ChorePatrolModeRva;
 
                 multiplayerTransaction = new HookTransaction(
                     context.Region,
@@ -447,7 +449,8 @@ namespace BugfixesAndQoL
                 int observedTribeId = Marshal.ReadInt32(choreTribeIdPointer);
                 originalMoveType = Marshal.ReadInt32(choreMoveTypePointer);
                 int markedMoveType = originalMoveType;
-                if (ShouldMarkOutgoingMultiplayerOrder())
+                if (ShouldMarkOutgoingMultiplayerOrder() &&
+                    Marshal.ReadInt32(chorePatrolModePointer) != (int)TribePatrolMode.PatrolInfinite)
                 {
                     int tribeId = observedTribeId;
                     if (IsLocalSelectedTribe(tribeId, out _) &&
@@ -994,6 +997,17 @@ namespace BugfixesAndQoL
             if (aiOwned)
                 return;
 
+            // The queue cannot represent an infinite patrol. Keep its native mode and points,
+            // and retire old queue work before it can redispatch over the new patrol.
+            if (args.IsPatrolPath == (short)TribePatrolMode.PatrolInfinite)
+            {
+                if (realMultiplayer && QueueNativeContract.TryDecodeQueuedMoveType(
+                        (int)args.MoveType, out int patrolMoveType))
+                    args.MoveType = (TribeMoveType)patrolMoveType;
+                if (FeatureEnabled) CancelQueueForPatrol(args.TribeId);
+                return;
+            }
+
             if (realMultiplayer)
             {
 
@@ -1122,6 +1136,12 @@ namespace BugfixesAndQoL
                     // Chore 71 is also emitted for AI movement. It has no Shift semantics.
                     if (IsAiOwnedAliveTribe(tribeId))
                         goto Vanilla;
+
+                    if (moveMode == (short)TribePatrolMode.PatrolInfinite)
+                    {
+                        CancelQueueForPatrol(tribeId);
+                        goto Vanilla;
+                    }
 
                     if (IsRealMultiplayer())
                     {
@@ -1921,6 +1941,14 @@ namespace BugfixesAndQoL
                     pointIndex,
                     completed: pointIndex < currentWaypointIndex);
             }
+        }
+
+        private void CancelQueueForPatrol(int tribeId)
+        {
+            observedAttacks.Remove(tribeId);
+            CancelQueuesForTribeUnits(tribeId);
+            expectedMoveChores.RemoveAll(signal => signal.TribeId == tribeId);
+            expectedMoveEvents.RemoveAll(signal => signal.TribeId == tribeId);
         }
 
         private void CancelQueuesForTribeUnits(int tribeId)

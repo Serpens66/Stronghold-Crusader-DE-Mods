@@ -202,7 +202,7 @@ namespace EnemyBridgePathTest
         {
             foreach(int actor in new[]{2,7})foreach(bool identity in new[]{true,false})
             {
-                var messages=new List<string>();string directory=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"root-pair-"+Guid.NewGuid().ToString("N"));
+                var messages=new List<string>();string directory=TestWorkDirectory.New("root-pair");
                 var shadow=new BridgeVirtualShadow((k,d)=>messages.Add(k+":"+d),_=>throw new Exception("pair cannot rescan map"),artifactDirectory:directory,structureIdentity:_=>identity);shadow.Begin(1);shadow.MilitaryOpened(1,9,actor);
                 var physical=Input(5,false);var group=RequestForPlayer(physical,actor);Set(group,"Id",2L);Set(group,"Op",50L);Set(group,"PlanningRoot",9L);
                 var own=new BridgeStructureCapture.Input{Session=1,Root=9,Op=50,Player=actor,Complete=true,Unit=11+actor,UnitGlobal=71,TargetEvidence="native-unit-context-building-tile-not-attack-execution-proof"};
@@ -348,7 +348,7 @@ namespace EnemyBridgePathTest
             var saturated=new BridgeVirtualShadow((k,d)=>focusedMessages.Add(k+":"+d),_=>throw new Exception("native read"));saturated.Begin(2);
             for(int i=0;i<34;i++)saturated.Compare("keep-access",100+i,0,8,i,4,0,0);
             Check((long)Get(saturated,"attempted")==34&&(long)Get(saturated,"rejected")==2,"selected queue rejections counted exactly");saturated.End();
-            string ownFolder=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"own-decision-copy-"+Guid.NewGuid().ToString("N"));
+            string ownFolder=TestWorkDirectory.New("own-decision-copy");
             var ownMessages=new List<string>();var own=new BridgeVirtualShadow((k,d)=>ownMessages.Add(k+":"+d),_=>throw new Exception("no live read during delivery"),artifactDirectory:ownFolder);own.Begin(1);
             object ownInput=Input(5,false);Set(ownInput,"Dirty",1);Set(ownInput,"NativeRevision",4);Set(own,"decisionCaptured",ownInput);Set(own,"decisionCaptureOp",22L);
             object ownRequest=Request(null,null);Set(ownRequest,"Parent",22L);Set(own,"planningRequest",ownRequest);own.Invalidate();
@@ -366,7 +366,7 @@ namespace EnemyBridgePathTest
             Check((long)Get(quiet,"attempted")==75117&&(long)Get(quiet,"coalesced")==75116,"all repeated shadow requests counted exactly");
             Check(quietMessages.Sum(v=>Encoding.UTF8.GetByteCount(v)+160)<1000000,"quiet shadow output under 1MB including prefix allowance");
             var ended=new BridgeVirtualShadow((k,d)=>{},_=>throw new Exception("map read"));ended.Begin(1);Set(ended,"active",Request(Input(5,false),null));ended.End();ended.Begin(2);ended.Pump();Check(Get(ended,"active")==null,"map end cancels old work and reused IDs");
-            string folder=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"bridge-artifact-tests-"+Guid.NewGuid().ToString("N"));var output=new List<string>();var writer=new BridgeInputArtifact(folder,(s,k,d)=>output.Add(s+":"+k+":"+d));
+            string folder=TestWorkDirectory.New("bridge-artifact-tests");var output=new List<string>();var writer=new BridgeInputArtifact(folder,(s,k,d)=>output.Add(s+":"+k+":"+d));
             Check(writer.Enqueue(1,1,SmallArtifact())&&writer.Enqueue(1,2,SmallArtifact())&&!writer.Enqueue(1,3,SmallArtifact()),"max two artifacts per session");
             Check(writer.Enqueue(2,3,SmallArtifact()),"new session does not lose older writer");int iterations=0;
             while(writer.Pending(1)||writer.Pending(2)) {long before=writer.Bytes;writer.Pump();Check(writer.Bytes-before<=65536,"one 64KiB write per render");Check(++iterations<10000,"artifact progress bounded");}

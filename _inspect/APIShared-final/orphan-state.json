@@ -1,0 +1,110 @@
+{
+  "CapturedUtc": "2026-10-17T20:14:09.4603372Z",
+  "Session": "a8511b8a6b454372862098dc4050117e",
+  "Status": "Complete",
+  "OriginalDirectory": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp",
+  "HeldDirectory": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\APIShared-final\\held-api",
+  "Files": [
+    {
+      "Path": "apishared-workshop-files.json",
+      "SHA256": "2eaec0ec49cf1e72defcb23a109cace2c9e6a4cfacadc26436e4ee42b913448a"
+    },
+    {
+      "Path": "APIShared.dll",
+      "SHA256": "18a0b5777f98632b7f23e8d662185ef8de600d6afd9cafdeed603d95a7e16496"
+    },
+    {
+      "Path": "APIShared.pdb",
+      "SHA256": "0ef88d81d8c645ed740e92494e9cf49dd6ff70ba97ab161102bcbd6ae3c3812d"
+    },
+    {
+      "Path": "APIShared.xml",
+      "SHA256": "dfc1f31f0f143fa18845a010c7aed7074982004e1c248dc8c0f10ac80409da09"
+    },
+    {
+      "Path": "dependency-bootstrap-pair.json",
+      "SHA256": "4e9e78095f15a25b656fd935adcb3ddde45d27f985e19b5c3c233034ef6f2c8b"
+    },
+    {
+      "Path": "info.json",
+      "SHA256": "3bc390acbdd805df3ed865d173f6f02a1f600fdf91ce5043fce920f918cd115f"
+    },
+    {
+      "Path": "Patches/Assets/GUI/XAML/IngameUIScreens.xaml",
+      "SHA256": "dcaff77e7ea569288a1d727de0430a7075d1f30cd89e63d7a4a52d99868d24ea"
+    },
+    {
+      "Path": "Patches/Assets/GUI/XAML/MainHUD.xaml",
+      "SHA256": "15bdee94859ae81d37dabbf7dff0a259522e3e1591bc2bf43259a8e8921bf321"
+    },
+    {
+      "Path": "Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml",
+      "SHA256": "c8af066c4c11b65d3008b79daf31a6db653475088e1ae254ae8531b3c76b88a0"
+    },
+    {
+      "Path": "Patches/Assets/GUI/XAMLResources/HUD_Troops.xaml",
+      "SHA256": "9003f13b8b672ff651364b7ca356b8f5f0a2aaf8fd0dd0e59cb06837b43dd197"
+    },
+    {
+      "Path": "Workshop/workshop-maintenance.ps1",
+      "SHA256": "a7b5abb75ca08b54594ab373de266418726053d85ddd47118db96f3e4d6524fc"
+    },
+    {
+      "Path": "Workshop/workshop-maintenance.sh",
+      "SHA256": "ab0c80aa3bd751e72c130dec54b00039b99a095cb5875d18dd3773d7f28f7d99"
+    },
+    {
+      "Path": "Workshop/workshop-updater.ps1",
+      "SHA256": "fffaa3da2be9507b7a65c6a684fb6df508da195e18eb3f538f76c35d808129a8"
+    },
+    {
+      "Path": "Workshop/workshop-updater.sh",
+      "SHA256": "dfd7fb2b61cca5fb2e4ac764bc4576ddcac7750b2f76a66f01d81be3de83875a"
+    },
+    {
+      "Path": "Workshop/Bootstrap/build.bat.template",
+      "SHA256": "642abb4d172a4a9add3d876467b9cc04e1ac6a47b08ec0ebb88bda6f3a5fed5b"
+    },
+    {
+      "Path": "Workshop/Bootstrap/Build.ps1.template",
+      "SHA256": "48513911454d31767a0992553f1267fd3d4694b2ef83fcf42d63f5ef3e54af17"
+    },
+    {
+      "Path": "Workshop/Bootstrap/Plugin.cs.template",
+      "SHA256": "09bed7db66bcf5278e4da0ebcc74c64fd79d24988dd216d745585bc232c0e7c8"
+    }
+  ],
+  "BootstrapSHA256": "ead38b5b1c0112a77e5efc00de8c2b4d60fa495a5042e35af70c8cfb7bb88930",
+  "Control": {
+    "ActiveIssues": 3,
+    "AtUtc": "2026-10-17T20:00:48.5465023Z",
+    "OrphanIssues": 4,
+    "Files": [
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyFixture/Modules/Provider/APISharedDependencyControl.dll",
+        "SHA256": "67494e8b5722dc9421f43cfa5e06596b6a27c08a055f73babae4c21603e2c723"
+      },
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyFixture/Modules/Provider/info.json",
+        "SHA256": "dbe82377d854d45f176d7d2a5a25648e53142b08caf89117e38b11d131780f4d"
+      },
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyControls_Test/info.json",
+        "SHA256": "99f5389b52d91a7bf299c465f5d1bccd49ad45ab7e4fefb497ca327fa9471e97"
+      },
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyFixture/info.json",
+        "SHA256": "0962d2a95cf24bd672adfd6bacbfcc1ec223df8d1bd8bcc0dc121cb6b0725cdf"
+      }
+    ],
+    "Installed": true
+  },
+  "ActiveAcceptance": "Dependency correction passed, menu confirmed; unrelated Popularity/Fixes-Wheat errors remain",
+  "ArchiveSHA256": "77eb594e2118390d122ec27bb7f15b1ed4a6f8755a0627dd9f7036dc1417868d",
+  "PreparedUtc": "2026-10-17T20:15:47.1789946Z",
+  "OtherFilesVerified": 278,
+  "CompletedUtc": "2026-10-17T20:28:30.3190658Z",
+  "OrphanSession": "2c022d4dab0f4e3cb08cb64d0b0e5798",
+  "OrphanArchiveSHA256": "e1fb7f3d5da0c75cf80ef1d825c2d21f878e887b3123b1b126451af9d610f010",
+  "FinalUnrelatedFilesVerified": 274
+}

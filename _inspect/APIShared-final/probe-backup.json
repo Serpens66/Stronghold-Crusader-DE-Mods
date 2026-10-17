@@ -1,0 +1,14 @@
+[
+  {
+    "Path": "BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll",
+    "SHA256": "accef411e7c31d82c001e64c671f64179f5ed560e9e78d39a4f06414da44b824"
+  },
+  {
+    "Path": "BepInEx/config/DependencyBootstrapProbe.active",
+    "SHA256": "7fccb5b4c4f78af415d0e0ac981a25625ad0663f743323f1412b08d0f35feeed"
+  },
+  {
+    "Path": "BepInEx/config/DependencyBootstrapProbe.correct",
+    "SHA256": "7fccb5b4c4f78af415d0e0ac981a25625ad0663f743323f1412b08d0f35feeed"
+  }
+]

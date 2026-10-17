@@ -7,7 +7,7 @@ Historical correction acceptance remains tied to 2.14.1, hash
 `E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3`.
 No historical runtime acceptance is relabeled as a 2.14.2 game test.
 
-Installed binary decompilations in this folder are the primary evidence. Local
+Installed binary decompilations in evidence.zip in this folder are the primary evidence. Local
 source commit: `10628df85cd432184742a50a1dee3969a66cf89e`.
 The initial whole-type byte/IL text equality attempt did not pass (different
 compiler output, offsets and caller-file logging strings). It is archived as an

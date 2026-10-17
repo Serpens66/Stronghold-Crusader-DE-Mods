@@ -8,5 +8,5 @@
   "NetworkMode": 1,
   "MinimumScriptExtenderVersion": "2.14.1",
   "MaximumScriptExtenderVersion": "",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.9.2", "MaximumVersion": "" }]
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.10.0", "MaximumVersion": "" }]
 }

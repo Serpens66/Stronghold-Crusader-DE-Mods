@@ -10,7 +10,8 @@ function Check($Ok,$Message){if(-not $Ok){throw $Message};$script:checks++}
 function Reject([scriptblock]$Action){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Check $failed 'Expected rejection'}
 function Put($Path,$Text){[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path));[IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))}
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/published-upload-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedModpack'
 $root=Join-Path $fixture 'repository';[void][IO.Directory]::CreateDirectory($root)
 $init=Invoke-ApiRepositoryProcess 'git' @('init','--initial-branch=main',$root);Check ($init.ExitCode -eq 0) 'Init'
 function Git([string[]]$Arguments){Invoke-ApiRepositoryGit $root $Arguments}

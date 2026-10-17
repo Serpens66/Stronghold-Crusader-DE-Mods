@@ -8,7 +8,7 @@ namespace PopularityTest
 {
     [BepInPlugin(Guid, Name, Version)]
     [BepInDependency("000shcdese", "2.14.1")]
-    [BepInDependency("APIShared_Serp", "0.9.2")]
+    [BepInDependency("APIShared_Serp", "0.10.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {

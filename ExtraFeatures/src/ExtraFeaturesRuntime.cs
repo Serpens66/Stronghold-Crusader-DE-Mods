@@ -824,7 +824,7 @@ namespace ExtraFeatures
             TryRunFeature("iron refund restoration", () => buildingApi.IronRefundMultiplier.SetValue(VanillaRefundMultiplier));
             TryRunFeature("pitch refund restoration", () => buildingApi.PitchRefundMultiplier.SetValue(VanillaRefundMultiplier));
             TryRunFeature("gold refund restoration", () => buildingApi.GoldRefundMultiplier.SetValue(VanillaRefundMultiplier));
-            TryRunFeature("market price restoration", RestoreTradeBasePrices);
+            TryRunFeature("market price restoration", () => RestoreTradeBasePrices());
             TryRunFeature("church priest restoration", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants restoration", RestoreCampfirePeasantsCap);
             TryRunFeature("plague duration restoration", ApplyPlagueDurationSetting);
@@ -858,6 +858,7 @@ namespace ExtraFeatures
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
+            TryRunFeature("market price session cleanup", () => RestoreTradeBasePrices(endSession: true));
             TryRunFeature("campfire peasants restoration", RestoreCampfirePeasantsCap);
             TryRunFeature("map-end cleanup", ResetMapSession);
         }

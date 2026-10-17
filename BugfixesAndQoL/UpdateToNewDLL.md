@@ -653,3 +653,87 @@ BugfixesAndQoL owns the preview detour and the Ground contribution. [PresetLocal
 BuildPreviewStateStore atomically publishes immutable activation, generation, session and snapshot together. Activation/session changes increment the generation and clear actual counts. A captured producer can only compare/exchange against the same generation/session, so a late callback cannot republish into a newer activation. Unchanged snapshot values reuse the state and snapshot; soil and temporary preview buffers are still checked on every eligible native callback. The diagnostic eligible-tile traversal has been removed.
 
 Native regression and full-image incoming-edge checks: tests/BuildPreview.Tests. Real Assembly-CSharp signatures, hash, installed NativeX64 Indirect scheme, six bytes, trampoline, pointer-slot and HookEntryPoint remain covered by Test-BuildPreviewPreflight.ps1 and the machine tests. Acceptance evidence and pending integrated-switch checks live in tests/BuildPreview.Tests/ACCEPTANCE.md. No allocation/FPS claim is made beyond the isolated production state publication path.
+
+## Infinite patrol isolation from the Shift queue (2026-10-17)
+
+Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The existing hash-bound Chore-17 hook also reads the signed patrol-mode staging
+field at RVA `0x86C1338` (between Y `0x86C1334` and move type `0x86C133C`).
+Producer `0x195E30` stores argument 5 there; Chore-17 handler `0x10AE0` packs
+one byte and sign-extends it on unpack before `0x196100` / `0x11B520`.
+The field is read only during outgoing Chore packing. No additional hook or
+executable-memory mutation is introduced. No semantic relocation fallback is
+available for these staging globals; the existing fixed-layout hash gate remains
+mandatory. On a native update recheck the complete pack/unpack flow and field
+width/order together with the existing queue marker contract.
+
+`TribePatrolMode.PatrolInfinite` bypasses queue marking and capture. Chore 71
+(`0x176C0` -> `0x11C3A0`) retains its original one-based tribe ID, coordinates,
+waypoint index and signed mode. Only the affected tribe's old queue and dedup
+state are discarded. `PatrolOnce` and ordinary Shift Moves retain queue handling.
+Production-entrypoint regressions: `tests/Issue6.Tests`; actual in-game looping
+and real host/client acceptance are separate from those boundary-double tests.
+
+
+## Formation command speech (2026-10-17, Issue 6)
+
+Reference native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+FormationFeature retains the canonical native hash gate. FormationSpeechNative is a
+mod-internal callable adapter, not a hook or a replacement movement command.
+
+- 0x11A1B0: selected dominant voice type. ABI: int(nativeTribeManager, int tribe,
+  int* optionalCount). RCX/RDX are unused in this binary; R8 is the optional output.
+  Despite the decompiler's void declaration, EAX returns the chosen type (verified
+  complete disassembly and 0x195EA7 call). It counts selected, alive, local units of
+  types below 90; ties prefer the lower type. No parallel voice table is maintained.
+- 0x18D460: native selected representative. ABI: int(nativeUnitManager, int firstId).
+  Use manager RVA 0x67E8400 and first Game-ID 1. This scans by native type priority
+  and uses current-unit scratch global 0x9302C4; capture saves/restores that Int32
+  in finally. The representative's current LogicGrid tile must not have bit
+  0x40000000. Engineer (Extender enum) with GameUnit+0x388 != 0 suppresses speech;
+  this field is manager+0x658+gameId*0x490+0x388, matching global 0x67E8DE0.
+- 0xE0E0: int(nativeSoundManager), manager RVA 0x88E72D0. Preserves native
+  busy-channel policy, including its per-player exception. This is checked inside
+  the native frame, after DLL_RunTick has copied current Unity channel states.
+- 0x3BC0: void(dialogueManager, int voiceType, int response, int targetTile).
+  Dialogue manager RVA 0x64C4490. Response 6 is used when both leader/anchor axis
+  differences are <=72; response 10 otherwise. Response 6 receives GetTileId(anchor),
+  response 10 receives zero. Capture leader position before dispatch; never derive
+  the voice from a delayed multiplayer receiver. DefaultInSync excludes Archer,
+  Crossbowman and Catapult; Trebuchet, Mangonel and Ballista are always excluded.
+  Archer_debug remains allowed. Native 0x3BC0 owns selection, duplicate suppression
+  and special-type branches; 0x3770/0x38A0 and 0xEDF0 remain untouched.
+
+Each new code target uses its complete-instruction signature, scanned only in PE
+executable sections; duplicate or missing matches fail closed. An invalid reference
+RVA still tries that executable pattern fallback. Data layouts have no semantic
+fallback and remain hash-bound. Resolution logs retain method and resolved RVA.
+Only speech is disabled on resolution/capture/playback failure; formation and
+marker availability are not changed. No hook is added to any of these targets.
+
+Local release capture -> accepted dispatch -> consumed input -> pending speech.
+The existing 0x41D10 draw-list reset detour invokes the internal feedback callback
+after its original. Full flow: DLL_RunTick 0x86680 updates channels, render 0x41D60
+ends at 0x41D10, then dialogue 0x41C0 and sound/export paths run. 0xEDF0 writes
+channel flags/path and emits a sound-volume record; the managed EngineInterface
+reads speechFileName from returned play-state data. Callback exceptions cannot
+repeat the original reset or disable markers. Only a matching main-thread
+EngineInterface.run can consume pending feedback. No-buffer runs retain it; stale
+map/player/tribe-global identities and feature disable discard it. Consume before
+checking busy channels or emitting, so suppression/errors never replay a response.
+Packet protocol and synchronized simulation execution remain unchanged.
+
+Offline verification: tests/FormationSpeech.Tests executes production engine and
+speech methods with boundary doubles, and checks real installed enum/layout,
+canonical binary signatures, complete instruction spans and ambiguous/fallback
+resolution. Audible output, Mono execution and real Host/Client acceptance still
+require an in-game test; no installation is performed by the Issue 6 build.
+
+Capture acquires the real private static object EngineInterface.threadLock by
+validated reflection and nonblocking Monitor.TryEnter. A busy engine omits only
+that optional response. Both the temporary 18D460 scratch write and its restore
+are inside this lock. The render-end emitter also requires Monitor.IsEntered
+on the same object. EngineInterface.run holds it around preDLLCallActions,
+DLL_RunTick and play-state copying; no new native call races the simulation.
+The offline test checks this field against the real Assembly-CSharp metadata,
+not a publicized assembly, and exercises busy/unprotected/protected cases.

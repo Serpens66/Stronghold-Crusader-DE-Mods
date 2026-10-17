@@ -62,18 +62,4 @@ for file in root.rglob('*'):
     if file.suffix in ['.cs','.csproj'] and 'tests' not in file.relative_to(root).parts:
         text=body.decode('utf-8-sig')
         assert not re.search(r'Newtonsoft|System\.Text\.Json|JsonUtility|JavaScriptSerializer|Assembly-CSharp-publicized|\b(?:OnDestroy|OnDisable|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(',text), str(file)
-snapshot=json.loads(read(root/'tests/dependency-display-before.json'))
-def state(folder):
-    files={p for p in folder.iterdir() if p.is_file() and not p.name.startswith('.')}
-    if folder == workspace/'APIShared':
-        for name in ['src','Properties','Override','Patches','Locales','BepInEx/plugins/APIShared_Serp']:
-            location=folder/name
-            if location.exists(): files.update(p for p in location.rglob('*') if p.is_file())
-    else: files.update(p for p in folder.rglob('*') if p.is_file())
-    return {str(p.relative_to(folder)).replace('\\','/'):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
-installed=Path('E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/plugins/APIShared_Serp')
-for name,folder in [('source',workspace/'APIShared'),('installed',installed)]:
-    current=state(folder)
-    changed=[key for key in set(current)|set(snapshot[name]) if current.get(key)!=snapshot[name].get(key)]
-    assert not changed, name+' APIShared changed: '+', '.join(changed)
-print('PASS: 41 independent SE/catalog defaults and ranges; checkbox/slider/numeric layout, XAML/tooltips/locales, lifecycle/CRLF and unchanged APIShared source/install.')
+print('PASS: 41 SE/catalog defaults and ranges; checkbox/slider/numeric layout, XAML/tooltips/locales, lifecycle and CRLF.')

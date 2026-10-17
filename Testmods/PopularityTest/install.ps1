@@ -15,4 +15,4 @@ foreach ($file in Get-ChildItem -LiteralPath $localPlugin -Recurse -File) {
 & (Join-Path $PSScriptRoot 'verify-api.ps1')
 & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $PSScriptRoot 'tests\verify-source.py')
 if ($LASTEXITCODE -ne 0) { throw 'Dependency/source validation after installation failed.' }
-Write-Host 'PASS: installed PopularityTest file hashes and unchanged dependency snapshot.'
+Write-Host 'PASS: installed PopularityTest file hashes and selected dependency verification.'

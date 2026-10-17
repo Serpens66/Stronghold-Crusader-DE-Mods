@@ -185,7 +185,8 @@ Assert-True ($steamConfirmationCheck -ge 0 -and $historyAppendCall -gt $steamCon
 Assert-True ((Assert-ScriptExtenderXamlPatchContract -Directory (Join-Path $workspace 'APIShared')) -gt 0) 'the delivered APIShared XAML patches must satisfy the single-root contract'
 Assert-True ((Assert-ScriptExtenderXamlPatchContract -Directory (Join-Path $workspace 'BugfixesAndQoL')) -gt 0) 'the delivered BugfixesAndQoL XAML patches, including empty tombstones, must satisfy the contract'
 
-$testRoot = Join-Path ([IO.Path]::GetTempPath()) ('serps-steam-policy-' + [Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$testRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'SteamPackPolicy'
 try {
     $zipPackage = Join-Path $testRoot 'zip-stage\SerpsMods_Serp'
     [void](New-Item -ItemType Directory -Path (Join-Path $zipPackage 'Mods\Example_Serp') -Force)

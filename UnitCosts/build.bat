@@ -109,6 +109,10 @@ echo Verwende Script Extender Referenzen:
 echo !EXTENDER_DIR!
 echo.
 
+echo [%date% %time%] Cost ownership regression tests
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared.Tests\CostOverrides\Run-Tests.ps1" -GameDir "%GAME_DIR%" -MSBuild "%MSBUILD%"
+if errorlevel 1 exit /b 1
+
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" UnitCosts.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"

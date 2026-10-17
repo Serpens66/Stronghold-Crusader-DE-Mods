@@ -16,7 +16,7 @@ namespace EnemyBridgePathTest
         private static System.Collections.Generic.IEnumerable<byte[]> MinimalArtifact(){yield return BridgeInputArtifact.Header("fixture=True\n",1);}
         private static void PairReservation()
         {
-            string folder=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"pair-reservation-"+Guid.NewGuid().ToString("N"));var writer=new BridgeInputArtifact(folder,(_,__,___)=>{});bool threw=false;
+            string folder=TestWorkDirectory.New("pair-reservation");var writer=new BridgeInputArtifact(folder,(_,__,___)=>{});bool threw=false;
             try{writer.EnqueuePair(1,1,MinimalArtifact(),2,new ThrowingArtifact(),1);}catch(InvalidOperationException){threw=true;}
             if(!threw||writer.Pending(1)||!writer.Status(1).Contains("inputArtifactsRequested=0"))throw new Exception("unpublished pair failure must preserve both slots");
             if(!writer.EnqueuePair(1,1,MinimalArtifact(),2,MinimalArtifact(),1)||writer.EnqueuePair(1,3,MinimalArtifact(),4,MinimalArtifact(),1))throw new Exception("pair atomically reserves exactly two slots");
@@ -28,7 +28,7 @@ namespace EnemyBridgePathTest
             var data=new byte[25000];for(int i=0;i<data.Length;i++)data[i]=(byte)((i*37+i/8192)%251);
             using(var e=BridgeInputArtifact.Section("test",data,1,true).GetEnumerator())
             {if(!e.MoveNext()||!e.MoveNext())throw new Exception("missing section chunks");var first=e.Current;var copy=(byte[])first.Clone();if(!e.MoveNext()||!ReferenceEquals(first,e.Current)||copy.SequenceEqual(e.Current))throw new Exception("stream buffer is reused only after consumption, with new exact content");}
-            string dir=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"reusable-artifact-"+Guid.NewGuid().ToString("N"));var writer=new BridgeInputArtifact(dir,(_,__,___)=>{});
+            string dir=TestWorkDirectory.New("reusable-artifact");var writer=new BridgeInputArtifact(dir,(_,__,___)=>{});
             System.Collections.Generic.IEnumerable<byte[]> Source(){yield return BridgeInputArtifact.Header("fixture=True\n",1);foreach(var b in BridgeInputArtifact.Section("test",data,1,true))yield return b;}
             if(!writer.Enqueue(1,1,Source(),1))throw new Exception("reusable fixture enqueue");int pumps=0;while(writer.Pending(1)&&pumps++<100)writer.Pump();if(writer.Pending(1))throw new Exception("reused buffers delivery incomplete");var raw=File.ReadAllBytes(Path.Combine(dir,"bridge-1-1.bin"));int start=16+BitConverter.ToInt32(raw,12)+16;
             if(!data.SequenceEqual(raw.Skip(start).Take(data.Length)))throw new Exception("reused streaming blocks corrupt file bytes");

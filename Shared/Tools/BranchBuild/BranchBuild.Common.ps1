@@ -1,5 +1,6 @@
-# Build orchestration only. Runtime/project inputs always come from the selected commit.
+# Build orchestration: explicit source selection wins; automated default is the working tree.
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 function Write-BranchMessage([string]$Message) {
     Write-Host ('[{0:yyyy-MM-dd HH:mm:ss.fff}] {1}' -f [DateTime]::Now, $Message)
 }
@@ -27,6 +28,13 @@ function Assert-BranchUnlinkedPath([string]$Path) {
     }
 }
 function Get-BranchChoice([string[]]$DriverArguments) {
+    $working = $DriverArguments -icontains '/workspace' -or $DriverArguments -icontains '/source:working'
+    if (@($DriverArguments | Where-Object { $_ -match '^/source:' -and $_ -ine '/source:working' }).Count) { throw 'Supported source override: /source:working.' }
+    if ($working) {
+        if (@($DriverArguments | Where-Object { $_ -match '^/branch(?::|$)' }).Count) { throw 'Working sources and a branch commit cannot be selected together.' }
+        Write-BranchMessage 'Build source: current working tree (explicit selection).'
+        return 'working'
+    }
     $choices = @()
     foreach ($argument in $DriverArguments) {
         if ($argument -match '^/branch:(.+)$') { $choices += $Matches[1].ToLowerInvariant() }
@@ -35,7 +43,7 @@ function Get-BranchChoice([string[]]$DriverArguments) {
     $choices = @($choices | Sort-Object -Unique)
     if ($choices.Count -gt 1) { throw 'Conflicting /branch arguments.' }
     if ($choices.Count -eq 0) {
-        if ($DriverArguments -icontains '/nopause') { throw 'Automated builds require /branch:main or /branch:develop.' }
+        if ($DriverArguments -icontains '/nopause') { Write-BranchMessage 'Build source: current working tree (automated default; no source selected).'; return 'working' }
         Write-Host '1: main (release installation)'
         Write-Host '2: develop (separate _dev installation)'
         $answer = Read-Host 'Branch [1/main or 2/develop; empty cancels]'
@@ -49,17 +57,36 @@ function Get-BranchChoice([string[]]$DriverArguments) {
     return $choices[0]
 }
 function New-BranchSource([string]$Repository, [string]$Branch, [string]$Destination = '') {
-    $commit = (Invoke-BranchGit $Repository @('rev-parse','--verify',"refs/heads/${Branch}^{commit}")) -join ''
+    $commit = (Invoke-BranchGit $Repository @('rev-parse','--verify',$(if ($Branch -eq 'working') { 'HEAD^{commit}' } else { "refs/heads/${Branch}^{commit}" }))) -join ''
     if ($commit -cnotmatch '^[0-9a-f]{40}$') { throw "Missing local branch: $Branch" }
-    $base = Join-Path $Repository '.release-output/branch-builds'
-    $root = [IO.Path]::GetFullPath((Join-Path $base ($Branch + '/' + $commit.Substring(0,12) + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))))
+    $root = if ($Destination) { [IO.Path]::GetFullPath($Destination) } else { New-ShortWorkDirectory -Root $Repository -Kind b -Name $Branch -Identity $commit }
     if ($Destination) { $root = [IO.Path]::GetFullPath($Destination) }
     Assert-BranchUnlinkedPath $root
     [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($root))
     Write-BranchMessage "Preparing $Branch / $commit in $root"
+    Invoke-BranchGit $Repository @('config','core.longpaths','true') | Out-Null
     Invoke-BranchGit $Repository @('worktree','add','--quiet','--detach',$root,$commit) | Out-Host
     return [pscustomobject]@{ Root=$root; Branch=$Branch; Commit=$commit }
 }
+function New-WorkingSource([string]$Repository, [string]$Destination = '') {
+    $selection = New-BranchSource $Repository 'working' $Destination
+    # The clean worktree already contains unchanged tracked files. Overlay only working changes.
+    $workingFiles = @(Invoke-BranchGit $Repository @('-c','core.quotepath=false','diff','--name-only','--no-renames','HEAD')) + @(Invoke-BranchGit $Repository @('-c','core.quotepath=false','ls-files','--others','--exclude-standard'))
+    foreach ($relative in @($workingFiles | Sort-Object -Unique)) {
+        $from = [IO.Path]::GetFullPath((Join-Path $Repository $relative))
+        $to = [IO.Path]::GetFullPath((Join-Path $selection.Root $relative))
+        if (-not $from.StartsWith($Repository.TrimEnd('\','/') + '\', [StringComparison]::OrdinalIgnoreCase) -or
+            -not $to.StartsWith($selection.Root + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Working source escapes repository.' }
+        Assert-BranchUnlinkedPath $from; Assert-BranchUnlinkedPath $to
+        if (Test-Path -LiteralPath $from -PathType Leaf) {
+            [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($to))
+            Copy-Item -LiteralPath $from -Destination $to -Force
+        } elseif (Test-Path -LiteralPath $to -PathType Leaf) { Remove-Item -LiteralPath $to -Force }
+    }
+    $selection | Add-Member NoteProperty GitStatus @(Invoke-BranchGit $Repository @('status','--porcelain','--untracked-files=normal'))
+    return $selection
+}
+
 function New-LocalApiInspectionSource([string]$Repository, [string]$Destination) {
     # /apishared:dev explicitly opts into the already-built personal working package.
     # Give source preflight the same working inputs, rather than another branch's API.
@@ -111,10 +138,10 @@ function Convert-BranchBatch([string]$Text, [string]$Relative, [string]$Suffix) 
 '@)
     }
     # Even older drivers which reference an installed SDK must use the selected package.
-    $Text = [regex]::Replace($Text, '(?im)^(set "(?:API_SHARED_DIR|LOCAL_API_SHARED_DIR|SHCDE_API_SHARED_DIR)=[^\r\n]*")\r?$', {
+    $Text = [regex]::Replace($Text, '(?im)^(set "(?:API_SHARED_DIR|LOCAL_API_SHARED_DIR|SHCDE_API_SHARED_DIR)=[^\r\n]*")\r?(?:\n|$)', {
         param($m)
         $name = [regex]::Match($m.Value, '(?i)set "([^=]+)=').Groups[1].Value
-        return $m.Value + "`r`n" + 'if defined SHCDE_BRANCH_API_ROOT set "' + $name + '=%SHCDE_BRANCH_API_ROOT%\BepInEx\plugins\APIShared_Serp"'
+        return $m.Groups[1].Value + "`r`n" + 'if defined SHCDE_BRANCH_API_ROOT set "' + $name + '=%SHCDE_BRANCH_API_ROOT%\BepInEx\plugins\APIShared_Serp"' + "`r`n"
     })
     # A few diagnostic projects unconditionally set ApiSharedDir in their project.
     # Only an MSBuild global property can override that; an environment variable cannot.
@@ -225,7 +252,7 @@ function Invoke-SelectedBranchBuild {
     $oldEnvironment = @{}
     $names = @('SHCDE_BRANCH_SOURCE_ROOT','SHCDE_BRANCH_INSTALL_SUFFIX','SHCDE_BRANCH_NOINSTALL','SHCDE_BRANCH_API_ROOT','SHCDE_BRANCH_API_COMMIT',
         'SHCDE_API_SHARED_DIR','SHCDE_API_SHARED_BRANCH','SHCDE_API_SHARED_MAIN_SELECTION','SHCDE_BRANCH_NAME','SHCDE_BRANCH_COMMIT','SHCDE_BRANCH_MSBUILD_API',
-        'SHCDE_GAME_DIR','SHCDESE_EXTENDER_DIR','SHCDE_MSBUILD')
+        'SHCDE_GAME_DIR','SHCDESE_EXTENDER_DIR','SHCDE_MSBUILD','SHCDE_NATIVE_BASELINE_ROOT')
     foreach ($name in $names) { $oldEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
     $oldDirectory = (Get-Location).Path
     try {
@@ -236,6 +263,10 @@ function Invoke-SelectedBranchBuild {
         $env:SHCDE_BRANCH_API_ROOT = $null; $env:SHCDE_BRANCH_API_COMMIT = $null
         $env:SHCDE_BRANCH_MSBUILD_API = $null
         $env:SHCDE_API_SHARED_MAIN_SELECTION = $null
+        if (-not $Api -and -not $env:SHCDE_NATIVE_BASELINE_ROOT) {
+            $baselineRoot=Join-Path $ControllerRoot '_inspect/CrusaderDE-Native-Baseline'
+            if (Test-Path -LiteralPath (Join-Path $baselineRoot 'CURRENT.json')) { $env:SHCDE_NATIVE_BASELINE_ROOT=$baselineRoot }
+        }
         $sdk = $null
         $projectRoot = Split-Path -Parent $selectedDriver
         $usesApi = -not $Api -and (@(Get-ChildItem -LiteralPath $projectRoot -File -Filter '*.csproj' | Where-Object {
@@ -247,9 +278,18 @@ function Invoke-SelectedBranchBuild {
             if ($env:SHCDE_API_SHARED_BRANCH) { $apiChoices += $env:SHCDE_API_SHARED_BRANCH.ToLowerInvariant() }
             $apiChoices = @($apiChoices | Sort-Object -Unique)
             if ($apiChoices.Count -gt 1) { throw 'Conflicting APIShared branch requests.' }
-            $apiBranch = if ($apiChoices.Count) { $apiChoices[0] } else { $Branch }
+            $apiBranch = if ($apiChoices.Count) { $apiChoices[0] } elseif ($Branch -eq 'working') { 'dev' } else { $Branch }
             $apiRepository = Join-Path $Repository 'APIShared'
-            if ($apiBranch -in @('dev','local')) {
+            if ($apiBranch -eq 'package') {
+                if (-not $env:SHCDE_API_SHARED_DIR) { throw '/apishared:package requires SHCDE_API_SHARED_DIR.' }
+                $apiPackage = [IO.Path]::GetFullPath($env:SHCDE_API_SHARED_DIR)
+                $apiRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $apiPackage))
+                if ($apiPackage -ine (Join-Path $apiRoot 'BepInEx/plugins/APIShared_Serp')) { throw 'Invalid explicit SDK package path.' }
+                $sdk = [pscustomobject]@{ Root=$apiRoot; Branch='package'; Commit=((Invoke-BranchGit $apiRoot @('rev-parse','HEAD')) -join '') }
+                . (Join-Path $apiRoot 'tools/BuildProof.ps1')
+                $null = Assert-ApiBuildProof $apiRoot
+                $null = New-WorkingSource $apiRoot (Join-Path $selection.Root 'APIShared')
+            } elseif ($apiBranch -in @('dev','local')) {
                 $sdk = [pscustomobject]@{ Root=$apiRepository; Branch='dev'; Commit=((Invoke-BranchGit $apiRepository @('rev-parse','HEAD')) -join '');
                     GitStatus=@(Invoke-BranchGit $apiRepository @('status','--porcelain','--untracked-files=normal')) }
                 $null = New-LocalApiInspectionSource $apiRepository (Join-Path $selection.Root 'APIShared')
@@ -317,11 +357,12 @@ function Invoke-SelectedBranchBuild {
         $arguments = @($DriverArguments | Where-Object { $_ -notmatch '^/branch:' })
         if ($arguments -inotcontains '/nopause') { $arguments += '/nopause' }
         if ($env:SHCDE_BRANCH_NOINSTALL -eq '1' -and $arguments -inotcontains '/noinstall') { $arguments += '/noinstall' }
+        Assert-ToolPathBudget -Path $selectedDriver
         & $selectedDriver @arguments | Out-Host
         $code = $LASTEXITCODE
         $record = [ordered]@{ SchemaVersion=1; Branch=$Branch; Commit=$selection.Commit; Driver=$Driver; SourceRoot=$selection.Root;
             ApiShared=$sdk; InstallationTargets=$targets; NoInstall=($env:SHCDE_BRANCH_NOINSTALL -eq '1'); ExitCode=$code;
-            CreatedUtc=[DateTime]::UtcNow.ToString('o'); BuildToolOverrides=$overrides }
+            CreatedUtc=[DateTime]::UtcNow.ToString('o'); WorkingSource=($DriverArguments -icontains '/source:working'); SourceFiles=@(Invoke-BranchGit $selection.Root @('-c','core.quotepath=false','ls-files','--cached','--others','--exclude-standard') | ForEach-Object { $f=Join-Path $selection.Root $_; if (Test-Path -LiteralPath $f -PathType Leaf) { [ordered]@{Path=$_;Sha256=(Get-BranchHash $f)} } }); BuildToolOverrides=$overrides }
         $recordPath = $selection.Root + '.build.json'
         Write-BranchText $recordPath (($record | ConvertTo-Json -Depth 8) + "`r`n")
         Write-BranchMessage "Build record: $recordPath; exit code $code"

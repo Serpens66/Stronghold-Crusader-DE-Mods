@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
-$fixture = Join-Path ([IO.Path]::GetTempPath()) ('ApiShared-Published-SDK-' + [Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedConsumerPackage'
 $previousProof = $env:SHCDE_API_SHARED_RELEASE_PROOF
 $previousTest = $env:SHCDE_WORKSHOP_TEST
 $previousDirectory = $env:SHCDE_API_SHARED_DIR
@@ -44,7 +45,7 @@ try {
     # MSBuild property precedence plus its fresh PowerShell validation subprocess.
     $workspaceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
     Copy-Item -LiteralPath (Join-Path $workspaceRoot 'Directory.Build.targets') -Destination (Join-Path $fixture 'Directory.Build.targets')
-    foreach ($relative in @('Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1','Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/Test-ConsumerPackage.ps1','Shared/Tools/Steam/SteamPackPolicy.ps1')) {
+    foreach ($relative in @('Shared/Tools/Paths/WorkPaths.ps1','Shared/Tools/Paths/Paths.targets','Shared/Tools/Paths/Configure-Executable.ps1','Shared/Tools/Paths/TestWorkDirectory.cs','Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1','Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/Test-ConsumerPackage.ps1','Shared/Tools/Steam/SteamPackPolicy.ps1')) {
         $destination = Join-Path $fixture $relative
         [void][IO.Directory]::CreateDirectory((Split-Path -Parent $destination))
         Copy-Item -LiteralPath (Join-Path $workspaceRoot $relative) -Destination $destination

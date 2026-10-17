@@ -195,3 +195,34 @@ src/Plugin.cs : 109E47B477CFEB5C48AFCFFB41BF038B26533D2562F68E9BD5DC9DBC037EC857
 tests/Tests.cs : C8C49550A992B179A14F520D54A5656B05714715B0CEF25E7DC30E76FEBE8293
 tests/StartupTests.cs : 2360327E7D1962AA100852C4D01BDD13722CF372F6E24CC294E6C9C577C5E71A
 tests/RestartTests.cs : D60E40022CF2DE076F8FB12B7F7FC13E26546DB551681FB4C8BD54CD5197B2A2
+
+Follow-up integration review (2026-10-17, develop at 8431c5c6a plus working changes)
+------------------------------------------------------------------------------
+Rechecked the existing LibraryLoaded -> InitializeNetwork entry, permanent roots,
+soft-dependency ordering, four hook targets, retained object metadata after the
+client setting changes, diagnostic exception boundaries and neighboring Trail
+features. No additional functional defect was established; production code was
+left unchanged.
+
+The current StartupTests uses the shared TestWorkDirectory helper. Reproduced
+CS0103 because this test project intentionally disables Directory.Build.targets
+(to keep the installed SDK), also excluding its Paths.targets import. Explicitly
+imported only Paths.targets; preserved the existing TestWorkDirectory change.
+No SDK selection, APIShared source or dependency binary was changed.
+
+Added a test through the real SavegameMissingMapFeature.Initialize entry and
+Chainloader.PluginInfos, beyond the existing boolean helper test. It verifies
+that presence of the legacy plugin reaches no hook/member initialization, a null
+logger cannot break the skip, and another Initialize call does not retry after
+the legacy dictionary entry is removed. BepInEx is initialized with fixture-only
+config/cache paths before accessing Chainloader; no game configuration is used
+as writable test state.
+
+Evidence: review-build.log captures the original compilation failure;
+review-build-fixed.log and review-tests.log capture the corrected build and all
+behavior tests. Expected isolated Vanilla exceptions originate from deliberate
+corrupt-data fixtures. MSB3277 for the installed Cecil reference mix remains.
+Mainmod build, installation and integrated in-game acceptance remain unperformed.
+
+The regular verify.ps1 completed successfully after the correction; see
+review-verification.log for scoped boundaries, dependency checks and behavior tests.

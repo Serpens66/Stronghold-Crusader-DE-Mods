@@ -3,7 +3,8 @@ param([string]$Workspace)
 $ErrorActionPreference = 'Stop'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
 . (Join-Path $PSScriptRoot 'BranchBuild.Common.ps1')
-$fixture = Join-Path ([IO.Path]::GetTempPath()) ('SHCDE Branch Build ' + [guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BranchBuild'
 [void][IO.Directory]::CreateDirectory($fixture)
 $repo = Join-Path $fixture 'repository'
 $game = Join-Path $fixture 'game'
@@ -22,7 +23,7 @@ try {
     Git-Fixture @('config','user.name','Branch build fixture')
     Git-Fixture @('config','user.email','fixture@example.invalid')
     Git-Fixture @('config','core.autocrlf','false')
-    Write-BranchText (Join-Path $repo '.gitignore') ".release-output/`r`n"
+    Write-BranchText (Join-Path $repo '.gitignore') ".work/`r`n.release-output/`r`n"
     Write-BranchText (Join-Path $repo 'Fixture/info.json') '{"GUID":"Fixture_Serp","Version":"1.0.0"}'
     Write-BranchText (Join-Path $repo 'Fixture/Fixture.csproj') '<Project><ItemGroup><Reference Include="APIShared" /></ItemGroup></Project>'
     $batch = @'
@@ -52,7 +53,7 @@ exit /b 0
     Git-Fixture @('add','.')
     Git-Fixture @('commit','-m','develop fixture')
     Write-BranchText (Join-Path $repo 'Fixture/source.txt') "UNCOMMITTED_MUST_NOT_BUILD`r`n"
-    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1')) {
+    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1')) {
         Write-BranchText (Join-Path $repo ('Shared/Tools/BranchBuild/' + $name)) ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)))
     }
     # Independent fake APIShared: no game binaries, compiler or network are used.
@@ -61,7 +62,7 @@ exit /b 0
     Invoke-BranchGit $apiRepo @('init','-b','main') | Out-Null
     Invoke-BranchGit $apiRepo @('config','user.name','Branch build fixture') | Out-Null
     Invoke-BranchGit $apiRepo @('config','user.email','fixture@example.invalid') | Out-Null
-    Write-BranchText (Join-Path $apiRepo '.gitignore') "BepInEx/`r`n.release-output/`r`n"
+    Write-BranchText (Join-Path $apiRepo '.gitignore') "BepInEx/`r`n.work/`r`n.release-output/`r`n"
     Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_MAIN'
     Write-BranchText (Join-Path $apiRepo 'build.bat') @'
 @echo off
@@ -85,7 +86,7 @@ function Assert-ApiBuildProof([string]$Root) {
     Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_DEVELOP'
     Invoke-BranchGit $apiRepo @('add','.') | Out-Null
     Invoke-BranchGit $apiRepo @('commit','-m','API develop fixture') | Out-Null
-    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1')) {
+    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1')) {
         Write-BranchText (Join-Path $apiRepo ('tools/BranchBuild/' + $name)) ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)))
     }
     $entry = [IO.File]::ReadAllText((Join-Path $Workspace 'BuildingCosts/build.bat'))
@@ -93,7 +94,7 @@ function Assert-ApiBuildProof([string]$Root) {
     if ($prefixEnd -lt 0) { throw 'Missing production dispatcher prefix.' }
     $prefix = $entry.Substring(0,$prefixEnd + ":shcde_branch_selected`r`nendlocal`r`n".Length)
     $prefix = $prefix.Replace('BuildingCosts/build.bat','Fixture/build.bat')
-    Write-BranchText (Join-Path $repo 'Fixture/build.bat') ($prefix + 'exit /b 99' + "`r`n")
+    Write-BranchText (Join-Path $repo 'Fixture/build.bat') ($prefix + $batch + "`r`n")
     $mainDir = Join-Path $game 'BepInEx/plugins/Fixture_Serp'
     $devDir = Join-Path $game 'BepInEx/plugins/Fixture_Serp_dev'
     Write-BranchText (Join-Path $mainDir 'sentinel.txt') 'main sentinel'
@@ -117,7 +118,6 @@ function Assert-ApiBuildProof([string]$Root) {
     $output = Invoke-Fixture @('/branch:develop','/apishared:main','/nopause','/noinstall','/fixture-extra')
     Assert-Case (($output -join "`n") -match 'API_MAIN' -and ($output -join "`n") -match 'BUILD_ARGUMENTS=.*?/fixture-extra') 'explicit SDK choice or argument forwarding failed'
     $null = Invoke-Fixture @('/branch:main','/apishared:main','/apishared:develop','/nopause') 1
-    $null = Invoke-Fixture @('/nopause') 1
     $null = Invoke-Fixture @('/branch:wrong','/nopause') 1
     $null = Invoke-Fixture @('/branch:main','/branch:develop','/nopause') 1
     Write-BranchText (Join-Path $repo 'Missing/build.bat') "@echo LOCAL_FALLBACK_MUST_NOT_RUN`r`n"
@@ -129,6 +129,14 @@ function Assert-ApiBuildProof([string]$Root) {
     $output = Invoke-Fixture @('/branch:main','/apishared:dev','/nopause','/noinstall')
     Assert-Case (($output -join "`n") -match 'API_PERSONAL_DIRTY') 'explicit personal SDK was not retained'
     Assert-Case ([IO.File]::ReadAllText((Join-Path $apiRepo 'source.txt')) -ceq 'API_PERSONAL_DIRTY') 'personal SDK sources changed'
+    # Working sources use current file contents; install and no-install remain independent.
+    $workingOutput = Invoke-Fixture @('/nopause','/noinstall')
+    Assert-Case (($workingOutput -join "`n") -match 'UNCOMMITTED_MUST_NOT_BUILD' -and ($workingOutput -join "`n") -match 'API_PERSONAL_DIRTY') 'Automatic working-source/default local SDK selection failed'
+    Assert-Case ((Get-BranchHash (Join-Path $mainDir 'built.txt')) -ceq $beforeMain) 'Working /noinstall changed installation'
+    $workingOutput = Invoke-Fixture @('/source:working','/nopause')
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $mainDir 'built.txt')).Trim() -ceq 'UNCOMMITTED_MUST_NOT_BUILD') 'Working source installation failed'
+    $null = Invoke-Fixture @('/source:working','/branch:main','/nopause') 1
+    Write-BranchText (Join-Path $mainDir 'built.txt') 'KEEP_MAIN_NOINSTALL'
     $previousPrepareOnly = $env:SHCDE_PREPARE_ONLY
     try {
         $env:SHCDE_PREPARE_ONLY = '1'
@@ -137,9 +145,13 @@ function Assert-ApiBuildProof([string]$Root) {
     } finally { $env:SHCDE_PREPARE_ONLY = $previousPrepareOnly }
     $previousPinned = $env:SHCDE_BRANCH_PINNED
     try {
+        Write-BranchText (Join-Path $repo 'Fixture/build.bat') ($prefix + 'exit /b 99')
         $env:SHCDE_BRANCH_PINNED = ((Invoke-BranchGit $repo @('rev-parse','HEAD')) -join '')
         $null = Invoke-Fixture @('/nopause') 99
-    } finally { $env:SHCDE_BRANCH_PINNED = $previousPinned }
+    } finally {
+        $env:SHCDE_BRANCH_PINNED = $previousPinned
+        Write-BranchText (Join-Path $repo 'Fixture/build.bat') ($prefix + $batch + "`r`n")
+    }
     # Exercise the real Read-Host menu through a fresh PowerShell/BAT process.
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = 'powershell.exe'
@@ -159,13 +171,13 @@ function Assert-ApiBuildProof([string]$Root) {
     } finally { $process.Dispose() }
     Assert-Case (((Invoke-BranchGit $repo @('branch','--show-current')) -join '') -ceq 'develop') 'working branch moved'
     Assert-Case ([IO.File]::ReadAllText((Join-Path $repo 'Fixture/source.txt')).Trim() -ceq 'UNCOMMITTED_MUST_NOT_BUILD') 'dirty working file changed'
-    $records = @(Get-ChildItem -LiteralPath (Join-Path $repo '.release-output/branch-builds') -Recurse -Filter '*.build.json' | Where-Object {
+    $records = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b') -Recurse -Filter '*.build.json' | Where-Object {
         ([IO.File]::ReadAllText($_.FullName) | ConvertFrom-Json).Driver -eq 'Fixture/build.bat'
     })
-    Assert-Case ($records.Count -eq 8) 'missing branch build records'
+    Assert-Case ($records.Count -eq 10) 'missing branch build records'
     foreach ($file in $records) {
         $record = [IO.File]::ReadAllText($file.FullName) | ConvertFrom-Json
-        Assert-Case ($record.Commit -match '^[0-9a-f]{40}$' -and $record.Branch -in @('main','develop') -and $record.ExitCode -eq 0) 'invalid build record'
+        Assert-Case ($record.Commit -match '^[0-9a-f]{40}$' -and $record.Branch -in @('main','develop','working') -and $record.ExitCode -eq 0) 'invalid build record'
     }
     # Failure and missing-driver handling never fall back to the working tree.
     Write-BranchText (Join-Path $repo 'Fixture/fail.txt') 'fail'

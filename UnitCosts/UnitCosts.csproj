@@ -110,6 +110,8 @@
     <Compile Include="src\UnitExtraCostValues.cs" />
     <Compile Include="src\UnitExtraHorseCostPolicy.cs" />
     <Compile Include="src\UnitGoldCostSnapshot.cs" />
+    <Compile Include="src\UnitCostOverrides.cs" />
+    <Compile Include="..\Shared\Runtime\Gameplay\OwnedValueOverrides.cs"><Link>Shared\Runtime\Gameplay\OwnedValueOverrides.cs</Link></Compile>
     <Compile Include="src\UnitCostsLobbyViewModel.cs" />
     <Compile Include="src\UnitCostsNotificationViewModel.cs" />
     <Compile Include="src\UnitCostsPlugin.cs" />

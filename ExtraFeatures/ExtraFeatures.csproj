@@ -44,6 +44,7 @@
     <Compile Include="src\FearFactorNativeDefinition.cs" /><Compile Include="src\FearFactorNeutralizationPolicy.cs" /><Compile Include="src\FearFactorNeutralizationRuntime.cs" />
     <Compile Include="src\NoKillRewardHook.cs" /><Compile Include="src\NoKillRewardStubContract.cs" />
     <Compile Include="src\NoKillRewardPolicy.cs" />
+    <Compile Include="src\MarketPriceOverrides.cs" />
     <Compile Include="src\HealerNativeContract.cs" /><Compile Include="src\HealerListBounds.cs" /><Compile Include="src\HealerTargetsRuntime.cs" />
     <Compile Include="src\AiFlagDiseaseTracker.cs" /><Compile Include="src\GatehouseAutomationPacket.cs" /><Compile Include="src\GatehouseAutomationRuntime.cs" /><Compile Include="src\GatehouseAutomationSaveState.cs" /><Compile Include="src\KnightDismountRuntime.cs" /><Compile Include="src\KnightDismountDelayRuntime.cs" /><Compile Include="src\KnightTransformationPacket.cs" /><Compile Include="src\KnightTransformationTooltipPolicy.cs" /><Compile Include="src\StableHorseConsumptionPolicy.cs" /><Compile Include="src\LordHealthMultiplierPolicy.cs" /><Compile Include="src\LordHealthRuntime.cs" /><Compile Include="src\MarketGoodPriceDefinition.cs" /><Compile Include="src\MarketGoodPriceItemViewModel.cs" /><Compile Include="src\MarketTradeGuardBridge.cs" /><Compile Include="src\MonkAlwaysRunPatch.cs" /><Compile Include="src\MultiplayerFeatureGate.cs" /><Compile Include="src\PlagueApothecarySearchRangeEmitter.cs" /><Compile Include="src\PlagueApothecarySearchRangePatch.cs" /><Compile Include="src\PlagueDurationPatch.cs" /><Compile Include="src\PlagueFlagDiseaseRegistry.cs" /><Compile Include="src\PlagueFlagDiseaseSaveState.cs" /><Compile Include="src\UnitLimitBridge.cs" />
   </ItemGroup>
@@ -59,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\OwnedValueOverrides.cs"><Link>Shared\Runtime\Gameplay\OwnedValueOverrides.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\GameBuildingFootprint.cs"><Link>Shared\Runtime\Native\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs"><Link>Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>

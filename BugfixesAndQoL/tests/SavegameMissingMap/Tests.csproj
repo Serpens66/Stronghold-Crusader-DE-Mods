@@ -23,4 +23,6 @@
     <Compile Include="..\..\src\SavegameMissingMap\SavegameFix.cs" /><Compile Include="..\..\src\SavegameMissingMap\RuntimeStartup.cs" /><Compile Include="..\..\src\SavegameMissingMap\SavegameMissingMapFeature.cs" /><Compile Include="..\..\src\SavegameMissingMap\SavegameMissingMapDiagnostics.cs" /><Compile Include="StartupTests.cs" /><Compile Include="RestartTests.cs" /><Compile Include="Tests.cs" /><None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- Directory.Build.targets is intentionally disabled to keep the installed APIShared SDK. -->
+  <Import Project="..\..\..\Shared\Tools\Paths\Paths.targets" />
 </Project>

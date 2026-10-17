@@ -8,45 +8,58 @@ namespace ExtraFeatures
 {
     public sealed partial class ExtraFeaturesRuntime
     {
+        private readonly MarketPriceOverrides marketPriceOverrides = new MarketPriceOverrides(
+            good => GamePlayerManagerAPI.Instance.GetTradeBasePrice(good),
+            (good, value) => GamePlayerManagerAPI.Instance.SetTradeBasePrice(good, value),
+            good => GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice(good));
+        private readonly System.Collections.Generic.HashSet<string> marketPriceConflicts =
+            new System.Collections.Generic.HashSet<string>();
+
         private void ApplyMarketPriceMultipliers()
         {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
+                return; // Trading has no editor behavior; do not acquire price cells there.
 
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
             for (int i = 0; i < GoodsCount; i++)
             {
                 eGoods good = (eGoods)i;
-                PackedGoodPrice vanillaPrice = playerApi.GetDefaultTradeBasePrice(good);
                 double buyMultiplier = MarketGoodPriceDefinition.CombineMultipliers(
                     settings.MarketBuyPriceMultiplier,
                     settings.GetMarketGoodPriceMultiplier(good, true));
                 double sellMultiplier = MarketGoodPriceDefinition.CombineMultipliers(
                     settings.MarketSellPriceMultiplier,
                     settings.GetMarketGoodPriceMultiplier(good, false));
-                playerApi.SetTradeBasePrice(
-                    good,
-                    new PackedGoodPrice(
-                        MultiplyPrice(vanillaPrice.BuyPrice, buyMultiplier),
-                        MultiplyPrice(vanillaPrice.SellPrice, sellMultiplier)));
+                ApplyMarketPriceCell(good, true, buyMultiplier);
+                ApplyMarketPriceCell(good, false, sellMultiplier);
             }
         }
 
-        private void RestoreTradeBasePrices()
+        private void ApplyMarketPriceCell(eGoods good, bool buying, double multiplier)
         {
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            for (int i = 0; i < GoodsCount; i++)
+            string cell = good + (buying ? "/buy" : "/sell");
+            try
             {
-                eGoods good = (eGoods)i;
-                playerApi.SetTradeBasePrice(good, playerApi.GetDefaultTradeBasePrice(good));
+                if (marketPriceOverrides.Apply(good, buying, multiplier))
+                    return;
+                if (marketPriceConflicts.Add(cell))
+                    Shared.DebugLogHelper.LogWarning(log,
+                        $"Market price {cell}: a different direct value is active; ExtraFeatures leaves it unchanged and skips its multiplier.");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures.market-price-cell." + cell,
+                    $"ExtraFeatures could not reconcile market price {cell}; independent cells continue: {ex}");
             }
         }
 
-        private static int MultiplyPrice(int price, double multiplier)
+        private void RestoreTradeBasePrices(bool endSession = false)
         {
-            if (price == 0 || Math.Abs(multiplier - 1.0) < 0.0001)
-                return price;
-            return (int)Math.Round(price * multiplier, MidpointRounding.AwayFromZero);
+            marketPriceOverrides.RestoreAll(ex => Shared.DebugLogHelper.LogErrorLimited(log,
+                "ExtraFeatures.market-price-restoration",
+                $"ExtraFeatures could not restore an owned market price; independent cells continue: {ex}"), endSession);
+            if (endSession) marketPriceConflicts.Clear();
         }
     }
 }

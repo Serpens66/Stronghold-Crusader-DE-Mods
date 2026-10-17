@@ -60,10 +60,13 @@ namespace UnitCosts
         private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
         private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
         private static readonly UnitGoldCostSnapshot<eChimps> VanillaGoldCosts = new UnitGoldCostSnapshot<eChimps>();
-        private static readonly Dictionary<eChimps, UnitGoodCosts> OriginalEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
-        private static readonly UnitGoodCosts NoWeaponCosts = new UnitGoodCosts(
-            eGoods32.STORED_NULL, eGoods32.STORED_NULL,
-            eGoods32.STORED_NULL, eGoods32.STORED_NULL);
+        private readonly UnitCostOverrides costOverrides = new UnitCostOverrides(
+            unit => GameUnitManagerAPI.Instance.GetUnitGoldCost(unit),
+            (unit, value) => GameUnitManagerAPI.Instance.SetUnitGoldCost(unit, value),
+            tent => GameBuildingManagerAPI.Instance.GetGoldCost(tent),
+            (tent, value) => GameBuildingManagerAPI.Instance.SetGoldCost(tent, value),
+            unit => GameUnitManagerAPI.Instance.GetUnitGoodCosts(unit),
+            (unit, value) => GameUnitManagerAPI.Instance.SetUnitGoodCosts(unit, value));
 
         public UnitCostsNotificationViewModel Notification { get; } = new UnitCostsNotificationViewModel();
         public UnitRecruitmentCostTooltipViewModel RecruitmentCostTooltip { get; } = new UnitRecruitmentCostTooltipViewModel();
@@ -83,7 +86,6 @@ namespace UnitCosts
             SubscribeSettingsChanges();
             TryInitializeFeature("horse-link lifecycle", SubscribeUnitTransition);
             TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
-            TryInitializeFeature("European good-cost capture", CaptureOriginalEuropeanGoodCosts);
             libraryInitialized = true;
             SubscribeHooks();
             if (!EffectsEnabled)
@@ -187,7 +189,7 @@ namespace UnitCosts
                 else
                 {
                     callbacksEnabled = false;
-                    RestoreVanillaUnitCosts();
+                    RestoreOwnedUnitCosts();
                     HideMaterialMessage();
                 }
 
@@ -231,6 +233,7 @@ namespace UnitCosts
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
+            RestoreOwnedUnitCosts(endSession: true);
             HideMaterialMessage();
         }
 
@@ -251,7 +254,7 @@ namespace UnitCosts
             else
             {
                 callbacksEnabled = false;
-                RestoreVanillaUnitCosts();
+                RestoreOwnedUnitCosts();
                 HideMaterialMessage();
             }
         }
@@ -264,15 +267,15 @@ namespace UnitCosts
             foreach (KeyValuePair<eChimps, UnitCostValues> entry in parsedCosts)
             {
                 UnitCostValues values = entry.Value;
-                int goldCost = values.Gold;
+                TryInitializeFeature("gold cost for " + entry.Key, () => costOverrides.ApplyGold(entry.Key, values.Gold));
+                if (TryGetSiegeTentStructure(entry.Key, out eStructs tent))
+                    TryInitializeFeature("siege tent cost for " + entry.Key, () => costOverrides.ApplyTentGold(tent, values.Gold));
                 try
                 {
-                    if (goldCost != -1 || VanillaGoldCosts.TryGetValue(entry.Key, out goldCost))
-                        SetUnitGoldCost(entry.Key, goldCost);
                     if (IsEuropeanRecruit(entry.Key))
                     {
-                        ApplyEuropeanGoodCosts(entry.Key, values.NoWeapons);
-                        if (values.NoWeapons && OriginalEuropeanGoodCosts.ContainsKey(entry.Key))
+                        costOverrides.ApplyMaterials(entry.Key, values.NoWeapons);
+                        if (values.NoWeapons)
                             appliedNoWeaponsMask |= 1 << ((int)entry.Key - (int)eChimps.CHIMP_TYPE_ARCHER);
                     }
                     if (values.Gold != -1)
@@ -295,71 +298,15 @@ namespace UnitCosts
                 (noWeaponsUiMask & (1 << index)) != 0;
         }
 
-        private void RestoreVanillaUnitCosts()
+        private void RestoreOwnedUnitCosts(bool endSession = false)
         {
-            int restoredValues = 0;
-            foreach (KeyValuePair<eChimps, int> entry in VanillaGoldCosts.Entries)
-            {
-                try
-                {
-                    SetUnitGoldCost(entry.Key, entry.Value);
-                    restoredValues++;
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:311", $"UnitCosts could not restore {entry.Key}; remaining units continue: {ex}");
-                }
-            }
-
-            foreach (KeyValuePair<eChimps, UnitGoodCosts> entry in OriginalEuropeanGoodCosts)
-            {
-                try
-                {
-                    GameUnitManagerAPI.Instance.SetUnitGoodCosts(entry.Key, entry.Value);
-                    restoredValues++;
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:324", $"UnitCosts could not restore European good costs for {entry.Key}: {ex}");
-                }
-            }
-
+            costOverrides.RestoreAll(ex => Shared.DebugLogHelper.LogErrorLimited(log,
+                "UnitCosts.cost-restoration", $"UnitCosts could not restore an owned cost; independent cells continue: {ex}"), endSession);
+            noWeaponsUiMask = 0;
             humanExtraCosts.Clear();
             configuredRecruitmentButtons.Clear();
             ClearRecruitmentCostTooltip();
-            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:331", "Restored vanilla unit cost values:", restoredValues);
-        }
-
-        private static void SetUnitGoldCost(eChimps unitType, int goldCost)
-        {
-            GameUnitManagerAPI.Instance.SetUnitGoldCost(unitType, goldCost);
-            if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
-                GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, goldCost);
-        }
-
-        private void CaptureOriginalEuropeanGoodCosts()
-        {
-            foreach (eChimps unitType in GetEuropeanRecruitTypes())
-            {
-                if (OriginalEuropeanGoodCosts.ContainsKey(unitType))
-                    continue;
-
-                try
-                {
-                    OriginalEuropeanGoodCosts.Add(unitType, GameUnitManagerAPI.Instance.GetUnitGoodCosts(unitType));
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:354", $"UnitCosts could not capture European good costs for {unitType}; No Weapons disabled for this unit: {ex}");
-                }
-            }
-        }
-
-        private static void ApplyEuropeanGoodCosts(eChimps unitType, bool noWeapons)
-        {
-            // Restore the captured table row when unchecked, including the knight's horse slot.
-            if (OriginalEuropeanGoodCosts.TryGetValue(unitType, out UnitGoodCosts original))
-                GameUnitManagerAPI.Instance.SetUnitGoodCosts(unitType, noWeapons ? NoWeaponCosts : original);
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts.owned-cost-restoration", "Released UnitCosts-owned cost values.");
         }
 
         private void ApplyHumanExtraUnitCosts()
@@ -1843,7 +1790,7 @@ namespace UnitCosts
                 if (!VanillaGoldCosts.CaptureIfMissing(unitType, () => ReadVanillaUnitGoldCost(unitType), out Exception error))
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:1853", $"UnitCosts could not capture the Vanilla gold cost for {unitType}; " +
-                        $"-1 and immediate restoration remain disabled for this unit: {error}");
+                        $"The startup cost tooltip is unavailable for this unit: {error}");
                 }
             }
         }
@@ -1852,17 +1799,6 @@ namespace UnitCosts
         {
             return unitType >= eChimps.CHIMP_TYPE_ARCHER &&
                 unitType <= eChimps.CHIMP_TYPE_KNIGHT;
-        }
-
-        private static IEnumerable<eChimps> GetEuropeanRecruitTypes()
-        {
-            yield return eChimps.CHIMP_TYPE_ARCHER;
-            yield return eChimps.CHIMP_TYPE_XBOWMAN;
-            yield return eChimps.CHIMP_TYPE_SPEARMAN;
-            yield return eChimps.CHIMP_TYPE_PIKEMAN;
-            yield return eChimps.CHIMP_TYPE_MACEMAN;
-            yield return eChimps.CHIMP_TYPE_SWORDSMAN;
-            yield return eChimps.CHIMP_TYPE_KNIGHT;
         }
 
         private static IEnumerable<eChimps> GetRecruitTypes()

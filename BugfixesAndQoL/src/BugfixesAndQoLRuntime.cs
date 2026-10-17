@@ -101,6 +101,7 @@ namespace BugfixesAndQoL
         private static NativeTannerFade processNativeTannerFade;
         private static WaterboyTargetReservationRuntime processWaterboyTargetReservationRuntime;
         private static NotificationLastFrameFeature processNotificationLastFrameFeature;
+        private static NotificationSpeechPlayback processNotificationSpeechPlayback;
         private static bool workerBreakTickSubscribed;
         private static bool workerBreakTickLogged;
 
@@ -266,6 +267,8 @@ namespace BugfixesAndQoL
 
         private void EndGameplaySession()
         {
+            processNotificationSpeechPlayback?.Invalidate();
+            processNotificationLastFrameFeature?.ResetMapState();
             ResetMovedFeatureMapState();
             multiplayerGameSpeedRuntime.ResetMapState();
             abruptHostMigrationFix?.ResetMapState();
@@ -359,8 +362,11 @@ namespace BugfixesAndQoL
                     context,
                     isFixedLayoutHashValidated));
             TryInitializePersistentFeature(
+                "notification speech ownership",
+                () => processNotificationSpeechPlayback = NotificationSpeechPlayback.Get(log));
+            TryInitializePersistentFeature(
                 "complete notification skip",
-                () => notificationSkipFeature = new NotificationSkipFeature(
+                () => notificationSkipFeature = notificationSkipFeature ?? new NotificationSkipFeature(
                     log,
                     settings,
                     nativeRegion,
@@ -368,7 +374,7 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "notification last frame",
                 () => processNotificationLastFrameFeature =
-                    new NotificationLastFrameFeature(log, settings));
+                    processNotificationLastFrameFeature ?? new NotificationLastFrameFeature(log, settings));
             tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated(
                 isFixedLayoutHashValidated);
             try

@@ -19,7 +19,7 @@ if ($IndependentRuntime -and -not $modRoot) { throw 'IndependentRuntime requires
 $scopedRoots = @($modRoot) + $(if (-not $IndependentRuntime) { @($apiRoot) } else { @() })
 $discoveryRoots = if ($modRoot) { $scopedRoots } else { @($Workspace) }
 $projects = @(Get-ChildItem -LiteralPath $discoveryRoots -Recurse -File -Filter '*.csproj' | Where-Object {
-    $_.FullName -notmatch '[\\/](shcde-script-extender|bin|obj|BepInEx|\.tools|\.inspect|_inspect|\.native-analysis|\.release-output|before)[\\/]'
+     ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](shcde-script-extender|bin|obj|BepInEx|\.tools|\.inspect|_inspect|\.native-analysis|\.work|\.release-output|before)[\\/]'
 })
 # Historical analysis directories contain intentionally incomplete prototypes.
 # The maintained inventory explicitly includes the active analysis-hosted regressions.
@@ -38,7 +38,7 @@ if ($ModDirectory) {
     $projects = @($projects | Where-Object {
         $_.FullName.StartsWith($modRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
         ($_.FullName.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase) -and
-         $_.FullName -notmatch '[\\/](examples|tests)[\\/]')
+          ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](examples|tests)[\\/]')
     })
     # Include real project dependencies, never every unrelated mod/testmod.
     for ($projectIndex = 0; $projectIndex -lt $projects.Count; $projectIndex++) {
@@ -90,7 +90,7 @@ $legacyRegex = [regex]::new($legacyPattern, [Text.RegularExpressions.RegexOption
 $activeDirectories = if ($modRoot) { $scopedRoots + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) } else { @($apiRoot, $sharedRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) }
 $activeFiles = @(foreach ($directory in $activeDirectories | Sort-Object -Unique) {
     Get-ChildItem -LiteralPath $directory -Recurse -File | Where-Object {
-        $_.FullName -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect)[\\/]' -and
+         ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect|\.work|\.release-output)[\\/]' -and
         # Consumer checks cover the dependency's runtime sources and project/manifest,
         # not its independent tests, documentation, examples or release tooling.
         (-not $modRoot -or -not $_.FullName.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
@@ -139,7 +139,7 @@ foreach ($mod in $inventory) {
     if ($modRoot -and $projects.FullName -notcontains [IO.Path]::GetFullPath((Join-Path $Workspace ([string]$mod.Project)))) { continue }
     Assert-SERuntimeModPreflight $mod $Workspace
 }
-foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmods[\\/]' -and $_.FullName -notmatch '[\\/](tests|[^\\/]*\.Tests)[\\/]|\.PolicyTests\.csproj$' }) {
+foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmods[\\/]' -and  ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](tests|[^\\/]*\.Tests)[\\/]|\.PolicyTests\.csproj$' }) {
     $plugin = @(Get-ChildItem -LiteralPath $project.Directory.FullName -Recurse -File -Filter '*.cs' | Where-Object FullName -NotMatch '[\\/](bin|obj|tests|BepInEx)[\\/]' |
         Select-String -Pattern '\bclass\s+\w+\s*:\s*(?:BepInEx\.)?BaseUnityPlugin\b' | Select-Object -First 1)
     if ($plugin) {
@@ -147,7 +147,7 @@ foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmod
     }
 }
 Write-Host '[Preflight] Checking XAML content roots...'
-foreach ($project in $projects | Where-Object { $_.FullName -notmatch '[\\/](_inspect|tests|[^\\/]*\.Tests|Tests)[\\/]' }) {
+foreach ($project in $projects | Where-Object {  ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](_inspect|tests|[^\\/]*\.Tests|Tests)[\\/]' }) {
     foreach ($file in Get-ChildItem -LiteralPath $project.Directory.FullName -Recurse -File -Filter '*.xaml' | Where-Object FullName -NotMatch '[\\/](bin|obj|BepInEx)[\\/]') {
         [xml]$patch = [IO.File]::ReadAllText($file.FullName)
         foreach ($content in $patch.SelectNodes('//*[local-name()="Content"]')) {
@@ -157,7 +157,7 @@ foreach ($project in $projects | Where-Object { $_.FullName -notmatch '[\\/](_in
         }
     }
 }
-& (Join-Path $PSScriptRoot 'Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $PSScriptRoot 'Test-PermanentNativeRuntimePatches.ps1') -ModDirectory $ModDirectory
 if (-not $?) { throw 'Permanent-hook verification failed.' }
 Write-Output "PASS: shared ownership boundaries; $($projects.Count) projects, $links valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks."
 

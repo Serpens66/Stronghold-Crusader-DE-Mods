@@ -116,3 +116,14 @@ Vanilla protocol constants; SE exposes no corresponding panel enum. Normal GUI
 checks also run paused. No new native hook ownership is introduced.
 
 Runtime acceptance of the correction, including multiplayer, remains pending.
+
+## Transfer to APIShared (2026-10-17)
+
+The user confirmed the original PopularityTest correction working in-game. The
+reusable calculator and presentation adapter now live in APIShared ScriptExtenderFixes.
+This transfer reads effective SE values independently of consumer toggles and only
+corrects values differing from Vanilla. Consequently the zero-population discrepancy
+above remains Vanilla when its SE modifier is unchanged. The 13 separate threshold
+parameters are outside this correction's scope. Simulation and override ownership
+remain unchanged. The transferred implementation still requires separate game,
+editor/save/load and real host/client acceptance; no installation is part of this task.

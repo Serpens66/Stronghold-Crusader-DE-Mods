@@ -21,6 +21,7 @@ namespace BugfixesAndQoL.UnitCommands
         public const int ChoreCommandOrTileXRva = 0x86C1330;
         public const int ChoreTileYRva = 0x86C1334;
         public const int ChoreMoveTypeRva = 0x86C133C;
+        public const int ChorePatrolModeRva = 0x86C1338;
         public const int MoveQueueMarker = 0x40;
         public const int ExecutedFastMoveType = -255;
         public const int TargetQueueMarker = 0x80;

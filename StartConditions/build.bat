@@ -128,6 +128,10 @@ echo Verwende APIShared Referenz:
 echo !API_SHARED_DIR!
 echo.
 
+echo [%date% %time%] Issue 6 preset and infinite-patrol regressions
+dotnet run --project "%PROJECT_DIR%..\BugfixesAndQoL\tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.."
+if errorlevel 1 exit /b 1
+
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" StartConditions.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"

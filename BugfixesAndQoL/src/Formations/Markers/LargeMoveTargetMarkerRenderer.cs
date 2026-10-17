@@ -101,6 +101,8 @@ namespace BugfixesAndQoL
         private PreviewPublication previewCheckedThisPass;
         private bool previewAllowedThisPass;
         private bool failureLogged;
+        // Internal local feedback only; the existing reset detour owns the native frame boundary.
+        internal Action NativeFrameCompleted { private get; set; }
 
         public LargeMoveTargetMarkerRenderer(ManualLogSource log, Func<bool> featureEnabled)
         {
@@ -349,6 +351,14 @@ namespace BugfixesAndQoL
             try
             {
                 resetDrawListHook.Original(drawManager);
+                // Feedback failure must neither repeat Vanilla nor disable marker rendering.
+                try { NativeFrameCompleted?.Invoke(); }
+                catch (Exception exception)
+                {
+                    try { Shared.DebugLogHelper.LogErrorLimited(log, "FormationSpeechFrame",
+                        "Formation speech frame callback failed: " + exception.Message); }
+                    catch { }
+                }
             }
             finally
             {

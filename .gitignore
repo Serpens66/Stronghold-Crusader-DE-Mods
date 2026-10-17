@@ -100,3 +100,6 @@ Desktop.ini
 # Independent local APIShared repository
 /APIShared/
 /_inspect/APISharedGitWorkflow/
+
+# Generated work areas at every depth, including analysis/test fixtures.
+**/.work/

@@ -108,6 +108,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!TryCreatePacket(state, out FormationOrderPacket packet))
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
+                FormationSpeechRequest speechRequest = CaptureSpeech(state);
                 DispatchDisposition disposition = TryDispatch(packet, out string rejection);
                 if (disposition != DispatchDisposition.Accepted)
                 {
@@ -121,6 +122,7 @@ namespace BugfixesAndQoL.UnitCommands
                     mpFrameSkip,
                     packet,
                     inputState,
+                    speechRequest,
                     ref originalEntered);
             }
             catch (Exception exception)
@@ -138,6 +140,7 @@ namespace BugfixesAndQoL.UnitCommands
             bool mpFrameSkip,
             FormationOrderPacket packet,
             FormationMouseState originalState,
+            FormationSpeechRequest speechRequest,
             ref bool originalEntered)
         {
             if (director == null)
@@ -162,6 +165,7 @@ namespace BugfixesAndQoL.UnitCommands
                 releaseConsumptionWatch = new ReleaseConsumptionWatch(
                     packet.OperationId, state.TribeId, state.CommandButton, 2);
             }
+            QueueSpeech(speechRequest);
 
             try
             {

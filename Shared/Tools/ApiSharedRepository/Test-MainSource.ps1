@@ -2,7 +2,8 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'MainSource.Common.ps1')
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/main-workflow-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'MainSource'
 $savedSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION;$savedProof=$env:SHCDE_API_SHARED_RELEASE_PROOF;$savedDirectory=$env:SHCDE_API_SHARED_DIR
 $checks=0
 function Check([bool]$Condition,[string]$Message){if(-not $Condition){throw $Message};$script:checks++}
@@ -70,6 +71,8 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     $clone=Invoke-ApiRepositoryProcess 'git' @('clone',$origin,$api);Check ($clone.ExitCode -eq 0) 'Workspace clone failed.'
     foreach($dir in @('Shared/Tools/ApiSharedRepository','Shared/Tools/Steam')){[void][IO.Directory]::CreateDirectory((Join-Path $root $dir))}
     foreach($file in @('RepositoryProcess.Common.ps1','MainSource.Common.ps1','Open-PullRequest.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $root ('Shared/Tools/ApiSharedRepository/'+$file))}
+    [void][IO.Directory]::CreateDirectory((Join-Path $root 'Shared/Tools/Paths'))
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1') -Destination (Join-Path $root 'Shared/Tools/Paths/WorkPaths.ps1')
     [IO.File]::AppendAllText((Join-Path $root 'Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1'),"`r`n"+$shim)
     foreach($bat in @('APIShared-PRCheck-develop.bat','APIShared-PRCheck-main.bat')){Copy-Item -LiteralPath (Join-Path $workspace $bat) -Destination (Join-Path $root $bat)}
     . ([scriptblock]::Create($shim))

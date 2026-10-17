@@ -2,7 +2,8 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/modpack-branches-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ModpackBranches'
 $root=Join-Path $fixture 'author';$caller=Join-Path $fixture 'caller'
 $checks=0
 function Check($Ok,$Message){if(-not $Ok){throw $Message};$script:checks++}
@@ -17,13 +18,13 @@ Reject {Resolve-WorkshopOptions @('/apishared','/branch:main')}
 Reject {Resolve-WorkshopOptions @('/modpack','/branch:invalid')}
 [void][IO.Directory]::CreateDirectory($root)
 $init=Invoke-ApiRepositoryProcess 'git' @('init','--initial-branch=main',$root);Check ($init.ExitCode -eq 0) 'Init failed'
-foreach($relative in @('Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1',
+foreach($relative in @('Shared/Tools/Paths/WorkPaths.ps1','Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1',
  'Shared/Tools/Steam/ModpackSource.Common.ps1','Shared/Tools/Steam/WorkshopOptions.Common.ps1','Shared/Tools/Steam/WorkshopWorkflow.ps1',
  'Shared/Tools/Steam/WorkshopWorkflow.Common.ps1','Shared/Tools/Steam/WorkshopOutputRetention.ps1','Shared/Tools/Steam/SteamWorkshopHistory.ps1',
  'Shared/Tools/Steam/PublishedModpack.Common.ps1','Shared/Tools/Steam/ReleaseAssetCache.ps1',
  'CreateSteamModPack.bat','UploadWorkshop.bat')){Put $relative ([IO.File]::ReadAllText((Join-Path $workspace $relative)))}
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll' 'original fixture build'
-Put '.gitignore' ".release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
+Put '.gitignore' ".work/`r`n.release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
 # External SDK/publisher services are inert fixtures; routing, policy, proofs, Git, BAT and PS children are real.
 $apiHelper=Join-Path $root 'Shared/Tools/ApiSharedRepository/MainSource.Common.ps1'
 [IO.File]::AppendAllText($apiHelper, @'

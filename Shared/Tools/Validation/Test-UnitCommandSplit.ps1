@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$SkipCompiler)
+param([switch]$SkipCompiler, [string]$ModDirectory)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $projects = @('APIShared\APIShared.csproj', 'BugfixesAndQoL\BugfixesAndQoL.csproj', 'Testmods\MoatMove\MoatMove.csproj')
@@ -45,7 +45,7 @@ foreach ($relative in $projects) {
         }
     }
 }
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory $ModDirectory
 if (-not $SkipCompiler) {
     & dotnet run --project (Join-Path $workspace 'Shared\Tools\Validation\UnitCommandSourceChecks\UnitCommandSourceChecks.csproj') -- $workspace --real
     if ($LASTEXITCODE -ne 0) { throw 'Real installed game assembly source check failed.' }

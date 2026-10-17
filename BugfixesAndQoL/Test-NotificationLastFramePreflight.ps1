@@ -61,6 +61,24 @@ try {
         $fields = @($sfx[0].Fields | Where-Object { $_.Name -ceq $member -and $_.IsPublic -and $_.IsStatic })
         if ($fields.Count -ne 1) { throw "SFXManager.$member is not public static." }
     }
+    foreach ($entry in @(@('speechSource1','UnityEngine.AudioSource'), @('speechClip1','UnityEngine.AudioClip'),
+        @('speechMode1','System.Int32'), @('speechPaused','System.Boolean'), @('ignoreSpeechMuting','System.Boolean'))) {
+        $fields = @($audio[0].Fields | Where-Object { $_.Name -ceq $entry[0] -and -not $_.IsStatic -and $_.FieldType.FullName -ceq $entry[1] })
+        if ($fields.Count -ne 1) { throw "Installed MyAudioManager.$($entry[0]) contract changed." }
+    }
+    $loadSpeech = @($audio[0].Methods | Where-Object {
+        $_.Name -ceq 'LoadClip' -and $_.IsPrivate -and $_.ReturnType.FullName -ceq 'System.Void' -and
+        (($_.Parameters | ForEach-Object { $_.ParameterType.FullName }) -join ',') -ceq 'System.Int32,System.String,System.String,System.Boolean,System.Boolean'
+    })
+    $loadPath = @($audio[0].Methods | Where-Object {
+        $_.Name -ceq 'LoadClip' -and $_.IsPrivate -and $_.Parameters.Count -eq 1 -and
+        $_.Parameters[0].ParameterType.FullName -ceq 'System.String' -and
+        $_.ReturnType.FullName -ceq 'System.Threading.Tasks.Task`1<UnityEngine.AudioClip>'
+    })
+    $close = @($hud[0].Methods | Where-Object { $_.Name -ceq 'RadarME_Ended' -and $_.IsPublic -and $_.Parameters.Count -eq 0 -and $_.ReturnType.FullName -ceq 'System.Void' })
+    if ($loadSpeech.Count -ne 1 -or $loadPath.Count -ne 1 -or $close.Count -ne 1) {
+        throw 'Installed speech-load or public video-close signature changed.'
+    }
     $radar = @($hud[0].Fields | Where-Object { $_.Name -ceq 'RefRadarME' -and $_.IsPublic })
     if ($radar.Count -ne 1) { throw 'MainHUD.RefRadarME is not public.' }
 }
@@ -74,11 +92,20 @@ if ($feature -match 'public\s+void\s+Dispose\s*\(' -or
     $feature -match '\b(?:Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
     throw 'Last-frame feature contains a published-hook teardown or MonoBehaviour callback.'
 }
-if (-not $feature.Contains('if (feature == null || !feature.Enabled)') -or
+if (-not $feature.Contains('PresentationOperation.GuiChecks') -or
+    -not $feature.Contains('speech.IsCurrent') -or
     -not $feature.Contains('originalVideoEnded(self, sender, args);') -or
     -not $feature.Contains('originalPlayBink(self, binkName, loop, waitForSpeech);') -or
     -not $feature.Contains('GameTimeManagerAPI.Instance.OnTick += OnGameTick;')) {
     throw 'Last-frame Vanilla fallback or persistent event path is incomplete.'
 }
 
+$speechFeature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\NotificationSpeechPlayback.cs'))
+if ($feature.Contains('binkWaitForSpeech = true') -or
+    -not $speechFeature.Contains('Interlocked.Increment(ref speechChannel1Generation)') -or
+    -not $speechFeature.Contains('!IsCurrent(audio, generation)')) {
+    throw 'Speech ownership or stale-load cancellation is incomplete.'
+}
+& dotnet run --project (Join-Path $PSScriptRoot 'tests\NotificationPlayback.Tests\NotificationPlayback.Tests.csproj') --configuration Release
+if ($LASTEXITCODE -ne 0) { throw 'Notification playback behavior tests failed.' }
 Write-Output 'Notification last-frame assembly, Noesis, lifecycle, and Vanilla-fallback preflight succeeded.'
