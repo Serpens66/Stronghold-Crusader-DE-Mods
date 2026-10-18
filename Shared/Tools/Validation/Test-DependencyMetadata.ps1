@@ -26,8 +26,8 @@ foreach ($project in $projects | Where-Object {
     $manifest = [IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
     # The diagnostic bootstrap must load without APIShared; info.json remains hard.
     if ($project.BaseName -eq 'SerpsModsHost') {
-        if ($source -notmatch 'dependency\["MinimumVersion"\]' -or $source -notmatch 'ApiSharedDependencyPolicy\.IsSatisfied' -or
-            $source -notmatch 'APIShared_Serp", BepInDependency\.DependencyFlags\.SoftDependency') { throw 'Host dependency gate is missing.' }
+        # Compiled soft-dependency metadata and bootstrap loading are checked by
+        # SerpsModsHostDuplicateTests after compilation; source spelling is not a contract.
         $apiDependencies = @($manifest.Dependencies | Where-Object { $_.GUID -eq 'APIShared_Serp' })
         $minimum = $null
         if ($apiDependencies.Count -ne 1 -or -not [version]::TryParse([string]$apiDependencies[0].MinimumVersion, [ref]$minimum)) { throw 'Host info.json must retain exactly one valid required APIShared minimum.' }

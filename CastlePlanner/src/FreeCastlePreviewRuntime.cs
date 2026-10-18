@@ -1071,57 +1071,62 @@ namespace CastlePlanner
             {
                 state = PreviewState.RestartCommitted;
                 NotifyAll();
-                if (realMultiplayer)
-                {
-                    if (capturedSetup == null || capturedMap == null)
-                        throw new InvalidOperationException("The multiplayer restart context is unavailable.");
-                    Platform_Multiplayer platform = Platform_Multiplayer.Instance ??
-                        throw new InvalidOperationException("The multiplayer platform is unavailable.");
-
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1103", $"Free-castle multiplayer restart reset beginning: " +
-                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
-                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
-                    Director.instance.stopSimThread();
-                    // This is Vanilla's complete follow-on reset. initFast clears
-                    // seed/queue state; initFastFollowOn closes the old sessions,
-                    // clears the old roster and resets MPGameActive before StartGame
-                    // reconstructs both for the new map.
-                    initFastMethod.Invoke(platform, null);
-                    platform.initFastFollowOn();
-                    RelinquishMultiplayerLivenessGuardAfterVanillaReset();
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1116", $"Free-castle multiplayer restart reset completed: " +
-                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
-                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
-                    try
-                    {
-                        bypassStartCapture = true;
-                        startGameTrampoline(
-                            platform,
-                            capturedSetup,
-                            capturedMap,
-                            capturedCoopTrailId,
-                            capturedCoopMissionId);
-                    }
-                    finally
-                    {
-                        bypassStartCapture = false;
-                    }
-                    // Platform.StartGame only loads the map and arms its host/client
-                    // seed handshake. Vanilla always follows it with this Director
-                    // activation so messages and host acknowledgements are processed.
-                    Director.instance.StartMultiplayerGame();
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1139", $"Free-castle multiplayer restart handshake activated: " +
-                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
-                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
-                }
-                else
-                {
-                    RestartSingleplayer();
-                }
+                APIShared.MissionRestart.Run(CastlePlannerPlugin.PluginGuid, CommitRestartCore);
             }
             catch (Exception ex)
             {
                 FailAfterCommit(ex);
+            }
+        }
+
+        private void CommitRestartCore()
+        {
+            if (realMultiplayer)
+            {
+                if (capturedSetup == null || capturedMap == null)
+                    throw new InvalidOperationException("The multiplayer restart context is unavailable.");
+                Platform_Multiplayer platform = Platform_Multiplayer.Instance ??
+                    throw new InvalidOperationException("The multiplayer platform is unavailable.");
+
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1103", $"Free-castle multiplayer restart reset beginning: " +
+                    $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                    $"gameMembers={platform.gameMembers?.Count ?? 0}.");
+                Director.instance.stopSimThread();
+                // This is Vanilla's complete follow-on reset. initFast clears
+                // seed/queue state; initFastFollowOn closes the old sessions,
+                // clears the old roster and resets MPGameActive before StartGame
+                // reconstructs both for the new map.
+                initFastMethod.Invoke(platform, null);
+                platform.initFastFollowOn();
+                RelinquishMultiplayerLivenessGuardAfterVanillaReset();
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1116", $"Free-castle multiplayer restart reset completed: " +
+                    $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                    $"gameMembers={platform.gameMembers?.Count ?? 0}.");
+                try
+                {
+                    bypassStartCapture = true;
+                    startGameTrampoline(
+                        platform,
+                        capturedSetup,
+                        capturedMap,
+                        capturedCoopTrailId,
+                        capturedCoopMissionId);
+                }
+                finally
+                {
+                    bypassStartCapture = false;
+                }
+                // Platform.StartGame only loads the map and arms its host/client
+                // seed handshake. Vanilla always follows it with this Director
+                // activation so messages and host acknowledgements are processed.
+                Director.instance.StartMultiplayerGame();
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1139", $"Free-castle multiplayer restart handshake activated: " +
+                    $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                    $"gameMembers={platform.gameMembers?.Count ?? 0}.");
+            }
+            else
+            {
+                RestartSingleplayer();
             }
         }
 

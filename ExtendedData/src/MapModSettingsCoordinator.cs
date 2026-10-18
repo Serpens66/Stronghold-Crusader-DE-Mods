@@ -170,8 +170,10 @@ namespace ExtendedData
                     ModSettingsApplication.ConfirmStarted();
                 }
             }));
-            subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>
+            subscriptions.Add(MissionEvents.Ended.Subscribe(notification =>
             {
+                if (notification.ReplacementContext?.RestartedFromSessionId == notification.Context.SessionId)
+                    return;
                 if (mapMissionActive)
                     ExitMapContext(broadcast: false, "mission ended");
             }));
@@ -388,7 +390,7 @@ namespace ExtendedData
             launchInProgress = IsMapContextCurrent();
             try
             {
-                if (launchInProgress)
+                if (launchInProgress && !MissionRestart.IsInProgress)
                 {
                     settingsCoordinator.EnterStrict(
                         settingsCoordinator.CaptureCurrentDocument(),

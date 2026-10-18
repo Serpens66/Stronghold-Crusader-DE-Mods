@@ -747,6 +747,18 @@ namespace ExtendedData
 
             public bool HandleMissionEnded(MissionLifecycleNotification notification)
             {
+                ExtendedDataLaunchOriginApi.OnMissionEnded(notification?.Context?.SessionId ?? 0,
+                    notification?.EndReason ?? MissionEndReason.Unloaded, notification?.HasStarted == true,
+                    notification?.ReplacementContext?.SessionId,
+                    notification?.ReplacementContext != null &&
+                    notification.ReplacementContext.RestartedFromSessionId == notification.Context?.SessionId);
+                if (notification?.ReplacementContext?.RestartedFromSessionId == notification?.Context?.SessionId &&
+                    notification?.ReplacementContext != null)
+                {
+                    ExtendedDataLaunchOriginApi.MarkRestartPending();
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/restart", "Retained mission settings for restart session " + notification.ReplacementContext.SessionId + ".");
+                    return true;
+                }
                 MissionEndReason reason = notification == null
                     ? MissionEndReason.Unloaded
                     : notification.EndReason;
@@ -782,6 +794,11 @@ namespace ExtendedData
 
             public bool HandleMissionStarted(MissionLifecycleNotification notification)
             {
+                if (notification?.Context?.RestartedFromSessionId != null)
+                {
+                    ModSettingsApplication.ConfirmStarted();
+                    return true;
+                }
                 MissionPresetLaunchKind pending = missionPresetLifecycle.PendingLaunch;
                 if (pending == MissionPresetLaunchKind.None)
                 {
@@ -840,11 +857,13 @@ namespace ExtendedData
 
             internal void PrepareCoopMissionLaunch()
             {
+                if (MissionRestart.IsInProgress) return;
                 missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CoopTrail);
             }
 
             internal bool PrepareTrailMakerTestLaunch()
             {
+                if (MissionRestart.IsInProgress) return true;
                 if (!enabled)
                     return true;
                 if (missionPresetLifecycle.PendingLaunch == MissionPresetLaunchKind.TrailMakerTest)
@@ -1923,7 +1942,7 @@ namespace ExtendedData
             private void StartCustomTrailHook(MainViewModel self, string trailName, int missionId, int difficulty)
             {
                 bool customizedRestart = false;
-                if (!preserveContextForLaunch)
+                if (!preserveContextForLaunch && !MissionRestart.IsInProgress)
                 {
                     HUD_IngameMenu.RestartSkirmishMapInfo restartInfo =
                         MainViewModel.Instance?.HUDIngameMenu?.restartSkirmishMapInfo;
@@ -1944,7 +1963,7 @@ namespace ExtendedData
                     startCustomTrailOriginal(self, trailName, missionId, difficulty);
                     return;
                 }
-                if (!preserveContextForLaunch)
+                if (!preserveContextForLaunch && !MissionRestart.IsInProgress)
                 {
                     launchedThroughCustomize = false;
                     try
@@ -1970,7 +1989,7 @@ namespace ExtendedData
                         ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                     }
                 }
-                else if (workingContextEditable)
+                else if (workingContextEditable && !MissionRestart.IsInProgress)
                 {
                     // Customize is an editable draft. The launched mission receives the
                     // materialized result as a read-only working snapshot.
@@ -2007,7 +2026,8 @@ namespace ExtendedData
                 if (!TryPrepareRestartSettings()) return;
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = true;
-                missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
+                if (!MissionRestart.IsInProgress)
+                    missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
                 startCustomTrailOriginal(self, trailName, missionId, difficulty);
             }
 

@@ -52,11 +52,29 @@ namespace SerpsModsHost
                 workshopUrl = info.TryGetValue("APISharedWorkshopUrl", out object url) ? url as string : null;
                 bool loaded = Chainloader.PluginInfos.TryGetValue("APIShared_Serp", out PluginInfo api);
                 string found = loaded ? api.Metadata.Version.ToString() : "not installed / nicht installiert";
-                bool embedded = loaded && !ApiSharedDependencyPolicy.IsSeparate(api.Location, Paths.PluginPath);
-                if (!ApiSharedDependencyPolicy.IsSatisfied(loaded ? api.Metadata.Version : null, required, loaded ? api.Location : null, Paths.PluginPath))
+                var dependencyStatus = ApiSharedDependencyPolicy.Evaluate(
+                    loaded ? api.Metadata.Version : null, required, loaded ? api.Location : null, root);
+                if (dependencyStatus != ApiSharedDependencyStatus.Satisfied)
                 {
-                    string message = "Serps Mods requires / benötigt APIShared " + minimum + "+ as a separate Steam Workshop subscription / als separates Steam-Workshop-Abonnement.\n\n" +
-                        "Found / Gefunden: " + found + (embedded ? " (not the separate installation / keine separate Installation)" : "") +
+                    string reason;
+                    switch (dependencyStatus)
+                    {
+                        case ApiSharedDependencyStatus.Missing:
+                            reason = "APIShared was not loaded / APIShared wurde nicht geladen.";
+                            break;
+                        case ApiSharedDependencyStatus.BelowMinimum:
+                            reason = "The loaded version is too old / Die geladene Version ist zu alt.";
+                            break;
+                        case ApiSharedDependencyStatus.Embedded:
+                            reason = "APIShared was loaded from inside the Serps Mods package / APIShared wurde aus dem Serps-Mods-Paket geladen.";
+                            break;
+                        default:
+                            reason = "The loaded installation path could not be validated / Der geladene Installationspfad konnte nicht geprüft werden.";
+                            break;
+                    }
+                    string message = "Serps Mods requires / benötigt APIShared " + minimum + "+ as a separate installation / als eigenständige Installation.\n\n" +
+                        "Reason / Grund: " + reason + "\n\nFound / Gefunden: " + found +
+                        "\nLocation / Pfad: " + (loaded ? api.Location : "-") +
                         "\n\nSubscribe to APIShared, wait for installation, then restart the game. / APIShared abonnieren, Installation abwarten und das Spiel neu starten.\n\n" +
                         "Yes / Ja: open APIShared Workshop page / Workshop-Seite öffnen.\nNo / Nein: close this notice / Hinweis schließen.";
                     Logger.LogError(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " H009: " + message);

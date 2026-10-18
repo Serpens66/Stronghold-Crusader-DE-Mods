@@ -121,6 +121,109 @@ internal static class Program
         Call(service, "Run", NewOperation(MissionStartKind.NewGame), successful);
         NativeApiLog.Fail = false;
         Check(survivors == 2 && capability.Current != null, "observer/logger failure blocked another subscriber or Vanilla");
+        TestRestarts(service, events, successful);
         Console.WriteLine($"PASS: {checks} production service boundary assertions (no native hooks or runtime installation).");
+    }
+
+    static void TestRestarts(MissionLifecycleService service, List<MissionLifecycleNotification> events, Action successful)
+    {
+        Platform_Multiplayer.Instance.Host = true;
+        var capability = service.Bind("restart-tests");
+        var pairs = new List<(long Source, long Destination)>();
+        capability.TryRegisterObserver("ownership", null, e =>
+        {
+            if (e.ReplacementContext?.RestartedFromSessionId == e.Context.SessionId)
+            {
+                Check(MissionRestart.IsInProgress, "restart preparation was not active before source End");
+                pairs.Add((e.Context.SessionId, e.ReplacementContext.SessionId));
+            }
+        }, null, out _);
+        foreach (var kind in new[] { APIShared.GameModes.GameModeKind.CustomGame,
+            APIShared.GameModes.GameModeKind.CustomTrail, APIShared.GameModes.GameModeKind.CoopTrail,
+            APIShared.GameModes.GameModeKind.Campaign, APIShared.GameModes.GameModeKind.StandaloneMission })
+        {
+            var seed = NewOperation(MissionStartKind.NewGame);
+            Set(seed, "Intent", kind);
+            Call(service, "Run", seed, successful);
+            for (int i = 0; i < 2; i++)
+            {
+                long source = capability.Current.SessionId;
+                int before = events.Count;
+                MissionRestart.Run("arbitrary.mod", () => MissionRestart.Run("nested.mod", successful));
+                Check(capability.Current?.IsRestart == true && !capability.Current.IsSave &&
+                    capability.Current.RestartedFromSessionId == source && capability.Current.Mode.Kind == kind,
+                    "restart lost identity, kind or regular new-game semantics");
+                Check(events.Skip(before).Count(e => e.Kind == MissionLifecycleKind.End) == 1 &&
+                    events.Skip(before).Count(e => e.Kind == MissionLifecycleKind.Start) == 1,
+                    "nested restart duplicated lifecycle notifications");
+                Check(!MissionRestart.IsInProgress && pairs.Last() == (source, capability.Current.SessionId), "restart ownership was not linked");
+            }
+        }
+        // The actual menu and popup hooks: opening/No do not retire a session; Yes runs once.
+        var button = Hook.All.Single(h => h.Callback.Method.GetParameters().FirstOrDefault()?.ParameterType == typeof(CrusaderDE.HUD_IngameMenu)).Callback;
+        var popup = Hook.All.Single(h => h.Callback.Method.GetParameters().Length == 5 && h.Callback.Method.GetParameters()[0].ParameterType == typeof(string)).Callback;
+        int actions = 0;
+        CrusaderDE.HUD_IngameMenu.ButtonBody = _ => popup.DynamicInvoke("localized title", (Action)(() => { actions++; successful(); }), (Action)(() => { }), false, false);
+        long unchanged = capability.Current.SessionId;
+        button.DynamicInvoke(new CrusaderDE.HUD_IngameMenu(), 5);
+        CrusaderDE.HUD_ConfirmationPopup.No();
+        Check(capability.Current.SessionId == unchanged && actions == 0, "cancelled confirmation changed lifecycle");
+        CrusaderDE.HUD_ConfirmationPopup.Yes();
+        Check(actions == 1 && capability.Current.RestartedFromSessionId == unchanged, "confirmed menu restart was not wrapped");
+        unchanged = capability.Current.SessionId;
+        CrusaderDE.HUD_IngameMenu.ButtonBody = _ => popup.DynamicInvoke("other confirmation", (Action)(() => actions++), (Action)(() => { }), false, false);
+        button.DynamicInvoke(new CrusaderDE.HUD_IngameMenu(), 6);
+        CrusaderDE.HUD_ConfirmationPopup.Yes();
+        Check(actions == 2 && capability.Current.SessionId == unchanged, "unrelated confirmation became a restart");
+        CrusaderDE.HUD_IngameMenu.ButtonBody = _ => popup.DynamicInvoke("restart", (Action)(() => { actions++; successful(); }), (Action)(() => { }), false, false);
+        button.DynamicInvoke(new CrusaderDE.HUD_IngameMenu(), 5);
+        var staleYes = CrusaderDE.HUD_ConfirmationPopup.Yes;
+        Call(service, "Run", NewOperation(MissionStartKind.NewGame), successful);
+        unchanged = capability.Current.SessionId;
+        staleYes();
+        Check(actions == 2 && capability.Current.SessionId == unchanged, "stale confirmation restarted another mission");
+        bool offThread = false;
+        try { System.Threading.Tasks.Task.Run(() => MissionRestart.Run("worker", () => offThread = true)).GetAwaiter().GetResult(); }
+        catch (InvalidOperationException) { }
+        Check(!offThread && capability.Current.SessionId == unchanged, "worker thread was allowed to mutate restart state");
+        var skirmish = Hook.All.Single(h => h.Target.Name == "RestartSkirmishGame").Callback;
+        CrusaderDE.FRONT_Multiplayer.RestartBody = successful;
+        skirmish.DynamicInvoke(new CrusaderDE.FRONT_Multiplayer(), new CrusaderDE.HUD_IngameMenu.RestartSkirmishMapInfo());
+        Check(capability.Current.RestartedFromSessionId == unchanged, "dedicated Skirmish entry did not establish restart ownership");
+        Call(service, "Run", NewOperation(MissionStartKind.LoadedSave), successful);
+        unchanged = capability.Current.SessionId;
+        MissionRestart.Run("save-restart", successful);
+        Check(!capability.Current.IsSave && capability.Current.RestartedFromSessionId == unchanged,
+            "restart of a loaded save was misclassified as loading another save");
+        var error = new InvalidOperationException("Vanilla failure");
+        try { MissionRestart.Run("test", () => throw error); Check(false, "restart exception swallowed"); }
+        catch (InvalidOperationException caught) { Check(ReferenceEquals(caught, error), "restart replaced Vanilla exception"); }
+        Check(capability.Current == null && events.Last().EndReason == MissionEndReason.Exception && !MissionRestart.IsInProgress,
+            "failed restart retained ownership or scope");
+        Call(service, "Run", NewOperation(MissionStartKind.NewGame), successful);
+        MissionRestart.Run("test", () => Native(service, 0));
+        Check(capability.Current == null && events.Last().EndReason == MissionEndReason.Failed, "native restart failure became ready");
+        Platform_Multiplayer.Instance.Host = false;
+        Call(service, "Run", NewOperation(MissionStartKind.NewGame, true), successful);
+        MissionRestart.Run("client", () => Native(service));
+        Check(capability.Current == null && !MissionRestart.IsInProgress, "delayed restart client completed early");
+        MessageBody = () => Call(service, "MarkManaged");
+        Call(service, "ProcessMessage", Platform_Multiplayer.Instance, new Platform_Multiplayer.MPData(), new Platform_Multiplayer.MPGameMember(), false);
+        Check(capability.Current?.IsRestart == true && !capability.Current.IsSave, "delayed restart client lost restart attribution");
+        long delayedSource = capability.Current.SessionId;
+        MissionRestart.Run("aborted-client", () => Native(service));
+        int beforeAbort = events.Count;
+        Call(service, "End", MissionEndReason.Unloaded);
+        Check(events.Skip(beforeAbort).Count(e => e.Kind == MissionLifecycleKind.End) == 1 &&
+            !events.Last().HasStarted && events.Last().Context.RestartedFromSessionId == delayedSource,
+            "abandoned client restart did not retire its exact pending session once");
+        int afterAbort = events.Count;
+        Call(service, "ProcessMessage", Platform_Multiplayer.Instance, new Platform_Multiplayer.MPData(), new Platform_Multiplayer.MPGameMember(), false);
+        Check(capability.Current == null && events.Count == afterAbort,
+            "a late handshake revived an abandoned client restart");
+        Call(service, "Run", NewOperation(MissionStartKind.NewGame, true), successful);
+        MissionRestart.Run("superseded-client", () => Native(service));
+        Call(service, "Run", NewOperation(MissionStartKind.NewGame), successful);
+        Check(!capability.Current.IsRestart && capability.Current.RestartedFromSessionId == null, "restart attribution leaked into a different launch");
     }
 }

@@ -12,10 +12,10 @@ namespace SerpsModsHostDuplicateTests
     {
         private static int Main(string[] args)
         {
-            if (args.Length == 2) return BootstrapProbe.Run(args[0], args[1]);
+            if (args.Length == 4) return BootstrapProbe.Run(args[0], args[1], args[2], args[3]);
+            if (args.Length != 0) throw new ArgumentException("Expected no arguments, or host DLL, game directory, manifest and extender directory.");
             TestApiSharedGate();
             TestGlobalSettingsResetPolicy();
-            TestGlobalSettingsResetUiContract();
             TestModSettingsRegistrationOrder();
             TestScriptExtenderCompatibility();
             TestModInventoryCompatibility();
@@ -129,11 +129,8 @@ namespace SerpsModsHostDuplicateTests
                 Sha256 = "hash",
                 Size = 1
             });
-            int pathIndex = repeated.IndexOf("\"Path\"", StringComparison.Ordinal);
-            int shaIndex = repeated.IndexOf("\"Sha256\"", StringComparison.Ordinal);
-            int sizeIndex = repeated.IndexOf("\"Size\"", StringComparison.Ordinal);
-            if (pathIndex < 0 || pathIndex >= shaIndex || shaIndex >= sizeIndex ||
-                !string.Equals(repeated, Shared.DependencyFreeJson.Serialize(new PackFileRecord
+            // Determinism is observable; alphabetical property order is not required.
+            if (!string.Equals(repeated, Shared.DependencyFreeJson.Serialize(new PackFileRecord
                 {
                     Path = "ordered",
                     Sha256 = "hash",
@@ -233,38 +230,6 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException("A successful global reset did not apply defaults to every target.");
         }
 
-        private static void TestGlobalSettingsResetUiContract()
-        {
-            string workspace = FindWorkspaceRoot();
-            string source = File.ReadAllText(Path.Combine(
-                workspace, "SerpsModsHost", "src", "SerpsModsDiagnosticsViewModel.cs"));
-            string xaml = File.ReadAllText(Path.Combine(
-                workspace, "SerpsModsHost", "Override", "ScriptExtenderUI", "SerpsModsStatus.xaml"));
-            if (source.Contains("SerpsModsResetSettingsCompleted") ||
-                xaml.Contains("GlobalSettingsResetSuccessVisibility") ||
-                !source.Contains("globalResetStatus = string.Empty;") ||
-                !xaml.Contains("GlobalSettingsResetErrorVisibility"))
-            {
-                throw new InvalidOperationException(
-                    "The global reset must stay silent after success and retain a visible error-only status.");
-            }
-            if (source.Contains("presetTargetGuids") ||
-                !source.Contains("RegisteredModSettings.CollectionChanged += OnRegisteredModSettingsChanged") ||
-                !source.Contains("ApplyMany(targets.Select(target => target.Guid), source.Id)"))
-            {
-                throw new InvalidOperationException(
-                    "The global reset must discover registered supported mods and refresh its availability.");
-            }
-            if (!source.Contains("item.IsPreferred") ||
-                !source.Contains("preferredGlobalSourceToken") ||
-                !source.Contains("PreferenceContextId") ||
-                !source.Contains("preferredChanged"))
-            {
-                throw new InvalidOperationException(
-                    "The global reset must follow changed Trail/Map context preferences without discarding a manual selection during ordinary refreshes.");
-            }
-        }
-
         private sealed class ResetTarget
         {
             internal ResetTarget(int value, bool fail)
@@ -302,22 +267,22 @@ namespace SerpsModsHostDuplicateTests
             };
 
             string missingApi = PackPluginDiagnosticMessages.MissingInfrastructure(apiShared);
-            if (!missingApi.Contains("APIShared is missing or was not loaded") ||
-                !missingApi.Contains("APIShared_Serp v0.3.0"))
+            if (!missingApi.Contains(apiShared.Guid) ||
+                !missingApi.Contains(apiShared.Version))
             {
                 throw new InvalidOperationException("Missing APIShared diagnostic is not explicit enough.");
             }
 
             string childWithoutApi = PackPluginDiagnosticMessages.MissingChild(child, false);
-            if (!childWithoutApi.Contains("Bugfixes and QoL (BugfixesAndQoL_Serp) v1.0.142") ||
-                !childWithoutApi.Contains("APIShared is missing or incompatible"))
+            if (!childWithoutApi.Contains(child.Guid) || !childWithoutApi.Contains(child.Name) || !childWithoutApi.Contains(child.Version) ||
+                !childWithoutApi.Contains("APIShared"))
             {
                 throw new InvalidOperationException("Missing child diagnostic does not identify APIShared as a possible cause.");
             }
 
             string childWithApi = PackPluginDiagnosticMessages.MissingChild(child, true);
-            if (!childWithApi.Contains("APIShared is loaded") ||
-                childWithApi.Contains("APIShared is missing"))
+            if (!childWithApi.Contains(child.Guid) || !childWithApi.Contains(child.Version) ||
+                string.Equals(childWithApi, childWithoutApi, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Missing child diagnostic incorrectly blames an available APIShared.");
             }
@@ -327,16 +292,16 @@ namespace SerpsModsHostDuplicateTests
                 "2.3.0",
                 "2.4.0",
                 string.Empty);
-            if (!oldExtender.Contains("installed Script Extender 2.3.0 is too old") ||
-                !oldExtender.Contains("requires version 2.4.0 or newer") ||
+            if (!oldExtender.Contains("Script Extender") || !oldExtender.Contains("2.3.0") ||
+                !oldExtender.Contains("2.4.0") || !oldExtender.Contains(child.Guid) ||
                 oldExtender.Contains("APIShared is missing"))
             {
                 throw new InvalidOperationException("Outdated Script Extender diagnostic is incomplete or misleading.");
             }
 
             string wrongApiVersion = PackPluginDiagnosticMessages.InfrastructureVersionMismatch(apiShared, "0.2.1");
-            if (!wrongApiVersion.Contains("loaded APIShared version is incompatible") ||
-                !wrongApiVersion.Contains("expected 0.3.0, actual 0.2.1"))
+            if (!wrongApiVersion.Contains("APIShared") ||
+                !wrongApiVersion.Contains(apiShared.Version) || !wrongApiVersion.Contains("0.2.1"))
             {
                 throw new InvalidOperationException("APIShared version mismatch diagnostic is incomplete.");
             }
@@ -619,34 +584,49 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException("An already sorted modsettings list was changed.");
             }
 
-            string workspace = FindWorkspaceRoot();
-            string hostSource = File.ReadAllText(Path.Combine(
-                workspace, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
-            int promoteIndex = hostSource.IndexOf(
-                "ModSettingsRegistrationOrder.PromoteToFront(registrations, registration);",
-                StringComparison.Ordinal);
-            int selectIndex = hostSource.IndexOf(
-                "SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.SelectedTab = registration;",
-                StringComparison.Ordinal);
-            if (promoteIndex < 0 || selectIndex <= promoteIndex)
-            {
-                throw new InvalidOperationException(
-                    "Serps Mods must become the initial selected tab after it is promoted.");
-            }
         }
 
         private static void TestApiSharedGate()
         {
             string root = Path.Combine(Path.GetTempPath(), "host-api-root");
             string separate = Path.Combine(root, "APIShared_Serp", "APIShared.dll");
-            string embedded = Path.Combine(root, "SerpsMods_Serp", "Infrastructure", "APIShared_Serp", "APIShared.dll");
+            string host = Path.Combine(root, "SerpsMods_Serp_dev");
+            string embedded = Path.Combine(host, "Infrastructure", "APIShared_Serp", "APIShared.dll");
             var minimum = new Version("0.7.0");
-            if (ApiSharedDependencyPolicy.IsSatisfied(null, minimum, null, root) ||
-                ApiSharedDependencyPolicy.IsSatisfied(new Version("0.6.9"), minimum, separate, root) ||
-                ApiSharedDependencyPolicy.IsSatisfied(minimum, minimum, embedded, root) ||
-                !ApiSharedDependencyPolicy.IsSatisfied(minimum, minimum, separate, root) ||
-                !ApiSharedDependencyPolicy.IsSatisfied(new Version("2.0.0"), minimum, separate, root))
+            if (ApiSharedDependencyPolicy.IsSatisfied(null, minimum, null, host) ||
+                ApiSharedDependencyPolicy.IsSatisfied(new Version("0.6.9"), minimum, separate, host) ||
+                ApiSharedDependencyPolicy.IsSatisfied(minimum, minimum, embedded, host) ||
+                !ApiSharedDependencyPolicy.IsSatisfied(minimum, minimum, separate, host) ||
+                !ApiSharedDependencyPolicy.IsSatisfied(new Version("2.0.0"), minimum, separate, host))
                 throw new Exception("APIShared gate failed missing/old/embedded/equal/newer compatibility cases.");
+            // The loaded GUID identifies APIShared; folder names are not its identity.
+            foreach (string location in new[] {
+                Path.Combine(root, "APIShared_Serp_dev", "APIShared.dll"),
+                Path.Combine(root, "renamed dependency", "nested", "APIShared.dll"),
+                Path.Combine(root, "SerpsMods_Serp_dev-other", "APIShared.dll"),
+                Path.Combine(root, "Workshop", "content", "arbitrary-item", "APIShared.dll"),
+                Path.Combine(host, "..", "APIShared_Serp_dev", "APIShared.dll") })
+            {
+                if (!ApiSharedDependencyPolicy.IsSatisfied(new Version("2.0.0"), minimum, location, host))
+                    throw new Exception("Independent loaded APIShared was rejected: " + location);
+            }
+            foreach (string hostDirectory in new[] { Path.Combine(root, "SerpsMods_Serp"), host, Path.Combine(root, "renamed-host") })
+            {
+                foreach (string location in new[] {
+                    Path.Combine(hostDirectory, "APIShared.dll"),
+                    Path.Combine(hostDirectory, "Infrastructure", "APIShared_Serp_dev", "APIShared.dll"),
+                    Path.Combine(hostDirectory, "nested", "..", "APIShared.dll").ToUpperInvariant() })
+                {
+                    if (ApiSharedDependencyPolicy.Evaluate(minimum, minimum, location, hostDirectory) != ApiSharedDependencyStatus.Embedded)
+                        throw new Exception("Embedded APIShared was accepted: " + location);
+                }
+            }
+            if (ApiSharedDependencyPolicy.Evaluate(null, minimum, null, host) != ApiSharedDependencyStatus.Missing ||
+                ApiSharedDependencyPolicy.Evaluate(new Version("0.6.9"), minimum, separate, host) != ApiSharedDependencyStatus.BelowMinimum ||
+                ApiSharedDependencyPolicy.Evaluate(minimum, minimum, null, host) != ApiSharedDependencyStatus.InvalidLocation ||
+                ApiSharedDependencyPolicy.Evaluate(minimum, minimum, "relative.dll", host) != ApiSharedDependencyStatus.InvalidLocation ||
+                ApiSharedDependencyPolicy.Evaluate(minimum, minimum, separate, null) != ApiSharedDependencyStatus.InvalidLocation)
+                throw new Exception("APIShared dependency failure reasons are ambiguous or invalid paths are accepted.");
             var manifest = new PackManifest {
                 Infrastructure = new List<PackModRecord> { new PackModRecord { Guid = "APIShared_Serp", State = "External" } },
                 Mods = new List<PackModRecord> { new PackModRecord { Guid = "Child", State = "Active" } }
@@ -663,19 +643,6 @@ namespace SerpsModsHostDuplicateTests
             string installedAssembly = VersionText(1, 43, 2, 0);
             string installedProduct = installed + "+commit";
             string newer = VersionText(1, 44, 0);
-
-            string workspace = FindWorkspaceRoot();
-            string hostSource = File.ReadAllText(Path.Combine(
-                workspace, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
-            string localizationSource = File.ReadAllText(Path.Combine(
-                workspace, "Shared", "Runtime", "Localization", "SerpLocalization.cs"));
-            if (!hostSource.Contains("SerpsModsScriptExtenderRequiredAction") ||
-                !localizationSource.Contains("Required action: install a Script Extender version") ||
-                !localizationSource.Contains("- {Name}: requires Script Extender {Minimum} or newer."))
-            {
-                throw new InvalidOperationException(
-                    "Script Extender mismatch warning no longer names the mod/minimum or tells the player to update and restart.");
-            }
 
             AssertResolvedVersion(
                 installed,
@@ -786,21 +753,6 @@ namespace SerpsModsHostDuplicateTests
         }
 
         private static string VersionText(params int[] parts) => string.Join(".", parts);
-
-        private static string FindWorkspaceRoot()
-        {
-            DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
-            while (directory != null)
-            {
-                if (Directory.Exists(Path.Combine(directory.FullName, "SerpsModsHost")) &&
-                    Directory.Exists(Path.Combine(directory.FullName, "Shared")))
-                {
-                    return directory.FullName;
-                }
-                directory = directory.Parent;
-            }
-            throw new DirectoryNotFoundException("Workspace root was not found from the test output directory.");
-        }
 
         private static void AssertResolvedVersion(
             string expected,

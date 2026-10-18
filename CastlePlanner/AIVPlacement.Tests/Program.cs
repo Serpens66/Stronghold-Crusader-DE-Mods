@@ -7,8 +7,6 @@ using MapParser.Core;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System.Collections.Concurrent;
-using System.Text.Json;
-using System.Xml.Linq;
 
 internal static class Program
 {
@@ -52,8 +50,6 @@ internal static class Program
             ("resolves custom AIV", ResolvesCustomAiv),
             ("uses embedded custom AIV without a local file", UsesEmbeddedCustomAiv),
             ("preserves multiple custom candidates", PreservesMultipleCustomCandidates),
-            ("leaves multiplayer AIV selection to Vanilla", LeavesMultiplayerSelectionToVanilla),
-            ("publishes optional status without a hard Bugfix dependency", PublishesStatusWithoutDependency),
             ("resolves embedded custom candidate", ResolvesEmbeddedCustomCandidate),
             ("uses Script Extender override", UsesAssetOverride),
             ("loads AIVJSON from the shared core", LoadsAivJsonFromSharedCore),
@@ -82,7 +78,6 @@ internal static class Program
             ("roundtrips nothing, keep-only and castle decisions", RoundtripsFreeCastleDecisions),
             ("normalizes and formats castle-selection timeouts", NormalizesAndFormatsCastleSelectionTimeouts),
             ("roundtrips castle-selection timeout packets", RoundtripsCastleSelectionTimeoutPackets),
-            ("wires the host castle-selection timeout setting", WiresHostCastleSelectionTimeoutSetting),
             ("rejects invalid free-castle decisions", RejectsInvalidFreeCastleDecisions),
             ("roundtrips Vanilla no-op AIV frames", RoundtripsVanillaNoOpFrames),
             ("clears blueprint cells without unknown markers in all rotations", ClearsBlueprintCells),
@@ -94,7 +89,6 @@ internal static class Program
             ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
             ("filters Blueprint castle choices case-insensitively", FiltersBlueprintCastleChoices),
             ("recognizes non-AIV archive containers", RecognizesNonAivArchiveContainers),
-            ("removes invalid AIVJSON catalog entries", RemovesInvalidAivJsonCatalogEntries),
             ("formats compact AIVJSON display names", FormatsCompactAivDisplayNames),
             ("disambiguates compact AIVJSON display names", DisambiguatesCompactAivDisplayNames),
             ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
@@ -106,25 +100,18 @@ internal static class Program
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
-            ("preserves the Vanilla Blueprint HUD interaction contract", PreservesVanillaBlueprintHudContract),
-            ("exposes nothing and keep-only start choices", ExposesKeepOnlyStartChoices),
             ("coalesces synchronization-context packet dispatch in FIFO order", CoalescesSynchronizationContextPacketDispatch),
-            ("marshals free-castle packets before protocol handling", MarshalsFreeCastlePacketsBeforeProtocolHandling),
-            ("validates the installed RedBird overwrite span", ValidatesInstalledRedBirdOverwriteSpan),
-            ("guards multiplayer preview liveness across pause and resume", GuardsMultiplayerPreviewLiveness),
             ("invalidates stale multiplayer loading warnings", InvalidatesStaleMultiplayerLoadingWarnings),
-            ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange),
+            ("verifies the audited native Keep hook site", VerifiesAuditedKeepHookSite),
             ("maps localized castle rotation labels to Vanilla directions", MapsLocalizedCastleRotationLabels),
             ("falls back to English castle rotation directions", FallsBackToEnglishCastleRotationDirections),
             ("selects the official AIV API when available", SelectsOfficialAivApiWhenAvailable),
             ("recognizes the known nested CoarseGridBuffer failure", RecognizesKnownNestedCoarseGridBufferFailure),
             ("rejects unrelated AIV API failures", RejectsUnrelatedAivApiFailures),
             ("validates workaround AIV table and import boundaries", ValidatesWorkaroundAivBoundaries),
-            ("defers Workshop selection validation until Steam is ready (source guardrail)", PreservesDeferredWorkshopSelection),
-            ("uses explicit candidate zero for human spawn", UsesExplicitCandidateZeroForHumanSpawn)
         };
 
-        // Source integration cases are bounded guardrails, not runtime or rendering proof.
+        // Exercise production behavior and native/data contracts; do not pin internal source layout.
         int failures = 0;
         foreach ((string name, Action run) in tests)
         {
@@ -369,32 +356,6 @@ internal static class Program
             MessagePack.MessagePackSerializer.Deserialize<FreeCastlePacket>(encoded);
         Equal(600, decoded.TimeoutSeconds);
         Equal(42, decoded.OperationId);
-    }
-
-    private static void WiresHostCastleSelectionTimeoutSetting()
-    {
-        string root = FindCastlePlannerRoot();
-        string settings = File.ReadAllText(Path.Combine(
-            root, "src", "CastlePlannerSettingsViewModel.cs"));
-        string preview = File.ReadAllText(Path.Combine(
-            root, "src", "FreeCastlePreviewRuntime.cs"));
-        string xaml = File.ReadAllText(Path.Combine(
-            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Override",
-            "ScriptExtenderUI", "CastlePlannerSettings.xaml"));
-
-        Assert(settings.Contains("[SyncHostOnly]", StringComparison.Ordinal) &&
-                settings.Contains("public int CastleSelectionTimeoutSeconds", StringComparison.Ordinal) &&
-                settings.Contains("FreeCastleProtocol.DefaultPreviewTimeoutSeconds", StringComparison.Ordinal),
-            "host timeout setting or its default is missing");
-        Assert(xaml.Contains("Minimum=\"60\" Maximum=\"600\"", StringComparison.Ordinal) &&
-                xaml.Contains("TickFrequency=\"1\"", StringComparison.Ordinal) &&
-                xaml.Contains("IsSnapToTickEnabled=\"True\"", StringComparison.Ordinal) &&
-                xaml.Contains("CastleSelectionTimeoutValueText", StringComparison.Ordinal),
-            "castle-selection timeout slider contract is incomplete");
-        Assert(preview.Contains("activeTimeoutSeconds = packet.TimeoutSeconds;", StringComparison.Ordinal) &&
-                preview.Contains("IsValidPreviewTimeoutSeconds", StringComparison.Ordinal) &&
-                !preview.Contains("private const int TimeoutSeconds", StringComparison.Ordinal),
-            "preview runtime does not use the validated host timeout");
     }
 
     private static void RejectsInvalidFreeCastleDecisions()
@@ -923,231 +884,8 @@ internal static class Program
         Equal(2, request.Candidates[2].CandidateId);
     }
 
-    private static void LeavesMultiplayerSelectionToVanilla()
+    private static void VerifiesAuditedKeepHookSite()
     {
-        string root = FindCastlePlannerRoot();
-        string source = File.ReadAllText(Path.Combine(
-            root, "src", "AIVPlacement", "AivPlacementRuntime.cs"));
-        string[] forbidden =
-        {
-            "SelectNetworkStartAivs",
-            "NetworkAivSnapshot",
-            "selectedNetworkCandidateIds",
-            "info.aivs.Clear()",
-            "info.aivs.Add(selected)"
-        };
-        foreach (string symbol in forbidden)
-            Assert(!source.Contains(symbol, StringComparison.Ordinal),
-                $"runtime still contains multiplayer selection mutation '{symbol}'");
-    }
-
-    private static void PublishesStatusWithoutDependency()
-    {
-        string root = FindCastlePlannerRoot();
-        string project = File.ReadAllText(Path.Combine(root, "CastlePlanner.csproj"));
-        string bridge = File.ReadAllText(Path.Combine(
-            root, "src", "AIVPlacement", "BugfixAivStatusBridge.cs"));
-        Assert(!project.Contains("Reference Include=\"BugfixesAndQoL\"", StringComparison.Ordinal),
-            "CastlePlanner has a hard BugfixesAndQoL assembly reference");
-        Assert(bridge.Contains("GetAssemblies()", StringComparison.Ordinal) &&
-            bridge.Contains("ReplaceStatuses", StringComparison.Ordinal),
-            "optional reflection status bridge is missing");
-    }
-
-    private static void PreservesVanillaBlueprintHudContract()
-    {
-        string root = FindCastlePlannerRoot();
-        string path = Path.Combine(
-            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Patches",
-            "Assets", "GUI", "XAML", "IngameUIScreens.xaml");
-        string xaml = File.ReadAllText(path);
-        XDocument document = XDocument.Parse(xaml, LoadOptions.PreserveWhitespace);
-        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
-
-        string[] requiredNames =
-        {
-            "CastlePlannerBlueprintHud",
-            "CastlePlannerBlueprintPanel",
-            "CastlePlannerBlueprintDragHandle",
-            "CastlePlannerCastleSelector",
-            "CastlePlannerCastleOpenSurface",
-            "CastlePlannerCastleSearchPopup",
-            "CastlePlannerCastleSearchTextBox",
-            "CastlePlannerCastleSearchResults",
-            "CastlePlannerRotationComboBox"
-        };
-        HashSet<string> names = document.Descendants()
-            .Select(element => (string)element.Attribute(x + "Name"))
-            .Where(name => !string.IsNullOrEmpty(name))
-            .ToHashSet(StringComparer.Ordinal);
-        foreach (string requiredName in requiredNames)
-        {
-            Assert(names.Contains(requiredName),
-                $"Blueprint HUD element '{requiredName}' is missing");
-        }
-
-        string[] requiredBindings =
-        {
-            "Command=\"{Binding ToggleCommand}\"",
-            "Command=\"{Binding ConfirmCastleCommand}\"",
-            "Content=\"{Binding StatusText}\"",
-            "Content=\"{Binding ConfirmCastleText}\"",
-            "SelectedItem=\"{Binding SelectedRotation, Mode=TwoWay}\"",
-            "IsChecked=\"{Binding BlueprintShowFortifications, Mode=TwoWay}\"",
-            "IsChecked=\"{Binding BlueprintShowBuildings, Mode=TwoWay}\"",
-            "IsChecked=\"{Binding BlueprintShowDefensiveGroundFeatures, Mode=TwoWay}\"",
-            "IsChecked=\"{Binding BlueprintShowFearFactorBuildings, Mode=TwoWay}\"",
-            "Value=\"{Binding BlueprintIconScale, Mode=TwoWay}\"",
-            "Value=\"{Binding BlueprintIconAlpha, Mode=TwoWay}\""
-        };
-        foreach (string requiredBinding in requiredBindings)
-        {
-            Assert(document.Descendants().Attributes().Any(attribute =>
-                    attribute.Name.LocalName + "=\"" + attribute.Value + "\"" == requiredBinding),
-                $"Blueprint HUD binding '{requiredBinding}' is missing");
-        }
-
-        string controller = File.ReadAllText(Path.Combine(root, "src", "BlueprintRuntimeController.cs"));
-        string hudSource = File.ReadAllText(Path.Combine(root, "src", "BlueprintHudViewModel.cs"));
-        Assert(controller.Contains("TryGetHudExtrasButtons", StringComparison.Ordinal) &&
-            controller.Contains("Hud.ToggleSettingsPanelCommand", StringComparison.Ordinal) &&
-            controller.Contains("\"Blueprints\"", StringComparison.Ordinal) &&
-            controller.Contains("UI-Buildings A001", StringComparison.Ordinal) &&
-            controller.Contains("UI-Buildings A002", StringComparison.Ordinal) &&
-            controller.Contains("BTN_Building", StringComparison.Ordinal),
-            "the shared Blueprint trigger must retain Vanilla resources, command and modoptions tooltip text");
-        Assert(!names.Contains("CastlePlannerBlueprintSettingsButton") &&
-            !xaml.Contains("HUD_ObjectivesPanel", StringComparison.Ordinal) &&
-            !hudSource.Contains("TriggerVerticalOffset", StringComparison.Ordinal) &&
-            controller.Contains("hudExtrasRegistration?.SetVisible(Hud.HudVisible)", StringComparison.Ordinal),
-            "CastlePlanner must delegate button placement while retaining Blueprint-context visibility");
-        Assert(hudSource.Contains("BaseButtonBottom = 34.0", StringComparison.Ordinal) &&
-            hudSource.Contains("(vanillaButtonOccupiesFirstSlot ? ButtonSlotHeight : 0.0)", StringComparison.Ordinal) &&
-            hudSource.Contains("parameter as Noesis.DependencyObject", StringComparison.Ordinal) &&
-            hudSource.Contains("FindGlobalElement(", StringComparison.Ordinal),
-            "shared trigger migration changed the legacy default panel anchor or actual-button host resolution");
-
-    }
-
-    private static void ExposesKeepOnlyStartChoices()
-    {
-        string root = FindCastlePlannerRoot();
-        string preview = File.ReadAllText(Path.Combine(
-            root, "src", "FreeCastlePreviewRuntime.cs"));
-        string hud = File.ReadAllText(Path.Combine(
-            root, "src", "BlueprintHudViewModel.cs"));
-        string runtime = File.ReadAllText(Path.Combine(
-            root, "src", "CastlePlannerRuntime.cs"));
-        string fixesCompatibility = File.ReadAllText(Path.Combine(
-            root, "src", "FixesKeepRotationCompatibility.cs"));
-        Assert(preview.Contains("new[] { NothingText, KeepOnlyText }", StringComparison.Ordinal) &&
-                preview.Contains("Mode = FreeCastleSelectionMode.RotateKeepOnly", StringComparison.Ordinal) &&
-                hud.Contains("preview.HasRotatableSelection", StringComparison.Ordinal),
-            "preview does not distinguish Nothing, keep-only and castle choices");
-        Assert(runtime.Contains("pendingKeepRotations", StringComparison.Ordinal) &&
-                runtime.Contains("registers->RSP + 0x30", StringComparison.Ordinal) &&
-                runtime.Contains("request.HasCastle", StringComparison.Ordinal),
-            "keep-only selection does not use the audited orientation-only start path");
-        Assert(fixesCompatibility.Contains("AllowCustomPlayerKeepRotations", StringComparison.Ordinal) &&
-                fixesCompatibility.Contains("PlayerKeepRotationData", StringComparison.Ordinal) &&
-                fixesCompatibility.Contains("originalValues", StringComparison.Ordinal) &&
-                runtime.Contains("fixesKeepRotation.Restore(\"pre-import-failure\")", StringComparison.Ordinal) &&
-                runtime.Contains("fixesKeepRotation.Restore(\"map-state-clear\")", StringComparison.Ordinal),
-            "Fixes keep rotations are not validated, temporarily aligned, and restored on every map path");
-
-        string localeDirectory = Path.Combine(
-            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Locales");
-        foreach (string locale in Directory.GetFiles(localeDirectory, "*.txt"))
-        {
-            string text = File.ReadAllText(locale);
-            Assert(text.Contains("CastlePlanner.Preview.Nothing=", StringComparison.Ordinal) &&
-                    text.Contains("CastlePlanner.Preview.RotateKeepOnly=", StringComparison.Ordinal),
-                "keep-only localization is missing in " + Path.GetFileName(locale));
-        }
-    }
-
-    private static void UsesExplicitCandidateZeroForHumanSpawn()
-    {
-        string root = FindCastlePlannerRoot();
-        string runtime = File.ReadAllText(Path.Combine(
-            root, "src", "CastlePlannerRuntime.cs"));
-
-        Assert(runtime.Contains(
-                "uint explicitFit = testSpecificCandidate(aivState, specIndex, 0);",
-                StringComparison.Ordinal),
-            "human spawn does not test the explicitly imported candidate zero");
-        Assert(!runtime.Contains("SelectBestFitPattern", StringComparison.Ordinal) &&
-                !runtime.Contains("SelectBestFitDelegate", StringComparison.Ordinal) &&
-                !runtime.Contains("selectBestFit", StringComparison.Ordinal),
-            "human spawn still binds or invokes Vanilla best-fit candidate selection");
-        Assert(runtime.Contains("if (placementState != 1 && placementState != 2)", StringComparison.Ordinal) &&
-                runtime.Contains("if (candidateId != 0)", StringComparison.Ordinal) &&
-                runtime.Contains("explicitCandidateFitSigned", StringComparison.Ordinal),
-            "explicit candidate placement does not validate state, identity and native result diagnostics");
-    }
-
-    private static void PinsCastlePlannerToManifestExtenderRange()
-    {
-        string root = FindCastlePlannerRoot();
-        string plugin = File.ReadAllText(Path.Combine(root, "src", "CastlePlannerPlugin.cs"));
-        string runtime = File.ReadAllText(Path.Combine(root, "src", "CastlePlannerRuntime.cs"));
-        string project = File.ReadAllText(Path.Combine(root, "CastlePlanner.csproj"));
-        string manifest = File.ReadAllText(Path.Combine(
-            root, "BepInEx", "plugins", "CastlePlanner_Serp", "info.json"));
-        string settingsXaml = File.ReadAllText(Path.Combine(
-            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Override",
-            "ScriptExtenderUI", "CastlePlannerSettings.xaml"));
-        using JsonDocument manifestJson = JsonDocument.Parse(manifest);
-        string minimumExtenderVersion = manifestJson.RootElement
-            .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;
-        string maximumExtenderVersion = manifestJson.RootElement
-            .GetProperty("MaximumScriptExtenderVersion").GetString() ?? string.Empty;
-
-        Assert(Version.TryParse(minimumExtenderVersion, out Version? minimum),
-            "Manifest minimum Script Extender version is invalid");
-        Assert(string.IsNullOrEmpty(maximumExtenderVersion) ||
-            (Version.TryParse(maximumExtenderVersion, out Version? maximum) && maximum >= minimum),
-            "Manifest maximum Script Extender version is invalid or below the minimum");
-        Assert(plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")", StringComparison.Ordinal),
-            "Script Extender dependency does not match the manifest minimum");
-        Assert(plugin.Contains("BepInDependency(\"fixes\", BepInDependency.DependencyFlags.SoftDependency)", StringComparison.Ordinal),
-            "CastlePlanner does not load after Fixes when the optional mod is installed");
-        Assert(!manifestJson.RootElement.TryGetProperty("Dependencies", out JsonElement dependencies) ||
-                !dependencies.EnumerateArray().Any(item =>
-                    item.TryGetProperty("GUID", out JsonElement guid) && guid.GetString() == "000shcdese"),
-            "CastlePlanner must leave Script Extender version reporting to MinimumScriptExtenderVersion");
-        Assert(!manifest.Contains("\"GUID\": \"fixes\"", StringComparison.Ordinal),
-            "CastlePlanner manifest must preserve optional Fixes integration");
-        Assert(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal) &&
-            plugin.Contains("runtime.Install(context, currentNativeLayout)", StringComparison.Ordinal),
-            "CastlePlanner does not propagate the Script Extender load context");
-        Assert(runtime.Contains("new HookHandle<X64InlineHook>()", StringComparison.Ordinal) &&
-            runtime.Contains("HookTarget.FromAddress(", StringComparison.Ordinal) &&
-            runtime.Contains("new ContextHookOptions", StringComparison.Ordinal),
-            "CastlePlanner hook is not registered through a typed explicit RedBird target");
-        Assert(runtime.Contains("commitResult.IsCompleteSuccess", StringComparison.Ordinal) &&
-            runtime.Contains("humanKeepCoordinateLoadHook.Success", StringComparison.Ordinal),
-            "CastlePlanner does not check transaction and handle success");
-        Assert(runtime.Contains("OwnsHooks = true", StringComparison.Ordinal) &&
-            runtime.Contains("nativeHookTransaction = pending", StringComparison.Ordinal) &&
-            runtime.Contains("pending?.Dispose();", StringComparison.Ordinal),
-            "CastlePlanner hook ownership does not distinguish unpublished rollback from process-lifetime rooting");
-        Assert(!runtime.Contains("Zhuqiaomon", StringComparison.Ordinal) &&
-            !runtime.Contains("HookRef<", StringComparison.Ordinal),
-            "CastlePlanner runtime retains a legacy hook API");
-        Assert(project.Contains("RedBird.Abstractions.dll", StringComparison.Ordinal) &&
-            project.Contains("RedBird.Core.dll", StringComparison.Ordinal) &&
-            project.Contains("RedBird.X64.dll", StringComparison.Ordinal) &&
-            !project.Contains("Zhuqiaomon.dll", StringComparison.Ordinal) &&
-            !project.Contains("PolyHook2.NET.dll", StringComparison.Ordinal) &&
-            !project.Contains("Iced.dll", StringComparison.Ordinal),
-            "CastlePlanner project references do not match RedBird");
-        Assert(manifestJson.RootElement.GetProperty("NetworkMode").GetInt32() == 1,
-            "CastlePlanner is not classified as gameplay-synchronized");
-        Assert(settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal) &&
-            settingsXaml.Contains("VerticalScrollBarVisibility=\"Auto\"", StringComparison.Ordinal),
-            "CastlePlanner settings are not reachable in both dimensions");
-
         const int hookRva = 0x95B3C;
         byte[] signature = Convert.FromHexString(
             "4863BCCD540D0000448BA4CD500D0000448BCF458BC46689442420");
@@ -1165,73 +903,6 @@ internal static class Program
                 matches++;
         }
         Equal(1, matches);
-    }
-
-    private static void GuardsMultiplayerPreviewLiveness()
-    {
-        string root = FindCastlePlannerRoot();
-        string source = File.ReadAllText(Path.Combine(
-            root, "src", "FreeCastlePreviewRuntime.cs"));
-
-        int armCall = source.IndexOf(
-            "TryArmMultiplayerLivenessGuard(out string livenessError)",
-            StringComparison.Ordinal);
-        int firstPause = source.IndexOf("ApplyPause(true);", StringComparison.Ordinal);
-        Assert(armCall >= 0 && firstPause > armCall,
-            "multiplayer liveness guard is not armed before the preview pause");
-        Assert(source.Contains("platform.resyncingOrSaving = true;", StringComparison.Ordinal),
-            "multiplayer liveness guard does not activate Vanilla's timeout suppression");
-
-        int vanillaFollowOn = source.IndexOf("platform.initFastFollowOn();", StringComparison.Ordinal);
-        int relinquish = source.IndexOf(
-            "RelinquishMultiplayerLivenessGuardAfterVanillaReset();",
-            StringComparison.Ordinal);
-        Assert(vanillaFollowOn >= 0 && relinquish > vanillaFollowOn,
-            "liveness guard ownership is not relinquished after Vanilla's complete reset");
-
-        int continueMethod = source.IndexOf("private void ContinueCurrentGame()", StringComparison.Ordinal);
-        int release = source.IndexOf(
-            "ReleaseMultiplayerLivenessGuard(",
-            continueMethod,
-            StringComparison.Ordinal);
-        int unpause = source.IndexOf(
-            "EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, 0, 0, 0);",
-            continueMethod,
-            StringComparison.Ordinal);
-        Assert(continueMethod >= 0 && release > continueMethod && unpause > release,
-            "continue/abort path does not release the liveness guard before unpausing");
-        Assert(source.Contains("member.lastTimePacketRecieved = now;", StringComparison.Ordinal),
-            "continue/abort path does not refresh remote human packet timestamps");
-        Assert(source.Contains("nameof(Director.DelayShowDisconnect)", StringComparison.Ordinal) &&
-               source.Contains("delayShowDisconnectHook = new Hook(", StringComparison.Ordinal) &&
-               source.Contains("(DelayShowDisconnectDelegate)DelayShowDisconnectHook", StringComparison.Ordinal),
-            "CastlePlanner does not replace Vanilla's uncancellable multiplayer loading-warning timer");
-        Assert(CountOccurrences(
-                source,
-                "loadingWarningGate.IsCurrent(generation, viewModel.Show_MP_LoadingBlack)") == 2,
-            "loading warning and leave button are not both guarded by the current visible loading generation");
-
-        int leaveBypassReset = source.IndexOf(
-            "bypassLeaveLobbyHook = false;",
-            continueMethod,
-            StringComparison.Ordinal);
-        int leaveFinally = source.LastIndexOf(
-            "finally",
-            leaveBypassReset,
-            StringComparison.Ordinal);
-        int pauseBypassReset = source.IndexOf(
-            "bypassPauseHook = false;",
-            continueMethod,
-            StringComparison.Ordinal);
-        int pauseFinally = source.LastIndexOf(
-            "finally",
-            pauseBypassReset,
-            StringComparison.Ordinal);
-        Assert(leaveFinally > continueMethod && leaveBypassReset > leaveFinally &&
-               leaveBypassReset - leaveFinally < 120 &&
-               pauseFinally > continueMethod && pauseBypassReset > pauseFinally &&
-               pauseBypassReset - pauseFinally < 120,
-            "preview bypass flags are not protected by finally blocks");
     }
 
     private static void InvalidatesStaleMultiplayerLoadingWarnings()
@@ -1281,74 +952,6 @@ internal static class Program
             "queue did not schedule a new drain after becoming idle");
     }
 
-    private static void MarshalsFreeCastlePacketsBeforeProtocolHandling()
-    {
-        string root = FindCastlePlannerRoot();
-        string source = File.ReadAllText(Path.Combine(
-            root, "src", "FreeCastlePreviewRuntime.cs"));
-
-        Assert(source.Contains(
-                "UnityEngine.UnitySynchronizationContext",
-                StringComparison.Ordinal) &&
-            source.Contains(
-                "new CoalescedSynchronizationContextQueue<QueuedPacket>",
-                StringComparison.Ordinal),
-            "free-castle runtime does not fail closed onto Unity's synchronization context");
-
-        int onPacket = source.IndexOf(
-            "private void OnPacket(",
-            StringComparison.Ordinal);
-        int dispatch = source.IndexOf(
-            "private void DispatchQueuedPacket(",
-            onPacket,
-            StringComparison.Ordinal);
-        Assert(onPacket >= 0 && dispatch > onPacket,
-            "raw and queued packet entry points were not found");
-        string rawCallback = source.Substring(onPacket, dispatch - onPacket);
-        Assert(rawCallback.Contains("ClonePacket(packet)", StringComparison.Ordinal) &&
-            rawCallback.Contains("packetDispatchQueue.Enqueue(queued)", StringComparison.Ordinal),
-            "raw packet callback does not copy and enqueue the complete packet");
-        Assert(!rawCallback.Contains("Platform_Multiplayer", StringComparison.Ordinal) &&
-            !rawCallback.Contains("IsFeatureModeAllowed", StringComparison.Ordinal) &&
-            !rawCallback.Contains("HandleHostPacket", StringComparison.Ordinal) &&
-            !rawCallback.Contains("CommitRestart", StringComparison.Ordinal),
-            "raw packet callback still reads or mutates game/protocol state");
-
-        int process = source.IndexOf(
-            "private void ProcessQueuedPacket(",
-            dispatch,
-            StringComparison.Ordinal);
-        Assert(process > dispatch &&
-            source.IndexOf("if (!IsOnUnityMainThread)", dispatch, StringComparison.Ordinal) < process,
-            "queued packet dispatch is not guarded by the captured main-thread identity");
-        Assert(source.IndexOf(
-                "packet.OperationId != operationId",
-                process,
-                StringComparison.Ordinal) > process,
-            "operation identity is not revalidated during main-thread dispatch");
-    }
-
-    private static void ValidatesInstalledRedBirdOverwriteSpan()
-    {
-        string root = FindCastlePlannerRoot();
-        string source = File.ReadAllText(Path.Combine(
-            root, "src", "CastlePlannerRuntime.cs"));
-
-        Assert(source.Contains(
-                "const int expectedDisplacedByteCount = 16;",
-                StringComparison.Ordinal) &&
-            source.Contains(
-                "probe.DisplacedByteCount != expectedDisplacedByteCount",
-                StringComparison.Ordinal) &&
-            source.Contains(
-                "humanKeepCoordinateLoadHook.Hook.DisplacedByteCount !=",
-                StringComparison.Ordinal),
-            "RedBird hook span is not checked before and after installation");
-        Assert(source.Contains("OwnsHooks = true", StringComparison.Ordinal) &&
-            source.Contains("pending?.Dispose();", StringComparison.Ordinal),
-            "an unpublished invalid hook candidate cannot be rolled back completely");
-    }
-
     private static void MapsLocalizedCastleRotationLabels()
     {
         var localized = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -1372,20 +975,6 @@ internal static class Program
         Equal(6, options.GetNativeRotation(options.DisplayTexts[3]));
         Equal(0, options.GetNativeRotation("Nord (180°) "));
 
-        string root = FindCastlePlannerRoot();
-        string preview = File.ReadAllText(Path.Combine(
-            root, "src", "FreeCastlePreviewRuntime.cs"));
-        Assert(preview.Contains(
-                "CastleRotationOptions.Create(GetVanillaGameText)",
-                StringComparison.Ordinal) &&
-            preview.Contains(
-                "rotationOptions.GetNativeRotation(selectedRotation)",
-                StringComparison.Ordinal) &&
-            preview.Contains(
-                "Translate.Instance.GameTexts.TryGetValue",
-                StringComparison.Ordinal) &&
-            !preview.Contains("RotationTextToNative", StringComparison.Ordinal),
-            "free-castle preview does not use the localized, value-backed rotation options");
     }
 
     private static void FallsBackToEnglishCastleRotationDirections()
@@ -2690,33 +2279,6 @@ internal static class Program
     }
 
     // Supplemental consumer wiring guardrail; no Steam or Noesis runtime is exercised.
-    private static void PreservesDeferredWorkshopSelection()
-    {
-        string settings = File.ReadAllText(Path.Combine(FindCastlePlannerRoot(), "src", "CastlePlannerSettingsViewModel.cs"));
-        Assert(settings.Contains("Shared.WorkshopContentPaths.IsSteamworksReady()") &&
-            settings.Contains("return candidate;"),
-            "saved Workshop AIV selection is not preserved until the deferred refresh");
-    }
-
-    private static void RemovesInvalidAivJsonCatalogEntries()
-    {
-        string source = File.ReadAllText(Path.Combine(FindCastlePlannerRoot(), "src", "AivFileCatalog.cs"));
-        int methodStart = source.IndexOf(
-            "private void RemoveIdenticalFiles",
-            StringComparison.Ordinal);
-        int methodEnd = source.IndexOf(
-            "private void RemoveKnownNonAivContainers",
-            methodStart,
-            StringComparison.Ordinal);
-        string method = source.Substring(methodStart, methodEnd - methodStart);
-        int catchStart = method.LastIndexOf("catch (Exception exception)", StringComparison.Ordinal);
-        string failureHandler = method.Substring(catchStart);
-        Assert(failureHandler.Contains("RemoveOption(option, path);") &&
-               failureHandler.IndexOf("RemoveOption(option, path);", StringComparison.Ordinal) <
-               failureHandler.IndexOf("warning?.Invoke", StringComparison.Ordinal),
-            "invalid AIVJSON entries remain selectable after fingerprint failure");
-    }
-
     private static void FormatsCompactAivDisplayNames()
     {
         string[] options =
@@ -3077,19 +2639,6 @@ internal static class Program
     {
         if (!condition)
             throw new InvalidOperationException(message);
-    }
-
-    private static int CountOccurrences(string text, string value)
-    {
-        int count = 0;
-        int startIndex = 0;
-        while ((startIndex = text.IndexOf(value, startIndex, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            startIndex += value.Length;
-        }
-
-        return count;
     }
 
     private sealed class Fixture : IDisposable

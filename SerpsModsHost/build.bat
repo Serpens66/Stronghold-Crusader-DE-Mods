@@ -34,7 +34,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory SerpsModsHost -ConsumerOnly
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -89,7 +89,7 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
 ) else goto build_failed
 
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Steam\Test-SteamPackPolicy.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tools\Test-HostInstallation.ps1"
 if errorlevel 1 goto build_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
@@ -102,7 +102,7 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if errorlevel 1 goto build_failed_popd
-"%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe" "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" "%GAME_DIR%"
+"%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe" "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" "%GAME_DIR%" "%PROJECT_DIR%info.json" "%EXTENDER_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
@@ -122,23 +122,8 @@ if "%NO_INSTALL%"=="1" (
   echo Serps Mods Host vorbereitet; Installation uebersprungen.
   exit /b 0
 )
-if exist "%GAME_PLUGIN_DIR%\" (
-  for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
-    rem Independent infrastructure, including APIShared, is installed by its own build.
-    if /I not "%%~nxD"=="LobbyModSettings" if /I not "%%~nxD"=="Infrastructure" (
-      rmdir /S /Q "%%~fD"
-      if errorlevel 1 goto copy_failed
-    )
-  )
-  for %%F in ("%GAME_PLUGIN_DIR%\*") do (
-    if exist "%%~fF" (
-      del /F /Q "%%~fF"
-      if errorlevel 1 goto copy_failed
-    )
-  )
-)
 echo [%date% %time%] Copy package files
-xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tools\Install-HostPackage.ps1" -PackageDirectory "%LOCAL_PLUGIN_DIR%" -PluginRoot "%GAME_DIR%\BepInEx\plugins" -Destination "%GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 echo Build und Installation von Serps Mods Host erfolgreich.
 exit /b 0

@@ -123,31 +123,25 @@ function Assert-SERuntimeModPreflight([object]$Mod, [string]$Workspace) {
     if (-not $Mod.Plugin) { return }
 
     $projectPath = Join-Path $Workspace $Mod.Project
-    $projectRoot = Split-Path -Parent $projectPath
-    $sources = [Collections.Generic.List[string]]::new()
-    foreach ($file in Get-ChildItem -LiteralPath $projectRoot -Recurse -File -Filter '*.cs' | Where-Object {
-        # A checkout may itself live in .work. Exclude generated children only.
-        ('\' + $_.FullName.Substring($projectRoot.Length).TrimStart('\','/')) -notmatch '[\\/](BepInEx[\\/]plugins|bin|obj|tests|[^\\/]*\.Tests|\.inspect|\.local|\.work|\.release-output)[\\/]'
-    }) {
-        $sources.Add($file.FullName)
-    }
-
-    [xml]$project = [IO.File]::ReadAllText($projectPath)
-    foreach ($compile in $project.SelectNodes('//*[local-name()="Compile"][@Include]')) {
-        $include = [string]$compile.Include
-        if (-not $include -or $include.IndexOfAny([char[]]'*?') -ge 0) { continue }
-        $linkedPath = [IO.Path]::GetFullPath((Join-Path $projectRoot $include))
-        if ((Test-Path -LiteralPath $linkedPath -PathType Leaf) -and -not $sources.Contains($linkedPath)) {
-            $sources.Add($linkedPath)
-        }
+    # Directory membership is not a runtime contract. Ask the selected project:
+    # MSBuild resolves imported/conditional items, globs, Remove and linked sources.
+    # In particular a neighboring CLI may legitimately use another JSON library.
+    $evaluation = @(& dotnet msbuild $projectPath -nologo '-getItem:Compile,Reference' '-p:Configuration=Release')
+    if ($LASTEXITCODE -ne 0) { throw "$($Mod.Name): cannot evaluate runtime Compile/Reference inputs: $projectPath" }
+    $items = ($evaluation -join "`n" | ConvertFrom-Json).Items
+    $sources = @($items.Compile | ForEach-Object { [string]$_.FullPath } | Sort-Object -Unique)
+    if (-not $sources.Count) { throw "$($Mod.Name): selected runtime project has no Compile inputs: $projectPath" }
+    foreach ($sourcePath in $sources) {
+        if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw "$($Mod.Name): missing runtime source: $sourcePath" }
     }
 
     $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility'
     # Search file contents explicitly; piped path strings only search filenames.
-    $jsonHits = @(if ($sources.Count) { Select-String -LiteralPath $sources.ToArray() -Pattern $forbiddenJson })
-    $projectHits = @(Select-String -LiteralPath $projectPath -Pattern $forbiddenJson)
+    $jsonHits = @(Select-String -LiteralPath $sources -Pattern $forbiddenJson)
+    $projectHits = @($items.Reference | Where-Object { $_.Identity -match $forbiddenJson })
     if ($jsonHits -or $projectHits) {
-        throw "$($Mod.Name): forbidden runtime JSON dependency or serializer found."
+        $details = @($jsonHits | ForEach-Object { $_.Path + ':' + $_.LineNumber }) + @($projectHits | ForEach-Object { 'Reference: ' + $_.Identity })
+        throw "$($Mod.Name): forbidden runtime JSON dependency or serializer found: $($details -join '; ')"
     }
 
     foreach ($sourcePath in $sources) {

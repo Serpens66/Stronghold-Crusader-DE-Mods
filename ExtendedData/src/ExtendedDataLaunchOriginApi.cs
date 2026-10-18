@@ -46,6 +46,7 @@ namespace ExtendedData
         private static int missionId = -1;
         private static bool restoredFromSave;
         private static bool launchPending;
+        private static long? missionSessionId;
 
         public static int ApiVersion => CurrentApiVersion;
         public static ExtendedDataLaunchOriginKind Origin { get { lock (Sync) return origin; } }
@@ -153,15 +154,19 @@ namespace ExtendedData
                 missionId = -1;
                 restoredFromSave = false;
                 launchPending = false;
+                missionSessionId = null;
             }
             if (previous != ExtendedDataLaunchOriginKind.None)
                 Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:160", $"Cleared customized launch origin: previous={previous}.");
         }
 
-        internal static void MarkMapStarted()
+        internal static void MarkMapStarted(long? sessionId = null)
         {
             lock (Sync)
+            {
                 launchPending = false;
+                missionSessionId = sessionId;
+            }
         }
 
         internal static void MarkRestartPending()
@@ -170,6 +175,40 @@ namespace ExtendedData
             {
                 if (origin != ExtendedDataLaunchOriginKind.None)
                     launchPending = true;
+            }
+        }
+
+        internal static void PrepareCoopLaunch(int zeroBasedTrailId, int selectedMissionId, bool restarting)
+        {
+            if (restarting)
+                MarkRestartPending();
+            else
+                SetCustomizedCoopTrail(zeroBasedTrailId, selectedMissionId);
+        }
+
+        internal static void OnMissionEnded(long sessionId, APIShared.MissionEndReason reason,
+            bool hasStarted, long? replacementSessionId, bool restarting)
+        {
+            lock (Sync)
+            {
+                if (reason != APIShared.MissionEndReason.ApplicationExit &&
+                    missionSessionId.HasValue && missionSessionId != sessionId)
+                    return; // A stale End cannot clear a newer session's origin.
+                if (reason == APIShared.MissionEndReason.Replaced && replacementSessionId.HasValue)
+                {
+                    // Set() has already replaced the old origin for an ordinary new
+                    // launch. A restart instead transfers its existing ownership.
+                    if (restarting || !missionSessionId.HasValue && launchPending)
+                    {
+                        missionSessionId = replacementSessionId;
+                        launchPending = origin != ExtendedDataLaunchOriginKind.None;
+                        return;
+                    }
+                }
+                else if (!missionSessionId.HasValue && launchPending && hasStarted &&
+                    (reason == APIShared.MissionEndReason.Unloaded || reason == APIShared.MissionEndReason.SceneChanged))
+                    return; // The next launch was prepared before its root load entry.
+                Clear(); // Includes an abandoned delayed client attempt, even without Start.
             }
         }
 
@@ -270,6 +309,7 @@ namespace ExtendedData
                 missionId = missionIdValue;
                 restoredFromSave = restored;
                 launchPending = true;
+                missionSessionId = null;
             }
             Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:278", $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
                 $"trailId={trailIdValue}, missionId={missionIdValue}, restored={restored}.");

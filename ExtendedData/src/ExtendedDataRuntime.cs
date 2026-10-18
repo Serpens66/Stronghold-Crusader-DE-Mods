@@ -278,7 +278,7 @@ namespace ExtendedData
             {
                 if (missionSettingsCoordinator?.HandleMissionStarted(notification) == false)
                     ClearLaunchTracking();
-                if (!notification.Context.IsEditor) OnMapStarted();
+                if (!notification.Context.IsEditor) OnMapStarted(notification.Context);
             }));
             subscriptions.Add(NetworkR3EventHooks.OnReceiveLobbyChatMessage.Observable.Subscribe(notification =>
             {
@@ -1629,6 +1629,11 @@ namespace ExtendedData
             bool editable,
             string source)
         {
+            if (MissionRestart.IsInProgress)
+            {
+                LogInfo("Retained current mission settings during " + source + ".");
+                return;
+            }
             if (mapSettingsCoordinator?.IsActiveForLobby(lobby) == true)
             {
                 LogInfo("Retained the manually selected Map mod-settings preset during " + source + ".");
@@ -1637,9 +1642,9 @@ namespace ExtendedData
             ActivateSelectedMissionSettings(editable, source);
         }
 
-        private void OnMapStarted()
+        private void OnMapStarted(MissionContext mission)
         {
-            ExtendedDataLaunchOriginApi.MarkMapStarted();
+            ExtendedDataLaunchOriginApi.MarkMapStarted(mission.SessionId);
             if (!coopLaunchPending || selected == null)
                 return;
             coopLaunchPending = false;
@@ -1705,7 +1710,7 @@ namespace ExtendedData
                     editable: false,
                     source: "single-player Coop restart");
                 if (!missionSettingsCoordinator.TryPrepareRestartSettings()) return false;
-                ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(trailId, missionId);
+                ExtendedDataLaunchOriginApi.PrepareCoopLaunch(trailId, missionId, MissionRestart.IsInProgress);
                 missionSettingsCoordinator.PrepareCoopMissionLaunch();
                 coopLaunchPending = true;
                 LogInfo(
@@ -1752,7 +1757,7 @@ namespace ExtendedData
 
             // This authenticated launch boundary also covers clients which never execute
             // the host's setup-screen button handler.
-            ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(trailId, missionId);
+            ExtendedDataLaunchOriginApi.PrepareCoopLaunch(trailId, missionId, MissionRestart.IsInProgress);
 
             // Clients do not execute the host's COOP_START button handler. The authenticated
             // transition supplies the missing launch boundary before OnUnloadMap clears presets.

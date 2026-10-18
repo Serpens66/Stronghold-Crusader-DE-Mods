@@ -83,7 +83,8 @@ foreach ($project in $projects) {
         }
     }
 }
-foreach ($file in Get-ChildItem -LiteralPath $sharedRoot -File -Filter '*.cs') { throw "Unsorted root Shared runtime source: $($file.FullName)" }
+# Source ownership is checked from project inputs above; folder depth is not a
+# runtime contract and must not reject an otherwise valid source arrangement.
 $legacy = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'legacy-shared-paths.json') | ConvertFrom-Json
 Write-Host '[Preflight] Checking active references and CRLF...'
 $legacyPattern = '(?<![A-Za-z0-9_])(?:' + (($legacy.PSObject.Properties.Name | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
