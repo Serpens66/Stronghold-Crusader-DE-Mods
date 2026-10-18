@@ -900,7 +900,8 @@ namespace BugfixesAndQoL
             string[] parts = key.Split(':');
             key = parts[0] + (parts.Length > 1 ? ":" + parts[1] : "") + (parts.Length > 2 ? ":" + parts[2] : "");
             if (!warningReasons.Add(key)) { suppressedMessageCount++; return; }
-            Warn(message);
+            if (warning) Warn(message);
+            else Info(message);
         }
 
         private void LogSummary(string reason)
