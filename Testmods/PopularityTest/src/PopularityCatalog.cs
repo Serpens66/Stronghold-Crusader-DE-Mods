@@ -61,7 +61,6 @@ namespace PopularityTest
             new PopularityParameter("AlePopModifierTierThree", "Ale", 6, 16, g => g.AlePopModifierTierThree, s => s.AlePopModifierTierThreeEnabled, s => s.AlePopModifierTierThree),
             new PopularityParameter("AlePopModifierTierFour", "Ale", 8, 16, g => g.AlePopModifierTierFour, s => s.AlePopModifierTierFourEnabled, s => s.AlePopModifierTierFour),
             new PopularityParameter("FairsPopularityEventModifier", "Fairs", 16, 32, g => g.FairsPopularityEventModifier, s => s.FairsPopularityEventModifierEnabled, s => s.FairsPopularityEventModifier),
-            new PopularityParameter("GoodBadThingPopModifierMultiplier", "Fear", 1, 2, g => g.GoodBadThingPopModifierMultiplier, s => s.GoodBadThingPopModifierMultiplierEnabled, s => s.GoodBadThingPopModifierMultiplier),
         };
     }
 }

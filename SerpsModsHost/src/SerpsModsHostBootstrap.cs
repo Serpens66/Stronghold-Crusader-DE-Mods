@@ -36,6 +36,7 @@ namespace SerpsModsHost
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             instance = this;
             try
             {

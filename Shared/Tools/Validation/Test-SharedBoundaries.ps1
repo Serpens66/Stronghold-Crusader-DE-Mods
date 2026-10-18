@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Workspace, [string]$ModDirectory, [switch]$IndependentRuntime)
+param([string]$Workspace, [string]$ModDirectory, [switch]$IndependentRuntime, [switch]$ConsumerOnly)
 $ErrorActionPreference = 'Stop'
 $preflightWatch = [Diagnostics.Stopwatch]::StartNew()
 Write-Host '[Preflight] Discovering active projects and explicit source links...'
@@ -15,8 +15,9 @@ if ($ModDirectory) {
         throw 'ModDirectory must be a directory inside the workspace.'
     }
 }
+if ($ConsumerOnly -and -not $modRoot) { throw 'ConsumerOnly requires an explicit mod scope.' }
 if ($IndependentRuntime -and -not $modRoot) { throw 'IndependentRuntime requires an explicit mod scope.' }
-$scopedRoots = @($modRoot) + $(if (-not $IndependentRuntime) { @($apiRoot) } else { @() })
+$scopedRoots = @($modRoot) + $(if (-not $IndependentRuntime -and -not $ConsumerOnly) { @($apiRoot) } else { @() })
 $discoveryRoots = if ($modRoot) { $scopedRoots } else { @($Workspace) }
 $projects = @(Get-ChildItem -LiteralPath $discoveryRoots -Recurse -File -Filter '*.csproj' | Where-Object {
      ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](shcde-script-extender|bin|obj|BepInEx|\.tools|\.inspect|_inspect|\.native-analysis|\.work|\.release-output|before)[\\/]'
@@ -28,7 +29,7 @@ if ($modRoot) {
     $activeProjects = @($activeProjects | Where-Object {
         $candidate = [IO.Path]::GetFullPath((Join-Path $Workspace $_))
         $candidate.StartsWith($modRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
-        (-not $IndependentRuntime -and $candidate.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase))
+        (-not $IndependentRuntime -and -not $ConsumerOnly -and $candidate.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase))
     })
 }
 $projects = @($projects) + @($activeProjects | ForEach-Object { Get-Item -LiteralPath (Join-Path $Workspace $_) })
@@ -57,7 +58,7 @@ if ($ModDirectory) {
             }
         }
     }
-    Write-Host "[Preflight] Mod scope: $ModDirectory; IndependentRuntime=$IndependentRuntime; explicit project/source dependencies included."
+    Write-Host "[Preflight] Mod scope: $ModDirectory; IndependentRuntime=$IndependentRuntime; ConsumerOnly=$ConsumerOnly; explicit project/source dependencies included."
 }
 $linkedSources = @()
 $links = 0
@@ -163,8 +164,25 @@ Write-Output "PASS: shared ownership boundaries; $($projects.Count) projects, $l
 
 & (Join-Path $PSScriptRoot 'Test-DependencyMetadata.ps1') -Workspace $Workspace -ProjectFiles $(if ($modRoot) { $projects.FullName } else { @() })
 Write-Host '[Preflight] Checking centralized UnitAccess contract...'
-& (Join-Path $PSScriptRoot 'Test-UnitAccess.ps1') -ModDirectory $ModDirectory -SkipPermanentHooks
-if (-not $?) { throw 'UnitAccess contract preflight failed.' }
+# An unchanged API DLL reference does not make its full implementation a consumer
+# build prerequisite. ConsumerOnly still checks every explicit source link and all
+# consumer runtime gates. Unit behavior is relevant only when runtime sources use it.
+$needsUnitChecks = -not $ConsumerOnly
+if ($ConsumerOnly) {
+    foreach ($project in $projects | Where-Object { $_.FullName -notmatch '[\\/](tests|_inspect)[\\/]' }) {
+        [xml]$runtimeXml = [IO.File]::ReadAllText($project.FullName)
+        foreach ($entry in $runtimeXml.SelectNodes('//*[local-name()="Compile"][@Include]')) {
+            $include = [string]$entry.Include
+            if ($include -match '\$\(|[*?]') { $needsUnitChecks = $true; continue }
+            $file = [IO.Path]::GetFullPath((Join-Path $project.Directory.FullName $include))
+            if ([IO.File]::ReadAllText($file) -match '\b(UnitAccess|GameUnit|GameUnitManagerAPI|eChimps|UnitId)\b') { $needsUnitChecks = $true }
+        }
+    }
+}
+if ($needsUnitChecks) {
+    & (Join-Path $PSScriptRoot 'Test-UnitAccess.ps1') -ModDirectory $ModDirectory -SkipPermanentHooks
+    if (-not $?) { throw 'UnitAccess contract preflight failed.' }
+} else { Write-Host '[Preflight] No unit access in the scoped runtime sources; unit behavior suite not applicable.' }
 $preflightWatch.Stop()
 Write-Host ('[Preflight] Completed in {0:N1}s.' -f $preflightWatch.Elapsed.TotalSeconds)
 

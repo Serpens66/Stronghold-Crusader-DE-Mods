@@ -115,7 +115,7 @@ namespace BugfixesAndQoL.BuildPreview
             try
             {
                 if (eligible && Volatile.Read(ref confirmed) == 0 && Interlocked.CompareExchange(ref confirmed, 1, 0) == 0)
-                    persistentLog.LogDebug($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] BUILD_PREVIEW_RUNTIME_CONFIRMED native preview after startup cleanup.");
+                    Shared.DebugLogHelper.LogDebug(persistentLog, "BUILD_PREVIEW_RUNTIME_CONFIRMED native preview after startup cleanup.");
                 if (eligible && State.IsCurrent(capture))
                 {
                     MarkResult result = FootprintMarker.Apply(imageBase, manager, x, y, scale, (eMappers)mapper, blocked);

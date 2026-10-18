@@ -17,6 +17,7 @@ endlocal
 setlocal EnableExtensions
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/apishared:installed-dev" set "SHCDE_API_SHARED_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\APIShared_Serp_dev"
 for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 set "ORIGINAL_DIRECTORY=%CD%"
@@ -30,20 +31,5 @@ if "%NO_PAUSE%"=="0" pause
 exit /b %RESULT%
 
 :main
-echo [%date% %time%] PopularityTest preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0verify.ps1"
-if errorlevel 1 exit /b 1
-if "%NO_INSTALL%"=="0" powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { throw 'Close the game before building/installing PopularityTest.' }"
-if errorlevel 1 exit /b 1
-"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe" "%~dp0PopularityTest.csproj" /p:Configuration=Debug /nologo /verbosity:minimal
-if errorlevel 1 exit /b 1
-copy /Y "%~dp0info.json" "%~dp0BepInEx\plugins\PopularityTest_Serp\info.json" >nul
-if errorlevel 1 exit /b 1
-if "%NO_INSTALL%"=="1" (
-  echo PopularityTest built and verified; installation skipped.
-  exit /b 0
-)
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
-if errorlevel 1 exit /b 1
-echo PopularityTest built, installed and verified; selected APIShared SDK unchanged.
-exit /b 0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools/Build-PopularityTest.ps1" -NoInstall %NO_INSTALL%
+exit /b %ERRORLEVEL%

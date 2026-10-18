@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using BepInEx.Configuration;
 using System;
 using System.Globalization;
 using System.Collections.Generic;
@@ -19,6 +20,50 @@ namespace Shared
         private static bool debugEnabledCache;
         private static readonly LogRateGate debugRate = new LogRateGate();
         private static readonly LogRateGate failureRate = new LogRateGate();
+        private static bool diagnosticsInitialized;
+        private static volatile bool diagnosticsEnabled;
+        private static readonly Dictionary<ManualLogSource, ManualLogSource> externalLogs =
+            new Dictionary<ManualLogSource, ManualLogSource>();
+
+        // Source-linked into each mod: no host dependency and no shared mutable config.
+        // A startup snapshot deliberately ignores config edits until the next game start.
+        public static bool DiagnosticsEnabled => diagnosticsEnabled;
+
+        public static void InitializeDiagnostics(ConfigFile config, ManualLogSource log)
+        {
+            if (diagnosticsInitialized) return;
+            diagnosticsInitialized = true;
+            try
+            {
+                diagnosticsEnabled = config.Bind("Diagnostics", "Enabled", false,
+                    "Enable this mod's diagnostic logs and recordings. Disabled by default; restart the game after changing. " +
+                    "Special diagnostic options also require this switch. Debug output additionally requires a BepInEx Debug listener.").Value;
+            }
+            catch (Exception ex)
+            {
+                diagnosticsEnabled = false;
+                LogError(log, "Diagnostic configuration could not be read; diagnostics remain disabled: " + ex);
+            }
+        }
+
+        // External services may write routine logs without offering a diagnostic switch.
+        // This unregistered source forwards their events to the owning mod's real logger.
+        public static ManualLogSource ForExternalCode(ManualLogSource log)
+        {
+            if (log == null) return null;
+            lock (externalLogs)
+            {
+                if (externalLogs.TryGetValue(log, out ManualLogSource proxy)) return proxy;
+                proxy = new ManualLogSource(log.SourceName);
+                proxy.LogEvent += (_, args) =>
+                {
+                    if (DiagnosticsEnabled || (args.Level & (LogLevel.Warning | LogLevel.Error | LogLevel.Fatal)) != 0)
+                        log.Log(args.Level, WithTimestamp(Convert.ToString(args.Data, CultureInfo.InvariantCulture)));
+                };
+                externalLogs.Add(log, proxy);
+                return proxy;
+            }
+        }
 
         public static void LogDebugLimited(ManualLogSource log, string site, params object[] parts)
         {
@@ -73,6 +118,7 @@ namespace Shared
 
         public static bool IsDebugEnabled()
         {
+            if (!DiagnosticsEnabled) return false;
             DateTime now = DateTime.UtcNow;
             if (now < debugEnabledCacheExpiresAtUtc)
                 return debugEnabledCache;
@@ -84,6 +130,7 @@ namespace Shared
 
         public static bool IsDiskDebugEnabled()
         {
+            if (!DiagnosticsEnabled) return false;
             try
             {
                 foreach (ILogListener listener in Logger.Listeners)
@@ -120,7 +167,14 @@ namespace Shared
 
         public static void LogInfo(ManualLogSource log, string message)
         {
+            if (!DiagnosticsEnabled) return;
             log?.LogInfo(WithTimestamp(message));
+        }
+
+        public static void LogInfo(ManualLogSource log, Func<string> messageFactory)
+        {
+            if (log == null || messageFactory == null || !DiagnosticsEnabled) return;
+            log.LogInfo(WithTimestamp(messageFactory()));
         }
 
         public static void LogWarning(ManualLogSource log, string message)

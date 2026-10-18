@@ -64,3 +64,44 @@ speech replacements, repeated filenames, rejected requests, pauses, source/HUD
 replacement, disabled behavior, stale asynchronous loads and mission reset.
 A real-game reproduction and live acceptance remain unavailable; these tests do
 not validate decoder timing or prove the historical user's precise trigger.
+## Current text-owned presentation, 2026-10-18
+
+This supersedes the consumer's speech-generation completion policy above; the
+historical audit and its verification limits remain unchanged. Native SHA-256 is
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; installed
+Assembly-CSharp.dll SHA-256 is
+BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+Both installed files were rechecked against the referenced evidence.
+
+- Presentation 0xFEE50 emits text through 0x1A2850 (command 20) before optional
+  audio and video. GameMap.processTestMap processes these records on Director's
+  rendered-buffer caller, then GameData.setGameState/updateOST applies text state
+  before the subsequent GuiChecks callback. Function labels remain candidate-level;
+  the record order is supported by the exported pseudocode and managed consumers.
+- OnScreenText.addOSTEntry(OST_MESSAGE_BAR, ...) refreshes Vanilla's text expiry.
+  updateOST applies expiry only when allowExpire is true, refreshes the expiry
+  while a briefing is visible, and drives MainViewModel.OST_Message_Bar_Vis.
+  Its setter emits the public System.ComponentModel.PropertyChanged event.
+  No consumer expiry calculation is required. The Extender's updateOST IL hook
+  replaces custom-Lord text resolution, not this visibility signal.
+- A nonlooping ** media source can be paused in the MediaEnded callback while
+  leaving requestBinkPlayState=1 and binkIsPlaying=true. FatControler neither
+  restarts that state nor executes its speech-dependent state-3 completion branch.
+  Its briefing-resume path can call Play again; the GUI consumer must pause a held
+  frame afterwards without restoring opacity after a left-click hide.
+- BugfixesAndQoL now associates each message-bar write with the next accepted
+  video in the rendered batch. Identical text/file names do not identify ownership.
+  A visible-to-hidden text notification closes only its matching current video via
+  the public parameterless RadarME_Ended; GuiChecks handles missing initial text,
+  logical disable, source/HUD replacement and deferred mission invalidation.
+  This may end a portrait while speech is still playing, as explicitly requested.
+- Queue update 0xFE570 waits for the video flag after its age gate. Closing the
+  picture when Vanilla hides text releases that dependency; waiting for the native
+  finalizer first would create a circular lifetime dependency. No native patch is
+  introduced. The separate skip feature retains its audio-load cancellation.
+
+The new production-source fixture covers text-driven completion, silent messages,
+independent audio replacement/end/pause, pending text/source, repeated filenames,
+left-click preservation, explicit close, briefing resume, replacement HUD/ViewModel
+and mission invalidation. The fixture does not prove real decoder timing or a live
+in-game acceptance result; no installation is authorized for this change.

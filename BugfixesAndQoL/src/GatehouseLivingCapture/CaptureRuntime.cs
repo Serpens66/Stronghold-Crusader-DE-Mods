@@ -76,7 +76,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
                 if (!published) transaction?.Dispose(); // Roll back only an unpublished initialization candidate.
                 throw;
             }
-            try { log.LogDebug($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] GATEHOUSE_LIVING_CAPTURE_READY: method={resolved.Method}, rva=0x{resolved.Rva:X}, " +
+            try { Shared.DebugLogHelper.LogDebug(log, () => $"GATEHOUSE_LIVING_CAPTURE_READY: method={resolved.Method}, rva=0x{resolved.Rva:X}, " +
                 $"end=0x{NativeDefinition.ContinueRva:X}, skip=0x{NativeDefinition.SkipRva:X}, displaced=18 (2+7+9), " +
                 $"redBird={typeof(X64InlineHook).Assembly.GetName().Version}, sha256={hash}; " +
                 "GameUnit size=0x490, alive=0x88, deathLowWord=0x29C, owner=0x92, health=0x3C4; original cadence/scoring retained."); }

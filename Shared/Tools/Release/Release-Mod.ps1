@@ -136,6 +136,8 @@ try {
     }
 
     $packageFiles = @(Get-ChildItem -LiteralPath $stagePackage -File -Recurse | Sort-Object FullName)
+    . (Join-Path $PSScriptRoot 'DiagnosticSummary.ps1')
+    Write-PackageDiagnosticSummary -Directory $stagePackage -CecilPath (Join-Path $config.GameDir 'BepInEx/core/Mono.Cecil.dll')
     if ($packageFiles.Count -eq 0) { throw 'The staged plugin package is empty.' }
     $runtimeFiles = @($packageFiles | Where-Object { $_.Extension -in @('.msgpack', '.log', '.tmp') -or $_.FullName -match '\\LobbyModSettings\\' })
     if ($runtimeFiles.Count -gt 0) {

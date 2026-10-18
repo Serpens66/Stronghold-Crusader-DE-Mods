@@ -31,6 +31,7 @@ namespace UnitCosts
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
 
             Settings = new UnitCostsLobbyViewModel();
             runtime = new UnitCostsRuntime(Logger, Settings);
@@ -53,10 +54,11 @@ namespace UnitCosts
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "UnitCosts_Serp",
                     Settings,
-                    "ScriptExtenderUI/UnitCostsSettings.xaml");
+                    "ScriptExtenderUI/UnitCostsSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

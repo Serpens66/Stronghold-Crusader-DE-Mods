@@ -153,4 +153,4 @@ Popularity.AlePopModifierTierFour.Help=Applies to this inn coverage tier. Existi
 Popularity.FairsPopularityEventModifier=Active fair event
 Popularity.FairsPopularityEventModifier.Help=Applies while the game flags a fair event as active. Other event bonuses and penalties are unchanged. Vanilla: +16. When unchecked, this part is untouched. When checked, the slider replaces the absolute contribution in popularity points.
 Popularity.GoodBadThingPopModifierMultiplier=Contribution per fear-factor level
-Popularity.GoodBadThingPopModifierMultiplier.Help=Multiplied by the signed fear-factor level; Vanilla is 1 point per level. This is a shared coefficient, not a fixed total bonus. Productivity and combat effects are unchanged. Vanilla: +1. When unchecked, this part is untouched. When checked, the slider replaces the absolute contribution in popularity points.
+Popularity.GoodBadThingPopModifierMultiplier.Help=Multiplier from -5 to +5 in steps of 0.1. Multiply the signed fear level first, then round the result to whole popularity points (midpoint ties away from zero). Vanilla: 1. Productivity and combat effects are unchanged. Unchecked: no multiplier from this mod.

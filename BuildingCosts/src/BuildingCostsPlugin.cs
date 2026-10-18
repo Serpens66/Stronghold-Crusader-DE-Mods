@@ -30,6 +30,7 @@ namespace BuildingCosts
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
 
             Settings = new BuildingCostsLobbyViewModel();
             runtime = new BuildingCostsRuntime(Logger, Settings);
@@ -51,10 +52,11 @@ namespace BuildingCosts
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "BuildingCosts_Serp",
                     Settings,
-                    "ScriptExtenderUI/BuildingCostsSettings.xaml");
+                    "ScriptExtenderUI/BuildingCostsSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

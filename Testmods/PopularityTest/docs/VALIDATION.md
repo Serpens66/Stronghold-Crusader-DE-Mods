@@ -1,51 +1,52 @@
 # PopularityTest validation
 
-## Dependency contract
+## Dependency and ownership
 
-The testmod now consumes the local APIShared development package (minimum 0.10.0).
-An explicit `ApiSharedDir`/`SHCDE_API_SHARED_DIR` may select another compatible package.
-It never packages APIShared. Display correction belongs to APIShared ScriptExtenderFixes;
-settings, presets and owned simulation overrides remain in this mod. Earlier dependency
-snapshots below describe completed historical tasks, not a permanent SDK pin.
+Use `SHCDE_API_SHARED_DIR` to select the SDK for every verification/build/install child.
+For the installed development SDK set it to the game's `BepInEx/plugins/APIShared_Serp_dev`,
+then run `build.bat /working /nopause` (add `/noinstall` for a build only).
+`/working /apishared:installed-dev /nopause` is an equivalent explicit convenience selection.
+Other selections retain the normal workspace package/provenance check. No dependency is
+silently rebuilt or selected instead. DLL name, manifest GUID/version, minimum dependency
+and a run-wide DLL SHA-256 are checked; no APIShared DLL is included with this consumer.
+The dev SDK must contain the rounded fear API, not merely share its version string.
 
-## Automated checks
+APIShared owns the automatic display correction and rounded fear calculation. This mod
+owns host settings, opt-in activation, localization and its ordinary SE overrides.
+Fear accepts -5..+5 in 0.1 steps, including decimal comma input. The exact coefficient is
+multiplied by the signed fear level, then rounded to whole report points; midpoint ties
+round away from zero. Ordinary source settings retain integer steps and existing bounds.
 
-Run `verify.ps1` outside the sandbox, because the maintained preset harness uses
-atomic File.Replace. It checks all 41 catalog/default mappings, category ranges,
-checkbox/slider/input adjacency, one-point slider steps, localized keys, tooltips,
-CRLF, JSON/lifecycle rules, scoped dependency/source boundaries, production API
-signatures and public XAML bindings against the installed assemblies.
+## Relevant checks
 
-The separate preset test assembly includes the maintained source-based preset
-harness and this mod's unchanged settings and override implementation. It tests
-restart persistence, client write rejection, authorized host updates, preservation
-of local preferences, mission editing locks, reset defaults, disabled no-op,
-zero/negative overrides, map-boundary restoration, duplicate checkpoints, rollback
-and foreign overlay retention. These fixtures do not replace installed-assembly
-type checks or prove actual Steam delivery.
+The build runs scoped dependency/source-boundary, runtime JSON/lifecycle guardrails,
+asset/locale/CRLF checks, compiled signatures and XAML bindings against the actual SDK,
+Extender and original game assembly, plus this mod's preset/override behavior tests.
+Source scans are guardrails, not behavioral proof. No exact source text, control adjacency,
+private method layout, current setting count or foreign consumer suite is a build contract.
 
-Use `build.bat /working /nopause /noinstall` to verify/build this working tree without
-installation. Without `/noinstall`, the driver installs only this mod and checks that
-the game is closed. The APIShared development package must already be built.
-The automatic report regression suite now lives independently in APIShared/tests/PopularityDisplay.Tests.
+The standalone preset fixture compiles the real settings and maintained API preset sources;
+only external engine/UI/logging boundaries are doubles. It tests persistence (including
+fractional fear), reset, host/client authority, local preference preservation, mission
+locking, disabled no-op, duplicate lifecycle checkpoints, zero/negative overrides,
+partial rollback and foreign stack retention. Run the BAT/fresh Windows PowerShell
+outside the sandbox: the fixture exercises atomic File.Replace. General API tests stay
+in APIShared; the installed API member check separately validates the consumer binary boundary.
 
-## In-game acceptance still required
+APIShared's targeted suites cover rounding/signs/ownership/display and actual installed SE
+IL rewrite/generation. Exact two-branch and binary-fingerprint checks protect the audited
+adapter; they are intentional machine contracts, with the update process in APIShared's
+UpdateToNewDLL.md. They do not freeze compiler-generated names or local indices.
 
-- Open Mod Options / Popularity Test: check layout, numeric input, tooltips,
-  inactive grey sliders, preset loading/saving and reset.
-- New game and editor: default checkboxes cause no overrides. Activate one source
-  before a new map; confirm its component report matches the chosen point value.
-- Check `POPULARITY_BOOT`, compact `POPULARITY_SESSION`/`POPULARITY_END` and APIShared
-  `SE_POPULARITY_DISPLAY` when non-Vanilla values are active; inspect errors.
-- Test ration/no-food branches, all tax and coverage tiers, signed religion/ale
-  values and fear-factor multiplication. Negative religion retains the SE's
-  unsigned auxiliary religion counter behavior; its meaning remains unconfirmed.
-- Save/load, mission end, failed initialization, restart and a subsequent map
-  with unchecked settings must not retain owned overrides. In-game editing is
-  locked. Existing plague correction and event effects remain independently active.
-- Real multiplayer requires host and client logs proving multiple humans, matching
-  effective settings, late join, map transition and saved-game restoration. No
-  real multiplayer pass may be inferred from the preset fixture.
+## Game acceptance still required
+
+Check Mod Options layout, numeric input, tooltips, disabled controls, presets and reset.
+Test new game, editor, save/load and subsequent maps with checked and unchecked sources.
+Check `POPULARITY_BOOT`, `POPULARITY_SESSION`/`POPULARITY_END`, `FEAR_POPULARITY_READY`,
+`FEAR_POPULARITY_APPLIED` and `SE_POPULARITY_DISPLAY` where applicable. Confirm signed fear
+products, ties, totals, and preserved unrelated event contributions. Real host/client,
+late-join and saved-game synchronization require actual game logs; CLI tests prove none
+of those. The existing negative-religion auxiliary unsigned-counter limitation remains.
 
 ## Historical testmod display verification (2026-10-17, before transfer)
 

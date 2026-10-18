@@ -1,4 +1,5 @@
 using APIShared;
+using APIShared.Economy;
 using BepInEx.Logging;
 using RedBird.Core.Memory.Managed;
 using SHCDESE.GameGlobals;
@@ -22,12 +23,15 @@ namespace PopularityTest
         private readonly object sync = new object();
         private readonly OverrideBatch overrides;
         private long session;
+        private FearPopularityRegistration fear;
 
         internal PopularityRuntime(ManualLogSource log, PopularitySettings settings)
         { this.log = log; this.settings = settings; overrides = new OverrideBatch(message => Error("POPULARITY_OWNERSHIP " + message)); }
 
         internal void Register()
         {
+            if (!FearPopularity.TryRegister(Plugin.Guid, "fear-multiplier", out fear, out var reason))
+                throw new InvalidOperationException(reason);
             var api = ApiShared.ForMod(Plugin.Guid);
             if (!api.TryGetMissionLifecycle(out var missions, out var diagnostic) ||
                 !missions.TryRegisterObserver("popularity-session", Started, Ended, Initializing, out diagnostic))
@@ -69,6 +73,8 @@ namespace PopularityTest
         }
         private void ApplySnapshot()
         {
+            fear.SetMultiplier(settings.EnableMod && settings.GoodBadThingPopModifierMultiplierEnabled
+                ? (decimal?)settings.GoodBadThingPopModifierMultiplier : null);
             var desired = new OverrideRequest[PopularityCatalog.All.Length];
             for (int i = 0; i < desired.Length; i++)
             {
@@ -88,7 +94,7 @@ namespace PopularityTest
                 Error("POPULARITY_APPLY_FAILED own overrides released: " + ex);
             }
         }
-        private void Release() => overrides.Release();
+        private void Release() { fear?.SetMultiplier(null); overrides.Release(); }
         private void Info(string text) => log.LogInfo("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + text);
         private void Error(string text) => log.LogError("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + text);
     }

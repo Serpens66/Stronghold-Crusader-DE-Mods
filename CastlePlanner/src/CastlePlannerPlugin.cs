@@ -39,6 +39,7 @@ namespace CastlePlanner
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             if (runtime != null)
                 return;
 
@@ -117,8 +118,9 @@ namespace CastlePlanner
             {
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid, blueprintsRemainAvailable: true);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
-                    this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml",
-                    logRoutineActivity: true, enableScrollDiagnostics: true);
+                    this, Shared.DebugLogHelper.ForExternalCode(Logger), PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled,
+                    enableScrollDiagnostics: Shared.DebugLogHelper.DiagnosticsEnabled);
                 Settings.PumpCastleCatalogLoad();
             }
             catch (Exception ex)

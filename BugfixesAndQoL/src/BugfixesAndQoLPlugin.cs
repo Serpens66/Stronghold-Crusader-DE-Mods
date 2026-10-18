@@ -71,6 +71,7 @@ namespace BugfixesAndQoL
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             TrailCustomizationLaunchOriginApi.RegisterModeProvider();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
@@ -220,10 +221,11 @@ namespace BugfixesAndQoL
             {
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     Settings,
-                    "ScriptExtenderUI/BugfixesAndQoLSettings.xaml");
+                    "ScriptExtenderUI/BugfixesAndQoLSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

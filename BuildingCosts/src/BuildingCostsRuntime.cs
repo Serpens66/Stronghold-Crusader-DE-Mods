@@ -848,7 +848,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + translationKey + " " + ex.Message);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled) System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + translationKey + " " + ex.Message);
             }
 
             if (CrusaderDE.Translate.Instance?.GameTexts != null &&

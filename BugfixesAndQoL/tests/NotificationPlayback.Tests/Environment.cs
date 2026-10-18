@@ -2,6 +2,7 @@
 // the two feature classes are compiled unmodified from production sources.
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Reflection;
 using System.Threading.Tasks;
 using Noesis;
@@ -60,9 +61,20 @@ public class SFXManager {
  public int requestBinkPlayState; public bool binkIsPlaying,binkWaitForSpeech;
  public void playBink(string name,bool loop,bool wait){MonoMod.RuntimeDetour.Hook.Dispatch("play",this,name,loop,wait);}
 }
+public static class Enums { public enum eOnScreenText { OST_MESSAGE_BAR=30, OST_GAME_SPEED=2 } }
+public class OnScreenText {
+ public static OnScreenText Instance=new OnScreenText(); public bool Pending;
+ public void addOSTEntry(Enums.eOnScreenText id,int data1,int data2=2,int data3=0,int data4=0,int data5=0){
+  MonoMod.RuntimeDetour.Hook.Dispatch("text",this,id,data1,data2,data3,data4,data5);
+ }
+ public void Flush(){if(Pending){Pending=false;MainViewModel.Instance.OST_Message_Bar_Vis=true;}}
+}
 namespace CrusaderDE {
  public class MainViewModel {public static bool viewModelLoaded=true;public static MainViewModel Instance;
-  public object HUDmain=new object();public MainHUD HUDRoot; }
+  public object HUDmain=new object();public MainHUD HUDRoot;
+  private bool visible;public event PropertyChangedEventHandler PropertyChanged;
+  public bool OST_Message_Bar_Vis {get=>visible;set{if(visible!=value){visible=value;PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(nameof(OST_Message_Bar_Vis)));}}}
+ }
  public class MainHUD {
   public MediaElement RefRadarME=new MediaElement();
   private void RadarME_Ended(object sender,RoutedEventArgs args) { }
@@ -82,11 +94,13 @@ namespace APIShared.Presentation {
   public static Action<PresentationPostEventArgs> Callback;
   public static bool TryRegister(PresentationOperation op,string owner,string id,object pre,Action<PresentationPostEventArgs> post,out string reason){Callback=post;reason=null;return true;}
   public static void Gui(){
+   OnScreenText.Instance.Flush();
    SFXManager s=SFXManager.instance;MainHUD hud=MainViewModel.Instance.HUDRoot;
    if((s.requestBinkPlayState==0 && s.binkIsPlaying) ||
       (s.requestBinkPlayState==3 && s.binkIsPlaying && !MyAudioManager.Instance.isSpeechPlaying(1)))hud.RadarME_Ended();
    Callback(new PresentationPostEventArgs());
   }
+  public static void Incomplete()=>Callback(new PresentationPostEventArgs{OriginalCompleted=false});
  }
 }
 namespace BugfixesAndQoL {
@@ -99,7 +113,7 @@ namespace MonoMod.RuntimeDetour {
   private static readonly Dictionary<string,Delegate> callbacks=new Dictionary<string,Delegate>();
   private readonly string key;private readonly Delegate callback;
   public Hook(MethodInfo method,Delegate callback,HookConfig config){this.callback=callback;
-   key=method.DeclaringType==typeof(MyAudioManager)?"speech":method.Name=="playBink"?"play":"end";}
+   key=method.DeclaringType==typeof(MyAudioManager)?"speech":method.Name=="playBink"?"play":method.Name=="addOSTEntry"?"text":"end";}
   public void Apply(){callbacks[key]=callback;}
   public void Dispose(){callbacks.Remove(key);}
   public T GenerateTrampoline<T>()=> (T)(object)Delegate.CreateDelegate(typeof(T),typeof(Originals).GetMethod(key));
@@ -109,6 +123,7 @@ namespace MonoMod.RuntimeDetour {
 public static class Originals {
  public static bool FailEnd; public static int EndCalls;
  public static void speech(MyAudioManager self,int channel,string folder,string name,bool units,bool ignorePause)=>self.OriginalLoad(channel,folder,name,units,ignorePause);
+ public static void text(OnScreenText self,Enums.eOnScreenText id,int d1,int d2,int d3,int d4,int d5){if(id==Enums.eOnScreenText.OST_MESSAGE_BAR)self.Pending=true;}
  public static void play(SFXManager self,string name,bool loop,bool wait){
   if(name=="rejected")return;
   bool wasPlaying=self.binkIsPlaying;self.binkWaitForSpeech=wait && MyAudioManager.Instance.isSpeechPlaying(1);

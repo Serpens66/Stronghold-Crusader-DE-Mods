@@ -22,6 +22,8 @@ namespace Shared
 
             initialized = true;
             bool enabled = DebugLogHelper.IsDiskDebugEnabled();
+            if (!enabled)
+                return;
             recorder = new CrashBreadcrumbRecorder(
                 enabled,
                 BepInEx.Paths.BepInExRootPath,
@@ -29,9 +31,6 @@ namespace Shared
                 pluginName,
                 pluginVersion,
                 message => DebugLogHelper.LogDebug(log, message));
-            if (!enabled)
-                return;
-
             Application.quitting += MarkCleanShutdown;
             DebugLogHelper.LogDebug(
                 log,

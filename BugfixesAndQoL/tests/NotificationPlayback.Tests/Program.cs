@@ -17,57 +17,86 @@ internal static class Program {
  private static void Check(bool ok,string text){checks++;if(!ok)throw new Exception(text);}
  private static void Setup(){
   feature?.ResetMapState();speech?.Invalidate();speech?.SetNotificationClassifier(null);
-  MyAudioManager.Instance=new MyAudioManager();SFXManager.instance=new SFXManager();
+  MyAudioManager.Instance=new MyAudioManager();SFXManager.instance=new SFXManager();OnScreenText.Instance=new OnScreenText();
   MainViewModel.Instance=new MainViewModel{HUDRoot=new MainHUD()};MainViewModel.viewModelLoaded=true;
   settings.EnableMod=settings.EnableClientFeatures=settings.EnableNotificationLastFrame=true;
  }
+ private static void Message(){OnScreenText.Instance.addOSTEntry(Enums.eOnScreenText.OST_MESSAGE_BAR,221,992);}
  private static void Start(bool wait=true,bool loop=false){
-  audio.PlaySpeech(1,"ai","Saladin.wav");sfx.playBink("Saladin.webm",loop,wait);StartRequested();
+  Message();audio.PlaySpeech(1,"ai","Saladin.wav");sfx.playBink("Saladin.webm",loop,wait);StartRequested();
  }
  private static void StartRequested(){hud.RefRadarME.Source=sfx.requestBinkPlaybackURI;
   sfx.requestBinkPlayState=Math.Abs(sfx.requestBinkPlayState);sfx.binkIsPlaying=true;hud.RefRadarME.Opacity=1;}
- private static void Hold(){Start();hud.EndEvent();Check(sfx.requestBinkPlayState==3 && hud.RefRadarME.Paused && hud.RefRadarME.Opacity==1,"own speech must hold last frame");}
+ private static void Hold(){Start();OnScreenText.Instance.Flush();hud.EndEvent();Check(sfx.requestBinkPlayState==1 && hud.RefRadarME.Paused && hud.RefRadarME.Opacity==1,"visible text must hold last frame in active state 1");}
  public static int Main(){try{
   Setup();speech=NotificationSpeechPlayback.Get(new BepInEx.Logging.ManualLogSource());
   feature=new NotificationLastFrameFeature(new BepInEx.Logging.ManualLogSource(),settings);
-  Hold();long generation=speech.Capture(audio);
-  audio.PlaySpeech(2,"troops","crossbow.wav");PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==3 && speech.Capture(audio)==generation,"channel 2 must not end held message");
-  audio.PlaySpeech(1,"ai","ignored.wav",false);PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==3 && speech.Capture(audio)==generation,"rejected request must not change identity");
-  audio.PlaySpeech(1,"ai","Saladin.wav");PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==0 && hud.RefRadarME.Source==null && audio.isSpeechPlaying(1),"same filename in new request must free old frame without stopping speech");
-  for(int i=0;i<100;i++)audio.PlaySpeech(1,"scribe","next.wav");
-  Check(hud.RefRadarME.Opacity==0,"old frame must stay gone across later requests");
+  Hold();audio.Mode=0;PresentationEvents.Gui();
+  Check(sfx.requestBinkPlayState==1 && hud.RefRadarME.Opacity==1,"audio end must not end visible text's frame");
+  for(int i=0;i<100;i++)audio.PlaySpeech(1,"scribe","next.wav");PresentationEvents.Gui();
+  Check(sfx.requestBinkPlayState==1 && hud.RefRadarME.Opacity==1,"audio replacements must not control retained picture");
+  audio.Paused=true;PresentationEvents.Gui();
+  Check(hud.RefRadarME.Opacity==1,"audio pause must not change picture");
+  MainViewModel.Instance.OST_Message_Bar_Vis=false;
+  Check(sfx.requestBinkPlayState==0 && hud.RefRadarME.Source==null && hud.RefRadarME.Opacity==0 && audio.isSpeechPlaying(1),"text hide must immediately close picture without stopping speech");
 
-  Setup();Start();audio.PlaySpeech(1,"scribe","replacement.wav");hud.EndEvent();
-  Check(sfx.requestBinkPlayState==0 && audio.isSpeechPlaying(1),"speech replaced before video ends must not retain video");
-  Setup();Start(false);Check(!sfx.requestBinkPlaybackURI.OriginalString.EndsWith("**"),"no wait request must keep original URI");hud.EndEvent();
-  Check(sfx.requestBinkPlayState==0,"unrelated occupied channel cannot retain nonwaiting video");
-  Setup();Start(true,true);hud.EndEvent();Check(sfx.requestBinkPlayState==2 && !hud.RefRadarME.Paused,"loop must keep original behavior");
-  Setup();settings.EnableNotificationLastFrame=false;Start();hud.EndEvent();
-  Check(sfx.requestBinkPlayState==3 && hud.RefRadarME.Opacity==0,"disabled feature must preserve Vanilla hidden speech wait");
+  Setup();Start();OnScreenText.Instance.Flush();MainViewModel.Instance.OST_Message_Bar_Vis=false;
+  Check(hud.RefRadarME.Source==null && sfx.requestBinkPlayState==0,"text expiry must also close a video still playing");
+  Setup();Message();sfx.playBink("silent.webm",false,false);StartRequested();OnScreenText.Instance.Flush();hud.EndEvent();
+  Check(hud.RefRadarME.Paused && hud.RefRadarME.Opacity==1 && sfx.requestBinkPlayState==1,"silent notification must retain frame without speech");
+  MainViewModel.Instance.OST_Message_Bar_Vis=false;Check(sfx.requestBinkPlayState==0,"silent notification ends with text");
 
-  Setup();Hold();audio.Mode=2;audio.Paused=true;PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==3 && hud.RefRadarME.Opacity==1,"intentional speech pause must retain frame");
-  audio.Paused=false;audio.Mode=0;PresentationEvents.Gui();Check(sfx.requestBinkPlayState==0,"normal speech end closes frame");
+  Setup();Start(true,true);OnScreenText.Instance.Flush();hud.EndEvent();
+  Check(sfx.requestBinkPlayState==2 && !hud.RefRadarME.Paused,"loop keeps Vanilla behavior");
+  Setup();sfx.playBink("standalone.webm",false,false);StartRequested();hud.EndEvent();
+  Check(sfx.requestBinkPlayState==0,"video without text must keep Vanilla end behavior");
+  Setup();settings.EnableNotificationLastFrame=false;Start();OnScreenText.Instance.Flush();hud.EndEvent();
+  Check(sfx.requestBinkPlayState==3 && hud.RefRadarME.Opacity==0,"disabled feature preserves Vanilla hidden speech wait");
   Setup();Hold();settings.EnableNotificationLastFrame=false;PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==0 && audio.isSpeechPlaying(1),"disable closes owned held frame without stopping speech");
+  Check(sfx.requestBinkPlayState==0 && audio.isSpeechPlaying(1),"disable closes picture without stopping speech");
 
-  Setup();Hold();MainHUD oldHud=hud;
-  MainViewModel.Instance.HUDRoot=new MainHUD();audio.PlaySpeech(1,"ai","next.wav");sfx.playBink("Saladin.webm",false,true);StartRequested();
-  oldHud.EndEvent();Check(sfx.requestBinkPlayState==1,"obsolete HUD event must not mutate new video");PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==1 && hud.RefRadarME.Source!=null,"new video must survive previous ownership cleanup");
+  Setup();Hold();hud.RefRadarME.Opacity=0;PresentationEvents.Gui();hud.EndEvent();
+  Check(hud.RefRadarME.Opacity==0,"left-click hide must never be undone");
+  Setup();Hold();hud.RadarME_Ended();audio.Mode=0;MainViewModel.Instance.OST_Message_Bar_Vis=false;PresentationEvents.Gui();
+  Check(hud.RefRadarME.Opacity==0 && hud.RefRadarME.Source==null,"right-click close stays closed");
+  Setup();Hold();hud.RefRadarME.Paused=false;PresentationEvents.Gui();
+  Check(hud.RefRadarME.Paused && hud.RefRadarME.Opacity==1,"briefing resume must not restart a held picture");
+  PresentationEvents.Gui();Check(sfx.requestBinkPlayState==1,"Vanilla keeping briefing text visible also keeps picture");
+  MainViewModel.Instance.OST_Message_Bar_Vis=false;Check(sfx.requestBinkPlayState==0,"Vanilla text expiry after briefing releases picture");
+
+  Setup();Hold();MainHUD oldHud=hud;MainViewModel oldMain=MainViewModel.Instance;
+  MainViewModel.Instance=new MainViewModel{HUDRoot=new MainHUD()};Start();OnScreenText.Instance.Flush();
+  oldHud.EndEvent();oldMain.OST_Message_Bar_Vis=false;PresentationEvents.Gui();
+  Check(sfx.requestBinkPlayState==1 && hud.RefRadarME.Source!=null,"obsolete HUD and ViewModel events cannot close replacement");
+  Check(oldHud.RefRadarME.Source==null,"obsolete HUD media is closed without changing replacement flags");
   Setup();Hold();oldHud=hud;MainViewModel.Instance.HUDRoot=new MainHUD();sfx.playBink("new.webm",false,false);StartRequested();
-  oldHud.EndEvent();Check(sfx.requestBinkPlayState==1,"obsolete HUD must not close a nonwaiting replacement video");
-  Setup();Hold();sfx.playBink("Saladin.webm",false,true);StartRequested();PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==1,"same-URI replacement must not close new playback");
+  oldHud.EndEvent();Check(sfx.requestBinkPlayState==1,"old HUD cannot close nonwaiting replacement");
+  Setup();Hold();Message();sfx.playBink("Saladin.webm",false,true);StartRequested();OnScreenText.Instance.Flush();PresentationEvents.Gui();
+  Check(sfx.requestBinkPlayState==1 && !hud.RefRadarME.Paused,"identical text and filename must start a fresh playback");
+  hud.EndEvent();MainViewModel.Instance.OST_Message_Bar_Vis=false;
+  Check(sfx.requestBinkPlayState==0,"identical replacement owns its own text end");
   Setup();Hold();sfx.playBink("rejected",false,true);PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==3,"rejected video request must preserve current ownership");
-  Setup();Hold();speech.Invalidate();feature.ResetMapState();sfx.playBink("new.webm",false,false);StartRequested();PresentationEvents.Gui();
-  Check(sfx.requestBinkPlayState==1,"mission reset must not close later playback");
-  Setup();audio.PlaySpeech(1,"ai","Saladin.wav");sfx.playBink("Saladin.webm",false,true);
-  PresentationEvents.Gui();StartRequested();hud.EndEvent();Check(sfx.requestBinkPlayState==3 && hud.RefRadarME.Opacity==1,"pending media source must not lose ownership");
+  Check(sfx.requestBinkPlayState==1 && hud.RefRadarME.Opacity==1,"rejected request preserves current picture");
+  Setup();Message();sfx.playBink("rejected",false,false);sfx.playBink("accepted.webm",false,false);StartRequested();OnScreenText.Instance.Flush();hud.EndEvent();
+  Check(hud.RefRadarME.Paused && sfx.requestBinkPlayState==1,"rejected request must not consume text association");
+  Setup();Hold();Message();OnScreenText.Instance.Flush();PresentationEvents.Gui();
+  Check(hud.RefRadarME.Source==null,"replacement text without video removes old portrait");
+  sfx.playBink("unrelated.webm",false,false);StartRequested();hud.EndEvent();
+  Check(sfx.requestBinkPlayState==0,"unconsumed text must not attach to a later batch's video");
+
+  Setup();Hold();feature.ResetMapState();PresentationEvents.Gui();
+  Check(sfx.requestBinkPlayState==0 && hud.RefRadarME.Source==null,"mission end releases held picture on presentation caller");
+  Setup();Hold();feature.ResetMapState();sfx.playBink("new.webm",false,false);StartRequested();PresentationEvents.Gui();
+  Check(sfx.requestBinkPlayState==1,"mission reset must not close subsequent playback");
+  Setup();Start();PresentationEvents.Incomplete();
+  Check(sfx.requestBinkPlayState==1 && hud.RefRadarME.Source!=null,"initial false must not close before presentation completes");
+  PresentationEvents.Gui();hud.EndEvent();Check(hud.RefRadarME.Paused && hud.RefRadarME.Opacity==1,"first text update completes ownership");
+  Setup();Start();OnScreenText.Instance.Pending=false;PresentationEvents.Gui();
+  Check(sfx.requestBinkPlayState==0,"completed presentation without visible text must not leave a held video");
+  Setup();Message();sfx.playBink("waiting.webm",false,false);PresentationEvents.Gui();
+  StartRequested();hud.EndEvent();Check(hud.RefRadarME.Paused,"pending source retains its association behind replacement delay");
+  Setup();Start();OnScreenText.Instance.Flush();hud.RefRadarME.Source=new Uri("different.webm",UriKind.Relative);hud.EndEvent();
+  Check(sfx.requestBinkPlayState==1 && !hud.RefRadarME.Paused,"obsolete source event cannot pause a different source");
 
   Setup();speech.SetNotificationClassifier(name=>name=="notification.wav");
   var late=new TaskCompletionSource<AudioClip>();audio.Pending=late;audio.PlaySpeech(1,"ai","notification.wav");
@@ -88,7 +117,7 @@ internal static class Program {
   Check(SpinWait.SpinUntil(()=>ended.Unloaded,2000) && audio.Source.Plays==0,"mission end invalidates pending notification load");
   Setup();speech.SetNotificationClassifier(_=>true);audio.Pending=new TaskCompletionSource<AudioClip>();audio.PlaySpeech(1,"ai","missing.wav");audio.Pending.SetResult(null);
   Check(SpinWait.SpinUntil(()=>audio.Mode==0,2000),"null clip must release loading speech state");
-  Setup();Start();Originals.EndCalls=0;Originals.FailEnd=true;
+  Setup();settings.EnableNotificationLastFrame=false;Start();Originals.EndCalls=0;Originals.FailEnd=true;
   bool originalFailed=false;try{hud.EndEvent();}catch(System.Reflection.TargetInvocationException){originalFailed=true;}finally{Originals.FailEnd=false;}
   Check(originalFailed && Originals.EndCalls==1,"original failure must propagate without retrying Vanilla");
   Setup();settings.EnableNotificationLastFrame=false;Start(false);oldHud=new MainHUD();Originals.EndCalls=0;oldHud.EndEvent();

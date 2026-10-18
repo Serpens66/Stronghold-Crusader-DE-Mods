@@ -39,6 +39,7 @@ namespace ExtraFeatures
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.CrashBreadcrumbDiagnostics.Initialize(
                 Logger,
@@ -90,10 +91,11 @@ namespace ExtraFeatures
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     Settings,
-                    "ScriptExtenderUI/ExtraFeaturesSettings.xaml");
+                    "ScriptExtenderUI/ExtraFeaturesSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

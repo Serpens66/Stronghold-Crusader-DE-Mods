@@ -1719,6 +1719,8 @@ try {
         [IO.Compression.ZipFile]::ExtractToDirectory($workshopZip,$reuseStage)
         Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $reuseStage 'preview.png')
         Assert-PreparedLooseFolder $reuseStage ([string]$previousPack.Version)
+        . (Join-Path $PSScriptRoot '../Release/DiagnosticSummary.ps1')
+        Write-PackageDiagnosticSummary -Directory $reuseStage -CecilPath (Resolve-CecilLoadPath)
         Publish-WorkshopFolder $reuseStage $finalDir $script:Root
         Save-WorkshopReleaseReference (Get-WorkshopConfiguration) ([bool]$TestMode) (Join-Path (Split-Path -Parent $previousPack.MapPath) 'SerpsMods.provenance.json')
         Write-RunLog "Reusable pack ready: $finalDir" 'OK'
@@ -1821,6 +1823,8 @@ try {
     $privateApiCopies = @(Get-ChildItem -LiteralPath $hostStage -Recurse -File -Filter 'APIShared.dll')
     if ($privateApiCopies.Count -ne 0 -or (Test-Path -LiteralPath (Join-Path $hostStage 'Infrastructure\APIShared_Serp'))) { Fail-Pack 8 'The modpack must not contain APIShared.' }
     $zipPath = Join-Path $runRoot "SerpsMods-v$packVersion.zip"
+    . (Join-Path $PSScriptRoot '../Release/DiagnosticSummary.ps1')
+    Write-PackageDiagnosticSummary -Directory $hostStage -CecilPath (Resolve-CecilLoadPath)
     $zipPackage = New-SteamPackReleaseZip -PackageDirectory $hostStage -DestinationPath $zipPath
     $zipShaPath = "$zipPath.sha256"
     Write-Utf8CrLf -Path $zipShaPath -Text "$($zipPackage.Sha256)  $($zipPackage.File)"

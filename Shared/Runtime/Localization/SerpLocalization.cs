@@ -1042,7 +1042,7 @@ public static class SerpLocalization
         string englishPath,
         string localePath)
     {
-        if (!routineLoggingEnabled)
+        if (!routineLoggingEnabled || !Shared.DebugLogHelper.DiagnosticsEnabled)
             return;
 
         try
@@ -1050,8 +1050,8 @@ public static class SerpLocalization
             if (localizationLog == null)
                 localizationLog = BepInEx.Logging.Logger.CreateLogSource("Serp Localization");
 
-            localizationLog.LogDebug(
-                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Locale selected: locale={locale}, " +
+            Shared.DebugLogHelper.LogDebug(localizationLog, () =>
+                $"Locale selected: locale={locale}, " +
                 $"source={source}, rawLanguage={rawLanguage}, configuredProvider={configuredProvider}, " +
                 $"scriptExtenderLanguage={extenderLanguage}, pluginDirectory={pluginDirectory}, " +
                 $"englishFileExists={File.Exists(englishPath)}, " +

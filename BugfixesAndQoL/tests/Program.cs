@@ -2037,15 +2037,12 @@ namespace BugfixesAndQoL
                   xaml.Contains("bugfixes.enable-notification-last-frame") &&
                   xaml.Contains("IsChecked=\"{Binding EnableNotificationLastFrame, Mode=TwoWay}\""),
                 "last-frame setting is local, saved per player, reset off, and visible in client UI");
-            Check(lastFrame.Contains("originalPlayBink(self, binkName, loop, waitForSpeech);") &&
-                  lastFrame.Contains("!feature.Enabled || loop || !waitForSpeech") &&
-                  lastFrame.Contains("value + \"**\"") &&
-                  lastFrame.Contains("originalVideoEnded(self, sender, args);") &&
+            // Source-only guardrail: behavior is exercised by NotificationPlayback.Tests using the production feature.
+            Check(!lastFrame.Contains("NotificationSpeechPlayback") &&
+                  !lastFrame.Contains("isSpeechPlaying") &&
                   lastFrame.Contains("PresentationOperation.GuiChecks") &&
-                  lastFrame.Contains("speech.IsCurrent") &&
-                  !lastFrame.Contains("binkWaitForSpeech = true") &&
                   !lastFrame.Contains("public void Dispose()"),
-                "last-frame hooks bind the video to its speech generation and retain the shared GUI publisher");
+                "last-frame feature uses the presentation publisher without audio ownership or hook teardown");
             Check(runtime.Contains("private static NotificationLastFrameFeature processNotificationLastFrameFeature;") &&
                   runtime.Contains("new NotificationLastFrameFeature(log, settings)"),
                 "last-frame feature is rooted for the process lifetime");

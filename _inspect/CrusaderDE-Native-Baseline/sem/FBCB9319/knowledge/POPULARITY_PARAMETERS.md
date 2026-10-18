@@ -127,3 +127,19 @@ above remains Vanilla when its SE modifier is unchanged. The 13 separate thresho
 parameters are outside this correction's scope. Simulation and override ownership
 remain unchanged. The transferred implementation still requires separate game,
 editor/save/load and real host/client acceptance; no installation is part of this task.
+
+## Fractional fear coefficients (2026-10-18)
+
+Same native fingerprint; the installed SE fingerprint audited for the managed adapter is
+`577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175`.
+The SE callback has two signed-boost multiplication paths (getter/GetValue, signed local,
+`mul`), then stores `r_GoodBadThingsPopularityModifier`, adds to the accumulator and
+compares with the previous worst component before publishing the Pre event. A correction
+only at that event is too late to preserve the worst-source decision. APIShared therefore
+changes just those managed multiplication instructions through one permanent adapter;
+no new native span is installed. It rounds signed level times exact decimal coefficient
+away from zero at midpoint ties, then multiplies whole report points by 25. No registration
+leaves the original unchecked SE product intact. Existing eligibility bypasses and later
+native events/clamp remain unchanged. Display correction uses that same calculator.
+Static installed-body generation and pure fixtures passed; actual Mono/game, editor,
+save/load and host/client acceptance remain outstanding for the new adapter.

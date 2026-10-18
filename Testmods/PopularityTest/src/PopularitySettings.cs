@@ -1017,7 +1017,7 @@ namespace PopularityTest
         public string FairsPopularityEventModifierTitle => SerpLocalization.Get("Popularity.FairsPopularityEventModifier");
         public string FairsPopularityEventModifierHelp => SerpLocalization.Get("Popularity.FairsPopularityEventModifier.Help");
         private bool goodBadThingPopModifierMultiplierEnabled;
-        private int goodBadThingPopModifierMultiplier = 1;
+        private double goodBadThingPopModifierMultiplier = 1;
         [SyncHostOnly]
         public bool GoodBadThingPopModifierMultiplierEnabled
         {
@@ -1025,16 +1025,16 @@ namespace PopularityTest
             set { if (Change(ref goodBadThingPopModifierMultiplierEnabled, value)) OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierEditable)); }
         }
         [SyncHostOnly]
-        public int GoodBadThingPopModifierMultiplier
+        public double GoodBadThingPopModifierMultiplier
         {
             get => goodBadThingPopModifierMultiplier;
-            set { if (Change(ref goodBadThingPopModifierMultiplier, Math.Max(-2, Math.Min(2, value)))) OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierValueText)); }
+            set { if (double.IsNaN(value) || double.IsInfinity(value)) return; if (Change(ref goodBadThingPopModifierMultiplier, Math.Round(Math.Max(-5.0, Math.Min(5.0, value)), 1, MidpointRounding.AwayFromZero))) OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierValueText)); }
         }
         public bool GoodBadThingPopModifierMultiplierEditable => CanConfigure && EnableMod && GoodBadThingPopModifierMultiplierEnabled;
         public string GoodBadThingPopModifierMultiplierValueText
         {
-            get => GoodBadThingPopModifierMultiplier.ToString(CultureInfo.InvariantCulture);
-            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) GoodBadThingPopModifierMultiplier = parsed; OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierValueText)); }
+            get => GoodBadThingPopModifierMultiplier.ToString("0.0", CultureInfo.InvariantCulture);
+            set { if (double.TryParse(value.Replace(',', '.'), NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out double parsed)) GoodBadThingPopModifierMultiplier = parsed; OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierValueText)); }
         }
         public string GoodBadThingPopModifierMultiplierTitle => SerpLocalization.Get("Popularity.GoodBadThingPopModifierMultiplier");
         public string GoodBadThingPopModifierMultiplierHelp => SerpLocalization.Get("Popularity.GoodBadThingPopModifierMultiplier.Help");

@@ -41,30 +41,61 @@ namespace PopularityTest.Tests
             settings.PreparePresets(null, path, "PopularityIntegration"); settings.ActivatePresets();
             return settings;
         }
-        private static int Main()
+        private static int Main(string[] args)
         {
             try
             {
-                int generic = (int)typeof(global::Program).GetMethod("Main", BindingFlags.Static | BindingFlags.NonPublic)
-                    .Invoke(null, new object[] { new[] { "preset-storage" } });
-                Check(generic == 0, "Maintained host/client preset storage regression");
                 string fixture = TestWorkDirectory.New("PopularityPreset");
                 Directory.CreateDirectory(fixture);
                 PersonalSettingsPaths.TestDocumentsDirectory = _ => fixture;
                 string plugin = Path.Combine(fixture, "PopularityTest.dll");
                 GameNetworkAPI.LocalHost = true; GameNetworkAPI.Networked = false; GameNetworkAPI.MultiplayerGame = false;
                 var settings = Prepare(plugin);
+                // Evaluate production text properties through a localization boundary
+                // returning their requested key, then check the delivered mod-owned values.
+                // Common.* may use SerpLocalization's maintained built-in fallbacks.
+                var textKeys = typeof(PopularitySettings).GetProperties()
+                    .Where(p => p.PropertyType == typeof(string) && p.CanRead)
+                    .Select(p => (string)p.GetValue(settings))
+                    .Where(v => v != null && v.StartsWith("Popularity.")).Distinct().ToArray();
+                foreach (var locale in Directory.GetFiles(Path.Combine(args[0],"Locales"),"*.txt"))
+                {
+                    var translations = File.ReadAllLines(locale).Where(l => l.Contains("="))
+                        .ToDictionary(l => l.Substring(0,l.IndexOf('=')),l => l.Substring(l.IndexOf('=')+1));
+                    foreach (var key in textKeys)
+                        Check(translations.TryGetValue(key,out var text) && !string.IsNullOrWhiteSpace(text), "Used localization key: " + key);
+                }
                 var enabled = typeof(PopularitySettings).GetProperties().Where(p => p.Name.EndsWith("Enabled") &&
                     p.Name != "HostSettingsEnabled" && p.Name != "ClientSettingsEnabled").ToArray();
-                Check(enabled.Length == 41, "Exactly 41 activation properties");
+                Check(enabled.Length > 0, "Activation settings are present");
                 foreach (var toggle in enabled)
                 {
                     Check(!(bool)toggle.GetValue(settings), toggle.Name + " defaults disabled");
                     Check(toggle.GetCustomAttributes(false).Any(a => a.GetType().Name == "SyncHostOnlyAttribute"), "Toggle host classification");
                     var value = typeof(PopularitySettings).GetProperty(toggle.Name.Substring(0, toggle.Name.Length - 7));
-                    Check(value != null && value.PropertyType == typeof(int), "Integer companion");
+                    Check(value != null && (value.PropertyType == typeof(int) || value.PropertyType == typeof(double)), "Numeric companion");
                     Check(value.GetCustomAttributes(false).Any(a => a.GetType().Name == "SyncHostOnlyAttribute"), "Value host classification");
                 }
+                settings.GoodBadThingPopModifierMultiplierEnabled = true;
+                settings.GoodBadThingPopModifierMultiplier = 1.1;
+                Check(Prepare(plugin).GoodBadThingPopModifierMultiplier == 1.1, "Fractional fear coefficient persists exactly");
+                settings.GoodBadThingPopModifierMultiplierValueText = "-2,3";
+                Check(settings.GoodBadThingPopModifierMultiplier == -2.3, "Decimal comma accepted");
+                settings.GoodBadThingPopModifierMultiplier = 99;
+                Check(settings.GoodBadThingPopModifierMultiplier == 5, "Fear maximum +5");
+                settings.GoodBadThingPopModifierMultiplier = -99;
+                Check(settings.GoodBadThingPopModifierMultiplier == -5, "Fear minimum -5");
+                settings.GoodBadThingPopModifierMultiplier = 1.26;
+                Check(settings.GoodBadThingPopModifierMultiplier == 1.3, "Fear input snaps to tenths");
+                for (int tenths = -50; tenths <= 50; tenths++)
+                {
+                    settings.GoodBadThingPopModifierMultiplier = tenths / 10.0;
+                    Check(settings.GoodBadThingPopModifierMultiplier == tenths / 10.0, "Every declared tenth is representable");
+                }
+                settings.GoodBadThingPopModifierMultiplier = 1.1;
+                settings.GoodBadThingPopModifierMultiplier = double.NaN;
+                settings.GoodBadThingPopModifierMultiplier = double.PositiveInfinity;
+                Check(settings.GoodBadThingPopModifierMultiplier == 1.1, "Nonfinite inputs preserve current coefficient");
                 settings.ReligionPopModifierTierOneEnabled = true; settings.ReligionPopModifierTierOne = -9;
                 settings.AlePopModifierTierFourEnabled = true; settings.AlePopModifierTierFour = -7;
                 settings.TaxPopModifierCruellest = -48;

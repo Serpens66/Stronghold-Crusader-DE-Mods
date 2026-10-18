@@ -27,6 +27,7 @@ namespace BuildingLimit
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
 
             Settings = new BuildingLimitLobbyViewModel();
             runtime = new BuildingLimitRuntime(Logger, Settings);
@@ -48,10 +49,11 @@ namespace BuildingLimit
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "BuildingLimit_Serp",
                     Settings,
-                    "ScriptExtenderUI/BuildingLimitSettings.xaml");
+                    "ScriptExtenderUI/BuildingLimitSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

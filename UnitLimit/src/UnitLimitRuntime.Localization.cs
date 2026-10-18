@@ -55,7 +55,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + sectionName + " " + index + " " + ex.Message);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled) System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + sectionName + " " + index + " " + ex.Message);
             }
 
             string translationKey = sectionName + "_" + (index + 1).ToString("D3");

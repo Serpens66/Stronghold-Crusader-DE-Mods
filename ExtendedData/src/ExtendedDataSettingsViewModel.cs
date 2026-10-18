@@ -459,7 +459,7 @@ namespace ExtendedData
 
         internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries, Action<string> diagnostics = null)
         {
-            var watch = Stopwatch.StartNew();
+            var watch = diagnostics != null ? Stopwatch.StartNew() : null;
             int rebuilt = 0;
             TrailModCompatibilityInfo[] catalog = (entries ?? Enumerable.Empty<TrailModCompatibilityInfo>()).ToArray();
             string[] fixedDefaults = NormalizePropertyIds(catalog

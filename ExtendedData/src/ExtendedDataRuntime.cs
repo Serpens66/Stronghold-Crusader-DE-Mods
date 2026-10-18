@@ -374,12 +374,13 @@ namespace ExtendedData
         {
             if (missionSettingsCoordinator == null)
                 return;
-            var compatibilityWatch = System.Diagnostics.Stopwatch.StartNew();
+            var compatibilityWatch = Shared.DebugLogHelper.DiagnosticsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
             TrailModCompatibilityInfo[] catalog = missionSettingsCoordinator
                 .DiscoverModCompatibility()
                 .ToArray();
-            double discoveryMs = compatibilityWatch.Elapsed.TotalMilliseconds;
-            settings.RefreshModCompatibility(catalog, message => LogInfo(message));
+            double discoveryMs = compatibilityWatch?.Elapsed.TotalMilliseconds ?? 0;
+            settings.RefreshModCompatibility(catalog, Shared.DebugLogHelper.DiagnosticsEnabled ? (Action<string>)(message => LogInfo(message)) : null);
+            if (compatibilityWatch == null) return;
             if (++compatibilityMeasurements <= 3)
                 LogInfo("[PresetPerf] compatibility refresh: call=" + compatibilityMeasurements + ", discoveryMs=" + discoveryMs.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", totalMs=" + compatibilityWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
             string compatible = string.Join(", ", catalog

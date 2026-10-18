@@ -29,6 +29,7 @@ namespace UnitLimit
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.CrashBreadcrumbDiagnostics.Initialize(
                 Logger,
                 PluginGuid,
@@ -41,7 +42,8 @@ namespace UnitLimit
                 false,
                 "Log every UnitLimit unit-cache event and count change. Keep disabled during normal play to avoid large logs.");
             Settings = new UnitLimitLobbyViewModel();
-            runtime = new UnitLimitRuntime(Logger, Settings, verboseUnitEventLogging.Value);
+            runtime = new UnitLimitRuntime(Logger, Settings,
+                Shared.DebugLogHelper.DiagnosticsEnabled && verboseUnitEventLogging.Value);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
@@ -60,10 +62,11 @@ namespace UnitLimit
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "UnitLimit_Serp",
                     Settings,
-                    "ScriptExtenderUI/UnitLimitSettings.xaml");
+                    "ScriptExtenderUI/UnitLimitSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

@@ -585,6 +585,7 @@ namespace BugfixesAndQoL
             bool classificationAvailable,
             AIBuildingAccessDiagnostic diagnostic)
         {
+            if (!Shared.DebugLogHelper.IsDebugEnabled()) return;
             int tick = diagnostic.Tick;
             if (tick < lastInaccessibleDiagnosticTick)
             {

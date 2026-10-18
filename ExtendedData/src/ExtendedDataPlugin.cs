@@ -30,6 +30,7 @@ namespace ExtendedData
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             ExtendedDataLaunchOriginApi.RegisterModeProvider();
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -44,10 +45,11 @@ namespace ExtendedData
                 Settings = new ExtendedDataSettingsViewModel();
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     Settings,
-                    "ScriptExtenderUI/ExtendedDataSettings.xaml");
+                    "ScriptExtenderUI/ExtendedDataSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
                 string customTrailsRoot = ConfigSettings.GetUserCustomTrailsPath();
                 var runtimeCandidate = new ExtendedDataRuntime(Logger, customTrailsRoot, Settings);
                 try

@@ -323,7 +323,7 @@ namespace BugfixesAndQoL
             }
 
             if (terrainAvailable)
-                log.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Rally terrain hook: " +
+                Shared.DebugLogHelper.LogInfo(log, () => "Rally terrain hook: " +
                     $"RVA 0x{dispatchRva:X}, 14 bytes, continuation 0x{dispatchRva + 14:X}; " +
                     "native capture/restore, all owners, no recruit tracking.");
 

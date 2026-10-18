@@ -22,8 +22,6 @@ internal static class RuntimeSignatures
             var trees = project.Descendants(ns + "Compile").Select(e => Path.GetFullPath(Path.Combine(mod, (string)e.Attribute("Include"))))
                 .Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), path: p)).ToList();
             string apiRoot=Path.GetFullPath(Path.Combine(mod, "../../APIShared"));
-            foreach (var path in Directory.GetFiles(Path.Combine(apiRoot,"src/ScriptExtenderFixes/Popularity"),"*.cs"))
-                trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(path), path:path));
             string sdk=Environment.GetEnvironmentVariable("SHCDE_API_SHARED_DIR") ?? Path.Combine(apiRoot,"BepInEx/plugins/APIShared_Serp");
             var paths = new HashSet<string>(Directory.GetFiles(framework, "*.dll", SearchOption.AllDirectories).Where(p => {
                 using var stream = File.OpenRead(p); using var pe = new PEReader(stream);

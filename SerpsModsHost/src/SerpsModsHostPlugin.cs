@@ -431,10 +431,11 @@ namespace SerpsModsHost
             {
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     owner,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     diagnostics,
-                    "ScriptExtenderUI/SerpsModsStatus.xaml");
+                    "ScriptExtenderUI/SerpsModsStatus.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
                 var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
                 LobbyModSettingsEntry registration = registrations
                     .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, diagnostics));

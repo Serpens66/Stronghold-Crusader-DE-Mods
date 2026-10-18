@@ -53,6 +53,23 @@ try {
     if ($play.Count -ne 1 -or $ended.Count -ne 1 -or $speech.Count -ne 1) {
         throw 'Installed game assembly method signature or visibility changed.'
     }
+    $ost = $assembly.MainModule.Types | Where-Object FullName -ceq 'OnScreenText'
+    $main = $assembly.MainModule.Types | Where-Object FullName -ceq 'CrusaderDE.MainViewModel'
+    $textEntry = @($ost.Methods | Where-Object {
+        $_.Name -ceq 'addOSTEntry' -and $_.IsPublic -and $_.ReturnType.FullName -ceq 'System.Void' -and
+        (($_.Parameters | ForEach-Object { $_.ParameterType.FullName }) -join ',') -ceq
+            'Enums/eOnScreenText,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32'
+    })
+    $visibility = @($main.Methods | Where-Object {
+        $_.Name -ceq 'get_OST_Message_Bar_Vis' -and $_.IsPublic -and $_.ReturnType.FullName -ceq 'System.Boolean'
+    })
+    $changed = @($main.Events | Where-Object {
+        $_.Name -ceq 'PropertyChanged' -and $_.EventType.FullName -ceq 'System.ComponentModel.PropertyChangedEventHandler' -and
+        $_.AddMethod.IsPublic -and $_.RemoveMethod.IsPublic
+    })
+    if ($textEntry.Count -ne 1 -or $visibility.Count -ne 1 -or $changed.Count -ne 1) {
+        throw 'Installed Vanilla text generation or visibility notification contract changed.'
+    }
     foreach ($member in @('requestBinkPlaybackURI', 'requestBinkPlayState', 'binkIsPlaying', 'binkWaitForSpeech')) {
         $fields = @($sfx[0].Fields | Where-Object { $_.Name -ceq $member -and $_.IsPublic })
         if ($fields.Count -ne 1) { throw "SFXManager.$member is not public in the installed assembly." }
@@ -88,12 +105,11 @@ finally {
 
 $feature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\NotificationLastFrameFeature.cs'))
 if ($feature -match 'public\s+void\s+Dispose\s*\(' -or
-    $feature -match '(?:videoEndedHook|playBinkHook)\s*\.\s*(?:Undo|Dispose)\s*\(' -or
+    $feature -match '(?:videoEndedHook|playBinkHook|addTextHook)\s*\.\s*(?:Undo|Dispose)\s*\(' -or
     $feature -match '\b(?:Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
     throw 'Last-frame feature contains a published-hook teardown or MonoBehaviour callback.'
 }
 if (-not $feature.Contains('PresentationOperation.GuiChecks') -or
-    -not $feature.Contains('speech.IsCurrent') -or
     -not $feature.Contains('originalVideoEnded(self, sender, args);') -or
     -not $feature.Contains('originalPlayBink(self, binkName, loop, waitForSpeech);') -or
     -not $feature.Contains('GameTimeManagerAPI.Instance.OnTick += OnGameTick;')) {
@@ -101,7 +117,7 @@ if (-not $feature.Contains('PresentationOperation.GuiChecks') -or
 }
 
 $speechFeature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\NotificationSpeechPlayback.cs'))
-if ($feature.Contains('binkWaitForSpeech = true') -or
+if ($feature -match 'NotificationSpeechPlayback|MyAudioManager|isSpeechPlaying|DateTime|Stopwatch|binkWaitForSpeech\s*=' -or
     -not $speechFeature.Contains('Interlocked.Increment(ref speechChannel1Generation)') -or
     -not $speechFeature.Contains('!IsCurrent(audio, generation)')) {
     throw 'Speech ownership or stale-load cancellation is incomplete.'

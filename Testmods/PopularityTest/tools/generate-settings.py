@@ -45,10 +45,9 @@ groups = [
  ('AlePopModifierTier'+tier, value, f'Ale coverage {label}', f'Bierversorgung {label}')
  for tier,value,label in [('One',2,'25–49 %'),('Two',4,'50–74 %'),('Three',6,'75–99 %'),('Four',8,'100 %')]]),
  ('Fairs', 'Fair event', 'Jahrmarkt', 32, [('FairsPopularityEventModifier',16,'Active fair event','Aktiver Jahrmarkt')]),
- ('Fear', 'Fear factor', 'Furchtfaktor', 2, [('GoodBadThingPopModifierMultiplier',1,'Contribution per fear-factor level','Beitrag je Furchtfaktorstufe')])]
+ ('Fear', 'Fear factor', 'Furchtfaktor', 5, [('GoodBadThingPopModifierMultiplier',1,'Contribution per fear-factor level','Beitrag je Furchtfaktorstufe')])]
 
 items = [(group, limit, key, default, en, de) for group,_,_,limit,rows in groups for key,default,en,de in rows]
-assert len(items) == 41
 settings = '''using APIShared.ModSettings;
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
@@ -112,8 +111,14 @@ for _,_,key,default,_,_ in items:
     settings += f'            {key}Enabled = false; {key} = {default};\n'
 settings += '        }\n'
 for group,limit,key,default,en,de in items:
+    kind = 'double' if group == 'Fear' else 'int'
+    clamp = 'Math.Round(Math.Max(-5.0, Math.Min(5.0, value)), 1, MidpointRounding.AwayFromZero)' if group == 'Fear' else f'Math.Max(-{limit}, Math.Min({limit}, value))'
+    finite = 'if (double.IsNaN(value) || double.IsInfinity(value)) return; ' if group == 'Fear' else ''
+    formatting = '"0.0", CultureInfo.InvariantCulture' if group == 'Fear' else 'CultureInfo.InvariantCulture'
+    parser = 'double' if group == 'Fear' else 'int'
+    style = 'NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint' if group == 'Fear' else 'NumberStyles.Integer'
     settings += f'''        private bool {key[0].lower()+key[1:]}Enabled;
-        private int {key[0].lower()+key[1:]} = {default};
+        private {kind} {key[0].lower()+key[1:]} = {default};
         [SyncHostOnly]
         public bool {key}Enabled
         {{
@@ -121,16 +126,16 @@ for group,limit,key,default,en,de in items:
             set {{ if (Change(ref {key[0].lower()+key[1:]}Enabled, value)) OnPropertyChanged(nameof({key}Editable)); }}
         }}
         [SyncHostOnly]
-        public int {key}
+        public {kind} {key}
         {{
             get => {key[0].lower()+key[1:]};
-            set {{ if (Change(ref {key[0].lower()+key[1:]}, Math.Max(-{limit}, Math.Min({limit}, value)))) OnPropertyChanged(nameof({key}ValueText)); }}
+            set {{ {finite}if (Change(ref {key[0].lower()+key[1:]}, {clamp})) OnPropertyChanged(nameof({key}ValueText)); }}
         }}
         public bool {key}Editable => CanConfigure && EnableMod && {key}Enabled;
         public string {key}ValueText
         {{
-            get => {key}.ToString(CultureInfo.InvariantCulture);
-            set {{ if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) {key} = parsed; OnPropertyChanged(nameof({key}ValueText)); }}
+            get => {key}.ToString({formatting});
+            set {{ if ({parser}.TryParse(value.Replace(',', '.'), {style}, CultureInfo.InvariantCulture, out {kind} parsed)) {key} = parsed; OnPropertyChanged(nameof({key}ValueText)); }}
         }}
         public string {key}Title => SerpLocalization.Get("Popularity.{key}");
         public string {key}Help => SerpLocalization.Get("Popularity.{key}.Help");
@@ -165,13 +170,16 @@ namespace PopularityTest
         internal static readonly PopularityParameter[] All = {
 '''
 for group,limit,key,default,_,_ in items:
+    if group == 'Fear': continue
     catalog += f'            new PopularityParameter("{key}", "{group}", {default}, {limit}, g => g.{key}, s => s.{key}Enabled, s => s.{key}),\n'
 catalog += '        };\n    }\n}\n'
 write('src/PopularityCatalog.cs', catalog)
 
-template = (workspace / 'Testmods/CrenelatedWallTest/Override/ScriptExtenderUI/CrenelatedWallTestSettings.xaml').read_text(encoding='utf-8-sig')
-template = template.replace('<StackPanel Orientation="Horizontal" Margin="0,0,0,8" shared:', '<StackPanel IsEnabled="{Binding BetweenMissions}" Orientation="Horizontal" Margin="0,0,0,8" shared:')
-template = template.replace('IsEnabled="{Binding CanEditHostSettings}"', 'IsEnabled="{Binding CanConfigure}"')
+template = (root/'Override/ScriptExtenderUI/PopularitySettings.xaml').read_text(encoding='utf-8-sig')
+start = template.index('      <TextBlock Text="{Binding '+groups[0][0]+'Title}"')
+end = template.index('      <TextBlock Text="{Binding RuleText}"', start)
+template = template[:start] + template[end:]
+
 rows = []
 for group,en,de,limit,entries in groups:
     rows.append(f'      <TextBlock Text="{{Binding {group}Title}}" Foreground="#FFF2D48A" FontWeight="Bold" Margin="0,14,0,6"/>')
@@ -179,7 +187,7 @@ for group,en,de,limit,entries in groups:
         rows.append(f'''      <Grid Margin="0,3" shared:ModSettingsSearch.Key="popularity.{key}" shared:ModSettingsSearch.Title="{{Binding {key}Title}}" shared:ModSettingsSearch.ToolTipText="{{Binding {key}Help}}">
         <Grid.ColumnDefinitions><ColumnDefinition Width="350"/><ColumnDefinition Width="220"/><ColumnDefinition Width="70"/></Grid.ColumnDefinitions>
         <CheckBox Grid.Column="0" Content="{{Binding {key}Title}}" IsChecked="{{Binding {key}Enabled, Mode=TwoWay}}" IsEnabled="{{Binding CanConfigure}}" Foreground="White" VerticalAlignment="Center" ToolTip="{{Binding {key}Help}}" ToolTipService.ShowDuration="60000"/>
-        <Slider Grid.Column="1" Minimum="-{limit}" Maximum="{limit}" Value="{{Binding {key}, Mode=TwoWay}}" IsEnabled="{{Binding {key}Editable}}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Margin="6,0" ToolTip="{{Binding {key}Help}}" ToolTipService.ShowDuration="60000"/>
+        <Slider Grid.Column="1" Minimum="-{limit}" Maximum="{limit}" Value="{{Binding {key}, Mode=TwoWay}}" IsEnabled="{{Binding {key}Editable}}" TickFrequency="{0.1 if group == 'Fear' else 1}" SmallChange="{0.1 if group == 'Fear' else 1}" LargeChange="{0.1 if group == 'Fear' else 1}" IsSnapToTickEnabled="True" Margin="6,0" ToolTip="{{Binding {key}Help}}" ToolTipService.ShowDuration="60000"/>
         <TextBox Grid.Column="2" Text="{{Binding {key}ValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}}" IsEnabled="{{Binding {key}Editable}}" seui:KeyboardCaptureBinding.Enabled="True" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" TextAlignment="Center" VerticalAlignment="Center" ToolTip="{{Binding {key}Help}}" ToolTipService.ShowDuration="60000"/>
       </Grid>''')
 template = template.replace('      <TextBlock Text="{Binding RuleText}"', '\n'.join(rows)+'\n      <TextBlock Text="{Binding RuleText}"')
@@ -193,7 +201,7 @@ help_en = {
  'Religion':'Applies to this blessing-coverage tier or, for buildings, once when at least one such building exists. Church and cathedral bonuses are additive.',
  'Ale':'Applies to this inn coverage tier. Existing coverage thresholds and ale consumption are unchanged.',
  'Fairs':'Applies while the game flags a fair event as active. Other event bonuses and penalties are unchanged.',
- 'Fear':'Multiplied by the signed fear-factor level; Vanilla is 1 point per level. This is a shared coefficient, not a fixed total bonus. Productivity and combat effects are unchanged.'}
+ 'Fear':'Multiplier from -5 to +5 in steps of 0.1. Multiply the signed fear level first, then round the result to whole popularity points (midpoint ties away from zero). Productivity and combat effects are unchanged.'}
 help_de = {
  'Rations':'Gilt für die gewählte Rationsstufe bei vorhandener Bevölkerung und Nahrung. Ohne verfügbare Nahrung bzw. ohne Bevölkerung gilt stattdessen der jeweilige Sonderwert.',
  'Variety':'Wird bei genau dieser Anzahl verzehrter Nahrungssorten zum Rationsbeitrag addiert.',
@@ -202,8 +210,8 @@ help_de = {
  'Religion':'Gilt für die angegebene Segnungsstufe bzw. bei Gebäuden einmalig, sobald mindestens eines vorhanden ist. Kirche und Kathedrale werden addiert.',
  'Ale':'Gilt für diese Wirtshausabdeckung. Abdeckungsschwellen und Bierverbrauch bleiben unverändert.',
  'Fairs':'Gilt, solange das Spiel einen aktiven Jahrmarkt meldet. Andere Ereignisboni und -mali bleiben unverändert.',
- 'Fear':'Wird mit der vorzeichenbehafteten Furchtfaktorstufe multipliziert; Vanilla ist 1 Punkt je Stufe. Gemeinsamer Koeffizient, kein fester Gesamtbonus. Produktivität und Kampfeffekte bleiben unverändert.'}
-for locale in (workspace/'Testmods/CrenelatedWallTest/Locales').glob('*.txt'):
+ 'Fear':'Faktor von -5 bis +5 in 0,1-Schritten. Erst mit der vorzeichenbehafteten Furchtfaktorstufe multiplizieren, dann auf ganze Zufriedenheitspunkte runden (halbe Werte von null weg). Produktivität und Kampfeffekte bleiben unverändert.'}
+for locale in (root/'Locales').glob('*.txt'):
     german = locale.stem == 'de-DE'
     base = '\n'.join(line for line in locale.read_text(encoding='utf-8-sig').splitlines() if line.startswith('Common.'))
     extra = {
@@ -218,4 +226,4 @@ for locale in (workspace/'Testmods/CrenelatedWallTest/Locales').glob('*.txt'):
         extra['Popularity.'+key+'.Help'] = explanation+suffix
     write('Locales/'+locale.name, base+'\n'+'\n'.join(k+'='+v for k,v in extra.items())+'\n')
 
-print('Generated 41 settings, catalog bindings, XAML rows and locale additions.')
+print(f'Generated {len(items)} settings, catalog bindings, XAML rows and locale additions.')

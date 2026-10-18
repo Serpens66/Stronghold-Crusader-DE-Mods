@@ -13,6 +13,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
         private static volatile bool tickPending;
         internal static void Register(ManualLogSource logger)
         {
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
             log = logger;
             SavegameFix.Log = Write;
             SavegameFix.HookDiagnostic = method => Write("HOOK_ACTIVE: " + method.DeclaringType.FullName + "::" + method.Name);
@@ -27,7 +28,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
             GameTimeManagerAPI.Instance.OnTick += OnTick;
         }
         private static void Write(string message) => RuntimeStartup.Report<string>(text =>
-            log.LogInfo("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] SavegameMissingMap: " + text), message);
+            Shared.DebugLogHelper.LogInfo(log, "SavegameMissingMap: " + text), message);
         private static void OnStart(MissionLifecycleNotification notification)
         {
             Write("MISSION_STARTED: session=" + notification.Context.SessionId + "; kind=" + notification.Context.StartKind);

@@ -23,6 +23,7 @@ namespace RandomEvents
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Settings = new RandomEventsSettingsViewModel();
             runtime = new RandomEventsRuntime(Logger, Settings);
@@ -46,10 +47,11 @@ namespace RandomEvents
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     Settings,
-                    "ScriptExtenderUI/RandomEventsSettings.xaml");
+                    "ScriptExtenderUI/RandomEventsSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {
