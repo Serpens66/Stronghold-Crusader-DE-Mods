@@ -17,6 +17,12 @@ internal static class ActivationTests {
   var logger = new ManualLogSource("Raid integration tests");
   var lines = new List<string>(); var levels = new List<LogLevel>();
   logger.LogEvent += (sender, args) => { lines.Add(args.Data.ToString()); levels.Add(args.Level); };
+  // Exercise the real opt-in contract; a Debug listener alone cannot enable diagnostics.
+  var config = new BepInEx.Configuration.ConfigFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+   "activation-fixture.cfg"), false) { SaveOnConfigSet = false };
+  config.Bind("Diagnostics", "Enabled", true);
+  Shared.DebugLogHelper.InitializeDiagnostics(config, logger);
+  lines.Clear(); levels.Clear();
   var runtime = new AiRaidRetargetFixRuntime(logger);
   var activation = (RaidActivationState)Field("activation").GetValue(runtime);
   Field("initialized").SetValue(runtime, true);

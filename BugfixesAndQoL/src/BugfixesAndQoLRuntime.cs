@@ -1077,11 +1077,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
-                        "initialize:" + featureName + ":" + ex.GetType().FullName))
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1075", $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
-                    }
+                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
                 }
             }
         }
@@ -1099,11 +1095,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
-                        "persistent-initialize:" + featureName + ":" + ex.GetType().FullName))
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1099", $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
-                    }
+                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
                 }
             }
         }
@@ -1121,11 +1113,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
-                        "apply:" + featureName + ":" + ex.GetType().FullName))
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1123", $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
-                    }
+                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
                 }
             }
         }

@@ -115,6 +115,7 @@
     <Compile Include="../src/PopularitySettings.cs" />
     <Compile Include="../src/OwnedOverride.cs" />
     <Compile Include="../src/OverrideBatch.cs" />
+    <Compile Include="../src/IndependentFeatureRegistration.cs" />
     <Compile Include="PresetIntegration.cs" />
   </ItemGroup>
   <ItemGroup>

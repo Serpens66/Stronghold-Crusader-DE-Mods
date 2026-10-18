@@ -87,7 +87,7 @@ namespace BuildingCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:88", $"BuildingCosts {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"BuildingCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

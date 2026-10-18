@@ -778,7 +778,8 @@ namespace ExtraFeatures
                         false,
                         PlagueApothecarySearchRangePatch.VanillaMaximumDistance);
                 }
-                catch { }
+                catch (Exception fallbackError) { Shared.RuntimeHealth.Report("apothecary-range-fallback", true,
+                    "Restoring Vanilla apothecary range failed: " + fallbackError + "; the fallback result is unverified."); }
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:763", $"Extra Features apothecary plague-search range is disabled for this process; " +
                     $"Vanilla distance 30 and all other features remain active: {ex}");
             }

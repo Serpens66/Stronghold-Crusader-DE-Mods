@@ -230,7 +230,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/UnitLimitRuntime.cs:233", "Unit limit feature failed; independent features continue:", featureName, ex);
+                Shared.RuntimeHealth.Failure(log, featureName, true, $"UnitLimit feature '{featureName}' failed; independent features continue: {ex}");
                 return false;
             }
         }

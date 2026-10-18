@@ -81,7 +81,7 @@ namespace StartConditions
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/src/StartConditionsPlugin.cs:83", $"StartConditions {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"StartConditions {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

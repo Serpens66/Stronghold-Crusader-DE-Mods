@@ -34,9 +34,11 @@ outside the sandbox: the fixture exercises atomic File.Replace. General API test
 in APIShared; the installed API member check separately validates the consumer binary boundary.
 
 APIShared's targeted suites cover rounding/signs/ownership/display and actual installed SE
-IL rewrite/generation. Exact two-branch and binary-fingerprint checks protect the audited
-adapter; they are intentional machine contracts, with the update process in APIShared's
-UpdateToNewDLL.md. They do not freeze compiler-generated names or local indices.
+IL rewrite/generation. SE compatibility follows coefficient/input/output provenance,
+resource identity and control flow, without a fixed SE version/hash or site count.
+Equivalent layouts are accepted; changed meaning and unsupported flows are rejected.
+The native game ABI guard remains separate. APIShared's UpdateToNewDLL.md explains
+how to extend supported semantic analysis without weakening its safety boundaries.
 
 ## Game acceptance still required
 
@@ -86,3 +88,8 @@ build.bat /working /nopause. Installed PopularityTest SHA-256:
 351072a6b2213a4e5345f2b41a0f01d9abd14de6bd87617ebf89bee00b60f8b4
 All installed mod files matched the build; installed APIShared identity and
 the task dependency snapshot remained unchanged after installation.
+
+
+## 2026-10-18 failure reporting
+
+The optional rounded-fear registration is isolated from required mission registration and independent SE overrides. Owned override writes and release are checked during those operations. Only detected failures emit Warning/Error; normal operation emits no health summaries, per-feature success records or fear samples. No periodic health observer or HUD readback check is added. The next game run should use factor 2 and nonzero signed fear, check popularity/fear reports, end the mission and load a save. Logs expose detected failures; visual effects, multiplayer and unexercised paths still require manual acceptance.

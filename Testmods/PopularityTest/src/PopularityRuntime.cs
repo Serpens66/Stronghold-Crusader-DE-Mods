@@ -24,14 +24,21 @@ namespace PopularityTest
         private readonly OverrideBatch overrides;
         private long session;
         private FearPopularityRegistration fear;
+        private string fearDiagnostic;
 
         internal PopularityRuntime(ManualLogSource log, PopularitySettings settings)
         { this.log = log; this.settings = settings; overrides = new OverrideBatch(message => Error("POPULARITY_OWNERSHIP " + message)); }
 
         internal void Register()
         {
-            if (!FearPopularity.TryRegister(Plugin.Guid, "fear-multiplier", out fear, out var reason))
-                throw new InvalidOperationException(reason);
+            // An optional coefficient adapter must not disable independent SE parameters.
+            IndependentFeatureRegistration.Register(
+                () => FearPopularity.TryRegister(Plugin.Guid, "fear-multiplier", out fear, out fearDiagnostic),
+                RegisterMissions,
+                ex => { fearDiagnostic = ex.ToString(); Error("POPULARITY_FEAR_REGISTRATION_FAILED: " + ex); });
+        }
+        private void RegisterMissions()
+        {
             var api = ApiShared.ForMod(Plugin.Guid);
             if (!api.TryGetMissionLifecycle(out var missions, out var diagnostic) ||
                 !missions.TryRegisterObserver("popularity-session", Started, Ended, Initializing, out diagnostic))
@@ -58,8 +65,6 @@ namespace PopularityTest
             {
                 if (session != note.Context.SessionId) { Release(); session = note.Context.SessionId; }
                 ApplySnapshot(); settings.SetMissionLocked(true);
-                Info("POPULARITY_SESSION session=" + session + "; kind=" + note.Context.StartKind +
-                    "; overrides=" + overrides.Count);
             }
         }
         private void Ended(MissionLifecycleNotification note)
@@ -68,13 +73,18 @@ namespace PopularityTest
             {
                 if (note.Context.SessionId != session) return;
                 Release(); session = 0; settings.SetMissionLocked(false);
-                Info("POPULARITY_END reason=" + note.EndReason + "; own overrides released.");
             }
         }
         private void ApplySnapshot()
         {
-            fear.SetMultiplier(settings.EnableMod && settings.GoodBadThingPopModifierMultiplierEnabled
-                ? (decimal?)settings.GoodBadThingPopModifierMultiplier : null);
+            bool requested = settings.EnableMod && settings.GoodBadThingPopModifierMultiplierEnabled;
+            try {
+                if (fear != null) {
+                    fear.SetMultiplier(requested ? (decimal?)settings.GoodBadThingPopModifierMultiplier : null);
+                } else if (requested) Shared.RuntimeHealth.Report("fear-registration", false,
+                    fearDiagnostic + "; independent popularity overrides continue.");
+            } catch (Exception ex) { Error("POPULARITY_FEAR_FAILED: " + ex); }
+            try {
             var desired = new OverrideRequest[PopularityCatalog.All.Length];
             for (int i = 0; i < desired.Length; i++)
             {
@@ -84,18 +94,21 @@ namespace PopularityTest
                 desired[i] = new OverrideRequest(parameter.Name, value,
                     () => new ValueAdapter(parameter.Resolve(GameGlobalsManager.Instance)));
             }
-            try
-            {
                 if (!overrides.Apply(desired)) return;
             }
             catch (Exception ex)
             {
-                Release();
+                overrides.Release();
                 Error("POPULARITY_APPLY_FAILED own overrides released: " + ex);
             }
         }
-        private void Release() { fear?.SetMultiplier(null); overrides.Release(); }
-        private void Info(string text) => log.LogInfo("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + text);
-        private void Error(string text) => log.LogError("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + text);
+        private void Release()
+        {
+            fear?.SetMultiplier(null);
+            bool released = overrides.Release();
+            if (!released) Shared.RuntimeHealth.Report("popularity-release", true,
+                "Some owned layers could not be released; see ownership errors. session=" + session);
+        }
+        private void Error(string text) => Shared.DebugLogHelper.LogError(log, text);
     }
 }

@@ -6,7 +6,11 @@ $roots = @('APIShared', 'BugfixesAndQoL')
 foreach ($relative in $roots) {
     $root = Join-Path $workspace $relative
     $files = @(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
-        $_.FullName -notmatch '\\(?:bin|obj|BepInEx|tests)\\' -and
+        $relativePath = $_.FullName.Substring($root.Length).TrimStart('\')
+        # Tool/test sources are not shipped runtime inputs; their serializers and
+        # lifecycle fixtures must not be classified as mod dependencies.
+        $relativePath -notmatch '^(?:tests|tools|examples|\.local|\.work|\.release-output|_inspect|before)\\' -and
+        $relativePath -notmatch '(?:^|\\)(?:bin|obj|BepInEx)\\' -and
         $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.md','.xaml') -and $_.Name -ne 'README.md'
     })
     foreach ($file in $files) {

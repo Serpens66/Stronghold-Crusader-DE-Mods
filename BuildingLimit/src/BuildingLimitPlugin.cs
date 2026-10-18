@@ -80,7 +80,7 @@ namespace BuildingLimit
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/src/BuildingLimitPlugin.cs:88", $"BuildingLimit {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"BuildingLimit {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

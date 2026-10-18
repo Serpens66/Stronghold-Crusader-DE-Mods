@@ -13,7 +13,10 @@ $mod=Join-Path $workspace 'BugfixesAndQoL'
 $roots=@((Join-Path $workspace 'APIShared'),$mod)
 foreach($root in $roots) {
     $files=@(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
-        $_.FullName -notmatch '\\(?:bin|obj|BepInEx|tests)\\' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.xaml')
+        $relativePath=$_.FullName.Substring($root.Length).TrimStart('\')
+        # Scope runtime rules to runtime inputs; keep tool/test serializers separate.
+        $relativePath -notmatch '^(?:tests|tools|examples|\.local|\.work|\.release-output|_inspect|before)\\' -and
+        $relativePath -notmatch '(?:^|\\)(?:bin|obj|BepInEx)\\' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.xaml')
     })
     foreach($file in $files) {
         $source=[IO.File]::ReadAllText($file.FullName)

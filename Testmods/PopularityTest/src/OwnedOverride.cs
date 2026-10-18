@@ -25,18 +25,22 @@ namespace PopularityTest
         internal bool Release()
         {
             if (target.Depth < depth) return false;
+            int before = target.Depth;
             var above = new List<int>();
+            bool removed = false;
             try
             {
                 while (target.Depth > depth) { above.Add(target.Value); target.Pop(); }
                 if (target.Value != value) return false; // Another owner replaced our layer.
                 target.Pop();
-                return true;
+                removed = true;
             }
             finally
             {
                 for (int i = above.Count - 1; i >= 0; i--) target.Push(above[i]);
             }
+            return removed && target.Depth == before - 1;
         }
+        internal bool IsCurrent => target.Depth == depth && target.Value == value;
     }
 }

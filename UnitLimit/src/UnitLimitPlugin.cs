@@ -105,7 +105,7 @@ namespace UnitLimit
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/src/UnitLimitPlugin.cs:105", $"UnitLimit {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"UnitLimit {stageName} failed; independent stages continue: {ex}");
             }
         }
 

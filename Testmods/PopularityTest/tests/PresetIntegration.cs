@@ -143,6 +143,18 @@ namespace PopularityTest.Tests
                 try { batch.Apply(new[] { active, new OverrideRequest("broken", 25, () => { throw new InvalidOperationException("fixture"); }) }); }
                 catch (InvalidOperationException) { failed = true; }
                 Check(failed && batch.Count == 0 && values.Depth == 1 && values.Value == 137, "Initialization failure rolls back own partial batch");
+                bool independent = false;
+                IndependentFeatureRegistration.Register(() => { throw new InvalidOperationException("adapter unavailable"); },
+                    () => independent = true, ex => { throw new Exception("broken log listener"); });
+                Check(independent, "Unavailable fear adapter and failing diagnostics do not block independent registration");
+                bool published = false;
+                try {
+                    IndependentFeatureRegistration.Register(() => { }, () => { throw new InvalidOperationException("lifecycle unavailable"); }, ex => { });
+                    published = true;
+                } catch (InvalidOperationException) { }
+                Check(!published, "Required registration failure cannot publish a ready runtime");
+                batch.Apply(new[] { active }); values.Pop(); values.Push(999);
+                Check(!batch.Release() && values.Value == 999, "Ownership warning listener failure cannot change a foreign value or escape cleanup");
                 Console.WriteLine("PASS: " + checks + " PopularityTest settings, restart/authority, mission locking and override ownership checks.");
                 return 0;
             }

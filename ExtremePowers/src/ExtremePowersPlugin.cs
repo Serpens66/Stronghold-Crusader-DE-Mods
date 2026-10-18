@@ -30,6 +30,7 @@ namespace ExtremePowers
         public Settings.ExtremePowersSettings Settings { get; private set; }
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.GameplayModActivationGate.Initialize(Logger, PluginGuid, PluginName, () => Settings?.EnableMod == true);
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");

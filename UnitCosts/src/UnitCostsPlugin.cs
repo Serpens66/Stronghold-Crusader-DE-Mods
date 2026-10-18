@@ -90,7 +90,7 @@ namespace UnitCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:91", $"UnitCosts {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"UnitCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
 

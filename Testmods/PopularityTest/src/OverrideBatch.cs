@@ -31,24 +31,28 @@ namespace PopularityTest
                 foreach (var request in requests)
                 {
                     if (!request.Value.HasValue) continue; // No getter or write for disabled settings.
-                    leases.Add(new KeyValuePair<string, OwnedOverride>(request.Name,
-                        new OwnedOverride(request.Resolve(), request.Value.Value)));
+                    var lease = new OwnedOverride(request.Resolve(), request.Value.Value);
+                    leases.Add(new KeyValuePair<string, OwnedOverride>(request.Name, lease));
+                    if (!lease.IsCurrent) throw new InvalidOperationException(request.Name + ": pushed override did not read back.");
                 }
                 applied = (OverrideRequest[])requests.Clone(); return true;
             }
             catch { Release(); throw; }
         }
-        internal void Release()
+        internal bool Release()
         {
+            bool released = true;
             for (int i = leases.Count - 1; i >= 0; i--)
             {
                 try
                 {
-                    if (!leases[i].Value.Release()) ownershipError(leases[i].Key + ": ownership changed; foreign value preserved.");
+                    if (!leases[i].Value.Release()) { released = false; Report(leases[i].Key + ": ownership changed; foreign value preserved."); }
                 }
-                catch (Exception ex) { ownershipError(leases[i].Key + ": release failed: " + ex); }
+                catch (Exception ex) { released = false; Report(leases[i].Key + ": release failed: " + ex); }
             }
             leases.Clear(); applied = null;
+            return released;
         }
+        private void Report(string message) { try { ownershipError(message); } catch { } }
     }
 }

@@ -21,21 +21,21 @@ namespace PopularityTest
         {
             if (registered) return;
             registered = true; log = Logger; settings = new PopularitySettings();
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, log);
             try
             {
                 LobbyModSettingsPresetRegistration.Register(this, log, Name, settings, "ScriptExtenderUI/PopularitySettings.xaml");
                 // The library event and runtime subscriptions survive startup component destruction.
                 CrusaderLibrary.Instance.LibraryLoaded += LibraryLoaded;
-                log.LogInfo("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] POPULARITY_BOOT version=" + Version);
             }
             catch (Exception ex) { Failed(ex); }
         }
         private static void LibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (runtime != null) return;
-            try { runtime = new PopularityRuntime(log, settings); runtime.Register(); }
+            try { var candidate = new PopularityRuntime(log, settings); candidate.Register(); runtime = candidate; }
             catch (Exception ex) { Failed(ex); }
         }
-        private static void Failed(Exception ex) => log.LogError("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] POPULARITY_INIT_FAILED: " + ex);
+        private static void Failed(Exception ex) => Shared.DebugLogHelper.LogError(log, "POPULARITY_INIT_FAILED: " + ex);
     }
 }

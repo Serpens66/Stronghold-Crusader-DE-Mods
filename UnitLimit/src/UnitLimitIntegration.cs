@@ -97,7 +97,11 @@ namespace UnitLimit
             for (int index = 0; index < callbacks.Length; index++)
             {
                 try { callbacks[index](); }
-                catch { }
+                catch (Exception ex)
+                {
+                    Shared.RuntimeHealth.Report("external-capacity-notification", true,
+                        "State-change subscriber failed; independent subscribers continue: " + ex);
+                }
             }
         }
     }

@@ -143,3 +143,19 @@ leaves the original unchecked SE product intact. Existing eligibility bypasses a
 native events/clamp remain unchanged. Display correction uses that same calculator.
 Static installed-body generation and pure fixtures passed; actual Mono/game, editor,
 save/load and host/client acceptance remain outstanding for the new adapter.
+
+## Semantic SE compatibility (2026-10-18)
+
+The original SE hash above remains historical audit evidence. It no longer gates the
+rounded fear adapter. Startup discovers the owner from coefficient access plus native
+contribution storage, checks loaded/disk module identity, and analyzes CFG/stack/locals
+and ref/out resource-pointer provenance. All coefficient reads/products must reach the
+signed-fear multiplication and 32-bit contribution of the same player resources. Site
+count, generated carrier/method names, local encoding and operand order are not fixed.
+Unknown or ambiguous meaning fails closed; native game/report fingerprints remain their
+separate ABI boundaries. The game and native calculation audited earlier are unchanged.
+
+
+## 2026-10-18: managed IL operand representation
+
+The installed Extender fear method has two audited coefficient sites. Inside MonoMod ILContext.Invoke its branches use ILLabel/ILLabel[] operands; direct Cecil-only CFG traversal falsely reported unreachable coefficient access. APIShared now resolves and validates label targets without mutating operands. This is a managed-analysis correction; the hash-bound native formula, resource identity, signed input and hook sites remain unchanged. Offline regression invokes the real installed method through ILContext.Invoke; runtime gameplay acceptance is still required.

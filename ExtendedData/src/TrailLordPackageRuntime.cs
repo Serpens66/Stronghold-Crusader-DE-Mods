@@ -108,7 +108,11 @@ namespace ExtendedData
                             string.Equals(LordPackageFingerprint.Capture(item.Config.path,
                                 item.Config.name).Digest, slot.PackageDigest, StringComparison.Ordinal);
                     }
-                    catch { return false; }
+                    catch (Exception ex) {
+                        Shared.RuntimeHealth.Report("required-lord-package-fingerprint", false,
+                            "Required package could not be verified; candidate rejected: " + ex);
+                        return false;
+                    }
                 }).ToArray();
                 if (candidates.Length == 0)
                 {
@@ -197,7 +201,11 @@ namespace ExtendedData
                     out string registered) && string.Equals(Path.GetFullPath(registered).TrimEnd('\\', '/'),
                         Path.GetFullPath(donor.Config.path).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
             }
-            catch { return false; }
+            catch (Exception ex) {
+                Shared.RuntimeHealth.Report("lord-package-manifest", false,
+                    "Existing package metadata could not be read; candidate rejected: " + ex);
+                return false;
+            }
         }
     }
 }

@@ -139,6 +139,13 @@ internal static class TrailRuntimeRegressionTests
         GameAssetModManager.Instance.Registered["review-lord"] = fixture.Root;
         Check(!TrailLordPackageRuntime.TryResolve(slot, out _, out _, out _), "wrong registered directory accepted");
         GameAssetModManager.Instance.Registered["review-lord"] = lord.configs[0].path;
+        string infoPath = Path.Combine(lord.configs[0].path, "info.json");
+        string validInfo = File.ReadAllText(infoPath);
+        File.WriteAllText(infoPath, "{");
+        Shared.RuntimeHealth.Reports.Clear();
+        Check(!TrailLordPackageRuntime.TryResolve(slot, out _, out _, out _) &&
+            Shared.RuntimeHealth.Reports.Contains("lord-package-manifest"), "invalid required manifest is rejected and reported");
+        File.WriteAllText(infoPath, validInfo);
         string digest = slot.PackageDigest;
         slot.PackageDigest = new string('F', 64);
         Check(!TrailLordPackageRuntime.TryResolve(slot, out _, out _, out _), "changed mandatory package accepted");

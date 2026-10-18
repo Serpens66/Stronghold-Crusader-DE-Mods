@@ -181,7 +181,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:196", "Building limit feature failed; independent features continue:", featureName, ex);
+                Shared.RuntimeHealth.Failure(log, featureName, true, $"BuildingLimit feature '{featureName}' failed; independent features continue: {ex}");
                 return false;
             }
         }

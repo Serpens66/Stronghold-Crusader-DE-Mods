@@ -21,6 +21,8 @@ namespace ImprovedHunters
         private static bool libraryLoadedSubscriptionInstalled;
         private void Awake()
         {
+            // Supplies the plugin logger and the CrashBreadcrumbs opt-in read below.
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.CrashBreadcrumbDiagnostics.Initialize(
                 Logger,
                 PluginGuid,

@@ -1,0 +1,35 @@
+Failure reporting
+
+Normal operation emits no MOD_HEALTH_FEATURE/MOD_HEALTH_SUMMARY or fear samples.
+There are no added frame/tick observers, periodic health audits or HUD readbacks.
+Existing functional error boundaries report Warning or Error independently of
+Diagnostics.Enabled. Reports include a millisecond timestamp, mod, feature,
+cause and consequence; session/operation context belongs to the failure detail.
+
+Reports are emitted only on failure. Only identical source/function/severity/cause
+repetitions are suppressed for 30 seconds. The next report after that interval
+includes the suppressed count. No timer or periodic summary is used. The LRU cache
+holds at most 4096 identities per log source; eviction always admits a new report.
+New causes and independent functions are never rejected because the cache is full.
+Forwarded reports retain their identity without a second suppression stage.
+Throwing listeners cannot interrupt gameplay. Failure identity uses the complete
+normalized cause even when the displayed detail is shortened.
+APIShared owns an independent internal implementation; other mods source-link
+Shared. Worker reports use the startup synchronization context when available.
+
+Crash breadcrumbs are a separate explicit opt-in in each participating mod config:
+  [Diagnostics]
+  CrashBreadcrumbs = false
+The compiled default is false for Debug and Release. A normal start constructs
+no recorder, subscribes no crash shutdown handler and starts no persistence timer.
+After setting true and restarting, crash recording works independently of the
+routine Diagnostics.Enabled switch and BepInEx Debug listeners. Its ring buffer
+and disk snapshot timer then intentionally run until process exit.
+Builds/releases do not include local BepInEx user configs or enable this setting.
+
+The offline Test-RuntimeHealthLog.ps1 groups appended runs and errors/warnings.
+It never requires success markers or claims gameplay was verified from silence.
+Unobserved gameplay, rendered output and multiplayer still require acceptance.
+
+If breadcrumb persistence fails, one unconditional Error names the cause and lost
+disk recording. Its snapshot timer is stopped; no further writes are attempted.

@@ -21,22 +21,27 @@ namespace Shared
                 return;
 
             initialized = true;
-            bool enabled = DebugLogHelper.IsDiskDebugEnabled();
+            bool enabled = DebugLogHelper.CrashBreadcrumbsEnabled;
             if (!enabled)
                 return;
-            recorder = new CrashBreadcrumbRecorder(
-                enabled,
-                BepInEx.Paths.BepInExRootPath,
-                pluginGuid,
-                pluginName,
-                pluginVersion,
-                message => DebugLogHelper.LogDebug(log, message));
-            Application.quitting += MarkCleanShutdown;
-            DebugLogHelper.LogDebug(
-                log,
-                $"Crash breadcrumb diagnostics enabled: plugin={pluginGuid}, " +
-                "ringCapacity=256, snapshotIntervalSeconds=1, retainedGameStarts=5.");
+            try
+            {
+                recorder = new CrashBreadcrumbRecorder(
+                    enabled, BepInEx.Paths.BepInExRootPath, pluginGuid, pluginName, pluginVersion,
+                    null, null, null, error => ReportPersistenceFailure(log, pluginGuid, error));
+                Application.quitting += MarkCleanShutdown;
+            }
+            catch (Exception ex)
+            {
+                RuntimeHealth.Failure(log, "crash-breadcrumb-initialization", true,
+                    "Crash breadcrumb initialization failed; crash recording is unavailable. mod=" + pluginGuid + "; " + ex);
+            }
         }
+
+        internal static void ReportPersistenceFailure(ManualLogSource log, string pluginGuid, Exception error) =>
+            RuntimeHealth.Failure(log, "crash-breadcrumb-persistence", true,
+                "Crash breadcrumb disk recording failed and is disabled for this process; no further writes will be attempted. mod=" +
+                pluginGuid + "; " + error);
 
         internal static CrashBreadcrumbScope Enter(
             string operation,

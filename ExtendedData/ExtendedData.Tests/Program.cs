@@ -2280,6 +2280,13 @@ namespace BepInEx.Logging
 
 namespace Shared
 {
+    // Diagnostic transport is an external boundary of these Lord-package tests.
+    // The actual ledger and listener isolation have separate Shared diagnostics tests.
+    internal static class RuntimeHealth
+    {
+        internal static readonly List<string> Reports = new List<string>();
+        internal static void Report(string feature, bool error, string detail = "") => Reports.Add(feature);
+    }
     internal static class DebugLogHelper
     {
         internal static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } internal static void LogError(BepInEx.Logging.ManualLogSource log, string message)

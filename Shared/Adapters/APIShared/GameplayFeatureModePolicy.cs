@@ -170,10 +170,13 @@ namespace Shared
             {
                 return IsAllowed(GetProfile(modGuid, featureId), snapshot, out _);
             }
-            catch (ArgumentOutOfRangeException)
+            catch (ArgumentOutOfRangeException ex)
             {
                 // A bad GUID/feature pair is a programming or versioning error;
                 // gameplay hooks must still leave Vanilla unchanged.
+#if !API_SHARED_PRESET_TESTS
+                RuntimeHealth.Report("feature-policy-registration", true, "Invalid mod/feature identity; Vanilla preserved: " + ex.Message);
+#endif
                 return false;
             }
         }

@@ -35,6 +35,24 @@ function Write-PackageDiagnosticSummary {
                         }
                     }
                 }
+                $crash = $assembly.MainModule.Types | Where-Object FullName -eq 'Shared.CrashBreadcrumbDiagnostics' | Select-Object -First 1
+                if ($crash -and $helper) {
+                    $default = 'unbekannt'
+                    $init = $helper.Methods | Where-Object Name -eq 'InitializeDiagnostics' | Select-Object -First 1
+                    if ($init -and $init.HasBody) {
+                        $il = $init.Body.Instructions
+                        for ($i=0; $i -lt $il.Count-4; $i++) {
+                            if ($il[$i].OpCode.Name -ceq 'ldstr' -and $il[$i].Operand -ceq 'Diagnostics' -and
+                                $il[$i+1].OpCode.Name -ceq 'ldstr' -and $il[$i+1].Operand -ceq 'CrashBreadcrumbs' -and
+                                $il[$i+4].OpCode.Name -ceq 'callvirt' -and [string]$il[$i+4].Operand -match 'ConfigFile::Bind') {
+                                if ($il[$i+2].OpCode.Name -ceq 'ldc.i4.0') { $default='AUS' }
+                                elseif ($il[$i+2].OpCode.Name -ceq 'ldc.i4.1') { $default='AN' }
+                                break
+                            }
+                        }
+                    }
+                    Write-Host ('  ' + $dll.Name + ': CrashBreadcrumbs standardmaessig ' + $default)
+                }
                 $line = '  ' + $dll.FullName.Substring($Directory.Length).TrimStart('\','/') + ': ' + $state
                 if ($state -ceq 'standardmaessig AN') { Write-Host ('WARNUNG: DIAGNOSE AKTIV! ' + $line) -ForegroundColor Yellow }
                 else { Write-Host $line }
@@ -49,10 +67,10 @@ function Write-PackageDiagnosticSummary {
             $section = ''
             foreach ($line in [IO.File]::ReadAllLines($cfg.FullName)) {
                 if ($line -match '^\s*\[([^]]+)\]') { $section = $Matches[1] }
-                elseif ($section -ieq 'Diagnostics' -and $line -match '^\s*Enabled\s*=\s*(.*)$') {
-                    $setting = $Matches[1].Trim()
-                    if ($setting -ieq 'true') { Write-Host ('WARNUNG: DIAGNOSE AKTIV! Mitgelieferte Konfiguration: ' + $cfg.Name + ' / Diagnostics.Enabled=true') -ForegroundColor Yellow }
-                    else { Write-Host ('  Mitgelieferte Konfiguration: ' + $cfg.Name + ' / Diagnostics.Enabled=' + $setting) }
+                elseif ($section -ieq 'Diagnostics' -and $line -match '^\s*(Enabled|CrashBreadcrumbs)\s*=\s*(.*)$') {
+                    $key = $Matches[1]; $setting = $Matches[2].Trim()
+                    if ($setting -ieq 'true') { Write-Host ('WARNUNG: DIAGNOSE AKTIV! Mitgelieferte Konfiguration: ' + $cfg.Name + ' / Diagnostics.' + $key + '=true') -ForegroundColor Yellow }
+                    else { Write-Host ('  Mitgelieferte Konfiguration: ' + $cfg.Name + ' / Diagnostics.' + $key + '=' + $setting) }
                 }
             }
         }

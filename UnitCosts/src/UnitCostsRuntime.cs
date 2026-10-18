@@ -168,7 +168,7 @@ namespace UnitCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:169", $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
+                Shared.RuntimeHealth.Failure(log, featureName, true, $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
             }
         }
 
