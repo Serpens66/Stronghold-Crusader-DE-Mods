@@ -107,7 +107,8 @@ namespace ExtendedData
                 canUseCurrentSavegameSettings = allowed;
                 Changed(nameof(CanUseCurrentSavegameSettings));
             }
-            if (changedSave || !allowed) SetCurrentChoice(state == SavegameLoadChoiceState.Legacy);
+            // An unreadable APIShared record loads like a legacy save, with the current settings.
+            if (changedSave || !allowed) SetCurrentChoice(state == SavegameLoadChoiceState.Legacy || state == SavegameLoadChoiceState.Invalid);
         }
 
         internal void CloseLoad()
