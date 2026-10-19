@@ -15,7 +15,7 @@ namespace BugfixesAndQoL.UnitCommands
         {
             double elapsedMilliseconds = (Stopwatch.GetTimestamp() - scope.StartTimestamp) *
                 1000.0 / Stopwatch.Frequency;
-            if (scope.DigFallbackEvaluations == 0 && scope.FillFallbackEvaluations == 0 &&
+            if (scope.FillFallbackEvaluations == 0 &&
                 elapsedMilliseconds < 50.0)
                 return;
             bool selectedByFallback = false;
@@ -26,12 +26,8 @@ namespace BugfixesAndQoL.UnitCommands
                     out int selectedTileId, out _, out _))
             {
                 selectedRegion = pathRegionGrid[selectedTileId];
-                selectedByFallback = scope.RelationshipMode == 1
-                    ? scope.RegionDecisions.TryGetValue(selectedRegion, out bool allowed) && allowed
-                    : scope.FillApproaches.ContainsKey(scope.SelectedMoatId);
-                if (scope.RelationshipMode == 1)
-                    scope.RegionSummaries.TryGetValue(selectedRegion, out selectedRoute);
-                else if (scope.FillApproaches.TryGetValue(
+                selectedByFallback = scope.FillApproaches.ContainsKey(scope.SelectedMoatId);
+                if (scope.FillApproaches.TryGetValue(
                     scope.SelectedMoatId, out MoatWorkApproach selectedApproach))
                 {
                     selectedRoute = selectedApproach.Summary;
@@ -40,7 +36,6 @@ namespace BugfixesAndQoL.UnitCommands
             string kind = scope.RelationshipMode == 1 ? "dig" : "fill";
             string signature =
                 $"{mapEpoch}:{kind}:{scope.StartTileId}:{scope.SelectedMoatId}:" +
-                $"{scope.DigFallbackEvaluations}:{scope.DigFallbackAllowed}:" +
                 $"{scope.FillFallbackEvaluations}:{scope.FillFallbackAllowed}:" +
                 $"{scope.CheckedApproachTiles}:{scope.FillFriendlyMoatEndpoints}:" +
                 $"{scope.FillInvalidTileRejected}:{scope.FillHeightRejected}:" +
@@ -59,10 +54,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"player={scope.PlayerId} start=({scope.StartX},{scope.StartY})/" +
                 $"region={scope.StartRegion} selectedMoat={scope.SelectedMoatId} " +
                 $"selectedRegion={selectedRegion} selectedByFallback={selectedByFallback} " +
-                $"digRegions={scope.DigFallbackAllowed}/{scope.DigFallbackEvaluations} " +
                 $"fillApproaches={scope.FillFallbackAllowed}/{scope.FillFallbackEvaluations} " +
-                $"regionHelper={scope.LastRegionHelper ?? "none"} " +
-                $"movementProfile={scope.LastMovementProfile} " +
                 $"checkedApproachTiles={scope.CheckedApproachTiles} " +
                 $"friendlyMoatEndpoints={scope.FillFriendlyMoatEndpoints} " +
                 $"rejectedInvalid={scope.FillInvalidTileRejected} " +

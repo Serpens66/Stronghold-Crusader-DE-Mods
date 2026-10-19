@@ -33,6 +33,8 @@ namespace BugfixesAndQoL.UnitCommands
             int sourceRegion,
             int movementClass)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 ResolveEnemyGateBuildingPlayer(movementClass, tribeId),
                 EnemyGateSearchKind.BuildingApproach, out object gateScope);
@@ -53,6 +55,7 @@ namespace BugfixesAndQoL.UnitCommands
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingApproach, bridgeCompleted, false);
+                Shared.DevDiag.StopSpike(ref measured, "uc.attack.buildingApproach", 20000);
             }
         }
 
@@ -144,6 +147,8 @@ namespace BugfixesAndQoL.UnitCommands
         internal void ObserveBuildingCandidateConsumer(
             IntPtr tribeManager, int tribeId, int builderVariant)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 ResolveEnemyGateTribePlayer(tribeId),
                 EnemyGateSearchKind.BuildingConsumer, out object gateScope);
@@ -160,6 +165,7 @@ namespace BugfixesAndQoL.UnitCommands
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingConsumer, bridgeCompleted, false);
+                Shared.DevDiag.StopSpike(ref measured, "uc.attack.buildingConsumer", 20000);
             }
         }
 

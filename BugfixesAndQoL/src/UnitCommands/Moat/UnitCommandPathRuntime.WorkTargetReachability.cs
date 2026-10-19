@@ -26,7 +26,13 @@ namespace BugfixesAndQoL.UnitCommands
             scope.EndpointRoutes.Clear();
             cacheMapEpoch = -1;
             long started = Stopwatch.GetTimestamp();
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             EnsureReachabilityMap(scope.PlayerId, scope.StartX, scope.StartY, deferTraversal: true, owner: scope);
+            Shared.DevDiag.StopSpike(ref measured, "uc.moatWork.reachabilityMap", 10000, () =>
+                $"player={scope.PlayerId} unit={scope.UnitId} mode={scope.RelationshipMode} " +
+                $"start=({scope.StartX},{scope.StartY}) expandedNodes={cachedReachabilityExpandedNodes} " +
+                $"buildsInScope={scope.SearchBuilds + 1}");
             scope.ReachabilityGeneration = gridGeneration;
             scope.SearchBuilds++;
             scope.SearchExpandedNodes += cachedReachabilityExpandedNodes;
@@ -48,6 +54,9 @@ namespace BugfixesAndQoL.UnitCommands
                 unit->r_CurrentTilePositionX != scope.StartX ||
                 unit->r_CurrentTilePositionY != scope.StartY)
                 return false;
+
+            if (scope.RelationshipMode == 1)
+                return TraversalEnabled && Traversal.TryGetDigWorkRoute(scope, targetX, targetY, out summary);
 
             if (!TraversalEnabled)
             {
@@ -94,12 +103,13 @@ namespace BugfixesAndQoL.UnitCommands
                 MoatWorkSelectionScope scope = activeMoatWorkSelection;
                 if (vanillaResult != 0 || scope == null || scope.RelationshipMode != 1 ||
                     pathManager != nativePathManager || playerId != scope.PlayerId ||
+                    !TraversalEnabled || sourceRegion != scope.StartRegion ||
                     sourceRegion < 0 || sourceRegion > MaximumRegionId ||
                     targetRegion <= 0 || targetRegion > MaximumRegionId)
                 {
                     return false;
                 }
-                return EvaluateDigWorkRegion(scope, targetRegion, "E2610", movementProfile);
+                return Traversal.TryAllowDigWorkRegion(scope, targetRegion);
             }
             catch (Exception ex)
             {
@@ -121,7 +131,7 @@ namespace BugfixesAndQoL.UnitCommands
             try
             {
                 MoatWorkSelectionScope scope = activeMoatWorkSelection;
-                if (scope == null || scope.RelationshipMode != 1 ||
+                if (scope == null || scope.RelationshipMode != 1 || !TraversalEnabled ||
                     pathManager != nativePathManager || playerId != scope.PlayerId ||
                     targetRegion <= 0 || targetRegion > MaximumRegionId ||
                     startX != scope.StartX || startY != scope.StartY ||
@@ -129,7 +139,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     return false;
                 }
-                if (!EvaluateDigWorkRegion(scope, targetRegion, "E7C40", 0))
+                if (!Traversal.TryAllowDigWorkRegion(scope, targetRegion))
                     return false;
                 effectiveResult = targetRegion;
                 return true;
@@ -142,41 +152,5 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
-        internal bool EvaluateDigWorkRegion(
-            MoatWorkSelectionScope scope,
-            int targetRegion,
-            string helper,
-            int movementProfile)
-        {
-            if (!scope.Matches(mapEpoch, scope.TileManager) || disposed ||
-                scope.TileManager != GameTileManagerAPI.Instance.GetTileManager() ||
-                !APIShared.UnitAccess.TryGetById(
-                    scope.UnitId, out GameUnit* unit, out _) ||
-                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
-                unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit) ||
-                unit->r_CurrentTilePositionX != scope.StartX ||
-                unit->r_CurrentTilePositionY != scope.StartY)
-            {
-                return false;
-            }
-            if (scope.RegionDecisions.TryGetValue(targetRegion, out bool cached))
-                return cached;
-
-            scope.DigFallbackEvaluations++;
-            EnsureMoatWorkReachability(scope);
-            RouteProbeSummary summary = GetCachedRouteSummaryForRegion(targetRegion);
-            bool allowed = summary.ReachedWithMoat && !summary.ReachedWithoutMoat &&
-                summary.FriendlyMoatTiles > 0;
-            summary.RouteFound = allowed;
-            summary.AttackProbeEvaluated = true;
-            scope.RegionDecisions[targetRegion] = allowed;
-            scope.RegionSummaries[targetRegion] = summary;
-            scope.LastRegionHelper = helper;
-            scope.LastMovementProfile = movementProfile;
-            scope.MergeRoute(summary);
-            if (allowed)
-                scope.DigFallbackAllowed++;
-            return allowed;
-        }
     }
 }

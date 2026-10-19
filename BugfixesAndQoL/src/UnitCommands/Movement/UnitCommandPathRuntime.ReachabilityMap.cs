@@ -138,7 +138,7 @@ namespace BugfixesAndQoL.UnitCommands
             cacheMapEpoch = mapEpoch;
             if (!deferTraversal) AdvanceReachabilityMap();
         }
-        internal void AdvanceReachabilityMap(int targetCell = -1)
+        internal void AdvanceReachabilityMap(int targetCell = -1, int targetRegion = 0, bool requireMoat = false)
         {
             if (cacheMapEpoch != mapEpoch || reachabilityQueueHead >= reachabilityQueueTail) return;
             weightedMoatRoutePlanner.BeginReachabilityProbe();
@@ -147,7 +147,8 @@ namespace BugfixesAndQoL.UnitCommands
                 // A discovered ground route is already a conclusive negative answer to
                 // "requires moat". Otherwise exhaust the frontier before returning no route.
                 while (reachabilityQueueHead < reachabilityQueueTail &&
-                    (targetCell < 0 || visitedWithoutMoat[targetCell] != gridGeneration))
+                    (targetRegion <= 0 || reachedFriendlyMoatRegions[targetRegion] != gridGeneration) &&
+                    (targetCell < 0 || (requireMoat ? visitedWithMoat : visitedWithoutMoat)[targetCell] != gridGeneration))
                 {
                     int encoded = queue[reachabilityQueueHead++];
                     int state = encoded >> RouteStateShift, cell = encoded & RouteCellMask;

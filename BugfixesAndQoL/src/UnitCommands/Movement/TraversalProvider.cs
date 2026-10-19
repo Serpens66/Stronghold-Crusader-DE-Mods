@@ -6,6 +6,12 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal abstract unsafe class UnitCommandTraversalProvider
     {
+        // Optional work policy. The command owner always tries the complete native selector first.
+        internal virtual int FindDigWorkTarget(IntPtr tiles, int player, int unit, int vanillaResult) => vanillaResult;
+        internal virtual bool TryAllowDigWorkRegion(MoatWorkSelectionScope scope, int region) => false;
+        internal virtual bool TryGetDigWorkRoute(MoatWorkSelectionScope scope, int x, int y, out RouteProbeSummary summary)
+        { summary = default; return false; }
+        internal virtual PendingDigMoatTarget CreatePendingDigMoatTarget(MoatWorkSelectionScope scope, int moatId) => null;
         internal abstract void ResetMapState();
         internal abstract bool TryPrepareGroundReconstruction(PlanScope plan, GameUnit* unit);
         internal abstract bool HasPendingUnit(int id, uint global);

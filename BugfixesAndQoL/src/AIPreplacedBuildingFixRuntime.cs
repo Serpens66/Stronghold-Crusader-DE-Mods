@@ -415,6 +415,8 @@ namespace BugfixesAndQoL
         private void EconomyGridUpdate(ulong state, int mode)
         {
             // AIBuildDiagnoseTest BEGIN -- read-only evidence around the existing Vanilla call.
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             bool diagnose = Diagnostics.AiBuildObservation.HasObserver;
             if (diagnose)
             {
@@ -431,6 +433,7 @@ namespace BugfixesAndQoL
                 }
             }
             // AIBuildDiagnoseTest END
+            Shared.DevDiag.StopSpike(ref measured, "ai.economyGridUpdate", 20000);
             if (!sessionEnabled || !IsExpectedAivState(state)) return;
             lastAivState = state;
             if (economyProfileResolved && economyMapRelevant && mode != 0)
@@ -593,9 +596,12 @@ namespace BugfixesAndQoL
             ulong previousState = nearbyEconomyState;
             nearbyEconomyPlayerId = playerId;
             nearbyEconomyState = state;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             try { hook.Original(state, playerId); }
             finally
             {
+                Shared.DevDiag.StopSpike(ref measured, "ai.economyPlayer", 20000);
                 nearbyEconomyPlayerId = previousPlayer;
                 nearbyEconomyState = previousState;
             }
@@ -613,6 +619,8 @@ namespace BugfixesAndQoL
                     desiredStructureType, cooldown, economyMapRelevant ? 1 : 0,
                     sessionEnabled ? 1 : 0);
             EconomyGridOverlayScope overlay = null;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             try
             {
                 if (sessionEnabled && IsExpectedAivState(state) && economyMapRelevant)
@@ -636,7 +644,11 @@ namespace BugfixesAndQoL
                 }
                 return result;
             }
-            finally { ExitEconomyOverlay(overlay); }
+            finally
+            {
+                ExitEconomyOverlay(overlay);
+                Shared.DevDiag.StopSpike(ref measured, "ai.farmSearch", 20000);
+            }
         }
 
         private void ResourceSearch(ulong state, int playerId, int mode)
@@ -647,9 +659,12 @@ namespace BugfixesAndQoL
             if (diagnose)
                 Diagnostics.AiBuildObservation.Publish("resource-search-before", playerId,
                     mode, generationBefore);
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
             {
                 resourceSearchHook.Original(state, playerId, mode);
+                Shared.DevDiag.StopSpike(ref measured, "ai.resourceSearch", 20000);
                 if (diagnose)
                     Diagnostics.AiBuildObservation.Publish("resource-search-after", playerId,
                         mode, ReadSearchResult(state, false), ReadSearchResult(state, true),
@@ -666,7 +681,11 @@ namespace BugfixesAndQoL
                         mode, ReadSearchResult(state, false), ReadSearchResult(state, true),
                         ReadSearchGeneration(state));
             }
-            finally { ExitEconomyOverlay(overlay); }
+            finally
+            {
+                ExitEconomyOverlay(overlay);
+                Shared.DevDiag.StopSpike(ref measured, "ai.resourceSearch", 20000);
+            }
         }
 
         private void WoodSearch(ulong state, int playerId)
@@ -678,9 +697,12 @@ namespace BugfixesAndQoL
                 Diagnostics.AiBuildObservation.Publish("wood-search-before", playerId,
                     cooldownBefore, ReadSearchResult(state, false),
                     ReadSearchResult(state, true));
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             try { WoodSearchCore(state, playerId); }
             finally
             {
+                Shared.DevDiag.StopSpike(ref measured, "ai.woodSearch", 20000);
                 if (diagnose)
                 {
                     Diagnostics.AiBuildObservation.Publish("wood-search-after", playerId,
@@ -725,7 +747,10 @@ namespace BugfixesAndQoL
 
         private void NearbySearch(ulong state, uint coarseX, uint coarseY)
         {
-            NearbySearchCore(state, coarseX, coarseY);
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
+            try { NearbySearchCore(state, coarseX, coarseY); }
+            finally { Shared.DevDiag.StopSpike(ref measured, "ai.nearbySearch", 20000); }
         }
 
         private void NearbySearchCore(ulong state, uint coarseX, uint coarseY)
@@ -811,6 +836,8 @@ namespace BugfixesAndQoL
         private EconomyGridOverlayScope EnterEconomyOverlay(ulong state, int playerId, string helper)
         {
             EconomyGridOverlayScope overlay;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             try
             {
                 overlay = TryApplyEconomyGridOverlay(state, playerId, helper, false);
@@ -820,6 +847,7 @@ namespace BugfixesAndQoL
                 DisableEconomyFix("overlay-prepare", ex);
                 return null;
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "ai.overlay.apply", 20000); }
             if (overlay == null) return null;
             if (activeEconomyOverlayScopes == null)
                 activeEconomyOverlayScopes = new Stack<EconomyGridOverlayScope>();
@@ -837,7 +865,10 @@ namespace BugfixesAndQoL
                     new InvalidOperationException("The economy-overlay context stack was corrupted."));
             }
             else activeEconomyOverlayScopes.Pop();
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             RestoreEconomyGridOverlay(overlay);
+            Shared.DevDiag.StopSpike(ref measured, "ai.overlay.restore", 20000);
         }
 
         private static void ValidatePlacementReachabilityRouteCall(ReadOnlySpan<byte> memory,
@@ -865,6 +896,8 @@ namespace BugfixesAndQoL
                 reconcilingEconomyAvailability || !economyProfileResolved ||
                 !economyMapRelevant || currentMapIsSave || state == 0 || !IsAi(playerId))
                 return;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             try
             {
                 if (dirtyBreachPlayers.Contains(playerId))
@@ -922,6 +955,7 @@ namespace BugfixesAndQoL
             {
                 DisableEconomyFix("activation-or-refresh", ex);
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "ai.economyFix.refresh", 20000); }
         }
 
         private void TryConfirmDirtyWallBreach(int playerId)

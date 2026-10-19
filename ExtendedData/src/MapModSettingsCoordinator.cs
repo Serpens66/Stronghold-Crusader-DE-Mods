@@ -50,13 +50,6 @@ namespace ExtendedData
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo restartInfo);
 
-        private delegate void OpenLoadSaveRequesterDelegate(
-            Enums.RequesterTypes requesterType,
-            Action<string, FileHeader> okAction,
-            Action cancelAction,
-            int mpCrcCount,
-            bool skirmishScreen,
-            bool trailsScreen);
 
         private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
         private readonly ManualLogSource log;
@@ -65,15 +58,12 @@ namespace ExtendedData
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<ListView, FRONT_Multiplayer> observedMapLists =
             new Dictionary<ListView, FRONT_Multiplayer>();
-        private ListView observedSaveList;
         private Hook saveHook;
         private Hook leaveLobbyHook;
         private Hook startSkirmishGameHook;
-        private Hook openLoadSaveRequesterHook;
         private SaveSaveGameOrMapDelegate saveOriginal;
         private LeaveLobbyDelegate leaveLobbyOriginal;
         private StartSkirmishGameDelegate startSkirmishGameOriginal;
-        private OpenLoadSaveRequesterDelegate openLoadSaveRequesterOriginal;
         private byte[] pendingMapSavePayload;
         private string pendingMapSavePath;
         private bool pendingMapSaveDecision;
@@ -118,18 +108,6 @@ namespace ExtendedData
                 typeof(FRONT_Multiplayer),
                 "StartSkirmishGame",
                 typeof(HUD_IngameMenu.RestartSkirmishMapInfo));
-            MethodInfo openLoadSaveRequesterMethod = typeof(HUD_LoadSaveRequester).GetMethod(
-                nameof(HUD_LoadSaveRequester.OpenLoadSaveRequester),
-                BindingFlags.Static | BindingFlags.Public,
-                null,
-                new[]
-                {
-                    typeof(Enums.RequesterTypes), typeof(Action<string, FileHeader>), typeof(Action),
-                    typeof(int), typeof(bool), typeof(bool)
-                },
-                null) ?? throw new MissingMethodException(
-                    typeof(HUD_LoadSaveRequester).FullName,
-                    nameof(HUD_LoadSaveRequester.OpenLoadSaveRequester));
 
             bool registered = ModSaveDataAPI.Instance.RegisterModDataHandler(
                 SaveDataIdentifier,
@@ -150,11 +128,39 @@ namespace ExtendedData
                 (StartSkirmishGameDelegate)StartSkirmishGameHook);
             startSkirmishGameOriginal = startSkirmishGameHook.GenerateTrampoline<StartSkirmishGameDelegate>();
 
-            openLoadSaveRequesterHook = new Hook(
-                openLoadSaveRequesterMethod,
-                (OpenLoadSaveRequesterDelegate)OpenLoadSaveRequesterHook);
-            openLoadSaveRequesterOriginal =
-                openLoadSaveRequesterHook.GenerateTrampoline<OpenLoadSaveRequesterDelegate>();
+            APIShared.Savegames.SaveLoadDialogEvents.Register(ExtendedDataPlugin.PluginGuid, "MapAndLordData", new APIShared.Savegames.SaveLoadDialogCallbacks
+            {
+                Opened = context =>
+                {
+                    if (enabled && context.RequesterType == Enums.RequesterTypes.SaveEditorMap)
+                    {
+                        bool existing = GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveEntryName, ignoreCase: true) != null;
+                        context.State = existing;
+                        editorSaveOptions.OpenMap(existing);
+                    }
+                },
+                Prepare = context =>
+                {
+                    // Lord preparation publishes host data and applies Fixes preferences. It is
+                    // not a read-only gate: every contribution must get its veto first.
+                    bool multiplayerSave = context.RequesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
+                        context.RequesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame;
+                    if (enabled && multiplayerSave && MultiplayerSaveLaunchPreparing != null &&
+                        !MultiplayerSaveLaunchPreparing(MainViewModel.viewModelLoaded ? MainViewModel.Instance.FRONTMultiplayer : null, context.Header))
+                        throw new InvalidOperationException("Lord-data save preparation is not ready.");
+                    if (enabled && context.RequesterType == Enums.RequesterTypes.SaveEditorMap)
+                        ArmMapEditorSave(IOPath.Combine(ConfigSettings.GetUserMapsPath(), context.FileName + ".map"),
+                            editorSaveOptions.IncludeMapModSettings, context.State is bool existing && existing);
+                },
+                AttemptFinished = context =>
+                {
+                    if (context.RequesterType == Enums.RequesterTypes.SaveEditorMap) ClearMapEditorSaveDecision();
+                },
+                Closed = (context, outcome) =>
+                {
+                    if (context.RequesterType == Enums.RequesterTypes.SaveEditorMap) editorSaveOptions.CloseMap();
+                }
+            });
 
             R3PacketEventHook<MapModSettingsPacket> packetHook =
                 GameNetworkAPI.Instance.GetPacketEventFor<MapModSettingsPacket>();
@@ -194,156 +200,21 @@ namespace ExtendedData
 
         public void Dispose()
         {
+            enabled = false;
+            ClearMapEditorSaveDecision();
             settingsCoordinator.LobbyOpened -= OnLobbyOpened;
             foreach (ListView mapList in observedMapLists.Keys)
                 mapList.SelectionChanged -= OnMapListSelectionChanged;
             observedMapLists.Clear();
-            DetachSaveSelection();
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            startSkirmishGameHook?.Dispose();
-            openLoadSaveRequesterHook?.Dispose();
-            leaveLobbyHook?.Dispose();
-            saveHook?.Dispose();
+            // These hooks were already published. Retain them and pass through while disabled.
             if (saveHandlerRegistered)
             {
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
                 saveHandlerRegistered = false;
             }
-        }
-
-        private void OpenLoadSaveRequesterHook(
-            Enums.RequesterTypes requesterType,
-            Action<string, FileHeader> okAction,
-            Action cancelAction,
-            int mpCrcCount,
-            bool skirmishScreen,
-            bool trailsScreen)
-        {
-            if (requesterType == Enums.RequesterTypes.LoadSinglePlayerGame ||
-                requesterType == Enums.RequesterTypes.LoadSinglePlayerCoopGame ||
-                requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
-                requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame)
-            {
-                DetachSaveSelection();
-                SavegameModSettings.CancelLoadChoice();
-                editorSaveOptions.OpenLoad();
-                Action<string, FileHeader> prepared = (fileName, header) =>
-                {
-                    if (enabled && (requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
-                        requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame) &&
-                        MultiplayerSaveLaunchPreparing != null &&
-                        !MultiplayerSaveLaunchPreparing(MainViewModel.Instance?.FRONTMultiplayer, header))
-                    {
-                        ShowMessage("Lord data", "The selected save's Lord data is not synchronized. Please try again after all players are ready.");
-                        return;
-                    }
-                    try
-                    {
-                        if (!SavegameModSettings.PrepareLoadWithRestartCheck(header?.filePath, editorSaveOptions.UseCurrentSavegameSettings))
-                        {
-                            ShowMessage(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), SerpLocalization.Get("ExtendedData.SettingsRestartRequired"));
-                            return;
-                        }
-                        okAction?.Invoke(fileName, header);
-                    }
-                    catch
-                    {
-                        SavegameModSettings.CancelLoadChoice();
-                        throw;
-                    }
-                    finally
-                    {
-                        editorSaveOptions.CloseLoad();
-                        DetachSaveSelection();
-                    }
-                };
-                Action cancelled = () =>
-                {
-                    SavegameModSettings.CancelLoadChoice();
-                    editorSaveOptions.CloseLoad();
-                    DetachSaveSelection();
-                    cancelAction?.Invoke();
-                };
-                try
-                {
-                    openLoadSaveRequesterOriginal(
-                        requesterType, prepared, cancelled, mpCrcCount, skirmishScreen, trailsScreen);
-                    if (MainViewModel.viewModelLoaded)
-                    {
-                        observedSaveList = MainViewModel.Instance?.HUDLoadSaveRequester?.FindName("FileList") as ListView;
-                        if (observedSaveList != null)
-                        {
-                            observedSaveList.SelectionChanged += OnSaveSelectionChanged;
-                            RefreshSaveSelection();
-                        }
-                    }
-                }
-                catch
-                {
-                    SavegameModSettings.CancelLoadChoice();
-                    editorSaveOptions.CloseLoad();
-                    DetachSaveSelection();
-                    throw;
-                }
-                return;
-            }
-            if (!enabled || requesterType != Enums.RequesterTypes.SaveEditorMap)
-            {
-                openLoadSaveRequesterOriginal(
-                    requesterType, okAction, cancelAction, mpCrcCount, skirmishScreen, trailsScreen);
-                return;
-            }
-
-            bool hasExistingEntry =
-                GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveEntryName, ignoreCase: true) != null;
-            editorSaveOptions.OpenMap(hasExistingEntry);
-            Action<string, FileHeader> wrappedOk = (fileName, header) =>
-            {
-                string targetPath = IOPath.Combine(ConfigSettings.GetUserMapsPath(), fileName + ".map");
-                try
-                {
-                    ArmMapEditorSave(
-                        targetPath,
-                        editorSaveOptions.IncludeMapModSettings,
-                        hasExistingEntry);
-                    okAction?.Invoke(fileName, header);
-                }
-                catch (Exception exception)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:313", "Could not execute the confirmed Map Editor save safely: " + exception);
-                    ShowEditorSaveError();
-                }
-                finally
-                {
-                    ClearMapEditorSaveDecision();
-                    editorSaveOptions.CloseMap();
-                }
-            };
-            Action wrappedCancel = () =>
-            {
-                editorSaveOptions.CloseMap();
-                cancelAction?.Invoke();
-            };
-            openLoadSaveRequesterOriginal(
-                requesterType, wrappedOk, wrappedCancel, mpCrcCount, skirmishScreen, trailsScreen);
-        }
-
-        private void OnSaveSelectionChanged(object sender, SelectionChangedEventArgs args) =>
-            RefreshSaveSelection();
-
-        private void RefreshSaveSelection()
-        {
-            FileHeader header = (observedSaveList?.SelectedItem as FileRow)?.fileHeader;
-            editorSaveOptions.SelectSavegame(header?.filePath);
-        }
-
-        private void DetachSaveSelection()
-        {
-            if (observedSaveList != null)
-                observedSaveList.SelectionChanged -= OnSaveSelectionChanged;
-            observedSaveList = null;
         }
 
         private void ArmMapEditorSave(string path, bool includeSettings, bool hadEntry)
@@ -375,6 +246,7 @@ namespace ExtendedData
             bool doLeaveOnSteam,
             bool refreshLobbyList)
         {
+            if (!enabled) { leaveLobbyOriginal(self, doLeaveOnSteam, refreshLobbyList); return; }
             SavegameModSettings.CancelLoadChoice();
             if (mapContextActive && !launchInProgress && !mapMissionActive)
                 ExitMapContext(broadcast: IsHostLobby(self), "left lobby");
@@ -387,6 +259,7 @@ namespace ExtendedData
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
         {
+            if (!enabled) { startSkirmishGameOriginal(self, restartInfo); return; }
             launchInProgress = IsMapContextCurrent();
             try
             {

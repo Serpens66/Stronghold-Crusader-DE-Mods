@@ -367,11 +367,11 @@ namespace BugfixesAndQoL.GateRouting
             Shared.DevDiag.Start(ref measured);
             try { topologyProvider?.ProcessTick(now); }
             catch { topologyProvider?.RecordSnapshotFailure(); }
-            Shared.DevDiag.Stop(ref measured, "gate.tick.topology+access");
+            Shared.DevDiag.StopSpike(ref measured, "gate.tick.topology+access", 20000);
             Shared.DevDiag.Start(ref measured);
             try { samePclRouteRuntime?.ProcessTick(now); }
             catch (Exception ex) { TryLogDiagnosticFailure(ex); }
-            Shared.DevDiag.Stop(ref measured, "gate.tick.tribes+publish");
+            Shared.DevDiag.StopSpike(ref measured, "gate.tick.tribes+publish", 20000);
         }
 
         internal void ObserveTargetOrder(TribeIssueOrderWithTargetEventArgs args)

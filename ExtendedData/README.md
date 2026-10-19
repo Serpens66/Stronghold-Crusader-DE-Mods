@@ -36,11 +36,15 @@ The complete index is available under [ExtendedData guides](../Guides/ExtendedDa
 
 ### Mod settings in saved games
 
-Saved games retain the host settings of compatible mods. Loading normally restores those saved values. For customizable games, **Use current mod settings** in the Load Game dialog lets you use your currently active host settings instead. Personal settings remain your own. ExtendedData's own options are excluded from these gameplay-setting snapshots.
+APIShared provides **Use current mod settings** in the Load Game dialog, even when ExtendedData is absent or disabled. For customizable saves, the checkbox chooses between saved and currently active host settings supported by APIShared. Its last explicit choice is remembered across saves, games and full game restarts. Initially it is off, so saved settings are used.
+
+Without a usable checkbox, automatic loads use current supported settings. Existing mission restrictions and fixed Trail creator rules remain in force. Forced states for old or restricted saves do not overwrite your remembered choice. Personal settings remain your own; ExtendedData's own options are excluded from these gameplay-setting snapshots.
 
 ### Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.5.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.12.1 or newer**, including its `APIShared.Content.dll`. The shared library owns JSON namespace validation and the schema-3 mission-settings codec. ExtendedData keeps its existing public models/result types through adapters, plus its file handling and Lord/host selection rules. Subscribe to APIShared separately when using the Steam modpack.
+
+Map/Trail compatibility messages use APIShared's shared participant checks. A broken settings provider is reported without hiding other compatible mods.
 
 Shared services handle presets and game-mode classification. Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change. Validated Fixes preference property metadata is cached; preference values and snapshot checks are unchanged.
 
@@ -80,10 +84,14 @@ Das vollständige Inhaltsverzeichnis befindet sich unter [ExtendedData Guides](.
 
 ### Mod-Einstellungen in Spielständen
 
-Spielstände behalten die Host-Einstellungen kompatibler Mods. Beim Laden werden normalerweise diese gespeicherten Werte wiederhergestellt. Bei anpassbaren Spielen kannst du im Dialog zum Laden mit **Aktuelle Modsettings verwenden** stattdessen deine derzeit aktiven Host-Einstellungen übernehmen. Persönliche Einstellungen bleiben deine eigenen. ExtendedDatas eigene Optionen sind von diesen Spielsettings-Snapshots ausgenommen.
+APIShared stellt die Checkbox **Aktuelle Modsettings verwenden** im Ladedialog bereit, auch wenn ExtendedData fehlt oder deaktiviert ist. Bei anpassbaren Spielständen wählst du damit zwischen gespeicherten und derzeit aktiven, von APIShared unterstützten Host-Einstellungen. Die letzte bewusste Auswahl bleibt über Spielstände, Partien und vollständige Spielneustarts hinweg erhalten. Anfangs ist die Checkbox aus; dann gelten die gespeicherten Einstellungen.
+
+Fehlt eine nutzbare Checkbox, werden beim automatischen Laden die aktuellen unterstützten Einstellungen verwendet. Bestehende Missionssperren und feste Trail-Autorenregeln bleiben erhalten. Erzwungene Zustände bei alten oder gesperrten Spielständen überschreiben deine gemerkte Auswahl nicht. Persönliche Einstellungen bleiben deine eigenen; ExtendedDatas eigene Optionen sind von diesen Spielsettings-Snapshots ausgenommen.
 
 ### Kompatibilität und Diagnosen
 
-Diese Mod benötigt den Script Extender und **APIShared 0.5.0 oder neuer**. APIShared muss beim Steam-Modpack separat abonniert werden.
+Diese Mod benötigt den Script Extender und **APIShared 0.12.1 oder neuer**, einschließlich `APIShared.Content.dll`. Die gemeinsame Bibliothek übernimmt die JSON-Namespace-Prüfung und den Schema-3-Codec der Missionseinstellungen. ExtendedDatas öffentliche Modelle/Ergebnistypen bleiben über Adapter erhalten, ebenso seine Dateiverarbeitung und Lord-/Host-Auswahlregeln. APIShared muss beim Steam-Modpack separat abonniert werden.
+
+Kompatibilitätsmeldungen für Maps und Trails verwenden APIShareds gemeinsame Teilnehmerprüfung. Ein fehlerhafter Settings-Anbieter wird gemeldet, ohne andere kompatible Mods auszublenden.
 
 Gemeinsame Dienste übernehmen Presets und die Erkennung des Spielmodus. Routineausgaben erscheinen auf Debug-Ebene. Wiederholte Diagnosen werden begrenzt, um das Log zu entlasten; Warnungen und Fehler bleiben verfügbar. Dafür ist keine Spieleinstellung nötig. Geprüfte Metadaten der Fixes-Einstellungen werden zwischengespeichert; Einstellungswerte und Snapshot-Prüfungen bleiben unverändert.

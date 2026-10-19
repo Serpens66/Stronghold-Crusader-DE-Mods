@@ -20,6 +20,24 @@ namespace BugfixesAndQoL.UnitCommands
                 pendingPlan = null;
             pendingFillMoatApproach = null;
             pendingDigMoatTarget = null;
+            if (relationshipMode == 1)
+            {
+                // Intermediate failed region probes are not a failed work selection.
+                // Suppress an enclosing work scope for the entire native attempt.
+                MoatWorkSelectionScope previous = activeMoatWorkSelection;
+                int vanillaResult;
+                activeMoatWorkSelection = null;
+                try { vanillaResult = originalFindMoatWorkTarget(tileManager, playerId, unitId, relationshipMode); }
+                finally { activeMoatWorkSelection = previous; }
+                if (vanillaResult >= 0 || !TraversalEnabled) return vanillaResult;
+                try { return Traversal.FindDigWorkTarget(tileManager, playerId, unitId, vanillaResult); }
+                catch (Exception ex)
+                {
+                    TryLogDiagnosticFailure("dig-moat-provider", ex);
+                    pendingDigMoatTarget = null;
+                    return vanillaResult;
+                }
+            }
             MoatWorkSelectionScope scope;
             try
             {
@@ -37,7 +55,15 @@ namespace BugfixesAndQoL.UnitCommands
                     tileManager, playerId, unitId, relationshipMode);
             }
 
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             int result = SelectMoatWorkTarget(scope, tileManager, playerId, unitId, relationshipMode);
+            Shared.DevDiag.StopSpike(ref measured, "uc.moatWork.select", 20000, () =>
+                $"player={playerId} ai={GamePlayerManagerAPI.Instance.IsAIPlayer(playerId)} unit={unitId} " +
+                $"mode={relationshipMode} result={result} start=({scope.StartX},{scope.StartY}) " +
+                $"mapBuilds={scope.SearchBuilds} expandedNodes={scope.SearchExpandedNodes} " +
+                $"searchMs={scope.SearchMilliseconds:F1} " +
+                $"endpointHits={scope.EndpointCacheHits}");
 
             try
             {
@@ -48,9 +74,6 @@ namespace BugfixesAndQoL.UnitCommands
                         mapEpoch, tileManager, unitId, playerId, result,
                         scope.StartX, scope.StartY, approach,
                         scope.ImprovedFillSelection) { SearchScope = scope };
-                else if (relationshipMode == 1 && result > 0 &&
-                    TryCreatePendingDigMoatTarget(scope, result, out PendingDigMoatTarget digTarget))
-                    pendingDigMoatTarget = digTarget;
                 LogMoatWorkSelection(scope);
             }
             catch (Exception ex)
@@ -86,42 +109,8 @@ namespace BugfixesAndQoL.UnitCommands
             int moatId,
             out PendingDigMoatTarget pending)
         {
-            pending = null;
-            if (scope == null || scope.RelationshipMode != 1 ||
-                !scope.Matches(mapEpoch, scope.TileManager) ||
-                !TryReadMoatRecordTile(
-                    scope.TileManager, moatId, out int tileId, out int x, out int y))
-            {
-                return false;
-            }
-
-            int targetRegion = pathRegionGrid[tileId];
-            if (targetRegion <= 0 || targetRegion > MaximumRegionId ||
-                !scope.RegionDecisions.TryGetValue(targetRegion, out bool selectedByFallback) ||
-                !selectedByFallback)
-            {
-                return false;
-            }
-
-            if (!TryGetMoatWorkRoute(scope, x, y, out RouteProbeSummary summary))
-            {
-                return false;
-            }
-
-            pending = new PendingDigMoatTarget(
-                mapEpoch,
-                scope.TileManager,
-                scope.UnitId,
-                scope.PlayerId,
-                moatId,
-                scope.StartX,
-                scope.StartY,
-                tileId,
-                x,
-                y,
-                targetRegion,
-                summary) { SearchScope = scope };
-            return true;
+            pending = TraversalEnabled ? Traversal.CreatePendingDigMoatTarget(scope, moatId) : null;
+            return pending != null;
         }
 
         internal bool TryCreateMoatWorkSelectionScope(
@@ -134,7 +123,7 @@ namespace BugfixesAndQoL.UnitCommands
             scope = null;
             bool friendlyMovementEnabled = ExtensionsEnabled;
             bool improvedFillEnabled = relationshipMode == 2 && IsImprovedMoatFillingEnabled();
-            if ((relationshipMode == 1 && !friendlyMovementEnabled) ||
+            if ((relationshipMode == 1 && !TraversalEnabled) ||
                 (relationshipMode == 2 && !friendlyMovementEnabled && !improvedFillEnabled) ||
                 disposed || tileManager == IntPtr.Zero ||
                 tileManager != GameTileManagerAPI.Instance.GetTileManager() ||
@@ -277,8 +266,7 @@ namespace BugfixesAndQoL.UnitCommands
             public int EndpointCacheHits { get; set; }
             public Dictionary<int, RouteProbeSummary> EndpointRoutes { get; } =
                 new Dictionary<int, RouteProbeSummary>();
-            public int DigFallbackEvaluations { get; set; }
-            public int DigFallbackAllowed { get; set; }
+            public object TraversalWorkState { get; set; }
             public int FillFallbackEvaluations { get; set; }
             public int FillFallbackAllowed { get; set; }
             public int CheckedApproachTiles { get; set; }
@@ -290,13 +278,7 @@ namespace BugfixesAndQoL.UnitCommands
             public int FillOwnerRouteRejected { get; set; }
             public int FillOccupiedRejected { get; set; }
             public bool ImprovedFillSelection { get; set; }
-            public string LastRegionHelper { get; set; }
-            public int LastMovementProfile { get; set; }
             public RouteProbeSummary Route;
-            public Dictionary<int, bool> RegionDecisions { get; } =
-                new Dictionary<int, bool>();
-            public Dictionary<int, RouteProbeSummary> RegionSummaries { get; } =
-                new Dictionary<int, RouteProbeSummary>();
             public Dictionary<int, MoatWorkApproach> FillApproaches { get; } =
                 new Dictionary<int, MoatWorkApproach>();
 

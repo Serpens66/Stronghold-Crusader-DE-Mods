@@ -10,7 +10,7 @@ using UnityEngine;
 namespace ExtendedData
 {
     [BepInDependency("000shcdese", "2.4.0")]
-    [BepInDependency("APIShared_Serp", "0.11.1")]
+    [BepInDependency("APIShared_Serp", "0.12.1")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
@@ -20,8 +20,10 @@ namespace ExtendedData
     {
         public const string PluginGuid = "ExtendedData_Serp";
         public const string PluginName = "Extended Data";
-        public const string PluginVersion = "1.0.14";
+        public const string PluginVersion = "1.0.15";
         public const bool ExtendedDataModSettingsOptOut = true;
+        // Advertised before LibraryLoaded so APIShared can reject older competing dialog hooks.
+        public const bool UsesApiSharedSaveLoadDialog = true;
 
         private static ExtendedDataRuntime runtime;
         private static bool deferredCompatibilityRefreshPending;
@@ -41,6 +43,8 @@ namespace ExtendedData
             try
             {
                 CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
+                if (!APIShared.Savegames.SaveLoadDialogEvents.IsAvailable)
+                    throw new InvalidOperationException("APIShared load/save requester is unavailable; ExtendedData runtime was not published.");
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings = new ExtendedDataSettingsViewModel();
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
@@ -52,13 +56,16 @@ namespace ExtendedData
                     logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
                 string customTrailsRoot = ConfigSettings.GetUserCustomTrailsPath();
                 var runtimeCandidate = new ExtendedDataRuntime(Logger, customTrailsRoot, Settings);
+                // Initialize publishes permanent hooks incrementally. Keep their owner rooted even
+                // if a later registration fails; failure cleanup only deactivates those hooks.
+                runtime = runtimeCandidate;
                 try
                 {
                     runtimeCandidate.Initialize();
                 }
                 catch
                 {
-                    // Dispose is only valid while rolling back an unpublished candidate.
+                    // Published hooks cannot be removed, including on initialization failure.
                     runtimeCandidate.Dispose();
                     throw;
                 }

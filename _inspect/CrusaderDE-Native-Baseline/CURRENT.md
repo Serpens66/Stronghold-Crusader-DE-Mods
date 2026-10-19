@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Pause and zoom automation boundaries](./sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md): native versus managed pause, multiplayer transport asymmetry, public camera methods and static validation limits.
+
 - [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; generated baseline remains on its recorded 2.14.2 provenance.
 
 - [Minimap last-frame speech ownership](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, managed video/speech lifecycle, channel replacement defect and isolated regression limits.

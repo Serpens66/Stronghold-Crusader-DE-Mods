@@ -71,6 +71,7 @@ foreach (var relative in orderedProjects)
     var properties = new Dictionary<string, string> {
         ["GameDir"] = game, ["ExtenderDir"] = game + @"\BepInEx\plugins\000shcdese",
         ["ApiSharedDir"] = game + @"\BepInEx\plugins\APIShared_Serp", ["MSBuildThisFileDirectory"] = folder + "\\",
+        ["MSBuildProjectDirectory"] = folder,
         ["MSBuildSDKsPath"] = Directory.GetDirectories(@"C:\Program Files\dotnet\sdk")
             .OrderByDescending(p => Version.Parse(Path.GetFileName(p))).First() + @"\Sdks"
     };

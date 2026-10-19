@@ -238,9 +238,6 @@ namespace ExtendedData
                 "ExtendedDataMapEditorSaveOptionsHost",
                 editorSaveOptions);
             GameXAMLManagerAPI.Instance.RegisterBinding(
-                "ExtendedDataSavegameLoadOptionsHost",
-                editorSaveOptions);
-            GameXAMLManagerAPI.Instance.RegisterBinding(
                 "ExtendedDataTrailMakerSaveOptionsHost",
                 editorSaveOptions);
             missionSettingsCoordinator = new TrailMissionSettingsCoordinator(
@@ -403,19 +400,15 @@ namespace ExtendedData
 
         public void Dispose()
         {
+            enabled = false;
+            editorSaveOptions.SetEnabled(false);
+            mapSettingsCoordinator?.SetEnabled(false);
+            missionSettingsCoordinator?.SetEnabled(false);
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            initHook?.Dispose();
-            missionHook?.Dispose();
-            buttonHook?.Dispose();
-            updateHostInfoHook?.Dispose();
-            updateCustomLordNamesHook?.Dispose();
-            combinedNameHook?.Dispose();
-            coopTrail1RowHook?.Dispose();
-            coopTrail2RowHook?.Dispose();
-            coopTrail3RowHook?.Dispose();
-            coopTrail4RowHook?.Dispose();
+            // Hook fields and their trampolines remain rooted by the plugin's static runtime.
+            // Only logical activation and removable subscriptions are retired here.
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
             settings.CoopPackageRemoteStatusChanged -= OnCoopPackageRemoteStatusChanged;

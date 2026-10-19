@@ -65,6 +65,38 @@ namespace Shared
 #endif
         }
 
+        // Like Stop, and additionally writes one immediate "DEVDIAG spike:" line with start/end
+        // wall clock and thread when this single call took at least spikeMicros.
+        [Conditional("SERP_DEVDIAG")]
+        internal static void StopSpike(ref long started, string name, long spikeMicros)
+        {
+#if SERP_DEVDIAG
+            if (started == 0) return;
+            long elapsed = Stopwatch.GetTimestamp() - started;
+            started = 0;
+            DevDiagRuntime.Add(name, 1, elapsed);
+            if (elapsed * 1000000 >= spikeMicros * Stopwatch.Frequency)
+                DevDiagRuntime.Spike(name, elapsed, null);
+#endif
+        }
+
+        // StopSpike with context; the detail factory runs only when the spike line is written.
+        [Conditional("SERP_DEVDIAG")]
+        internal static void StopSpike(ref long started, string name, long spikeMicros, Func<string> detail)
+        {
+#if SERP_DEVDIAG
+            if (started == 0) return;
+            long elapsed = Stopwatch.GetTimestamp() - started;
+            started = 0;
+            DevDiagRuntime.Add(name, 1, elapsed);
+            if (elapsed * 1000000 < spikeMicros * Stopwatch.Frequency) return;
+            string text;
+            try { text = detail?.Invoke(); }
+            catch (Exception ex) { text = "detailFailed=" + ex.GetType().Name; }
+            DevDiagRuntime.Spike(name, elapsed, text);
+#endif
+        }
+
         // One-off development message with ms timestamp; the factory runs only in DEVDIAG builds.
         [Conditional("SERP_DEVDIAG")]
         internal static void Log(Func<string> message)
@@ -121,6 +153,27 @@ namespace Shared
                 Flush(now);
         }
 
+        // At most SpikeLinesPerWindow immediate lines per flush window; the rest is counted
+        // and reported as spikes.suppressed so a long freeze cannot flood the log.
+        private const int SpikeLinesPerWindow = 60;
+        private static int spikeLines;
+
+        internal static void Spike(string name, long elapsed, string detail)
+        {
+            if (Interlocked.Increment(ref spikeLines) > SpikeLinesPerWindow)
+            {
+                Add("spikes.suppressed", 1, 0);
+                return;
+            }
+            DateTime end = DateTime.Now;
+            DateTime start = end.AddTicks(-(long)(elapsed * (double)TimeSpan.TicksPerSecond / Stopwatch.Frequency));
+            CultureInfo c = CultureInfo.InvariantCulture;
+            Write("DEVDIAG spike: " + name + " ms=" + (elapsed * 1000.0 / Stopwatch.Frequency).ToString("F1", c) +
+                " start=" + start.ToString("HH:mm:ss.fff", c) + " end=" + end.ToString("HH:mm:ss.fff", c) +
+                " thread=" + Thread.CurrentThread.ManagedThreadId.ToString(c) +
+                (string.IsNullOrEmpty(detail) ? "" : " " + detail));
+        }
+
         internal static void Log(Func<string> message)
         {
             if (message == null) return;
@@ -148,6 +201,7 @@ namespace Shared
         private static void Flush(long now)
         {
             long start = Interlocked.Exchange(ref windowStart, now);
+            Interlocked.Exchange(ref spikeLines, 0);
             double seconds = Math.Max(1e-9, (now - start) / (double)Stopwatch.Frequency);
             int count = Volatile.Read(ref used);
             var line = new StringBuilder(64 + count * 64);

@@ -462,7 +462,10 @@ namespace BugfixesAndQoL.GateRouting
             QueryKind localKind = SharedKind(kind, playerId);
             CaptureScopeSample(localKind, playerId, playerId, -1, playerId);
             CountSharedSearch(kind, localKind);
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             QueryScope scope = Enter(playerId, diagnosticKind: localKind);
+            Shared.DevDiag.StopSpike(ref measured, "gate.search.enter", 10000);
             DiagBeginSharedSearch(playerId, kind);
             return ScopeBox.Rent(scope);
         }
@@ -474,8 +477,11 @@ namespace BugfixesAndQoL.GateRouting
             try
             {
                 QueryKind localKind = query.Diagnostic.Kind;
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
                 long touched = Complete(query, localKind,
                     kind == EnemyGateSearchKind.Builder, success, completed);
+                Shared.DevDiag.StopSpike(ref measured, "gate.search.complete", 10000);
                 DiagCompleteSharedSearch(kind, query.PlayerId, query.Diagnostic, completed, success, touched, query.Snapshot.Fingerprint);
             }
             finally

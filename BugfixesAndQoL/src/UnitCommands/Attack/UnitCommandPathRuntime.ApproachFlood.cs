@@ -35,6 +35,8 @@ namespace BugfixesAndQoL.UnitCommands
             int sourceRegion,
             int movementClass)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 movementClass, EnemyGateSearchKind.Attack, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("Attack", movementClass);
@@ -50,6 +52,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Attack, bridgeCompleted, false);
+                Shared.DevDiag.StopSpike(ref measured, "uc.attack.approachFlood", 20000);
             }
         }
 

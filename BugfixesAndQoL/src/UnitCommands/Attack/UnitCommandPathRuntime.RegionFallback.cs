@@ -32,9 +32,17 @@ namespace BugfixesAndQoL.UnitCommands
             int targetRegion,
             int routeKind)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             int result = ObserveScopedRegionPairReachabilityCore(
                 pathManager, movementClass, sourceRegion, targetRegion, routeKind,
                 out int vanillaResult);
+            Shared.DevDiag.StopSpike(ref measured, "uc.regionPair", 20000, () =>
+                $"player={movementClass} regions={sourceRegion}->{targetRegion} routeKind={routeKind} " +
+                $"vanilla={vanillaResult} effective={result} ladderProbe={activeLadderAttackProbe != null} " +
+                $"moatWork={(activeMoatWorkSelection != null ? activeMoatWorkSelection.RelationshipMode.ToString() : "none")} " +
+                $"attackScope={activeAttackApproachDiagnostic != null} directFill={activeDirectFillCommand != null} " +
+                $"directCursor={activeDirectCursorMove != null} moveCommand={activeMoveCommand != null}");
             EnemyBridgeDiagnosticBridge.ObserveRegion(movementClass, sourceRegion, targetRegion, routeKind, vanillaResult, result);
             // The already-owned E2610 detour can report its result to the optional
             // test policy. Without that policy, the existing result is unchanged.
@@ -68,8 +76,11 @@ namespace BugfixesAndQoL.UnitCommands
             int routeKind,
             out int vanillaResult)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             vanillaResult = originalRegionPairReachability(
                 pathManager, movementClass, sourceRegion, targetRegion, routeKind);
+            Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.regionPair", 20000);
             if (TryHandleVanillaLadderRegionPair(
                     pathManager,
                     movementClass,

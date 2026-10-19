@@ -9,6 +9,7 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("legacy mission-settings adapter preserves aliases, mutation and wire contracts", MissionSettingsAdapterTests.Run),
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),
     ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
@@ -62,6 +63,7 @@ var tests = new (string Name, Action Run)[]
     ("Workshop Trail staging preserves existing JSON", TestWorkshopTrailJsonConflict),
     ("Workshop Trail staging rejects overlapping roots", TestWorkshopTrailJsonUnsafeRoots),
     ("mod-data namespaces are isolated and immutable", TestModDataNamespaces),
+    ("legacy mod-data adapter preserves Content results and identities", TestModDataAdapter),
     ("invalid mod-data containers fail closed", TestInvalidModDataContainers),
     ("map mod-data API distinguishes file and namespace absence", TestMapModDataApi),
     ("Custom Lord mod-data API supports paths and configs", TestLordModDataApi),
@@ -165,6 +167,22 @@ static void TestCoopTrailPreviewTeams()
     Check(new[] { 1, -1, 1, -1, 2, -1, -1, -1 }, 4);
     Check(new[] { 1, 1, -1, -1, -1, -1, -1, -1 });
     Assert(8 * 28 - 3 + 7 * 8 <= 310, "eight rows and seven compact dividers exceed the list height");
+}
+
+static void TestModDataAdapter()
+{
+    Assert(typeof(ExtendedDataModDataReadResult).Assembly.GetName().Name == "ExtendedData.Core", "legacy assembly identity changed");
+    foreach (string json in new[] { "{}", "{", "[]", "{\"author.mod\":1}", "{\"Author.Mod\":{},\"author.mod\":{}}",
+        "\uFEFF{\"Author.Mod\":{\"x\":[1,true,null,{\"nested\":2}]}}" })
+    {
+        var legacy = ModDataNamespaceReader.Read(json, "author.mod", "memory");
+        var shared = APIShared.ModData.ModDataNamespaceReader.Read(json, "author.mod", "memory");
+        Assert(legacy.Status.ToString() == shared.Status.ToString(), "status mapping changed");
+        Assert(legacy.Success == shared.Success && legacy.Json == shared.Json && legacy.ModGuid == shared.ModGuid &&
+            legacy.Source == shared.Source && legacy.Diagnostic == shared.Diagnostic, "adapter changed result metadata");
+    }
+    foreach (ExtendedDataModDataReadStatus status in Enum.GetValues<ExtendedDataModDataReadStatus>())
+        Assert(status.ToString() == ((APIShared.ModData.ModDataReadStatus)(int)status).ToString(), "enum identity mapping changed");
 }
 
 static void TestModDataNamespaces()

@@ -205,37 +205,26 @@ namespace ExtendedData
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
                 var result = new List<TrailModCompatibilityInfo>();
-                IReadOnlyDictionary<string, IModSettingsPresetEndpoint> sharedParticipants =
-                    SavegameModSettings.GetCompatibleParticipants();
+                // Consume the same decision and diagnostic as savegame preparation. A
+                // rejected endpoint must not be re-probed through a second contract here.
+                var reports = SavegameModSettings.GetParticipantDiagnostics()
+                    .Where(item => !string.IsNullOrEmpty(item.ModGuid))
+                    .GroupBy(item => item.ModGuid, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key,
+                        group => group.FirstOrDefault(item => item.IsCompatible) ?? group.First(), StringComparer.Ordinal);
                 foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
                 {
-                    if (IsRegistrationGroupOptedOut(group))
-                        continue;
+                    if (IsRegistrationGroupOptedOut(group)) continue;
                     string modId = group.Key;
-                    if (string.Equals(modId, ExtendedDataPlugin.PluginGuid, StringComparison.Ordinal))
-                        continue;
-                    LobbyModSettingsEntry entry = group.First();
-                    string displayName = GetModDisplayName(entry);
-                    bool sharedCompatible = sharedParticipants.ContainsKey(modId);
-                    TrailModCompatibilityResult compatibility = entry == null || group.Skip(1).Any() ||
-                        sharedCompatible
-                        ? null
-                        : GetCompatibility(entry.ViewModel);
-                    string incompatibility = entry == null
-                        ? "missing mod-settings registration"
-                        : group.Skip(1).Any()
+                    if (string.Equals(modId, ExtendedDataPlugin.PluginGuid, StringComparison.Ordinal)) continue;
+                    reports.TryGetValue(modId, out var report);
+                    if (report?.Status == ModSettingsParticipantStatus.Excluded) continue;
+                    string reason = group.Skip(1).Any()
                         ? "multiple mod-settings panels use the same plugin GUID"
-                        : sharedCompatible
-                        ? null
-                        : compatibility.IncompatibilityReason ??
-                          "not accepted by the shared Map/Trail/Savegame settings contract";
-                    result.Add(new TrailModCompatibilityInfo(
-                        modId,
-                        displayName,
-                        sharedCompatible
-                            ? ModSettingsApplication.GetHostProperties(sharedParticipants[modId])
-                            : compatibility?.Properties,
-                        incompatibility, sharedCompatible ? (object)sharedParticipants[modId] : entry?.ViewModel));
+                        : report?.Diagnostic ?? (report?.IsCompatible == true ? null : "missing owning plugin GUID or mod-settings registration");
+                    result.Add(new TrailModCompatibilityInfo(modId, GetModDisplayName(group.First()),
+                        report?.IsCompatible == true ? report.HostProperties.ToArray() : Array.Empty<PropertyInfo>(),
+                        reason, report?.IsCompatible == true ? (object)report.Endpoint : group.First()?.ViewModel));
                 }
                 TrailModCompatibilityInfo[] catalog = result
                     .OrderBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
@@ -262,24 +251,6 @@ namespace ExtendedData
                 foreach (KeyValuePair<string, string> item in current)
                     lastCompatibilityFailures[item.Key] = item.Value;
             }
-
-            private TrailModCompatibilityResult GetCompatibility(object viewModel)
-            {
-                if (!(viewModel is IModSettingsPresetEndpoint endpoint))
-                {
-                    return new TrailModCompatibilityResult(
-                        Array.Empty<PropertyInfo>(),
-                        "missing typed APIShared preset endpoint");
-                }
-                return TrailModCompatibilityContract.Evaluate(
-                    viewModel,
-                    endpoint.System_CreateDisabledMissionPresetSnapshot,
-                    (property, value) => MessagePackSerializer.Serialize(property.PropertyType, value),
-                    (type, bytes) => MessagePackSerializer.Deserialize(type, bytes));
-            }
-
-            private string GetIncompatibilityReason(object viewModel) =>
-                GetCompatibility(viewModel).IncompatibilityReason;
 
             private static string GetModId(LobbyModSettingsEntry entry)
             {
@@ -466,11 +437,14 @@ namespace ExtendedData
 
             public void Dispose()
             {
+                enabled = false;
                 ModSettingsWorkingSourceRegistry.Unregister(this);
                 SetCoopPackagePresentation(null, 0);
-                foreach (IDisposable hook in hooks)
-                    hook.Dispose();
-                hooks.Clear();
+                // The list also contains subscriptions. Release those, but retain every
+                // published interception and its trampoline for the lifetime of the process.
+                foreach (IDisposable item in hooks)
+                    if (!(item is Hook)) item.Dispose();
+                hooks.RemoveAll(item => !(item is Hook));
             }
 
             public string[] Enter(ModSettingsDefinition document, bool editable, string source)

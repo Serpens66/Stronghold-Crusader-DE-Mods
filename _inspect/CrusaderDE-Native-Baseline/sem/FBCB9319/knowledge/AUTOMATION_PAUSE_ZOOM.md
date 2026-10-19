@@ -1,0 +1,20 @@
+# Pause and zoom automation boundaries
+
+Static audit 2026-10-20. Installed native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 and managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789 match CURRENT.json / DATABASE_INFO.json. Source-based multiplayer/zoom integration observations refer to the current workspace, not an assertion that its mods are installed.
+
+## Native pause flow
+
+- Confirmed export `DLL_GameAction`, RVA 0x81870: action 0x418 (the real managed `GameActionCommand.Game_Paused`) writes signed Int32 `value` to VA 0x18366A0F8 and returns 0. The `structureID` and `value2` parameters are not used by this branch. Managed `EngineInterface.GameAction` owns the engine lock; its return is not a pause success signal.
+- Native initialization at RVA 0x87D10 resets this global to 0. RVA 0x71670 writes -1 for an initialization-related pass. Internal function names remain candidate confidence; these writes are directly present in the hash-matched decompiler export. Read normal 0/1 pause states only in a ready gameplay session.
+- The complete enclosing updater at RVA 0xCDE60 was inspected, including network wait/error branches, frame-skip and pause gates. Native time/update work requires pause == 0; the main simulation body requires the supplied skip byte == 0 and pause < 1, and its transient negative pause path normalizes to 0. A positive pause skips that body without stopping all preparation/presentation work. Network loading/acknowledgement states can independently prevent progress.
+- Confirmed export `DLL_RunTick`, RVA 0x86680, encloses the update/presentation chain. Candidate-named output builder RVA 0x19D960 copies the native pause into PlayState, later consumed as `lastGameState.game_paused`. Therefore the published managed snapshot may lag a direct native read.
+- All 15 named-global references in the current semantic decompiler export were checked: RVA 0x2230, 0x25E0, 0x87D0, 0x71670, 0x81870, 0x87D10, 0x89D10, 0x89F40, 0x8BD60, 0x90830, 0x90CD0, three references in 0xCDE60 and the output builder at 0x19D960. The other readers gate local input/counters or save/load-related handling; they do not create a second public pause command. This is a named-global audit, not a claim to exhaust aliased memory accesses.
+- Script Extender `IsLocalPaused` reads the Int32 at its resolved `GamePausedVA` and compares against 1. `SetLocalPaused` is a raw write and explicitly does not synchronize multiplayer. `Director.Paused` is a separate managed flag: `SetPausedState(true)` refuses multiplayer; setting it false does not clear the native pause.
+
+## Managed requests and camera
+
+Vanilla's non-MP pause key sends Game_Paused with `(1,1)` or `(0,0)`. BugfixesAndQoL queues pause as a synchronized Chore, but sends unpause through the direct transport so a stopped simulation can resume. Existing authorization, active-human sender validation, main-thread dispatch and sender-local application remain required. Requests are currently private implementation methods, not a public automation API. CastlePlanner's existing GameAction Pre observer can veto unpause during preview.
+
+Public `PerfectPixelWithZoom.adjustZoom(float,bool)` changes the step position, clamps/wraps it and starts Unity-time interpolation. Positive values zoom in. It contains no pause check; input-side pause gates live in KeyManager/CameraControls2D. Public getters expose actual scale and interpolation completion. `SetZoomImmediate(float)` clamps/applies scale but neither synchronizes `zoomPos` nor cancels in-flight interpolation. BugfixesAndQoL's existing zoom hooks normalize scale to resolution and alter step boundaries; consumers should call the public methods and observe the result.
+
+Full public-call examples, scheduling requirements and acceptance scenarios: [AutomatisierungTest.md](../../../../../AutomatisierungTest.md). Pause/zoom live acceptance is not claimed; only the earlier 2026-10-19 AutoLoadSave run has live evidence.

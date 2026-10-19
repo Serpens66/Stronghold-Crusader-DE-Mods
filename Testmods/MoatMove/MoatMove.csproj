@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\FastIntegration.cs" />
+    <Compile Include="src\DigWorkFallback.cs" />
     <Compile Include="src\FastRouteField.cs" />
     <Compile Include="src\IFastRouteField.cs" />
     <Compile Include="src\FastNativeKernel.cs" />

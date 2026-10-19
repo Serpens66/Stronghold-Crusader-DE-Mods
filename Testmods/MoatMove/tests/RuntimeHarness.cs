@@ -113,12 +113,16 @@ namespace MoatMove
     {
         private bool nativeTraversalDisabled, manualCommandsEnabled;
         private bool TraversalEnabled => !nativeTraversalDisabled && ExtensionsEnabled;
+        private FriendlyMoatMovementRuntime Traversal => TraversalEnabled ? this : null;
         private bool ManualCommandsEnabled => manualCommandsEnabled;
         private static bool nativeManualProbe;
         private const int FastSearchNodeBudget = 16384;
         private long fastSearches;
-        private object BeginTemporaryRouteReport(IntPtr m,string source="fixture")=>null;
+        private object BeginTemporaryRouteReport(IntPtr m,string source="fixture",int? argument2=null,int? argument3=null)=>null;
         private void EndTemporaryRouteReport(IntPtr m,object token,bool completed,int result) {}
+        private void ObserveTemporaryNativeBuilderOutput(object token,int result) {}
+        private static bool TemporaryAssassinPublicationRejected(string reason) => false;
+        private void ReportNativeDetourBarrier(string stage,Exception ex) => throw new InvalidOperationException(stage,ex);
         private void ResetFastCommandMap() {}
 
         private bool IsNativeManualGroupFlood(IntPtr manager,int p,int r,int x,int y)=>false;
@@ -233,8 +237,6 @@ namespace MoatMove
         private Func<IntPtr, int, int, int, int, int> originalRegionPairReachability;
         private LadderAttackProbeScope activeLadderAttackProbe;
         private Func<IntPtr, int, int, int, int, int> originalRegionReachability = (p, player, region, x, y) => 0;
-        private bool TryAllowDigWorkRegionSearch(IntPtr p, int player, int region, int x, int y, int vanilla, out int result)
-        { result = vanilla; return false; }
         private bool TryAllowEarlyMoveHereGroupRegion(IntPtr p, int player, int region, int x, int y, int vanilla, out int result)
         { result = vanilla; return false; }
         private bool throwAudit;
@@ -606,6 +608,7 @@ namespace MoatMove
                 TestUnitMovePipeline(manager, units);
                 captureWeighted=false;TestSettings.Settings.RouteMode=0;
 
+                DigWorkFallbackTests();
                 MoatWorkSelectionScope NewScope() => new MoatWorkSelectionScope(mapEpoch, (IntPtr)1, 1, 1, 2, 10, 10, 1010, 1);
                 var work = NewScope();
                 for (int repeat = 0; repeat < 20; repeat++)
@@ -1246,14 +1249,14 @@ namespace Shared {
  using MoatMove;
  internal readonly struct GameBuildingFootprintBounds { public GameBuildingFootprintBounds(int minX,int minY,int maxX,int maxY){MinX=minX;MinY=minY;MaxX=maxX;MaxY=maxY;} public int MinX{get;} public int MinY{get;} public int MaxX{get;} public int MaxY{get;} public int CenterXTimesTwo=>MinX+MaxX; public int CenterYTimesTwo=>MinY+MaxY; }
  internal static unsafe class GameBuildingFootprint { public const int MaximumGridSize=6; public static bool TryGetBounds(GameBuilding* building,out GameBuildingFootprintBounds bounds){bounds=default;if(building==null||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;int minX=int.MaxValue,minY=int.MaxValue,maxX=int.MinValue,maxY=int.MinValue;for(int index=0;index<count;index++){if(ids[index]>int.MaxValue||!GameTileManagerAPI.Instance.IsValidTileId((int)ids[index]))return false;var p=GameTileManagerAPI.Instance.GetTileVectorFromId((int)ids[index]);if(p.X<minX)minX=p.X;if(p.Y<minY)minY=p.Y;if(p.X>maxX)maxX=p.X;if(p.Y>maxY)maxY=p.Y;}bounds=new GameBuildingFootprintBounds(minX,minY,maxX,maxY);return true;} public static bool TryGetBounds(GameBuilding building,out GameBuildingFootprintBounds bounds)=>TryGetBounds(&building,out bounds); public static bool TryGetBounds(ref GameBuilding building,out GameBuildingFootprintBounds bounds){fixed(GameBuilding* pointer=&building)return TryGetBounds(pointer,out bounds);} public static bool ContainsTileId(GameBuilding* building,int tileId){if(building==null||tileId<0||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;for(int index=0;index<count;index++)if(ids[index]==(uint)tileId)return true;return false;} public static bool ContainsTileId(GameBuilding building,int tileId)=>ContainsTileId(&building,tileId); }
- internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} } }
+ internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} public static void LogDebugLimited(object log,string key,string text) {} public static void LogWarningLimited(object log,string key,string text) {} } }
 
 // The historical comparison keeps Shared; current API bodies use their independently owned internals.
 namespace APIShared.Internal {
  using MoatMove;
  internal readonly struct GameBuildingFootprintBounds { public GameBuildingFootprintBounds(int minX,int minY,int maxX,int maxY){MinX=minX;MinY=minY;MaxX=maxX;MaxY=maxY;} public int MinX{get;} public int MinY{get;} public int MaxX{get;} public int MaxY{get;} public int CenterXTimesTwo=>MinX+MaxX; public int CenterYTimesTwo=>MinY+MaxY; }
  internal static unsafe class GameBuildingFootprint { public const int MaximumGridSize=6; public static bool TryGetBounds(GameBuilding* building,out GameBuildingFootprintBounds bounds){bounds=default;if(building==null||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;int minX=int.MaxValue,minY=int.MaxValue,maxX=int.MinValue,maxY=int.MinValue;for(int index=0;index<count;index++){if(ids[index]>int.MaxValue||!GameTileManagerAPI.Instance.IsValidTileId((int)ids[index]))return false;var p=GameTileManagerAPI.Instance.GetTileVectorFromId((int)ids[index]);if(p.X<minX)minX=p.X;if(p.Y<minY)minY=p.Y;if(p.X>maxX)maxX=p.X;if(p.Y>maxY)maxY=p.Y;}bounds=new GameBuildingFootprintBounds(minX,minY,maxX,maxY);return true;} public static bool TryGetBounds(GameBuilding building,out GameBuildingFootprintBounds bounds)=>TryGetBounds(&building,out bounds); public static bool TryGetBounds(ref GameBuilding building,out GameBuildingFootprintBounds bounds){fixed(GameBuilding* pointer=&building)return TryGetBounds(pointer,out bounds);} public static bool ContainsTileId(GameBuilding* building,int tileId){if(building==null||tileId<0||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;for(int index=0;index<count;index++)if(ids[index]==(uint)tileId)return true;return false;} public static bool ContainsTileId(GameBuilding building,int tileId)=>ContainsTileId(&building,tileId); }
- internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} } }
+ internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} public static void LogDebugLimited(object log,string key,string text) {} public static void LogWarningLimited(object log,string key,string text) {} } }
 
 namespace MoatMove {
  internal enum RouteCalculationMode { Exact = 0, RequiredOnly = 1 }
@@ -1316,5 +1319,13 @@ namespace MoatMove {
    if (APIShared.TemporaryGateRouteAcceptanceBridge.Current != null)
     throw new InvalidOperationException("MoatMove fixture requires inactive optional diagnostics.");
   }
+ }
+}
+
+namespace Shared {
+ internal static class DevDiag {
+  [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Start(ref long timestamp) {}
+  [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Stop(ref long timestamp,string name) {}
+  [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void StopSpike(ref long timestamp,string name,long threshold,System.Func<string> details=null) {}
  }
 }

@@ -3,12 +3,13 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>ExtendedData.Core</RootNamespace>
     <AssemblyName>ExtendedData.Core</AssemblyName>
-    <AssemblyVersion>1.0.14.0</AssemblyVersion>
-    <FileVersion>1.0.14.0</FileVersion>
+    <AssemblyVersion>1.0.15.0</AssemblyVersion>
+    <FileVersion>1.0.15.0</FileVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="APIShared.Content"><HintPath>$(ApiSharedDir)\APIShared.Content.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs" Link="Shared\Runtime\Persistence\AtomicFileReplacement.cs" />
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs" Link="Shared\Runtime\Persistence\DependencyFreeJson.cs" />
   </ItemGroup>

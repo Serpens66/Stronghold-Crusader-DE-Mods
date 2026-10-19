@@ -80,7 +80,7 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FastIntegration.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -100,6 +100,7 @@ ValidateDetailedDiagnostics();
 SplitContracts.Validate(root);
 
 var methods = new HashSet<string>(new[] {
+    "TryAllowDigWorkRegionPair", "TryAllowDigWorkRegionSearch",
     "EmitSelectionCallAdapter",
     "LogDetailedInfo",
     "EnsureMoveCommandGroupSummary",
@@ -113,7 +114,7 @@ var methods = new HashSet<string>(new[] {
     "RentBuildingFallbackWorkBuffers", "ReturnBuildingFallbackWorkBuffers", "BuildPathWithCompletedMoatRouteVariantWithMoat", "ObserveUnitMoveOrder", "GetCurrentUnitMoveFrame", "AbandonUnitMoveFrame", "ClearUnitMoveFrames",
     "GetUnitMovePlan", "CopyMovementPlan", "GetNativeMovementStart", "TryAuditFallbackPath", "TryAuditFallbackPathCore", "IsCompletedEnemyMoatForPlayer",
     "DescribeFallbackContractFailure",
-    "EnableCompletedMoatModeForScopedMovement", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication",
+    "EnableCompletedMoatModeForScopedMovement", "ResolveScopedCompletedMoatMode", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication",
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
     "CaptureAttackApproachState",
     "TryHandleVanillaLadderRegionPair", "RestoreVanillaLadderBuildingCandidates", "GetBuildingApproachPairKey",
@@ -151,7 +152,10 @@ foreach (var cls in tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSynt
     .Where(c => c.Identifier.Text == "FriendlyMoatMovementRuntime"))
 foreach (var member in cls.Members)
 {
-    if (member is MethodDeclarationSyntax m && methods.Contains(m.Identifier.Text) ||
+    // Include the complete addon work policy. Its private helper names and method
+    // split are not a test contract; only the resulting work behavior is.
+    if (tree.FilePath == "DigWorkFallback.cs" ||
+        member is MethodDeclarationSyntax m && methods.Contains(m.Identifier.Text) ||
         member is BaseTypeDeclarationSyntax t && types.Contains(t.Identifier.Text) ||
         member is PropertyDeclarationSyntax p && properties.Contains(p.Identifier.Text) ||
         member is FieldDeclarationSyntax f && f.Declaration.Variables.Any(v => constants.Contains(v.Identifier.Text)))
@@ -250,6 +254,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FormationBoundaryFixture.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "DigWorkFallbackTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "SearchKernelTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RuntimeHarness.cs")), path: "RuntimeHarness.cs")
 }, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));

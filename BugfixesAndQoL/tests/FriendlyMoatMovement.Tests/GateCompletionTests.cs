@@ -31,6 +31,11 @@ interface IEnemyGatePathPolicy {
  void ExitNativeSearch(object token, EnemyGateSearchKind kind, bool completed, bool success);
 }
 static class EnemyGatePathPolicyBridge { public static IEnemyGatePathPolicy Current; }
+// Same [Conditional] contract as Shared/Runtime/Diagnostics/DevDiag.cs (no SERP_DEVDIAG here).
+namespace Shared { static class DevDiag {
+ [System.Diagnostics.Conditional("SERP_DEVDIAG")] public static void Start(ref long started) {}
+ [System.Diagnostics.Conditional("SERP_DEVDIAG")] public static void StopSpike(ref long started,string name,long spikeMicros) {}
+} }
 static class EnemyBridgeDiagnosticBridge {
  public static object BeginSearch(string kind,int player) => null;
  public static void EndSearch(object token,bool completed,int result) {}

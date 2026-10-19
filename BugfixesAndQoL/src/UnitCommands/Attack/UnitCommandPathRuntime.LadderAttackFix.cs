@@ -318,12 +318,17 @@ namespace BugfixesAndQoL.UnitCommands
             // Call the E2610 trampoline directly: this preserves Vanilla's exact return
             // value and graph-state writes without recursing through the shared detour.
             probe.ModeRetryCount++;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             int groupModeResult = originalRegionPairReachability(
                 pathManager,
                 playerId,
                 sourceRegion,
                 targetRegion,
                 probe.GroupMovementMode);
+            Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.ladderRetry", 10000, () =>
+                $"player={playerId} regions={sourceRegion}->{targetRegion} " +
+                $"groupMode={probe.GroupMovementMode} result={groupModeResult} retries={probe.ModeRetryCount}");
             probe.LastModeRetryResult = groupModeResult;
             if (groupModeResult == 0)
                 return false;

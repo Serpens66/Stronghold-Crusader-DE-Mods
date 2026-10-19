@@ -32,22 +32,52 @@ namespace BugfixesAndQoL.UnitCommands
         {
             CentralMovementPlanDelegate plan = originalCentralMovementPlan;
             originalCentralMovementPlan = (manager, unit, x, y) =>
-            { centralOriginalEntries++; return lastCentralMovementPlanResult = plan(manager, unit, x, y); };
+            {
+                centralOriginalEntries++;
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
+                try { return lastCentralMovementPlanResult = plan(manager, unit, x, y); }
+                finally { Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.central", 20000); }
+            };
             PathBuilderDelegate builder = originalPathBuilder;
             originalPathBuilder = (manager, movementClass, profile) =>
-            { builderOriginalEntries++; return lastPathBuilderResult = builder(manager, movementClass, profile); };
+            {
+                builderOriginalEntries++;
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
+                try { return lastPathBuilderResult = builder(manager, movementClass, profile); }
+                finally { Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.builder", 20000); }
+            };
             PathReconstructionDelegate reconstruction = originalPathReconstruction;
             originalPathReconstruction = manager =>
-            { reconstructionOriginalEntries++; return lastPathReconstructionResult = reconstruction(manager); };
+            {
+                reconstructionOriginalEntries++;
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
+                try { return lastPathReconstructionResult = reconstruction(manager); }
+                finally { Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.reconstruction", 20000); }
+            };
             TribeFloodFillMembershipDelegate flood = originalTribeFloodFillMembership;
             originalTribeFloodFillMembership = (manager, tribe, stamp) =>
-            { floodOriginalEntries++; return lastTribeFloodFillResult = flood(manager, tribe, stamp); };
+            {
+                floodOriginalEntries++;
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
+                try { return lastTribeFloodFillResult = flood(manager, tribe, stamp); }
+                finally { Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.flood", 20000); }
+            };
             FirstGroupUnitOnCompletedMoatDelegate group = originalFirstGroupUnitOnCompletedMoat;
             originalFirstGroupUnitOnCompletedMoat = (manager, tribe) =>
             { groupOriginalEntries++; return lastFirstGroupUnitResult = group(manager, tribe); };
             RegionReachabilityDelegate region = originalRegionReachability;
             originalRegionReachability = (manager, movementClass, targetRegion, x, y) =>
-            { regionOriginalEntries++; return lastRegionReachabilityResult = region(manager, movementClass, targetRegion, x, y); };
+            {
+                regionOriginalEntries++;
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
+                try { return lastRegionReachabilityResult = region(manager, movementClass, targetRegion, x, y); }
+                finally { Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.region", 20000); }
+            };
             CursorTilePairReachabilityDelegate pair = originalCursorTilePairReachability;
             originalCursorTilePairReachability = (manager, target, selected, cache) =>
             { pairOriginalEntries++; return lastCursorTilePairResult = pair(manager, target, selected, cache); };
@@ -60,6 +90,8 @@ namespace BugfixesAndQoL.UnitCommands
 
         private int CentralMovementPlanBarrier(IntPtr unitManager, int unitId, int targetX, int targetY)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = centralOriginalEntries;
             try { return RunCentralMovementPlanWithContext(unitManager, unitId, targetX, targetY); }
             catch (Exception ex)
@@ -69,10 +101,13 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalCentralMovementPlan(unitManager, unitId, targetX, targetY); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("central-movement-plan-fallback", fallback); return 0; }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.central", 20000); }
         }
 
         private int PathBuilderBarrier(IntPtr pathManager, int movementClass, int movementProfile)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = builderOriginalEntries;
             try { return BuildPathWithCompletedMoatRouteVariant(pathManager, movementClass, movementProfile); }
             catch (Exception ex)
@@ -82,10 +117,13 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalPathBuilder(pathManager, movementClass, movementProfile); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("F4930-builder-fallback", fallback); return 0; }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.builder", 20000); }
         }
 
         private int PathReconstructionBarrier(IntPtr pathManager)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = reconstructionOriginalEntries;
             try { return BuildReconstructedUnitPath(pathManager); }
             catch (Exception ex)
@@ -95,10 +133,13 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalPathReconstruction(pathManager); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("E32B0-reconstruction-fallback", fallback); return 0; }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.reconstruction", 20000); }
         }
 
         private int TribeFloodFillBarrier(IntPtr tribeManager, int tribeId, int floodFillStamp)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = floodOriginalEntries;
             try { return AllowTribeFloodFillForMoveOrder(tribeManager, tribeId, floodFillStamp); }
             catch (Exception ex)
@@ -108,10 +149,13 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalTribeFloodFillMembership(tribeManager, tribeId, floodFillStamp); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("tribe-flood-fill-fallback", fallback); return 0; }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.flood", 20000); }
         }
 
         private int FirstGroupUnitBarrier(IntPtr tribeManager, int tribeId)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = groupOriginalEntries;
             try { return SelectOwnerSafeGroupMoatMode(tribeManager, tribeId); }
             catch (Exception ex)
@@ -121,11 +165,14 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalFirstGroupUnitOnCompletedMoat(tribeManager, tribeId); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("group-moat-mode-fallback", fallback); return 0; }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.groupMoat", 20000); }
         }
 
         private int RegionReachabilityBarrier(
             IntPtr pathManager, int movementClass, int targetRegion, int startX, int startY)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = regionOriginalEntries;
             try { return AllowBuilderAfterFailedRegionSearch(pathManager, movementClass, targetRegion, startX, startY); }
             catch (Exception ex)
@@ -135,11 +182,14 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalRegionReachability(pathManager, movementClass, targetRegion, startX, startY); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("region-reachability-fallback", fallback); return 0; }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.region", 20000); }
         }
 
         private int CursorTilePairBarrier(
             IntPtr pathManager, int targetTileId, int selectedUnitTileId, byte useCache)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = pairOriginalEntries;
             try { return AllowAttackCursorTilePairThroughCompletedMoat(pathManager, targetTileId, selectedUnitTileId, useCache); }
             catch (Exception ex)
@@ -149,10 +199,13 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalCursorTilePairReachability(pathManager, targetTileId, selectedUnitTileId, useCache); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("cursor-tile-pair-fallback", fallback); return 0; }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.cursorPair", 20000); }
         }
 
         private void CombatFinishResumeBarrier(IntPtr unitManager, int unitId)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = resumeOriginalEntries;
             try { ResumeMovementAfterCombatWithMoatContext(unitManager, unitId); }
             catch (Exception ex)
@@ -162,11 +215,14 @@ namespace BugfixesAndQoL.UnitCommands
                 try { originalCombatFinishResume(unitManager, unitId); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("combat-finish-resume-fallback", fallback); }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.combatResume", 20000); }
         }
 
         private void CursorMoveStagerBarrier(
             IntPtr unitManager, int tribeId, int targetX, int targetY, int targetContext, int actionFlags)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             long entries = stagerOriginalEntries;
             try { StageDirectCursorMoveWithOwnerRoute(unitManager, tribeId, targetX, targetY, targetContext, actionFlags); }
             catch (Exception ex)
@@ -176,6 +232,7 @@ namespace BugfixesAndQoL.UnitCommands
                 try { originalCursorMoveStager(unitManager, tribeId, targetX, targetY, targetContext, actionFlags); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("cursor-move-stager-fallback", fallback); }
             }
+            finally { Shared.DevDiag.StopSpike(ref measured, "uc.cursorStager", 20000); }
         }
     }
 }

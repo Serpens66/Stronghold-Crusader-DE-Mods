@@ -38,7 +38,38 @@ APIShared metadata is written only by the multiplayer host. A client save can
 legitimately lack that entry. Vanilla matches save names plus its play checksum/time
 evidence; whole-file SHA equality between different peers is not established.
 
+## Managed requester timing (2026-10-19 audit)
+
+The installed native and managed hashes were rechecked against the identities above.
+The real public `HUD_LoadSaveRequester.OpenLoadSaveRequester` selects the visible
+requester instance and opens it with confirmation/cancellation callbacks. Selection
+updates `selectedHeader`; double-click routes through public `ButtonClicked(1, true)`.
+`ButtonClicked(1, ...)` hides all three requester surfaces **before** `RunOKAction`
+invokes the confirmation callback. Reading `IsVisible` only in that callback therefore
+cannot establish whether the user was offered an option. Capture visibility/choice
+before the original ButtonClicked executes, retaining the file-specific decision.
+
+Editor overwrite confirmation defers RunOKAction until its popup is confirmed;
+declining the overwrite restores the requester without confirming the save.
+`CloseRequester` hides the surfaces and invokes CancelAction. RunOKAction returning
+only establishes that its delegate returned: asynchronous host-load admission and
+mission initialization still have their existing independent completion boundaries.
+No native load flag, player remapping or archive identifier changes are required
+to move the requester owner. APIShared's save-contract validator checks the public
+requester methods and accessed managed fields against the installed assembly.
+
 ## Validation limits
+
+Managed follow-up, 20.10.2026: both installed hashes remain unchanged. The private,
+instance `HUD_LoadSaveRequester.RunOKAction(): void` invokes `OKAction` and **then**
+updates remembered map/save names and `GameData.currentFileName`, reading the
+current requester selection/name again. Editor overwrite executes it later from
+the popup callback. Serializing only ButtonClicked or the consumer delegate does
+not enclose this delayed caller's bookkeeping. APIShared therefore also encloses
+the validated private RunOKAction entry with a permanent managed hook; nested
+requester opens wait until that enclosing operation and attempt cleanup return.
+The contract validator checks its real visibility/signature; no publicized direct
+call or additional native offset is used.
 
 Source, installed IL and the matching native export were inspected. This establishes
 the routing mismatch, not a reproduced multiplayer desynchronization. Automated

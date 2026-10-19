@@ -26,6 +26,7 @@
     <Reference Include="APIShared">
       <HintPath>..\..\APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll</HintPath>
     </Reference>
+    <Reference Include="APIShared.Content"><HintPath>$(ApiSharedDir)\APIShared.Content.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack">
       <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
     </Reference>
