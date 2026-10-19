@@ -73,18 +73,31 @@ namespace BugfixesAndQoL.UnitCommands
         {
             // Render end is inside DLL_RunTick, after current audio inputs and before its audio export.
             // A no-buffer managed run never reaches this callback, so pending feedback survives it.
+            // Runs every render pass; the callbacks are created once instead of per frame.
+            if (speechAcceptCallback == null)
+            {
+                speechAcceptCallback = AcceptSpeech;
+                speechEmitCallback = request => speechNative.Emit(request);
+                speechDisableCallback = DisableSpeech;
+            }
             lock (stateSync)
                 speechQueue.OnNativeFrame(nativeFeedbackRunActive &&
                     Environment.CurrentManagedThreadId == mainThreadId &&
                     speechEngineLock != null && Monitor.IsEntered(speechEngineLock),
-                    request => LocalInputEnabled && speechNative != null && HasValidMap() &&
-                        request.MapEpoch == commandRuntime.mapEpoch &&
-                        request.PlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId() &&
-                        GameTribeManagerAPI.Instance.TryGetTribeById(request.TribeId, out GameTribe* tribe) &&
-                        tribe != null && tribe->r_AliveState == AliveState.IsAlive &&
-                        tribe->r_GlobalId == request.TribeGlobalId && tribe->r_PlayerIdOwner == request.PlayerId,
-                    request => speechNative.Emit(request), DisableSpeech);
+                    speechAcceptCallback, speechEmitCallback, speechDisableCallback);
         }
+
+        private Func<FormationSpeechRequest, bool> speechAcceptCallback;
+        private Action<FormationSpeechRequest> speechEmitCallback;
+        private Action<Exception> speechDisableCallback;
+
+        private bool AcceptSpeech(FormationSpeechRequest request) =>
+            LocalInputEnabled && speechNative != null && HasValidMap() &&
+            request.MapEpoch == commandRuntime.mapEpoch &&
+            request.PlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId() &&
+            GameTribeManagerAPI.Instance.TryGetTribeById(request.TribeId, out GameTribe* tribe) &&
+            tribe != null && tribe->r_AliveState == AliveState.IsAlive &&
+            tribe->r_GlobalId == request.TribeGlobalId && tribe->r_PlayerIdOwner == request.PlayerId;
 
         private void QueueSpeech(FormationSpeechRequest request)
         {

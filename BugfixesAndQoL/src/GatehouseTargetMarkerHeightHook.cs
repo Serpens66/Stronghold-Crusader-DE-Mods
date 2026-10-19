@@ -74,9 +74,11 @@ namespace BugfixesAndQoL
         private static void BeforeAddUpdatePixie(GameMap __instance, int x, int y, int tile_x, ref int tile_y,
             int file, int image, bool hiMode, int _layerDelay)
         {
+            // Runs for every pixie each frame; only cursor file 107 can need a correction.
+            if (file != 107) return;
             try
             {
-                if (file == 107 && Interlocked.Exchange(ref postStartupLogged, 1) == 0)
+                if (Volatile.Read(ref postStartupLogged) == 0 && Interlocked.Exchange(ref postStartupLogged, 1) == 0)
                     Shared.DebugLogHelper.LogInfo(log,
                         "GATEHOUSE_TARGET_MARKER_POST_STARTUP: first cursor pixie; image=" + image +
                         ", tile_x=" + tile_x + ", tile_y=" + tile_y + ", layerDelay=" + _layerDelay +

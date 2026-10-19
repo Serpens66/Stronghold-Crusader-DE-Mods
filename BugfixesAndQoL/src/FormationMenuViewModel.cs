@@ -294,7 +294,10 @@ namespace BugfixesAndQoL
 
         private void SaveConfiguration(string setting, string value)
         {
-            configFile.Save();
+            // Callers just assigned a changed ConfigEntry value; with SaveOnConfigSet BepInEx has
+            // already written the file synchronously, so a second write (per wheel notch) is redundant.
+            if (!configFile.SaveOnConfigSet)
+                configFile.Save();
         }
 
         private void ConfigurationChanged(object sender, System.EventArgs args)

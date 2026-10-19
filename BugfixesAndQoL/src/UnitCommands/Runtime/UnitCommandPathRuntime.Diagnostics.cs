@@ -25,11 +25,17 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
+        // DetailedDiagnosticsEnabled is a fixed false; without the (never defined) trace symbol the
+        // compiler removes these calls including their large interpolated arguments, which
+        // otherwise were built on every tribe order. Define BUGFIXES_UNITCOMMAND_TRACE and enable
+        // the flag together to restore the trace.
+        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
         internal void LogCursorDecision(string message)
         {
             LogDetailedInfo($"Bugfixes and QoL friendly-moat-movement {message}.");
         }
 
+        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
         internal void LogDetailedInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             if (DetailedDiagnosticsEnabled)
@@ -61,26 +67,31 @@ namespace BugfixesAndQoL.UnitCommands
             activeMoatWorkSelection == null &&
             !((activePlan ?? pendingPlan)?.MoatWorkMovement ?? false);
 
+        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
         internal void LogMovementContext(string message)
         {
             BufferOrLogCommandDiagnostic(message);
         }
 
+        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
         internal void LogBuilderDecision(string message)
         {
             BufferOrLogCommandDiagnostic(message);
         }
 
+        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
         internal void LogPipelineDiagnostic(string message)
         {
             BufferOrLogCommandDiagnostic(message);
         }
 
+        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
         internal void LogCommandDiagnostic(string message)
         {
             BufferOrLogCommandDiagnostic(message);
         }
 
+        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
         internal void BufferOrLogCommandDiagnostic(string message)
         {
             if (!DetailedDiagnosticsEnabled)

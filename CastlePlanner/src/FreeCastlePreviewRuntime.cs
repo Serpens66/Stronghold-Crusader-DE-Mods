@@ -393,8 +393,9 @@ namespace CastlePlanner
 
         private void BeforeGameAction(GameActionPreEventArgs args)
         {
-            if (IsFeatureModeAllowed() && !bypassPauseHook && IsPreviewPendingOrActive &&
-                args.Command == Enums.GameActionCommand.Game_Paused && args.ActionState == 0)
+            // Cheap command test first: this runs for every game action.
+            if (args.Command == Enums.GameActionCommand.Game_Paused && args.ActionState == 0 &&
+                !bypassPauseHook && IsPreviewPendingOrActive && IsFeatureModeAllowed())
             {
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:401", "Unpause command suppressed during castle selection.");
                 args.SkipOriginalFunction = true;
@@ -1489,10 +1490,7 @@ namespace CastlePlanner
         }
 
         private static bool IsFeatureModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                CastlePlannerPlugin.PluginGuid,
-                Shared.GameplayFeatureId.FreeCastlePreview,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(CastlePlannerPlugin.PluginGuid, Shared.GameplayFeatureId.FreeCastlePreview);
 
         private void ResetPreview()
         {

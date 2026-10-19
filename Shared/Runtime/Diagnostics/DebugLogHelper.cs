@@ -376,17 +376,21 @@ namespace Shared
             interval = frequency * 30; this.capacity = capacity;
         }
         internal int Count { get { lock (sync) return entries.Count; } }
+        // Repeated failures are the common case; parse the pattern once and reuse one hasher per thread.
+        private static readonly System.Text.RegularExpressions.Regex TimestampPattern =
+            new System.Text.RegularExpressions.Regex(@"\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\]");
+        [ThreadStatic] private static System.Security.Cryptography.SHA256 causeHasher;
         internal void Report(string feature, bool error, string detail)
         {
             try
             {
                 feature = Clean(feature);
                 // Hash the complete normalized cause: truncating display text must not merge different failures.
-                string normalized = System.Text.RegularExpressions.Regex.Replace(detail ?? "",
-                    @"\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\]", "").Replace('\r', ' ').Replace('\n', ' ');
-                string cause;
-                using (var hash = System.Security.Cryptography.SHA256.Create())
-                    cause = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized))).Replace("-", "");
+                string raw = detail ?? "";
+                string normalized = (raw.IndexOf('[') < 0 ? raw : TimestampPattern.Replace(raw, ""))
+                    .Replace('\r', ' ').Replace('\n', ' ');
+                System.Security.Cryptography.SHA256 hash = causeHasher ?? (causeHasher = System.Security.Cryptography.SHA256.Create());
+                string cause = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized))).Replace("-", "");
                 string key = feature + (error ? "\nerror\n" : "\nwarning\n") + cause;
                 long suppressed = 0;
                 lock (sync)

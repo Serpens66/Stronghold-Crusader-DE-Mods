@@ -160,6 +160,20 @@ namespace Shared
                 allowRealMultiplayer);
         }
 
+        /// <summary>True when the GUID owns the feature; used to keep invalid pairs out of decision caches.</summary>
+        internal static bool IsKnownIdentity(string modGuid, GameplayFeatureId featureId)
+        {
+            try
+            {
+                GetProfile(modGuid, featureId);
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>IsAllowed in the centralized mission policy contract.</summary>
         public static bool IsAllowed(
             string modGuid,

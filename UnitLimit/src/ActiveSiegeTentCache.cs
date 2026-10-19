@@ -389,7 +389,8 @@ namespace UnitLimit
             }
         }
 
-        private struct SiegeTentCountKey
+        // IEquatable avoids boxing on every dictionary lookup (per GUI check and unit event).
+        private struct SiegeTentCountKey : IEquatable<SiegeTentCountKey>
         {
             public readonly int PlayerId;
             public readonly eChimps UnitType;
@@ -400,13 +401,9 @@ namespace UnitLimit
                 UnitType = unitType;
             }
 
-            public override bool Equals(object obj)
-            {
-                if (!(obj is SiegeTentCountKey other))
-                    return false;
+            public bool Equals(SiegeTentCountKey other) => PlayerId == other.PlayerId && UnitType == other.UnitType;
 
-                return PlayerId == other.PlayerId && UnitType == other.UnitType;
-            }
+            public override bool Equals(object obj) => obj is SiegeTentCountKey other && Equals(other);
 
             public override int GetHashCode()
             {

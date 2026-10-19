@@ -205,6 +205,7 @@ namespace BugfixesAndQoL
         private readonly int[] visibleTypes =
             new int[SelectedUnitHealthPageLayout.SlotCount];
         private readonly HashSet<int> customIds = new HashSet<int>();
+        private int[] selectedTypes = new int[64];
         private readonly SelectedUnitHealthSummary[] slotSummaries =
             new SelectedUnitHealthSummary[SelectedUnitHealthPageLayout.SlotCount];
         private string lastEditorVisibilityDiagnostic;
@@ -275,7 +276,8 @@ namespace BugfixesAndQoL
             IUnitHudPresentationCapability presentation = getPresentation?.Invoke();
             if (presentation != null && TryShowApiSlots(presentation, state, count, mapEditor, controlledPlayerId))
             {
-                LogEditorVisibilityState(mapEditor, $"visible via APIShared: selectedUnits={selectedCount}, playerId={controlledPlayerId}");
+                // The diagnostic is editor-only; skip formatting it on every refresh in games.
+                if (mapEditor) LogEditorVisibilityState(mapEditor, $"visible via APIShared: selectedUnits={selectedCount}, playerId={controlledPlayerId}");
                 return;
             }
 
@@ -325,7 +327,7 @@ namespace BugfixesAndQoL
                 visibleTypes,
                 excludedType);
             ViewModel.Show(summaries, visibleTypes);
-            LogEditorVisibilityState(mapEditor, $"visible: selectedUnits={selectedCount}, eligibleOwnedUnits={eligibleCount}, playerId={controlledPlayerId}, page={currentPage}");
+            if (mapEditor) LogEditorVisibilityState(mapEditor, $"visible: selectedUnits={selectedCount}, eligibleOwnedUnits={eligibleCount}, playerId={controlledPlayerId}, page={currentPage}");
         }
 
         private bool TryShowApiSlots(IUnitHudPresentationCapability presentation, EngineInterface.PlayState state, int count, bool mapEditor, int controlledPlayerId)
@@ -337,6 +339,15 @@ namespace BugfixesAndQoL
                 foreach (UnitHudUnitSnapshot unit in category.Units) customIds.Add(unit.GameId);
             Array.Clear(slotSummaries, 0, slotSummaries.Length);
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+            // Resolve each selected unit's type once instead of once per visible slot.
+            if (selectedTypes.Length < count) selectedTypes = new int[Math.Max(count, selectedTypes.Length * 2)];
+            for (int index = 0; index < count; index++)
+            {
+                int unitId = state.selectedChimps[index];
+                selectedTypes[index] = unitId > 0 && !customIds.Contains(unitId) &&
+                    APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* selected, out _) && selected != null
+                        ? (int)selected->r_UnitChimp : int.MinValue;
+            }
             foreach (UnitHudSlotSnapshot slot in slots)
             {
                 if (slot.Slot < 0 || slot.Slot >= slotSummaries.Length) continue;
@@ -347,11 +358,8 @@ namespace BugfixesAndQoL
                 }
                 for (int index = 0; index < count; index++)
                 {
-                    int unitId = state.selectedChimps[index];
-                    if (unitId <= 0) continue;
-                    if (customIds.Contains(unitId)) continue;
-                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) && unit != null && (int)unit->r_UnitChimp == slot.VanillaType)
-                        AddHealth(unitId, ref slotSummaries[slot.Slot], unitApi, mapEditor, controlledPlayerId);
+                    if (selectedTypes[index] == slot.VanillaType)
+                        AddHealth(state.selectedChimps[index], ref slotSummaries[slot.Slot], unitApi, mapEditor, controlledPlayerId);
                 }
             }
             ViewModel.ShowSlots(slotSummaries);

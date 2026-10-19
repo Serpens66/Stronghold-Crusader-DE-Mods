@@ -15,10 +15,7 @@ namespace UnitLimit
     public sealed partial class UnitLimitRuntime
     {
         private static bool IsUnitLimitModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                UnitLimitPlugin.PluginGuid,
-                Shared.GameplayFeatureId.UnitLimitEnforcement,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(UnitLimitPlugin.PluginGuid, Shared.GameplayFeatureId.UnitLimitEnforcement);
 
         private static bool IsLocalPlayer(int playerId)
         {

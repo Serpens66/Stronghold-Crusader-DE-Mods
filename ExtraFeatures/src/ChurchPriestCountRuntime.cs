@@ -212,6 +212,7 @@ namespace ExtraFeatures
 
         private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
             Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
         }
 

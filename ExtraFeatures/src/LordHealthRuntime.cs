@@ -131,8 +131,7 @@ namespace ExtraFeatures
         }
 
         private static bool IsFeatureModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(ExtraFeaturesPlugin.PluginGuid,
-                Shared.GameplayFeatureId.LordHealthMultipliers, Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(ExtraFeaturesPlugin.PluginGuid, Shared.GameplayFeatureId.LordHealthMultipliers);
 
         private void OnUnitCreated(UnitCreateEventArgs args)
         {

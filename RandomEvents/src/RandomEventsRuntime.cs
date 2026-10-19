@@ -1600,7 +1600,9 @@ namespace RandomEvents
             HashSet<uint> unitGlobalIdsBefore = null;
             try
             {
-                if (definition.Kind == RandomEventKind.Archers)
+                // The before/after unit scan only feeds the diagnostic dispatch line below.
+                bool diagnostics = Shared.DebugLogHelper.DiagnosticsEnabled;
+                if (diagnostics && definition.Kind == RandomEventKind.Archers)
                     unitGlobalIdsBefore = CaptureExistingUnitGlobalIds();
 
                 if (playerChanged)
@@ -1624,6 +1626,9 @@ namespace RandomEvents
                 }
 
                 EngineInterface.GameAction(Enums.GameActionCommand.FreeBuild_Event, definition.TextId, strength);
+                if (!diagnostics)
+                    return true;
+
                 string sourceDetail = definition.RequiresSignpost
                     ? $"signpostBuildingId={signpostTarget.BuildingId}, " +
                       $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
@@ -2564,12 +2569,19 @@ namespace RandomEvents
                 $"Network details: {details}.");
         }
 
-        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
+        // Diagnostics are a startup snapshot; skip the closure and dispatch when they are off.
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
+        {
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
-        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
+        }
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
+        {
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        }
         private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));

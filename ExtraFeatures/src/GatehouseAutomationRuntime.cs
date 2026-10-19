@@ -1061,8 +1061,13 @@ namespace ExtraFeatures
             LogWarning($"{message}. Vanilla remains authoritative ({failureLogs}/{MaximumFailureLogs}).");
         }
 
-        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        // Diagnostics are a startup snapshot; skip the closure and dispatch when they are off.
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
+        {
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        }
         private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
             () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
         private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(

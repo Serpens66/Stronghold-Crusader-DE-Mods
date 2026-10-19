@@ -58,7 +58,8 @@ namespace UnitLimit
 
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (!IsEffectsActive || activeUnitLimits.Count == 0)
+            // Per GUI check: the pure count test comes before the mode-policy evaluation.
+            if (activeUnitLimits.Count == 0 || !IsEffectsActive)
                 return;
 
             int playerId = GetLocalHumanPlayerId();

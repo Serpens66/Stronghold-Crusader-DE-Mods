@@ -252,9 +252,6 @@ namespace UnitLimit
                         FormatSuppressedWarningSuffix(suppressedWarnings));
                 }
             }
-            else if (verboseUnitEventLogging)
-            {
-            }
 
             UnitSnapshot transitionedSnapshot = new UnitSnapshot(
                 snapshot.AliveState,
@@ -304,7 +301,6 @@ namespace UnitLimit
         private void UpdateSnapshot(int unitId, UnitSnapshot snapshot, ActiveUnitChangeReason fallbackReason, bool preferFallbackReason)
         {
             ActiveUnitChangedEventArgs eventArgs = null;
-            bool changed = false;
             lock (syncRoot)
             {
                 bool hadSnapshot = snapshotsById.TryGetValue(unitId, out UnitSnapshot oldSnapshot);
@@ -317,7 +313,6 @@ namespace UnitLimit
                     {
                         eventArgs = CreateEvent(unitId, hadSnapshot ? oldSnapshot : default(UnitSnapshot), snapshot, fallbackReason);
                         ApplyCountDelta(eventArgs);
-                        changed = true;
                     }
                 }
                 else
@@ -328,20 +323,13 @@ namespace UnitLimit
                     {
                         eventArgs = CreateEvent(unitId, hadSnapshot ? oldSnapshot : default(UnitSnapshot), snapshot, fallbackReason);
                         ApplyCountDelta(eventArgs);
-                        changed = true;
                     }
                     else if (TryGetChangeReason(oldSnapshot, snapshot, out ActiveUnitChangeReason reason))
                     {
                         eventArgs = CreateEvent(unitId, oldSnapshot, snapshot, preferFallbackReason ? fallbackReason : reason);
                         ApplyCountDelta(eventArgs);
-                        changed = true;
                     }
                 }
-            }
-
-            if (ShouldLogCacheChange(fallbackReason, snapshot.OwnerId) ||
-                (eventArgs != null && ShouldLogCacheChange(eventArgs.Reason, eventArgs.OldSnapshot.OwnerId)))
-            {
             }
 
             if (eventArgs != null)
@@ -351,7 +339,6 @@ namespace UnitLimit
         private void RemoveUnit(int unitId, ActiveUnitChangeReason reason)
         {
             ActiveUnitChangedEventArgs eventArgs = null;
-            bool removedOrKnown = false;
             UnitSnapshot removedSnapshot = default(UnitSnapshot);
             lock (syncRoot)
             {
@@ -363,10 +350,8 @@ namespace UnitLimit
                 {
                     eventArgs = CreateEvent(unitId, oldSnapshot, default(UnitSnapshot), reason);
                     ApplyCountDelta(eventArgs);
-                    removedOrKnown = true;
                 }
             }
-
 
             if (eventArgs != null)
                 ApplyAndRaiseEvent(eventArgs);
@@ -702,7 +687,8 @@ namespace UnitLimit
                 OwnerId = ownerId;
             }
 
-            public static UnitSnapshot From(GameUnit unit)
+            // By reference: GameUnit is >1 KB and ResyncAll reads every slot.
+            public static UnitSnapshot From(in GameUnit unit)
             {
                 return new UnitSnapshot(
                     unit.r_AliveState,
@@ -712,7 +698,8 @@ namespace UnitLimit
             }
         }
 
-        private struct UnitCountKey
+        // IEquatable avoids boxing on every dictionary lookup (per GUI check and unit event).
+        private struct UnitCountKey : IEquatable<UnitCountKey>
         {
             public readonly int PlayerId;
             public readonly eChimps UnitType;
@@ -723,13 +710,9 @@ namespace UnitLimit
                 UnitType = unitType;
             }
 
-            public override bool Equals(object obj)
-            {
-                if (!(obj is UnitCountKey other))
-                    return false;
+            public bool Equals(UnitCountKey other) => PlayerId == other.PlayerId && UnitType == other.UnitType;
 
-                return PlayerId == other.PlayerId && UnitType == other.UnitType;
-            }
+            public override bool Equals(object obj) => obj is UnitCountKey other && Equals(other);
 
             public override int GetHashCode()
             {

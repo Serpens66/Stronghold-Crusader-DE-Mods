@@ -354,10 +354,7 @@ namespace CastlePlanner
         private void CameraUpdateHook(CameraControls2D camera)
         {
             if (Hud?.SettingsPanelVisible == true &&
-                Shared.GameplayFeatureModePolicy.IsAllowed(
-                    CastlePlannerPlugin.PluginGuid,
-                    Shared.GameplayFeatureId.CastleBlueprints,
-                    Shared.GameplayModActivationGate.Snapshot) &&
+                Shared.GameplayModActivationGate.IsFeatureAllowed(CastlePlannerPlugin.PluginGuid, Shared.GameplayFeatureId.CastleBlueprints) &&
                 Hud?.ShouldSuppressMapZoom() == true)
                 camera.AllowZoom = false;
             cameraUpdateTrampoline(camera);
@@ -431,10 +428,7 @@ namespace CastlePlanner
         }
 
         private bool EffectiveBlueprintMode =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                CastlePlannerPlugin.PluginGuid,
-                Shared.GameplayFeatureId.CastleBlueprints,
-                Shared.GameplayModActivationGate.Snapshot) &&
+            Shared.GameplayModActivationGate.IsFeatureAllowed(CastlePlannerPlugin.PluginGuid, Shared.GameplayFeatureId.CastleBlueprints) &&
             (settings?.IsBlueprintMode == true || preview?.IsPreviewActive == true);
 
         private void OnModeStateChanged(bool allowed)

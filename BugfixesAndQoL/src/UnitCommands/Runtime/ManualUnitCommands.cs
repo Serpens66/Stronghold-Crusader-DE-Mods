@@ -68,6 +68,19 @@ namespace BugfixesAndQoL.UnitCommands
         private readonly byte[] nativeProbeGridBackup = new byte[NativeProbeGridBytes];
         private readonly byte[] nativeProbeRectangleBackup = new byte[0x20];
         private readonly byte[] nativeProbeMemoryHelperBackup = new byte[0x18];
+        // A probe batch covers consecutive probes with only managed code in between. Every probe
+        // restores the exact scratch closure, so the closure captured before the batch's first
+        // probe is still byte-identical before each later one and need not be copied again.
+        // Never open a batch around native calls that may themselves change the closure.
+        private int nativeProbeBatchDepth;
+        private bool nativeProbeBatchSnapshot;
+        internal void BeginNativeProbeBatch() => nativeProbeBatchDepth++;
+        internal void EndNativeProbeBatch()
+        {
+            if (nativeProbeBatchDepth > 0 && --nativeProbeBatchDepth == 0)
+                nativeProbeBatchSnapshot = false;
+        }
+
         internal bool ProbeNativeManualPath(int unitId, int x, int y)
         {
             if (nativeManualProbe || (uint)x >= MapWidth || (uint)y >= MapWidth ||
@@ -76,13 +89,20 @@ namespace BugfixesAndQoL.UnitCommands
                 nativePathManager == IntPtr.Zero || nativeProbeGrid == null ||
                 nativeProbeRectangle == null || originalCentralMovementPlan == null)
                 return false;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             byte* savedUnit = stackalloc byte[sizeof(GameUnit)];
             byte* manager = (byte*)nativePathManager;
-            for (int i = 0; i < sizeof(GameUnit); i++) savedUnit[i] = ((byte*)unit)[i];
-            Marshal.Copy(nativePathManager, nativeProbeManagerBackup, 0, NativeProbeManagerBytes);
-            Marshal.Copy((IntPtr)nativeProbeGrid, nativeProbeGridBackup, 0, NativeProbeGridBytes);
-            Marshal.Copy((IntPtr)nativeProbeRectangle, nativeProbeRectangleBackup, 0, 0x20);
-            Marshal.Copy(nativePathManager - 0x18, nativeProbeMemoryHelperBackup, 0, 0x18);
+            Buffer.MemoryCopy(unit, savedUnit, sizeof(GameUnit), sizeof(GameUnit));
+            if (!nativeProbeBatchSnapshot)
+            {
+                Marshal.Copy(nativePathManager, nativeProbeManagerBackup, 0, NativeProbeManagerBytes);
+                Marshal.Copy((IntPtr)nativeProbeGrid, nativeProbeGridBackup, 0, NativeProbeGridBytes);
+                Marshal.Copy((IntPtr)nativeProbeRectangle, nativeProbeRectangleBackup, 0, 0x20);
+                Marshal.Copy(nativePathManager - 0x18, nativeProbeMemoryHelperBackup, 0, 0x18);
+                nativeProbeBatchSnapshot = nativeProbeBatchDepth > 0;
+            }
+            else Shared.DevDiag.Count("manual.probe.snapshotReused");
             bool previousProbe = nativeManualProbe;
             MoveCommandScope savedMove = activeMoveCommand;
             AttackCommandScope savedAttack = activeAttackCommand;
@@ -108,7 +128,7 @@ namespace BugfixesAndQoL.UnitCommands
             }
             finally
             {
-                for (int i = 0; i < sizeof(GameUnit); i++) ((byte*)unit)[i] = savedUnit[i];
+                Buffer.MemoryCopy(savedUnit, unit, sizeof(GameUnit), sizeof(GameUnit));
                 Marshal.Copy(nativeProbeManagerBackup, 0, nativePathManager, NativeProbeManagerBytes);
                 Marshal.Copy(nativeProbeGridBackup, 0, (IntPtr)nativeProbeGrid, NativeProbeGridBytes);
                 Marshal.Copy(nativeProbeRectangleBackup, 0, (IntPtr)nativeProbeRectangle, 0x20);
@@ -119,6 +139,7 @@ namespace BugfixesAndQoL.UnitCommands
                 activeAttackApproachDiagnostic = savedDiagnostic;
                 activeBuildingApproachPerformance = savedApproach; activeBuildingConsumerPerformance = savedConsumer;
                 nativeManualProbe = previousProbe;
+                Shared.DevDiag.Stop(ref measured, "manual.probe");
             }
         }
 
@@ -142,8 +163,13 @@ namespace BugfixesAndQoL.UnitCommands
             int tick = CaptureCurrentGameTick();
             if (nativeCursorAnswerTick != tick || nativeCursorAnswers.Count >= 4096)
             { nativeCursorAnswers.Clear(); nativeCursorAnswerTick = tick; }
+            // Cache-key fingerprint of the complete unit record, mixed eight bytes at a time.
             ulong state = 14695981039346656037UL;
-            for (int i = 0; i < sizeof(GameUnit); i++) state = unchecked((state ^ ((byte*)unit)[i]) * 1099511628211UL);
+            ulong* words = (ulong*)unit;
+            int wordCount = sizeof(GameUnit) / sizeof(ulong);
+            for (int i = 0; i < wordCount; i++) state = unchecked((state ^ words[i]) * 1099511628211UL);
+            for (int i = wordCount * sizeof(ulong); i < sizeof(GameUnit); i++)
+                state = unchecked((state ^ ((byte*)unit)[i]) * 1099511628211UL);
             var key = new NativeCursorProbeKey(id, x, y, mapEpoch, placementRevision, state, cursorDiplomacy);
             if (nativeCursorAnswers.TryGetValue(key, out bool result)) return result;
             result = ProbeNativeManualPath(id, x, y);
@@ -188,6 +214,12 @@ namespace BugfixesAndQoL.UnitCommands
         {
             bound = null; group = default; group.SelectionSignature = token;
             if (!ManualCommandsEnabled || GamePlayerManagerAPI.Instance.IsAIPlayer(template.PlayerId)) return false;
+            // Tile probes run back to back with only managed reads between them. The building
+            // branch runs native B70C0 between its probes and therefore keeps per-probe copies.
+            bool batch = template.FallbackKind != CursorPairFallbackKind.BuildingApproach;
+            if (batch) BeginNativeProbeBatch();
+            try
+            {
             foreach (int id in ids)
             {
                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
@@ -215,6 +247,8 @@ namespace BugfixesAndQoL.UnitCommands
                 // visits every member; UI probes never seed its route ownership.
                 break;
             }
+            }
+            finally { if (batch) EndNativeProbeBatch(); }
             group.AllowFallback = bound != null;
             if (bound != null) { bound.GroupCursorAuthorized = true; bound.GroupSelectionSignature = token; }
             return group.SelectedUnits > 0;
@@ -248,12 +282,18 @@ namespace BugfixesAndQoL.UnitCommands
                     }
                 if (!nativeOnlyMoatStarter) return;
             }
-            foreach (int unitId in activeMoveCommand.ActiveUnitIdsAtDispatch)
-                if (ProbeNativeManualPath(unitId, args.TileX, args.TileY))
-                {
-                    activeMoveCommand.NativeCommonFallback = true;
-                    return;
-                }
+            // Consecutive probes with only managed code in between share one closure snapshot.
+            BeginNativeProbeBatch();
+            try
+            {
+                foreach (int unitId in activeMoveCommand.ActiveUnitIdsAtDispatch)
+                    if (ProbeNativeManualPath(unitId, args.TileX, args.TileY))
+                    {
+                        activeMoveCommand.NativeCommonFallback = true;
+                        return;
+                    }
+            }
+            finally { EndNativeProbeBatch(); }
         }
         internal bool IsNativeManualGroupFlood(IntPtr manager, int player, int targetRegion, int x, int y)
         {

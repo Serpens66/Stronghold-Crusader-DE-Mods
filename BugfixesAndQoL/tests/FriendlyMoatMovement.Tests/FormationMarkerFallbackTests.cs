@@ -128,7 +128,7 @@ namespace BugfixesAndQoL {
         private static readonly Line[] ArrowLines={new Line(),new Line(),new Line()};
         private static PreviewSnapshot snapshot=PreviewSnapshot.Empty;
         private static object log;private static int nextGeneration,renderedGeneration;
-        private static bool renderFailureLogged,showRoleMarkers=true,nativeAllowed;
+        private static bool renderFailureLogged,showRoleMarkers=true,nativeAllowed,hiddenApplied;
         private const float PointSize=11,ProtectedPointSize=13;
         private static Canvas host=new Canvas();private static Camera camera=new Camera();
         private static FormationDirectionIndicator LastArrow;

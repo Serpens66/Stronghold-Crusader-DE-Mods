@@ -195,8 +195,9 @@ namespace ExtraFeatures
         private static void PersistentVisualInterpolate(UnitUnityVisualInterpolateEventArgs args)
         {
             KnightDismountRuntime runtime = activeRuntime;
-            if (runtime != null && runtime.IsPendingRuntimeActive() &&
-                runtime.pendingTransformations.Count != 0 && args?.Chimp != null)
+            // Runs per visible unit per frame: the empty-queue test comes first.
+            if (runtime != null && runtime.pendingTransformations.Count != 0 &&
+                args?.Chimp != null && runtime.IsPendingRuntimeActive())
                 runtime.UpdateProgressVisual(args.Chimp);
         }
 

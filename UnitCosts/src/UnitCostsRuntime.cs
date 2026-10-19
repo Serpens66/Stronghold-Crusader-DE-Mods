@@ -54,11 +54,8 @@ namespace UnitCosts
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
         private static readonly string[] MissingGoldSpeechFileNames = { "Units_Warning3.wav", "Units_Warning4.wav" };
         private static readonly Random SpeechRandom = new Random();
-        private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
-        private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
-        private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
-        private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
+        // Reused per thread: the horse count runs per frame for tooltip/button checks.
+        [ThreadStatic] private static List<int> horseStableIdsBuffer;
         private static readonly UnitGoldCostSnapshot<eChimps> VanillaGoldCosts = new UnitGoldCostSnapshot<eChimps>();
         private readonly UnitCostOverrides costOverrides = new UnitCostOverrides(
             unit => GameUnitManagerAPI.Instance.GetUnitGoldCost(unit),
@@ -646,7 +643,7 @@ namespace UnitCosts
 
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (!IsUnitCostModeAllowed() || !EffectsEnabled || configuredRecruitmentButtons.Count == 0)
+            if (configuredRecruitmentButtons.Count == 0 || !EffectsEnabled || !IsUnitCostModeAllowed())
                 return;
 
             int playerId = GetLocalHumanPlayerId();
@@ -782,11 +779,12 @@ namespace UnitCosts
                     return;
                 }
 
-                if (!EffectsEnabled || !IsUnitCostModeAllowed())
-                    return;
-
+                // Source test first: most transitions (AI, peasants, upgrades) never reach the mode policy.
                 if (args.Source != UnitTransitionSource.EuropeanBarracks &&
                     args.Source != UnitTransitionSource.MercenaryOutpost)
+                    return;
+
+                if (!EffectsEnabled || !IsUnitCostModeAllowed())
                     return;
 
                 int playerId = args.PlayerOwnerId;
@@ -1058,15 +1056,16 @@ namespace UnitCosts
         private static int CountAvailableHorseSlots(int playerId)
         {
             int count = 0;
-            List<int> stableIds = new List<int>();
+            List<int> stableIds = horseStableIdsBuffer ?? (horseStableIdsBuffer = new List<int>());
+            stableIds.Clear();
             GameBuildingManagerAPI.Instance.GetAllBuildings(
                 stableIds,
                 AliveState.IsAlive,
                 eStructs.STRUCT_STABLES,
                 PlayerRelationship.Self,
                 playerId);
-            stableIds.Sort();
 
+            // A sum is order-independent, so no sort here (allocation keeps its sorted order).
             foreach (int stableId in stableIds)
             {
                 unsafe
@@ -1567,10 +1566,7 @@ namespace UnitCosts
         }
 
         private static bool IsUnitCostModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                UnitCostsPlugin.PluginGuid,
-                Shared.GameplayFeatureId.UnitCostEnforcement,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(UnitCostsPlugin.PluginGuid, Shared.GameplayFeatureId.UnitCostEnforcement);
 
         private static bool IsHumanPlayer(int playerId)
         {
@@ -1684,42 +1680,21 @@ namespace UnitCosts
             materialMessageTimerHandle = null;
         }
 
+        // Both fields are public in the shipped Assembly-CSharp; typed reads avoid per-frame boxing.
         private static eChimps GetLastTroopBuildChimp(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopBuildChimpField,
-                LastTroopBuildChimpProperty);
-            if (value == null)
+            if (mainViewModel == null)
                 return eChimps.CHIMP_TYPE_ARCHER;
 
-            try
-            {
-                return (eChimps)Convert.ToInt32(value);
-            }
-            catch
-            {
-                return eChimps.CHIMP_TYPE_ARCHER;
-            }
+            return (eChimps)(int)mainViewModel.lastTroopBuildChimp;
         }
 
         private static int GetLastTroopsAmountToMake(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopsAmountToMakeField,
-                LastTroopsAmountToMakeProperty);
-            if (value == null)
+            if (mainViewModel == null)
                 return 1;
 
-            try
-            {
-                return Math.Max(1, Convert.ToInt32(value));
-            }
-            catch
-            {
-                return 1;
-            }
+            return Math.Max(1, mainViewModel.lastTroopsAmountToMake);
         }
 
         private static bool TryGetCurrentVanillaRecruitAmount(eChimps unitType, out int amount)
@@ -1729,41 +1704,11 @@ namespace UnitCosts
             if (mainViewModel == null)
                 return false;
 
-            object unitValue = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopBuildChimpField,
-                LastTroopBuildChimpProperty);
-            object amountValue = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopsAmountToMakeField,
-                LastTroopsAmountToMakeProperty);
-            if (unitValue == null || amountValue == null)
+            if ((eChimps)(int)mainViewModel.lastTroopBuildChimp != unitType)
                 return false;
 
-            try
-            {
-                if ((eChimps)Convert.ToInt32(unitValue) != unitType)
-                    return false;
-
-                amount = Math.Max(0, Convert.ToInt32(amountValue));
-                return true;
-            }
-            catch
-            {
-                amount = 0;
-                return false;
-            }
-        }
-
-        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, FieldInfo field, PropertyInfo property)
-        {
-            if (mainViewModel == null)
-                return null;
-
-            if (field != null)
-                return field.GetValue(mainViewModel);
-
-            return property?.GetValue(mainViewModel);
+            amount = Math.Max(0, mainViewModel.lastTroopsAmountToMake);
+            return true;
         }
 
         private static Noesis.ImageSource GetGoodImage(eGoods good)

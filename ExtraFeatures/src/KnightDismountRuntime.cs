@@ -323,13 +323,14 @@ namespace ExtraFeatures
 
                 int localPlayerId = GetSelectionPlayerId();
                 TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
-                if (HasSelectedOwnKnight(localPlayerId, selection))
+                FindSelectedOwnKnightOrSwordsman(localPlayerId, selection, out bool knight, out bool swordsman);
+                if (knight)
                 {
                     buttonViewModel.ShowDismount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN));
                     return;
                 }
 
-                if (HasSelectedOwnSwordsman(localPlayerId, selection))
+                if (swordsman)
                 {
                     buttonViewModel.ShowMount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT));
                     return;
@@ -599,32 +600,40 @@ namespace ExtraFeatures
                 longTooltip.Visibility = showLongTooltip ? Visibility.Visible : Visibility.Hidden;
         }
 
-        private bool HasSelectedOwnKnight(int localPlayerId, APIShared.LocalSelectionSnapshot selection)
-        {
-            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT, selection);
-        }
-
-        private bool HasSelectedOwnSwordsman(int localPlayerId, APIShared.LocalSelectionSnapshot selection)
-        {
-            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN, selection);
-        }
-
         private bool HasUnitLimitCapacity(int playerId, eChimps targetUnitType)
         {
             return !unitLimitBridge.TryGetCapacity(playerId, targetUnitType, out int count, out int limit) ||
                 count < limit;
         }
 
+        // UnitLimit notifies on every local recruit and death, which in large battles means many
+        // notifications per frame. One queued refresh per Unity dispatch reaches the same final
+        // button state; later notifications before it runs are already covered by it.
+        private int unitLimitRefreshQueued;
+
         internal void OnUnitLimitStateChanged()
         {
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
+            if (System.Threading.Interlocked.Exchange(ref unitLimitRefreshQueued, 1) != 0)
+                return;
+            if (!Shared.UnityMainThreadDispatch.TryEnqueue(RunQueuedUnitLimitRefresh))
+                System.Threading.Interlocked.Exchange(ref unitLimitRefreshQueued, 0);
         }
 
-        private bool HasSelectedOwnUnit(int localPlayerId, eChimps unitType,
-            APIShared.LocalSelectionSnapshot selection)
+        private void RunQueuedUnitLimitRefresh()
         {
+            System.Threading.Interlocked.Exchange(ref unitLimitRefreshQueued, 0);
+            RefreshButtonVisibility();
+        }
+
+        // Determines both button types in one pass: first the captured selection, then (only when
+        // that did not already decide the knight priority) one allocation-free pass over the
+        // native unit array that tests the cheap selection mark before anything else.
+        private void FindSelectedOwnKnightOrSwordsman(int localPlayerId,
+            APIShared.LocalSelectionSnapshot selection, out bool knight, out bool swordsman)
+        {
+            knight = swordsman = false;
             if (localPlayerId < 1 || localPlayerId > 8)
-                return false;
+                return;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
 
             for (int i = 0; selection != null && i < selection.Count; i++)
@@ -632,23 +641,20 @@ namespace ExtraFeatures
                 int unitId = selection[i].UnitId;
                 if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
                     continue;
-
-                if (IsOwnAliveUnit(unit, localPlayerId, unitType))
-                    return true;
+                if (IsOwnAliveUnit(unit, localPlayerId, eChimps.CHIMP_TYPE_KNIGHT)) { knight = true; return; }
+                if (IsOwnAliveUnit(unit, localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN)) swordsman = true;
             }
 
-            int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();
-            for (int i = 0; i < aliveUnits.Length; i++)
+            Span<GameUnit> units = unitApi.GetUnitsAsSpan();
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                int unitId = aliveUnits[i];
-                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
+                ref GameUnit candidate = ref units[spanIndex];
+                if ((ushort)candidate.r_UnitHover == 0 || !APIShared.UnitAccess.IsReallyAlive(in candidate) ||
+                    candidate.r_ControllableForPlayerId != localPlayerId)
                     continue;
-
-                if (IsSelected(unit) && IsOwnAliveUnit(unit, localPlayerId, unitType))
-                    return true;
+                if (candidate.r_UnitChimp == eChimps.CHIMP_TYPE_KNIGHT) { knight = true; return; }
+                if (candidate.r_UnitChimp == eChimps.CHIMP_TYPE_SWORDSMAN) swordsman = true;
             }
-
-            return false;
         }
 
         private static bool TryGetHudTroopPanel(out HUD_Troops troopPanel)

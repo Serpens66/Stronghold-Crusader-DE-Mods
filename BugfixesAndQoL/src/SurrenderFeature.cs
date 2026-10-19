@@ -461,7 +461,9 @@ namespace BugfixesAndQoL
 
             try
             {
-                if (Interlocked.Exchange(ref statisticsBadgeClearPending, 0) != 0)
+                // Per-frame path: read first so the common idle case performs no atomic write.
+                if (Volatile.Read(ref statisticsBadgeClearPending) != 0 &&
+                    Interlocked.Exchange(ref statisticsBadgeClearPending, 0) != 0)
                     ClearStatisticsTeamBadges();
                 if (statisticsTeamBadgesReady && Volatile.Read(ref statisticsBadgeModeSnapshot) != SurrenderPolicy.StatisticsTeamBadgesOff)
                     UpdateStatisticsTeamBadges();

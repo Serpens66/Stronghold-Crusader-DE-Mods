@@ -15,7 +15,8 @@ namespace UnitLimit
 {
     public sealed partial class UnitLimitRuntime
     {
-        private struct PendingRecruitmentKey
+        // IEquatable avoids boxing on every dictionary lookup (per GUI check and unit event).
+        private struct PendingRecruitmentKey : IEquatable<PendingRecruitmentKey>
         {
             public readonly int PlayerId;
             public readonly eChimps UnitType;
@@ -26,13 +27,9 @@ namespace UnitLimit
                 UnitType = unitType;
             }
 
-            public override bool Equals(object obj)
-            {
-                if (!(obj is PendingRecruitmentKey other))
-                    return false;
+            public bool Equals(PendingRecruitmentKey other) => PlayerId == other.PlayerId && UnitType == other.UnitType;
 
-                return PlayerId == other.PlayerId && UnitType == other.UnitType;
-            }
+            public override bool Equals(object obj) => obj is PendingRecruitmentKey other && Equals(other);
 
             public override int GetHashCode()
             {
@@ -445,10 +442,8 @@ namespace UnitLimit
                 eChimps pendingUnitType = GetPendingRecruitmentUnitType(args.NewSnapshot);
                 bool consumedExternal = args.Reason == ActiveUnitCache.ActiveUnitChangeReason.Created &&
                     TryConsumeArmedExternalReservation(args.NewSnapshot.OwnerId, pendingUnitType);
-                bool consumed = consumedExternal ||
+                if (!consumedExternal)
                     ConsumePendingRecruitment(args.NewSnapshot.OwnerId, pendingUnitType);
-                if (consumed && ShouldLogHumanPlayer(args.NewSnapshot.OwnerId))
-                { }
             }
 
             RefreshCurrentUnitLimitTooltip();

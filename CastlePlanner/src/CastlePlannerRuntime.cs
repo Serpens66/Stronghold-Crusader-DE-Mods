@@ -2133,10 +2133,7 @@ namespace CastlePlanner
         }
 
         private static bool IsCastleSpawningModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                CastlePlannerPlugin.PluginGuid,
-                Shared.GameplayFeatureId.CastleSpawning,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(CastlePlannerPlugin.PluginGuid, Shared.GameplayFeatureId.CastleSpawning);
 
         private static int CountOwnedBuildings(int playerId)
         {

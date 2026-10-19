@@ -87,6 +87,7 @@ namespace BugfixesAndQoL
                     return;
 
                 EnsureBrushes();
+                hiddenApplied = false;
                 int pointCount = showRoleMarkers && current.Direction.ExplicitDirection
                     ? current.Points.Length : 0;
                 EnsurePointPool(host, pointCount);
@@ -141,6 +142,7 @@ namespace BugfixesAndQoL
 
             canvas = host;
             PointPool.Clear();
+            hiddenApplied = false;
             for (int index = 0; index < ArrowLines.Length; index++)
             {
                 ArrowLines[index] = new Line { Visibility = Visibility.Collapsed, IsHitTestVisible = false };
@@ -273,8 +275,14 @@ namespace BugfixesAndQoL
             }
         }
 
+        // Render runs every camera frame. Only this overlay changes these visuals and new ones
+        // start collapsed, so after one complete hide the next idle frames need no Noesis writes.
+        private static bool hiddenApplied;
+
         private static void HideAll()
         {
+            if (hiddenApplied) return;
+            hiddenApplied = true;
             for (int index = 0; index < PointPool.Count; index++)
                 PointPool[index].Visibility = Visibility.Collapsed;
             HideArrow();

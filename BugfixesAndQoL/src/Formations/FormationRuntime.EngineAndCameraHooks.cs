@@ -53,13 +53,15 @@ namespace BugfixesAndQoL.UnitCommands
                 if (director == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
-                inputState = CaptureMouseState(director);
-
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
+
+                // Five reflected reads per frame are only needed while a drag exists; nothing
+                // between the frame start and this point writes these director fields.
+                inputState = CaptureMouseState(director);
 
                 APIShared.Internal.GroundMovePreviewRejection modeRejection =
                     EvaluateCommandMode();

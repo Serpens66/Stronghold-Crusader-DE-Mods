@@ -31,6 +31,8 @@ namespace BepInEx.Configuration {
     }
     public class ConfigFile {
         public string ConfigFilePath=>"__missing_formation_fixture__.cfg";
+        // The fixture entries do not auto-save, so the production code must save explicitly.
+        public bool SaveOnConfigSet { get; set; }
         public readonly Dictionary<string,object> Entries=new Dictionary<string,object>();
         public Dictionary<string,object> Stored=new Dictionary<string,object>();
         public ConfigEntry<T> Bind<T>(string section,string key,T initial,object description) {
