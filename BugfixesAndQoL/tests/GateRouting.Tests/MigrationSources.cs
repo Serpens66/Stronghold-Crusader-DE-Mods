@@ -11,7 +11,11 @@ namespace BugfixesAndQoL.GateRouting
             string api=Path.Combine("..","APIShared","src","Pathfinding","GateRoutes","Native",name);
             if(name=="EnemyGatePathfindingTestPlugin.cs")return File.ReadAllText("src/GateRouting/GateRoutingFeature.cs");
             if(name=="AssassinGateDescentRuntime.cs" || name=="AssassinGateDescentRule.cs")return File.ReadAllText(Path.Combine("src","Assassins",name));
-            if(File.Exists(main))return File.ReadAllText(main);
+            // A DEVDIAG partial (*.DevDiag.cs) belongs to the same class; read both parts.
+            if(File.Exists(main))return File.ReadAllText(main)+(File.Exists(Path.ChangeExtension(main,".DevDiag.cs"))?File.ReadAllText(Path.ChangeExtension(main,".DevDiag.cs")):"");
+            // Development-only diagnosis moved to *.DevDiag.cs (SERP_DEVDIAG builds).
+            string devDiag=Path.ChangeExtension(main,".DevDiag.cs");
+            if(File.Exists(devDiag))return File.ReadAllText(devDiag);
             if(File.Exists(api))return File.ReadAllText(api);
             string normalized=path.Replace('\\','/');
             int apiSegment=normalized.IndexOf("APIShared/",StringComparison.Ordinal);

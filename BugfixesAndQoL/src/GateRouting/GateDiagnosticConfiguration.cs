@@ -5,6 +5,14 @@ namespace BugfixesAndQoL.GateRouting
 {
     internal static class GateDiagnosticConfiguration
     {
+        // TEMP_GATE_MIGRATION_DIAGNOSTICS: the gate diagnosis exists only in DEVDIAG builds
+        // (*.DevDiag.cs); release builds keep it off whatever the local config says.
+#if SERP_DEVDIAG
+        internal const bool BuildAvailable = true;
+#else
+        internal const bool BuildAvailable = false;
+#endif
+
         internal static bool Read(ConfigFile config, Action<Exception> reportFailure, Action save = null)
         {
             if (save == null) save = config.Save;

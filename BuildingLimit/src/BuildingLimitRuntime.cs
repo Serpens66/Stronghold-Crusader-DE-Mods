@@ -42,7 +42,7 @@ namespace BuildingLimit
 
         public BuildingLimitNotificationViewModel BuildingLimitNotification { get; } = new BuildingLimitNotificationViewModel();
         private IReadOnlyList<BuildingTooltipLine> tooltipLines = Array.Empty<BuildingTooltipLine>();
-        private string lastTooltipText;
+        private string lastTooltipLabel;
 
         public BuildingLimitRuntime(ManualLogSource log, BuildingLimitLobbyViewModel settings)
         {

@@ -261,10 +261,19 @@ function Invoke-SelectedBranchBuild {
     $oldEnvironment = @{}
     $names = @('SHCDE_BRANCH_SOURCE_ROOT','SHCDE_BRANCH_INSTALL_SUFFIX','SHCDE_BRANCH_NOINSTALL','SHCDE_BRANCH_API_ROOT','SHCDE_BRANCH_API_COMMIT',
         'SHCDE_API_SHARED_DIR','SHCDE_API_SHARED_BRANCH','SHCDE_API_SHARED_MAIN_SELECTION','SHCDE_BRANCH_NAME','SHCDE_BRANCH_COMMIT','SHCDE_BRANCH_MSBUILD_API',
-        'SHCDE_GAME_DIR','SHCDESE_EXTENDER_DIR','SHCDE_MSBUILD','SHCDE_NATIVE_BASELINE_ROOT')
+        'SHCDE_GAME_DIR','SHCDESE_EXTENDER_DIR','SHCDE_MSBUILD','SHCDE_NATIVE_BASELINE_ROOT','SHCDE_DEVDIAG')
     foreach ($name in $names) { $oldEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
     $oldDirectory = (Get-Location).Path
+    # DEVDIAG is an explicit per-build opt-in; an inherited variable never enables it.
+    $devDiag = -not $Api -and $DriverArguments -icontains '/devdiag'
+    if ($devDiag -and $Branch -eq 'main') { throw 'DEVDIAG builds are not allowed from main.' }
+    if ($Branch -eq 'main' -and -not $Api) {
+        . (Join-Path $PSScriptRoot '..\Validation\DevDiagnostics.Common.ps1')
+        Assert-NoDevDiagnosticSources -Root $selection.Root -ModDirectory (Split-Path -Parent $Driver)
+    }
     try {
+        $env:SHCDE_DEVDIAG = if ($devDiag) { '1' } else { $null }
+        if ($devDiag) { Write-BranchMessage 'DEVDIAG: development measurement build (never a release).' }
         $env:SHCDE_BRANCH_SOURCE_ROOT = $selection.Root
         $env:SHCDE_BRANCH_NAME = $Branch; $env:SHCDE_BRANCH_COMMIT = $selection.Commit
         $env:SHCDE_BRANCH_INSTALL_SUFFIX = Get-BranchInstallSuffix $Branch $DriverArguments
@@ -370,7 +379,7 @@ function Invoke-SelectedBranchBuild {
         & $selectedDriver @arguments | Out-Host
         $code = $LASTEXITCODE
         $record = [ordered]@{ SchemaVersion=1; Branch=$Branch; Commit=$selection.Commit; Driver=$Driver; SourceRoot=$selection.Root;
-            ApiShared=$sdk; InstallationTargets=$targets; NoInstall=($env:SHCDE_BRANCH_NOINSTALL -eq '1'); ExitCode=$code;
+            ApiShared=$sdk; InstallationTargets=$targets; NoInstall=($env:SHCDE_BRANCH_NOINSTALL -eq '1'); ExitCode=$code; DevDiagnostics=$devDiag;
             CreatedUtc=[DateTime]::UtcNow.ToString('o'); WorkingSource=($DriverArguments -icontains '/source:working'); SourceFiles=@(Invoke-BranchGit $selection.Root @('-c','core.quotepath=false','ls-files','--cached','--others','--exclude-standard') | ForEach-Object { $f=Join-Path $selection.Root $_; if (Test-Path -LiteralPath $f -PathType Leaf) { [ordered]@{Path=$_;Sha256=(Get-BranchHash $f)} } }); BuildToolOverrides=$overrides }
         $recordPath = $selection.Root + '.build.json'
         Write-BranchText $recordPath (($record | ConvertTo-Json -Depth 8) + "`r`n")

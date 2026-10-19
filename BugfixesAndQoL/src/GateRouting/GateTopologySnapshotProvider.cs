@@ -257,7 +257,7 @@ namespace BugfixesAndQoL.GateRouting
             captureRefresh.Reset();
             captureEvents.Reset();
             RouteTilePolicySnapshot coverage = snapshot.RoutePolicy;
-            Shared.DebugLogHelper.LogInfo(log,
+            if (Shared.DebugLogHelper.DiagnosticsEnabled) Shared.DebugLogHelper.LogInfo(log,
                 $"Gate mask coverage: epoch={epochNumber}, missingRequiredMasks={coverage.MissingRequiredGateMasks.Length}, " +
                 $"peakMissingRequiredMasks={peakMissingRequiredMasks}, gateIds=[{string.Join(",", coverage.MissingRequiredGateMasks)}], " +
                 $"coverage={(Read(ref topologyBuilds) == 0 ? "unavailable" : coverage.MissingRequiredGateMasks.Length == 0 ? "complete-for-tracked-gates" : "INCOMPLETE")}; technical integrity is separate.");
@@ -519,7 +519,10 @@ namespace BugfixesAndQoL.GateRouting
         private void RefreshGateAccess()
         {
             long rulesRevision = APIShared.GateAccessRules.Version;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             ulong fingerprint = ComputeGateAccessFingerprint(out int recordCapacity);
+            Shared.DevDiag.Stop(ref measured, "gate.access.fingerprint");
             Interlocked.Increment(ref accessScans);
             bool forced = Volatile.Read(ref accessRefreshRequired) != 0;
             if (!forced && fingerprint == lastAccessFingerprint)
@@ -535,7 +538,8 @@ namespace BugfixesAndQoL.GateRouting
             if (policyChanged)
             {
                 RecordAccessCoverage(previous, rebuilt);
-                string changes = FormatAccessChanges(previous, rebuilt, 24);
+                // Formatting compares every record; only detailed diagnosis logs it.
+                string changes = detailedDiagnostics ? FormatAccessChanges(previous, rebuilt, 24) : null;
                 PublishAccessSnapshot(rebuilt);
                 Volatile.Write(ref accessPolicyWasCleared, 0);
                 Interlocked.Increment(ref accessChanges);
@@ -585,7 +589,10 @@ namespace BugfixesAndQoL.GateRouting
                     ref nextSnapshotAt, now + TopologySafetyIntervalTicks, due) != due)
                 return;
             long rulesRevision = APIShared.GateAccessRules.Version;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             ulong signature = ComputeTopologySignature(lastStableAccessSnapshot.TopologyFingerprint);
+            Shared.DevDiag.Stop(ref measured, "gate.topology.signature");
             bool changed = signature != lastTopologySignature;
             if (!Monitor.TryEnter(snapshotLock))
                 return;
@@ -602,7 +609,10 @@ namespace BugfixesAndQoL.GateRouting
                     Volatile.Write(ref routePolicyWasCleared, 1);
                     routePolicyConsumer?.Invoke(RouteTilePolicySnapshot.Empty);
                 }
+                Shared.DevDiag.Start(ref measured);
                 TopologySnapshot rebuilt = BuildTopologySnapshot(detailedDiagnostics && firstBuild, previous);
+                Shared.DevDiag.Stop(ref measured, previous.Fingerprint == rebuilt.Fingerprint
+                    ? "gate.topology.rebuild.same" : "gate.topology.rebuild.changed");
                 if (rulesRevision != APIShared.GateAccessRules.Version) return;
                 snapshot = rebuilt;
                 lastStableTopologySnapshot = rebuilt;
@@ -773,10 +783,12 @@ namespace BugfixesAndQoL.GateRouting
             for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
             {
                 int gateId = buildingIndex + 1;
-                GameBuilding gate = buildings[buildingIndex];
-                if (!IsGatehouseBuildingType(gate.r_BuildingType) ||
+                // This safety scan runs every game second over the whole building array;
+                // copy the large native struct only for actual gatehouses.
+                if (!IsGatehouseBuildingType(buildings[buildingIndex].r_BuildingType) ||
                     gateInfosById.ContainsKey(gateId))
                     continue;
+                GameBuilding gate = buildings[buildingIndex];
                 rejections.ScannedGatehouses++;
                 if (!IsDiagnosticActive(gate.r_AliveState))
                 {
@@ -827,9 +839,9 @@ namespace BugfixesAndQoL.GateRouting
             for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
             {
                 int buildingId = buildingIndex + 1;
-                GameBuilding building = buildings[buildingIndex];
-                if (building.r_BuildingType != eStructs.STRUCT_DRAWBRIDGE)
+                if (buildings[buildingIndex].r_BuildingType != eStructs.STRUCT_DRAWBRIDGE)
                     continue;
+                GameBuilding building = buildings[buildingIndex];
                 rejections.ScannedDrawbridges++;
                 if (!IsDiagnosticActive(building.r_AliveState))
                 {
@@ -980,7 +992,7 @@ namespace BugfixesAndQoL.GateRouting
             Span<GameBuilding> buildingSpan = buildings.GetBuildingsAsSpan();
             for (int spanIndex = 0; spanIndex < buildingSpan.Length; spanIndex++)
             {
-                GameBuilding building = buildingSpan[spanIndex];
+                ref GameBuilding building = ref buildingSpan[spanIndex];
                 if (IsGatehouseBuildingType(building.r_BuildingType) &&
                     IsDiagnosticActive(building.r_AliveState) && building.r_GlobalId != 0)
                     gateGlobals[spanIndex + 1] = building.r_GlobalId;

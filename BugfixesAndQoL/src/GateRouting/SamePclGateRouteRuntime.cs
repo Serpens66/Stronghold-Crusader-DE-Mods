@@ -153,7 +153,9 @@ namespace BugfixesAndQoL.GateRouting
     // player mask for the duration of a complete query; eleven movement adapters and
     // three tactical-target adapters AND that mask into Vanilla's own edge checks
     // without changing the global grid.
-    internal sealed unsafe class SamePclGateRouteRuntime : IEnemyGatePathPolicy,
+    // TEMP_GATE_MIGRATION_DIAGNOSTICS: optional observers attach through the partial Diag* methods
+    // implemented in SamePclGateRouteRuntime.DevDiag.cs (SERP_DEVDIAG builds only).
+    internal sealed unsafe partial class SamePclGateRouteRuntime : IEnemyGatePathPolicy,
         IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, IEnemyGateRoutePolicyProvider, ITemporaryAssassinGateObserver
     {
         private readonly GateRoutingNativeHooks nativeHooks;
@@ -227,7 +229,7 @@ namespace BugfixesAndQoL.GateRouting
         }
 
         private readonly ManualLogSource log;
-        private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
+
         private readonly IntPtr threadSlots;
         private readonly IntPtr tacticalThreadSlots;
         private readonly ScanRegion region;
@@ -297,19 +299,18 @@ namespace BugfixesAndQoL.GateRouting
 
         private readonly IEnemyGatePathPolicy registeredProvider;
         private readonly DeferredGateDiagnosticErrors deferredErrors;
-        private bool DetailedDiagnostics => attackOrderDiagnostics != null;
-        // TEMP_MACEMEN_GATE_DIAGNOSTICS: no optional API observer interface is exposed.
-        internal MacemenCommandDiagnostics MacemenDiagnostics;
+        private bool DetailedDiagnostics { get { bool detailed = false; DiagIsDetailed(ref detailed); return detailed; } }
+
 
         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
             ScanRegion region, ulong libraryBase, bool existingHookOwner,
-            AttackOrderCorrelationDiagnostics attackOrderDiagnostics, GateRoutingNativeHooks nativeHooks, DeferredGateDiagnosticErrors deferredErrors = null)
+            object diagnostics, GateRoutingNativeHooks nativeHooks, DeferredGateDiagnosticErrors deferredErrors = null)
         {
             this.nativeHooks = nativeHooks;
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.region = region;
             this.libraryBase = libraryBase;
-            this.attackOrderDiagnostics = attackOrderDiagnostics;
+            DiagInitialize(diagnostics);
             this.deferredErrors = deferredErrors;
             registeredProvider = DetailedDiagnostics ? (IEnemyGatePathPolicy)this : new FunctionalGatePolicyAdapter(this, this);
             ownerConflict = existingHookOwner;
@@ -343,7 +344,7 @@ namespace BugfixesAndQoL.GateRouting
         void IEnemyGateRegionPairObserver.ObserveRegionPair(int playerId,
             int sourceComponentId, int destinationComponentId, int queryMode,
             int vanillaResult, int effectiveResult, string source) =>
-            attackOrderDiagnostics?.ObserveRegionPair(playerId, sourceComponentId,
+            DiagRegionPair(playerId, sourceComponentId,
                 destinationComponentId, queryMode, vanillaResult, effectiveResult, source);
 
         bool IEnemyGateRoutePolicyProvider.TryCaptureRoutePolicy(int playerId,
@@ -369,38 +370,34 @@ namespace BugfixesAndQoL.GateRouting
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: remove optional forwarding after acceptance.
         void ITemporaryAssassinGateObserver.ObserveAssassinStage(object token, int player, string stage, string result, string detail) =>
-            attackOrderDiagnostics?.ObserveTemporaryAssassinStage(token, player, stage, result, detail);
+            DiagAssassinStage(token, player, stage, result, detail);
         void ITemporaryAssassinGateObserver.ObserveAssassinDecision(object token, int player, int from, int to, int direction,
             bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence) =>
-            attackOrderDiagnostics?.ObserveTemporaryAssassinDecision(token, player, from, to, direction, prepared, movement, allowed, gate, global, evidence);
+            DiagAssassinDecision(token, player, from, to, direction, prepared, movement, allowed, gate, global, evidence);
 
         object IEnemyGateAssassinObserver.BeginAssassinSearch(int startX, int startY,
             int targetX, int targetY, int maximumNodes, int continuation, string nativeState)
         {
-            object token = attackOrderDiagnostics?.BeginAssassinSearch(publishedPolicy, startX, startY,
-                targetX, targetY, maximumNodes, continuation, nativeState);
-            // TEMP_GATE_ROUTE_ACCEPTANCE: generation of the existing published mask, not a game query.
-            attackOrderDiagnostics?.ObserveTemporaryAssassinStage(token, 0, "policy-entry", "captured",
-                "policyGeneration=" + policyGeneration);
+            object token = null;
+            DiagBeginAssassinSearch(ref token, startX, startY, targetX, targetY, maximumNodes, continuation, nativeState);
             return token;
         }
 
         void IEnemyGateAssassinObserver.ObserveAssassinEdge(object token, int playerId,
             int fromTile, int toTile, int direction, bool climb) =>
-            attackOrderDiagnostics?.ObserveAssassinEdge(token, playerId, fromTile, toTile, direction, climb);
+            DiagAssassinEdge(token, playerId, fromTile, toTile, direction, climb);
 
         void IEnemyGateAssassinObserver.ObserveAssassinPolicyFiltering(object token, int playerId,
             long ground, long climb) =>
-            attackOrderDiagnostics?.ObserveAssassinPolicyFiltering(token, playerId, ground, climb);
+            DiagAssassinPolicyFiltering(token, playerId, ground, climb);
 
         void IEnemyGateAssassinObserver.ObserveAssassinBuildingSearch(int tribeId,
             int buildingId, int sourceRegion, int rawSearchPlayer) =>
-            attackOrderDiagnostics?.ObserveAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer);
+            DiagAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer);
 
         void IEnemyGateAssassinObserver.EndAssassinSearch(object token, int playerId,
             int vanillaResult, int effectiveResult, string outcome, bool cacheHit, int routeLength) =>
-            attackOrderDiagnostics?.EndAssassinSearch(token, publishedPolicy, playerId,
-                vanillaResult, effectiveResult, outcome, cacheHit, routeLength);
+            DiagEndAssassinSearch(token, playerId, vanillaResult, effectiveResult, outcome, cacheHit, routeLength);
 
         int IEnemyGatePathPolicy.ResolveTribePlayer(int tribeId) =>
             tribePlayers.Resolve(tribeId);
@@ -441,15 +438,13 @@ namespace BugfixesAndQoL.GateRouting
                     snapshot.Resolve(tribeId), snapshot.Global(tribeId), liveOwner, liveGlobal,
                     leaderId, leaderGlobal, control, planning, buildingMapEditor);
                 if (context.Failure != null) Interlocked.Increment(ref scopeMismatches);
-                try { attackOrderDiagnostics?.ObserveBuildingContext(context); }
-                catch { Interlocked.Increment(ref exceptions); }
+                DiagBuildingContext(context);
                 return context.MovementPlayer;
             }
             catch (Exception ex)
             {
                 Interlocked.Increment(ref exceptions);
-                try { attackOrderDiagnostics?.ObserveBuildingException(rawSearchArgument, tribeId, ex.GetType().Name); }
-                catch { /* The failed context remains open even if diagnostics also fail. */ }
+                DiagBuildingException(rawSearchArgument, tribeId, ex);
                 return -1;
             }
         }
@@ -463,42 +458,29 @@ namespace BugfixesAndQoL.GateRouting
 
         object IEnemyGatePathPolicy.EnterNativeSearch(int playerId, EnemyGateSearchKind kind)
         {
+            Shared.DevDiag.Count("gate.search.scoped");
             QueryKind localKind = SharedKind(kind, playerId);
             CaptureScopeSample(localKind, playerId, playerId, -1, playerId);
             CountSharedSearch(kind, localKind);
             QueryScope scope = Enter(playerId, diagnosticKind: localKind);
-            MacemenDiagnostics?.BeginSearch(playerId, (int)kind);
-            try { attackOrderDiagnostics?.BeginNativeSearch(kind.ToString(), playerId); }
-            catch { Interlocked.Increment(ref exceptions); }
-            if (kind == EnemyGateSearchKind.Builder)
-            {
-                try { attackOrderDiagnostics?.BeginBuilder(); }
-                catch { Interlocked.Increment(ref exceptions); }
-            }
-            return scope;
+            DiagBeginSharedSearch(playerId, kind);
+            return ScopeBox.Rent(scope);
         }
 
         void IEnemyGatePathPolicy.ExitNativeSearch(
             object scope, EnemyGateSearchKind kind, bool completed, bool success)
         {
-            if (!(scope is QueryScope query)) return;
+            if (!(scope is ScopeBox box) || !ScopeBox.TryTake(box, out QueryScope query)) return;
             try
             {
                 QueryKind localKind = query.Diagnostic.Kind;
                 long touched = Complete(query, localKind,
                     kind == EnemyGateSearchKind.Builder, success, completed);
-                MacemenDiagnostics?.EndSearch(completed, success, touched);
-                if (kind == EnemyGateSearchKind.Builder)
-                {
-                    try { attackOrderDiagnostics?.ObserveBuilder(
-                        query.PlayerId, query.Diagnostic, completed, success, touched, query.Snapshot.Fingerprint); }
-                    catch { Interlocked.Increment(ref exceptions); }
-                }
+                DiagCompleteSharedSearch(kind, query.PlayerId, query.Diagnostic, completed, success, touched, query.Snapshot.Fingerprint);
             }
             finally
             {
-                try { attackOrderDiagnostics?.EndNativeSearch(kind.ToString(), completed, success); }
-                catch { Interlocked.Increment(ref exceptions); }
+                DiagEndNativeSearch(kind, completed, success);
             }
         }
 
@@ -597,6 +579,9 @@ namespace BugfixesAndQoL.GateRouting
             if (retry != null) TryPublishPending(retry, generation);
             Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
             if (tribePlayers.Matches(tribes)) { RefreshPlayerKindsIfDue(now); return; }
+            // Allocates two arrays of the tribe span; measured to decide whether reuse is worth it.
+            Shared.DevDiag.Count("gate.tribes.rebuild");
+            Shared.DevDiag.Count("gate.tribes.rebuild.slots", tribes.Length);
             var owners = new int[tribes.Length];
             var globals = new uint[tribes.Length];
             // Script Extender 2.7 exposes the complete native tribe-slot span.
@@ -998,8 +983,7 @@ namespace BugfixesAndQoL.GateRouting
             QueryScope scope = Enter(player);
             bool completed = false;
             // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
-            try { attackOrderDiagnostics?.BeginNativeSearch("AlternateBuildingConsumer", player); }
-            catch { Interlocked.Increment(ref exceptions); }
+            DiagBeginAlternateConsumer(player);
             try { originalAlternateConsumer(tribeManager, tribe, variant); completed = true; }
             catch { Interlocked.Increment(ref exceptions); throw; }
             finally
@@ -1007,8 +991,7 @@ namespace BugfixesAndQoL.GateRouting
                 try { Complete(scope, QueryKind.AlternateBuildingApproach, false, false, completed); }
                 finally
                 {
-                    try { attackOrderDiagnostics?.EndNativeSearch("AlternateBuildingConsumer", completed, false); }
-                    catch { Interlocked.Increment(ref exceptions); }
+                    DiagEndAlternateConsumer(completed);
                 }
             }
         }
@@ -1085,8 +1068,7 @@ namespace BugfixesAndQoL.GateRouting
             if (nativePlayer != tribePlayer)
             {
                 Interlocked.Increment(ref scopeMismatches);
-                try { attackOrderDiagnostics?.ObserveScopeMismatch(source, nativePlayer, tribePlayer); }
-                catch { Interlocked.Increment(ref exceptions); }
+                DiagScopeMismatch(source, nativePlayer, tribePlayer);
                 return -1;
             }
             return nativePlayer;
@@ -1266,8 +1248,7 @@ namespace BugfixesAndQoL.GateRouting
             routePolicySource.Leave(scope.RouteQuery);
             if (kind != QueryKind.CursorPreview)
             {
-                try { attackOrderDiagnostics?.ObserveScopeResult(scope.PlayerId, kind.ToString(), hasResultContract, completed, success, touched); }
-                catch { Interlocked.Increment(ref exceptions); }
+                DiagScopeResult(scope.PlayerId, kind, hasResultContract, completed, success, touched);
             }
             // Reference/preview calls have their own proof counters. Void calls have no route verdict.
             if (hasResultContract && kind != QueryKind.CursorPreview)
@@ -1337,6 +1318,64 @@ namespace BugfixesAndQoL.GateRouting
             internal SearchDiagnosticContext Diagnostic { get; }
             internal GateRoutePolicySource.Query RouteQuery { get; }
         }
+
+        // The APIShared search contract carries the scope as object. Reusing per-thread
+        // boxes avoids one heap allocation per native search; the box is private to this
+        // provider and returned exactly once by the paired exit call.
+        private sealed class ScopeBox
+        {
+            [ThreadStatic] private static ScopeBox free;
+            private ScopeBox next;
+            private QueryScope value;
+            private bool rented;
+            internal static ScopeBox Rent(QueryScope value)
+            {
+                ScopeBox box = free;
+                if (box != null) free = box.next;
+                else box = new ScopeBox();
+                box.next = null;
+                box.value = value;
+                box.rented = true;
+                return box;
+            }
+            // A repeated exit for the same token is ignored, exactly like a foreign token.
+            internal static bool TryTake(ScopeBox box, out QueryScope value)
+            {
+                value = box.value;
+                if (!box.rented) return false;
+                box.rented = false;
+                box.value = default;
+                box.next = free;
+                free = box;
+                return true;
+            }
+        }
+
+        // TEMP_GATE_MIGRATION_DIAGNOSTICS: implemented only in SamePclGateRouteRuntime.DevDiag.cs.
+        partial void DiagInitialize(object diagnostics);
+        partial void DiagIsDetailed(ref bool detailed);
+        partial void DiagRegionPair(int playerId, int sourceComponentId, int destinationComponentId,
+            int queryMode, int vanillaResult, int effectiveResult, string source);
+        partial void DiagAssassinStage(object token, int player, string stage, string result, string detail);
+        partial void DiagAssassinDecision(object token, int player, int from, int to, int direction,
+            bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence);
+        partial void DiagBeginAssassinSearch(ref object token, int startX, int startY, int targetX, int targetY,
+            int maximumNodes, int continuation, string nativeState);
+        partial void DiagAssassinEdge(object token, int playerId, int fromTile, int toTile, int direction, bool climb);
+        partial void DiagAssassinPolicyFiltering(object token, int playerId, long ground, long climb);
+        partial void DiagAssassinBuildingSearch(int tribeId, int buildingId, int sourceRegion, int rawSearchPlayer);
+        partial void DiagEndAssassinSearch(object token, int playerId, int vanillaResult, int effectiveResult,
+            string outcome, bool cacheHit, int routeLength);
+        partial void DiagBuildingContext(BuildingSearchPlayerContext context);
+        partial void DiagBuildingException(int rawSearchArgument, int tribeId, Exception error);
+        partial void DiagBeginSharedSearch(int playerId, EnemyGateSearchKind kind);
+        partial void DiagCompleteSharedSearch(EnemyGateSearchKind kind, int playerId, SearchDiagnosticContext diagnostic,
+            bool completed, bool success, long touched, ulong fingerprint);
+        partial void DiagEndNativeSearch(EnemyGateSearchKind kind, bool completed, bool success);
+        partial void DiagBeginAlternateConsumer(int player);
+        partial void DiagEndAlternateConsumer(bool completed);
+        partial void DiagScopeMismatch(string source, int nativePlayer, int tribePlayer);
+        partial void DiagScopeResult(int playerId, QueryKind kind, bool hasResultContract, bool completed, bool success, long touched);
 
         private readonly struct TacticalQueryScope
         {

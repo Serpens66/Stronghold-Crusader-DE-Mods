@@ -63,7 +63,7 @@ namespace BugfixesAndQoL.GateRouting
             check(plugin.Contains("config.Bind(\"GateMigrationDiagnostics\",\"MacemenDiagnostics\",false"), "Macemen profile defaults off");
             check(!plugin.Contains("detailed=config") || plugin.IndexOf("detailed=config",StringComparison.Ordinal)<plugin.IndexOf("internal static void Initialize",StringComparison.Ordinal), "diagnostic profile read during configuration only");
             string runtime = MigrationSources.Read("src/EnemyGatePathfindingRuntime.cs");
-            check(runtime.Contains("if (detailedDiagnostics) APIShared.TemporaryGateRouteAcceptanceBridge.Register") &&
+            check(runtime.Contains("if (!detailedDiagnostics) return;\n            APIShared.TemporaryGateRouteAcceptanceBridge.Register".Replace("\n", "\r\n")) &&
                 runtime.Contains("if (detailedDiagnostics)\n            {".Replace("\n", "\r\n")), "temporary registration and objects guarded");
             check(runtime.Contains("Raid/Assassin routes=NOT_INSPECTED") && runtime.Contains("if (detailedDiagnostics && Volatile.Read(ref mapActive)"), "no periodic standard success claims");
             return assertions;

@@ -9,7 +9,8 @@ class Program {
  BepInEx.Configuration.ConfigFile.Fail=args.Length!=0;
  var vm=new BugfixesAndQoLViewModel();
  GateRoutingFeature.Configure(new BepInEx.Logging.ManualLogSource(),new BepInEx.Configuration.ConfigFile(),vm);
- Check(Shared.DebugLogHelper.Errors==(args.Length==0?0:2),"config errors are contained and reported");
+ // The Macemen option exists only in DEVDIAG builds; otherwise only the detail migration can fail.
+ Check(Shared.DebugLogHelper.Errors==(args.Length==0?0:(GateDiagnosticConfiguration.BuildAvailable?2:1)),"config errors are contained and reported");
  GateRoutingFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext(),true);
  Check(EnemyGatePathfindingRuntime.Created==0,"inactive menu does not initialize native service");
  Shared.GameplaySessionLifecycle.Start.Fire(new Shared.Session{IsEditor=true});

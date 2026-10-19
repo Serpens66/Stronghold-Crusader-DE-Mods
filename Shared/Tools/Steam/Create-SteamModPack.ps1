@@ -1721,6 +1721,8 @@ try {
         Assert-PreparedLooseFolder $reuseStage ([string]$previousPack.Version)
         . (Join-Path $PSScriptRoot '../Release/DiagnosticSummary.ps1')
         Write-PackageDiagnosticSummary -Directory $reuseStage -CecilPath (Resolve-CecilLoadPath)
+        . (Join-Path $PSScriptRoot '../Validation/DevDiagnostics.Common.ps1')
+        try { Assert-NoDevDiagnosticAssemblies -Directory $reuseStage -CecilPath (Resolve-CecilLoadPath) } catch { Fail-Pack 8 $_.Exception.Message }
         Publish-WorkshopFolder $reuseStage $finalDir $script:Root
         Save-WorkshopReleaseReference (Get-WorkshopConfiguration) ([bool]$TestMode) (Join-Path (Split-Path -Parent $previousPack.MapPath) 'SerpsMods.provenance.json')
         Write-RunLog "Reusable pack ready: $finalDir" 'OK'
@@ -1825,6 +1827,9 @@ try {
     $zipPath = Join-Path $runRoot "SerpsMods-v$packVersion.zip"
     . (Join-Path $PSScriptRoot '../Release/DiagnosticSummary.ps1')
     Write-PackageDiagnosticSummary -Directory $hostStage -CecilPath (Resolve-CecilLoadPath)
+    # DEVDIAG builds are development-only; this gate blocks the pack.
+    . (Join-Path $PSScriptRoot '../Validation/DevDiagnostics.Common.ps1')
+    try { Assert-NoDevDiagnosticAssemblies -Directory $hostStage -CecilPath (Resolve-CecilLoadPath) } catch { Fail-Pack 8 $_.Exception.Message }
     $zipPackage = New-SteamPackReleaseZip -PackageDirectory $hostStage -DestinationPath $zipPath
     $zipShaPath = "$zipPath.sha256"
     Write-Utf8CrLf -Path $zipShaPath -Text "$($zipPackage.Sha256)  $($zipPackage.File)"

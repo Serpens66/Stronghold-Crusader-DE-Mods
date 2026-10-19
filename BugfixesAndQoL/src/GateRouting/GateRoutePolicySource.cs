@@ -17,9 +17,17 @@ namespace BugfixesAndQoL.GateRouting
 
         internal Publication Current => Volatile.Read(ref current);
 
+        // Every native search enters one scope. Scopes are strictly nested per thread, so a
+        // per-thread free list replaces one allocation per search. A scope returns to the
+        // list only after its paired Leave; abandoned scopes are simply never reused.
+        [ThreadStatic] private static Query freeQueries;
+
         internal Query Enter(int player, bool unmasked, bool valid, Publication publication = null)
         {
-            var query = new Query(this, publication ?? Current, player, unmasked, valid, activeQuery);
+            Query query = freeQueries;
+            if (query != null) freeQueries = query.NextFree;
+            else query = new Query();
+            query.Set(this, publication ?? Current, player, unmasked, valid, activeQuery);
             activeQuery = query;
             return query;
         }
@@ -29,6 +37,9 @@ namespace BugfixesAndQoL.GateRouting
             if (!ReferenceEquals(activeQuery, query))
                 throw new InvalidOperationException("Gate route query scopes are not paired.");
             activeQuery = query.Previous;
+            query.Set(null, null, 0, false, false, null);
+            query.NextFree = freeQueries;
+            freeQueries = query;
         }
 
         public bool TryCaptureRoutePolicy(int playerId, out IEnemyGateRoutePolicySnapshot snapshot)
@@ -51,15 +62,17 @@ namespace BugfixesAndQoL.GateRouting
 
         internal sealed class Query
         {
-            internal Query(GateRoutePolicySource source, Publication publication, int player,
+            internal void Set(GateRoutePolicySource source, Publication publication, int player,
                 bool unmasked, bool valid, Query previous)
             { Source = source; Publication = publication; Player = player;
               Unmasked = unmasked; Valid = valid; Previous = previous; }
-            internal readonly GateRoutePolicySource Source;
-            internal readonly Publication Publication;
-            internal readonly int Player;
-            internal readonly bool Unmasked, Valid;
-            internal readonly Query Previous;
+            internal GateRoutePolicySource Source { get; private set; }
+            internal Publication Publication { get; private set; }
+            internal int Player { get; private set; }
+            internal bool Unmasked { get; private set; }
+            internal bool Valid { get; private set; }
+            internal Query Previous { get; private set; }
+            internal Query NextFree;
         }
 
         internal sealed class Publication

@@ -125,8 +125,8 @@ namespace BugfixesAndQoL.GateRouting
         internal static int Run()
         {
             string root = AppDomain.CurrentDomain.BaseDirectory;
-            while (!File.Exists(Path.Combine(root, "src", "GateRouting", "NativeAssassinDiagnosticHooks.cs"))) root = Directory.GetParent(root).FullName;
-            string source = MigrationSources.Read(Path.Combine(root, "src", "GateRouting", "NativeAssassinDiagnosticHooks.cs"));
+            while (!File.Exists(Path.Combine(root, "src", "GateRouting", "NativeAssassinDiagnosticHooks.DevDiag.cs"))) root = Directory.GetParent(root).FullName;
+            string source = MigrationSources.Read(Path.Combine(root, "src", "GateRouting", "NativeAssassinDiagnosticHooks.DevDiag.cs"));
             int[] sites = Regex.Matches(Regex.Match(source, @"Sites = \{([^}]+)\}").Groups[1].Value, @"0x([0-9A-F]+)")
                 .Cast<Match>().Select(m => Convert.ToInt32(m.Groups[1].Value, 16)).ToArray();
             string[] hex = Regex.Matches(Regex.Match(source, "Bytes = \\{([^}]+)\\}").Groups[1].Value, "\"([0-9a-f]+)\"")

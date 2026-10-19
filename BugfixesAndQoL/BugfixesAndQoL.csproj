@@ -81,6 +81,7 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs"><Link>Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs"><Link>Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>Shared\Runtime\Native\NativeBuildingCompoundGroup.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
@@ -375,7 +376,6 @@
   <ItemGroup>
     <Compile Include="src\Assassins\AssassinGateDescentRule.cs" />
     <Compile Include="src\Assassins\AssassinGateDescentRuntime.cs" />
-    <Compile Include="src\GateRouting\AttackOrderCorrelationDiagnostics.cs" />
     <Compile Include="src\GateRouting\BuildingSearchPlayerResolver.cs" />
     <Compile Include="src\GateRouting\CaptureTransitionDiagnostics.cs" />
     <Compile Include="src\GateRouting\ConnectedGateFootprint.cs" />
@@ -390,19 +390,10 @@
     <Compile Include="src\GateRouting\GateRoutePolicySource.cs" />
     <Compile Include="src\GateRouting\GateSearchEvidence.cs" />
     <Compile Include="src\GateRouting\GateTopologySnapshotProvider.cs" />
-    <Compile Include="src\GateRouting\MacemenCommandDiagnostics.cs" />
-    <Compile Include="src\GateRouting\MacemenDiagnosticAggregate.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinDiagnosticHooks.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinMovementDiagnostics.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinMovementDiagnostics.Read.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinTrace.cs" />
     <Compile Include="src\GateRouting\PathfindingGlobalsBaseline.cs" />
     <Compile Include="src\GateRouting\RouteTilePolicySnapshot.cs" />
     <Compile Include="src\GateRouting\SamePclGateRouteRuntime.cs" />
     <Compile Include="src\GateRouting\SparseBuildingFootprint.cs" />
-    <Compile Include="src\GateRouting\TemporaryGateAcceptanceAggregate.cs" />
-    <Compile Include="src\GateRouting\TemporaryGateCaptureTimeline.cs" />
-    <Compile Include="src\GateRouting\TemporaryGateRouteAcceptance.cs" />
     <Compile Include="src\GateRouting\PathDecisionAggregate.cs" />
     <Compile Include="..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" />
   </ItemGroup>

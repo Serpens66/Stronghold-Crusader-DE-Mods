@@ -117,6 +117,15 @@ namespace BuildingLimit
                     return Array.Empty<BuildingTooltipLine>();
                 }
 
+                // The broker calls providers about twice per frame, mostly without a hovered
+                // building; return before any player-manager query in that common case.
+                int tooltipStruct = context.BuildingType;
+                if (tooltipStruct <= 0)
+                {
+                    ClearBuildingLimitTooltip();
+                    return Array.Empty<BuildingTooltipLine>();
+                }
+
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 if (localPlayerId <= 0 ||
                     !GamePlayerManagerAPI.Instance.IsPlayerIdValid(localPlayerId) ||
@@ -126,9 +135,7 @@ namespace BuildingLimit
                     return Array.Empty<BuildingTooltipLine>();
                 }
 
-                int tooltipStruct = context.BuildingType;
-                if (tooltipStruct <= 0 ||
-                    !TryResolveActiveBuildingLimitRule(tooltipStruct, out BuildingLimitRule rule) ||
+                if (!TryResolveActiveBuildingLimitRule(tooltipStruct, out BuildingLimitRule rule) ||
                     rule.Limit < 0 ||
                     (rule.Definition.CountedUnitType.HasValue && !towerSiegeCacheAvailable))
                 {
@@ -138,18 +145,20 @@ namespace BuildingLimit
 
                 int count = GetDisplayBuildingCount(rule, CountAliveBuildings(localPlayerId, rule.Definition));
                 int limit = rule.DisplayLimit;
-                string text = SerpLocalization.Get(SerpLocalization.Limit) + ": " + count + "/" + limit;
+                // Compare the localized prefix instead of rebuilding the full text every frame.
+                string label = SerpLocalization.Get(SerpLocalization.Limit);
                 if (!buildingLimitTooltipIsClear &&
                     tooltipStruct == lastTooltipStruct &&
                     localPlayerId == lastTooltipLocalPlayerId &&
                     count == lastTooltipCount &&
-                    limit == lastTooltipLimit && text == lastTooltipText)
+                    limit == lastTooltipLimit && string.Equals(label, lastTooltipLabel, StringComparison.Ordinal))
                 {
                     return tooltipLines;
                 }
 
+                string text = label + ": " + count + "/" + limit;
+                lastTooltipLabel = label;
                 tooltipLines = Array.AsReadOnly(new[] { new BuildingTooltipLine(new BuildingTooltipText(text)) });
-                lastTooltipText = text;
                 lastTooltipStruct = tooltipStruct;
                 lastTooltipLocalPlayerId = localPlayerId;
                 lastTooltipCount = count;

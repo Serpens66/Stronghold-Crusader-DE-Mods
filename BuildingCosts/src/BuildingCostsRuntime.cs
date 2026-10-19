@@ -25,8 +25,9 @@ namespace BuildingCosts
         private bool hooksSubscribed;
         private bool libraryInitialized;
         private bool vanillaCostTooltipReadFailureLogged;
-        private FieldInfo hoverStructField;
-        private FieldInfo selectedStructField;
+        // Typed getters replace FieldInfo.GetValue (reflection plus boxing on every rollover).
+        private Func<HUD_Main, int> readHoverStruct;
+        private Func<HUD_Main, int> readSelectedStruct;
         private int lastTooltipStruct = int.MinValue;
         private int lastLocalPlayerId = int.MinValue;
         private int lastResourceSignature = int.MinValue;
@@ -135,15 +136,31 @@ namespace BuildingCosts
 
         private void InstallUpdateRolloverHook()
         {
-            hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (hoverStructField == null || selectedStructField == null)
+            FieldInfo hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
+            FieldInfo selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (hoverStructField == null || selectedStructField == null ||
+                hoverStructField.FieldType != typeof(int) || selectedStructField.FieldType != typeof(int))
                 throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
+            readHoverStruct = CreateIntFieldGetter(hoverStructField);
+            readSelectedStruct = CreateIntFieldGetter(selectedStructField);
 
             if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, BuildingCostsPlugin.PluginGuid,
                 "BuildingTooltip", null, args => {
                     if (args.OriginalCompleted) UpdateRolloverHookImpl(args.BuildingHud);
                 }, out string reason)) throw new InvalidOperationException(reason);
+        }
+
+        // Validated private int field of the real HUD_Main (checked above); the dynamic method
+        // is owned by HUD_Main so the private read stays inside the runtime's visibility rules.
+        private static Func<HUD_Main, int> CreateIntFieldGetter(FieldInfo field)
+        {
+            var method = new System.Reflection.Emit.DynamicMethod(
+                "BuildingCosts_Read_" + field.Name, typeof(int), new[] { typeof(HUD_Main) }, typeof(HUD_Main), true);
+            System.Reflection.Emit.ILGenerator il = method.GetILGenerator();
+            il.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
+            il.Emit(System.Reflection.Emit.OpCodes.Ldfld, field);
+            il.Emit(System.Reflection.Emit.OpCodes.Ret);
+            return (Func<HUD_Main, int>)method.CreateDelegate(typeof(Func<HUD_Main, int>));
         }
 
         private void SubscribeSettingsChanges()
@@ -494,8 +511,8 @@ namespace BuildingCosts
 
                 bool detailedTooltipVisible = vanilla.RolloverBuilding_TooltipVis;
                 bool compactTooltipVisible = vanilla.RolloverBuilding_TooltipVisNot;
-                int hoverStruct = (int)hoverStructField.GetValue(hud);
-                int selectedStruct = (int)selectedStructField.GetValue(hud);
+                int hoverStruct = readHoverStruct(hud);
+                int selectedStruct = readSelectedStruct(hud);
                 int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
 
                 if (tooltipStruct <= 0 || (!detailedTooltipVisible && !compactTooltipVisible))

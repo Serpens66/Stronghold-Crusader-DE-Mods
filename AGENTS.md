@@ -35,6 +35,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - **Publicized Assembly:** neue Spielmember vor dem Build gegen die echte `Assembly-CSharp.dll` auf Sichtbarkeit prüfen; ein erfolgreicher Build beweist nichts.
 - **Hooks:** veröffentlichte Hooks nie zurück- oder umpatchen; Aktivierung nur logisch → [native-hooks.md](AGENTS/native-hooks.md).
 - **XAML-Patches:** `<Content>` mit genau einem Wurzelelement.
+- **Entwicklungsdiagnose:** neue, vor dem Release zu entfernende Diagnose nur über `Shared.DevDiag` und `build.bat /devdiag`; nie über Laufzeitschalter oder Release-Builds → [build-release.md](AGENTS/build-release.md#entwicklungsdiagnose-devdiag).
 - **Events statt Polling:** immer prüfen, ob ein passendes Event existiert (z. B. `OnKeyDown` statt `onBeforeRender`).
 - **Kompatibilität:** Jeder neue Code muss mit dem Script Extender und dem Fixes-Mod kompatibel sein (lokaler Klon zuerst, siehe §6); nach dem Fixes-Mod zu laden ist eine erlaubte Lösung.
 - **Empfohlene Prüfungen vor Runtime-Builds:** `Shared/Tools/Validation/Test-SharedBoundaries.ps1` auf den zu bauenden Mod und seine relevanten Quellen begrenzen; weitere Prüfungen nach [Relevanz](AGENTS/build-release.md#auswahl-der-prüfungen) und den konkreten Auslösern der Themendateien auswählen.

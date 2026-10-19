@@ -98,6 +98,7 @@ namespace BugfixesAndQoL.DrawbridgeDestructionFix
         private void OnDamage(BuildingTileTakeDamageEventArgs args)
         {
             // After the one confirmation, no stack, SDK lookup or formatting occurs on this observer path.
+            Shared.DevDiag.Count("drawbridge.damageEvents");
             if (!published || Volatile.Read(ref confirmed) != 0) return;
             if (args.Phase == EventHookPhase.Pre)
             {

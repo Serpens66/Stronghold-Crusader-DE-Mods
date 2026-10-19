@@ -17,7 +17,41 @@ namespace BugfixesAndQoL.GateRouting
     internal sealed class CaptureTransitionDiagnostics
     {
         private readonly object sync = new object();
-        private readonly Dictionary<string, Row> rows = new Dictionary<string, Row>();
+        // Observe runs inside native gate comparisons until the next access publication;
+        // a value key avoids building a formatted string for every repeated observation.
+        private readonly Dictionary<RowKey, Row> rows = new Dictionary<RowKey, Row>();
+        private readonly struct RowKey : IEquatable<RowKey>
+        {
+            internal RowKey(long epoch, long generation, int building, uint global, int owner,
+                int oldCapturer, int observedCapturer)
+            {
+                Epoch = epoch; Generation = generation; Building = building; Global = global;
+                Owner = owner; OldCapturer = oldCapturer; ObservedCapturer = observedCapturer;
+            }
+            private readonly long Epoch, Generation;
+            private readonly int Building, Owner, OldCapturer, ObservedCapturer;
+            private readonly uint Global;
+            public bool Equals(RowKey other) => Epoch == other.Epoch && Generation == other.Generation &&
+                Building == other.Building && Global == other.Global && Owner == other.Owner &&
+                OldCapturer == other.OldCapturer && ObservedCapturer == other.ObservedCapturer;
+            public override bool Equals(object obj) => obj is RowKey other && Equals(other);
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = (int)Epoch;
+                    hash = (hash * 397) ^ (int)Generation;
+                    hash = (hash * 397) ^ Building;
+                    hash = (hash * 397) ^ (int)Global;
+                    hash = (hash * 397) ^ (Owner | (OldCapturer << 8) | (ObservedCapturer << 16));
+                    return hash;
+                }
+            }
+            public override string ToString() =>
+                "epoch=" + Epoch + ",generation=" + Generation +
+                ",building=" + Building + ",global=" + Global + ",owner=" + Owner +
+                ",oldCapturer=" + OldCapturer + ",observedCapturer=" + ObservedCapturer;
+        }
         private long epoch, publishedGeneration, total, recovered;
         private sealed class Row
         {
@@ -42,9 +76,8 @@ namespace BugfixesAndQoL.GateRouting
                     nativeCapturer < 0 || nativeCapturer > 8) return false;
                 NativeGateAccessRecord old = source.RecordsByBuildingId[buildingId];
                 if (!old.Valid || old.OwnerPlayerId != owner || old.CapturedByPlayerId == nativeCapturer) return false;
-                string key = "epoch=" + epoch + ",generation=" + source.DiagnosticGeneration +
-                    ",building=" + buildingId + ",global=" + globalId + ",owner=" + owner +
-                    ",oldCapturer=" + old.CapturedByPlayerId + ",observedCapturer=" + nativeCapturer;
+                var key = new RowKey(epoch, source.DiagnosticGeneration, buildingId, globalId, owner,
+                    old.CapturedByPlayerId, nativeCapturer);
                 if (!rows.TryGetValue(key, out Row row))
                 {
                     row = new Row { Building = buildingId, Global = globalId, Owner = owner,
@@ -84,7 +117,7 @@ namespace BugfixesAndQoL.GateRouting
             {
                 var output = new List<string>();
                 foreach (var pair in rows)
-                    if (pair.Value.Pending > 0) output.Add(pair.Key + ",unresolved=" + pair.Value.Pending);
+                    if (pair.Value.Pending > 0) output.Add(pair.Key.ToString() + ",unresolved=" + pair.Value.Pending);
                 output.Sort(StringComparer.Ordinal);
                 return output.ToArray();
             }
@@ -98,7 +131,7 @@ namespace BugfixesAndQoL.GateRouting
                 {
                     Row row = pair.Value;
                     if (row.Count == row.LoggedCount && row.Recovered == row.LoggedRecovered) continue;
-                    output.Add(pair.Key + ",count=" + row.Count + ",confirmedRecovered=" + row.Recovered +
+                    output.Add(pair.Key.ToString() + ",count=" + row.Count + ",confirmedRecovered=" + row.Recovered +
                         ",unresolved=" + row.Pending + ",proofGeneration=" + row.ProofGeneration);
                     row.LoggedCount = row.Count; row.LoggedRecovered = row.Recovered;
                 }

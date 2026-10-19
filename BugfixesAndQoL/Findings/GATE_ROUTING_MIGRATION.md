@@ -40,6 +40,8 @@ Removable additions use TEMP_GATE_MIGRATION_DIAGNOSTICS alongside TEMP_GATE_ROUT
 - Existing AssassinPathfindingRuntime, AiRaidRetargetFixRuntime and UnitCommands/Movement/TemporaryGateRouteReporting: requested-observer producer points.
 - APIShared TemporaryGateRouteAcceptanceBridge and AssassinRouteHandoff: preserve public contracts when reducing Main diagnostics.
 
+2026-10-19: the removable diagnosis now uses the DEVDIAG system (AGENTS/build-release.md). The pure diagnostic types live in `src/GateRouting/*.DevDiag.cs` and are compiled only by `build.bat /devdiag`; EnemyGatePathfindingRuntime and SamePclGateRouteRuntime reach them through `partial void Diag…` hooks implemented in their own `*.DevDiag.cs` parts. Normal and release builds contain none of these types, never bind the Macemen option and keep detailed/Macemen diagnosis off (`GateDiagnosticConfiguration.BuildAvailable`). Complete removal list: `Shared/Tools/Validation/Test-DevDiagnostics.ps1 -ModDirectory BugfixesAndQoL`. The remaining requested-observer producer points (TemporaryGateRouteReporting, AssassinPathfindingRuntime, AiRaidRetargetFixRuntime) and the public APIShared bridge stay unchanged; without a registered observer they only check `CurrentRequested`.
+
 Do not remove functional identity checks, capture refresh/recovery, masks, scopes, route validation, cursor cache or AssassinGateDescentRule/Runtime. Descent adapter/callback helpers now have functional API ownership.
 
 ## Technical evidence

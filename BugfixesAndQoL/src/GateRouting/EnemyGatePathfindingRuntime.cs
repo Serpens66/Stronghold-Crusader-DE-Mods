@@ -26,7 +26,9 @@ using CorrectedPathing = APIShared.ScriptExtenderReplacements.GamePathingManager
 
 namespace BugfixesAndQoL.GateRouting
 {
-    internal sealed unsafe class EnemyGatePathfindingRuntime
+    // TEMP_GATE_MIGRATION_DIAGNOSTICS: diagnostics live in EnemyGatePathfindingRuntime.DevDiag.cs
+    // and attach through the partial Diag* methods; without SERP_DEVDIAG every call is removed.
+    internal sealed unsafe partial class EnemyGatePathfindingRuntime
     {
         private GateRoutingNativeHooks nativeHooks;
         private const int SiteCount = 2;
@@ -34,18 +36,18 @@ namespace BugfixesAndQoL.GateRouting
             Enum.GetValues(typeof(NativeGateSnapshotDecision)).Length;
         // TEMP_GATE_ROUTE_ACCEPTANCE: compact minute windows for the endurance test.
         private static readonly long DiagnosticInterval = Stopwatch.Frequency * 60L;
-        private TemporaryGateRouteAcceptance temporaryAcceptance;
 
         private readonly ManualLogSource log;
         private readonly bool detailedDiagnostics;
         private readonly bool macemenDiagnostics;
-        private MacemenCommandDiagnostics macemen;
+        // Coverage counters only feed Info checkpoints. Without diagnostics the per-edge
+        // callback keeps just the rare integrity categories that can raise warnings.
+        private readonly bool coverageCounters;
         private readonly DeferredGateDiagnosticErrors deferredErrors = new DeferredGateDiagnosticErrors();
         private uint reportedIntegrityErrors;
         private long nextErrorCheckAt;
         private GateTopologySnapshotProvider topologyProvider;
         private SamePclGateRouteRuntime samePclRouteRuntime;
-        private AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
         private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
         private volatile NativeGateAccessSnapshot previousStableGateAccess = NativeGateAccessSnapshot.Empty;
         private ulong libraryBase;
@@ -72,15 +74,18 @@ namespace BugfixesAndQoL.GateRouting
         internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = false, bool macemenDiagnostics = false)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            Shared.DevDiag.Attach(log);
             this.detailedDiagnostics = detailedDiagnostics;
             this.macemenDiagnostics = macemenDiagnostics;
+            coverageCounters = detailedDiagnostics || macemenDiagnostics ||
+                Shared.DebugLogHelper.DiagnosticsEnabled;
         }
 
         internal void ObserveBuildingCapture(BuildingCaptureEventArgs args)
         {
             if (args != null && args.BuildingId > 0)
             {
-                temporaryAcceptance?.ObserveCapture(args.BuildingId, args.CapturingPlayerId, args.Phase == EventHookPhase.Post);
+                DiagObserveCapture(args);
                 topologyProvider?.RequestCaptureSnapshot(args.Phase == EventHookPhase.Post);
             }
         }
@@ -137,18 +142,7 @@ namespace BugfixesAndQoL.GateRouting
                 "builder-precheck captured-player filter");
             topologyProvider = new GateTopologySnapshotProvider(log, detailedDiagnostics, deferredErrors);
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
-            if (macemenDiagnostics)
-                macemen = new MacemenCommandDiagnostics(log,
-                    () => samePclRouteRuntime?.MacemenDiagnosticSnapshot ?? RouteTilePolicySnapshot.Empty,
-                    () => gateAccess);
-            if (detailedDiagnostics)
-            {
-                attackOrderDiagnostics = new AttackOrderCorrelationDiagnostics(log, topologyProvider);
-                // TEMP_GATE_ROUTE_ACCEPTANCE: process-rooted through this existing static runtime owner.
-                temporaryAcceptance = new TemporaryGateRouteAcceptance(log,
-                    () => samePclRouteRuntime?.TemporaryAcceptanceSnapshot ?? RouteTilePolicySnapshot.Empty);
-                attackOrderDiagnostics.TemporaryAcceptance = temporaryAcceptance;
-            }
+            DiagCreate();
 
             if (!GateRoutingNativeHooks.TryRequest(BugfixesAndQoLPlugin.PluginGuid, "gate-routing", context, log, out nativeHooks, out string nativeReason))
                 throw new InvalidOperationException(nativeReason);
@@ -158,37 +152,21 @@ namespace BugfixesAndQoL.GateRouting
                 Chainloader.PluginInfos.ContainsKey("BugfixesAndQoL_Serp");
             try
             {
+                object samePclDiagnostics = null;
+                DiagSamePclObserver(ref samePclDiagnostics);
                 samePclRouteRuntime = new SamePclGateRouteRuntime(
                     log, memory, context.Region, libraryBase, friendlyMoatHookOwnerLoaded,
-                    attackOrderDiagnostics, nativeHooks, deferredErrors);
-                samePclRouteRuntime.MacemenDiagnostics = macemen;
+                    samePclDiagnostics, nativeHooks, deferredErrors);
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException("Integrated gate routing requires its complete Same-PCL path", ex);
             }
-            if (samePclRouteRuntime != null && temporaryAcceptance != null)
-                samePclRouteRuntime.TemporaryPolicyPublished = temporaryAcceptance.ObservePolicyPublication;
+            DiagAttachSamePcl();
             topologyProvider.SetRoutePolicyConsumer(updated =>
                 samePclRouteRuntime?.UpdatePolicy(updated));
             // TEMP_GATE_ROUTE_ACCEPTANCE: publish only after the existing initialization succeeds.
-            if (detailedDiagnostics) APIShared.TemporaryGateRouteAcceptanceBridge.Register(temporaryAcceptance);
-            if (detailedDiagnostics)
-            {
-                try
-                {
-                    temporaryAcceptance.NativeDiagnostics = new NativeAssassinDiagnosticHooks(context, temporaryAcceptance);
-                    Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE native reconstruction probes installed; exact branch/selected-edge evidence enabled with map diagnostics.");
-                    for (int site = 0; site < NativeAssassinDiagnosticHooks.Sites.Length; site++)
-                        Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE native trace resolution=reference-rva, rva=0x" +
-                            NativeAssassinDiagnosticHooks.Sites[site].ToString("X") + ",displaced=" +
-                            NativeAssassinDiagnosticHooks.Bytes[site].Length / 2 + ",backend=X64InlineHook,permanent=true");
-                }
-                catch (Exception error)
-                {
-                    Shared.DebugLogHelper.LogError(log, "TEMP_GATE_ROUTE_ACCEPTANCE native reconstruction coverage unavailable: " + error);
-                }
-            }
+            DiagInstallNative(context);
 
             if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
@@ -224,14 +202,11 @@ namespace BugfixesAndQoL.GateRouting
             ResetMapCounters();
             samePclRouteRuntime?.ResetCounters();
             samePclRouteRuntime?.SetBuildingMapMode(editor);
-            attackOrderDiagnostics?.Reset();
-            temporaryAcceptance?.Begin();
-            AssassinGatehouseDescentFeature.SetObservers(
-                temporaryAcceptance?.NativeDiagnostics == null ? (Action<IntPtr, bool>)null : temporaryAcceptance.NativeDiagnostics.ObserveClosedGate,
-                temporaryAcceptance?.NativeDiagnostics == null ? (Action<int>)null : temporaryAcceptance.NativeDiagnostics.ObserveDescentException);
+            AssassinGatehouseDescentFeature.SetObservers(null, null);
+            DiagBeginMap();
             topologyProvider?.BeginExplicitEpoch(reason);
-            macemen?.Begin(topologyProvider?.DiagnosticEpoch ?? 0);
-            Shared.DebugLogHelper.LogInfo(log,
+            DiagBeginEpoch();
+            Shared.DebugLogHelper.LogInfo(log, () =>
                 $"Enemy-gate map started: epoch={topologyProvider?.DiagnosticEpoch}, editor={editor}, " +
                 $"direction masks={(samePclRouteRuntime?.Installed == true ? "active" :
                     samePclRouteRuntime != null ? "pending-policy" : "inactive")}.");
@@ -244,14 +219,7 @@ namespace BugfixesAndQoL.GateRouting
                 return;
             AssassinGatehouseDescentFeature.SetObservers(null, null);
             LogDiagnosticCheckpoint("final", reason);
-            // TEMP_GATE_ROUTE_ACCEPTANCE: validate complete AI result attribution against functional counters.
-            if (temporaryAcceptance != null && samePclRouteRuntime != null)
-            {
-                SamePclCoverageSnapshot same = samePclRouteRuntime.GetCoverageSnapshot();
-                temporaryAcceptance.CompareBuilderTotals(same.AiQueries, same.AiNegativeWithRejectedEdges);
-            }
-            temporaryAcceptance?.End();
-            macemen?.End();
+            DiagEndMap();
             topologyProvider?.EndEpoch(reason);
             gateAccess = NativeGateAccessSnapshot.Empty;
         }
@@ -261,9 +229,7 @@ namespace BugfixesAndQoL.GateRouting
             try
             {
                 ComparePathfindingGlobalsOnce();
-                attackOrderDiagnostics?.ProcessDeferred();
-                temporaryAcceptance?.Deferred();
-                macemen?.Deferred();
+                DiagDeferred();
                 long now = Stopwatch.GetTimestamp();
                 FlushDeferredErrors();
                 if (detailedDiagnostics && Volatile.Read(ref mapActive) != 0 &&
@@ -385,8 +351,11 @@ namespace BugfixesAndQoL.GateRouting
 
         internal void OnGameTick()
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             try { topologyProvider?.OnGameTick(); }
             catch { topologyProvider?.RecordSnapshotFailure(); }
+            Shared.DevDiag.Stop(ref measured, "gate.tick.freshness");
         }
 
         // Functional gate-policy refresh. Driven by the simulation tick (the map editor,
@@ -394,31 +363,30 @@ namespace BugfixesAndQoL.GateRouting
         // republishes access, topology and tribe ownership at the same simulation point.
         internal void ProcessGatePolicies(long now)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             try { topologyProvider?.ProcessTick(now); }
             catch { topologyProvider?.RecordSnapshotFailure(); }
+            Shared.DevDiag.Stop(ref measured, "gate.tick.topology+access");
+            Shared.DevDiag.Start(ref measured);
             try { samePclRouteRuntime?.ProcessTick(now); }
             catch (Exception ex) { TryLogDiagnosticFailure(ex); }
+            Shared.DevDiag.Stop(ref measured, "gate.tick.tribes+publish");
         }
 
         internal void ObserveTargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {
-            macemen?.TargetOrder(args);
-            try { attackOrderDiagnostics?.ObserveOrder(args); }
-            catch (Exception ex) { TryLogDiagnosticFailure(ex); }
+            DiagTargetOrder(args);
         }
 
         internal void ObserveTribeMove(TribeIssueOrderMoveHereEventArgs args)
         {
-            macemen?.GroupMove(args);
-            try { attackOrderDiagnostics?.ObserveTribeMove(args); }
-            catch (Exception ex) { TryLogDiagnosticFailure(ex); }
+            DiagTribeMove(args);
         }
 
         internal void ObserveUnitMove(UnitMoveHereEventArgs args)
         {
-            macemen?.UnitMove(args);
-            try { attackOrderDiagnostics?.ObserveUnitMove(args); }
-            catch (Exception ex) { TryLogDiagnosticFailure(ex); }
+            DiagUnitMove(args);
         }
 
         private void UpdateGateAccess(NativeGateAccessSnapshot updated)
@@ -435,14 +403,25 @@ namespace BugfixesAndQoL.GateRouting
             IntPtr context)
         {
             // UPDATE REVIEW (CrusaderDE.dll): E2610 keeps query player in R14 here.
-            FilterUnrelatedCapturedEnemyGate(context, false);
+            MeasureCapturedEnemyGateFilter(context, false);
         }
 
         private void FilterUnrelatedCapturedEnemyGateBuilderPrecheck(
             IntPtr context)
         {
             // UPDATE REVIEW (CrusaderDE.dll): E2F60 keeps query player in RBP here.
-            FilterUnrelatedCapturedEnemyGate(context, true);
+            MeasureCapturedEnemyGateFilter(context, true);
+        }
+
+        // DEVDIAG measurement shell; without the symbol it reduces to the direct call.
+        private void MeasureCapturedEnemyGateFilter(
+            IntPtr context,
+            bool builderPrecheck)
+        {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
+            FilterUnrelatedCapturedEnemyGate(context, builderPrecheck);
+            Shared.DevDiag.Stop(ref measured, builderPrecheck ? "gate.compare.builder" : "gate.compare.pcl");
         }
 
         private void FilterUnrelatedCapturedEnemyGate(
@@ -455,10 +434,8 @@ namespace BugfixesAndQoL.GateRouting
             bool originalZero = false;
             try
             {
-                if (Volatile.Read(ref mapActive) != 0)
-                {
+                if (coverageCounters)
                     Interlocked.Increment(ref siteCalls[builderPrecheck ? 1 : 0]);
-                }
 
                 registers = (X64SmartCPUContext*)context;
                 if (registers == null)
@@ -574,6 +551,23 @@ namespace BugfixesAndQoL.GateRouting
                 return;
             int decisionIndex = (int)decision;
             int site = builderPrecheck ? 1 : 0;
+            if (!coverageCounters)
+            {
+                // Functional hot path: Preserve*/Exclude* are the overwhelming majority and
+                // only feed Info checkpoints. Integrity categories stay counted for warnings.
+                if ((int)decision <= (int)NativeGateSnapshotDecision.ExcludeAccessRule)
+                    return;
+                Interlocked.Increment(ref decisions[(site * DecisionCount) + decisionIndex]);
+                if (decision == NativeGateSnapshotDecision.UntrackedConnection)
+                {
+                    NativeGateAccessSnapshot current = gateAccess;
+                    if (current.TrackedRecords != 0 &&
+                        !HasStableRecord(previousStableGateAccess, buildingId) &&
+                        current.MatchesGateIdentity(buildingId, subjectGlobalId))
+                        Interlocked.Increment(ref untrackedUnexpectedGate);
+                }
+                return;
+            }
             Interlocked.Increment(ref decisions[(site * DecisionCount) + decisionIndex]);
             if (queryPlayerId > 0 && queryPlayerId < queryPlayers.Length)
                 Interlocked.Increment(ref queryPlayers[queryPlayerId]);
@@ -601,21 +595,8 @@ namespace BugfixesAndQoL.GateRouting
                 else
                     Interlocked.Increment(ref untrackedNonGate);
             }
-            if (macemen != null)
-                macemen.GateComparison(queryPlayerId, buildingId, subjectGlobalId, originalZero, finalZero,
-                    site, nativeOwner, nativeCaptured);
-            if (detailedDiagnostics)
-            {
-                try
-                {
-                    int exactGateId = gateAccess.MatchesGateIdentity(buildingId, subjectGlobalId)
-                        ? buildingId : 0;
-                    attackOrderDiagnostics?.ObserveGatePrecheck(queryPlayerId, buildingId,
-                        exactGateId,
-                        originalZero, finalZero, decision, nativeOwner, nativeCaptured, subjectGlobalId, builderPrecheck);
-                }
-                catch (Exception ex) { TryLogDiagnosticFailure(ex); }
-            }
+            DiagGateComparison(builderPrecheck, decision, queryPlayerId, buildingId, nativeOwner,
+                nativeCaptured, originalZero, finalZero, subjectGlobalId);
 
             if (!detailedDiagnostics) return;
             ref CapturerSample sample = ref samples[(site * DecisionCount) + decisionIndex];
@@ -810,7 +791,7 @@ namespace BugfixesAndQoL.GateRouting
                 "managedCursorSearches=0,managedReplacementSearches=0,directionGridWrites=0.");
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate AI order checkpoint: kind={kind}, " +
-                (attackOrderDiagnostics?.DescribeCheckpoint() ?? "unavailable") +
+                DescribeOrderCheckpoint() +
                 ",plannerState0x419Queries=" + same.AiTacticalTargetQueries +
                 ",plannerState0x419Edges=" +
                 (same.AiTacticalBuildingEdges + same.AiTacticalUnitEdges +
@@ -822,6 +803,8 @@ namespace BugfixesAndQoL.GateRouting
 
         private void LogAcceptanceVerdict(string reason)
         {
+            // Both variants are Info-only; skip building them when Info is suppressed.
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
             TopologyCoverageSnapshot topology = topologyProvider?.GetCoverageSnapshot() ?? default;
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             long uncaptured = DecisionTotal(NativeGateSnapshotDecision.PreserveUncaptured);
@@ -970,6 +953,32 @@ namespace BugfixesAndQoL.GateRouting
                     $"compareValue={sample.CompareValue}, nativeCompareEqual={sample.OriginalZero}, branchReject={sample.FinalZero}, adapter=post-cleanup-test, " +
                     $"accessFingerprint=0x{sample.Fingerprint:X16}.");
             }
+        }
+
+        // TEMP_GATE_MIGRATION_DIAGNOSTICS: implemented only in EnemyGatePathfindingRuntime.DevDiag.cs.
+        // Without SERP_DEVDIAG the compiler removes every call including its arguments.
+        partial void DiagObserveCapture(BuildingCaptureEventArgs args);
+        partial void DiagCreate();
+        partial void DiagSamePclObserver(ref object observer);
+        partial void DiagAttachSamePcl();
+        partial void DiagInstallNative(CrusaderLibraryLoadContext context);
+        partial void DiagBeginMap();
+        partial void DiagBeginEpoch();
+        partial void DiagEndMap();
+        partial void DiagDeferred();
+        partial void DiagTargetOrder(TribeIssueOrderWithTargetEventArgs args);
+        partial void DiagTribeMove(TribeIssueOrderMoveHereEventArgs args);
+        partial void DiagUnitMove(UnitMoveHereEventArgs args);
+        partial void DiagGateComparison(bool builderPrecheck, NativeGateSnapshotDecision decision,
+            int queryPlayerId, int buildingId, int nativeOwner, int nativeCaptured,
+            bool originalZero, bool finalZero, uint subjectGlobalId);
+        partial void DiagDescribeOrderCheckpoint(ref string text);
+
+        private string DescribeOrderCheckpoint()
+        {
+            string text = "unavailable";
+            DiagDescribeOrderCheckpoint(ref text);
+            return text;
         }
 
         private struct CapturerSample
