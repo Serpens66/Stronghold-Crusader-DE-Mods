@@ -71,8 +71,6 @@
     <Compile Include="..\Shared\Adapters\APIShared\GameplayModActivationGate.cs"><Link>Shared\Adapters\APIShared\GameplayModActivationGate.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\NumericTextInput.cs"><Link>Shared\Runtime\UI\NumericTextInput.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayout.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayout.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild"><Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll was not found: $(ApiSharedDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Backends.NativeX64.dll')" Text="RedBird.Backends.NativeX64.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found: $(ExtenderDir)" /></Target>

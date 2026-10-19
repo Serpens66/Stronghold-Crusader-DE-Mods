@@ -1775,7 +1775,7 @@ internal static class Program
             "StartConditions mode precedence or map-session reset regressed");
 
         string hudCoordinatorSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "Runtime", "UI", "TroopActionButtonLayout.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "Presentation", "TroopActions", "TroopActionHud.cs"));
         string bugfixRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         string assassinClimbSource = File.ReadAllText(
@@ -3060,30 +3060,30 @@ internal static class Program
 
     private static void TestTroopActionButtonLayoutPolicy()
     {
-        Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false, true) &&
-              !TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, false) &&
-              TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, true),
+        Check(!APIShared.Presentation.TroopActionHudLayoutPolicy.IsEffectivelyOccupied(false, true) &&
+              !APIShared.Presentation.TroopActionHudLayoutPolicy.IsEffectivelyOccupied(true, false) &&
+              APIShared.Presentation.TroopActionHudLayoutPolicy.IsEffectivelyOccupied(true, true),
             "shared troop action collision policy did not require effective visibility and interactivity");
 
-        Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
+        Check(APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_Host", 1, "Example.Mod.Action", 150,
                 out int explicitPriority, out string explicitActionId) &&
               explicitPriority == 150 && explicitActionId == "Example.Mod.Action",
             "shared troop action metadata contract rejected valid explicit metadata");
-        Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
+        Check(APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_0125_LegacyAction", null, null, null,
                 out int legacyPriority, out string legacyActionId) &&
               legacyPriority == 125 && legacyActionId == "LegacyAction",
             "shared troop action metadata contract rejected the legacy host format");
-        Check(!TroopActionButtonLayoutPolicy.TryResolveIdentity(
+        Check(!APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_Host", 2, "Example.Mod.Action", 150, out _, out _) &&
-              !TroopActionButtonLayoutPolicy.TryResolveIdentity(
+              !APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_Host", 1, "Example.Mod.Action", null, out _, out _),
             "shared troop action metadata contract accepted an unknown version or incomplete metadata");
 
-        var knight = new TroopActionRequest("ExtraFeatures_Serp.KnightTransform", 100, true);
-        var assassin = new TroopActionRequest("BugfixesAndQoL_Serp.AssassinClimb", 200, true);
-        TroopActionLayoutDecision bothFree = TroopActionButtonLayoutPolicy.CreateDecision(
+        var knight = new APIShared.Presentation.TroopActionRequest("ExtraFeatures_Serp.KnightTransform", 100, true);
+        var assassin = new APIShared.Presentation.TroopActionRequest("BugfixesAndQoL_Serp.AssassinClimb", 200, true);
+        APIShared.Presentation.TroopActionLayoutDecision bothFree = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, false, false);
         Check(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}").SequenceEqual(new[]
         {
@@ -3091,49 +3091,49 @@ internal static class Program
             "BugfixesAndQoL_Serp.AssassinClimb:BottomMiddle"
         }), "shared troop actions did not use priority order for the two free slots");
 
-        TroopActionLayoutDecision reverseOrder = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision reverseOrder = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { knight, assassin }, false, false);
         Check(reverseOrder.Assignments.Select(value => $"{value.ActionId}:{value.Slot}")
                 .SequenceEqual(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}")),
             "shared troop action assignment depended on registration or mod load order");
 
-        TroopActionLayoutDecision rightOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision rightOccupied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, true, false);
         Check(rightOccupied.Assignments.Count == 1 &&
               rightOccupied.Assignments[0].ActionId == knight.ActionId &&
-              rightOccupied.Assignments[0].Slot == TroopActionSlot.BottomMiddle &&
+              rightOccupied.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomMiddle &&
               rightOccupied.OverflowActionIds.SequenceEqual(new[] { assassin.ActionId }),
             "shared troop actions did not give the remaining middle slot to the highest priority action");
 
-        TroopActionLayoutDecision middleOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision middleOccupied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, false, true);
         Check(middleOccupied.Assignments.Count == 1 &&
               middleOccupied.Assignments[0].ActionId == knight.ActionId &&
-              middleOccupied.Assignments[0].Slot == TroopActionSlot.BottomRight,
+              middleOccupied.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomRight,
             "shared troop actions did not preserve the working bottom-right Knight slot");
 
-        TroopActionLayoutDecision bothOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision bothOccupied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, true, true);
         Check(bothOccupied.Assignments.Count == 0 && bothOccupied.OverflowActionIds.Count == 2,
             "shared troop actions overlaid occupied Vanilla/foreign slots");
 
-        TroopActionLayoutDecision assassinOnly = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision assassinOnly = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin }, false, false);
         Check(assassinOnly.Assignments.Count == 1 &&
-              assassinOnly.Assignments[0].Slot == TroopActionSlot.BottomRight,
+              assassinOnly.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomRight,
             "a lone Assassin action did not receive the preferred bottom-right slot");
 
-        TroopActionLayoutDecision knightOnly = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision knightOnly = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { knight }, false, false);
         Check(knightOnly.Assignments.Count == 1 &&
               knightOnly.Assignments[0].ActionId == knight.ActionId &&
-              knightOnly.Assignments[0].Slot == TroopActionSlot.BottomRight,
+              knightOnly.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomRight,
             "a lone Knight action did not receive the preferred bottom-right slot");
 
-        TroopActionLayoutDecision threeActions = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision threeActions = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.Third", 300, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.Third", 300, true),
                 assassin,
                 knight
             },
@@ -3143,11 +3143,11 @@ internal static class Program
               threeActions.OverflowActionIds.SequenceEqual(new[] { "Example.Mod.Third" }),
             "shared troop action overflow did not hide the lowest priority third action");
 
-        TroopActionLayoutDecision tied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision tied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.B", 100, true),
-                new TroopActionRequest("Example.Mod.A", 100, true)
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.B", 100, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.A", 100, true)
             },
             false,
             false);
@@ -3155,11 +3155,11 @@ internal static class Program
               tied.Assignments[1].ActionId == "Example.Mod.B",
             "equal troop action priorities were not resolved by ordinal action id");
 
-        TroopActionLayoutDecision duplicate = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision duplicate = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.Duplicate", 100, true),
-                new TroopActionRequest("Example.Mod.Duplicate", 200, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.Duplicate", 100, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.Duplicate", 200, true),
                 knight
             },
             false,
@@ -3167,11 +3167,11 @@ internal static class Program
         Check(duplicate.DuplicateActionIds.SequenceEqual(new[] { "Example.Mod.Duplicate" }) &&
               duplicate.Assignments.Count == 1 && duplicate.Assignments[0].ActionId == knight.ActionId,
             "duplicate troop action ids did not fail closed without blocking unrelated actions");
-        TroopActionLayoutDecision hiddenDuplicate = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision hiddenDuplicate = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.HiddenDuplicate", 100, true),
-                new TroopActionRequest("Example.Mod.HiddenDuplicate", 200, false)
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.HiddenDuplicate", 100, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.HiddenDuplicate", 200, false)
             },
             false,
             false);

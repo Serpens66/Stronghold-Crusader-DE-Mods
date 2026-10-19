@@ -10,7 +10,7 @@ namespace UnitLimit
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.6.0")]
+    [BepInDependency("APIShared_Serp", "0.12.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitLimitPlugin : BaseUnityPlugin
     {

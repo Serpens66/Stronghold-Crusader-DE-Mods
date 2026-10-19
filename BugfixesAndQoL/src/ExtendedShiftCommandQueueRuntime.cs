@@ -1761,10 +1761,16 @@ namespace BugfixesAndQoL
             UnitCommandTraversalProvider traversal = UnitCommandPathAPI.Traversal;
             if (traversal != null)
             {
-                var members = new List<QueueUnitIdentity>();
-                CaptureTribeMembers(tribeId, members);
-                foreach (QueueUnitIdentity member in members)
-                    if (traversal.HasPendingUnit(member.UnitId, member.GlobalId)) return false;
+                // Per tick and waiting cohort: test members during the scan instead of collecting
+                // them first (HasPendingUnit is a pure query, so stopping early is equivalent).
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+                {
+                    ref GameUnit unit = ref units[spanIndex];
+                    if (APIShared.UnitAccess.IsReallyAlive(in unit) && unit.r_TribeId == tribeId &&
+                        traversal.HasPendingUnit(spanIndex + 1, unit.r_GlobalId))
+                        return false;
+                }
             }
             return ReadMovementMode(tribe) == 0 &&
                 isTribeMovementComplete(tribeManagerPointer, tribeId) == 1;

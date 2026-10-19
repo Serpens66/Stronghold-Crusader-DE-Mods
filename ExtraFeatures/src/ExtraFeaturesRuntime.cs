@@ -52,7 +52,6 @@ namespace ExtraFeatures
         private readonly List<string> activeRefundGuardKeys = new List<string>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly UnitLimitBridge unitLimitBridge;
-        private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
         private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
@@ -92,10 +91,8 @@ namespace ExtraFeatures
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
             unitLimitBridge = new UnitLimitBridge(log);
-            troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
             knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate, unitLimitBridge);
             unitLimitBridge.RegisterStateChanged(knightDismountRuntime.OnUnitLimitStateChanged);
-            troopActionHudCoordinator.Register(knightDismountRuntime.RefreshButtonVisibility);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
             aiDefenseRepairRuntime = new AIDefenseRepairRuntime(log, settings);
@@ -117,7 +114,13 @@ namespace ExtraFeatures
                     processKeepBuildRangeRuntime = new KeepBuildRangeRuntime(log, settings);
                 processKeepBuildRangeRuntime.Initialize();
             });
-            TryRunFeature("troop action HUD coordinator", troopActionHudCoordinator.Initialize);
+            // APIShared owns the single troop-action setup hook and lays out every mod's host once.
+            TryRunFeature("troop action HUD registration", () =>
+            {
+                if (!APIShared.Presentation.TroopActionHud.TryRegister(ExtraFeaturesPlugin.PluginGuid, "KnightDismount",
+                    knightDismountRuntime.RefreshButtonVisibility, out string reason))
+                    throw new InvalidOperationException(reason);
+            });
             try
             {
                 // Registration order is a shared protocol boundary. Keep the group fail-closed
@@ -279,7 +282,6 @@ namespace ExtraFeatures
                 plagueApothecarySearchRangePatch?.SetEffectiveMaximum(
                     false,
                     PlagueApothecarySearchRangePatch.VanillaMaximumDistance));
-            troopActionHudCoordinator.Dispose();
             knightDismountRuntime.Dispose();
             gatehouseAutomationRuntime.Dispose();
             aiDefenseRepairRuntime.Dispose();

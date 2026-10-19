@@ -265,8 +265,8 @@
     <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs">
       <Link>NativePatternResolver.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs">
-      <Link>TroopActionButtonLayoutPolicy.cs</Link>
+    <Compile Include="..\..\APIShared\src\Presentation\TroopActions\TroopActionHudLayoutPolicy.cs">
+      <Link>TroopActionHudLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /><Compile Include="EnemyGateRoutingPresetTests.cs" /></ItemGroup>

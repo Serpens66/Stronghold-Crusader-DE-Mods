@@ -17,7 +17,6 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
-        private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
         private readonly AssassinClimbRuntime assassinClimbRuntime;
         private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
         private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
@@ -152,13 +151,11 @@ namespace BugfixesAndQoL
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             troopMovementFixRuntime = new TroopMovementFix3Runtime(log, settings);
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
-            troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
             assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
             assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
             assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
             assassinCombatResumeRuntime = new AssassinCombatResumeRuntime(log, settings);
             assassinCapturedGateProtectionRuntime = new AssassinCapturedGateProtectionRuntime(log, settings);
-            troopActionHudCoordinator.Register(assassinClimbRuntime.RefreshButtonVisibility);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
@@ -214,9 +211,15 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "Assassin climb cancellation event",
                 assassinClimbCancellationRuntime.Initialize);
+            // APIShared owns the single troop-action setup hook and lays out every mod's host once.
             TryInitializePersistentFeature(
-                "troop action HUD coordinator",
-                troopActionHudCoordinator.Initialize);
+                "troop action HUD registration",
+                () =>
+                {
+                    if (!APIShared.Presentation.TroopActionHud.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "AssassinClimb",
+                        assassinClimbRuntime.RefreshButtonVisibility, out string reason))
+                        throw new InvalidOperationException(reason);
+                });
             // These registrations serve independent features. Keep each failure isolated so a
             // managed speed-UI hook can never disable Ctrl trading or map-state maintenance.
             TryInitializePersistentFeature(
@@ -294,7 +297,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("single-building pause save restore", () => RestoreMovedFeatureSaveState(context));
             TryApplyFeature("troop movement save restore", () => troopMovementFixRuntime.RestoreSessionState(context));
             multiplayerGameSpeedRuntime.ApplySetting();
-            troopActionHudCoordinator.Refresh();
+            APIShared.Presentation.TroopActionHud.RefreshCurrentPanel();
         }
 
         public void InitializeSelectedUnitHealthFeature()
@@ -766,7 +769,6 @@ namespace BugfixesAndQoL
             plagueApothecaryStateTransitionFix?.Dispose();
             plagueApothecaryStateTransitionFix = null;
             troopMovementFixRuntime.Dispose();
-            troopActionHudCoordinator.Dispose();
             assassinClimbRuntime.Dispose();
             assassinClimbCancellationRuntime.Dispose();
             ctrlMarketTradeHook?.Dispose();

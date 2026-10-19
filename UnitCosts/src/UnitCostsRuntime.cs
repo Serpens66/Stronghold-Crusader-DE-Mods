@@ -119,7 +119,7 @@ namespace UnitCosts
             TryInitializeFeature("recruitment action enforcement", () => makeTroopGameActionHook = new MakeTroopGameActionHook(log, () => callbacksEnabled && EffectsEnabled, DecideMakeTroopGameAction));
             TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, () => callbacksEnabled && EffectsEnabled, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip));
             TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, () => callbacksEnabled && EffectsEnabled, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip));
-            TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, () => callbacksEnabled && EffectsEnabled, IsNoWeaponsUiActive, RefreshRecruitmentUi));
+            TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, () => callbacksEnabled && EffectsEnabled, IsNoWeaponsUiActive, RefreshCurrentRecruitmentCostTooltip, IsRecruitmentAvailabilityActive, IsRecruitmentBlockedByExtraCosts));
 
             hooksSubscribed = true;
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts runtime hooks subscribed");
@@ -301,7 +301,7 @@ namespace UnitCosts
                 "UnitCosts.cost-restoration", $"UnitCosts could not restore an owned cost; independent cells continue: {ex}"), endSession);
             noWeaponsUiMask = 0;
             humanExtraCosts.Clear();
-            configuredRecruitmentButtons.Clear();
+            hasHumanExtraCosts = false;
             ClearRecruitmentCostTooltip();
             Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts.owned-cost-restoration", "Released UnitCosts-owned cost values.");
         }
@@ -309,7 +309,6 @@ namespace UnitCosts
         private void ApplyHumanExtraUnitCosts()
         {
             humanExtraCosts.Clear();
-            configuredRecruitmentButtons.Clear();
             Dictionary<eChimps, UnitExtraCostValues> parsedCosts = settings.ParseHumanExtraUnitCosts();
             int configuredUnits = 0;
             foreach (KeyValuePair<eChimps, UnitExtraCostValues> entry in parsedCosts)
@@ -319,7 +318,7 @@ namespace UnitCosts
                     configuredUnits++;
             }
 
-            RebuildConfiguredRecruitmentButtons();
+            hasHumanExtraCosts = configuredUnits > 0;
             Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:380", "Applied human extra unit cost rows:", configuredUnits);
             RefreshCurrentRecruitmentCostTooltip();
         }
@@ -490,12 +489,6 @@ namespace UnitCosts
             RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, currentTooltipMultiplier));
         }
 
-        private void RefreshRecruitmentUi()
-        {
-            RefreshRecruitmentButtonAvailability();
-            RefreshCurrentRecruitmentCostTooltip();
-        }
-
         private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(int playerId, UnitExtraCostValues costs, int multiplier)
         {
             List<UnitRecruitmentCostEntry> entries = new List<UnitRecruitmentCostEntry>();
@@ -590,93 +583,34 @@ namespace UnitCosts
             return Math.Max(0, GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, good));
         }
 
-        private readonly System.Collections.Generic.List<RecruitmentButtonRule> configuredRecruitmentButtons =
-            new System.Collections.Generic.List<RecruitmentButtonRule>();
-        private static readonly RecruitmentButtonRule[] RecruitmentButtonRules =
+        // Set from the parsed human extra-cost rows; the shared recruitment pass stays idle without them.
+        private bool hasHumanExtraCosts;
+
+        // Activity callback of the APIShared recruitment-availability registration.
+        internal bool IsRecruitmentAvailabilityActive() =>
+            hasHumanExtraCosts && EffectsEnabled && IsUnitCostModeAllowed();
+
+        // Queried by APIShared for each still-enabled Vanilla recruit button; side-effect free. Buttons
+        // of one GUI check share context.Sequence, so the stable query is answered once per check.
+        internal bool IsRecruitmentBlockedByExtraCosts(APIShared.Recruitment.RecruitmentAvailabilityContext context, eChimps unitType)
         {
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARCHER, panel => panel.RefRecruitArcherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_SPEARMAN, panel => panel.RefRecruitSpearmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_MACEMAN, panel => panel.RefRecruitMacemanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_XBOWMAN, panel => panel.RefRecruitXBowmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_PIKEMAN, panel => panel.RefRecruitPikemanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_SWORDSMAN, panel => panel.RefRecruitSwordsmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_KNIGHT, panel => panel.RefRecruitKnightButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ENGINEER, panel => panel.RefRecruitEngineerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_LADDERMAN, panel => panel.RefRecruitLaddermanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_TUNNELER, panel => panel.RefRecruitTunellerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_MONK, panel => panel.RefRecruitMonkButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_BOW, panel => panel.RefRecruitArabBowButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SLAVE, panel => panel.RefRecruitArabSlaveButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SLINGER, panel => panel.RefRecruitArabSlingerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_ASSASIN, panel => panel.RefRecruitArabAssassinButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_HORSEMAN, panel => panel.RefRecruitArabHorseArcherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SWORDSMAN, panel => panel.RefRecruitArabSwordsmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_GRENADIER, panel => panel.RefRecruitArabGrenadierButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER, panel => panel.RefRecruitBedouinCamelLancerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, panel => panel.RefRecruitBedouinHealerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, panel => panel.RefRecruitBedouinEunuchButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER, panel => panel.RefRecruitBedouinAmbusherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER, panel => panel.RefRecruitBedouinSkirmisherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, panel => panel.RefRecruitBedouinHeavyCamelButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_SAPPER, panel => panel.RefRecruitBedouinSapperButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER, panel => panel.RefRecruitBedouinDemolisherButton),
-        };
-
-        private readonly struct RecruitmentButtonRule
-        {
-            internal RecruitmentButtonRule(eChimps unitType, System.Func<HUD_Buildings, Noesis.UIElement> getButton)
-            {
-                UnitType = unitType;
-                GetButton = getButton;
-            }
-            internal eChimps UnitType { get; }
-            internal System.Func<HUD_Buildings, Noesis.UIElement> GetButton { get; }
-        }
-
-        private void RebuildConfiguredRecruitmentButtons()
-        {
-            configuredRecruitmentButtons.Clear();
-            foreach (RecruitmentButtonRule rule in RecruitmentButtonRules)
-                if (TryGetHumanExtraCosts(rule.UnitType, out _))
-                    configuredRecruitmentButtons.Add(rule);
-        }
-
-        internal void RefreshRecruitmentButtonAvailability()
-        {
-            if (configuredRecruitmentButtons.Count == 0 || !EffectsEnabled || !IsUnitCostModeAllowed())
-                return;
-
-            int playerId = GetLocalHumanPlayerId();
-            if (playerId <= 0)
-                return;
-
-            MainViewModel mainViewModel = MainViewModel.Instance;
-            if (mainViewModel?.HUDBuildingPanel == null)
-                return;
-
-            eChimps hoveredUnitType = GetLastTroopBuildChimp(mainViewModel);
-            int amount = hoveredUnitType == eChimps.CHIMP_NUM_TYPES ? 1 : GetLastTroopsAmountToMake(mainViewModel);
-            HUD_Buildings panel = mainViewModel.HUDBuildingPanel;
-
-            // Resolve from the current panel; retain Vanilla/other-mod disabled states.
-            foreach (RecruitmentButtonRule rule in configuredRecruitmentButtons)
-                DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, rule.UnitType, rule.GetButton(panel));
-        }
-
-        private void DisableRecruitmentButtonIfMissingExtraCosts(
-            int playerId,
-            int amount,
-            eChimps unitType,
-            Noesis.UIElement button)
-        {
-            if (button == null || !button.IsEnabled)
-                return;
+            if (!context.IsLocalPlayerHuman || context.LocalPlayerId <= 0)
+                return false;
 
             if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
-                return;
+                return false;
 
-            if (!HasEnoughExtraCosts(playerId, costs, amount, out eGoods _, out bool _, out int _, out int _))
-                button.IsEnabled = false;
+            int amount = context.HoveredUnitType == eChimps.CHIMP_NUM_TYPES ? 1 : Math.Max(1, context.VanillaAmountToMake);
+            long previousScope = horseCountScope;
+            horseCountScope = context.Sequence;
+            try
+            {
+                return !HasEnoughExtraCosts(context.LocalPlayerId, costs, amount, out eGoods _, out bool _, out int _, out int _);
+            }
+            finally
+            {
+                horseCountScope = previousScope;
+            }
         }
 
         private static bool TryGetSiegeBuildHoverUnit(object parameter, out eChimps unitType)
@@ -1053,7 +987,29 @@ namespace UnitCosts
             }
         }
 
+        // Non-zero while answering one shared recruitment-availability check (its Sequence). Nothing
+        // mutates stables between the buttons of one check, so their horse counts can be shared.
+        [ThreadStatic] private static long horseCountScope;
+        [ThreadStatic] private static long horseCountStoredScope;
+        [ThreadStatic] private static int horseCountStoredPlayer;
+        [ThreadStatic] private static int horseCountStoredValue;
+
         private static int CountAvailableHorseSlots(int playerId)
+        {
+            if (horseCountScope != 0 && horseCountStoredScope == horseCountScope && horseCountStoredPlayer == playerId)
+                return horseCountStoredValue;
+
+            int count = CountAvailableHorseSlotsUncached(playerId);
+            if (horseCountScope != 0)
+            {
+                horseCountStoredScope = horseCountScope;
+                horseCountStoredPlayer = playerId;
+                horseCountStoredValue = count;
+            }
+            return count;
+        }
+
+        private static int CountAvailableHorseSlotsUncached(int playerId)
         {
             int count = 0;
             List<int> stableIds = horseStableIdsBuffer ?? (horseStableIdsBuffer = new List<int>());

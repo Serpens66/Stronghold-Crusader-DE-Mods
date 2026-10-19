@@ -130,7 +130,7 @@ namespace UnitLimit
                         CompleteMakeTroopGameAction,
                         () => IsEffectsActive));
                 TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip));
-                TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability));
+                TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, this));
             }
             if (activeUnitCacheAvailable && activeSiegeTentCacheAvailable)
                 TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip));

@@ -506,7 +506,6 @@ namespace UnitLimit
         {
             ClearExternalReservations("ApplyUnitLimits");
             activeUnitLimits.Clear();
-            configuredRecruitmentButtons.Clear();
             Dictionary<eChimps, int> parsedLimits = ParseEnumAmounts<eChimps>(settings.UnitLimits);
             foreach (KeyValuePair<eChimps, int> entry in parsedLimits)
             {
@@ -521,7 +520,6 @@ namespace UnitLimit
                     LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:526", "Active unit limit:", entry.Key, "=", entry.Value);
             }
 
-            RebuildConfiguredRecruitmentButtons();
             LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:530", "Applied active unit limit rules:", activeUnitLimits.Count);
             RefreshCurrentUnitLimitTooltip();
             UnitLimitIntegration.NotifyStateChanged();

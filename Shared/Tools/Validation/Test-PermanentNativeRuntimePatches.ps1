@@ -114,6 +114,16 @@ $permanentManagedContracts = @(
         Forbidden = @('public void Dispose()', 'hook.Dispose(', 'hook?.Dispose(', 'hook.Undo(', 'hook?.Undo(')
     },
     @{
+        Path = 'APIShared\src\Presentation\TroopActions\TroopActionHud.cs'
+        Required = @('GenerateTrampoline<SetupTroopActionsDelegate>()', 'setupHook = candidate;', 'candidate?.Dispose();')
+        Forbidden = @('public void Dispose()', 'setupHook.Dispose(', 'setupHook?.Dispose(', 'setupHook.Undo(', 'setupHook?.Undo(')
+    },
+    @{
+        Path = 'APIShared\src\Units\Recruitment\RecruitmentAvailability.cs'
+        Required = @('PresentationEvents.TryRegisterWhenActive(PresentationOperation.GuiChecks', 'installed = true;')
+        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'installed = false')
+    },
+    @{
         Path = 'BugfixesAndQoL\src\SiegeAmmoRestockFeature.cs'
         Required = @('if (eventsRegistered) return;', 'PresentationEvents.TryRegister(', 'args.Replacement = parameter')
         Forbidden = @('new Hook(', 'buttonHook', 'mouseEnterHook', 'mouseLeaveHook')
@@ -122,6 +132,7 @@ $permanentManagedContracts = @(
         Path = 'UnitCosts\src\RecruitmentAvailabilityUiHook.cs'
         Required = @(
             'RecruitmentMaterialUi.TryRegister(',
+            'RecruitmentAvailability.TryRegister(',
             'PresentationEvents.TryRegister('
         )
         Forbidden = @(
@@ -136,7 +147,7 @@ $permanentManagedContracts = @(
         Path = 'UnitCosts\src\UnitCostsRuntime.cs'
         Required = @(
             'private volatile int noWeaponsUiMask;',
-            'IsNoWeaponsUiActive, RefreshRecruitmentUi',
+            'IsNoWeaponsUiActive, RefreshCurrentRecruitmentCostTooltip, IsRecruitmentAvailabilityActive, IsRecruitmentBlockedByExtraCosts',
             'noWeaponsUiMask = appliedNoWeaponsMask;'
         )
         Forbidden = @(
@@ -185,7 +196,7 @@ $permanentManagedContracts = @(
     },
     @{
         Path = 'UnitLimit\src\RecruitmentAvailabilityUiHook.cs'
-        Required = @('PresentationEvents.TryRegister(', 'args.OriginalCompleted')
+        Required = @('PresentationEvents.TryRegister(', 'args.OriginalCompleted', 'RecruitmentAvailability.TryRegister(')
         Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'hook?.Undo()', 'hook?.Dispose()')
     },
     @{

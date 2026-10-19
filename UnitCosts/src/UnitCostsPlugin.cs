@@ -11,7 +11,7 @@ namespace UnitCosts
     [BepInDependency(CrusaderDeTweakerGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(UnitLimitGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.6.0")]
+    [BepInDependency("APIShared_Serp", "0.12.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitCostsPlugin : BaseUnityPlugin
     {

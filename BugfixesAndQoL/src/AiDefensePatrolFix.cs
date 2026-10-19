@@ -178,6 +178,9 @@ namespace BugfixesAndQoL
             if (units._array == null)
                 throw new InvalidOperationException("The game unit array is unavailable.");
 
+            // DEVDIAG: one full scan per AI defensive recruit; measure frequency and cost on big maps.
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
                 GameUnit* unit = units.GetValuePointer(spanIndex);
@@ -194,6 +197,7 @@ namespace BugfixesAndQoL
                 else if (role == OuterPatrolRole)
                     role4Count++;
             }
+            Shared.DevDiag.Stop(ref measured, "aiDefense.countRoles");
         }
 
         private bool IsEnabled => logicallyEnabled;

@@ -354,8 +354,6 @@
     <Compile Include="..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\AiSettingsHelpHover.cs"><Link>Shared\Runtime\UI\AiSettingsHelpHover.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayout.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayout.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

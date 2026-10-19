@@ -1,17 +1,12 @@
 using CrusaderDE;
 using SHCDESE.Interop;
 using System;
-using System.Reflection;
 
 namespace UnitLimit
 {
     public sealed partial class UnitLimitRuntime
     {
-        private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
-        private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
-        private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
-        private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
+
         private eChimps currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
         private bool hasCurrentTooltipUnitType;
 
@@ -77,23 +72,13 @@ namespace UnitLimit
             UnitLimitTooltip.Clear();
         }
 
+        // Both fields are public in the shipped Assembly-CSharp; typed reads avoid reflection and boxing.
         private static eChimps GetLastTroopBuildChimp(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopBuildChimpField,
-                LastTroopBuildChimpProperty);
-            if (value == null)
+            if (mainViewModel == null)
                 return eChimps.CHIMP_TYPE_ARCHER;
 
-            try
-            {
-                return (eChimps)Convert.ToInt32(value);
-            }
-            catch
-            {
-                return eChimps.CHIMP_TYPE_ARCHER;
-            }
+            return (eChimps)(int)mainViewModel.lastTroopBuildChimp;
         }
 
         private static bool TryGetCurrentVanillaRecruitAmount(eChimps unitType, out int amount)
@@ -103,41 +88,11 @@ namespace UnitLimit
             if (mainViewModel == null)
                 return false;
 
-            object unitValue = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopBuildChimpField,
-                LastTroopBuildChimpProperty);
-            object amountValue = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopsAmountToMakeField,
-                LastTroopsAmountToMakeProperty);
-            if (unitValue == null || amountValue == null)
+            if ((eChimps)(int)mainViewModel.lastTroopBuildChimp != unitType)
                 return false;
 
-            try
-            {
-                if ((eChimps)Convert.ToInt32(unitValue) != unitType)
-                    return false;
-
-                amount = Math.Max(0, Convert.ToInt32(amountValue));
-                return true;
-            }
-            catch
-            {
-                amount = 0;
-                return false;
-            }
-        }
-
-        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, FieldInfo field, PropertyInfo property)
-        {
-            if (mainViewModel == null)
-                return null;
-
-            if (field != null)
-                return field.GetValue(mainViewModel);
-
-            return property?.GetValue(mainViewModel);
+            amount = Math.Max(0, mainViewModel.lastTroopsAmountToMake);
+            return true;
         }
 
         private static bool TryGetSiegeBuildHoverUnit(object parameter, out eChimps unitType)

@@ -34,6 +34,8 @@ namespace ExtraFeatures
 
         private readonly Dictionary<int, PendingKnightTransformation> pendingTransformations =
             new Dictionary<int, PendingKnightTransformation>();
+        // Ordered copy of the pending keys; UpdatePendingTransformations is never re-entered.
+        private readonly List<int> pendingGlobalIdBuffer = new List<int>();
         private readonly HashSet<int> pendingSelectionRequestIds = new HashSet<int>();
         private readonly HashSet<int> pendingSelectionTransferIds = new HashSet<int>();
         private int pendingSelectionTransferTicks;
@@ -392,20 +394,22 @@ namespace ExtraFeatures
             if (pendingTransformations.Count == 0)
                 return;
 
-            int[] globalIds = new int[pendingTransformations.Count];
-            pendingTransformations.Keys.CopyTo(globalIds, 0);
-            Array.Sort(globalIds);
+            // Runs every tick while transformations wait; reuse the ordered key buffer.
+            pendingGlobalIdBuffer.Clear();
+            pendingGlobalIdBuffer.AddRange(pendingTransformations.Keys);
+            pendingGlobalIdBuffer.Sort();
+            int examinedCount = pendingGlobalIdBuffer.Count;
             int readyCount = 0;
             int completedCount = 0;
             int cancelledCount = 0;
-            var selectionTransfers = new List<int>();
-            for (int index = 0; index < globalIds.Length; index++)
+            List<int> selectionTransfers = null;
+            for (int index = 0; index < examinedCount; index++)
             {
-                int globalId = globalIds[index];
+                int globalId = pendingGlobalIdBuffer[index];
                 if (!pendingTransformations.TryGetValue(globalId, out PendingKnightTransformation pending))
                     continue;
 
-                int currentUnitId = FindAliveUnitIdByGlobalId(globalId);
+                int currentUnitId = FindAliveUnitIdByGlobalId(globalId, pending.Snapshot.UnitId);
                 if (currentUnitId <= 0)
                 {
                     // Vanilla death/deletion owns the low-level link invalidation and stable recount.
@@ -445,7 +449,7 @@ namespace ExtraFeatures
                     FinishPending(pending);
                     completedCount++;
                     if (selectedReplacementUnitId > 0)
-                        selectionTransfers.Add(selectedReplacementUnitId);
+                        (selectionTransfers ?? (selectionTransfers = new List<int>())).Add(selectedReplacementUnitId);
                 }
                 else
                 {
@@ -454,12 +458,13 @@ namespace ExtraFeatures
                 }
             }
 
-            PublishSelectionTransfers(selectionTransfers);
+            if (selectionTransfers != null)
+                PublishSelectionTransfers(selectionTransfers);
 
             if (readyCount > 0 || cancelledCount > 0)
             {
                 LogDebug(
-                    $"Knight transformation pending update: examined={globalIds.Length}, ready={readyCount}, " +
+                    $"Knight transformation pending update: examined={examinedCount}, ready={readyCount}, " +
                     $"completed={completedCount}, cancelled={cancelledCount}, remaining={pendingTransformations.Count}.");
             }
         }
@@ -835,7 +840,7 @@ namespace ExtraFeatures
 
             if (releaseReservedHorse && pending.HasHorseAllocation)
             {
-                int unitId = FindAliveUnitIdByGlobalId(pending.Snapshot.GlobalId);
+                int unitId = FindAliveUnitIdByGlobalId(pending.Snapshot.GlobalId, pending.Snapshot.UnitId);
                 if (unitId > 0)
                     ReleaseExactHorseLink(pending.Allocation, unitId, pending.Snapshot.GlobalId, reason);
             }

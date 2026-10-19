@@ -163,14 +163,18 @@ namespace ExtremePowers.API
             UpdateHudReplacementState();
             if (state == null || state.extremeEnabled <= 0 || !owner.GetSessionReadiness().Ready ||
                 !MainViewModel.viewModelLoaded) return;
+            // Runs for every game-state copy. Vanilla's original has just written its own values, so all
+            // eight are reassigned each time; only the per-call string array is avoided.
             int[] costs = owner.Snapshot().Costs;
-            string[] enabled = new string[8];
-            for (int index = 0; index < enabled.Length; index++) enabled[index] = state.extremeCount >= costs[index] ? "True" : "False";
-            MainViewModel.Instance.ExtremePower1_Enabled = enabled[0]; MainViewModel.Instance.ExtremePower2_Enabled = enabled[1];
-            MainViewModel.Instance.ExtremePower3_Enabled = enabled[2]; MainViewModel.Instance.ExtremePower4_Enabled = enabled[3];
-            MainViewModel.Instance.ExtremePower5_Enabled = enabled[4]; MainViewModel.Instance.ExtremePower6_Enabled = enabled[5];
-            MainViewModel.Instance.ExtremePower7_Enabled = enabled[6]; MainViewModel.Instance.ExtremePower8_Enabled = enabled[7];
+            int mana = state.extremeCount;
+            MainViewModel view = MainViewModel.Instance;
+            view.ExtremePower1_Enabled = EnabledText(mana, costs[0]); view.ExtremePower2_Enabled = EnabledText(mana, costs[1]);
+            view.ExtremePower3_Enabled = EnabledText(mana, costs[2]); view.ExtremePower4_Enabled = EnabledText(mana, costs[3]);
+            view.ExtremePower5_Enabled = EnabledText(mana, costs[4]); view.ExtremePower6_Enabled = EnabledText(mana, costs[5]);
+            view.ExtremePower7_Enabled = EnabledText(mana, costs[6]); view.ExtremePower8_Enabled = EnabledText(mana, costs[7]);
         }
+
+        private static string EnabledText(int mana, int cost) => mana >= cost ? "True" : "False";
 
         private void Select(int powerId)
         {

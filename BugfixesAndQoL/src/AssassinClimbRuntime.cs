@@ -233,7 +233,7 @@ namespace BugfixesAndQoL
             HUD_Troops troopPanel = null;
             TryGetHudTroopPanel(out troopPanel);
             RefreshButtonVisibilityCore(troopPanel, force: true);
-            Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
+            APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
         }
 
         internal void RefreshButtonVisibility(HUD_Troops troopPanel)
@@ -313,7 +313,7 @@ namespace BugfixesAndQoL
             HUD_Troops troopPanel = null;
             TryGetHudTroopPanel(out troopPanel);
             if (RefreshButtonVisibilityCore(troopPanel, force: false))
-                Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
+                APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
         }
 
         private void OnToggleCommand()
