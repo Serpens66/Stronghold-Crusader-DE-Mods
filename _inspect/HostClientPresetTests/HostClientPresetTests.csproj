@@ -74,6 +74,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="ExtremePowersPresetTests.cs" />
+    <Compile Include="..\..\Shared\Runtime\UI\NumericTextInput.cs" />
+    <Compile Include="..\..\ExtremePowers\src\Settings\ExtremePowersSettings.cs" />
     <Compile Include="DynamicPresetTests.cs" />
     <Compile Include="RestartSettingsTests.cs" />
     <Compile Include="TweakerProviderTests.cs" />

@@ -41,6 +41,11 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "extreme-powers-presets")
+            {
+                ExtremePowersPresetTests.Run();
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "preset-storage")
             {
                 TestLobbySettingsRouting();
@@ -161,6 +166,7 @@ internal static class Program
             TestCastlePlannerBlueprintHudPolicies();
             TestCastleSpawnContentPolicy();
             TestSnapshotCompletionHook();
+            ExtremePowersPresetTests.Run();
             TestFreeCastleProtocol();
             TestModSettingsSearchPolicy();
             TestUnitGoldCostSnapshot();
