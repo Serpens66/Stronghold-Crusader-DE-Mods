@@ -116,7 +116,7 @@
       <TextBlock Text="{Binding System_TrailSourceNoticeText}" Visibility="{Binding System_TrailSourceNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
-      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
       <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,0,0,10"/>
       <StackPanel shared:ModSettingsSearch.SectionKey="hunters.section.behavior" shared:ModSettingsSearch.SectionTitle="{Binding BehaviorTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding BehaviorTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>

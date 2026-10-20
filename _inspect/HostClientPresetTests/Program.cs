@@ -28,6 +28,76 @@ internal static class Program
 
     internal static string PresetFixtureInstallRoot;
 
+    private static void TestSettingsOpacity()
+    {
+        GameNetworkAPI.LocalHost = true;
+        GameNetworkAPI.Networked = true;
+        GameNetworkAPI.MultiplayerGame = true;
+        string assembly = Path.Combine(PresetFixtureInstallRoot, "Opacity.dll");
+        var settings = new ActivationViewModel();
+        settings.PreparePresets(null, assembly, "Opacity");
+        settings.ActivatePresets();
+        var changes = new List<string>();
+        settings.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        settings.HostSettingsEnabled = false;
+        Check(settings.HostSettingsOpacity == 0.65f && settings.ClientSettingsOpacity == 1f,
+            "host switch did not dim only host settings");
+        settings.ClientSettingsEnabled = false;
+        Check(settings.ClientSettingsOpacity == 0.65f && settings.CanEditHostSettings && settings.CanEditClientSettings,
+            "opacity introduced an editing lock");
+        Check(settings.CanToggleHostSettings && settings.CanToggleClientSettings && settings.CanChangePreset && settings.CanResetSettings,
+            "inactive settings blocked activation or preset actions");
+        Check(changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
+            "switches did not notify opacity bindings in an unchanged role");
+        settings.HostNumber = 73;
+        settings.ClientNumber = 84;
+        settings.HostSettingsEnabled = true;
+        settings.ClientSettingsEnabled = true;
+        Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f &&
+            settings.HostNumber == 73 && settings.ClientNumber == 84, "inactive edits were not retained on reactivation");
+        var snapshot = settings.System_CreateCurrentWorkingSnapshot();
+        snapshot[nameof(settings.EnableMod)] = MessagePackSerializer.Serialize(false);
+        snapshot[nameof(settings.EnableClientFeatures)] = MessagePackSerializer.Serialize(false);
+        changes.Clear();
+        settings.System_ApplyWorkingSnapshot(snapshot);
+        Check(settings.HostSettingsOpacity == 0.65f && settings.ClientSettingsOpacity == 0.65f &&
+            changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
+            "working snapshot did not refresh opacity");
+        changes.Clear();
+        settings.System_LoadModDefaults();
+        Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f &&
+            changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
+            "reset did not refresh opacity");
+        settings.System_EnterMissionPreset(snapshot, "Trail", false);
+        Check(settings.HostSettingsOpacity == 0.65f && !settings.CanEditHostSettings && !settings.CanEditClientSettings,
+            "mission opacity changed read-only policy");
+        settings.System_ExitMissionPreset();
+        Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f,
+            "mission exit did not restore opacity");
+        GameNetworkAPI.LocalHost = false;
+        settings.System_RefreshSettingsAccess();
+        int localHostValue = settings.HostNumber;
+        settings.HostSettingsEnabled = false;
+        settings.HostNumber = 99;
+        Check(settings.HostSettingsOpacity == 1f && settings.HostNumber == localHostValue && !settings.CanToggleHostSettings,
+            "client was permitted to change host state");
+        changes.Clear();
+        GameXAMLManagerAPI.Instance.ApplyNetworkSync(settings, () => settings.EnableMod = false);
+        Check(settings.HostSettingsOpacity == 0.65f && changes.Contains(nameof(settings.HostSettingsOpacity)) &&
+            !settings.CanEditHostSettings, "incoming host activation did not refresh client presentation");
+        settings.ClientSettingsEnabled = false;
+        settings.ClientNumber = 91;
+        Check(settings.ClientSettingsOpacity == 0.65f && settings.ClientNumber == 91 && settings.CanEditClientSettings,
+            "host switch or client opacity blocked personal edits");
+        var withoutSwitches = new HostOnlyViewModel();
+        withoutSwitches.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "OpacityNoSwitch.dll"), "OpacityNoSwitch");
+        Check(withoutSwitches.HostSettingsOpacity == 1f && withoutSwitches.ClientSettingsOpacity == 1f,
+            "missing activation switches dimmed the content");
+        GameNetworkAPI.LocalHost = true;
+        GameNetworkAPI.Networked = false;
+        GameNetworkAPI.MultiplayerGame = false;
+    }
+
     private static int Main(string[] args)
     {
         string documentsRoot = Path.Combine(Path.GetTempPath(), "HostClientDocuments-" + Guid.NewGuid().ToString("N"));
@@ -41,6 +111,12 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "settings-opacity")
+            {
+                TestSettingsOpacity();
+                Console.WriteLine("PASS: settings opacity, activation notifications, editable values, snapshots and host/client authority.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "extreme-powers-presets")
             {
                 ExtremePowersPresetTests.Run();
@@ -169,6 +245,7 @@ internal static class Program
             ExtremePowersPresetTests.Run();
             TestFreeCastleProtocol();
             TestModSettingsSearchPolicy();
+            TestSettingsOpacity();
             TestUnitGoldCostSnapshot();
             TestSharedModSettingsSearchMatcher();
 
@@ -6100,6 +6177,32 @@ internal sealed class ActivationViewModel : PresetLobbyModSettingsViewModel
 {
     private bool enableMod = true;
     private bool enableClientFeatures = true;
+    private int hostNumber;
+    private int clientNumber;
+
+    [SyncHostOnly]
+    public int HostNumber
+    {
+        get => hostNumber;
+        set
+        {
+            if (!CanMutateSetting(nameof(HostNumber)) || hostNumber == value) return;
+            hostNumber = value;
+            OnPropertyChanged(nameof(HostNumber));
+        }
+    }
+
+    [PresetLocal]
+    public int ClientNumber
+    {
+        get => clientNumber;
+        set
+        {
+            if (!CanMutateSetting(nameof(ClientNumber)) || clientNumber == value) return;
+            clientNumber = value;
+            OnPropertyChanged(nameof(ClientNumber));
+        }
+    }
 
     [SyncHostOnly]
     public bool EnableMod

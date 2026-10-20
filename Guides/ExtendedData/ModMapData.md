@@ -73,7 +73,13 @@ There is no global schema version. Prefer a stable BepInEx plugin GUID in lowerc
 
 #### Reading a namespace
 
-Reference `ExtendedData.dll` and `ExtendedData.Core.dll`, then request only your namespace:
+New consumers can reference `APIShared.dll` and `APIShared.Content.dll` with `Private=false`
+and call `APIShared.ModData.ModDataAccess.ReadCurrentMapNamespace("author.example-mod")`.
+This works without ExtendedData. See the [shared mod-data API](../../APIShared/docs/MOD_DATA.md)
+for source/lifecycle contracts; use the complete matched development package until release.
+
+The existing ExtendedData facade remains compatible. Reference `ExtendedData.dll` and
+`ExtendedData.Core.dll` when retaining this older integration:
 
 ```csharp
 using System.Collections.Generic;
@@ -89,7 +95,7 @@ if (result.Success)
 }
 ```
 
-`Data` is a deeply read-only snapshot. Nested objects implement `IReadOnlyDictionary<string, object>` and arrays implement `IReadOnlyList<object>`. `Json` contains only the requested namespace. ExtendedData validates the shared container but leaves `schemaVersion` and all mod-owned fields to the consumer.
+`Data` is a deeply read-only snapshot. Nested objects implement `IReadOnlyDictionary<string, object>` and arrays implement `IReadOnlyList<object>`. `Json` contains only the requested namespace. APIShared validates the shared container but leaves `schemaVersion` and all mod-owned fields to the consumer.
 
 Possible status values are:
 
@@ -188,7 +194,9 @@ Es gibt keine globale Schemaversion. Bevorzuge eine stabile BepInEx-Plugin-GUID 
 
 #### Einen Namensraum lesen
 
-Referenziere `ExtendedData.dll` und `ExtendedData.Core.dll` und fordere anschließend ausschließlich deinen Namensraum an:
+Neue Verbraucher können `APIShared.dll` und `APIShared.Content.dll` mit `Private=false` referenzieren und `APIShared.ModData.ModDataAccess.ReadCurrentMapNamespace("author.example-mod")` ohne ExtendedData verwenden. Verträge zu Quelle und Lifecycle stehen in der [gemeinsamen Moddaten-API](../../APIShared/docs/MOD_DATA.md); bis zur Freigabe das vollständig zusammengehörige Entwicklungspaket verwenden.
+
+Die bestehende ExtendedData-Fassade bleibt kompatibel. Für diese bisherige Integration referenziere `ExtendedData.dll` und `ExtendedData.Core.dll` und fordere anschließend ausschließlich deinen Namensraum an:
 
 ```csharp
 using System.Collections.Generic;

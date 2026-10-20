@@ -1,22 +1,39 @@
 # Vanilla-Optimierung SHCDE
 
-Sammelliste der Vanilla-Performanceprobleme, die per Mod verbessert werden sollen. Zuerst werden alle Probleme erfasst und gemessen, erst danach wird optimiert.
+Sammelliste der Vanilla-Performanceprobleme beim Herauszoomen und der Optimierungen, die per Mod umsetzbar sind. Jede Optimierung entsteht zuerst im Testmod `Testmods/PerfFixTest`. Eine Übernahme in einen Hauptmod bzw. APIShared kommt erst nach bestätigter Wirkung in Frage (Nutzervorgabe).
+
+## Ergebnis auf einen Blick
+
+| Optimierung | Wirkung (schwere Szene, Zoom 0.25) | Bild | Status |
+|---|---|---|---|
+| V1 Minimap nicht neu an Noesis binden | −0.5 bis −1.4 ms Skriptzeit pro Frame, deutlich gleichmäßigere Frames | unverändert (Sichtprüfung) | im Testmod bestätigt |
+| V5 Lock-Cache für `GetMeritData` | kein Freeze mehr bei langen Sim-Ticks (vorher 85–380 ms) | unverändert | im Testmod bestätigt |
+| V9 Extender-Event ohne Allokation pro Einheit | −10…14 MB/s Allokation, weniger GC | unverändert | im Testmod bestätigt |
+| **V1+V5+V9 zusammen** | **+8.4 % FPS pausiert, +11.9 % laufend, p95-Frame-Zeit −30 %** | unverändert | im Testmod bestätigt |
+| **V7 Sheets pro Materialklasse zusammenlegen** | **+23–25 % FPS** zusätzlich zu V1+V5+V9 | Pixelvergleich ohne sichtbare Abweichung | im Testmod wirksam, **Sichtprüfung durch den Nutzer offen** |
+| Nativer Sim-Spike (KI-Gruppenbefehl mit Wegsuche) | – | – | Ursache bestimmt, Optimierung verworfen |
+| V10 LOD (Details bei weitem Zoom ausblenden) | höchstens im Messrauschen (≤ 3 %) | würde das Bild ändern | gemessen, verworfen |
+| V11 Einheiten-Sprites als 4-Eck-Rechteck statt Polygon | Obergrenze +2–5 % | Obergrenze mit Fragmenten | gemessen, verworfen |
+| V2, V3, V4, V8 und weitere | gering bzw. nicht sauber umsetzbar | – | verworfen (siehe unten) |
+
+Alle vier Optimierungen V1, V5, V9 und V7 sind im Testmod standardmäßig aktiv. Eine Übernahme in Hauptmods oder APIShared ist derzeit nicht vorgesehen (Nutzervorgabe).
 
 ## Arbeitsregeln
 
 - Jeder Eintrag nennt Beleg, Kosten pro Frame oder Tick, betroffene Vanilla-Methoden, Risiko, MP-Relevanz und Status.
-- Status: `vermutet` (nur statische Analyse), `gemessen` (PerfProbe-Beleg), `geplant`, `umgesetzt`, `verworfen`.
+- Status: `vermutet` (nur statische Analyse), `gemessen` (PerfProbe-Beleg), `im Testmod bestätigt`, `umgesetzt`, `verworfen`.
 - **Keine akzeptierten Lösungen** (Nutzervorgabe): Zoomstufen oder Zoomgrenzen ändern bzw. sperren; FPS-Limit, VSync oder `targetFrameRate` ändern.
 - Optimierungen müssen das Bild unverändert lassen. Ausnahmen werden einzeln mit dem Nutzer abgestimmt.
 - Kompatibilität mit Script Extender und Fixes-Mod ist Pflicht; keine überlappenden Hooks.
-- Messszenario (Nutzervorgabe): die Testspielstände `test_dusty*` bei 1920×1080, Zoom 1 → 0.5 → 0.25 je etwa 15 s. Der Zoom-Einbruch ist dort deutlich; größere Karten oder andere Situationen sind nicht nötig.
+- Messszenario: automatisierter Lauf mit `test_dustyFPS2.sav` (Kamera an einer Stelle mit vielen Einheiten) bei 1920×1080, siehe Messverfahren.
 - Dieses Dokument enthält nur den aktuellen Stand. Messwerte sind Momentaufnahmen und gelten für die unten genannten Versionen; bei neuen Spiel- oder Extender-Versionen neu messen.
 
 ## Grundlage
 
 - Spiel: Native `CrusaderDE.dll` `FBCB9319…31E2`, Managed `Assembly-CSharp.dll` `BC8B6A39…D789`, Unity 2021.3.45f2, URP 2D (`URP-2D`, SRP Batcher an, Dynamic Batching an, 1 Light2D), Mono-Backend, D3D11 mit eigenem Render-Thread, inkrementeller GC aktiv (`gc-max-time-slice=3` in `boot.config`).
-- Messrechner: RTX 4090, Ryzen 9 7950X3D, 1920×1080 Fullscreen-Window.
-- Messung: Lauf vom 2026-10-19 23:58 bis 2026-10-20 00:00 mit SHCDE-SE 2.14.3 und `Testmods/PerfProbe` (DEVDIAG-Build, nie weitergeben), Spielstand `test_dustynoattack.sav`, `tilemapSize=500`, Sim mit 40 Ticks/s. Sheet-Belegung und Statik-Anteil stammen aus dem Lauf vom 2026-10-20 00:23–00:25, Seitensimulation, Allokationszuordnung und Pausenvergleich aus dem Lauf vom 2026-10-20 00:42–00:44 (beide `test_dustyFPS.sav`, sonst gleich). PerfProbe misst inklusive seines eigenen Overheads.
+- Messrechner: RTX 4090 (24 GB), Ryzen 9 7950X3D, 1920×1080 Fullscreen-Window.
+- Installation bei den Messungen: SHCDE-SE 2.14.3, `PerfProbe` (DEVDIAG-Build, nie weitergeben) und `PerfFixTest`. Keine weiteren Mods, damit nichts das Ergebnis verfälscht. APIShared ist für diese Tests bewusst nicht installiert (Nutzerentscheidung).
+- Messungen vom 2026-10-20: 02:18–02:37 (Läufe A3, B3, P1, M1, C1, B4; V1/V5/V9) und 06:20–07:04 (Läufe R1–R4, F1, U1, M2; V7 und Sim-Spike) und 11:56–12:10 (Läufe L1, Q1; LOD und Sprite-Meshes).
 
 ## Architektur
 
@@ -24,303 +41,294 @@ Sammelliste der Vanilla-Performanceprobleme, die per Mod verbessert werden solle
 - **Main-Thread (verwaltet):**
   - `Director.Update` verarbeitet bis zu 3 Puffer pro Frame mit `GameMap.processTestMap`. Danach folgen `ApplyRadarMap` (Minimap), `experimentalRowManager` und `TilemapManager.endTileRefresh`.
   - `FatControler.NoesisGUIUpdateChecksInGame` läuft nach jedem Puffer, spätestens alle 100 ms.
-  - `GameMap.Update` → `lerpChimps` interpoliert bei jedem Frame alle Einheiten.
+  - `GameMap.Update` → `lerpChimps` ruft für jede Einheit `interpChimp` auf. Der Script Extender detourt `interpChimp` (siehe V9).
 - **Darstellung:**
   - Eine Unity-`Tilemap` pro Bildschirmzeile.
   - Objekte sind einzelne GameObjects mit `SpriteRenderer` (Pool 30 000 + 4 000); eine Einheit belegt bis zu 7 GameObjects.
-  - Sortierformel `-20000 + Zeile*49 + lokaler Offset`; Einheitenteile liegen bei `nextBaseSortLayer + 8…14` (+34 bei `layerDelay`), Lebensbalken optional bei 32767.
+  - Sortierformel `-20000 + Zeile*49 + lokaler Offset`; Einheitenteile liegen bei `nextBaseSortLayer + 8…14` (+34 bei `layerDelay`), Lebensbalken optional bei 32767. Sprites mit gleichem Sortierschlüssel ordnet Unity nach Material (Zustandsoptimierung beim Sortieren).
 - **Texturen und Materialien:**
-  - Die Sprites liegen in großen Resources-Sheets (`body*Sprites`, `anims1Sprites`, `treeSprites`, `AllTiles/AllTileSprites`). Jedes Sheet hat eine Maske `<Sheet>_m` mit identischem Layout, die als `_TeamMask` **im Material** steckt.
-  - `Unlit/TeamColour`: 7 Materialien pro Sheet (`_SpriteCutoff`-Staffel für abgeschnittene Füße).
-  - `Unlit/Foliage`: 1 Material pro Sheet (GM 29–31, 70–72, 97).
-  - Plain: ein gemeinsames `Sprite-Unlit-Default` für 69 der 195 GM-Gruppen, darunter GM 200.
-  - Die Zuordnung aller 195 Gruppen steht maschinenlesbar in `Helpers/AtlasBuilder/atlas-contract SHOM/atlas_contract/loader_groups.json`.
-- **Gemessene Sheets:**
-  - TeamColour: `body1/2/5/8/12/13/14/15/16Sprites` je 8192×8192 BC7 (Bilinear), `anims1Sprites` 8192×4096 BC7. Masken gleich groß in DXT1 (Point).
-  - Foliage: `treeSprites` 4096×8192 BC7, Maske 1024×2048 DXT1.
-  - Plain: `body4Sprites` und `body7Sprites` 8192×8192 BC7.
-  - Alle ohne Mipmaps und nicht lesbar.
+  - Die Sprites liegen in großen Resources-Sheets. Jedes Sheet hat eine Maske `<Sheet>_m` mit identischem Layout, die als `_TeamMask` **im Material** steckt.
+  - `Unlit/TeamColour`: 7 Materialien pro Sheet (`_SpriteCutoff`-Staffel für abgeschnittene Füße). 13 Sheets: `body1/2/4/5/6/7/8/12/13/14/15/16Sprites` je 8192² BC7 (Bilinear), `anims1Sprites` 8192×4096. Masken gleich groß, DXT1 (Point). Zusammen 111 492 Sprites, davon 80 848 Tight-Mesh.
+  - `Unlit/Foliage`: `treeSprites` 4096×8192 BC7, Maske 1024×2048 DXT1 (GM 29–31, 70–72, 97).
+  - Plain: ein gemeinsames `Sprite-Unlit-Default`, u. a. für `AllTileSprites` (8192² BC7, Kacheln und Gebäude).
+  - Alle Sheets ohne Mipmaps und nicht lesbar. Die Zuordnung aller 195 GM-Gruppen steht maschinenlesbar in `Helpers/AtlasBuilder/atlas-contract SHOM/atlas_contract/loader_groups.json`.
 
-## Messstand
+## Messstand ohne Optimierungen (Vanilla + Extender)
 
-| Messgröße | Zoom ~1 | Zoom 0.25 |
+Schwere Szene `test_dustyFPS2.sav`, Zoom 0.25 (1 805 Draw Calls, ~3 700 sichtbare Sprites, ~3 080 Einheiten):
+
+| Messgröße | pausiert | laufend |
 |---|---|---|
-| FPS / Frame | 293 / 3.4 ms (FPS-Limit 300) | **122 / 8.2 ms** |
-| `PlayerLoop` (Unity-Main-Thread) | 3.4 ms | 8.5 ms |
-| Spielskripte gesamt (alle Unity-Callbacks) | 0.69 ms | **2.6 ms** |
-| davon `Director.Update` | 0.30 ms | 1.46 ms |
-| … `processTestMap` | 0.03 ms | 0.61 ms |
-| … `ApplyRadarMap` (davon `TestRadarMap`) | 0.13 (0.12) ms | 0.46 (**0.44**) ms |
-| davon `GameMap.Update` (`lerpChimps`) | 0.09 ms | **0.61 ms** |
-| davon `NoesisView.LateUpdate` / `MainControls.Update` / `EditorDirector.Update` | 0.08 / 0.14 / 0.06 ms | 0.24 / 0.16 / 0.12 ms |
-| Main wartet auf Render-Thread (`Gfx.WaitForPresentOnGfxThread`) | 0.06 ms | 0.96 ms |
-| GC (`GC.Collect`, inkrementell) | – | 0.37 ms |
-| Rest: Unity-Engine auf dem Main-Thread (Culling, Sortierung, Batching, Submit) | ~2.6 ms | **~4.5 ms** |
-| Draw Calls / SetPass | 346 / 560 | **1 752 / 2 342** |
-| Vertex-Buffer-Uploads pro Frame | 345 (0.75 MB) | **1 769 (4.3 MB)** |
-| SpriteRenderer sichtbar / Zeilen-Tilemaps sichtbar | ~1 000 / 107 | 3 495 / 295 |
-| Einheiten in `lerpChimps` / davon interpolierend | 671 / 118 | 2 872 / 847 |
-| Sim `EngineInterface.run` pro Tick | 3.7 ms | 6.6 ms |
+| FPS (Läufe B3, B4) | 132 (130–134) | 124.5 (124–125) |
+| p95-Frame-Zeit | 11.0–11.7 ms | 11.6–11.7 ms |
+| größter Ruckler | 22–27 ms | 85–173 ms |
+| Draw Calls / SetPass | ~1 805 / ~2 380 | ~1 820 / ~2 400 |
+| `ApplyRadarMap` (fast nur `TestRadarMap`) | ~1.5 ms pro Frame | ~0.9 ms pro Frame |
+| Heap-Wachstum | ~40 MB/s | ~38 MB/s |
 
-**Befund bei Zoom 0.25:**
-- Der Engpass ist der Unity-Main-Thread. Die GPU ist nicht der Engpass.
-- Etwa 55 % des Frames sind Unity-Engine-Arbeit für ~3 500 SpriteRenderer und ~300 Tilemaps, 32 % sind Spielskripte, 12 % Warten auf den Render-Thread. Der Sim-Thread begrenzt die FPS nicht.
-- Pausiert (keine Interpolation, kaum Datensätze) liegt die FPS bei Zoom 0.25 mit ~140 auf demselben Niveau wie im laufenden Spiel. Die Kosten des Herauszoomens entstehen also durch die Darstellung der vielen sichtbaren Objekte und durch die Kosten pro Frame bzw. pro Einheit, nicht durch die Simulation oder die Verarbeitung der Datensätze.
+- **Der Engpass ist der Unity-Main-Thread.** Bei ~1 800 Draw Calls liegen ~8–9 ms im `PlayerLoop`, davon der größte Teil in Unitys eigener Arbeit für Culling, Sortierung, Batching und Submit. Die GPU ist nicht der Engpass, und auch der Sim-Thread begrenzt die FPS nicht.
+- Pausiert und laufend liegen die FPS nah beieinander. Die Kosten des Herauszoomens entstehen durch die Darstellung der vielen sichtbaren Objekte und die Kosten pro Frame bzw. pro Einheit, nicht durch die Simulation.
 
-**Ursachen der Draw Calls (Census bei Zoom 0.25, Schätzung 1 792 ≈ gemessen 1 752):**
+**Ursachen der Draw Calls** (Census, Zoom 0.25, Schätzung 1 839 ≈ gemessen 1 805):
 
-| Bruchursache zwischen sortierten Nachbarn | Anzahl | Anteil |
+| Bruch zwischen sortierten Nachbarn | Anzahl | Anteil |
 |---|---|---|
-| anderes Material derselben Klasse (TeamColour aus einem anderen Sheet mit eigener Maske) | **1 113** | 62 % |
-| Tilemap-Zeile (eigener Renderer, ~2 Brüche pro sichtbarer Zeile) | 538 | 30 % |
-| andere Materialklasse (Plain ↔ TeamColour ↔ Foliage, Cutoff-Stufe) | 132 | 7 % |
-| andere Textur bei gleichem Material (Plain-Sheets) | 8 | <1 % |
+| anderes Material derselben Klasse (TeamColour aus einem anderen Sheet) | **1 107** | 60 % |
+| Tilemap-Zeile (eigener Renderer, ~2 pro sichtbarer Zeile) | 559 | 30 % |
+| andere Materialklasse (Plain ↔ TeamColour ↔ Foliage, Cutoff-Stufe) | 164 | 9 % |
+| andere Textur bei gleichem Material | 7 | <1 % |
 
-- Wenn alle Sheets und Masken einer Materialklasse ein gemeinsames Material hätten, blieben ~670 Batches (−62 %).
-- Ein Atlas nur der Plain-Texturen bringt nichts.
+## Messverfahren
 
-## Kandidaten und Vorschläge
+- **Automatisierung** (`Testmods/PerfFixTest/src/Automation`, Config `[Automation]`, standardmäßig aus): Hauptmenü → Spielstand laden → 80 Sim-Ticks → in 6 Schritten auf Zoom 0.25 → 3 s warten → native Pause halten → entpausieren und laufen lassen → PASS/FAIL → Spiel beenden.
+  - Bereitschaft wird ohne APIShared aus Spielzuständen und beobachteten Sim-Ticks erkannt. Das ist eine bewusste Ausnahme von der Lifecycle-Regel, damit die Messung unverfälscht bleibt (Nutzerentscheidung).
+  - Die Frame-Statistik je Phase (FPS, Mittel, p50/p95/p99, Maximum) misst die Automatisierung selbst; sie stimmt mit PerfProbe überein (139.1 gegen 140.8 FPS).
+  - In der Pause wird ein Screenshot aufgenommen (`BepInEx/PerfFixTest_shots`).
+- **Lauf-Skript** `Testmods/PerfFixTest/tools/Run-Automation.ps1 -Label <X> -OutputDirectory <Ordner> -Features "Schalter=Wert;…"`: setzt die Config, startet über Steam, wartet auf das Ende und sichert `LogOutput.log`, `Player.log` und die Screenshots. Danach setzt es die Installation zurück (Automatisierung aus, Fixes an). Das ist nötig, weil BepInEx `AppendLog` deaktiviert ist und jeder Start das Log überschreibt.
+- **Streuung:** Zwischen getrennten Läufen streuen die FPS um mehrere Prozent. A/B-Aussagen beruhen deshalb auf mehreren Läufen je Variante. Ein Pixelvergleich zwischen getrennten Läufen taugt nicht, weil die Pause je Lauf bei einem leicht anderen Sim-Tick greift.
+- **Vergleich im selben Lauf** (V7): Pausiert werden Frame-Statistik und Screenshot vor und nach der Umschaltung aufgenommen. Ein Kontrolllauf ohne Umschaltung (`SheetMergeControl`) zeigt, dass sich ohne Eingriff nur die Uhr oben rechts ändert (582 Pixel) und die FPS konstant bleiben (146.0 → 145.9).
 
-Alle Vorschläge sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode=0`) und ohne native Hooks. Reihenfolge nach Aufwand und Risiko. Jede Umsetzung entsteht zuerst als Testmod. Erst nach bestätigter Wirkung kommt eine Übernahme in einen Hauptmod bzw. APIShared in Frage (Nutzervorgabe).
+## Optimierungen im Testmod
 
-**Testmod `Testmods/PerfFixTest`** (normaler Build, kein DEVDIAG) enthält V1, V5 und V9. Jedes Feature ist in der BepInEx-Config unter `[Features]` einzeln schaltbar (`RadarRebindSkip`, `MeritDataLockCache`, `InterpolateEventReuse`; Neustart nötig).
-- Gemessen wird zusammen mit PerfProbe im üblichen Szenario.
-- Für jeden Vorschlag gibt es einen Bestätigungsmarker im Log: `V1 confirmed`, `V5 served cached merit data`, `V9 confirmed`. Fehlschläge erscheinen als `… disabled: …`.
-- Für A/B-Vergleiche ein Feature abschalten und denselben Lauf wiederholen.
+Alle Eingriffe sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode=0`) und ohne native Hooks. Schalter in `BepInEx/config/PerfFixTest_Serp.cfg` unter `[Features]` (Neustart nötig).
 
-**Testergebnis `PerfFixTest` (Lauf 2026-10-20 01:04–01:06, `test_dustyFPS`, mit PerfProbe):**
+### Gesamtwirkung V1 + V5 + V9
 
-| Vorschlag | Marker | Wirkung (Zoom 0.25, gegenüber den Läufen ohne Testmod) |
-|---|---|---|
-| V1 | `V1 confirmed` nach dem ersten Binden; danach keine weiteren Neubindungen | `ApplyRadarMap` 4–5 ms/s statt 56–150 ms/s (≈0.03 statt 0.4–1.1 ms pro Frame); Allokation 0.1–0.16 statt 1.4–5 MB/s |
-| V5 | `V5 served cached merit data` einmal während eines 483-ms-Sim-Ticks (01:05:14) | **Kein Main-Thread-Spike, kein Frame-Spike**; das Bild lief weiter (97 Frames während des Ticks) |
-| V9 | `V9 confirmed`, ~400 000 wiederverwendete Events pro Sekunde, 0 verschachtelte Allokationen | Allokation in `lerpChimps` 0.9–2.7 statt 10–14 MB/s; Heap-Wachstum gesamt 5–15 statt 30–45 MB/s; der `GC.Collect`-Marker liegt unter der Messschwelle (vorher 0.37–0.53 ms pro Frame); `lerpChimps` nur leicht schneller (pausiert 0.24 statt 0.27 ms pro Frame) |
-
-- Fehlermeldungen gab es keine.
-- **A/B-Vergleich (automatisiert, 2026-10-20 01:41/01:47):** Die Automatisierung in `PerfFixTest/src/Automation` lädt `test_dustyFPS`, zoomt nach 80 Sim-Ticks in 6 Schritten auf 0.25, pausiert 25 s (identische Szene: 505 Draw Calls, 1 131 sichtbare Sprites in beiden Läufen) und lässt danach 25 s laufen. Beide Läufe endeten mit PASS. Werte als Mittel der 5-s-Fenster, Zoom 0.25, bei diesem Kameraausschnitt mit weniger Objekten als in den manuellen Läufen:
-
-| Messgröße | A (V1+V5+V9 an), pausiert / laufend | B (alle aus), pausiert / laufend | Differenz |
+| Messgröße (Zoom 0.25) | mit V1+V5+V9 (A3, P1, C1, M1 vorher) | ohne (B3, B4) | Wirkung |
 |---|---|---|---|
-| FPS | **202.5 / 209.5** | 197.3 / 193.8 | **+2.7 % / +8.1 %** (−0.13 / −0.39 ms pro Frame) |
-| `Director.Update` | 32 / 65 ms/s | 153 / 162 ms/s | −121 / −97 ms/s |
-| davon `ApplyRadarMap` (V1) | 5 / 5 ms/s | 127 / 97 ms/s | −0.6 / −0.45 ms pro Frame |
-| `lerpChimps` (V9) | 15 / 36 ms/s | 21 / 39 ms/s | −6 / −3 ms/s |
-| Heap-Wachstum | 5.6 / 9.9 MB/s | 22.5 / 23.4 MB/s | **−75 % / −58 %** |
-| GC-Sammlungen je 5 s | 4.0 / 4.75 | 4.75 / 5.0 | leicht weniger |
-| Sim-Spike ~4 s nach dem Entpausieren | 486 ms; `V5 served cached merit data`, kein Main-Thread-Spike | 441 ms; zufällig kein `GetMeritData`-Aufruf währenddessen | V5-Wirkung wie in den manuellen Läufen |
+| FPS pausiert | Ø 143.2 (139–146) | Ø 132.1 (130–134) | **+8.4 %** |
+| FPS laufend | Ø 139.3 (137–141) | Ø 124.5 (124–125) | **+11.9 %** |
+| p95-Frame-Zeit pausiert | 7.3–8.6 ms | 11.0–11.7 ms | **−30 %** |
+| größter Ruckler laufend | 18–32 ms | 85–173 ms | Freezes beseitigt |
+| Heap-Wachstum | 5–17 MB/s | ~38–40 MB/s | −55 bis −80 % |
 
-- Die gesparte Skriptzeit (~0.6 ms pro Frame pausiert) wirkt sich nur teilweise auf die Frame-Zeit aus (−0.13 ms). Bei ~200 FPS wartet der Main-Thread einen Teil der Zeit auf den Render-Thread (`Gfx.WaitForPresentOnGfxThread`). Im laufenden Spiel ist der Gewinn größer (+8 %).
-- Der ~450-ms-Sim-Tick trat in beiden Läufen ~4 s nach dem Entpausieren bzw. ~30 s nach dem Laden auf, unabhängig vom Zoomzeitpunkt. Er hängt also vermutlich nicht am Zoom; die Ursache bleibt nativ offen.
-- **A/B-Vergleich in der schweren Szene (`test_dustyFPS2.sav`, Kamera an einer Stelle mit vielen Einheiten, 2026-10-20 02:00/02:01):** Die Szene war identisch, mit 1 804 Draw Calls, 3 714 sichtbaren Sprites und 3 080 Einheiten in beiden Läufen. Beide Läufe endeten mit PASS.
+Die Sichtprüfung durch den Nutzer bestätigt: Minimap, Bündnisanzeige und Einheiten sehen normal aus.
 
-| Messgröße | A2 (V1+V5+V9 an), pausiert / laufend | B2 (alle aus), pausiert / laufend | Differenz |
-|---|---|---|---|
-| FPS | **119.5** / 110.0 | 114.5 / 112.0 | **+4.4 %** (−0.37 ms pro Frame) / −1.8 % (im Rauschen, siehe unten) |
-| `Director.Update` | 28 / 109 ms/s | 193 / 190 ms/s | −165 / −81 ms/s |
-| davon `ApplyRadarMap` (V1) | 5 / 5 ms/s | 177 / 105 ms/s | −1.4 / −0.9 ms pro Frame |
-| `lerpChimps` (V9) | 43 / 96 ms/s | 35 / 71 ms/s | **langsamer** (+0.05 / +0.23 ms pro Frame) |
-| Heap-Wachstum | 7.5 / 17.3 MB/s | 39.6 / 37.8 MB/s | **−81 % / −54 %** |
-| GC-Sammlungen je 5 s | 4.5 / 4.75 | 5.75 / 6.0 | **−22 %** |
-| `PlayerLoop` | 8.2 / 8.9 ms | 8.9 / 9.3 ms | −0.7 / −0.4 ms |
-| Sim-Spike ~4 s nach dem Entpausieren | 491 ms; `V5 served cached merit data`, kein Main-Thread-Spike | 467 ms; kein `GetMeritData`-Aufruf währenddessen | wie zuvor |
+### V1 – Minimap nicht bei jedem Tick neu an Noesis binden — im Testmod bestätigt
 
-- Die pausierte Phase ist die belastbare Messung, weil die Szene stillsteht. Die laufende Phase streut stärker: `processTestMap` lag in A2 bei 83 statt 66 ms/s, obwohl die Fixes darauf keinen Einfluss haben. Ein FPS-Unterschied von ±2 % ist dort nicht aussagekräftig.
-- **V9 kostet Zeit:** Die Allokation sinkt wie geplant. Die Harmony-Hülle (Prefix + Finalizer = try/finally) um den Extender-Hook, der ~3 000-mal pro Frame läuft, macht `lerpChimps` aber etwas langsamer. Verbesserung: die Verschachtelungserkennung ohne Prefix/Finalizer direkt per Transpiler einbauen (Belegt-Markierung im wiederverwendeten Objekt, Freigabe nach `Raise` und im `catch`).
-- Der Engpass bleibt die Darstellung: Mit ~1 800 Draw Calls liegt `PlayerLoop` bei ~8–9 ms. Den großen Hebel dafür bietet V7.
-- Sichtprüfung durch den Nutzer bestanden (2026-10-20): Minimap läuft weiter, Bündnisanzeige normal, Einheiten normal dargestellt.
-
-### V1 – Minimap-Bild nicht bei jedem Tick neu an Noesis binden — im Testmod bestätigt
-
-- **Beleg:**
-  - `MainViewModel.TestRadarMap` kostet 0.87 ms (Zoom 1) bis 1.9 ms (Zoom 0.25) pro Aufruf, im pausierten Spiel bis 3.8 ms. Es wird 40-mal pro Sekunde aufgerufen, auch pausiert.
-  - Das sind 0.44–1.1 ms pro Frame bei Zoom 0.25 und praktisch die gesamten Kosten von `ApplyRadarMap`. Der eigentliche Textur-Upload (`SetPixelData` + `Apply`) ist dagegen billig.
-  - `TestRadarMap` allokiert dabei 1.4–5 MB/s, also bis ~110 KB pro Aufruf.
-- **Ursache:** `TestRadarMap` erzeugt jedes Mal ein neues `Noesis.TextureSource` für dieselbe `radarTexture` und setzt `RadarMapImage` neu. Noesis bindet das Bild dadurch neu und es wird Speicher allokiert.
-- **Vorschlag:** Prefix auf `TestRadarMap`, der den Aufruf überspringt, solange `GameMap.getRadarTexture()` dieselbe Instanz wie beim letzten Binden ist und `RadarMapImage` gesetzt ist. Bei einer neuen Texturinstanz (Kartenwechsel, Rotation, Auflösungswechsel; `GameMap` Z. 496/579) wird normal gebunden.
-- **Erwartung:** −0.4 bis −1.1 ms pro Frame bei Zoom 0.25 und bis zu 5 MB/s weniger Allokation.
-- **Zu prüfen im Spiel:** Die Minimap muss sich weiter aktualisieren. `Apply()` schreibt in dieselbe GPU-Textur, die das bestehende `TextureSource` umhüllt.
+- **Ursache:** `GameMap.ApplyRadarMap` lädt die Radartextur bei jedem Sim-Tick per `SetPixelData`/`Apply` hoch; das ist billig. Danach erzeugt `MainViewModel.TestRadarMap` jedes Mal ein **neues** `Noesis.TextureSource` für dieselbe Textur und bindet `RadarMapImage` neu. Das kostet 0.9–3.8 ms pro Aufruf bei 40 Aufrufen pro Sekunde, auch pausiert, und allokiert bis ~110 KB pro Aufruf.
+- **Umsetzung** (`RadarRebindFix.cs`): Prefix auf `TestRadarMap`. Er überspringt den Aufruf, solange dieselbe Texturinstanz und dasselbe gebundene Bild bestehen. Eine neue Texturinstanz (Kartenwechsel, Rotation, Auflösung) wird normal gebunden. Die Minimap aktualisiert sich weiter, weil `Apply()` in dieselbe GPU-Textur schreibt.
+- **Wirkung:** `ApplyRadarMap` sinkt von 100–180 auf ~5 ms/s. Die regelmäßigen 1–4-ms-Spitzen verschwinden; das ist der Hauptgrund für die bessere p95-Frame-Zeit.
 - **Risiko:** gering.
 
-### V2 – `lerpChimps` entschlacken — gemessen
+### V5 – Kein Freeze durch Warten auf `EngineInterface.threadLock` — im Testmod bestätigt
 
-- **Beleg:**
-  - `GameMap.Update` kostet 0.61 ms pro Frame bei Zoom 0.25. Die Schleife besucht ~3 000 Einheiten, nur ~900 davon interpolieren.
-  - Im pausierten Spiel interpoliert keine Einheit, und trotzdem bleiben 0.27 ms pro Frame. Dieser Sockel stammt größtenteils vom Script-Extender-Detour pro Einheit (siehe V9), nicht von Vanilla.
-- **Vorschlag:** inhaltsgleicher Ersatz der Schleife.
-  - `DateTime.UtcNow` einmal pro Frame statt pro Einheit.
-  - Nicht interpolierende Einheiten ohne weitere Arbeit überspringen.
-  - Transform-Positionen und `sortingOrder` nur schreiben, wenn sich der Wert ändert.
-- **Erwartung:** ein Teil der ~0.34 ms, die über den Sockel hinaus auf die interpolierenden Einheiten entfallen; dazu kommt der Anteil der Unity-Engine durch weniger geänderte Transforms. Der Sockel selbst wird über V9 behoben.
-- **Kompatibilität:** Der Script Extender detourt `GameMap.interpChimp` (RedBird `ManagedDetour`). Ein Ersatz der Schleife muss weiterhin `interpChimp` je Einheit aufrufen, damit dieser Detour und das Extender-Event erhalten bleiben. `interpChimp` selbst darf nicht zusätzlich gehookt werden.
-- **Risiko:** gering bis mittel; Positionen und Sortierung müssen bitgleich bleiben.
+- **Ursache:** Einzelne native Sim-Ticks dauern ~450–490 ms (KI-Gruppenbefehl mit Wegsuche, siehe Abschnitt Sim-Spike). `EngineInterface.run` hält dabei `threadLock`. Ruft der GUI-Check in dieser Zeit `EngineInterface.GetMeritData` auf (`HUD_AlliesPanel.ShowAlliesPip`, höchstens 1-mal pro Sekunde), steht der Main-Thread bis zum Ende des Ticks. Beobachtet wurden Freezes von 260–380 ms.
+- **Audit:** `GetMeritData` liefert bei jedem Aufruf ein neues `int[9,5]` (Rang bzw. Bündnisstatus je Spieler). Alle 4 Aufrufer lesen nur, die Werte ändern sich langsam.
+- **Umsetzung** (`MeritDataLockFix.cs`): Ist der Lock frei (`Monitor.TryEnter`), läuft Vanilla und das Ergebnis wird zwischengespeichert. Ist er belegt, bekommt der Aufrufer einen Klon des höchstens 3 s alten letzten Ergebnisses. Ohne Kopie läuft Vanilla wie bisher.
+- **Wirkung:** In den Läufen mit V5 wurde während des langen Ticks jeweils aus dem Cache bedient, und es gab keinen Main-Thread-Spike. Ohne V5 traten Ruckler bis 173 ms auf.
+- **Risiko:** gering. Aktionen wie `GameAction` dürfen nicht so behandelt werden; weitere reine Lesefunktionen aus dem GUI-Check wurden bei langen Ticks bisher nicht beobachtet.
 
-### V3 – `processTestMap`: wiederholte `GetComponent`-Aufrufe vermeiden — gemessen
+### V9 – Script-Extender-Event ohne Allokation pro Einheit — im Testmod bestätigt
 
-- **Beleg:**
-  - `processTestMap` kostet 0.61 ms pro Frame bei Zoom 0.25.
-  - `addUpdateChimp` läuft 23 500-mal pro Sekunde zu je ~2 µs (49 ms/s).
-  - Datensätze kommen mit ~40 000/s (Einheiten Typ 2 und Typ 52 dominieren).
-- **Vorschlag:** `SpriteRenderer` pro Pool-Objekt einmalig cachen und die Vanilla-Aufrufe (`GetComponent<SpriteRenderer>()` an 23 Stellen und in `ObjectPool.GetObjectForType`) per Transpiler auf den Cache umleiten.
-- **Erwartung:** 0.05–0.15 ms pro Frame bei Zoom 0.25.
-- **Risiko:** gering.
+- **Ursache** (SHCDE-SE 2.14.3, `ManagedHookManager.GameMap_InterpChimpHook`): Der Extender-Detour vor `GameMap.interpChimp` erzeugt für jede Einheit und jeden Frame ein neues `UnitUnityVisualInterpolateEventArgs` und löst `OnUnitUnityVisualInterpolate` aus, auch für Einheiten, die nicht interpolieren. Das sind ~450 000 Objekte pro Sekunde, also 10–14 MB/s, und die größte Allokationsquelle im Spiel. Nachgewiesen im pausierten Spiel ohne Interpolation und ohne Datensätze.
+- **Audit der Abonnenten:** Extender (Nachbilder), ExtraFeatures (KnightDismount), ImprovedHunters, SkinTest, VirtualUnitsPrototype; der Fixes-Mod keiner. Alle lesen `args.Chimp` nur synchron, keiner speichert das Objekt.
+- **Umsetzung** (`InterpolateEventFix.cs`): Ein Transpiler auf die Extender-Methode ersetzt die eine Allokation durch ein wiederverwendetes Objekt und gibt es direkt nach `Raise` frei.
+  - Verschachtelte Auslösungen (ein Abonnent ruft erneut `interpChimp`) und andere Threads allokieren wie bisher.
+  - Wirft ein Abonnent, setzt `onBeforeRender` den Zustand im nächsten Frame zurück.
+  - Ohne Harmony-Prefix/Finalizer, weil deren try/finally-Hülle bei ~3 000 Aufrufen pro Frame messbar Zeit kostet.
+  - `interpChimp` selbst wird nicht gehookt.
+  - Fail-closed: genau eine Allokation und ein `Raise` in der Extender-Methode erwartet.
+- **Wirkung:** Allokation in `lerpChimps` sinkt von 10–14 auf ~1–3 MB/s; es gab 0 verschachtelte Allokationen.
+- **Hinweis:** Das ist eine Korrektur am Script Extender. Bei einer Übernahme gehört sie laut Workspace-Regeln nach APIShared.
 
-### V4 – Feste Kosten pro Frame — gemessen
+### V7 – Sheets einer Materialklasse auf gemeinsame Seiten — im Testmod wirksam, Sichtprüfung offen
 
-- **Beleg:** `NoesisView.LateUpdate` 0.24 ms, `MainControls.Update` 0.16 ms, `EditorDirector.Update` 0.12 ms pro Frame. `EditorDirector.Update` läuft auch im normalen Spiel (`updateFPS`, Maus- und Tile-Abfragen über `MainControls`).
-- **Vorschlag:** doppelte Maus- und Tile-Berechnungen einmal pro Frame cachen. Vorher einen Audit, wer die Ergebnisse liest.
-- **Erwartung:** 0.1–0.2 ms pro Frame.
-- **Risiko:** gering bis mittel.
+- **Ursache:** 60 % der Draw Calls entstehen, weil benachbarte TeamColour-Sprites aus verschiedenen Sheets stammen. Jedes Sheet hat eine eigene Maske im Material, also auch ein eigenes Material.
+- **Machbarkeit** (Probe `SheetMergeProbe`, im Spiel):
+  - max. Texturgröße 16384;
+  - `Graphics.CopyTexture` für BC7 und DXT1 vorhanden;
+  - alle Masken so groß wie ihr Sheet;
+  - 0 von 111 492 Sprites mit Mesh-Eckpunkten außerhalb ihres Rects;
+  - die Sheets sind voll (überlappende Rects), deshalb werden nur ganze Sheets verschoben.
+- **Umsetzung** (`SheetMerge.cs`, Schalter `[Features] SheetMerge`, Standard an):
+  - Einmalig direkt nach dem Laden der Vanilla-Sprites. Die Overrides des Script Extenders laufen im selben Lade-Schritt und sind dann bereits angewendet.
+  - Die 13 TeamColour-Sheets und ihre Masken werden per GPU-Kopie als Ganzes auf 4 Seiten à 16384² gelegt: `body12+14+16+13`, `body1+2+8+anims1`, `body7+5+4+15`, `body6`. Gruppiert wird nach der Census-Simulation.
+  - Je Seite entstehen 7 Materialien (Cutoff-Stufen), geklont vom Original; nur `_TeamMask` zeigt auf die Maskenseite.
+  - Alle Sprites werden mit gleichem Rect, Pivot und PPU neu erzeugt und erhalten ihr **Original-Tight-Mesh**: Positionen unverändert, UVs in den Seitenplatz verschoben, gesetzt über `SpriteDataAccessExtensions`.
+  - Umgestellt werden `gmSprites`, `gmAltSprites`, `allSprites`, `gmMaterials` und vorhandene Renderer; Material und Sprite wechseln immer gemeinsam.
+  - GM-Dateien, deren Sprites ein Asset-Mod ganz oder teilweise ersetzt hat, bleiben unverändert (Sprites und Material).
+- **Bestätigter Irrweg:** `Sprite.OverrideGeometry` wird zur Laufzeit für alle 111 492 Sprites abgelehnt („Not allowed to override geometry“), auch bei lesbarer Seite. Ohne Tight-Mesh zeichnet jedes Sprite sein volles Rechteck und damit Teile der überlappenden Nachbarsprites. Diese Fragmente sahen wie geänderte Überlappungsreihenfolgen aus.
+- **Bildprüfung:**
+  - **Render-Check** (`SheetMergeRenderCheck`): 60 Sprites je Sheet × 7 Cutoff-Stufen, off-screen pixelgenau mit Original- und Seitenmaterial gezeichnet. 5 243 von 5 460 Tests sind identisch; der Rest weicht nur an einzelnen Randpixeln ab (höchstens 10 von 61 279 Pixeln eines Sprites). Gesamt: 99,3 % der Pixel identisch, 0,7 % mit Delta 1–2, 464 von 65,5 Mio. Pixeln mit Delta über 2.
+  - **Spielbild** (Lauf R4, pausiert, vor/nach der Umschaltung im selben Lauf): Abweichungen über Delta 16 gibt es nur an der Uhr oben rechts (wie im Kontrolllauf), dazu 906 Pixel mit Delta 1–16.
+- **Zeichenreihenfolge:** Die Sortierung ist durch `sortingOrder` je Kartenzeile in 49er-Blöcken eindeutig festgelegt:
 
-### V5 – Freeze durch Warten auf `EngineInterface.threadLock` — im Testmod bestätigt
+| Offset im Zeilenblock | Inhalt |
+|---|---|
+| +0 | Zeilen-Tilemap (Boden, Gebäude) |
+| +1, +16…+40 | Gebäudeanimationen |
+| +2 | Mauer-Füllstücke |
+| +3, +41 | Pixies |
+| +4…+7 | Orgs |
+| +8…+14 bzw. +42…+48 | Einheiten |
+| +15…+17 | Fliegen |
 
-- **Beleg:** In drei Messläufen dauerte beim ersten Herauszoomen ein Sim-Tick 452–463 ms. Währenddessen wartete der Main-Thread 260–381 ms in `EngineInterface.GetMeritData`, aufgerufen aus `FatControler.NoesisGUIUpdateChecksInGame`. Die Frames dauerten entsprechend 263–385 ms. Ein solcher Sim-Spike tritt beim ersten Herauszoomen bzw. kurz nach dem Laden auf.
-- **Audit `GetMeritData`** (Managed `BC8B6A39`):
-  - `public static int[,] GetMeritData()` legt bei jedem Aufruf ein neues `int[45]` an. Es ruft unter `lock (threadLock)` `DLL_GetMeritData(int*)` auf und kopiert die Spieler 1–8 mit je 5 Werten in ein **neues** `int[9,5]`. Es gibt keinen geteilten Zustand; jeder Aufrufer erhält ein eigenes Array.
-  - Aufrufer, alle nur lesend:
-    - `HUD_AlliesPanel.ShowAlliesPip` (aus dem GUI-Check, höchstens 1-mal pro Sekunde, nur im Skirmish bei geschlossenem Bündnisfenster) — das ist der beobachtete Freeze-Pfad;
-    - `HUD_AlliesPanel.Open` und `UpdateAllies` (alle 2 s bei offenem Fenster);
-    - `HUD_MeritPanel` (Rangliste, höchstens 1-mal pro Sekunde).
-  - Die Werte (Rang bzw. Bündnisstatus pro Spieler) ändern sich langsam. Ein um einen Tick älterer Stand ist für alle Aufrufer fachlich gleichwertig.
-- **Vorschlag:** Prefix auf `EngineInterface.GetMeritData`.
-  - Ist `threadLock` frei, läuft das Original unverändert, und ein Postfix speichert eine Kopie des Ergebnisses.
-  - Ist `threadLock` belegt (`Monitor.TryEnter` ohne Wartezeit) und eine Kopie vorhanden, wird ein frischer Klon der letzten Kopie zurückgegeben, statt zu blockieren. Ohne Kopie (erster Aufruf) blockiert das Original wie bisher.
-  - Die Kopie wird bei Kartenwechsel bzw. Missionsende verworfen.
-  - Zugriff auf `threadLock` einmalig per Reflection mit Typ- und Namensprüfung; fehlt das Feld, bleibt der Vorschlag inaktiv.
-  - Restfenster: Wird der Lock zwischen Prüfung und Original belegt, wartet der Aufruf wie in Vanilla. Das ist selten und nie schlechter als heute.
-- **Erwartung:** kein sichtbarer Freeze bei Sim-Spikes über diesen Pfad.
-- **Risiko:** gering. Andere `EngineInterface`-Aufrufe aus dem GUI-Check (z. B. `GameAction`, gemessen 4 ms während eines Ticks) können denselben Effekt haben. Für reine Lesefunktionen gilt dasselbe Muster; Aktionen wie `GameAction` dürfen nicht zwischengespeichert werden.
-- **Offen:** Die Ursache des ~450-ms-Sim-Ticks selbst liegt im nativen Code.
+  Ein Gleichstand zwischen Gebäude- und Einheitenteilen ist damit ausgeschlossen. V7 kann deren Reihenfolge nicht ändern, und gemessen ändert sie sich auch nicht.
+- **Wirkung** (zusätzlich zu V1+V5+V9):
 
-### V6 – Speicherallokation und GC — gemessen, Quellen bestätigt
-
-- **Beleg:**
-  - Bei Zoom 0.25 laufen etwa 1.2 inkrementelle Vollsammlungen pro Sekunde (Boehm, gen0 = gen1 = gen2), im Mittel 0.37–0.53 ms pro Frame.
-  - Der Mono-Heap umfasst ~570–650 MB; davon sind ~200 MB die 6 Renderpuffer von `MemoryBuffers` (je 14.7 Mio. `short`).
-  - Das Heap-Wachstum liegt prozessweit bei 20–45 MB/s.
-- **Messung:**
-  - Ein threadgenauer Zähler steht nicht zur Verfügung. `GC.GetAllocatedBytesForCurrentThread` existiert in Unitys mscorlib, liefert unter dem Boehm-GC aber 0.
-  - Gemessen wird das Heap-Wachstum während jedes Callbacks. Proben mit GC oder mit überlappendem Sim-Tick werden verworfen; die übrigen 67–100 % der Laufzeit werden hochgerechnet.
-- **Quellen:**
-  1. **Script-Extender-Detour auf `interpChimp`: 10–14 MB/s** (siehe V9). Die Allokation fällt in `GameMap.lerpChimps`, auch im pausierten Spiel ohne Interpolation und ohne Datensätze, und auch bei Zoom 1. Sie skaliert mit der Zahl der Einheiten im `chimps`-Dictionary, nicht mit dem Zoom.
-  2. **`MainViewModel.TestRadarMap`: 1.4–5 MB/s** (neues `TextureSource` pro Tick, siehe V1).
-  3. **`processTestMap`:** 0.6–2.8 MB/s, abhängig von der Zahl der Datensätze.
-  4. **Kleinere Posten:** `MainControls.Update`, `NoesisView.LateUpdate` und `EditorDirector.Update` mit je 0.3–1.4 MB/s.
-- **Vorschlag:** V9 und V1 beseitigen die beiden größten Quellen (zusammen ~70 % des gemessenen Wachstums). `processTestMap` lässt sich zusammen mit V3 näher eingrenzen.
-
-### V7 – Ein Material pro Materialklasse statt pro Sheet — gemessen, Gewinn simuliert
-
-- **Beleg:** Wechsel zwischen TeamColour-Materialien verschiedener Sheets verursachen 62 % der Draw Calls bei Zoom 0.25. Mit einem gemeinsamen Material pro Klasse blieben ~670 statt ~1 790 Batches.
-- **Vorschlag:**
-  - Farb- und Masken-Sheets einer Materialklasse auf gemeinsame Seiten kopieren, GPU-seitig per `Graphics.CopyTexture` mit gleichem Format (BC7/DXT1) und ganzen Rechtecken.
-  - Pro Seite und Cutoff-Stufe ein Material, für Foliage und Plain je eins. `gmMaterials` und die Sprite-Referenzen (`allSprites`, `gmSprites`, `gmAltSprites`, Tile-Sprites) werden umgestellt.
-  - Neue Sprites per `Sprite.Create` mit gleichem Rect, Pivot und PPU; danach `Sprite.OverrideGeometry` mit den Original-`vertices`/`triangles`, weil Vanilla-Sprites teils Tight-Mesh sind.
-  - Eingriff nach `SHCDESE.API.GameSpriteManagerAPI.ApplyRuntimeOverrides`, damit Sprites aus Asset-Mods berücksichtigt werden. Diese Stelle nutzt bereits das AtlasBuilder-Begleitplugin.
-- **Belegung der Sheets** (aus `spriteLoader`, einmal pro Prozess):
-  - Alle Sheets sind voll. Die summierte Rect-Fläche liegt bei 94–130 % der Sheetfläche. Werte über 100 % entstehen, weil sich die Rects der Tight-Mesh-Sprites überlappen; ihre sichtbaren Dreiecke sind ineinander verschachtelt.
-  - Tight-Mesh-Anteil: z. B. body1 14 221 von 17 060 Sprites, body12 4 928 von 4 928. Nur AllTileSprites und treeSprites sind rechteckig.
-  - Ein dichteres Umpacken einzelner Sprites ist daher nicht möglich. Nur ganze Sheets lassen sich zusammenlegen.
-- **Harte Grenze:**
-  - Die TeamColour-Klasse umfasst laut `gmMaterials` 13 Sheets (`body1/2/4/5/6/7/8/12/13/14/15/16Sprites` je 8192², `anims1Sprites` 8192×4096), zusammen 3.13 Seiten à 16384² (D3D11-Maximum).
-  - Mit 4 ganzen Sheets pro Seite sind **mindestens 4 Seiten** nötig. Aus 13 Materialien pro Cutoff-Stufe würden also 4.
-  - Weil die Sheets als Ganzes kopiert werden, bleibt jede Sprite-Geometrie erhalten (gleiche Dreiecke, Rect nur verschoben).
-- **Simulierter Gewinn (Census mit Seitenzuordnung, Zoom 0.25):**
-  - Die Sheets der Maskenklassen werden als Ganzes auf 16384²-Seiten verteilt. Sheets, die in Sortierreihenfolge oft aufeinander folgen, kommen zusammen.
-  - Ergebnis: **~810–880 statt 1 370–1 500 Batches (−41 %)**. Mit mehr sichtbaren Einheiten sind es ~820–845 statt ~1 950 (−58 %).
-  - Es bleiben ~100 sheetbedingte Brüche zwischen Seiten. Der Rest sind Tilemap-Grenzen (~540) und Wechsel der Materialklasse (~170–215).
-  - Gefundene Zuordnung: `body12+body14+body16+body13` (4) ; `anims1+body2+body1+body8` (3.5) ; `body7+body5+body4` (3) ; `body15` (1) ; `treeSprites` getrennt (Foliage). `body15` passt noch auf die dritte Seite, also genügen 4 TeamColour-Seiten.
-  - Die Zuordnung entsteht aus denselben Daten, das Ergebnis ist daher eher optimistisch.
-  - Erwartung für die Engine-Zeit: Draw Calls und Vertex-Uploads sinken in ähnlicher Größe; das betrifft einen großen Teil der ~4.5 ms Engine-Arbeit bei Zoom 0.25.
-- **Speicher:**
-  - Die TeamColour-Sheets belegen schon heute ~1.25 GB VRAM (13 × BC7 8192² à 64 MB plus 13 Masken DXT1 à 32 MB).
-  - 4 neue Seiten kosten ~1.5 GB (je 256 MB BC7 + 128 MB DXT1).
-  - Ohne Freigabe der Originale (`Resources.UnloadAsset`, erst wenn keine Referenz mehr besteht) verdoppelt sich der Bedarf. Für Grafikkarten mit wenig VRAM ist das kritisch.
-- **Kompatibilität:**
-  - Asset-Mods registrieren pro GM-Gruppe eigene Texturen und Materialien; ein globaler Atlas wird vom Extender nicht unterstützt.
-  - Indexverträge bleiben unangetastet: geteiltes Array `tile_sea_new_01`/`tile_sea_shore` über `ID_Offset`/`additionalStorage`, Teilatlanten. Es werden nur Referenzen ersetzt, nie Arraylängen oder Indizes.
-  - Kompatibilität mit dem Fixes-Mod und dem Foliage-Begleitplugin, das ebenfalls `gmMaterials` schreibt.
-- **Risiko:** hoch.
-
-### V9 – Script-Extender-Detour auf `interpChimp` ohne Allokation pro Einheit — im Testmod bestätigt
-
-- **Befund** (Script Extender v2.14.3, `src/SHCDESE.BepInEx/ManagedHooks/GameMap_Hooks.cs`):
-  - `ManagedHookManager.GameMap_InterpChimpHook` ist als RedBird-`ManagedDetour` vor `GameMap.interpChimp` geschaltet. Bei **jedem** Aufruf, also für jede Einheit im `chimps`-Dictionary und jeden Frame, erzeugt er ein neues `UnitUnityVisualInterpolateEventArgs` (Klasse) und ruft `UnitR3EventHooks.OnUnitUnityVisualInterpolate.Raise` auf, ein R3-`Subject.OnNext`. Erst danach folgt das Vanilla-`interpChimp`.
-  - Das passiert auch für Einheiten, die nicht interpolieren; Vanilla tut für sie nichts.
-  - Einziger Abonnent im Extender ist `GameAfterImageManager.UpdateEffectForChimp` (Nachbild-Effekte); er macht pro Einheit einen Dictionary-Lookup und kehrt ohne aktiven Effekt sofort zurück.
-- **Beleg:**
-  - Im pausierten Spiel (0 interpolierende Einheiten, ~3 100 Einheiten im Dictionary, ~145 FPS, also ~450 000 Aufrufe/s) kostet `lerpChimps` weiterhin 0.27 ms pro Frame und allokiert 10–14 MB/s. Das sind ~25–30 Byte pro Aufruf, passend zu einem kleinen Event-Objekt.
-  - Mit Interpolation bei Zoom 0.25 sind es 0.61 ms pro Frame.
-- **Vorschlag** (Korrektur des Extenders gehört laut Workspace-Regeln nach APIShared):
-  - Den Extender-Hook so ersetzen, dass pro Aufruf **kein** neues Objekt entsteht.
-  - Option A: ein wiederverwendetes Event-Objekt pro Thread.
-  - Option B: das Event nur auslösen, wenn tatsächlich ein Abonnent etwas damit tun kann. Das ist der Fall, wenn ein Nachbild-Effekt für diese Einheit aktiv ist oder es Abonnenten außerhalb des Extenders gibt.
-  - Wie bisher das Vanilla-`interpChimp` über die Trampoline aufrufen. Kein zusätzlicher Hook auf `interpChimp` selbst (überlappende Detours vermeiden); der Eingriff erfolgt an der Extender-Hookmethode.
-  - Vorher Audit:
-    - welche Mods `OnUnitUnityVisualInterpolate` abonnieren (Workspace, Fixes-Mod, bekannte Extender-Nutzer);
-    - ob ein Abonnent das Event-Objekt über den Aufruf hinaus speichert (dann scheidet Option A aus);
-    - Thread-Herkunft (Main-Thread).
-- **Erwartung:** bis zu −10…14 MB/s Allokation (~1/3 des Heap-Wachstums) mit entsprechend selteneren GC-Läufen. Dazu ein Teil der 0.27 ms Sockelkosten pro Frame bei ~3 000 Einheiten.
-- **Risiko:** gering bis mittel, abhängig vom Audit der Abonnenten. Rein clientseitige Darstellung, keine Netzwerkrelevanz.
-
-### Weitere gemessene Punkte mit geringem Nutzen
-
-- **Nicht sichtbare aktive Renderer:** Bei Zoom 0.25 sind 3 937 SpriteRenderer aktiv, 3 495 sichtbar (~11 % unsichtbar aktiv). `ObjectPool.filterRows` blendet nur Zeilengruppen aus, keine Spalten. Eine spaltenweise Deaktivierung lohnt sich nur, wenn eine Messung den Culling-Anteil bestätigt.
-- **Spikes beim Zoomwechsel in `TilemapManager.endTileRefresh`** (bis ~50 ms beim Nachladen neu sichtbarer Zeilen): Die Arbeit ließe sich auf mehrere Frames verteilen.
-- **Native Sichtbereichsschleife:** 3.7 → 6.6 ms pro Tick beim Herauszoomen, der Sim-Thread ist zu ~26 % ausgelastet. Das begrenzt die FPS nicht und bleibt unangetastet.
-
-## Ausgeschlossen bzw. als keine gute Lösung bestätigt
-
-- **Zoom, FPS-Limit, VSync ändern:** Nutzervorgabe.
-- **Unveränderte Minimap-Uploads überspringen:** Kein Upload war identisch (0 von ~200 je 5 s). Der Upload selbst ist ohnehin billig; die Kosten liegen in `TestRadarMap` (V1).
-- **Atlas nur der Plain-Texturen:** nur 8 von ~1 790 Brüchen entfallen.
-- **Zeilen-Tilemaps zusammenlegen:** Die Tiefensortierung zwischen Kacheln und Einheiten hängt an der Zeilen-Tilemap; ein Zusammenlegen würde das Bild ändern. Diese ~30 % der Brüche sind die Untergrenze.
-- **Inkrementellen GC aktivieren:** bereits aktiv.
-- **Statische SpriteRenderer als Mesh pro Zeile zusammenfassen:** Von den sichtbaren SpriteRenderern sind nach 5 s nur 0–8 % unverändert. Bei TeamColour sind es höchstens 2 %, bei Plain allerdings ~85 %, das sind aber nur ~130 Renderer. Statische Inhalte wie Gebäude und Boden liegen bereits in den Zeilen-Tilemaps; die SpriteRenderer sind fast nur bewegte bzw. animierte Objekte. Ein Zeilen-Mesh für statische Sprites lohnt sich daher nicht.
-- **Sprites innerhalb der Sheets dichter packen:** Die Sheets sind voll und die Tight-Mesh-Rects überlappen sich (siehe V7).
-- **Native Sim-/Renderschleife umschreiben:** zu riskant, begrenzt die FPS nicht.
-
-## Außerhalb des Zoomproblems
-
-Ladephase: `EngineInterface.LoadSaveFile` 260–310 ms, `NoesisView.OnGUI` 730–800 ms nach dem Laden eines Spielstands, `FatControler.Update` ~2.3 s beim Wechsel vom Hauptmenü auf die Karte.
-
-## Offene Punkte vor der Umsetzung
-
-Die Messphase ist abgeschlossen. Vor der Umsetzung stehen noch diese statischen Audits bzw. Prüfungen aus:
-
-| Punkt | Offene Frage | Art |
+| Messgröße | ohne V7 | mit V7 |
 |---|---|---|
-| **V1** | Zeigt Noesis die per `Apply()` aktualisierte Radartextur ohne neues `TextureSource` an? | Laufzeittest `PerfFixTest` (Minimap muss sich weiter bewegen) |
-| **V2** | Liefert der Schleifenersatz bitgleiche Positionen und Sortierungen, bei weiterem Aufruf des Extender-Detours? | Audit von `interpChimp` vollständig, dann Laufzeittest |
-| **V4** | Wer liest die in `EditorDirector.Update`/`MainControls.Update` doppelt berechneten Maus- und Tile-Werte? | statischer Audit |
-| **V5** | Wirkung des Lock-Caches (Spike-Zeilen `main:EngineInterface.GetMeritData` dürfen nicht mehr erscheinen); Ursache des ~450-ms-Sim-Ticks beim ersten Herauszoomen bzw. nach dem Laden | native Diagnose (nur für die Ursache; V5 selbst braucht sie nicht) |
-| **V7** | Freigabe der Original-Sheets (VRAM), Verhalten mit Asset-Mods und dem Foliage-Begleitplugin, Kopierbarkeit per `Graphics.CopyTexture` bei BC7/DXT1 | Prototyp im DEVDIAG-Testmod |
-| **V9** | Abonnenten-Audit abgeschlossen: Extender (Nachbilder), ExtraFeatures (KnightDismount), ImprovedHunters, SkinTest, VirtualUnitsPrototype; Fixes-Mod keiner. Alle lesen `args.Chimp` nur synchron; keiner speichert das Objekt. Offen ist nur der Laufzeittest im Testmod. | Laufzeittest `PerfFixTest` |
+| Draw Calls | ~1 805 | **~800–860 (−54 %)** |
+| FPS pausiert (R4 im selben Lauf; F1) | 145.1 | **178.3; 179.5 (+23–24 %)** |
+| p95-Frame-Zeit pausiert | 7.3 ms | 5.9–6.1 ms |
+| FPS laufend (Ø ohne V7; R4, F1) | Ø 139.3 | **172.3; 171.9 (+23 %)** |
+
+  Der fehlerhafte Rechteck-Prototyp kam in einem anderen Lauf auf +36 %. Laut V11 liegt der Unterschied nicht an den Eckpunkten; er ist vor allem Lauf-zu-Lauf-Streuung.
+- **Kosten bzw. offen:**
+  - Aufbau ~1.7 s einmalig im Hauptmenü.
+  - Texturspeicher (`Texture.currentTextureMemory`, Lauf U1) steigt um ~1,66 GB: 2 447 → 4 111 MB. Die Original-Sheets müssen geladen bleiben (siehe Verworfen).
+  - Asset-Mods (Lauf M2): getestet mit dem Sprite-Override des Extender-Beispielmods (`body_archer-169` samt Maske).
+    - Die betroffene GM-Datei bleibt unverändert (`v7 skipped 1 GM file`); 109 532 statt 111 492 Sprites werden umgestellt.
+    - Das Bild weicht nur an der Uhr ab.
+    - FPS pausiert 143 → 174 (+21 %).
+  - Ungetestet:
+    - Atlas-Overrides (ganze GM-Gruppen) und das Foliage-Begleitplugin des AtlasBuilders;
+    - Grafikkarten mit weniger VRAM bzw. kleinerer maximaler Texturgröße. Bei fehlender Unterstützung schlägt V7 fail-closed fehl: Log `v7 FAIL`, Vanilla bleibt unverändert.
+  - Sichtprüfung durch den Nutzer in verschiedenen Spielständen.
+
+## V10 LOD bei weitem Zoom — gemessen, verworfen
+
+- **Frage:** Bringt es etwas, bei weitem Zoom Details auszublenden (geringere Detailstufe)?
+- **Messung** (Probe `LodProbe`, Lauf L1, pausiert, Zoom 0.25, V1+V5+V9+V7 aktiv):
+  - Die Kategorien kommen aus Vanillas `GameMap`-Objektlisten.
+  - Jede Kategorie wird 5 s lang ausgeblendet; danach werden genau diese Renderer wiederhergestellt.
+  - Kontrollfenster liegen am Anfang und am Ende. Das Bild vor und nach dem Experiment ist bis auf die Uhr identisch.
+
+| Kategorie | sichtbare Renderer | ausgeblendet | Draw Calls | FPS |
+|---|---|---|---|---|
+| Kontrolle Anfang / Ende | – | – | 838 | 168.8 / 179.4 |
+| Einheitenkörper (nur Referenz) | 2 700 | 3 080 | 453 | **235.6** |
+| Einheitenteil 2 (`file2`, z. B. Reiter) | 500 | 630 | 831 | 180.1 |
+| Einheitenteil 3 | 0 | 163 | 837 | 178.3 |
+| Belagerungsflagge, Lebensbalken, Zielmarker, Pixies | 0 | 0 | 837–838 | 171.6–177.7 |
+| Fliegendes (Geschosse, Ziffern) | 56 | 82 | 802 | 173.7 |
+| Orgs | 76 | 86 | 789 | 177.9 |
+| Gebäudeanimationen | 148 | 416 | 744 | 179.8 |
+| Mauer-Füllstücke | 120 | 204 | 785 | 184.4 |
+
+- **Bewertung:**
+  - Keine Detailkategorie bringt mehr als das Messrauschen (Kontrollfenster 169–179 FPS); höchstens die Mauer-Füllstücke liegen mit +3 % an der Grenze.
+  - Kategorien, die gar nicht im Bild sind, liegen im selben Band.
+  - Die Kosten hängen nach V7 an der **Anzahl der Einheiten**: Nur das Ausblenden aller Einheitenkörper bringt deutlich mehr (+31 %). Das wäre aber kein LOD mehr, sondern ein anderes Bild.
+  - Schatten sind Teil der Einheiten-Sprites und haben keine eigenen Renderer.
+  - Die zweite Kachelebene der Tilemaps wurde nicht gemessen. Sie liegt im selben Renderer wie die erste Ebene, ihr Ausblenden spart also keine Draw Calls.
+  - LOD ändert das Bild und bringt keinen messbaren Nutzen, daher kein gutes Aufwand-Nutzen-Verhältnis.
+
+## V11 Sprite-Meshes vereinfachen — gemessen, verworfen
+
+- **Idee:** Die Sprites der TeamColour-Sheets sind Tight-Meshes mit durchschnittlich ~8 Eckpunkten. Unity bündelt Sprites, indem es jeden Eckpunkt in jedem Frame auf der CPU kopiert und transformiert. Das umschließende Rechteck (4 Eckpunkte) wäre dort bildgleich, wo im Rechteck außerhalb des Polygons nur transparente Pixel liegen.
+- **Messung** (Probe `QuadProbe`, Lauf Q1, pausiert, Zoom 0.25, V7 aktiv):
+  - 1 165 verschiedene Sprites auf 4 544 Renderern; 297 davon haben schon höchstens 4 Eckpunkte.
+  - Alle übrigen Renderer (3 812) werden für ein Fenster auf ihre Rechteck-Sprites umgestellt.
+- **Ergebnis:**
+  - Die Eckpunkte im Bild sinken nur von 182 900 auf 167 700, denn der Großteil stammt von den Tilemaps.
+  - Die FPS steigen von 141–145 (Kontrollfenster) auf 148, also +2–5 %. Das ist die **Obergrenze**, einschließlich der Fehler durch Nachbarfragmente.
+  - Bildgleich wäre die Umstellung laut Render-Check bei 0 von 868 Sprites; dieser Wert wurde nicht weiter untersucht, weil schon die Obergrenze im Rauschen liegt.
+  - Der ganze Lauf war langsamer als üblich (Fremdlast), der Vergleich innerhalb des Laufs gilt trotzdem.
+- **Bewertung:** Der Gewinn liegt im Messrauschen, kein gutes Aufwand-Nutzen-Verhältnis. Ergänzend zu V10 bestätigt das: Nach V7 kosten die Einheiten pro Renderer (Culling, Sortierung, Bündelung), nicht pro Eckpunkt oder Bilddetail.
+
+## Nativer Sim-Spike — Ursache bestimmt, Optimierung verworfen
+
+- **Erscheinung:** Einzelne Sim-Ticks dauern ~450–490 ms (sonst ~5 ms), unabhängig vom Zoom. In `test_dustyFPS2.sav` tritt der Spike ~4 s nach dem Entpausieren auf; in einem anderen Spielstand wiederholte er sich etwa alle 25 s.
+- **Ursache** (Stack-Sampler, 388–390 Proben pro Spike-Tick, 2 Läufe identisch, Details in der Baseline `knowledge/SIM_TICK_SPIKE_PATHING.md`):
+  - 96 % der Zeit liegen in der Kette `DLL_RunTick` → KI-Spieler-Scheduler `0x2AE40` → KI-Militärroutine → Gruppenbewegungsbefehl `0x11B520` → Einzel-Wegsuche `0x196280` → Pfadfinder `0xF4930`. Der Pfadfinder arbeitet mit Suchbudgets bis 400 000.
+  - Ein KI-Gruppenbefehl berechnet also für jede Einheit der Gruppe eine Route im selben Tick.
+  - Die Kartenrenderschleife ist nicht beteiligt (3 von 390 Proben).
+- **Folgen:** Das Bild läuft weiter (86–91 Frames während des Ticks); nur die Simulation steht ~0,5 s. Ohne V5 fror der Main-Thread mit ein, sobald ein GUI-Check auf `threadLock` wartete.
+- **Bewertung – keine gute Lösung per Mod:**
+  - Wegsuchen zu verteilen oder zu verkürzen ändert die Simulation. Das gefährdet Determinismus bzw. MP-Synchronität und das KI-Verhalten.
+  - Ein schnellerer Pfadfinder wäre ein nativer Hook auf `0xF4930`, den APIShared bereits besitzt (überlappender Hook), mit hohem Risiko.
+  - Der sichtbare Teil, das Einfrieren des Bildes, ist durch V5 behoben.
+
+## Verworfen bzw. als keine gute Lösung bestätigt
+
+| Vorschlag | Grund |
+|---|---|
+| Zoom, FPS-Limit, VSync ändern | Nutzervorgabe |
+| V2 `lerpChimps` entschlacken | Der Vanilla-Anteil steckt in `interpChimp`, das der Extender detourt; ein weiterer Hook dort wäre ein überlappender Detour. Nach V9 bleibt pausiert nur ~0.2 ms Sockel. |
+| V3 `GetComponent` in `processTestMap` cachen | geschätzt ~0.04 ms pro Frame gegen einen Transpiler über 23 Stellen |
+| V4 Maus-/Tile-Berechnung cachen | `EditorDirector` liest nur aus; die eine Tile-Pick-Berechnung pro Frame (~0.15 ms) zu cachen riskiert veraltete Hover-Anzeigen |
+| V8 statische Sprites als Zeilen-Mesh | nur 0–8 % der sichtbaren SpriteRenderer sind über 5 s unverändert; Statisches liegt bereits in den Tilemaps |
+| Unveränderte Minimap-Uploads überspringen | kein Upload war identisch; der Upload ist ohnehin billig |
+| Atlas nur der Plain-Texturen | nur ~7 von ~1 800 Brüchen |
+| Sprites innerhalb der Sheets dichter packen | Sheets voll, Tight-Mesh-Rects überlappen sich |
+| Zeilen-Tilemaps zusammenlegen | die Tiefensortierung zwischen Kacheln und Einheiten hängt an der Zeilen-Tilemap; ~30 % der Brüche sind die Untergrenze |
+| Nicht sichtbare aktive Renderer spaltenweise deaktivieren | ~11 % der aktiven Renderer, Culling ist billig |
+| Inkrementellen GC aktivieren | bereits aktiv |
+| Native Sim-/Renderschleife umschreiben | zu riskant, begrenzt die FPS nicht |
+| V7: Original-Sheets nach dem Zusammenlegen freigeben (`Resources.UnloadAsset`) | Spart ~1,1 GB Texturspeicher, zerstört aber Mauern und Türme. Die Zeilen-Tilemaps halten in ihren Kachel-Daten Original-Sprites dieser Sheets, und Unity lädt die freigegebenen Texturen dafür nicht nach. Alle Tilemaps und Caches umzustellen wäre riskant; das lohnt sich nur bei knappem VRAM. |
+| KI-Wegsuche beschleunigen oder verteilen (Sim-Spike) | ändert Simulation bzw. Determinismus; nativer Hook auf `0xF4930` überlappt APIShared |
+
+## Engine-Einstellungen: Graphics Jobs und Grafik-API — gemessen, verworfen
+
+Ausgangslage: D3D11 mit eigenem Render-Thread, Graphics Jobs aus (`GfxDevice: … threaded=1; jobified=0`), `boot.config` ohne Job-Einträge.
+
+Gemessen mit allen Optimierungen aktiv (V1/V5/V9/V7), abwechselnde Läufe, 2026-10-20 12:37–13:05:
+
+| Variante | Läufe | FPS pausiert | FPS laufend | Bild |
+|---|---|---|---|---|
+| D3D11 wie ausgeliefert | G0a–d | 133 / 173 / 161 / 163 | 136 / 160 / 149 / 162 | ok |
+| D3D11 + `gfx-enable-gfx-jobs=1` (`jobified=1`) | G1a–c | 138 / 137 / 153 | 126 / 127 / 136 | ok |
+| D3D12 (`-force-d3d12`) + native Graphics Jobs | D12a | 276 | 208 | **HUD fehlt** |
+| D3D12 ohne Graphics Jobs | D12n | 116 | 88 | **HUD fehlt** |
+| Vulkan (`-force-vulkan`) | VKa | – | – | startet nicht (nicht im Build enthalten) |
+
+- **D3D11-Graphics-Jobs:** kein Gewinn, laufend eher langsamer.
+- **D3D12:** Die Noesis-Oberfläche (Leiste, Schreiber, Rahmen) wird nicht gezeichnet, nur Minikarte, Datum und Uhr. Ohne Graphics Jobs ist D3D12 deutlich langsamer.
+  - **Der Gewinn ist echt, nicht HUD-bedingt** (Probe `HudProbe`, Läufe H11a/b und H12a/b, beide Varianten bei 3840×2160):
+    - Unter D3D11 kostet das HUD nichts messbar: HUD aus 160 / 160 FPS, HUD an 158–166.
+    - D3D12 pausiert: 208–263 FPS mit HUD-Bäumen (die nur unsichtbar sind), 233–281 ohne.
+    - Laufend schwankt D3D12 stark: 113–208 FPS über alle Läufe, D3D11 136–162.
+  - **Ursachensuche HUD:**
+    - Unter D3D12 gibt es keine Fehlermeldungen. Noesis 3.2.3 rendert Text und die Minikarte, die über `TextureSource` → `Noesis_WrapTexture` kommt.
+    - XAML-Bilder kommen über `NoesisTextureProvider.UpdateTextures` → `Noesis_TextureProviderStoreTextureInfo` (geschlossener nativer Code). Format und Mip-Anzahl sind nicht die Ursache: 129× RGBA8 mit 1 Mip, gültige native Zeiger.
+    - Versuch (`NoesisRebindProbe`, Lauf RB1): 17 `Image`-Quellen und 1 `ImageBrush` im Elementbaum auf `TextureSource` umgestellt. Das HUD bleibt trotzdem unsichtbar.
+    - Die Ursache liegt also tiefer im nativen D3D12-Renderpfad von Noesis (z. B. Offscreen-/Effektpfade), nicht nur im Texturweg.
+  - **Bewertung:** Mit vertretbarem Aufwand per Mod nicht reparierbar (geschlossene native Noesis-DLL); dazu kommt die instabile Laufleistung. Verworfen, solange Noesis/Spiel D3D12 nicht selbst unterstützen.
+- **Achtung Auflösung:** Ab Lauf N1 lief das Spiel mit 3840×2160 statt 1920×1080 (vermutlich durch den ersten D3D12-Direktstart gesetzt). Läufe sind nur innerhalb derselben Auflösung vergleichbar; die H-Läufe (D3D11 und D3D12) liefen beide bei 4K.
+- **Vulkan:** Unity meldet „Forced GfxDevice 'Vulkan' was not built…“ und `InitializeEngineGraphics failed`.
+- **Testweg:**
+  - `Run-Automation.ps1 -BootConfig "key=value;…"` ändert `boot.config` vorübergehend und stellt sie byte-genau wieder her (Hash `A2EEC40C…` geprüft).
+  - `-LaunchArgs` startet die exe direkt. Ohne `steam_appid.txt` startet das Spiel über Steam neu und verliert die Argumente; für die Tests lag die Datei deshalb kurzzeitig im Spielordner und wurde danach entfernt.
+- **Streuung zwischen Läufen:** Identische D3D11-Läufe lagen zwischen 133 und 173 FPS. Fremdlast (Browser, weitere Programme) wirkt sich deutlich aus; Vergleiche brauchen abwechselnde, wiederholte Läufe.
+
+## Kandidaten mit echtem Potenzial (nicht umgesetzt)
+
+### V12 Eigener Einheiten-Renderer — Potenzial groß, Aufwand und Risiko hoch
+
+- **Ansatz:** Statt ~3 000 einzelnen `SpriteRenderer`-Objekten für Einheitenteile würde pro sichtbarer Kartenzeile ein selbst gebautes Mesh gezeichnet. Es enthält alle Einheitenteile der Zeile in Vanillas Reihenfolge, wird per Job-System auf mehreren Kernen gebaut und mit dem V7-Seitenmaterial gezeichnet.
+- **Begründung aus den Messungen:**
+  - Nach V7 kosten Einheiten pro Objekt (Culling, Sortierung, Bündelung im Main-Thread), nicht pro Eckpunkt oder Detail; siehe V10/V11.
+  - Alle Einheitenkörper auszublenden brachte +31 %. Diese Kosten ließen sich mit eigenen Meshes größtenteils vermeiden.
+  - Geschätztes Potenzial: +20–30 %.
+- **Schwierigkeiten:**
+  - Die exakte Sortierung (`sortingOrder` je 49er-Zeilenblock, `layerDelay`-Versatz, Lebensbalken auf 32767) muss zwischen den Zeilen-Tilemaps nachgebildet werden, ein Zeilen-Mesh pro Sortierstufe.
+  - Interpolation (`lerpChimps`) und Animationen ändern Positionen und Sprites in jedem Frame, die Meshes müssten also jeden Frame neu gebaut werden.
+  - Script Extender und Mods hängen an den `SpriteRenderer`-Objekten der Einheiten: `OnUnitUnityVisualInterpolate`, `SetBodySprite`-Detour, Skins, Nachbilder.
+  - Auswahl und Mausabfrage müssten weiter funktionieren.
+- **Bewertung:** Die einzige verbleibende Optimierung mit deutlichem Potenzial, aber ein eigenes Projekt (Darstellungsschicht neu schreiben), kein Testmod-Feature. Vor einem Start wäre ein Prototyp für nur eine Einheitenart sinnvoll, um den Gewinn zu messen.
+
+## Offene Punkte
+
+- **V7:** Sichtprüfung durch den Nutzer in verschiedenen Spielständen; Test mit Atlas-Overrides und auf Hardware mit weniger VRAM (auf dem Messrechner nicht prüfbar).
+- **Übernahme V1/V5/V9/V7:** derzeit nicht vorgesehen (Nutzervorgabe); bei Übernahme gehört V9 laut Regeln nach APIShared, weil es den Extender korrigiert.
+- **Ladephase** (außerhalb des Zoomproblems): `EngineInterface.LoadSaveFile` ~300 ms, `NoesisView.OnGUI` ~800 ms nach dem Laden, `FatControler.Update` ~2.4 s beim Wechsel vom Hauptmenü auf die Karte.
 
 ## Workspace-Wissen zu Texturen
 
 Quellen: `Guides/Replace Assets with Script Extender.md`, `Helpers/AtlasBuilder/USAGE.md`, `Helpers/AtlasBuilder/atlas-contract SHOM/*`, CastlePlanner.
 
-- Farb- und Maskentextur müssen pixelgenau dasselbe Layout haben. Ein gemeinsamer Atlas ist nur zusammen mit einem gemeinsamen Maskenatlas batchbar.
-- Script-Extender-Atlanten: Point-Filter, Clamp, keine Mips, `SpriteMeshType.FullRect`, pro GM-Gruppe eine eigene Textur und ein eigenes Material. Jeder Asset-Mod erhöht damit die Zahl der Materialien und so die Batch-Brüche.
-- Indexfallen: `tile_sea_new_01`/`tile_sea_shore` teilen ein Array (`ID_Offset`/`additionalStorage`); Teilatlanten erhalten nicht ersetzte Vanilla-Frames.
-- Pivots sind normalisiert, 1.0 ist eine Kantenkonvention, Werte außerhalb von 0..1 kommen vor. Bei 1:1 übernommenem Rect, Pivot und Geometrie unkritisch.
-- Native-Baseline: Die nativen Datensätze liefern nur GM-Datei- und Bildindex. Alle Textur- und Materialentscheidungen fallen verwaltet in `SpriteMapping`/`spriteLoader`.
+- Farb- und Maskentextur müssen pixelgenau dasselbe Layout haben; ein gemeinsamer Atlas ist nur zusammen mit einem gemeinsamen Maskenatlas batchbar.
+- Script-Extender-Atlanten: Point-Filter, Clamp, keine Mips, `SpriteMeshType.FullRect`, pro GM-Gruppe eine eigene Textur und ein eigenes Material. Jeder Asset-Mod erhöht damit die Zahl der Materialien.
+- Indexfallen: `tile_sea_new_01`/`tile_sea_shore` teilen ein Array (`ID_Offset`/`additionalStorage`); Teilatlanten erhalten nicht ersetzte Vanilla-Frames. V7 ersetzt nur Referenzen, nie Arraylängen oder Indizes.
+- Native-Baseline: Die nativen Datensätze liefern nur GM-Datei- und Bildindex; alle Textur- und Materialentscheidungen fallen verwaltet in `SpriteMapping`/`spriteLoader`.
 
-## Messwerkzeug PerfProbe
+## Messwerkzeuge
 
-`Testmods/PerfProbe`, nur `build.bat /devdiag`. Alle Messbereiche sind in der BepInEx-Config unter `[Extras]` bzw. `[Spikes]` schaltbar. Ausgabe alle 5 s im BepInEx-Log:
-
-| Logzeile | Inhalt |
-|---|---|
-| `perf:` | Zeiten der Vanilla-Kernmethoden, Sim-Tick, Datensätze, `addUpdate*`, `TestRadarMap` |
-| `snapshot` | Zoom, Tilemaps, Pool-Sprites, Draw Calls, SetPass, Vertices, Main-Thread-Zeit |
-| `engine` | `PlayerLoop`, `Gfx.WaitForPresentOnGfxThread`, `GC.Collect`, Render-Counter |
-| `census` | Renderer, Materialien, Materialklassen, Sheets, Bruchursachen, Atlas-Szenarien |
-| `pageSim` | V7-Szenario: verbleibende Batches bei Zusammenlegung ganzer Sheets auf 16384²-Seiten, mit Seitenzuordnung |
-| `textures new`, `materialClasses` | einmaliges Inventar der Sheets und Masken |
-| `sweep`, `sweepAlloc` | alle Unity-Callbacks der Spielskripte und die verschachtelten Kernmethoden (`lerpChimps`, `processTestMap`, `ApplyRadarMap`, `TestRadarMap`, GUI-Check, `endTileRefresh`, `experimentalRowManager`) mit Zeit und Heap-Wachstum aus sauberen Proben |
-| `threadAlloc selfTest` | prüft den threadgenauen Zähler (unter Boehm ungültig) |
-| `sheets:`, `sheetClasses` | Belegung der Sprite-Sheets und Seitenbedarf je Materialklasse (einmal pro Prozess) |
-| `static` | Anteil sichtbarer Sprites, die nach 5 s unverändert sind |
-| `engineCalls(main)` | `EngineInterface`-Aufrufe auf dem Main-Thread, Anteil während eines Sim-Ticks |
-| `chimps`, `records byType`, `gc` | Einheiten, Datensatzarten, GC und Heap |
-| `spike:` | einzelne Ruckler über 200 ms mit Kontext (blockierender Aufruf, Top-Callbacks, GC) |
+- **PerfProbe** (`Testmods/PerfProbe`, nur `build.bat /devdiag`, Config `[Extras]`/`[Spikes]`): `perf:` (Kernmethoden, Sim-Tick), `snapshot` (Zoom, Draw Calls, SetPass), `engine` (`PlayerLoop`, Render-Thread-Wartezeit, GC), `census` (Bruchursachen, Atlas-Szenarien), `pageSim` (V7-Seitensimulation), `sheets:`/`sheetClasses`, `static`, `sweep`/`sweepAlloc` (Unity-Callbacks mit Zeit und Heap-Wachstum aus sauberen Proben), `engineCalls(main)`, `chimps`, `records byType`, `gc`, `spike:` (Ruckler über 200 ms mit Kontext), `simSample` (Stack-Sampler für Sim-Ticks ab 80 ms: Funktions-RVAs in `CrusaderDE.dll`, aufzulösen mit `query.ps1 function <RVA>`).
+- **PerfFixTest** (`Testmods/PerfFixTest`):
+  - Fixes unter `[Features]`: `RadarRebindSkip`, `MeritDataLockCache`, `InterpolateEventReuse`, `SheetMerge`.
+  - Automatisierung unter `[Automation]`: `Enabled`, `SavePath`, `RunLabel`, Zeiten, `ScreenshotDir`.
+  - Proben unter `[Probes]`: `SheetMergeProbe`, `SheetMergeMidPause` (V7 wird dann statt im Menü in der Mitte der Pause angewendet), `SheetMergeControl`, `SheetMergeRenderCheck`, `LodProbe`, `QuadProbe`, `HudProbe`, `NoesisProbe`, `NoesisSingleMip`, `NoesisRebindProbe`.
+  - Log-Marker: `AUTOMATION … phase=`, `framestats`, `screenshot`, `probe=`, `v7`, `result PASS|FAIL`.

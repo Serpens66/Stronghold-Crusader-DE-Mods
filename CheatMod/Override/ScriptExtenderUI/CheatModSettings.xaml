@@ -113,7 +113,7 @@
       <TextBlock Text="{Binding System_TrailSourceNoticeText}" Visibility="{Binding System_TrailSourceNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
-      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
         <StackPanel shared:ModSettingsSearch.SectionKey="cheat.section.extreme-powers" shared:ModSettingsSearch.SectionTitle="{Binding ExtremePowersTitleText}">
           <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding ExtremePowersTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
           <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="cheat.endless-extreme-powers" shared:ModSettingsSearch.Title="{Binding EndlessExtremePowersText}" shared:ModSettingsSearch.ToolTipText="{Binding EndlessExtremePowersHelpText}">

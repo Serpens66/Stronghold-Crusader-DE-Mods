@@ -20,7 +20,7 @@ namespace PerfFixTest
         public const string Guid = "PerfFixTest_Serp", Name = "Perf Fix Test", Version = "0.1.0";
         internal static ManualLogSource Log;
         internal static readonly Harmony Harmony = new Harmony("PerfFixTest_Serp");
-        private static bool registered, installed, radarEnabled, meritEnabled, interpolateEnabled;
+        private static bool registered, installed, radarEnabled, meritEnabled, interpolateEnabled, sheetMergeEnabled;
 
         private void Awake()
         {
@@ -30,12 +30,15 @@ namespace PerfFixTest
             radarEnabled = Bind(Config, "RadarRebindSkip", "V1: skip re-binding the unchanged minimap texture to Noesis on every tick.");
             meritEnabled = Bind(Config, "MeritDataLockCache", "V5: return the last merit data instead of blocking while a simulation tick holds the engine lock.");
             interpolateEnabled = Bind(Config, "InterpolateEventReuse", "V9: reuse one Script Extender interpolate event object instead of allocating one per unit and frame.");
-            FeatureSummary = "V1=" + (radarEnabled ? 1 : 0) + " V5=" + (meritEnabled ? 1 : 0) + " V9=" + (interpolateEnabled ? 1 : 0);
+            sheetMergeEnabled = Bind(Config, "SheetMerge", "V7 (prototype): merge the TeamColour sprite sheets onto shared 16384 pages after sprite loading so units of different sheets batch (about +1.5 GB VRAM).");
             Automation.AutomationController.Bind(Config);
+            // The automation's in-run V7 comparison switches the merge itself.
+            if (Automation.AutomationController.ControlsSheetMerge) sheetMergeEnabled = false;
+            FeatureSummary = "V1=" + (radarEnabled ? 1 : 0) + " V5=" + (meritEnabled ? 1 : 0) + " V9=" + (interpolateEnabled ? 1 : 0) + " V7=" + (sheetMergeEnabled ? 1 : 0);
             // Rooted by the extender's library publisher, not by this component (startup cleanup).
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             Note(Name + " " + Version + " loaded; radarRebindSkip=" + radarEnabled + " meritDataLockCache=" + meritEnabled +
-                " interpolateEventReuse=" + interpolateEnabled + " (restart required after config changes).");
+                " interpolateEventReuse=" + interpolateEnabled + " sheetMerge=" + sheetMergeEnabled + " (restart required after config changes).");
         }
 
         private static bool Bind(ConfigFile config, string key, string description) =>
@@ -48,6 +51,7 @@ namespace PerfFixTest
             if (radarEnabled) RadarRebindFix.Install();
             if (meritEnabled) MeritDataLockFix.Install();
             if (interpolateEnabled) InterpolateEventFix.Install();
+            if (sheetMergeEnabled) SheetMerge.ArmAfterSpriteLoad(Note);
             Automation.AutomationController.OnExtenderReady();
         }
 

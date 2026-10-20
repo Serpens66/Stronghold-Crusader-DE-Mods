@@ -10,6 +10,7 @@ using System.Text.Json;
 var tests = new (string Name, Action Run)[]
 {
     ("legacy mission-settings adapter preserves aliases, mutation and wire contracts", MissionSettingsAdapterTests.Run),
+    ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),
     ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
@@ -90,6 +91,8 @@ foreach ((string name, Action run) in tests)
 {
     try
     {
+        // Simulate the runtime's explicit provider publication, with isolated state per case.
+        ExtendedDataModDataApi.InitializeSource();
         run();
         Console.WriteLine("PASS " + name);
     }
@@ -98,6 +101,7 @@ foreach ((string name, Action run) in tests)
         failed++;
         Console.Error.WriteLine("FAIL " + name + ": " + ex);
     }
+    finally { ExtendedDataModDataApi.UnregisterSource(); }
 }
 
 Console.WriteLine($"{tests.Length - failed}/{tests.Length} tests passed.");

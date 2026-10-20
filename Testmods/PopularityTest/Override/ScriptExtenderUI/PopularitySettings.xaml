@@ -34,6 +34,7 @@
       <Border Visibility="{Binding System_PresetSavePanelVisibility}" BorderBrush="#FF77AAFF" BorderThickness="1" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True"><StackPanel><TextBlock Text="{Binding System_PresetSaveTargetText}" Foreground="White"/><ComboBox ItemsSource="{Binding System_PresetSaveTargets}" SelectedItem="{Binding System_SelectedPresetSaveTarget, Mode=TwoWay}" ToolTip="{Binding System_PresetSaveTargetText}" ToolTipService.ShowDuration="60000" Width="400"/><TextBox Text="{Binding System_PresetSaveName, Mode=TwoWay}" seui:KeyboardCaptureBinding.Enabled="True" ToolTip="{Binding System_PresetSaveNameText}" ToolTipService.ShowDuration="60000" Width="400" Margin="0,6,0,0"/><TextBox Text="{Binding System_PresetSaveDescription, Mode=TwoWay}" seui:KeyboardCaptureBinding.Enabled="True" ToolTip="{Binding System_PresetSaveDescriptionText}" ToolTipService.ShowDuration="60000" Width="400" Margin="0,6,0,0"/><StackPanel Orientation="Horizontal"><Button Content="{Binding System_PresetSaveConfirmText}" Command="{Binding System_ConfirmPresetSaveCommand}" IsEnabled="{Binding System_CanConfirmPresetSave}" ToolTip="{Binding System_PresetSaveConfirmText}" ToolTipService.ShowDuration="60000"/><Button Content="{Binding System_PresetLoadCancelText}" Command="{Binding System_CancelPresetSaveCommand}" ToolTip="{Binding System_PresetLoadCancelText}" ToolTipService.ShowDuration="60000" Margin="8,0,0,0"/></StackPanel></StackPanel></Border>
       <TextBlock Text="{Binding HostOptionsText}" Foreground="#FF77AAFF" Background="#33304069" FontWeight="Bold" Padding="8,4" Margin="0,0,0,8"/>
       <Border Style="{StaticResource HostActivationBorder}" Margin="0,0,0,8"><CheckBox Content="{Binding ModEnabledText}" IsChecked="{Binding EnableMod, Mode=TwoWay}" IsEnabled="{Binding CanConfigure}" ToolTip="{Binding EnableModHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" FontWeight="Bold"/></Border>
+      <StackPanel Opacity="{Binding HostSettingsOpacity}">
       <TextBlock Text="{Binding ScopeText}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding RationsTitle}" Foreground="#FFF2D48A" FontWeight="Bold" Margin="0,14,0,6"/>
       <Grid Margin="0,3" shared:ModSettingsSearch.Key="popularity.RationsPopModifierNone" shared:ModSettingsSearch.Title="{Binding RationsPopModifierNoneTitle}" shared:ModSettingsSearch.ToolTipText="{Binding RationsPopModifierNoneHelp}">
@@ -290,6 +291,7 @@
         <TextBox Grid.Column="2" Text="{Binding GoodBadThingPopModifierMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding GoodBadThingPopModifierMultiplierEditable}" seui:KeyboardCaptureBinding.Enabled="True" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" TextAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding GoodBadThingPopModifierMultiplierHelp}" ToolTipService.ShowDuration="60000"/>
       </Grid>
       <TextBlock Text="{Binding RuleText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" MaxWidth="700"/>
+      </StackPanel>
     </StackPanel>
   </ScrollViewer>
 </Grid>

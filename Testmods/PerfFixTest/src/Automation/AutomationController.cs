@@ -35,7 +35,12 @@ namespace PerfFixTest.Automation
         private static long ticks, ticksAtPhase;
         private static long startStamp, phaseStamp;
         private static float zoomBeforeStep = -1f;
-        private static bool stepPending, resumeConfirmed;
+        private static bool stepPending, resumeConfirmed, screenshotTaken;
+        private static string screenshotDir;
+        private static bool sheetProbe, sheetProbeDone, sheetMergeMidPause, sheetMergeControl, sheetRenderCheck, midPauseDone, secondShotTaken, lodProbe, quadProbe, lodDone, noesisProbe, noesisSingleMip, hudProbe, rebindProbe;
+        private static long lodDoneStamp;
+        private static readonly FrameStats frames = new FrameStats();
+        private static long lastFrameStamp, mergeStamp;
 
         internal static void Bind(ConfigFile config)
         {
@@ -52,7 +57,30 @@ namespace PerfFixTest.Automation
             timeoutSeconds = config.Bind("Automation", "TimeoutSeconds", 300, "Overall timeout from game start; FAIL on expiry.").Value;
             maxZoomSteps = config.Bind("Automation", "MaxZoomSteps", 20, "Upper bound of zoom-out steps.").Value;
             quitWhenDone = config.Bind("Automation", "QuitWhenDone", true, "Quit the game after PASS or FAIL.").Value;
+            sheetProbe = config.Bind("Probes", "SheetMergeProbe", false,
+                "V7 feasibility probe in the main menu (GPU limits, sprite geometry of the TeamColour sheets, one test page copy).").Value;
+            sheetMergeMidPause = config.Bind("Probes", "SheetMergeMidPause", false,
+                "V7 in-run comparison: apply the sheet merge in the middle of the paused hold (stats/screenshot before and after).").Value;
+            sheetMergeControl = config.Bind("Probes", "SheetMergeControl", false,
+                "Control run for SheetMergeMidPause: same before/after screenshots and stats, but without merging.").Value;
+            sheetRenderCheck = config.Bind("Probes", "SheetMergeRenderCheck", false,
+                "With SheetMergeMidPause: after merging, render sampled sprites off-screen with original and page sprite/material for every cutoff stage and count differing pixels.").Value;
+            lodProbe = config.Bind("Probes", "LodProbe", false,
+                "LOD potential: in the paused hold, census of detail categories, then hide each category for one window and measure (screenshots before/after).").Value;
+            quadProbe = config.Bind("Probes", "QuadProbe", false,
+                "V11 potential (needs V7): in the paused hold, replace tight sprite meshes by their 4-vertex bounding quads (all / lossless only) and measure.").Value;
+            noesisProbe = config.Bind("Probes", "NoesisProbe", false,
+                "Log the textures Noesis receives (format, mips, native pointer) when the pause starts (D3D12 HUD investigation).").Value;
+            noesisSingleMip = config.Bind("Probes", "NoesisSingleMip", false,
+                "D3D12 HUD test: pass mip count 1 for every Noesis XAML texture (transpiler on NoesisTextureProvider.UpdateTextures).").Value;
+            hudProbe = config.Bind("Probes", "HudProbe", false,
+                "Noesis HUD cost: in the paused hold, disable all NoesisView components for one window between two control windows.").Value;
+            rebindProbe = config.Bind("Probes", "NoesisRebindProbe", false,
+                "D3D12 HUD feasibility: in the paused hold, replace XAML bitmap sources by TextureSource (screenshots before/after).").Value;
+            screenshotDir = config.Bind("Automation", "ScreenshotDir", "BepInEx/PerfFixTest_shots",
+                "Folder (relative to the game root or absolute) for the paused-scene screenshot used for pixel comparison; empty disables it.").Value;
             if (!enabled) return;
+            ControlsSheetMerge = sheetMergeMidPause;
             phase = Phase.WaitMenu;
             startStamp = phaseStamp = Stopwatch.GetTimestamp();
             Application.onBeforeRender += OnBeforeRender;
@@ -61,7 +89,14 @@ namespace PerfFixTest.Automation
         }
 
         // Extender APIs (GameTimeManagerAPI, GamePlayerManagerAPI) only after the native library is ready.
-        internal static void OnExtenderReady() => extenderReady = true;
+        internal static void OnExtenderReady()
+        {
+            extenderReady = true;
+            if (phase != Phase.Disabled && noesisSingleMip) NoesisProbe.InstallSingleMip(Log);
+        }
+
+        // An armed run with SheetMergeMidPause switches V7 itself in the middle of the pause.
+        internal static bool ControlsSheetMerge { get; private set; }
 
         private static void OnTick(int tick) => Interlocked.Increment(ref ticks);
 
@@ -71,6 +106,11 @@ namespace PerfFixTest.Automation
             if (lastFrame == Time.frameCount) return;
             lastFrame = Time.frameCount;
             if (phase == Phase.Done || phase == Phase.Failed) { StepQuit(); return; }
+            long frameNow = Stopwatch.GetTimestamp();
+            // Frame interval of the frame that just ended; the first 2 s of a hold phase are skipped (transition).
+            if (lastFrameStamp != 0 && (phase == Phase.PauseHold || phase == Phase.RunHold) && Seconds(phaseStamp) >= 2 && (mergeStamp == 0 || Seconds(mergeStamp) >= 2))
+                frames.Add((frameNow - lastFrameStamp) * 1000.0 / Stopwatch.Frequency);
+            lastFrameStamp = frameNow;
             try
             {
                 if (Seconds(startStamp) > timeoutSeconds) { Fail("timeout in phase " + phase); return; }
@@ -93,6 +133,13 @@ namespace PerfFixTest.Automation
             MainViewModel view = MainViewModel.Instance;
             if (!view.Show_Frontend_MainMenu || view.Show_IntroSequence || view.HUDmain == null || view.HUDIngameMenu == null ||
                 Director.instance == null || EditorDirector.instance == null) return;
+            if (sheetProbe && !sheetProbeDone)
+            {
+                if (spriteLoader.instance == null || !spriteLoader.instance.spritesLoaded) return;
+                sheetProbeDone = true;
+                try { SheetMergeProbe.Run(Log); }
+                catch (Exception exception) { Log("probe=sheetmerge exception " + exception); }
+            }
             string resolved = Path.IsPathRooted(savePath) ? savePath : Path.Combine(ConfigSettings.GetSavesPath(), savePath);
             if (!File.Exists(resolved)) { Fail("save not found: " + resolved); return; }
             // Folder type 0 is Vanilla's user-file catalog selector, not a game/player ID.
@@ -145,12 +192,56 @@ namespace PerfFixTest.Automation
         {
             if (!TrySetPause(true)) { Fail("native pause could not be set"); return; }
             Enter(Phase.PauseHold, "paused zoom=" + Zoom());
+            if (noesisProbe) NoesisProbe.Dump(Log);
         }
 
         private static void StepPauseHold()
         {
             if (!GamePlayerManagerAPI.Instance.IsLocalPaused()) { Fail("pause was lifted externally"); return; }
+            if (lodProbe || quadProbe || hudProbe || rebindProbe)
+            {
+                // Own timing: screenshot, all probe windows, screenshot again, then continue unpaused.
+                if (!screenshotTaken) { if (Seconds(phaseStamp) >= 2) TakeScreenshot("_before"); return; }
+                if (!lodDone)
+                {
+                    if (Seconds(phaseStamp) < 4) return;
+                    if (!(rebindProbe ? NoesisRebindProbe.Step(Log) : hudProbe ? HudProbe.Step(Log) : quadProbe ? QuadProbe.Step(Log) : LodProbe.Step(Log))) return;
+                    lodDone = true;
+                    lodDoneStamp = Stopwatch.GetTimestamp();
+                    return;
+                }
+                if (!secondShotTaken) { if (Seconds(lodDoneStamp) >= 2) { secondShotTaken = true; TakeScreenshot("_after"); } return; }
+                if (Seconds(lodDoneStamp) < 4) return;
+                frames.Clear();
+                EndPause();
+                return;
+            }            if (sheetMergeMidPause && !midPauseDone)
+            {
+                // Before half: screenshot shortly before switching, then stats, then the merge.
+                if (!screenshotTaken && Seconds(phaseStamp) >= pauseSeconds / 2.0 - 2) TakeScreenshot("_before");
+                if (Seconds(phaseStamp) < pauseSeconds / 2.0) return;
+                Log("framestats phase=pause-before " + frames.Summary());
+                frames.Clear();
+                midPauseDone = true;
+                if (sheetMergeControl) Log("v7 control: merge skipped");
+                else
+                {
+                    SheetMerge.Apply(Log);
+                    if (sheetRenderCheck) SheetMergeRenderCheck.Run(Log, 60);
+                }
+                mergeStamp = Stopwatch.GetTimestamp();
+                return;
+            }
+            if (sheetMergeMidPause && !secondShotTaken && Seconds(phaseStamp) >= pauseSeconds - 2) { secondShotTaken = true; TakeScreenshot("_after"); }
+            if (!sheetMergeMidPause && !screenshotTaken && Seconds(phaseStamp) >= pauseSeconds / 2.0) TakeScreenshot("");
             if (Seconds(phaseStamp) < pauseSeconds) return;
+            Log("framestats phase=" + (sheetMergeMidPause ? "pause-after " : "pause ") + frames.Summary());
+            frames.Clear();
+            EndPause();
+        }
+
+        private static void EndPause()
+        {
             Log("phase=pause-end held=" + Seconds(phaseStamp).ToString("0.0", C) + "s zoom=" + Zoom());
             if (!TrySetPause(false)) { Fail("native pause could not be lifted"); return; }
             resumeConfirmed = false;
@@ -166,8 +257,26 @@ namespace PerfFixTest.Automation
             }
             if (!resumeConfirmed && Seconds(phaseStamp) > 5) { Fail("no simulation ticks after unpause"); return; }
             if (Seconds(phaseStamp) < runSeconds) return;
+            Log("framestats phase=run " + frames.Summary());
+            frames.Clear();
             Log("phase=run-end ran=" + Seconds(phaseStamp).ToString("0.0", C) + "s ticks=" + (Interlocked.Read(ref ticks) - ticksAtPhase) + " zoom=" + Zoom());
             Finish(Phase.Done, "PASS total=" + Seconds(startStamp).ToString("0.0", C) + "s");
+        }
+
+        // Paused, identical scene: the PNG of run A and B must match pixel for pixel unless a fix changes the image.
+        private static void TakeScreenshot(string suffix)
+        {
+            screenshotTaken = true;
+            if (string.IsNullOrEmpty(screenshotDir)) return;
+            try
+            {
+                string dir = Path.IsPathRooted(screenshotDir) ? screenshotDir : Path.Combine(BepInEx.Paths.GameRootPath, screenshotDir);
+                Directory.CreateDirectory(dir);
+                string file = Path.Combine(dir, (runLabel.Length == 0 ? "run" : runLabel) + "_pause" + suffix + ".png");
+                ScreenCapture.CaptureScreenshot(file);
+                Log("screenshot requested " + file + " textureMemoryMB=" + (Texture.currentTextureMemory / 1048576.0).ToString("0", C));
+            }
+            catch (Exception exception) { Log("screenshot failed: " + exception.Message); }
         }
 
         // Single-player native pause via the public wrapper; the result is verified, not assumed

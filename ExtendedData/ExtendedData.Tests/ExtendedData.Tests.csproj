@@ -17,6 +17,8 @@
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
+    <!-- Production reader with the same local SDK boundary doubles as the legacy facade tests. -->
+    <Compile Include="..\..\APIShared\src\ModData\ModDataAccess.cs" Link="APIShared\ModDataAccess.cs" />
     <Compile Include="..\src\FixesLordPreferencesBridge.cs" Link="FixesLordPreferencesBridge.cs" />
     <Compile Include="..\src\TypedPreferenceSnapshotCodec.cs" Link="TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="..\src\LordDataSyncDiagnostics.cs" Link="LordDataSyncDiagnostics.cs" />

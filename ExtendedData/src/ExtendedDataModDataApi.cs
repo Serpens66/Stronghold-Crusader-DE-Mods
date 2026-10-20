@@ -3,16 +3,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace ExtendedData
 {
     public static class ExtendedDataModDataApi
     {
-        private const string MapEntryName = "modmap.json";
         private const string LordExtension = ".lordjson";
-        private const string ModLordExtension = ".modlord.json";
-        private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
+        private static IDisposable sourceRegistration;
         private static LordDataSnapshot activeSnapshot;
         private static bool networkSessionActive;
         private static IReadOnlyDictionary<int, string> verifiedLocalLordPaths;
@@ -22,8 +19,35 @@ namespace ExtendedData
         public static int ApiVersion => 1;
         public static bool SupportsSinglePlayerSelections => true;
 
+        internal static void InitializeSource()
+        {
+            if (sourceRegistration == null)
+            {
+                ClearSelection();
+                sourceRegistration = APIShared.ModData.ModDataAccess.RegisterSelectedLordSource(
+                    ExtendedDataPlugin.PluginGuid, "confirmed-lord-data", ReadConfirmedLordNamespace);
+            }
+        }
+
+        internal static void UnregisterSource()
+        {
+            sourceRegistration?.Dispose();
+            sourceRegistration = null;
+            ClearSelection();
+        }
+
+        private static void ClearSelection()
+        {
+            activeSnapshot = null;
+            networkSessionActive = false;
+            verifiedLocalLordPaths = null;
+            unresolvedLocalLordSlots = null;
+            localSelectionActive = false;
+        }
+
         internal static void SetNetworkSnapshot(LordDataSnapshot snapshot, bool sessionActive)
         {
+            if (sourceRegistration == null) return;
             activeSnapshot = snapshot;
             networkSessionActive = sessionActive;
             verifiedLocalLordPaths = null;
@@ -33,6 +57,7 @@ namespace ExtendedData
 
         internal static void SetVerifiedLocalLords(IReadOnlyDictionary<int, string> paths)
         {
+            if (sourceRegistration == null) return;
             activeSnapshot = null;
             networkSessionActive = paths != null;
             verifiedLocalLordPaths = paths;
@@ -43,6 +68,7 @@ namespace ExtendedData
         internal static void SetSinglePlayerLords(IReadOnlyDictionary<int, string> paths,
             IReadOnlyCollection<int> unresolvedSlots)
         {
+            if (sourceRegistration == null) return;
             activeSnapshot = null;
             networkSessionActive = false;
             verifiedLocalLordPaths = paths;
@@ -50,65 +76,38 @@ namespace ExtendedData
             localSelectionActive = true;
         }
 
-        public static ExtendedDataModDataReadResult ReadSelectedLordNamespace(int playerId, string modGuid)
+        public static ExtendedDataModDataReadResult ReadSelectedLordNamespace(int playerId, string modGuid) =>
+            FromShared(APIShared.ModData.ModDataAccess.ReadSelectedLordNamespace(playerId, modGuid));
+
+        private static APIShared.ModData.ModDataReadResult ReadConfirmedLordNamespace(int playerId, string modGuid)
         {
-            if (string.IsNullOrWhiteSpace(modGuid) || playerId < 1 || playerId > 8)
-                return ExtendedDataModDataReadResult.InvalidRequest(modGuid, string.Empty, "A mod GUID and player ID from 1 to 8 are required.");
+            if (string.IsNullOrWhiteSpace(modGuid) || playerId < 1 || playerId > GamePlayerManagerAPI.MAX_PLAYERS)
+                return SharedFailure(APIShared.ModData.ModDataReadStatus.InvalidRequest, modGuid, string.Empty, "A mod GUID and player ID from 1 to 8 are required.");
             if (verifiedLocalLordPaths != null &&
                 verifiedLocalLordPaths.TryGetValue(playerId, out string localPath))
-                return ReadLocalLordNamespace(localPath, modGuid);
+                return APIShared.ModData.ModDataAccess.ReadLocalLordNamespace(localPath, modGuid);
             if (localSelectionActive)
             {
                 if (unresolvedLocalLordSlots?.Contains(playerId) == true)
-                    return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid,
+                    return SharedFailure(APIShared.ModData.ModDataReadStatus.HostDataUnavailable, modGuid,
                         "local Lord slot " + playerId,
                         "The selected local Lord configuration is missing or ambiguous.");
-                return ExtendedDataModDataReadResult.FileNotFound(modGuid,
+                return SharedMissing(modGuid,
                     "local Lord slot " + playerId);
             }
             if (verifiedLocalLordPaths != null)
-                return ExtendedDataModDataReadResult.FileNotFound(modGuid,
+                return SharedMissing(modGuid,
                     "verified local Lord slot " + playerId);
             if (!networkSessionActive || activeSnapshot == null)
-                return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, string.Empty, "The host Lord-data snapshot is not ready.");
+                return SharedFailure(APIShared.ModData.ModDataReadStatus.HostDataUnavailable, modGuid, string.Empty, "The host Lord-data snapshot is not ready.");
             LordDataSlot slot = activeSnapshot.GetSlot(playerId);
             if (slot == null)
-                return ExtendedDataModDataReadResult.FileNotFound(modGuid, "host Lord slot " + playerId);
-            return ReadSelectedSlot(slot, modGuid);
+                return SharedMissing(modGuid, "host Lord slot " + playerId);
+            return ReadConfirmedSlot(slot, modGuid);
         }
 
-        public static ExtendedDataModDataReadResult ReadCurrentMapNamespace(string modGuid)
-        {
-            if (string.IsNullOrWhiteSpace(modGuid))
-            {
-                return ExtendedDataModDataReadResult.InvalidRequest(
-                    modGuid,
-                    MapEntryName,
-                    "A non-empty mod GUID is required.");
-            }
-
-            string currentPath = null;
-            string source = MapEntryName;
-            try
-            {
-                GameMapArchiveManagerAPI manager = GameMapArchiveManagerAPI.Instance;
-                currentPath = manager.GetCurrentFilePath();
-                if (!string.IsNullOrWhiteSpace(currentPath))
-                    source = currentPath + "::" + MapEntryName;
-
-                byte[] bytes = manager.TryReadBinaryFile(MapEntryName, ignoreCase: true);
-                if (bytes == null)
-                    return ExtendedDataModDataReadResult.FileNotFound(modGuid, source);
-                return ReadUtf8(bytes, modGuid, source);
-            }
-            catch (Exception exception)
-            {
-                return ExtendedDataModDataReadResult.ReadError(
-                    modGuid,
-                    source,
-                    "Could not read modmap.json from the current map archive: " + exception.Message);
-            }
-        }
+        public static ExtendedDataModDataReadResult ReadCurrentMapNamespace(string modGuid) =>
+            FromShared(APIShared.ModData.ModDataAccess.ReadCurrentMapNamespace(modGuid));
 
         public static ExtendedDataModDataReadResult ReadLordNamespace(string lordJsonPath, string modGuid)
         {
@@ -161,30 +160,8 @@ namespace ExtendedData
             return ReadLocalLordNamespace(lordJsonPath, modGuid);
         }
 
-        private static ExtendedDataModDataReadResult ReadLocalLordNamespace(string lordJsonPath,
-            string modGuid)
-        {
-            string source = lordJsonPath.Substring(0, lordJsonPath.Length - LordExtension.Length) + ModLordExtension;
-            try
-            {
-                if (!File.Exists(source))
-                    return ExtendedDataModDataReadResult.FileNotFound(modGuid, source);
-                return ModDataNamespaceReader.Read(LordDataSnapshot.ReadModLordFile(source), modGuid, source);
-            }
-            catch (Exception exception) when (exception is InvalidDataException ||
-                exception is DecoderFallbackException || exception is FormatException)
-            {
-                return ExtendedDataModDataReadResult.InvalidDocument(modGuid, source,
-                    "Invalid Custom Lord mod-data sidecar: " + exception.Message);
-            }
-            catch (Exception exception)
-            {
-                return ExtendedDataModDataReadResult.ReadError(
-                    modGuid,
-                    source,
-                    "Could not read the Custom Lord mod-data sidecar: " + exception.Message);
-            }
-        }
+        private static ExtendedDataModDataReadResult ReadLocalLordNamespace(string lordJsonPath, string modGuid) =>
+            FromShared(APIShared.ModData.ModDataAccess.ReadLocalLordNamespace(lordJsonPath, modGuid));
 
         public static ExtendedDataModDataReadResult ReadLordNamespace(
             CustomisationFileManager.CustomLordConfig config,
@@ -213,30 +190,24 @@ namespace ExtendedData
             return ReadLordNamespace(Path.Combine(config.path, config.name + LordExtension), modGuid);
         }
 
-        private static ExtendedDataModDataReadResult ReadUtf8(byte[] bytes, string modGuid, string source)
-        {
-            try
-            {
-                string json = StrictUtf8.GetString(bytes);
-                if (json.Length > 0 && json[0] == '\uFEFF')
-                    json = json.Substring(1);
-                return ModDataNamespaceReader.Read(json, modGuid, source);
-            }
-            catch (DecoderFallbackException exception)
-            {
-                return ExtendedDataModDataReadResult.InvalidDocument(
-                    modGuid,
-                    source,
-                    "The mod-data file is not valid UTF-8: " + exception.Message);
-            }
-        }
+        private static ExtendedDataModDataReadResult ReadSelectedSlot(LordDataSlot slot, string modGuid) =>
+            FromShared(ReadConfirmedSlot(slot, modGuid));
 
-        private static ExtendedDataModDataReadResult ReadSelectedSlot(LordDataSlot slot, string modGuid)
+        private static APIShared.ModData.ModDataReadResult ReadConfirmedSlot(LordDataSlot slot, string modGuid)
         {
             string source = "host Lord slot " + slot.PlayerId + " (" + slot.LordName + "/" + slot.ConfigName + ")";
-            if (slot.ModLordJson == null)
-                return ExtendedDataModDataReadResult.FileNotFound(modGuid, source);
-            return ModDataNamespaceReader.Read(slot.ModLordJson, modGuid, source);
+            return slot.ModLordJson == null ? SharedMissing(modGuid, source) :
+                APIShared.ModData.ModDataDocumentJson.ReadNamespace(slot.ModLordJson, modGuid, source);
         }
+
+        private static ExtendedDataModDataReadResult FromShared(APIShared.ModData.ModDataReadResult result) =>
+            new ExtendedDataModDataReadResult((ExtendedDataModDataReadStatus)(int)result.Status,
+                result.ModGuid, result.Source, result.Data, result.Json, result.Diagnostic);
+
+        private static APIShared.ModData.ModDataReadResult SharedMissing(string modGuid, string source) =>
+            SharedFailure(APIShared.ModData.ModDataReadStatus.FileNotFound, modGuid, source, "The mod-data file does not exist.");
+
+        private static APIShared.ModData.ModDataReadResult SharedFailure(APIShared.ModData.ModDataReadStatus status,
+            string modGuid, string source, string diagnostic) => APIShared.ModData.ModDataReadResult.Failure(status, modGuid, source, diagnostic);
     }
 }

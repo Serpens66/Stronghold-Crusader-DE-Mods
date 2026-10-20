@@ -1,6 +1,355 @@
 # ExtendedData → APIShared: Umzugs- und Integrationsplan
 
-Stand: 20.10.2026. Status: Erste Runtime-Etappe und spielunabhängiger Quellumzug aus Etappe 2 implementiert; Etappe 3 mit gemeinsamer Teilnehmerermittlung und zweckabhängigen Diagnosen begonnen. Automatisierte Prüfungen bestanden, Spielabnahme noch offen.
+Stand: 20.10.2026. Die vorgesehenen gemeinsamen Dienste aus Etappen 0–4 sind im Quellstand implementiert. Bereinigung, Dokumentation, Beispiele und Installationsvorprüfung aus Etappe 5 sind umgesetzt; beide regulären Builds bestehen ohne Installation. Fachliche Spielabnahme und anschließende Versions-/Abhängigkeitsfestlegung bleiben offen. Der Gesamtumzug ist deshalb noch nicht abgeschlossen oder freigegeben.
+
+## Aktueller Abschlussstand und Zusatzdaten-API (20.10.2026)
+
+Dieser Abschnitt ist der aktuelle Arbeitsstand. Die nachfolgenden datierten Abschnitte
+bleiben historische Nachweise; ihre damaligen offenen Quellschritte sind dadurch ersetzt.
+
+| Etappe | Quellstand | Noch erforderliche Abnahme |
+|---|---|---|
+| 0: Verträge und Sicherheitsgrenzen | Audits, öffentliche Flächen und Lifecycle geprüft | Keine Behauptung einer vollständigen Laufzeitabnahme |
+| 1: Savegame-Auswahl | APIShared-Dialog, persistente persönliche Wahl, fehlende-UI-Fallback, ExtendedData-Registrierungen | Tatsächliche Darstellung, Neustart, Mischinstallation und MP/Coop |
+| 2: Dokumente und Codecs | Content-Assembly, Core-Adapter und Paketregeln umgesetzt | Vollständiges APIShared-Paket im Spiel ohne ExtendedData starten |
+| 3: Gemeinsame Settings-Engine | Teilnehmerdiagnose, Capture, Materialisierung, Autorenregeln, Anwendung und Cleanup umgesetzt | Werte/Rechte/Rückkehrzustände in den echten Start-, Restart- und Abbruchpfaden |
+| 4: Zusatzdaten | Gemeinsame Karten-/lokale Leser, optionaler Lord-Anbieter und alte Fassade umgesetzt | Echte Quellenwechsel und bestätigte Hostdaten im Spiel |
+| 5: Abschluss | Übertragene Algorithmen entfernt, Projekte, Beispiele, Baselines, Dokumentation und Installationsvorprüfung aktualisiert; reguläre Builds bestanden | Spielmatrix, danach atomare Versions-/Abhängigkeitsangaben und erneute Prüfung |
+
+Aktuellste reguläre Buildnachweise nach der erneuten Codeprüfung: APIShared
+`APIShared/.local/review-guid-build.log`
+(20.10.2026, 13:26 Uhr lokal, Exitcode 0, 675 Tests bestanden) und ExtendedData
+`ExtendedData/obj/review-guid-build.log` / `.work/b/working/174.build.json`
+(äußerer Exitcode 0, `NoInstall=true`, 74/74 Tests und beide Upload-Suiten bestanden).
+Die früheren Ergebnisse im Folgenden bleiben als historische Nachweise erhalten.
+
+### Erneute Codeprüfung: ordinale GUID-Zuordnung (20.10.2026)
+
+Die erneute Prüfung hat einen Fehler in drei Eingangsvarianten der neuen
+`MissionModSettingsSession` reproduziert: Wörterbücher mit einem eigenen,
+Groß-/Kleinschreibung ignorierenden Comparer konnten eine laut Dokumentvertrag
+fehlende GUID als vorhanden erscheinen lassen oder Regeln beziehungsweise
+Start-Snapshots auf eine andere GUID anwenden. Dabei konnte auch ein vorheriger
+Missionskontext verlassen werden, statt den fehlenden Anbieter vorher abzulehnen.
+
+Die Session verwendet nun ordinale Zuordnungen für den erfassten Teilnehmerbestand,
+Dokumenteinträge und die tatsächlich verwendeten optionalen Start-Snapshots.
+Die Eingabewörterbücher werden nicht ersetzt. Ein nicht vorhandener Anbieter wird
+vor dem Verlassen des alten Kontexts abgelehnt; Regeln und Startwerte bleiben bei
+ihrer exakten GUID. Ausgangsverhalten für bereits ordinale Wörterbücher, öffentliche
+Signaturen, Dateiformate, Lifecycle und Hookbesitz bleiben unverändert. Der bereits
+dokumentierte ordinale Identitätsvertrag ist im Integrationsleitfaden präzisiert.
+
+Alle drei neuen Verhaltenstests scheiterten vor der jeweiligen Korrektur:
+`APIShared/.local/review-guid-before.log` und `review-starting-guid-before.log`.
+Danach bestehen 40 gezielte Session-, Vorbereitungs-, Dialog- und Zusatzdatenfälle
+(`review-guid-after.log`). Im vollständigen APIShared-Build bestehen 675 Tests;
+zwei optionale Runtime-Integrationsfälle bleiben übersprungen. API-Baselines und
+Paket-/Bootstrap-Prüfungen bestehen ebenfalls.
+
+Auch der reguläre ExtendedData-Build gegen das neue Paket endet mit äußerem
+Exitcode 0. Zusätzliche Nachweise: `ExtendedData/obj/review-guid-boundaries.log`,
+`review-guid-presets-build.log` und `review-guid-presets.log` für Quellgrenzen und
+die echte Preset-/Persistenzintegration. Die weitere gezielte Durchsicht ergab
+keinen zusätzlichen konkreten Fehler. Die Spielabnahme bleibt mangels Testfenster
+offen; sie wird durch diese Code- und CLI-Prüfungen nicht ersetzt. Keine Installation,
+Versionsänderung, Commits oder Veröffentlichung.
+
+### Umsetzung und erneute Codeprüfung
+
+- `APIShared.ModData.ModDataAccess` liest das aktuelle Extender-Kartenarchiv oder
+  ausdrücklich eine lokale Lord-Sidecar-Datei. Ein eigener, optionaler Anbieter liefert
+  die bestätigte Lord-Auswahl. Allgemeine Leser funktionieren ohne ExtendedData;
+  sie wählen keine Inhalte aus, schreiben keine Dateien und wenden keine Spielwerte an.
+- Der einzelne Anbieter registriert Besitzer-GUID und stabile Registrierungs-ID.
+  Fehler, fehlende Bereitschaft, rekursive Abfragen und Anbieterwechsel während einer
+  Abfrage liefern definierte Fehlerzustände. Ein alter Dispose-Token entfernt keinen
+  neuen Anbieter. Die Registry hält keine Ergebnisse über Missionswechsel hinweg vor.
+- ExtendedData behält die inhaltliche Auswahl sowie Host-, Name-, Checksum- und
+  Sitzungsregeln. Die bisherigen öffentlichen ModData-Methoden bleiben als Adapter
+  erhalten. Fehlende Hostbestätigung wird niemals durch eine lokale Ersatzdatei ersetzt.
+- Der Anbieter wird ausdrücklich bei der Runtimeinitialisierung veröffentlicht und
+  zu Beginn ihres Fehler-Cleanups logisch abgemeldet. Verzögerte alte Setter können
+  ihn danach nicht erneut veröffentlichen. Vorhandene Hooks bleiben verwurzelt.
+- `ModDataDocumentJson` besitzt jetzt die bestehende 64-KiB-Dokument- und
+  16-KiB-Namespace-Prüfung. Der Streamleser liest höchstens Limit plus ein Byte,
+  dekodiert striktes UTF-8 und lässt den übergebenen Stream offen. LordDataSnapshot
+  delegiert diese Prüfung; sein Wire-Protokoll, Digest und Gesamtlimit bleiben erhalten.
+  Der bestehende Kartenleser erhält seinen bisherigen Größenvertrag.
+- Die Sessionprüfung verhindert zusätzlich eine neue Anwendung, solange fehlgeschlagene
+  Besitzerbereinigung noch aussteht. Damit kann ein neuer Authoring-Capture keinen
+  unvollständig zurückgesetzten temporären Zustand als persönliche Basis übernehmen.
+- Nachprüfung von Runtimewurzel, JSON-Links, Registrierung/Abmeldung, bestehenden
+  Missions-/Lobby-Resets und Fremdmod-Verbrauch erfolgt. Keine neuen Hooks, nativen
+  Offsets oder Zugriffe auf neue Spielmember. Installierte Extender-Verträge und
+  Archiv-IL wurden geprüft; der native Hash stimmt mit der verwendeten Baseline überein.
+- Katalog, Integrationsleitfaden, Architektur und `APIShared/docs/MOD_DATA.md` erklären
+  die gemeinsamen Verträge. ExtendedData-Guides verlinken diese API und erklären weiter
+  ihre Inhalte. Das kompilierte Fremdmod-Beispiel hat eine eigene GUID und keine
+  ExtendedData-Referenz. Die README-Aktualisierung ist ausdrücklich vom Nutzer autorisiert.
+
+### Nachweise dieses Arbeitsstands
+
+- Vollständiger APIShared-Build `/workspace /nopause /noinstall`: Exitcode 0,
+  672 Tests bestanden (18 Content, 3 PopularityDisplay, 300 Core, 305 Runtime,
+  46 Lobby), zwei optionale Runtime-Integrationsfälle übersprungen. Die zusätzlichen
+  Host-Bash-Fixtures sind unter Windows nicht ausgeführt. Paket-/Bootstrap-Prüfungen
+  und öffentliche Verbraucherbeispiele bestehen. Log: `APIShared/.local/moddata-build.log`;
+  aktueller Paketnachweis: `APIShared/.local/build-proof.json`, erzeugt 20.10.2026, 12:53 Uhr lokal.
+- Der reguläre ExtendedData-Treiber hat die Vorprüfungen bestanden, wurde aber wegen
+  des bereits laufenden Spiels vor Tests/Kompilierung beendet. Sein unveränderter
+  historischer Record `.work/b/working/168.build.json` hat deshalb **Exitcode 1**.
+  Er darf nicht als erfolgreicher Paketbuild verwendet werden. Log: `ExtendedData/obj/moddata-build.log`.
+- Anschließend wurden in genau dieser isolierten Arbeitskopie die Produktionsprojekte
+  mit den echten installierten Spiel-/Extender-Referenzen und dem vollständig geprüften
+  APIShared-Paket kompiliert. Die Paketvalidierung blieb aktiv; ihre Workspace-Zuordnung
+  wurde ausdrücklich auf den tatsächlichen APIShared-Publisher gerichtet. Ergebnis:
+  ExtendedData-Kompilierung ohne Fehler und 74/74 Tests bestanden. Logs:
+  `ExtendedData/obj/moddata-isolated-compile.log` und `moddata-isolated-tests.log`.
+  Das sind zusätzliche Compiler-/Testnachweise, kein nachträglich erfolgreicher BAT-Lauf.
+- Beide Upload-Suiten bestehen mit den neuen Core-Abhängigkeiten; Logs:
+  `ExtendedData/obj/moddata-ExtendedData.Upload.Tests.log` und
+  `moddata-ExtendedData.JsonUpload.Tests.log` samt benachbarten Buildlogs.
+- 600 öffentliche/geschützte Core-Metadateneinträge bleiben unverändert; Core benötigt
+  weiterhin nur netstandard und Content. Nachweis: `ExtendedData/obj/moddata-core-surface.log`.
+  Unverändert vorher kompilierter Core-Verbraucher einschließlich zweimaligem atomarem
+  Schreiben/Lesen und elf exakte Lord-Wire-/Digest-/Fehlerfälle bestehen mit den isoliert
+  erzeugten DLLs: `.work/t/core-moddata/001/consumer.log` und `corpus.log`, verglichen
+  mit `.work/t/lord-corpus/001/baseline.txt`.
+- Auch alle sechs öffentlichen Accessor-/Overload-Verträge der alten Runtime-Fassade
+  sind im Metadatenvergleich unverändert (`ExtendedData/obj/moddata-runtime-surface.txt`).
+  Das zentrale APIShared-Paket enthält Content einmal; die isolierte ExtendedData-Ausgabe
+  enthält keine eigene APIShared-/Content-Kopie.
+- Shared-Boundaries: `ExtendedData/obj/moddata-boundaries.log`.
+  Preset-/Persistenzintegration: `ExtendedData/obj/moddata-preset-build.log` und
+  `moddata-preset-storage.log`. Dokumentationsprüfung: `APIShared/.local/moddata-docs.log`.
+  Managed-/Extender-Audit: `APIShared/.local/moddata-contracts.txt`.
+- Bezug der Nachweise: Mod-Repo `develop` / `997d3a5e627bf2ced52ee30c9f26c2c73211e692`,
+  APIShared `dev/Serpens66` / `001ebfe737abe4d12d32b847427ec643699d675a`, jeweils mit
+  Arbeitsänderungen. Parallel vorhandene Nutzeränderungen bleiben erhalten. Das laufende
+  Spiel und installierte Pakete wurden durch diesen Arbeitsschritt nicht verändert.
+
+### Verbleibende Arbeiten in sinnvoller Reihenfolge
+
+1. Die vollständige lokale Spielmatrix aus Abschnitt 8.2 mit passenden Paketen abnehmen:
+   APIShared allein, ExtendedData aktiv/deaktiviert, beide Checkboxentscheidungen und
+   Neustartpersistenz, fehlender UI-Patch, geschützte/Legacy-Saves, Editor-/Trailoptionen,
+   echte Missionsübernahme und Rückkehr zu persönlichen Einstellungen.
+2. Alt-/Neupaket-Mischinstallationen praktisch prüfen. Der Laufzeitkonfliktcheck vor
+   Veröffentlichung des Dialoghooks ist im Quellstand vorhanden. Die Paketvorprüfung
+   ist mit Metadatenfixtures geprüft; der echte Installations-/Startnachweis fehlt weiterhin.
+3. Echte MP-/Coop-Matrix mit zweitem Client und menschlichem Mitspieler durchführen.
+   Der Nutzer hat am 20.10.2026 ausdrücklich mitgeteilt, dass diese derzeit nicht verfügbar
+   sind. Dieser Nachweis bleibt offen und wird nicht durch lokale Simulation ersetzt.
+4. Erst nach fachlicher Abnahme Versionen, Plugin-/Manifest-Mindestabhängigkeiten,
+   Beispiel-Mindestversionen und produktbezogene Versionshinweise gemeinsam festlegen
+   und erneut bauen/prüfen. Die jetzigen Entwicklungsnummern belegen keine Kompatibilität
+   mit älteren gleich nummerierten Paketen. Keine Freigabe auf Grundlage dieser Nummern.
+
+Ein weiterer pauschaler Umzug von Karten-, Trail-, Koop-, Lord-, AIV- oder Uploadlogik
+ist nicht vorgesehen: Diese Funktionen sind Inhaltsverantwortung von ExtendedData.
+Es bleiben somit konkrete Abschluss- und Laufzeitnachweise, kein weiterer großer
+gemeinsamer Engineblock. Commits und Veröffentlichungen sind weiterhin nicht beauftragt.
+
+### Nachprüfung der Installationsvorprüfung (20.10.2026)
+
+Der erneute Anforderungsabgleich hat eine zuvor zu weitgehende Nachweisbehauptung
+berichtigt: Der Laufzeit-Konfliktcheck war vorhanden, die Installationsvorprüfung
+hatte aber nur API-Referenzen geprüft. Eine alte ExtendedData-DLL ohne solche
+Referenzen wurde deshalb akzeptiert. Dieser Befund wurde vor der Änderung durch
+einen tatsächlich fehlschlagenden Test reproduziert (`APIShared/.local/dialog-preflight-before.log`).
+
+`Verify-WorkshopConsumerReferences.ps1` prüft nun zusätzlich die veröffentlichte
+BepInPlugin-GUID und den öffentlichen booleschen Konstantenmarker des konkreten
+Plugintyps. Alte, falsch deklarierte und lediglich umbenannte Plugins werden vor
+dem Kopieren des APIShared-Pakets mit einer konkreten gemeinsamen Updateaufforderung
+abgelehnt. Fremde GUIDs und passende ExtendedData-Plugins bleiben zulässig. Die
+bestehende Memberauflösung bleibt erhalten; es werden keine Assemblies ausgeführt.
+
+Acht Metadatenfälle bestehen im realen Windows-PowerShell-5.1-Unterprozess:
+fehlendes optionales Plugin, umbenanntes Altplugin, falscher, nichtkonstanter,
+privater oder nur auf einem fremden Typ vorhandener Marker, passendes Plugin
+und fremde GUID. Nachweise: `APIShared/.local/dialog-preflight-after.log` und
+`.work/t/dialog-preflight/005`. Der Test verlangt einen eigenen leeren Fixtureordner,
+bleibt ohne Nachbar-Repository lauffähig und ist in CONTRIBUTING dokumentiert.
+
+Die Vorprüfung erfasst Assemblies unter `BepInEx/plugins`. Ungeöffnete Workshoparchive
+und manuelle Installationen benötigen weiterhin den Laufzeitcheck. Diese Prüfung
+beweist keine tatsächliche UI-Darstellung oder konfliktfreie Spielausführung.
+
+Der reguläre ExtendedData-Build vor dieser zusätzlichen Prüferänderung ist ebenfalls
+erfolgreich abgeschlossen: `.work/b/working/169.build.json`, Exitcode 0,
+`NoInstall=true`, 74/74 Tests und beide Upload-Suiten bestanden. Log:
+`ExtendedData/obj/moddata-final-build.log`.
+
+Auch nach der Prüferkorrektur bestehen beide regulären Builds: APIShared mit
+672 bestandenen Tests, zwei optionalen übersprungenen Runtime-Integrationsfällen
+und erfolgreichen Paket-/Bootstrap-Prüfungen; ExtendedData mit 74/74 Tests,
+beiden Upload-Suiten und äußerem Exitcode 0. Nachweise:
+`APIShared/.local/dialog-preflight-build.log`, `APIShared/.local/build-proof.json`
+(13:12 Uhr lokal), `ExtendedData/obj/dialog-preflight-build.log` und
+`.work/b/working/171.build.json` (`NoInstall=true`).
+
+Die finale Core-Ausgabe aus Lauf 171 besteht ebenfalls den Vergleich aller
+600 öffentlichen/geschützten Metadateneinträge, den unverändert kompilierten
+Altverbraucher mit atomarem Schreiben/Lesen und die elf exakten Lord-Paketfälle:
+`ExtendedData/obj/dialog-preflight-core-surface.log` und `.work/t/core-final/001`.
+Dokumentationsprüfung: `APIShared/.local/dialog-preflight-docs.log`.
+Keine Installation, Versionsänderung, Commits oder Veröffentlichung durch diesen Schritt.
+
+## Gemeinsame Missionsanwendung und Autorenregeln (20.10.2026)
+
+Vor diesem Schritt wurden aktuelle Arbeitsstände und bestehende Nutzeränderungen erneut
+geprüft. Zwischenzeitliche Opacity-/UI-/Locale-Arbeit wird erhalten; sie ist kein Teil
+dieses Umzugs. Die bisherigen JSON-Parser, statischen Runtimewurzeln nach LibraryLoaded
+und logischen Fehler-/Teardownpfade bestehen weiter. Keine neuen Hooks oder Spielmember.
+
+- APIShared besitzt mit `MissionModSettingsSession` jetzt die Teilnehmeranwendung und
+  deren Bereinigung. `MissionModSettingsApplicationKind` unterscheidet Playable,
+  Preview, Editable, Authoring, AuthoringTest und Materialized ausdrücklich. Die alte
+  Kombination privater Consumer-Booleans wird nicht als neue öffentliche API übernommen.
+- Autorenwerte werden vor dem Verlassen eines alten temporären Kontexts erfasst;
+  spielbare Player-Werte kommen danach aus den persönlichen Einstellungen. Backend-
+  Eigenwerte werden wie bisher vor der Player-Auflösung aktualisiert. Restart-Snapshots
+  haben weiterhin Vorrang, außer bei bereits materialisierten Werten.
+- Die Session hält konkrete Endpoint-Instanzen statt nur GUIDs fest. Bereinigung bleibt
+  dadurch nach einem Wechsel der Teilnehmerermittlung möglich. Jeder Endpoint wird
+  versucht; Fehler werden aggregiert, fehlgeschlagene Besitzer bleiben für einen Retry
+  erhalten. Vorhersagbare Wertfehler und fehlende erwähnte Anbieter blockieren bereits
+  vor dem Verlassen eines bisherigen Kontexts.
+- Der bisherige Rollback erfasste nur vollständig eingetretene Teilnehmer. Nun werden
+  auch teilweise fehlgeschlagene Eintrittsversuche bereinigt. Nach einem Fehler jenseits
+  der Ersetzungsgrenze wird zum persönlichen Zustand zurückgekehrt, nicht stillschweigend
+  der vorherige temporäre Missionskontext wiederhergestellt. Providers müssen ihr
+  bestehendes Exit auch nach einem teilweise fehlgeschlagenen Enter unterstützen.
+- Ein reproduzierter zusätzlicher Fehler im bestehenden APIShared-ViewModel ist
+  korrigiert: Nach fehlgeschlagener persönlicher Wiederherstellung bleibt der
+  Missionsstatus für einen erneuten Exit aktiv. Der neue Backend-Test scheitert
+  vor dem Fix und besteht danach (`mission-exit-retry-before.log` / `-after.log`
+  unter `APIShared/.local`). Erfolgreiche Exit-Pfade und öffentliche Signaturen
+  bleiben unverändert; die Änderung betrifft die bisher unvollständige Fehlerbereinigung.
+- Ein erfolgreiches Apply bestätigt keinen Kartenstart. `ConfirmStarted` bindet erst
+  einen tatsächlichen positiven Lifecycle-Session-Identifier nach erfolgreicher
+  Vorbereitung. ExtendedData ruft es am vorhandenen bestätigten Missionsstart auf;
+  seine inhaltlichen Trail-/Coop-/Restart-Entscheidungen bleiben dort.
+- `MissionModSettingsCreatorRules` übernimmt Autorenregelerzeugung und die bestehende
+  Savegame-Regelauswertung. Modi, MessagePack-Daten, die 1-MiB-Propertygrenze und das
+  bisherige Default/Player-Verhalten bei fehlerhaften festen Werten bleiben erhalten.
+  Fehler optionaler Diagnosen verhindern keine anderen Regeln.
+- Der ExtendedData-Coordinator delegiert Anwendung, Cleanup und Regeln; die bisherigen
+  doppelten Algorithmen und ihr Reflection-Cache entfallen. Er behält Dokument-/UI-
+  Zuordnung, Inhaltsquellen, Restartidentität und Entscheidungen des Missionslifecycle.
+  Öffentliche alte Savegame- und Core-Verträge bleiben unverändert.
+
+Abschließende Nachweise dieses Arbeitsstands:
+
+- APIShared `/workspace /nopause /noinstall`: Exitcode 0, 661 Tests bestanden
+  (13 Content, 3 PopularityDisplay, 300 Core, 299 Runtime, 46 Lobby). Zwei optionale
+  Runtime-Integrationsfälle bleiben übersprungen; separate Host-Bash-Fixtures wurden
+  unter Windows nicht ausgeführt. Finale Logs: `APIShared/.local/mission-engine-final-build.log`
+  und `.local/build-proof.json`. Frühere Läufe bleiben als historische Nachweise erhalten.
+- ExtendedData `/workspace /apishared:dev /nopause /noinstall`: 73/73 Tests und beide
+  Upload-Suiten bestanden. Auch der äußere Treiber ist mit Exitcode 0 abgeschlossen.
+  Paket: `.work/b/working/167/ExtendedData/BepInEx/plugins/ExtendedData_Serp`;
+  Record: `.work/b/working/167.build.json`; Log: `ExtendedData/obj/mission-engine-build.log`.
+- Öffentliche API-Baseline additiv geprüft, vorhandene Signaturen erhalten. Zusätzlich
+  600 unveränderte Core-Metadateneinträge und ein unverändert vor dem Codec-Umzug
+  kompilierter Verbraucher bestätigt, einschließlich atomarem Schreiben/Lesen ohne
+  Spielassemblies: `ExtendedData/obj/mission-engine-core-surface.log` und
+  `.work/t/core-engine/001/consumer.log`.
+- Gezielte neue Fälle: vollständiger und teilweise fehlgeschlagener Eintritt,
+  Bereinigung aller Teilnehmer trotz einzelner Fehler, Retry fehlgeschlagener Besitzer,
+  Providerwechsel, fehlende Anbieter, unbekannte Properties, Callback-Veto/Reentranz,
+  Authoring/Test/Materialized, Restart-Vorrang und echte persönliche Persistenz.
+  Backend-Player-Werte und das Wiederholen eines fehlgeschlagenen persönlichen Restore
+  sind mit Produktions-ViewModel und Preset-Controller getestet.
+- Aktuelle Quell-/JSON-/Lifecycle-/XAML-/Hook-Prüfung:
+  `ExtendedData/obj/mission-engine-final-boundaries.log`.
+  Preset-/Persistenzintegration: `ExtendedData/obj/mission-engine-final-preset-build.log`
+  und `mission-engine-final-preset-storage.log`.
+  Dokumentationsprüfung: `APIShared/.local/mission-engine-docs.log` (316 lokale Ziele/Anker).
+- Arbeitsstände: Mod-Repo `develop` / `997d3a5e627bf2ced52ee30c9f26c2c73211e692`,
+  APIShared `dev/Serpens66` / `001ebfe737abe4d12d32b847427ec643699d675a`, jeweils mit
+  den beim Build erfassten Änderungen. Vorhandene fremde Arbeitsänderungen erhalten.
+  Keine Installation, Commits, Versionsänderung oder Veröffentlichung.
+
+**Noch abzuarbeiten:** Etappe 4 (Runtime-Zusatzdatenzugriff und optionaler bestätigter
+Lord-Anbieter), abschließende Bereinigung/Beispiele/Versionen nach fachlicher Abnahme
+sowie die vollständige Spielmatrix. Karten-/Trail-/Koop-/Lord-Inhalte werden weiterhin
+nicht pauschal nach APIShared kopiert. Der Gesamtauftrag ist nicht abgeschlossen.
+
+Die folgenden Abschnitte bewahren die Nachweise vorheriger Arbeitsschritte.
+
+## Fortsetzung von Etappe 3: Vorbereitung von Missionssettings (20.10.2026)
+
+Die gemeinsame Teilnehmerermittlung wurde erneut auf Ausschlüsse, Duplikate,
+dynamische Anbieter und Fehlerisolation geprüft. Dabei ergab sich kein weiterer
+konkreter Änderungsbedarf. Der nächste zusammenhängende Teil ist umgesetzt:
+
+- `MissionModSettingsPreparation` in APIShared übernimmt `CaptureEntry`,
+  `CaptureCurrentSnapshot`, `ValidateEntry` und `MaterializeSource`. Die bestehende
+  Property-Ermittlung und Konvertierung werden wiederverwendet; es gibt keine neue Registry.
+- ExtendedData delegiert die entsprechenden bisherigen privaten Algorithmen an
+  diese API. Die alten Core-Typidentitäten bleiben über einen schmalen DTO-Adapter
+  erhalten. Dateizugriff, Quellenregistrierung, Modusauswahl und Anwendung bleiben lokal.
+- Die Quellenauflösung bleibt Defaults → bekannte Spielerwerte → bekannte feste Werte.
+  Fehlende Spielerwerte behalten Defaults; unbekannte Properties werden ignoriert.
+  Float-/Enum-Werte behalten das bisherige MessagePack/base64-Missionsformat.
+- Die Vorbereitung kopiert Dictionaries, Bytepuffer und erfasste mutable Sequenzen.
+  Zuvor wurde ein Provider-Snapshot während der Vorbereitung direkt überschrieben.
+  Selbst bei einem Provider, der seinen Rückgabespeicher intern behält, entstehen
+  jetzt keine solchen unbeabsichtigten Schreibzugriffe. Die bestehende Pflicht der
+  Provider zu unabhängigen, nicht verändernden Snapshot-Fabriken bleibt bestehen.
+- Fehler werden vor einer Anwendung weitergereicht, ohne ein Teilergebnis zu liefern.
+  Null-Snapshots und ausgewählte null-Spielerpuffer erhalten eindeutige Datenfehler.
+  Persönliche Baseline-Werte bleiben erhalten; ihre Live-Getter werden nicht gelesen.
+- Die Erweiterung ist additiv, erfordert keine neuen Spielmember oder Hooks und
+  verändert weder Missionslifecycle noch Transportprotokolle oder Schema-Versionen.
+  JSON bleibt bei den vorhandenen quellverlinkten Parsern. Die nach `LibraryLoaded`
+  statisch verwurzelten Runtimes und logischen Teardownpfade wurden vorab geprüft.
+
+Die neue öffentliche API ist in Katalog, Integrationsleitfaden, XML-Verträgen und
+Architektur dokumentiert; die betroffenen ExtendedData-README-Abschnitte sind aktualisiert.
+
+Prüfnachweise dieser Fortsetzung:
+
+- Gezielte Vorbereitungs-/Teilnehmer-/API-Tests: `APIShared/.local/preparation-tests.log`.
+- Vollständiger APIShared-Build: `APIShared/.local/preparation-build.log`.
+- Shared-Boundaries: `ExtendedData/obj/preparation-boundaries.log`.
+- Preset-/Persistenzintegration: `_inspect/HostClientPresetTests/preparation-build.log`
+  und `preparation-storage.log`.
+- Dokumentationslinks: `APIShared/.local/preparation-docs.log`.
+
+Ergebnisse: Der vollständige APIShared-Lauf besteht mit 644 Tests (13 Content,
+3 PopularityDisplay, 300 Core, 289 Runtime, 39 Lobby); zwei optionale Runtime-
+Integrationsfälle bleiben wie zuvor übersprungen. Bootstrap-/Paket-/Recovery-
+Prüfungen bestehen; die zusätzlichen Host-Bash-Fixtures wurden unter Windows
+nicht ausgeführt. NuGet meldete nicht erreichbare Sicherheitsdaten, die Builds
+verwendeten die bereits verfügbaren Abhängigkeiten.
+
+ExtendedData wurde aus dem Arbeitsstand `develop` / `997d3a5e627bf2ced52ee30c9f26c2c73211e692`
+mit dem APIShared-Arbeitsstand `dev/Serpens66` / `001ebfe737abe4d12d32b847427ec643699d675a`
+gebaut, jeweils einschließlich der Änderungen dieser Fortsetzung. Der Build liegt
+unter `.work/b/working/164`, das Log unter `ExtendedData/obj/preparation-build.log`.
+73/73 Core-/Runtimefälle und beide Upload-Suiten bestehen. Auch der äußere Treiber ist
+mit Exitcode 0 abgeschlossen (`.work/b/working/164.build.json`, `NoInstall=true`). Die Shared-Boundary-,
+Preset-/Persistenz- und Dokumentationsprüfungen bestehen ebenfalls.
+
+Der Core-Metadatenvergleich bestätigt 600 unveränderte öffentliche/geschützte
+Einträge und ausschließlich die erwarteten `netstandard`-/Content-Abhängigkeiten
+(`ExtendedData/obj/preparation-core-surface.log`). Der unverändert vor dem Codec-
+Umzug kompilierte Verbraucher besteht erneut mit den neuen DLLs, einschließlich
+atomarem Schreiben/Lesen; Nachweis: `.work/t/core-preparation/001/consumer.log`.
+
+**Weiterhin offen:** Die Applying-/Rollback-Engine, Creator-Regeln und Übernahme
+in eine tatsächliche Mission liegen weiterhin in ExtendedData. Als nächster
+zusammenhängender Abschnitt ist deren Vorbereitung/Anwendung mit klarer
+Transaktionsgrenze zu prüfen. Die einzige Quellenregistry bleibt
+`ModSettingsWorkingSourceRegistry`. Echte Spiel-, Neustart-, UI-, MP- und Coop-Abnahmen
+sind weiterhin erforderlich. Keine Installation, Versionserhöhung, Commits oder
+Veröffentlichung in dieser Fortsetzung.
+
+Die folgenden Abschnitte bewahren die Nachweise der vorherigen Arbeitsstände.
 
 ## Beginn von Etappe 3: Gemeinsame Teilnehmerdiagnose (20.10.2026)
 
@@ -404,7 +753,7 @@ Abnahme: Neue Verbraucher verwenden APIShared allein für allgemeine Lesezugriff
 - Übertragene Fachimplementierungen in ExtendedData entfernen; nur erforderliche öffentliche Adapter behalten.
 - Projektlisten, Quelllinks, Testprojekte, Paketdateien, Referenzen, Prüfskripte und Beispiele auf den endgültigen Besitzer aktualisieren.
 - APIShared-Katalog, Integrationsleitfaden und Architektur um die tatsächlichen neuen Dienste ergänzen. Allgemeine Verträge dort erklären; ExtendedData-Guides beschreiben Inhalte und Bedienung und verlinken die gemeinsame API.
-- Bestehende README-Dateien bleiben im Rahmen dieses Planauftrags unverändert. Für eine spätere produktbezogene README-Aktualisierung die bestehende Workspace-Regel beachten.
+- Die betroffenen README-Abschnitte entsprechend der inzwischen ausdrücklich erteilten Nutzerfreigabe aktualisieren. Allgemeine API-Verträge bleiben in APIShareds Dokumentation.
 - Versions- und Abhängigkeitsangaben erst nach bestandener fachlicher Abnahme atomar aktualisieren. API-Baselines anhand eines geprüften Diffs ergänzen, nicht fehlgeschlagene Erwartungen ungeprüft neu generieren.
 - Unterstützte Pakete und deren Eingangsstände dokumentieren. Erst danach kann separat eine Integration oder Veröffentlichung beauftragt werden.
 

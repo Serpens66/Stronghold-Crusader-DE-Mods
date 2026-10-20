@@ -68,6 +68,7 @@ namespace PerfProbe
             // Runs on Director's simulation thread; DevDiag aggregation is thread-safe.
             Patch(typeof(EngineInterface), nameof(EngineInterface.run), new[] { typeof(bool) }, nameof(EndEngineRun), nameof(BeginEngineRun));
             PerfProbeExtras.Install(log, harmony);
+            PerfProbeSimSampler.Install();
             lowFpsField = AccessTools.Field(typeof(Director), "lowFPSCompensationLevel");
             if (lowFpsField != null && lowFpsField.FieldType != typeof(int)) lowFpsField = null;
             // Statically rooted per-frame sampler; render/camera bound, also while paused.
@@ -132,12 +133,14 @@ namespace PerfProbe
             simRunAllocAtStart = PerfProbeExtras.ThreadAllocated();
             __state = Stopwatch.GetTimestamp();
             Volatile.Write(ref simRunStarted, __state);
+            PerfProbeSimSampler.OnRunBegin(__state);
         }
 
         private static void EndEngineRun(long __state)
         {
             long now = Stopwatch.GetTimestamp();
             Volatile.Write(ref simRunStarted, 0);
+            PerfProbeSimSampler.OnRunEnd();
             Interlocked.Increment(ref simRunsCompleted);
             long elapsed = now - __state;
             if (simRunAllocAtStart >= 0) PerfProbeExtras.AddSimAlloc(PerfProbeExtras.ThreadAllocated() - simRunAllocAtStart);

@@ -21,8 +21,8 @@ namespace ExtendedData
 
     public sealed class LordDataSnapshot
     {
-        public const int MaxSidecarBytes = 64 * 1024;
-        public const int MaxNamespaceBytes = 16 * 1024;
+        public const int MaxSidecarBytes = APIShared.ModData.ModDataDocumentJson.MaximumDocumentBytes;
+        public const int MaxNamespaceBytes = APIShared.ModData.ModDataDocumentJson.MaximumNamespaceBytes;
         public const int MaxSnapshotBytes = 256 * 1024;
         public const int ProtocolVersion = 3;
 
@@ -136,41 +136,19 @@ namespace ExtendedData
 
         public static void ValidateModLord(string json)
         {
-            if (json == null)
-                return;
-            if (Encoding.UTF8.GetByteCount(json) > MaxSidecarBytes)
-                throw new InvalidDataException("A selected .modlord.json exceeds 64 KiB.");
-            ParseModLord(json);
+            if (json != null) ParseModLord(json);
         }
 
         public static string ReadModLordFile(string path)
         {
             if (new FileInfo(path).Length > MaxSidecarBytes)
                 throw new InvalidDataException("The .modlord.json exceeds 64 KiB: " + path);
-            byte[] bytes = File.ReadAllBytes(path);
-            if (bytes.Length > MaxSidecarBytes)
-                throw new InvalidDataException("The .modlord.json exceeds 64 KiB: " + path);
-            string json = new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF');
-            ValidateModLord(json);
-            return json;
+            using (var stream = File.OpenRead(path))
+                return APIShared.ModData.ModDataDocumentJson.ReadUtf8(stream);
         }
 
-        private static Dictionary<string, object> ParseModLord(string json)
-        {
-            var root = RequireObject(Shared.DependencyFreeJson.Parse(json));
-            if (root.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != root.Count)
-                throw new InvalidDataException("The .modlord.json contains duplicate GUID namespaces.");
-            foreach (KeyValuePair<string, object> entry in root)
-            {
-                if (string.IsNullOrWhiteSpace(entry.Key) || !(entry.Value is Dictionary<string, object>))
-                    throw new InvalidDataException("Every .modlord.json GUID namespace must be an object.");
-                int namespaceBytes = Encoding.UTF8.GetByteCount(SerializeCompact(entry.Value));
-                if (namespaceBytes > MaxNamespaceBytes)
-                    throw new InvalidDataException("The .modlord.json GUID namespace '" + entry.Key +
-                        "' exceeds 16 KiB.");
-            }
-            return root;
-        }
+        private static Dictionary<string, object> ParseModLord(string json) =>
+            APIShared.ModData.ModDataDocumentJson.Parse(json);
 
         private static string SerializeCompact(object value)
         {

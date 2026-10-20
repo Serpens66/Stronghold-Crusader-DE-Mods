@@ -28,7 +28,7 @@ ExtendedData supports Script Extender content in Custom Lord packages. Mods can 
 
 ### Map data
 
-Map authors can add a `modmap.json` file to the appended archive of a Script Extender map. Each mod reads only its own GUID namespace. The base map remains usable without ExtendedData; only the supplemental namespaced data is unavailable.
+Map authors can add a `modmap.json` file to the appended archive of a Script Extender map. Each mod reads only its own GUID namespace. The base map remains usable without ExtendedData. Mods can read supplemental namespaces through APIShared alone.
 
 - [Mod-specific data for maps](../Guides/ExtendedData/ModMapData.md#english)
 
@@ -42,9 +42,9 @@ Without a usable checkbox, automatic loads use current supported settings. Exist
 
 ### Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.12.1 or newer**, including its `APIShared.Content.dll`. The shared library owns JSON namespace validation and the schema-3 mission-settings codec. ExtendedData keeps its existing public models/result types through adapters, plus its file handling and Lord/host selection rules. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.12.1 or newer**, including its `APIShared.Content.dll`. The shared library owns JSON namespace validation and the schema-3 mission-settings codec. ExtendedData keeps its existing public models/result types through adapters, plus its content files and Lord/host selection rules. General map/local-sidecar reading is available directly through APIShared; confirmed Lord selection uses ExtendedData as an optional provider. Subscribe to APIShared separately when using the Steam modpack.
 
-Map/Trail compatibility messages use APIShared's shared participant checks. A broken settings provider is reported without hiding other compatible mods.
+Map/Trail compatibility messages use APIShared's shared participant checks. A broken settings provider is reported without hiding other compatible mods. APIShared prepares and applies temporary settings snapshots and handles their cleanup. ExtendedData supplies content sources and coordinates the mission lifecycle.
 
 Shared services handle presets and game-mode classification. Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change. Validated Fixes preference property metadata is cached; preference values and snapshot checks are unchanged.
 
@@ -76,7 +76,7 @@ ExtendedData unterstützt Script-Extender-Inhalte in Custom-Lord-Paketen. Mods k
 
 ### Map-Daten
 
-Map-Ersteller können eine `modmap.json` in das angehängte Archiv einer Script-Extender-Map aufnehmen. Jeder Mod liest ausschließlich seinen eigenen GUID-Bereich. Die zugrunde liegende Map bleibt ohne ExtendedData verwendbar; lediglich die zusätzlichen Namensraumdaten stehen dann nicht zur Verfügung.
+Map-Ersteller können eine `modmap.json` in das angehängte Archiv einer Script-Extender-Map aufnehmen. Jeder Mod liest ausschließlich seinen eigenen GUID-Bereich. Die zugrunde liegende Map bleibt ohne ExtendedData verwendbar. Mods können zusätzliche Namensraumdaten auch über APIShared allein lesen.
 
 - [Mod-spezifische Daten für Maps](../Guides/ExtendedData/ModMapData.md#deutsch)
 
@@ -90,8 +90,8 @@ Fehlt eine nutzbare Checkbox, werden beim automatischen Laden die aktuellen unte
 
 ### Kompatibilität und Diagnosen
 
-Diese Mod benötigt den Script Extender und **APIShared 0.12.1 oder neuer**, einschließlich `APIShared.Content.dll`. Die gemeinsame Bibliothek übernimmt die JSON-Namespace-Prüfung und den Schema-3-Codec der Missionseinstellungen. ExtendedDatas öffentliche Modelle/Ergebnistypen bleiben über Adapter erhalten, ebenso seine Dateiverarbeitung und Lord-/Host-Auswahlregeln. APIShared muss beim Steam-Modpack separat abonniert werden.
+Diese Mod benötigt den Script Extender und **APIShared 0.12.1 oder neuer**, einschließlich `APIShared.Content.dll`. Die gemeinsame Bibliothek übernimmt die JSON-Namespace-Prüfung und den Schema-3-Codec der Missionseinstellungen. ExtendedDatas öffentliche Modelle/Ergebnistypen bleiben über Adapter erhalten, ebenso seine Inhaltsdateien und Lord-/Host-Auswahlregeln. Allgemeine Karten- und lokale Sidecardaten liest APIShared direkt; die bestätigte Lord-Auswahl liefert ExtendedData als optionaler Anbieter. APIShared muss beim Steam-Modpack separat abonniert werden.
 
-Kompatibilitätsmeldungen für Maps und Trails verwenden APIShareds gemeinsame Teilnehmerprüfung. Ein fehlerhafter Settings-Anbieter wird gemeldet, ohne andere kompatible Mods auszublenden.
+Kompatibilitätsmeldungen für Maps und Trails verwenden APIShareds gemeinsame Teilnehmerprüfung. Ein fehlerhafter Settings-Anbieter wird gemeldet, ohne andere kompatible Mods auszublenden. APIShared bereitet temporäre Settings-Snapshots vor, wendet sie an und bereinigt sie. ExtendedData liefert die Inhaltsquellen und koordiniert den Missionslifecycle.
 
 Gemeinsame Dienste übernehmen Presets und die Erkennung des Spielmodus. Routineausgaben erscheinen auf Debug-Ebene. Wiederholte Diagnosen werden begrenzt, um das Log zu entlasten; Warnungen und Fehler bleiben verfügbar. Dafür ist keine Spieleinstellung nötig. Geprüfte Metadaten der Fixes-Einstellungen werden zwischengespeichert; Einstellungswerte und Snapshot-Prüfungen bleiben unverändert.

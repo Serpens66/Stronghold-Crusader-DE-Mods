@@ -66,6 +66,16 @@ There is no global schema version. Keys that differ only by casing conflict and 
 
 #### Reading a namespace
 
+New consumers may reference only `APIShared.dll` and `APIShared.Content.dll` and call
+`APIShared.ModData.ModDataAccess.ReadSelectedLordNamespace(playerId, modGuid)`.
+ExtendedData supplies its confirmed selection as an optional provider. Without that
+provider, selected data is unavailable; the API never substitutes local host data.
+`ReadLocalLordNamespace(lordJsonPath, modGuid)` is an explicitly local alternative,
+with no host-authority claim. See the [shared API](../../APIShared/docs/MOD_DATA.md).
+Use a complete matched development package while this migration is unreleased.
+
+The following older facade remains compatible:
+
 Reference `ExtendedData.dll` and `ExtendedData.Core.dll`. During a selected Lord session, read the Lord assigned to a player slot (1–8):
 
 ```csharp
@@ -175,6 +185,16 @@ Die Wurzel ist ein Objekt, dessen Schlüssel ohne Beachtung der Groß-/Kleinschr
 Es gibt keine globale Schemaversion. Schlüssel, die sich nur durch Groß-/Kleinschreibung unterscheiden, stehen im Konflikt und machen den gemeinsamen Container ungültig. Leere GUIDs und Namensraumwerte, die keine Objekte sind, sind ungültig.
 
 #### Einen Namensraum lesen
+
+Neue Verbraucher können ausschließlich `APIShared.dll` und `APIShared.Content.dll`
+referenzieren und `APIShared.ModData.ModDataAccess.ReadSelectedLordNamespace(playerId, modGuid)`
+aufrufen. ExtendedData liefert die bestätigte Auswahl als optionaler Anbieter. Fehlt
+sie, werden keine lokalen Dateien als Ersatz für Hostdaten benutzt. Der ausdrücklich
+lokale Zugriff heißt `ReadLocalLordNamespace(lordJsonPath, modGuid)` und ist kein
+Hostnachweis. Details: [gemeinsame API](../../APIShared/docs/MOD_DATA.md). Bis zur
+Freigabe dieser Migration das vollständig zusammengehörige Entwicklungspaket verwenden.
+
+Die bisherige Fassade bleibt kompatibel:
 
 Referenziere `ExtendedData.dll` und `ExtendedData.Core.dll`. Lies während einer Sitzung den ausgewählten Lord eines Spielerplatzes (1–8):
 

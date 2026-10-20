@@ -54,7 +54,6 @@ namespace ExtendedData
         internal sealed class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
         {
             private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
-            private const string EncodedSettingPrefix = "messagepack-base64:";
             private const int CoopCustomizeProtocolVersion = 2;
 
             private static readonly FieldInfo MpLocalReadyField = typeof(FRONT_Multiplayer).GetField(
@@ -115,13 +114,11 @@ namespace ExtendedData
             private readonly Action<string, ModSettingsDefinition> applyEditorModesForMod;
             private readonly EditorModSettingsSaveOptionsViewModel editorSaveOptions;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
-            private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
-                new Dictionary<Type, Dictionary<string, PropertyInfo>>();
             private readonly Dictionary<string, string> lastCompatibilityFailures =
                 new Dictionary<string, string>(StringComparer.Ordinal);
             private readonly Dictionary<string, ModSettingsDefinition> capturedDocumentsByTrailPath =
                 new Dictionary<string, ModSettingsDefinition>(StringComparer.OrdinalIgnoreCase);
-            private readonly HashSet<string> activeParticipantIds = new HashSet<string>(StringComparer.Ordinal);
+            private readonly MissionModSettingsSession settingsSession = new MissionModSettingsSession();
             private readonly MissionPresetLifecycleState missionPresetLifecycle = new MissionPresetLifecycleState();
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
@@ -514,36 +511,10 @@ namespace ExtendedData
                 if (document == null || !trailContext) return result;
                 foreach (var participant in FindCompatibleViewModels())
                 {
-                    var rules = new Dictionary<string, TrailCreatorRule>(StringComparer.Ordinal);
                     document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry);
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
-                    foreach (string name in properties.Keys)
-                        rules[name] = new TrailCreatorRule { Mode = 0 };
-                    if (entry == null) { result[participant.Key] = rules; continue; }
-                    foreach (string name in entry.PlayerSettings ?? Array.Empty<string>())
-                        if (properties.ContainsKey(name)) rules[name] = new TrailCreatorRule { Mode = 1 };
-                    foreach (var setting in entry.Overrides)
-                    {
-                        if (!properties.TryGetValue(setting.Key, out PropertyInfo property)) continue;
-                        try
-                        {
-                            object converted = ConvertJsonValue(setting.Value, property.PropertyType);
-                            byte[] fixedValue = MessagePackSerializer.Serialize(property.PropertyType, converted);
-                            if (fixedValue == null || fixedValue.Length > 1024 * 1024)
-                                throw new InvalidDataException("The fixed Trail setting exceeds the savegame property limit.");
-                            rules[setting.Key] = new TrailCreatorRule
-                            {
-                                Mode = 2,
-                                FixedValue = fixedValue,
-                            };
-                        }
-                        catch (Exception error)
-                        {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:568", "Could not capture Trail rule " +
-                                participant.Key + "." + setting.Key + ": " + error.Message);
-                        }
-                    }
-                    result[participant.Key] = rules;
+                    result[participant.Key] = MissionModSettingsCreatorRules.Capture(participant.Value, ToSharedEntry(entry),
+                        (name, error) => Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/trail-rules", "Could not capture Trail rule " +
+                            participant.Key + "." + name + ": " + error.Message));
                 }
                 return result;
             }
@@ -621,17 +592,13 @@ namespace ExtendedData
 
             private Dictionary<string, byte[]> MaterializeSource(string modId, IModSettingsWorkingCopyEndpoint endpoint, ModSettingsDefinition document)
             {
-                Dictionary<string, byte[]> snapshot = endpoint.System_CreateModDefaultSnapshot();
-                if (document?.Mods == null || !document.Mods.TryGetValue(modId, out ModSettingsEntry entry) || entry == null)
-                    return snapshot;
-                Dictionary<string, PropertyInfo> properties = GetPersistedProperties(endpoint);
-                Dictionary<string, byte[]> player = endpoint.System_CreatePlayerMissionPresetSnapshot();
-                foreach (string propertyName in entry.PlayerSettings ?? Array.Empty<string>())
-                    if (properties.ContainsKey(propertyName) && player.TryGetValue(propertyName, out byte[] bytes)) snapshot[propertyName] = (byte[])bytes.Clone();
-                foreach (KeyValuePair<string, object> setting in entry.Overrides ?? new Dictionary<string, object>(StringComparer.Ordinal))
-                    if (properties.TryGetValue(setting.Key, out PropertyInfo property)) snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, ConvertJsonValue(setting.Value, property.PropertyType));
-                return snapshot;
+                ModSettingsEntry entry = null;
+                document?.Mods?.TryGetValue(modId, out entry);
+                return MissionModSettingsPreparation.MaterializeSource(endpoint, ToSharedEntry(entry));
             }
+
+            private static MissionModSettingsEntry ToSharedEntry(ModSettingsEntry entry) => entry == null ? null :
+                new MissionModSettingsEntry { PlayerSettings = entry.PlayerSettings, Overrides = entry.Overrides };
 
             private static string DescribeWorkingSource(string sourceId) =>
                 string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) ? "Trail" :
@@ -650,12 +617,7 @@ namespace ExtendedData
                 {
                     if (!document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry) || entry == null)
                         continue;
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
-                    foreach (KeyValuePair<string, object> setting in entry.Overrides)
-                    {
-                        if (properties.TryGetValue(setting.Key, out PropertyInfo property))
-                            ConvertJsonValue(setting.Value, property.PropertyType);
-                    }
+                    MissionModSettingsPreparation.ValidateEntry(participant.Value, ToSharedEntry(entry));
                 }
             }
 
@@ -774,14 +736,15 @@ namespace ExtendedData
             {
                 if (notification?.Context?.RestartedFromSessionId != null)
                 {
-                    ModSettingsApplication.ConfirmStarted();
+                    ConfirmStartedSettings(notification);
                     return true;
                 }
                 MissionPresetLaunchKind pending = missionPresetLifecycle.PendingLaunch;
                 if (pending == MissionPresetLaunchKind.None)
                 {
                     if (notification?.Context?.IsSave == true && ModSettingsApplication.ContextId.StartsWith("save:", StringComparison.Ordinal))
-                        ModSettingsApplication.ConfirmStarted();
+                        ConfirmStartedSettings(notification);
+                    else if (trailContext && notification?.Context != null) settingsSession.ConfirmStarted(notification.Context.SessionId);
                     return true;
                 }
 
@@ -800,9 +763,15 @@ namespace ExtendedData
                     return false;
                 }
 
-                ModSettingsApplication.ConfirmStarted();
+                ConfirmStartedSettings(notification);
                 Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:819", "Confirmed active mission preset: " + pending + ".");
                 return true;
+            }
+
+            private void ConfirmStartedSettings(MissionLifecycleNotification notification)
+            {
+                ModSettingsApplication.ConfirmStarted();
+                if (trailContext && notification?.Context != null) settingsSession.ConfirmStarted(notification.Context.SessionId);
             }
 
             private static string BuildRestartContext(string identity, ModSettingsDefinition document, string contentPath = null)
@@ -3295,26 +3264,13 @@ namespace ExtendedData
 
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
-                    IModSettingsPresetEndpoint viewModel = participant.Value;
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(viewModel);
-                    var target = new ModSettingsEntry();
-                    foreach (PropertyInfo property in properties.Values)
+                    MissionModSettingsEntry captured = MissionModSettingsPreparation.CaptureEntry(participant.Value, name =>
                     {
-                        TrailSettingMode mode = getPropertyMode(participant.Key, property.Name);
-                        if (mode == TrailSettingMode.Player)
-                        {
-                            target.PlayerSettings = target.PlayerSettings
-                                .Concat(new[] { property.Name })
-                                .ToArray();
-                        }
-                        else if (mode == TrailSettingMode.Fixed)
-                        {
-                            object value = property.GetValue(viewModel);
-                            target.Overrides[property.Name] = ModSettingsJson.IsSupportedValue(value)
-                                ? value
-                                : EncodeSettingValue(property.PropertyType, value);
-                        }
-                    }
+                        TrailSettingMode mode = getPropertyMode(participant.Key, name);
+                        return mode == TrailSettingMode.Player ? PublishedPresetValueMode.Player :
+                            mode == TrailSettingMode.Fixed ? PublishedPresetValueMode.Fixed : PublishedPresetValueMode.ModDefault;
+                    });
+                    var target = new ModSettingsEntry { PlayerSettings = captured.PlayerSettings, Overrides = captured.Overrides };
                     if (target.PlayerSettings.Length != 0 || target.Overrides.Count != 0)
                         document.Mods[participant.Key] = target;
                 }
@@ -3332,105 +3288,48 @@ namespace ExtendedData
                 bool materializeCurrentValues = false)
             {
                 ClearActiveSidecar();
-                Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
-                foreach (string mentionedMod in document.Mods.Keys)
-                    if (!allParticipants.ContainsKey(mentionedMod))
-                        throw new InvalidDataException("Required Map/Trail settings provider is missing or incompatible: " + mentionedMod);
-                // Capture before leaving the old preset; exiting restores the personal preset.
-                Dictionary<string, Dictionary<string, byte[]>> currentSnapshots =
-                    preserveCurrentValues || materializeCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null;
-                ExitActiveParticipants(allParticipants);
-                var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool>>(allParticipants.Count);
-                foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)
-                {
-                    if (participant.Value is PresetLobbyModSettingsViewModel dynamicParticipant && dynamicParticipant.System_HasApplicationBackend)
-                        dynamicParticipant.System_RefreshOwnConfiguration();
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
-                    string[] removedSettings = ModSettingsJson.RemoveUnknownSettings(
-                        document,
-                        participant.Key,
-                        properties.Keys);
-                    if (removedSettings.Length != 0)
-                    {
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3419", $"Ignored obsolete Map/Trail settings for [{participant.Key}]: " +
-                            string.Join(", ", removedSettings) + ". They will be omitted on the next save.");
-                    }
-
-                    document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry);
-                    // A direct Trail selection is only a preview. Mods absent from its
-                    // sidecar keep their editable personal values until launch.
-                    if (previewOnly && entry == null)
-                        continue;
-                    // Editable authoring starts from the current values. A playable Trail
-                    // still uses the participant's disabled baseline for missing values.
-                    Dictionary<string, byte[]> snapshot;
-                    if (preserveCurrentValues || materializeCurrentValues)
-                    {
-                        if (startingSnapshots == null ||
-                            !startingSnapshots.TryGetValue(participant.Key, out snapshot))
-                            snapshot = currentSnapshots[participant.Key];
-                        snapshot = CloneSnapshot(snapshot);
-                    }
-                    else
-                    {
-                        snapshot = participant.Value.System_CreateDisabledMissionPresetSnapshot();
-                    }
-                    if (entry != null && !materializeCurrentValues)
-                    {
-                        // A playable Trail resolves player values from the restored personal
-                        // preset. Authoring already captured the current editable values.
-                        foreach (string propertyName in preserveCurrentValues && !(participant.Value is PresetLobbyModSettingsViewModel dynamicModel && dynamicModel.System_HasApplicationBackend)
-                            ? Array.Empty<string>()
-                            : entry.PlayerSettings)
-                        {
-                            if (!properties.TryGetValue(propertyName, out PropertyInfo property))
-                                continue;
-                            object current = property.GetValue(participant.Value);
-                            snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, current);
-                        }
-                        // Fixed Trail values have final precedence.
-                        foreach (KeyValuePair<string, object> setting in entry.Overrides)
-                        {
-                            if (!properties.TryGetValue(setting.Key, out PropertyInfo property))
-                                continue;
-                            object converted = ConvertJsonValue(setting.Value, property.PropertyType);
-                            snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, converted);
-                        }
-                    }
-                    if (!materializeCurrentValues) snapshot = ModSettingsApplication.ResumeSnapshot(participant.Key) ?? snapshot;
-                    prepared.Add(Tuple.Create(participant.Key, participant.Value, snapshot, entry != null));
-                }
-
-                if (editable)
-                    applyEditorModes?.Invoke(document, useFixedDefaults);
-
+                var shared = new MissionModSettingsDocument {
+                    SchemaVersion = document.SchemaVersion,
+                    Mods = document.Mods.ToDictionary(item => item.Key, item => ToSharedEntry(item.Value), StringComparer.Ordinal)
+                };
+                MissionModSettingsApplicationKind kind = materializeCurrentValues ? MissionModSettingsApplicationKind.Materialized :
+                    preserveCurrentValues ? (editable ? MissionModSettingsApplicationKind.Authoring : MissionModSettingsApplicationKind.AuthoringTest) :
+                    previewOnly ? MissionModSettingsApplicationKind.Preview :
+                    editable ? MissionModSettingsApplicationKind.Editable : MissionModSettingsApplicationKind.Playable;
                 try
                 {
-                    foreach (Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool> item in prepared)
-                    {
-                        if (item.Item2 is IModSettingsMissionSourceEndpoint sourceEndpoint)
-                            sourceEndpoint.System_SetExplicitMissionSettings(item.Item4);
-                        item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable);
-                        ModSettingsApplication.RestorePreparedSources(item.Item1);
-                        activeParticipantIds.Add(item.Item1);
-                    }
+                    var removed = settingsSession.Apply(shared, FindCompatibleViewModels(), kind, presetLabel, startingSnapshots,
+                        prepared =>
+                        {
+                            CopyPreparedEntries(prepared, document);
+                            if (editable) applyEditorModes?.Invoke(document, useFixedDefaults);
+                        });
+                    foreach (var item in removed)
+                        if (item.Value.Count != 0)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/settings-pruning", "Ignored obsolete Map/Trail settings for [" +
+                                item.Key + "]: " + string.Join(", ", item.Value) + ". They will be omitted on the next save.");
                     trailContext = true;
                     workingContextEditable = editable;
                     activeContextLabel = string.IsNullOrWhiteSpace(presetLabel) ? "Trail" : presetLabel;
                 }
                 catch
                 {
-                    // Roll back only participants whose entry call actually completed.
-                    try
-                    {
-                        ExitActiveParticipants(allParticipants);
-                    }
-                    catch (Exception rollbackException)
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3496", "Could not fully roll back Map/Trail mod settings: " + rollbackException);
-                    }
-                    trailContext = activeParticipantIds.Count != 0;
+                    trailContext = settingsSession.ActiveModGuids.Count != 0;
                     throw;
+                }
+                finally { CopyPreparedEntries(shared, document); }
+            }
+
+            private static void CopyPreparedEntries(MissionModSettingsDocument source, ModSettingsDefinition target)
+            {
+                foreach (string id in target.Mods.Keys.ToArray())
+                {
+                    if (!source.Mods.TryGetValue(id, out MissionModSettingsEntry entry)) { target.Mods.Remove(id); continue; }
+                    if (entry != null && target.Mods[id] != null)
+                    {
+                        target.Mods[id].PlayerSettings = entry.PlayerSettings;
+                        target.Mods[id].Overrides = entry.Overrides;
+                    }
                 }
             }
 
@@ -3440,41 +3339,12 @@ namespace ExtendedData
                 var snapshots = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal);
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
-                    Dictionary<string, byte[]> snapshot =
-                        participant.Value is PresetLobbyModSettingsViewModel model && model.System_HasApplicationBackend
-                            ? model.System_CreateCurrentWorkingSnapshot()
-                            : participant.Value.System_CreateDisabledMissionPresetSnapshot();
-                    foreach (PropertyInfo property in GetPersistedProperties(participant.Value).Values)
-                        snapshot[property.Name] = MessagePackSerializer.Serialize(
-                            property.PropertyType, property.GetValue(participant.Value));
-                    snapshots[participant.Key] = CloneSnapshot(snapshot);
+                    snapshots[participant.Key] = MissionModSettingsPreparation.CaptureCurrentSnapshot(participant.Value);
                 }
                 return snapshots;
             }
 
-            private static Dictionary<string, byte[]> CloneSnapshot(Dictionary<string, byte[]> source)
-            {
-                var copy = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-                if (source != null)
-                    foreach (KeyValuePair<string, byte[]> item in source)
-                        copy[item.Key] = item.Value == null ? null : (byte[])item.Value.Clone();
-                return copy;
-            }
-
-            private void ExitActiveParticipants(Dictionary<string, IModSettingsPresetEndpoint> participants = null)
-            {
-                participants = participants ?? FindCompatibleViewModels();
-                foreach (string modId in activeParticipantIds.ToArray())
-                {
-                    if (!participants.TryGetValue(modId, out IModSettingsPresetEndpoint viewModel))
-                    {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3537", $"Could not leave missing active Map/Trail settings endpoint [{modId}].");
-                        continue;
-                    }
-                    viewModel.System_ExitMissionPreset();
-                    activeParticipantIds.Remove(modId);
-                }
-            }
+            private void ExitActiveParticipants() => settingsSession.Exit();
 
             private Dictionary<string, IModSettingsPresetEndpoint> FindCompatibleViewModels()
             {
@@ -3482,27 +3352,10 @@ namespace ExtendedData
                     .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
             }
 
-            private Dictionary<string, PropertyInfo> GetPersistedProperties(object viewModel)
-            {
-                // Dynamic accessors capture their provider instance and must never share a type cache.
-                if (viewModel is PresetLobbyModSettingsViewModel dynamicModel && dynamicModel.System_HasDynamicSettings)
-                    return ModSettingsApplication.GetHostProperties(viewModel)
-                        .ToDictionary(property => property.Name, StringComparer.Ordinal);
-                Type type = viewModel.GetType();
-                if (persistedPropertiesByType.TryGetValue(type, out Dictionary<string, PropertyInfo> cached))
-                    return cached;
-                // Trail sidecars define shared match rules only. Personal and transient
-                // properties remain owned by each participant and never enter .modtrail.json.
-                cached = ModSettingsApplication.GetHostProperties(viewModel)
-                    .ToDictionary(property => property.Name, StringComparer.Ordinal);
-                persistedPropertiesByType[type] = cached;
-                return cached;
-            }
-
             private bool AreAllTrailPresetsActive()
             {
                 Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
-                return activeParticipantIds.All(id =>
+                return settingsSession.ActiveModGuids.All(id =>
                 {
                     if (!participants.TryGetValue(id, out IModSettingsPresetEndpoint viewModel))
                         return false;
@@ -3519,14 +3372,7 @@ namespace ExtendedData
                 activeSidecarPreviewOnly = false;
             }
 
-            private static object ConvertJsonValue(object value, Type targetType)
-                => ModSettingsPresetJson.ConvertValue(value, targetType);
 
-            private static string EncodeSettingValue(Type propertyType, object value)
-            {
-                byte[] bytes = MessagePackSerializer.Serialize(propertyType, value);
-                return EncodedSettingPrefix + Convert.ToBase64String(bytes);
-            }
 
             private void CopySidecars(string source, string destination, bool overwrite)
             {

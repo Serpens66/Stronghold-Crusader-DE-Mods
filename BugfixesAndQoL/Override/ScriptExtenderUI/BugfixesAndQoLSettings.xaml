@@ -147,7 +147,7 @@
                  Visibility="{Binding HostReadOnlyNoticeVisibility}"
                  Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,4"/>
-      <StackPanel IsEnabled="{Binding CanEditClientSettings}">
+      <StackPanel IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.client-qol" shared:ModSettingsSearch.Title="{Binding QolTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding QolTitleText}"><TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-qol-interface" shared:ModSettingsSearch.SectionTitle="{Binding InterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding InterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
@@ -395,7 +395,7 @@
       </StackPanel>
       <Separator Background="#444466" Margin="0,8"/>
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
-      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.host-qol" shared:ModSettingsSearch.Title="{Binding QolTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding QolTitleText}"><TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.host-interface" shared:ModSettingsSearch.SectionTitle="{Binding InterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding InterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>

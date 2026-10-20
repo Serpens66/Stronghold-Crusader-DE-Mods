@@ -233,6 +233,7 @@ namespace ExtendedData
         public void Initialize()
         {
             ExtendedDataLaunchOriginApi.Initialize(log);
+            ExtendedDataModDataApi.InitializeSource();
             editorSaveOptions.SetEnabled(enabled);
             GameXAMLManagerAPI.Instance.RegisterBinding(
                 "ExtendedDataMapEditorSaveOptionsHost",
@@ -401,6 +402,7 @@ namespace ExtendedData
         public void Dispose()
         {
             enabled = false;
+            ExtendedDataModDataApi.UnregisterSource();
             editorSaveOptions.SetEnabled(false);
             mapSettingsCoordinator?.SetEnabled(false);
             missionSettingsCoordinator?.SetEnabled(false);

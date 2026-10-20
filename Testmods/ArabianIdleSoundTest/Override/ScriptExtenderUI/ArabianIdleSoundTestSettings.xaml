@@ -104,7 +104,7 @@
       <TextBlock Text="{Binding System_ConsumerModeNoticeText}" Visibility="{Binding System_ConsumerModeNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding System_TrailSourceNoticeText}" Visibility="{Binding System_TrailSourceNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding ClientOptionsText}" Background="#33306950" Foreground="#66CC99" FontWeight="Bold" Margin="0,0,0,8" Padding="8,4"/>
-      <StackPanel IsEnabled="{Binding CanEditClientSettings}">
+      <StackPanel IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
         <TextBlock Text="{Binding ScopeText}" Foreground="#CCCCCC" TextWrapping="Wrap" MaxWidth="650" Margin="0,0,0,8"/>
         <Grid>
           <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
