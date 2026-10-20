@@ -1,6 +1,6 @@
 # ExtendedData → APIShared: Umzugs- und Integrationsplan
 
-Stand: 20.10.2026. Die vorgesehenen gemeinsamen Dienste aus Etappen 0–4 sind im Quellstand implementiert. Bereinigung, Dokumentation, Beispiele und Installationsvorprüfung aus Etappe 5 sind umgesetzt; beide regulären Builds bestehen ohne Installation. Fachliche Spielabnahme und anschließende Versions-/Abhängigkeitsfestlegung bleiben offen. Der Gesamtumzug ist deshalb noch nicht abgeschlossen oder freigegeben.
+Stand: 20.10.2026. Die vorgesehenen gemeinsamen Dienste aus Etappen 0–4 sind im Quellstand implementiert. Bereinigung, Dokumentation, Beispiele und Installationsvorprüfung aus Etappe 5 sind umgesetzt. Beide Mods sind auf ausdrücklichen Nutzerauftrag aus dem aktuellen Arbeitsstand gebaut und lokal installiert. Fachliche Spielabnahme und anschließende endgültige Versions-/Abhängigkeitsfestlegung bleiben offen. Der Gesamtumzug ist deshalb noch nicht abgeschlossen oder freigegeben.
 
 ## Aktueller Abschlussstand und Zusatzdaten-API (20.10.2026)
 
@@ -16,12 +16,38 @@ bleiben historische Nachweise; ihre damaligen offenen Quellschritte sind dadurch
 | 4: Zusatzdaten | Gemeinsame Karten-/lokale Leser, optionaler Lord-Anbieter und alte Fassade umgesetzt | Echte Quellenwechsel und bestätigte Hostdaten im Spiel |
 | 5: Abschluss | Übertragene Algorithmen entfernt, Projekte, Beispiele, Baselines, Dokumentation und Installationsvorprüfung aktualisiert; reguläre Builds bestanden | Spielmatrix, danach atomare Versions-/Abhängigkeitsangaben und erneute Prüfung |
 
-Aktuellste reguläre Buildnachweise nach der erneuten Codeprüfung: APIShared
-`APIShared/.local/review-guid-build.log`
-(20.10.2026, 13:26 Uhr lokal, Exitcode 0, 675 Tests bestanden) und ExtendedData
-`ExtendedData/obj/review-guid-build.log` / `.work/b/working/174.build.json`
-(äußerer Exitcode 0, `NoInstall=true`, 74/74 Tests und beide Upload-Suiten bestanden).
+Aktuellste reguläre Build-/Installationsnachweise: APIShared
+`APIShared/.local/install-chat-build.log`
+(20.10.2026, 14:13 Uhr lokal, Exitcode 0, 676 Tests bestanden, ein optionaler Fall übersprungen)
+und ExtendedData `ExtendedData/obj/install-chat-build.log` / `.work/b/working/175.build.json`
+(äußerer Exitcode 0, `NoInstall=false`, 74/74 Tests und beide Upload-Suiten bestanden).
 Die früheren Ergebnisse im Folgenden bleiben als historische Nachweise erhalten.
+
+### Lokale Installation auf Nutzerauftrag (20.10.2026)
+
+Die zuvor installierten Versionen APIShared 0.12.0 und ExtendedData 1.0.14 wurden
+durch die aktuellen Entwicklungspakete APIShared 0.12.1 und ExtendedData 1.0.15
+ersetzt. ExtendedData wurde zuerst aktualisiert, da sein altes Binary noch keinen
+Marker für den gemeinsamen Dialog besaß und die neue APIShared-Installationsvorprüfung
+diese alte Kombination ablehnt. Die Treiber prüften das geschlossene Spiel vor
+den jeweiligen Installationsschritten.
+Die bestehenden regulären Pluginordner wurden verwendet; keine zusätzlichen
+Dev-Kopien. Es wurden keine neuen Versionsnummern vergeben oder Pakete veröffentlicht.
+
+Die installierten Dateien stimmen per SHA-256 mit den gebauten Paketen überein:
+34 ExtendedData-Dateien sowie 32 Dateien aus APIShared-Plugin, Publisher und Bootstrap.
+APIShared.dll, APIShared.Content.dll und ExtendedData.dll liegen im Pluginbaum
+jeweils genau einmal vor. ExtendedDatas Mindestabhängigkeit APIShared 0.12.1 ist
+erfüllt. Die erfassten BepInEx-Konfigurationen vor der APIShared-Installation und
+der Script Extender sind unverändert. Plugin-/Manifest-Versionen und der neue
+Dialogmarker sind zusätzlich direkt im installierten Assembly geprüft.
+
+Bezug: Mod-Repo `develop` / `5d1c5e66b5b777f0b066315dd6ce2a2658576399`,
+APIShared `dev/Serpens66` / `001ebfe737abe4d12d32b847427ec643699d675a`
+einschließlich seiner Arbeitsänderungen. Detailnachweis:
+`.work/a/chat-install/001/installation.json` und `extendeddata.json`.
+Dieser Installationsschritt führte keine Commits aus. Ein Spielstart oder eine
+Spielabnahme ist mit diesen Installationsnachweisen nicht behauptet.
 
 ### Erneute Codeprüfung: ordinale GUID-Zuordnung (20.10.2026)
 

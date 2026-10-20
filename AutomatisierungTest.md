@@ -166,10 +166,62 @@ Der Pausehelfer verweigert vorsichtshalber jeden `Director.MultiplayerGame`-Kont
 
 Für schrittgenaues Simulieren einer festen Anzahl nativer Ticks wäre ein zusätzlicher Audit des Tick-Endes und des sicheren Pausenzeitpunkts erforderlich. Ein Pre-Tick-Event mit anschließendem Main-Thread-Request garantiert keine exakt tickgenaue Stoppstelle.
 
+## Praxiserkenntnisse aus dem automatisierten Messlauf (PerfFixTest)
+
+Stand: 20.10.2026, rund 40 vollständige Läufe mit `test_dustyFPS2.sav`. Referenzimplementierung: [AutomationController.cs](Testmods/PerfFixTest/src/Automation/AutomationController.cs) und [Run-Automation.ps1](Testmods/PerfFixTest/tools/Run-Automation.ps1).
+
+### Im Spiel bestätigt
+
+- **Laden ohne AutoLoadSave:** im Hauptmenü warten auf:
+  - Extender bereit;
+  - `MainViewModel.viewModelLoaded`;
+  - `FatControler.currentScene == FrontEnd`;
+  - `Show_Frontend_MainMenu` und kein Intro;
+  - `HUDmain`/`HUDIngameMenu`, `Director.instance` und `EditorDirector.instance` vorhanden.
+
+  Danach wie die Vanilla-Ladebestätigung:
+  - Header über `MapFileManager.Instance.GetFileInfoFromFileName(path, path, 0, true)` prüfen;
+  - `Platform_Multiplayer.Instance.gameMembers = null`;
+  - `InitNewScene(MainGame)`, `Director.SetPausedState(false)`, `EditorDirector.stopGameSim()`, `loadSaveGame(...)`, `InitObjectiveGoodsPanelDelayed()`.
+
+  Funktionierte in allen Läufen.
+- **Missionsbereitschaft:** `Director.SimRunning`, `GameData.Instance.lastGameState`, `HUDmain`, kein Briefing, Kamera und Zoom vorhanden, dazu mindestens 80 beobachtete Ticks über `GameTimeManagerAPI.OnTick`. Der Tick-Callback läuft auf dem Sim-Thread und zählt nur (`Interlocked`).
+- **Zoom:** `adjustZoom(-step, loop: false)`; vor jedem weiteren Schritt `!midZoom` abwarten. Die Zoomgrenze ist erreicht, wenn zwei abgeschlossene Schritte den Wert nicht mehr ändern. Bei 1080p und dieser Karte endet das nach 6 Schritten bei Zoom 0.25.
+- **Pause:** Der Weg über `GameAction(Game_Paused, s, s)` mit Prüfung über `IsLocalPaused()` funktioniert zuverlässig. Nach dem Entpausieren treffen die ersten 5 Ticks nach ~0,1 s ein. In der Pause rendert Unity weiter, und `Application.onBeforeRender` läuft weiter. Eingriffe in die Darstellung (Renderer umschalten, Sprites tauschen) lassen sich dort fensterweise messen, weil die Simulation nichts zurücksetzt.
+- **Ohne APIShared:** Für Leistungsmessungen ist eine Missionserkennung aus Spielzuständen und beobachteten Ticks ausreichend. Das hält die gemessene Installation minimal (Extender + Testmods). Das ist eine bewusste Ausnahme für Messmods, keine allgemeine Lifecycle-Regel.
+
+### Spiel beenden und Logs sichern
+
+- `Application.Quit()` direkt nach dem Ergebnis verliert die letzten Sekunden in `LogOutput.log`. BepInEx 5.4.23 schreibt das Disk-Log zeitgesteuert. Lösung: `DiskLogListener.LogWriter.Flush()` über `BepInEx.Logging.Logger.Listeners` aufrufen und ~2 s warten, dann beenden.
+- Bei `AppendLog=false` überschreibt jeder Start `LogOutput.log`. `Player.log` wird zu `Player-prev.log` verschoben. Beide müssen nach jedem Lauf gesichert werden, bevor das Spiel erneut startet.
+
+### Spiel erneut starten
+
+- Steam verweigert einen neuen Start, solange die vorige Instanz noch beendet wird; der Start geht dann ohne Fehlermeldung verloren. Vor dem nächsten Start deshalb warten, bis der Spielprozess **und** `UnityCrashHandler64` beendet sind, danach ~10 s Pause. Erscheint der Prozess nicht innerhalb von ~45 s, den Steam-Start einmal wiederholen.
+- Start über `steam://rungameid/3024040`.
+- **Startargumente** (z. B. `-force-d3d12`):
+  - Ein Direktstart der exe wird über Steam neu gestartet, und dabei gehen die Argumente verloren.
+  - Eine vorübergehende `steam_appid.txt` mit `3024040` im Spielordner ermöglicht den Direktstart. Die Datei danach wieder entfernen.
+- **`boot.config`** (z. B. Graphics Jobs): vor dem Start ändern, die Originalbytes sichern und nach dem Lauf byte-genau wiederherstellen; Hash prüfen. `boot.config` wird nur beim Engine-Start gelesen.
+- Ein Start mit `-force-d3d12` hat die gespeicherte Auflösung auf die native Monitorauflösung (3840×2160) umgestellt (PlayerPrefs `Screenmanager Resolution …`). Die Auflösung deshalb pro Lauf mitloggen (`Screen.width/height`) und Läufe nur bei gleicher Auflösung vergleichen.
+- Neue Config-Schlüssel eines neu gebauten Testmods existieren erst nach dessen erstem Start. Ein Lauf-Skript muss fehlende bekannte Schlüssel samt Abschnitt anhängen können, statt abzubrechen.
+
+### Messen und vergleichen
+
+- Frame-Statistik selbst erfassen (Intervalle in `onBeforeRender`, Mittel/p50/p95/p99/Max). Die ersten ~2 s nach jedem Phasen- oder Umschaltwechsel verwerfen.
+- **Streuung zwischen Läufen ist groß:** Identische Läufe lagen bei 133–173 FPS, weil Fremdlast auf dem PC (Browser, weitere Programme) mitwirkt. Belastbar sind:
+  - Vergleiche **im selben Lauf**: Fenster in der Pause mit Kontrollfenstern am Anfang und Ende, Rückschalten genau der geänderten Objekte;
+  - oder mehrere **abwechselnde** Läufe je Variante (A, B, A, B).
+- **Pixelvergleiche:**
+  - Nur zwischen Screenshots desselben Laufs sinnvoll; getrennte Läufe pausieren bei leicht verschiedenen Ticks.
+  - Auch ohne Eingriff ändert sich die Uhr oben rechts (~450–700 Pixel), deshalb Kontrolllauf bzw. Kontrollfenster.
+  - `ScreenCapture.CaptureScreenshot` schreibt asynchron; die Datei erst nach dem Spielende auswerten.
+- **Grafik-API:** Unter D3D12 fehlt die Noesis-Oberfläche, und Vulkan ist nicht im Build. Automatisierte Tests mit Bildvergleich daher unter D3D11 durchführen.
+
 ## Prüfstand und Quellen
 
 - Am 20.10.2026 wurden die öffentlichen Signaturen gegen die echte installierte `Assembly-CSharp.dll` geprüft. Die Helferklasse oben wurde unverändert aus diesem Dokument extrahiert und erfolgreich gegen echte Spiel-/Extender-Referenzen kompiliert; Nachweis unter `.work/t/automation/001`. Das ersetzt keinen Ingame-Test. Zusätzlich wurden der installierte Enumwert `Game_Paused = 1048` und der tatsächliche IL-Lesepfad von `IsLocalPaused()` geprüft.
-- Die Pause- und Zoomabläufe wurden für dieses Dokument statisch geprüft, **nicht neu im Spiel ausgeführt**. Der erfolgreiche AutoLoadSave-Lauf vom 19.10.2026 ist davon getrennte historische Evidenz: [Ladelog](.work/a/autoload/002/game-smoke.log).
+- Laden, Zoom und Einzelspieler-Pause sind am 20.10.2026 in den automatisierten PerfFixTest-Läufen im Spiel ausgeführt und bestätigt (siehe Praxiserkenntnisse). Die Multiplayer-Brücke ist weiterhin nur statisch geprüft. Der AutoLoadSave-Lauf vom 19.10.2026 ist davon getrennte Evidenz: [Ladelog](.work/a/autoload/002/game-smoke.log).
 - Momentaufnahme der Installation bei dieser Prüfung: Unter `BepInEx/plugins` wurden `000shcdese`, `PerfFixTest_Serp` und `PerfProbe_Serp` gefunden, aber keine dort installierten AutoLoadSave-, APIShared- oder BugfixesAndQoL-Assemblies. Vor einem späteren integrierten Test die tatsächlich installierten Abhängigkeiten erneut prüfen; für diese Dokumentation wurde nichts neu installiert.
 - Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`; Managed SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`. Beide stimmen am Prüftag mit dem aktuellen Baseline-Manifest überein.
 - Ladecode: [AutoLoadSavePlugin.cs](Testmods/AutoLoadSave/src/AutoLoadSavePlugin.cs). Multiplayer: [Runtime](BugfixesAndQoL/src/MultiplayerGameSpeedRuntime.cs), [Transportregeln](BugfixesAndQoL/src/MultiplayerGameSpeedPolicy.cs), [Berechtigungen](BugfixesAndQoL/src/MultiplayerTimeControlPermission.cs), [Rosterprüfung](BugfixesAndQoL/src/MultiplayerTimeControlRosterPolicy.cs).
