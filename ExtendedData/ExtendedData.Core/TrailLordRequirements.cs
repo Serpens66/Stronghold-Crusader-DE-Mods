@@ -20,6 +20,9 @@ namespace ExtendedData
         public string PackageDigest { get; set; }
         public string ModLordJson { get; set; }
         public string FixesJson { get; set; }
+        // Authoring evidence: the exporter explicitly chose the AIC/AIV embedded in the Trail
+        // without unknown extra values. It never implies that no such values existed.
+        public bool EmbeddedValuesOnly { get; set; }
     }
 
     public sealed class TrailLordRequirements
@@ -55,22 +58,31 @@ namespace ExtendedData
             if (!string.Equals(MissionDigest, Hash(File.ReadAllBytes(missionPath)), StringComparison.Ordinal))
                 throw new InvalidDataException("Lord requirements refer to another mission.");
             Validate(this);
+            // Version 3 only adds the explicit embedded-only decision; files without it stay
+            // version 2 so existing readers keep accepting them.
+            bool embeddedOnly = Slots.Any(slot => slot.EmbeddedValuesOnly);
             string json = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
             {
-                ["version"] = 2,
+                ["version"] = embeddedOnly ? 3 : 2,
                 ["missionDigest"] = MissionDigest,
-                ["slots"] = Slots.Select(slot => (object)new Dictionary<string, object>
+                ["slots"] = Slots.Select(slot =>
                 {
-                    ["playerId"] = slot.PlayerId,
-                    ["lordType"] = slot.LordType,
-                    ["lordName"] = slot.LordName,
-                    ["configName"] = slot.ConfigName,
-                    ["configChecksum"] = slot.ConfigChecksum,
-                    ["aivChecksums"] = slot.AivChecksums.Cast<object>().ToList(),
-                    ["requiresInstalledPackage"] = slot.RequiresInstalledPackage,
-                    ["packageDigest"] = slot.PackageDigest,
-                    ["modLordJson"] = slot.ModLordJson,
-                    ["fixesJson"] = slot.FixesJson,
+                    var row = new Dictionary<string, object>
+                    {
+                        ["playerId"] = slot.PlayerId,
+                        ["lordType"] = slot.LordType,
+                        ["lordName"] = slot.LordName,
+                        ["configName"] = slot.ConfigName,
+                        ["configChecksum"] = slot.ConfigChecksum,
+                        ["aivChecksums"] = slot.AivChecksums.Cast<object>().ToList(),
+                        ["requiresInstalledPackage"] = slot.RequiresInstalledPackage,
+                        ["packageDigest"] = slot.PackageDigest,
+                        ["modLordJson"] = slot.ModLordJson,
+                        ["fixesJson"] = slot.FixesJson,
+                    };
+                    if (embeddedOnly)
+                        row["embeddedValuesOnly"] = slot.EmbeddedValuesOnly;
+                    return (object)row;
                 }).ToList(),
             });
             if (Encoding.UTF8.GetByteCount(json) > MaximumBytes)
@@ -88,13 +100,24 @@ namespace ExtendedData
 
         public static TrailLordRequirements Read(string missionPath)
         {
+            TrailLordRequirements result = ReadUnbound(missionPath, out bool bound);
+            if (result != null && !bound)
+                throw new InvalidDataException("Lord requirements do not match this mission.");
+            return result;
+        }
+
+        // Re-saving a Trail rewrites its bytes. Callers may reuse the stored values only after
+        // re-establishing each slot's authored identity against the current mission content.
+        internal static TrailLordRequirements ReadUnbound(string missionPath, out bool boundToMission)
+        {
+            boundToMission = false;
             string path = SidecarPath(missionPath);
             if (!File.Exists(path)) return null;
             byte[] bytes = File.ReadAllBytes(path);
             if (bytes.Length > MaximumBytes) throw new InvalidDataException("Lord requirements exceed 512 KiB.");
             var root = Object(Shared.DependencyFreeJson.Parse(new UTF8Encoding(false, true).GetString(bytes)));
             int version = Convert.ToInt32(root["version"]);
-            if (version != 1 && version != 2)
+            if (version < 1 || version > 3)
                 throw new InvalidDataException("Unsupported Lord requirements version.");
             var rows = root["slots"] as List<object> ?? throw new InvalidDataException("Invalid Lord requirements slots.");
             var slots = rows.Select(value =>
@@ -113,13 +136,27 @@ namespace ExtendedData
                     PackageDigest = row["packageDigest"] as string,
                     ModLordJson = row["modLordJson"] as string,
                     FixesJson = row["fixesJson"] as string,
+                    EmbeddedValuesOnly = version >= 3 && row.TryGetValue("embeddedValuesOnly", out object embedded) &&
+                        (embedded as bool? ?? throw new InvalidDataException("Invalid embedded-values decision.")),
                 };
             }).ToArray();
             var result = new TrailLordRequirements { MissionDigest = root["missionDigest"] as string, Slots = slots };
             Validate(result);
-            if (!string.Equals(result.MissionDigest, Hash(File.ReadAllBytes(missionPath)), StringComparison.Ordinal))
-                throw new InvalidDataException("Lord requirements do not match this mission.");
+            boundToMission = string.Equals(result.MissionDigest, Hash(File.ReadAllBytes(missionPath)), StringComparison.Ordinal);
             return result;
+        }
+
+        // Compares the authored data a stored slot describes; extra values stay valid only
+        // for exactly this Lord, configuration and ordered AIV list. Legacy files lack LordType.
+        internal static bool HasSameAuthoredIdentity(TrailLordSlot stored, TrailLordSlot current)
+        {
+            return stored != null && current != null && stored.PlayerId == current.PlayerId &&
+                (!stored.LordType.HasValue || stored.LordType == current.LordType) &&
+                string.Equals(stored.LordName, current.LordName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(stored.ConfigName, current.ConfigName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(stored.ConfigChecksum, current.ConfigChecksum, StringComparison.Ordinal) &&
+                (stored.AivChecksums ?? Array.Empty<string>()).SequenceEqual(
+                    current.AivChecksums ?? Array.Empty<string>(), StringComparer.Ordinal);
         }
 
         private static void Validate(TrailLordRequirements value)
@@ -134,6 +171,9 @@ namespace ExtendedData
                     string.IsNullOrWhiteSpace(slot.ConfigChecksum) || slot.AivChecksums == null ||
                     slot.AivChecksums.Count > 32 || slot.RequiresInstalledPackage && slot.PackageDigest?.Length != 64)
                     throw new InvalidDataException("Invalid Lord requirement slot.");
+                if (slot.EmbeddedValuesOnly && (slot.RequiresInstalledPackage || slot.ModLordJson != null ||
+                        slot.FixesJson != null))
+                    throw new InvalidDataException("An embedded-only Lord slot cannot carry extra values.");
                 LordDataSnapshot.ValidateModLord(slot.ModLordJson);
             }
             LordDataSnapshot.CreateTrail("trail:" + value.MissionDigest,

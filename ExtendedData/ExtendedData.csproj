@@ -73,6 +73,9 @@
     <Compile Include="src\ExtendedDataSettingsViewModel.cs" />
     <Compile Include="src\TrailModSelectionItem.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
+    <Compile Include="src\ExtendedDataRuntime.CoopAiStart.cs" />
+    <Compile Include="..\Shared\Runtime\Gameplay\CoopAiSelectionRules.cs"><Link>Shared\Runtime\Gameplay\CoopAiSelectionRules.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\CoopAiStartPlanFactory.cs"><Link>Shared\Adapters\APIShared\CoopAiStartPlanFactory.cs</Link></Compile>
     <Compile Include="src\ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="src\ExtendedDataOriginRegistration.cs" />
     <Compile Include="src\ExtendedDataModDataApi.cs" />
@@ -81,6 +84,7 @@
     <Compile Include="src\LordDataSyncCoordinator.cs" />
     <Compile Include="src\LordDataSyncDiagnostics.cs" />
     <Compile Include="src\TrailLordPackageRuntime.cs" />
+    <Compile Include="src\TrailLordRequirementSource.cs" />
     <Compile Include="src\TrailLordSourceSelector.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\BuiltInCustomizeOriginPacket.cs" />
@@ -92,6 +96,7 @@
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\EditorModSettingsSaveOptionsViewModel.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
+    <Compile Include="src\MissionAssetException.cs" />
     <Compile Include="src\CoopTrailPackageExporter.cs" />
     <Compile Include="src\ResolvedMission.cs" />
     <Compile Include="src\LordUpload\CustomLordCompatibilityProfile.cs" />

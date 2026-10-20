@@ -1200,3 +1200,35 @@ or a later fit state. Pairwise projected AIV footprints can at most prove
 a **planned** overlap until the sequential construction and cleanup paths
 for both candidates are reconstructed. See `Findings/AIVPlacement/STATUS.md`
 for the current publication boundary.
+
+## Coop Trail AI upload and lobby castle encoding (21 October 2026)
+
+Managed audit of the installed `Assembly-CSharp.dll`
+(`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`) together with
+this native hash. Reproducible with `ilspycmd` on `FRONT_Multiplayer`, `AIVLoader`,
+`HUD_IngameMenu` and `CustomisationFileManager`; no native call was changed.
+
+- `FRONT_Multiplayer.StartSkirmishGame` calls `EngineInterface.initMultiplayerGame`,
+  `setMultiplayerStartingData` and `InitAIVLoading` (`DLL_ImportAIV(-1, -1, null, 0, 0)`,
+  the bank reset), then per AI member `RegisterSkirmishUser` and the castle upload,
+  and only afterwards `loadMultiplayerMap`.
+- Coop branch (`coopGame` and Coop Trail 1-4): only `AIVLoader.UploadDefaultAIV(lordType,
+  playerId)`. Selected castles and `setCustomLordConfig` are skipped. The skirmish branch
+  uses `UploadDefaultAIV` when `builtIn || aivs.Count == 0`, the community or historical
+  set otherwise when flagged, else `ImportAIV(playerId - 1, index, data, 1)` per
+  candidate, followed by `setCustomLordConfig` for a custom AIC.
+- `UploadDefaultAIV` imports eight (historical: one) Vanilla sets with custom flag 0.
+  Zero-based Lord types follow `AILords` minus one; the Vanilla castle tables end
+  before `SK_X1`.
+- `MPAIVInfo.encode` writes `0:` (standard) whenever `builtIn || aivs.Count == 0`, and
+  `1:`/`2:` for community/historical only with a non-empty candidate list; the lobby
+  carries candidate 0 and the AIC only. A client decodes community/historical with an
+  empty list, so Vanilla's own skirmish branch would upload standard castles there.
+- `MPAIVInfo.Init(type, name)` clears `builtIn` and `builtInLord` for a non-empty name.
+- `RestartSkirmishMapInfo.decode(data, customTrailMission: true)` keeps the saved AI
+  slots (AIC, candidates, flags, rotation, name, 144x144 portrait) when the original
+  map header cannot be resolved. `importMembers` stores -1 for humans and -9999 for
+  empty slots. The original map name follows the member table in the restart block.
+
+APIShared's `CoopAiStartImportService` replaces exactly the Coop branch's upload
+for planned slots; see `APIShared/docs/THIRD_PARTY_GUIDE.md#coop-trail-ai-start-import`.

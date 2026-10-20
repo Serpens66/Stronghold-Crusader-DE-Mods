@@ -2848,6 +2848,42 @@ namespace BugfixesAndQoL
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(false, false, true, true, true, 4),
                 "Custom Coop AI selections survive singleplayer restart without overriding the Vanilla partner");
 
+            // F4: the AIC (builtInLord) and the castle source are independent dimensions.
+            int custom = Shared.CoopAiSelectionRules.FirstCustomLordType;
+            Shared.CoopAiCastleKind castle;
+            bool needsPlan;
+            Check(
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "", true, false, false, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Standard && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "", false, true, false, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Community && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "Named", false, false, true, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Historical && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "", false, false, false, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Standard && needsPlan,
+                "a standard Lord with a custom AIC may use standard, community or historical castles");
+            Check(
+                Shared.CoopAiSelectionRules.Classify(3, true, false, "", true, false, false, 8,
+                    out castle, out needsPlan) == null && !needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, true, false, "", false, true, false, 0,
+                    out castle, out needsPlan) == null && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, true, false, "", false, false, false, 2,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Explicit && needsPlan,
+                "Vanilla AIC keeps Vanilla upload only for its standard castles");
+            Check(
+                Shared.CoopAiSelectionRules.Classify(3, false, false, "", true, false, false, 0,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, false, true, "Lord", true, false, false, 0,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, false, true, "", false, false, false, 1,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, true, false, "Lord", false, false, false, 1,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, false, true, "Lord", false, false, false, 1,
+                    out castle, out _) == null && castle == Shared.CoopAiCastleKind.Explicit &&
+                custom == checked((int)AILords.SK_X1 - 1),
+                "named custom Lords need their configuration and castles; a missing AIC object stays an error");
+
             Check(
                 CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
                     true, expectedLordType + 1, 0, expectedLordType, 0) &&
@@ -4933,12 +4969,15 @@ namespace BugfixesAndQoL
             string multiplayerSource = File.ReadAllText(Path.Combine(
                 sourceDirectory,
                 "MultiplayerAivSyncRuntime.cs"));
+            // Guardrail only: the Coop upload has one owner in APIShared; this feature supplies plans and
+            // must neither hook UploadDefaultAIV again nor import AIVs itself.
             Check(
-                coopSource.Contains("IAivImportBackend importBackend = GetAivImportBackend();") &&
-                coopSource.Contains("for (int index = 0; index < info.aivs.Count; index++)") &&
-                coopSource.Contains("importBackend.ImportAIV(") &&
+                coopSource.Contains("TryGetCoopAiStartImport(") &&
+                coopSource.Contains("TryRegisterProvider(") &&
+                !coopSource.Contains("UploadDefaultAIV") &&
+                !coopSource.Contains(".ImportAIV(") &&
                 !coopSource.Contains("GameAIVManagerAPI.Instance"),
-                "Coop custom-lord imports use the protected backend starting at candidate zero");
+                "Coop custom-lord imports are planned through APIShared's single upload owner");
             Check(
                 multiplayerSource.Contains("IAivImportBackend importBackend = GetAivImportBackend();") &&
                 multiplayerSource.Contains("for (int candidateId = 1; candidateId < slot.Candidates.Count; candidateId++)") &&

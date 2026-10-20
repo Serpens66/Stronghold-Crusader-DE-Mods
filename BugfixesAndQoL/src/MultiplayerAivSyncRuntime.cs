@@ -546,12 +546,15 @@ namespace BugfixesAndQoL
             {
                 if (coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
                     ValidateCustomCoopLobby(self?.activeLobby, null, false);
-                activeStartManifest = ResolveManifestForStart(coopTrailId);
+                MultiplayerAivManifest manifest = ResolveManifestForStart(coopTrailId);
                 int preparedSlots = CoopCustomLordSelectionFeature.BeginCoopStart(
-                    self?.activeLobby, coopTrailId);
+                    self?.activeLobby, coopTrailId, manifest);
+                // Coop extra candidates belong to the APIShared import plans, which import every candidate
+                // once at the AI upload. Only other starts import them right before the map load.
+                activeStartManifest = coopTrailId > 0 ? null : manifest;
                 if (coopTrailId > 0)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:557", $"Coop Trail AIV start snapshot prepared: trail={coopTrailId}, mission={coopMissionId}, " +
-                        $"selectedSlots={preparedSlots}, extraCandidateSlots={activeStartManifest?.Slots.Count ?? 0}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:557", $"Coop Trail AIV start plans prepared: trail={coopTrailId}, mission={coopMissionId}, " +
+                        $"plannedSlots={preparedSlots}, extraCandidateSlots={manifest?.Slots.Count ?? 0}.");
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
             }
             catch (Exception ex)
@@ -609,28 +612,30 @@ namespace BugfixesAndQoL
                 string encoded = GetVanillaAivData(lobby, playerId);
                 var transmitted = new FRONT_Multiplayer.MPAIVInfo();
                 transmitted.decode(encoded ?? string.Empty);
-                if (transmitted.lordType != member.GetLordType() ||
-                    (!transmitted.builtInLord &&
-                     (string.IsNullOrWhiteSpace(transmitted.lordName) ||
-                      transmitted.lordConfig == null || transmitted.builtIn ||
-                      transmitted.community || transmitted.historical)))
+                if (transmitted.lordType != member.GetLordType())
                     throw new InvalidOperationException($"Custom Coop Trail Lord data for player {playerId} is incomplete.");
-                if (!transmitted.builtIn || !transmitted.builtInLord)
-                {
-                    if (transmitted.aivs == null || transmitted.aivs.Count != 1 ||
-                        transmitted.aivs[0]?.data == null || transmitted.aivs[0].data.Length == 0)
-                        throw new InvalidOperationException($"Custom Coop Trail AIV for player {playerId} is missing or invalid.");
-                }
+                // The AIC and the castle source are independent: a standard Lord may combine a custom AIC
+                // with standard, community or historical castles.
+                string invalid = Shared.CoopAiSelectionRules.Classify(transmitted.lordType,
+                    transmitted.builtInLord, transmitted.lordConfig != null, transmitted.lordName,
+                    transmitted.builtIn, transmitted.community, transmitted.historical,
+                    transmitted.aivs?.Count ?? 0, out Shared.CoopAiCastleKind castle, out _);
+                if (invalid != null)
+                    throw new InvalidOperationException($"Custom Coop Trail Lord data for player {playerId} {invalid}.");
+                if (castle == Shared.CoopAiCastleKind.Explicit &&
+                    (transmitted.aivs.Count != 1 || transmitted.aivs[0]?.data == null ||
+                     transmitted.aivs[0].data.Length == 0))
+                    throw new InvalidOperationException($"Custom Coop Trail AIV for player {playerId} is missing or invalid.");
                 if (!compareHostCandidates)
                     continue;
                 FRONT_Multiplayer.MPAIVInfo local = frontend.AIVs[playerId - 1];
                 if (local == null || local.lordType != transmitted.lordType ||
                     local.builtInLord != transmitted.builtInLord)
                     throw new InvalidOperationException($"Custom Coop Trail Lord selection for player {playerId} changed.");
-                if (!transmitted.builtIn &&
+                if (castle == Shared.CoopAiCastleKind.Explicit &&
                     (local.aivs == null || local.aivs.Count == 0))
                     throw new InvalidOperationException($"Custom Coop Trail AIV selection for player {playerId} is missing.");
-                if (local.aivs != null && local.aivs.Count > 0 && !local.builtIn &&
+                if (castle == Shared.CoopAiCastleKind.Explicit && local.aivs.Count > 0 && !local.builtIn &&
                     !local.community && !local.historical)
                 {
                     if (local.aivs.Count > MultiplayerAivSyncProtocol.MaximumCandidatesPerLord ||

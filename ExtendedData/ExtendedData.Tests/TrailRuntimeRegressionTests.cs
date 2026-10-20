@@ -214,6 +214,51 @@ internal static class TrailRuntimeRegressionTests
         Reject<InvalidDataException>(() => CoopTrailSlotSelection.GetActiveSlots(new[] { -1, -9999 }));
     }
 
+    // F5/P3: stored values survive a re-saved Trail and a missing installation as long as the slot's
+    // authored identity is unchanged; a changed slot without a verifiable source needs a decision.
+    internal static void RequirementSourceReusesStoredValues()
+    {
+        using var fixture = new Scope();
+        var lord = fixture.InstallLord("Example", "installed", unsupported: false);
+        var restart = new HUD_IngameMenu.RestartSkirmishMapInfo
+        {
+            lordTypes = new List<int> { -1, 100, 200 },
+            aivs = new FRONT_Multiplayer.MPAIVInfo[3],
+        };
+        restart.aivs[2] = new FRONT_Multiplayer.MPAIVInfo { lordName = "Example", lordType = -1,
+            lordConfig = lord.configs[0], aivs = lord.aivs };
+        string trail = Path.Combine(fixture.Root, "Trail_Mission_01.trail");
+        File.WriteAllText(trail, "saved");
+        TrailLordRequirementSource.Resolution first = TrailLordRequirementSource.Resolve(trail, restart, null, false);
+        Check(first.Slots.Single().PlayerId == 3 && first.InstalledSources.ContainsKey(3) &&
+            first.Slots[0].ModLordJson != null && first.ReusedPlayerIds.Count == 0, "installed author capture failed");
+        TrailLordRequirements.Create(trail, first.Slots).Write(trail);
+
+        File.AppendAllText(trail, " re-saved");
+        CustomisationFileManager.Instance.CustomLords.Clear();
+        TrailLordRequirementSource.Resolution reused = TrailLordRequirementSource.Resolve(trail, restart, null, false);
+        Check(reused.ReusedPlayerIds.SequenceEqual(new[] { 3 }) && reused.InstalledSources.Count == 0 &&
+            reused.Slots.Single().ModLordJson == first.Slots[0].ModLordJson,
+            "stored values of an unchanged slot were not reused without the installation");
+
+        restart.aivs[2].lordConfig = new CustomisationFileManager.CustomLordConfig
+            { lordType = -1, name = "aic", checksum = 99, path = lord.configs[0].path };
+        var gap = Reject<TrailLordAuthoringUnavailableException>(() =>
+            TrailLordRequirementSource.Resolve(trail, restart, null, false));
+        Check(gap.PlayerId == 3 && gap.LordName == "Example", "the missing authoring source was not identified");
+        TrailLordRequirementSource.Resolution embedded = TrailLordRequirementSource.Resolve(trail, restart, null, true);
+        TrailLordSlot only = embedded.Slots.Single();
+        Check(embedded.EmbeddedOnlyPlayerIds.SequenceEqual(new[] { 3 }) && only.EmbeddedValuesOnly &&
+            only.ModLordJson == null && only.FixesJson == null && !only.RequiresInstalledPackage &&
+            only.ConfigChecksum == "99", "the explicit embedded-only decision kept or invented extra values");
+
+        File.WriteAllText(TrailLordRequirements.SidecarPath(trail), "{");
+        bool rejected = false;
+        try { TrailLordRequirementSource.Resolve(trail, restart, null, true); }
+        catch (Exception) { rejected = true; }
+        Check(rejected, "a damaged requirements file was silently replaced");
+    }
+
     private sealed class Scope : IDisposable
     {
         private readonly string parent = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ExtendedDataRuntimeRegression"));

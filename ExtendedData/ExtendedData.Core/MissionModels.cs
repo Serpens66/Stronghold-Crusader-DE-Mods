@@ -110,12 +110,19 @@ namespace ExtendedData.Core
 
     public sealed class MapReference : AssetReference
     {
+        // Schema 5 provenance of an extracted map: the original reference saved in the Trail
+        // (builtIn, workshop or user) and its name. Informational; never used to load the map.
+        public string OriginalSource { get; set; }
+        public string OriginalName { get; set; }
     }
 
     public sealed class LordReference : AssetReference
     {
         public string Configuration { get; set; }
         public int BaseLordId { get; set; }
+        // Schema 5 "embeddedTrail": the original 1-based player slot inside the bundled Trail whose
+        // saved AIC, castle candidates, flags and portrait this AI player uses.
+        public int? SourcePlayerId { get; set; }
     }
 
     public sealed class AivReference : AssetReference

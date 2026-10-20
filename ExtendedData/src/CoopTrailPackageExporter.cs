@@ -1,3 +1,4 @@
+using APIShared.Maps;
 using ExtendedData.Core;
 using CrusaderDE;
 using System;
@@ -7,8 +8,18 @@ using System.Linq;
 
 namespace ExtendedData
 {
+    // Schema 5 export: every mission bundles an unchanged copy of its Trail (AIC, ordered castle candidates,
+    // flags, rotation and portraits of every AI slot) and the map extracted from it. Neither the original map
+    // nor the author's Lord installation is a source of these data any more.
     internal sealed class CoopTrailPackageExporter
     {
+        internal const string BundledTrailFileName = "mission.trail";
+        internal const string BundledMapFileName = "map.map";
+
+        // Lord requirements for one Maker Trail in its original player IDs, restricted to the given AI IDs.
+        internal delegate IReadOnlyList<TrailLordSlot> LordRequirementsResolver(string trailPath,
+            HUD_IngameMenu.RestartSkirmishMapInfo restart, ISet<int> aiPlayerIds);
+
         internal sealed class PreparedPackage : IDisposable
         {
             private readonly string stagingRoot;
@@ -20,6 +31,10 @@ namespace ExtendedData
             }
 
             internal CoopTrailPackage Package { get; }
+
+            // Editable Maker sources are staged here and replaced together with the missions.
+            internal string TrailMakerSourceStaging =>
+                Path.Combine(stagingRoot, CoopTrailPackagePublication.TrailMakerSourceDirectory);
 
             internal void Publish(string destination)
             {
@@ -36,16 +51,20 @@ namespace ExtendedData
         public PreparedPackage Prepare(
             string makerRoot,
             string destination,
-            Func<string, ModSettingsDefinition> readModSettings = null)
+            Func<string, ModSettingsDefinition> readModSettings,
+            LordRequirementsResolver resolveLordRequirements)
         {
+            if (resolveLordRequirements == null)
+                throw new ArgumentNullException(nameof(resolveLordRequirements));
             string customTrailsRoot = Path.GetDirectoryName(Path.GetFullPath(destination));
             string stagingRoot = Path.Combine(customTrailsRoot, ".cooptrail-build-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(stagingRoot);
             try
             {
-                string missionsRoot = Path.Combine(stagingRoot, "CoopMissions");
+                string missionsRoot = Path.Combine(stagingRoot, CoopTrailPackagePublication.MissionsDirectory);
                 Directory.CreateDirectory(missionsRoot);
                 var jsonPaths = new List<string>();
+                var trailPathsByOrdinal = new Dictionary<int, string>();
                 int ordinal = 0;
                 for (int sourceIndex = 0; sourceIndex < 50 && ordinal < 40; sourceIndex++)
                 {
@@ -54,25 +73,24 @@ namespace ExtendedData
                     if (!File.Exists(trailPath))
                         continue;
                     ordinal++;
-                    CoopMissionDefinition definition;
-                    IReadOnlyList<TrailLordSlot> lordSlots;
+                    trailPathsByOrdinal[ordinal] = trailPath;
+                    string jsonPath = Path.Combine(missionsRoot, ordinal.ToString("00") + ".coopmission.json");
                     try
                     {
-                        definition = CreateDefinition(trailPath, ordinal, missionsRoot, out lordSlots);
+                        CoopMissionDefinition definition = CreateDefinition(trailPath, ordinal, missionsRoot,
+                            resolveLordRequirements, out IReadOnlyList<TrailLordSlot> lordSlots);
+                        MissionLoader.WriteAtomic(jsonPath, definition);
+                        TrailLordRequirements.Create(jsonPath, lordSlots).Write(jsonPath);
+                        ModSettingsDefinition modSettings = readModSettings != null
+                            ? readModSettings(trailPath)
+                            : ReadModSettings(trailPath);
+                        if (modSettings?.Mods?.Count > 0)
+                            ModSettingsJson.WriteAtomic(MissionLoader.GetModSettingsPath(jsonPath), modSettings);
                     }
                     catch (Exception exception)
                     {
-                        throw new InvalidDataException("Coop mission " + ordinal + " [" + trailPath +
-                            "] could not be exported. " + exception.Message, exception);
+                        throw new CoopMissionExportException(ordinal, trailPath, exception);
                     }
-                    string jsonPath = Path.Combine(missionsRoot, ordinal.ToString("00") + ".coopmission.json");
-                    MissionLoader.WriteAtomic(jsonPath, definition);
-                    TrailLordRequirements.Create(jsonPath, lordSlots).Write(jsonPath);
-                    ModSettingsDefinition modSettings = readModSettings != null
-                        ? readModSettings(trailPath)
-                        : ReadModSettings(trailPath);
-                    if (modSettings?.Mods?.Count > 0)
-                        ModSettingsJson.WriteAtomic(MissionLoader.GetModSettingsPath(jsonPath), modSettings);
                     jsonPaths.Add(jsonPath);
                 }
                 if (ordinal == 0)
@@ -83,7 +101,15 @@ namespace ExtendedData
                 var loader = new MissionLoader();
                 for (int index = 0; index < jsonPaths.Count; index++)
                 {
-                    LoadedMission loaded = loader.Load(jsonPaths[index], (index / 10) + 1, (index % 10) + 1);
+                    LoadedMission loaded;
+                    try
+                    {
+                        loaded = loader.Load(jsonPaths[index], (index / 10) + 1, (index % 10) + 1);
+                    }
+                    catch (Exception exception)
+                    {
+                        throw new CoopMissionExportException(index + 1, trailPathsByOrdinal[index + 1], exception);
+                    }
                     fingerprintFiles.AddRange(loaded.BundledFiles);
                     if (loaded.ModSettingsPath != null)
                         fingerprintFiles.Add(loaded.ModSettingsPath);
@@ -99,9 +125,22 @@ namespace ExtendedData
                 };
                 CoopTrailPackageManifestJson.WriteAtomic(Path.Combine(stagingRoot, "cooptrail.json"), manifest);
                 CoopTrailPackage package = CoopTrailPackageCatalog.Load(stagingRoot);
+                // Resolve exactly as the runtime will: map header, embedded slots and portraits.
                 var resolver = new MissionAssetResolver();
                 foreach (LoadedMission mission in package.Missions)
-                    resolver.Resolve(mission);
+                {
+                    int missionOrdinal = ((mission.TrailNumber - 1) * 10) + mission.MissionNumber;
+                    try
+                    {
+                        resolver.Resolve(mission);
+                    }
+                    catch (Exception exception)
+                    {
+                        throw new CoopMissionExportException(missionOrdinal,
+                            trailPathsByOrdinal.TryGetValue(missionOrdinal, out string source) ? source : mission.JsonPath,
+                            exception);
+                    }
+                }
                 return new PreparedPackage(stagingRoot, package);
             }
             catch
@@ -116,32 +155,46 @@ namespace ExtendedData
             string trailPath,
             int ordinal,
             string missionsRoot,
+            LordRequirementsResolver resolveLordRequirements,
             out IReadOnlyList<TrailLordSlot> lordSlots)
         {
-            FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
-                trailPath,
-                trailPath,
-                4,
-                loadRestartInfo: true);
-            HUD_IngameMenu.RestartSkirmishMapInfo restart = container?.restartSkirmishInfo;
-            if (restart?.selectedHeader == null || restart.MPsetupData == null)
-                throw new InvalidDataException("Mission " + ordinal + " has no complete saved skirmish setup.");
-            List<int> activeSlots = CoopTrailSlotSelection.GetActiveSlots(restart.lordTypes);
-            var lordSources = new Dictionary<int, TrailLordPackageRuntime.Candidate>();
-            lordSlots = TrailLordPackageRuntime.Capture(restart, lordSources,
-                CoopTrailSlotSelection.GetAiPlayerIds(activeSlots));
-            lordSlots = CoopTrailSlotSelection.RemapForCoop(lordSlots, activeSlots);
-
             string assetRoot = Path.Combine(missionsRoot, "Assets", ordinal.ToString("00"));
             Directory.CreateDirectory(assetRoot);
+            // One read: the bundled copy, the extracted map and the decoded setup all describe these bytes.
+            byte[] trailBytes = File.ReadAllBytes(trailPath);
+            byte[] restartBytes = TrailContainer.ReadRestartData(trailBytes);
+            string bundledTrail = Path.Combine(assetRoot, BundledTrailFileName);
+            string bundledMap = Path.Combine(assetRoot, BundledMapFileName);
+            File.WriteAllBytes(bundledTrail, trailBytes);
+            File.WriteAllBytes(bundledMap, TrailContainer.ExtractMap(trailBytes));
+
+            // Vanilla's Trail decoding tolerates a missing original map (customTrailMission=true).
+            FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
+                bundledTrail, bundledTrail, 4, loadRestartInfo: true);
+            HUD_IngameMenu.RestartSkirmishMapInfo restart = container?.restartSkirmishInfo;
+            if (restart?.MPsetupData == null || restart.aivs == null)
+                throw new InvalidDataException("Mission " + ordinal + " has no complete saved skirmish setup.");
+            if (restart.MPsetupData.preferredAIVs == null || restart.MPsetupData.preferredAIVs.Length != 8)
+                throw new InvalidDataException("Saved multiplayer setup has no complete preferred-AIV array.");
+            List<int> activeSlots = CoopTrailSlotSelection.GetActiveSlots(restart.lordTypes);
+            IReadOnlyList<TrailLordSlot> makerSlots = resolveLordRequirements(trailPath, restart,
+                CoopTrailSlotSelection.GetAiPlayerIds(activeSlots));
+            lordSlots = CoopTrailSlotSelection.RemapForCoop(makerSlots, activeSlots);
+
+            TrailRestartMapReference original = TrailRestartMapReference.Read(restartBytes);
+            string trailReference = ToMissionRelative(bundledTrail, missionsRoot);
             var definition = new CoopMissionDefinition
             {
                 SchemaVersion = MissionLoader.CurrentSchemaVersion,
-                DisplayName = string.IsNullOrWhiteSpace(restart.selectedHeader.display_filename)
-                    ? restart.selectedHeader.fileName
-                    : restart.selectedHeader.display_filename,
+                DisplayName = DisplayName(restart.selectedHeader, original),
                 Description = string.Empty,
-                Map = CreateMapReference(restart.selectedHeader, assetRoot, missionsRoot, ordinal),
+                Map = new MapReference
+                {
+                    Source = "bundled",
+                    File = ToMissionRelative(bundledMap, missionsRoot),
+                    OriginalSource = original.Source,
+                    OriginalName = original.Name,
+                },
                 Settings = CreateSettings(restart.MPsetupData),
                 Players = new List<PlayerDefinition>(),
             };
@@ -160,8 +213,7 @@ namespace ExtendedData
                     Colour = Math.Max(1, Math.Min(8, colour)),
                 };
                 if (activeIndex >= 2)
-                    PopulateAi(player, restart, slot, assetRoot, missionsRoot, activeIndex + 1,
-                        lordSources.TryGetValue(slot + 1, out var source) ? source : null);
+                    PopulateEmbeddedAi(player, restart, slot, trailReference, activeIndex + 1);
                 definition.Players.Add(player);
             }
             MissionProjection projection = MissionProjection.Create(definition);
@@ -170,15 +222,41 @@ namespace ExtendedData
             return definition;
         }
 
-        private static MapReference CreateMapReference(FileHeader header, string assetRoot,
-            string missionsRoot, int ordinal)
+        // The technical file name map.map is never the mission title. Prefer the installed original's
+        // translated title, otherwise the name saved in the Trail.
+        private static string DisplayName(FileHeader originalHeader, TrailRestartMapReference original)
         {
-            if (header.builtinMap)
-                return new MapReference { Source = "builtIn", Name = header.fileName };
-            string source = RequireFile(header.filePath, ".map", "map for mission " + ordinal);
-            string target = Path.Combine(assetRoot, "map.map");
-            File.Copy(source, target, true);
-            return new MapReference { Source = "bundled", File = ToMissionRelative(target, missionsRoot) };
+            if (!string.IsNullOrWhiteSpace(originalHeader?.display_filename))
+                return originalHeader.display_filename;
+            if (!string.IsNullOrWhiteSpace(originalHeader?.fileName))
+                return originalHeader.fileName;
+            if (!string.IsNullOrWhiteSpace(original.Name))
+                return Path.GetFileNameWithoutExtension(original.Name);
+            throw new InvalidDataException("The Trail has no original map name.");
+        }
+
+        private static void PopulateEmbeddedAi(
+            PlayerDefinition player,
+            HUD_IngameMenu.RestartSkirmishMapInfo restart,
+            int slot,
+            string trailReference,
+            int playerNumber)
+        {
+            FRONT_Multiplayer.MPAIVInfo info = slot < restart.aivs.Length ? restart.aivs[slot] : null;
+            if (info == null)
+                throw new InvalidDataException("AI player " + playerNumber + " has no saved AIV information.");
+            player.Lord = new LordReference
+            {
+                Source = MissionLoader.EmbeddedTrailSource,
+                File = trailReference,
+                SourcePlayerId = slot + 1,
+                BaseLordId = Math.Max(0, info.lordType),
+                // Display and diagnostics only; the slot itself is the source.
+                Name = info.builtInLord || string.IsNullOrWhiteSpace(info.lordName) ? null : info.lordName,
+            };
+            player.Aivs = new List<AivReference>();
+            player.PreferredAiv = -1;
+            player.NativePreferredAiv = restart.MPsetupData.preferredAIVs[slot];
         }
 
         private static CoopSettings CreateSettings(EngineInterface.MultiplayerSetupData setup)
@@ -240,114 +318,6 @@ namespace ExtendedData
             return source.ToArray();
         }
 
-        private static void PopulateAi(
-            PlayerDefinition player,
-            HUD_IngameMenu.RestartSkirmishMapInfo restart,
-            int slot,
-            string assetRoot,
-            string missionsRoot,
-            int playerNumber,
-            TrailLordPackageRuntime.Candidate authorSource)
-        {
-            FRONT_Multiplayer.MPAIVInfo info = restart.aivs != null && slot < restart.aivs.Length ? restart.aivs[slot] : null;
-            if (info == null)
-                throw new InvalidDataException("AI player " + playerNumber + " has no saved AIV information.");
-
-            int baseLordId = Math.Max(0, info.lordType);
-            if (info.builtInLord)
-            {
-                player.Lord = new LordReference { Source = "builtIn", Id = baseLordId, BaseLordId = baseLordId };
-            }
-            else
-            {
-                string lordSource = RequireFile(ResolveNamedFile(authorSource?.Config.path,
-                    authorSource?.Config.name, ".lordjson"), ".lordjson",
-                    "author Lord for player " + playerNumber);
-                string playerAssetRoot = Path.Combine(assetRoot, "AI-" + playerNumber.ToString("00"));
-                Directory.CreateDirectory(playerAssetRoot);
-                string lordTarget = Path.Combine(playerAssetRoot, Path.GetFileName(lordSource));
-                File.Copy(lordSource, lordTarget, true);
-                player.Lord = new LordReference
-                {
-                    Source = "bundled",
-                    Name = authorSource.Name,
-                    File = ToMissionRelative(lordTarget, missionsRoot),
-                    BaseLordId = baseLordId,
-                };
-            }
-
-            player.Aivs = new List<AivReference>();
-            if (!info.builtIn && info.aivs != null)
-            {
-                for (int index = 0; index < info.aivs.Count; index++)
-                {
-                    CustomisationFileManager.CustomAIV aiv = info.aivs[index];
-                    if (aiv.builtIn)
-                    {
-                        List<CustomisationFileManager.CustomAIV> builtIns = CustomisationFileManager.Instance.getLordAIVList(baseLordId);
-                        int builtInIndex = builtIns?.FindIndex(candidate => candidate.checksum == aiv.checksum ||
-                            string.Equals(candidate.AIVName, aiv.AIVName, StringComparison.OrdinalIgnoreCase)) ?? -1;
-                        if (builtInIndex < 0)
-                            throw new InvalidDataException("Built-in AIV could not be identified for AI player " + playerNumber + ".");
-                        player.Aivs.Add(new AivReference { Source = "builtIn", Id = builtInIndex, Rotation = NormalizeRotation(info.rotation) });
-                    }
-                    else
-                    {
-                        string aivSource = ResolveAivFile(info, aiv, baseLordId, authorSource);
-                        string playerAssetRoot = Path.Combine(assetRoot, "AI-" + playerNumber.ToString("00"));
-                        Directory.CreateDirectory(playerAssetRoot);
-                        string aivTarget = Path.Combine(playerAssetRoot, Path.GetFileName(aivSource));
-                        if (File.Exists(aivTarget))
-                            throw new InvalidDataException("AI player " + playerNumber +
-                                " selects multiple AIVs with the same file name: " + Path.GetFileName(aivSource));
-                        File.Copy(aivSource, aivTarget, true);
-                        player.Aivs.Add(new AivReference
-                        {
-                            Source = "bundled",
-                            File = ToMissionRelative(aivTarget, missionsRoot),
-                            Rotation = NormalizeRotation(info.rotation),
-                        });
-                    }
-                }
-            }
-            player.PreferredAiv = -1;
-            if (restart.MPsetupData.preferredAIVs == null || restart.MPsetupData.preferredAIVs.Length != 8)
-                throw new InvalidDataException("Saved multiplayer setup has no complete preferred-AIV array.");
-            player.NativePreferredAiv = restart.MPsetupData.preferredAIVs[slot];
-        }
-
-        private static string ResolveAivFile(FRONT_Multiplayer.MPAIVInfo info, CustomisationFileManager.CustomAIV aiv, int baseLordId,
-            TrailLordPackageRuntime.Candidate authorSource)
-        {
-            string direct = ResolveNamedFile(aiv.path, aiv.AIVName, ".aivjson");
-            if (direct != null)
-                return direct;
-            List<CustomisationFileManager.CustomAIV> installed = authorSource != null
-                ? authorSource.Aivs
-                : info.builtInLord || string.IsNullOrWhiteSpace(info.lordName)
-                ? CustomisationFileManager.Instance.getLordAIVList(baseLordId)
-                : CustomisationFileManager.Instance.getLordAIVList(-1, info.lordName);
-            CustomisationFileManager.CustomAIV match = installed?.FirstOrDefault(candidate =>
-                candidate.checksum == aiv.checksum && string.Equals(candidate.AIVName, aiv.AIVName, StringComparison.OrdinalIgnoreCase));
-            return RequireFile(ResolveNamedFile(match?.path, match?.AIVName, ".aivjson"), ".aivjson", "AIV " + aiv.AIVName);
-        }
-
-        private static string ResolveNamedFile(string path, string name, string extension)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                return null;
-            if (File.Exists(path) && string.Equals(Path.GetExtension(path), extension, StringComparison.OrdinalIgnoreCase))
-                return path;
-            string combined = Path.Combine(path, (name ?? string.Empty) + extension);
-            return File.Exists(combined) ? combined : null;
-        }
-
-        private static int NormalizeRotation(int nativeRotation)
-        {
-            int normalized = ((nativeRotation % 4) + 4) % 4;
-            return normalized * 90;
-        }
-
         private static int FindKeepPosition(int[] keepOrder, int slot)
         {
             if (keepOrder != null)
@@ -382,16 +352,6 @@ namespace ExtendedData
             {
                 return null;
             }
-        }
-
-        private static string RequireFile(string path, string extension, string label)
-        {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path) ||
-                !string.Equals(Path.GetExtension(path), extension, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new FileNotFoundException("Could not locate " + label + ".", path);
-            }
-            return Path.GetFullPath(path);
         }
 
         private static string ToMissionRelative(string path, string missionsRoot)

@@ -23,11 +23,22 @@ namespace ExtendedData.Core
         internal static IReadOnlyList<TrailLordSlot> RemapForCoop(
             IReadOnlyList<TrailLordSlot> slots, List<int> activeSlots)
         {
+            // Copies: Maker sidecar slots keep their original IDs while the playable Coop
+            // file receives the compact numbering.
             return slots.Where(slot => activeSlots.IndexOf(slot.PlayerId - 1) >= 2)
-                .Select(slot =>
+                .Select(slot => new TrailLordSlot
                 {
-                    slot.PlayerId = activeSlots.IndexOf(slot.PlayerId - 1) + 1;
-                    return slot;
+                    PlayerId = activeSlots.IndexOf(slot.PlayerId - 1) + 1,
+                    LordType = slot.LordType,
+                    LordName = slot.LordName,
+                    ConfigName = slot.ConfigName,
+                    ConfigChecksum = slot.ConfigChecksum,
+                    AivChecksums = slot.AivChecksums?.ToArray(),
+                    RequiresInstalledPackage = slot.RequiresInstalledPackage,
+                    PackageDigest = slot.PackageDigest,
+                    ModLordJson = slot.ModLordJson,
+                    FixesJson = slot.FixesJson,
+                    EmbeddedValuesOnly = slot.EmbeddedValuesOnly,
                 }).ToArray();
         }
     }

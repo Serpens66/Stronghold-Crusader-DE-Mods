@@ -8,7 +8,11 @@ namespace ExtendedData.Core
 {
     public sealed class MissionLoader
     {
-        public const int CurrentSchemaVersion = 4;
+        // Schema 5 adds Lord references of source "embeddedTrail" and map provenance. Schema 4 keeps its
+        // previous meaning and reader; older readers reject schema 5 by its version.
+        public const int CurrentSchemaVersion = 5;
+        public const int LegacySchemaVersion = 4;
+        public const string EmbeddedTrailSource = "embeddedTrail";
         public const string ModSettingsFileSuffix = ".modtrail.json";
         private static readonly HashSet<int> Rotations = new HashSet<int> { 0, 90, 180, 270 };
 
@@ -89,11 +93,14 @@ namespace ExtendedData.Core
         {
             if (mission == null)
                 throw new InvalidDataException("Mission JSON is empty.");
-            if (mission.SchemaVersion != CurrentSchemaVersion)
+            if (mission.SchemaVersion != CurrentSchemaVersion && mission.SchemaVersion != LegacySchemaVersion)
                 throw new InvalidDataException("Unsupported schemaVersion " + mission.SchemaVersion + ".");
+            bool embeddedAllowed = mission.SchemaVersion >= CurrentSchemaVersion;
             if (string.IsNullOrWhiteSpace(mission.DisplayName))
                 throw new InvalidDataException("displayName is required.");
             ValidateAsset(mission.Map, "map", ".map");
+            if (!embeddedAllowed && (mission.Map.OriginalSource != null || mission.Map.OriginalName != null))
+                throw new InvalidDataException("map provenance requires schemaVersion " + CurrentSchemaVersion + ".");
             if (mission.Settings == null)
                 mission.Settings = new CoopSettings();
             if (mission.Settings.Fairness < 1 || mission.Settings.Fairness > 5)
@@ -123,11 +130,18 @@ namespace ExtendedData.Core
                     continue;
                 if (player.Lord == null)
                     throw new InvalidDataException("Every AI player requires a lord reference.");
-                ValidateAsset(player.Lord, "lord", ".lordjson");
-                if (player.Lord.BaseLordId < 0)
-                    throw new InvalidDataException("lord.baseLordId must not be negative.");
                 if (player.Aivs == null)
                     player.Aivs = new List<AivReference>();
+                if (string.Equals(player.Lord.Source, EmbeddedTrailSource, StringComparison.Ordinal))
+                    ValidateEmbeddedLord(player, embeddedAllowed);
+                else
+                {
+                    ValidateAsset(player.Lord, "lord", ".lordjson");
+                    if (player.Lord.SourcePlayerId.HasValue)
+                        throw new InvalidDataException("lord.sourcePlayerId is only valid for embeddedTrail references.");
+                }
+                if (player.Lord.BaseLordId < 0)
+                    throw new InvalidDataException("lord.baseLordId must not be negative.");
                 foreach (AivReference aiv in player.Aivs)
                 {
                     ValidateAsset(aiv, "aiv", ".aivjson");
@@ -145,6 +159,24 @@ namespace ExtendedData.Core
                     throw new InvalidDataException("Every AI player requires nativePreferredAiv.");
             }
 
+        }
+
+        // The embedded slot carries AIC, ordered castles, flags, rotation and portrait together;
+        // additional explicit AIV references would contradict it.
+        private static void ValidateEmbeddedLord(PlayerDefinition player, bool allowed)
+        {
+            LordReference lord = player.Lord;
+            if (!allowed)
+                throw new InvalidDataException("lord.source " + EmbeddedTrailSource + " requires schemaVersion " +
+                    CurrentSchemaVersion + ".");
+            if (string.IsNullOrWhiteSpace(lord.File) || !lord.File.EndsWith(".trail", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("lord " + EmbeddedTrailSource + " reference requires a .trail file.");
+            if (!lord.SourcePlayerId.HasValue || lord.SourcePlayerId.Value < 1 || lord.SourcePlayerId.Value > 8)
+                throw new InvalidDataException("lord.sourcePlayerId must be between 1 and 8.");
+            if (lord.Id.HasValue || !string.IsNullOrEmpty(lord.Configuration))
+                throw new InvalidDataException("lord " + EmbeddedTrailSource + " reference cannot select another configuration.");
+            if (player.Aivs.Count != 0 || player.PreferredAiv != -1)
+                throw new InvalidDataException("lord " + EmbeddedTrailSource + " reference cannot add explicit AIV references.");
         }
 
         private static void ValidateMultiplayerSetup(MultiplayerSetupSettings setup)
@@ -275,7 +307,10 @@ namespace ExtendedData.Core
             AddBundled(files, root, mission.Map, ".map");
             foreach (PlayerDefinition player in mission.Players.Where(player => player != null && player.Active).Skip(2))
             {
-                AddBundled(files, root, player.Lord, ".lordjson");
+                if (string.Equals(player.Lord?.Source, EmbeddedTrailSource, StringComparison.Ordinal))
+                    files.Add(ResolveBundledPath(root, player.Lord.File, ".trail"));
+                else
+                    AddBundled(files, root, player.Lord, ".lordjson");
                 foreach (AivReference aiv in player.Aivs)
                     AddBundled(files, root, aiv, ".aivjson");
             }

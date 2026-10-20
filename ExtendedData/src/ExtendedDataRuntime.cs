@@ -17,7 +17,7 @@ using Path = System.IO.Path;
 
 namespace ExtendedData
 {
-    internal sealed class ExtendedDataRuntime : IDisposable
+    internal sealed partial class ExtendedDataRuntime : IDisposable
     {
         private delegate void InitCoopMissionsDelegate(FRONT_Multiplayer self);
         private delegate void CoopMissionChangedDelegate(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped);
@@ -334,6 +334,16 @@ namespace ExtendedData
             coopTrail4RowHook = new Hook(RequirePreviewUpdate(typeof(FRONT_CoopTrail4.PlayerRow)),
                 (CoopTrail4RowDelegate)CoopTrail4RowHook);
             coopTrail4RowTrampoline = coopTrail4RowHook.GenerateTrampoline<CoopTrail4RowDelegate>();
+            try
+            {
+                // An older APIShared lacks the capability; the missing member fails when this call is compiled.
+                RegisterCoopAiStartProvider();
+            }
+            catch (Exception exception)
+            {
+                coopAiImportUnavailableReason = exception.Message;
+                LogError("APIShared Coop AI start import could not be acquired: " + exception);
+            }
 
             RefreshPackageCatalog();
             OnActiveCoopPackageChanged();
@@ -615,6 +625,12 @@ namespace ExtendedData
                 {
                     if (IsStartCommand(command))
                     {
+                        string aiStartReason = CoopAiStartBlockReason(self);
+                        if (aiStartReason != null)
+                        {
+                            BlockLaunch(command, aiStartReason);
+                            return;
+                        }
                         if (!PrepareSelectedLordRequirements(out string lordReason,
                             captureLocalReplacements: self.singlePlayerCoop))
                         {
@@ -823,7 +839,17 @@ namespace ExtendedData
                     FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(entry.Value.TrailNumber);
                     if (trail == null)
                         continue;
-                    ResolvedMission mission = resolver.Resolve(entry.Value);
+                    ResolvedMission mission;
+                    try
+                    {
+                        mission = resolver.Resolve(entry.Value);
+                    }
+                    catch (Exception exception)
+                    {
+                        throw new InvalidDataException("Trail" + entry.Value.TrailNumber + "/" +
+                            entry.Value.MissionNumber.ToString("00") + " [" +
+                            Path.GetFileName(entry.Value.JsonPath) + "]: " + exception.Message, exception);
+                    }
                     if (!string.IsNullOrWhiteSpace(entry.Value.Definition.ModSettingsError))
                         LogError("Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " ignored an invalid mod-settings sidecar; local mod settings remain unchanged: " + entry.Value.Definition.ModSettingsError);
                     prepared.Add(new KeyValuePair<int, ResolvedMission>(entry.Key, mission));
@@ -1140,10 +1166,13 @@ namespace ExtendedData
                         lordDataCoordinator.IsManifestReplacementSlot(slot.PlayerId))
                         continue;
                 }
-                if (info != null && TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
+                // The same Lord name with another configuration is a replacement: its
+                // values come from the host snapshot, never from this mission's stored slot.
+                if (info?.lordConfig != null && TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
                     info.builtInLord, info.lordName,
                     lordDataCoordinator.PreparedTrailMediaAlias(selected.Loaded.LordRequirements,
-                        slot.PlayerId)))
+                        slot.PlayerId), info.lordType, info.lordConfig.lordType,
+                    info.lordConfig.name, info.lordConfig.checksum.ToString()))
                     matched.Add(slot.PlayerId);
             }
             return matched;

@@ -355,6 +355,12 @@ namespace ExtendedData
                         info?.lordConfig == null || info.builtInLord ||
                          string.IsNullOrWhiteSpace(info.lordConfig.name))
                         throw new InvalidDataException("The selected Lord configuration is unavailable: " + slot.LordName);
+                    // Recheck the full binding right before the snapshot is built: a later
+                    // configuration change must not be relabelled with this slot's stored values.
+                    if (!TrailLordSelectionPolicy.HasSameConfiguration(slot, info.lordConfig.lordType,
+                            info.lordConfig.name, info.lordConfig.checksum.ToString()))
+                        throw new InvalidDataException("The selected configuration of " + slot.LordName +
+                            " (player " + slot.PlayerId + ") changed; refresh the Lord selection before starting.");
                     fixes.ValidateSnapshotValue(slot.FixesJson);
                     if (!TrailLordPackageRuntime.TryResolve(slot, out string mediaName,
                         out _, out string error))
