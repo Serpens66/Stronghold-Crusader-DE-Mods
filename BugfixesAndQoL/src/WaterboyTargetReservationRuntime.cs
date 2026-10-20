@@ -66,6 +66,7 @@ namespace BugfixesAndQoL
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     new HookTransactionOptions
                     {
+                        Backend = HookInstallPhase.Backend(),
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
                         OwnsHooks = true
                     });

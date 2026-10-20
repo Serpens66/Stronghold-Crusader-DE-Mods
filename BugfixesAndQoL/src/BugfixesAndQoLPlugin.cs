@@ -133,6 +133,8 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:135", $"Bugfixes and QoL display-resolution persistence could not be initialized; Vanilla behavior remains active: {ex}");
             }
+            // TEMP_PERF_DIAG (startup-time candidate): DEVDIAG builds only, attach before the first measured startup step.
+            Shared.DevDiag.Attach(Logger); // TEMP_PERF_DIAG
             runtime = new BugfixesAndQoLRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
@@ -193,6 +195,23 @@ namespace BugfixesAndQoL
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
             {
+            long diagLibraryLoaded = 0; // TEMP_PERF_DIAG (startup-time candidate, BFQoLPerformace.md)
+            Shared.DevDiag.Start(ref diagLibraryLoaded); // TEMP_PERF_DIAG
+            // Initial native installation window (see BugfixesHookInfrastructure.DetourBackend).
+            HookInstallPhase.InitialLibraryLoad = true;
+            bool completed;
+            try { completed = InitializeLibraryRuntime(context); }
+            finally { HookInstallPhase.InitialLibraryLoad = false; }
+            // A fail-closed stop inside the runtime initialization leaves the breadcrumb incomplete, as before.
+            if (!completed) return;
+            diagnostic.Complete();
+            Shared.DevDiag.StopSpike(ref diagLibraryLoaded, "startup.libraryLoaded(total)", 1); // TEMP_PERF_DIAG
+            }
+        }
+
+        // Runs inside the initial native installation window; false = stopped fail-closed.
+        private bool InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
+        {
             // Register packet types immediately after Script Extender and before settings can vary.
             try
             {
@@ -230,7 +249,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:242", $"Bugfixes and QoL settings registration failed; gameplay runtime stopped fail-closed: {ex}");
-                return;
+                return false;
             }
 
             try
@@ -428,8 +447,7 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:455", $"Bugfixes and QoL settings reconciliation failed; already initialized features remain active: {ex}");
             }
-            diagnostic.Complete();
-            }
+            return true;
         }
 
         private static bool HasLegacyExtraFeaturesPeaceTimeSetting()

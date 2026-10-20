@@ -67,6 +67,8 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
+        private readonly List<int> waypointTribeIdBuffer = new List<int>();
+
         internal void ObserveNativeWaypointQueues(int tick)
         {
             if (trackedNativeWaypointQueues.Count == 0)
@@ -74,7 +76,10 @@ namespace BugfixesAndQoL.UnitCommands
 
             try
             {
-                var tribeIds = new List<int>(trackedNativeWaypointQueues.Keys);
+                // Simulation-thread only; the buffer avoids a list allocation per tick.
+                List<int> tribeIds = waypointTribeIdBuffer;
+                tribeIds.Clear();
+                tribeIds.AddRange(trackedNativeWaypointQueues.Keys);
                 foreach (int tribeId in tribeIds)
                 {
                     if (!trackedNativeWaypointQueues.TryGetValue(
@@ -148,14 +153,17 @@ namespace BugfixesAndQoL.UnitCommands
             string source,
             int tick)
         {
-            string signature = snapshot.ToString();
-            if (string.Equals(tracker.LastSignature, signature, StringComparison.Ordinal))
+            // Runs per tracked tribe and simulation tick: compare values instead of formatting a
+            // signature string, and format the message only for enabled detailed diagnostics.
+            if (tracker.HasLastSnapshot && tracker.LastSnapshot.Equals(snapshot))
                 return false;
-            tracker.LastSignature = signature;
-            LogDetailedInfo(
-                $"Bugfixes and QoL stage=friendly-moat-movement-native-waypoint-queue source={source} tick={tick} " +
-                $"commandSeq={tracker.LastCommandSequence} tribe={tracker.TribeId} " +
-                $"requested=({tracker.LastRequestedX},{tracker.LastRequestedY}) {signature}.");
+            tracker.LastSnapshot = snapshot;
+            tracker.HasLastSnapshot = true;
+            if (DetailedDiagnosticsEnabled)
+                LogDetailedInfo(
+                    $"Bugfixes and QoL stage=friendly-moat-movement-native-waypoint-queue source={source} tick={tick} " +
+                    $"commandSeq={tracker.LastCommandSequence} tribe={tracker.TribeId} " +
+                    $"requested=({tracker.LastRequestedX},{tracker.LastRequestedY}) {snapshot}.");
             return true;
         }
 
@@ -171,7 +179,8 @@ namespace BugfixesAndQoL.UnitCommands
             public int LastRequestedX { get; set; }
             public int LastRequestedY { get; set; }
             public int EmptyTicks { get; set; }
-            public string LastSignature { get; set; }
+            public NativeWaypointQueueSnapshot LastSnapshot { get; set; }
+            public bool HasLastSnapshot { get; set; }
         }
 
         internal readonly struct NativeWaypointQueueSnapshot
@@ -196,6 +205,11 @@ namespace BugfixesAndQoL.UnitCommands
             public int CurrentY { get; }
             public int LastX { get; }
             public int LastY { get; }
+
+            public bool Equals(NativeWaypointQueueSnapshot other) =>
+                Index == other.Index && Count == other.Count && Mode == other.Mode &&
+                CurrentX == other.CurrentX && CurrentY == other.CurrentY &&
+                LastX == other.LastX && LastY == other.LastY;
 
             public override string ToString() =>
                 $"index={Index} count={Count} mode={Mode} " +

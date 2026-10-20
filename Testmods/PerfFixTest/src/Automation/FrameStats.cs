@@ -6,7 +6,8 @@ using System.Linq;
 namespace PerfFixTest.Automation
 {
     // Frame-interval statistics of one hold phase, measured by the automation itself so a
-    // comparison does not depend on PerfProbe (and can run without it).
+    // comparison does not depend on PerfProbe (and can run without it). Lag counters use the
+    // user's freeze definition (> 100 ms) plus a 50 ms stutter bucket.
     internal sealed class FrameStats
     {
         private readonly List<double> intervals = new List<double>(8192);
@@ -21,9 +22,12 @@ namespace PerfFixTest.Automation
             double[] sorted = intervals.OrderBy(v => v).ToArray();
             double total = sorted.Sum();
             CultureInfo c = CultureInfo.InvariantCulture;
-            return string.Format(c, "frames={0} fps={1:0.0} meanMs={2:0.000} p50Ms={3:0.000} p95Ms={4:0.000} p99Ms={5:0.000} maxMs={6:0.0}",
+            int over50 = sorted.Count(v => v > 50), over100 = sorted.Count(v => v > 100);
+            double lagMs = sorted.Where(v => v > 100).Sum();
+            string top = string.Join(",", sorted.Reverse().Take(5).Select(v => v.ToString("0", c)));
+            return string.Format(c, "frames={0} fps={1:0.0} meanMs={2:0.000} p50Ms={3:0.000} p95Ms={4:0.000} p99Ms={5:0.000} maxMs={6:0.0} over50={7} over100={8} lagSumMs={9:0} top5Ms={10}",
                 sorted.Length, sorted.Length * 1000.0 / total, total / sorted.Length, Percentile(sorted, 0.50),
-                Percentile(sorted, 0.95), Percentile(sorted, 0.99), sorted[sorted.Length - 1]);
+                Percentile(sorted, 0.95), Percentile(sorted, 0.99), sorted[sorted.Length - 1], over50, over100, lagMs, top);
         }
 
         private static double Percentile(double[] sorted, double fraction) =>

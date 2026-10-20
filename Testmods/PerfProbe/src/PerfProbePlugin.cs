@@ -20,11 +20,13 @@ namespace PerfProbe
         {
             if (registered) return;
             registered = true; log = Logger;
-            // Rooted by the extender's library publisher, not by this component (startup cleanup).
-            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             bool active = false;
             DiagIsActive(ref active);
+            // Configuration first: an already loaded library raises LibraryLoaded during the
+            // subscription below, and installation depends on the configured samplers.
             DiagBindConfig(Config);
+            // Rooted by the extender's library publisher, not by this component (startup cleanup).
+            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(log, Name + " " + Version + " loaded; measurements " +
                 (active ? "active (DEVDIAG build)." : "inactive (no DEVDIAG build)."));
         }

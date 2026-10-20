@@ -143,6 +143,8 @@
     <Compile Include="src\BugfixesAndQoLRuntime.MovedFeatures.cs" />
 
     <Compile Include="src\BugfixesHookInfrastructure.cs" />
+    <Compile Include="src\DemandGatedContextHook.cs" />
+    <Compile Include="src\HookInstallPhase.cs" />
     <Compile Include="src\PermanentInstructionSkipPatch.cs" />
     <Compile Include="src\NativeInstructionReplayEmitter.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />

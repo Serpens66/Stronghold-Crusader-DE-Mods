@@ -30,6 +30,10 @@ namespace PerfProbe
                 config.Bind("Spikes", "FrameGapMs", 200, "Minimum gap between two rendered frames for a spike line.").Value,
                 config.Bind("Spikes", "FreezeMs", 400, "Spike lines at or above this duration are marked freeze=true.").Value);
             PerfProbeExtras.BindConfig(config);
+            PerfProbeThreadSampler.BindConfig(config);
+            // The sampler starts in Awake to cover plugin startup; DevDiag output needs the logger now.
+            Shared.DevDiag.Attach(log);
+            PerfProbeThreadSampler.Install();
         }
 
         static partial void DiagInstall(ManualLogSource logger)
@@ -69,6 +73,7 @@ namespace PerfProbe
             Patch(typeof(EngineInterface), nameof(EngineInterface.run), new[] { typeof(bool) }, nameof(EndEngineRun), nameof(BeginEngineRun));
             PerfProbeExtras.Install(log, harmony);
             PerfProbeSimSampler.Install();
+            PerfProbeThreadSampler.Install();
             lowFpsField = AccessTools.Field(typeof(Director), "lowFPSCompensationLevel");
             if (lowFpsField != null && lowFpsField.FieldType != typeof(int)) lowFpsField = null;
             // Statically rooted per-frame sampler; render/camera bound, also while paused.
@@ -200,6 +205,7 @@ namespace PerfProbe
 
         private static void OnBeforeRender()
         {
+            PerfProbeThreadSampler.NoteMainThread();
             int frame = Time.frameCount;
             if (frame == lastFrame) return;
             lastFrame = frame;

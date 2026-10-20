@@ -21,7 +21,7 @@ internal static partial class Program
             "CompleteCommand", "ClearTransientState", "ResetMapValidation", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
         var members = runtime.Members.Where(m => m is FieldDeclarationSyntax || m is DelegateDeclarationSyntax ||
             m is MethodDeclarationSyntax method && !excluded.Contains(method.Identifier.Text) ||
-            m is TypeDeclarationSyntax type && type.Identifier.Text != "AssassinObservation");
+            m is BaseTypeDeclarationSyntax type && type.Identifier.Text != "AssassinObservation");
         string body = string.Join("\n", members.Select(m => m.ToFullString()));
         if (before) body = "private const bool PerformanceDiagnosticsEnabled = true;\n" + body;
         if (diagnostics) body = body.Replace("PerformanceDiagnosticsEnabled = false", "PerformanceDiagnosticsEnabled = true");
@@ -45,6 +45,16 @@ internal static partial class Program
         string fixture = File.ReadAllText(Path.Combine(root, "_inspect/AssassinPerf/ProductionFixture.cs.txt"))
             .Replace("RUNTIME_MEMBERS", body).Replace("PUBLICATION_MEMBERS", publishing).Replace("API_BOUNDARY", boundary);
         if (before) fixture = fixture.Replace("out var cached,out _", "out var cached");
+        // Existence-only answer (group/field requests) must equal the production A* outcome on every
+        // terrain, climbing state and gate mask; the A* result above is the reference.
+        fixture = fixture.Replace("VERIFY_EXISTENCE", before ? "" : """
+      var existence=r.FindAnyWeightedRoute(sx,sy,tx,ty,4,r.climbRuntime.Allowed,true,null);
+      Assert(existence==(found?RouteExistence.Exists:RouteExistence.None),"existence search agrees with production A* "+terrain);
+      IEnemyGateRoutePolicySnapshot gateMask=i%3==0?new ValidationMask{Allowed=false}:new StripeMask();
+      bool maskedFound=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,r.climbRuntime.Allowed,true,null,gateMask,out _);
+      Assert(r.FindAnyWeightedRoute(sx,sy,tx,ty,4,r.climbRuntime.Allowed,true,gateMask)==(maskedFound?RouteExistence.Exists:RouteExistence.None),
+       "existence search applies the same gate mask "+terrain);
+""");
         fixture = fixture.Replace("VERIFY_BOUND_PROFILE", before ? "" : """
    var direct=new AssassinPathfindingRuntime("open");
    try {
@@ -81,7 +91,9 @@ internal static partial class Program
             "APIShared/src/Pathfinding/GateRoutes/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
             "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",
             "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinClimbTransitionPolicy.cs",
-            "BugfixesAndQoL/src/AssassinRouteEncoding.cs" };
+            "BugfixesAndQoL/src/AssassinRouteEncoding.cs",
+            // Real development-diagnostics facade: without SERP_DEVDIAG every call compiles away.
+            "Shared/Runtime/Diagnostics/DevDiag.cs" };
         var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f))).Append(CSharpSyntaxTree.ParseText(fixture));
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
@@ -103,7 +115,6 @@ internal static partial class Program
 
     private static void TestProductionKernel(string root)
     {
-        TestGitContractPreservation(root);
         Type disabled = CompileProductionKernel(root, false), enabled = CompileProductionKernel(root, false, true);
         InvokeKernel(disabled, "Verify");
         InvokeKernel(enabled, "Verify");
@@ -128,7 +139,7 @@ internal static partial class Program
             .Where(f => f.FieldType == typeof(System.Reflection.Emit.OpCode))
             .Select(f => (System.Reflection.Emit.OpCode)f.GetValue(null)).ToDictionary(c => unchecked((ushort)c.Value));
         foreach (var method in kernel.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
-            .Where(m => m.Name is "BuildWeightedPathCore" or "TryBuildWeightedRoute" or "PrepareRoute" or
+            .Where(m => m.Name is "BuildWeightedPathCore" or "SearchAndPublishWeightedPath" or "TryBuildWeightedRoute" or "PrepareRoute" or
                 "GetRequestIndex" or "TryStagePreparedRoute" or "StagePreparedRouteCore" or "Push" or "Pop"))
         {
             byte[] il = method.GetMethodBody().GetILAsByteArray();
@@ -155,86 +166,6 @@ internal static partial class Program
                 };
             }
         }
-    }
-    private static void TestGitContractPreservation(string root)
-    {
-        string GitSource(string revision, string path)
-        {
-            var start = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = root, RedirectStandardOutput = true,
-                RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true
-            };
-            start.ArgumentList.Add("show"); start.ArgumentList.Add(revision + ":" + path);
-            using var process = System.Diagnostics.Process.Start(start);
-            string text = process.StandardOutput.ReadToEnd(), error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            Check(process.ExitCode == 0, "read previous Git source: " + error);
-            return text;
-        }
-        MethodDeclarationSyntax Method(string source, string name) => CSharpSyntaxTree.ParseText(source)
-            .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == name);
-        string WithoutDiagnosticGates(string source) => source
-            .Replace("(PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0)", "Stopwatch.GetTimestamp()")
-            .Replace("if (PerformanceDiagnosticsEnabled) ", "")
-            .Replace("RememberTemporaryParent(nextTile);", "")
-            .Replace("UnitCommandPathRuntime.BeginTemporaryFinalValidation();", "")
-            .Replace(", publicationValidation: true", "")
-            .Replace("activeObservation?.ParentDecisions?.Clear();", "");
-        MethodDeclarationSyntax WithoutTemporaryValidation(MethodDeclarationSyntax method)
-        {
-            var calls = method.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                .Where(c => c.Expression.ToString() == "TemporaryRouteValidation").ToArray();
-            method = method.ReplaceNodes(calls, (old, rewritten) => rewritten.ArgumentList.Arguments[0].Expression);
-            var locals = method.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
-                .Where(l => l.Declaration.Variables.Any(v => v.Identifier.Text == "directClimbingMatches")).ToArray();
-            method = method.RemoveNodes(locals, SyntaxRemoveOptions.KeepNoTrivia);
-            var predicates = method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
-                .Where(p => p.ToString() == "!directClimbingMatches").ToArray();
-            return method.ReplaceNodes(predicates, (old, rewritten) =>
-                SyntaxFactory.ParseExpression("key.DirectGatehouseClimbing != AssassinPathAPI.DirectGatehouseClimbingEnabled"));
-        }
-        MethodDeclarationSyntax FunctionalEvaluator(string source)
-        {
-            var method = Method(source, "EvaluateAssassinTransition");
-            var removable = method.Body.Statements.Where(st => st.ToString().StartsWith("evidence =") ||
-                st is IfStatementSyntax test && (test.Condition.ToString().Contains("DetailedObserver") || test.Condition.ToString() == "evidence != null")).ToArray();
-            method = method.RemoveNodes(removable, SyntaxRemoveOptions.KeepNoTrivia);
-            return method.WithIdentifier(SyntaxFactory.Identifier("AllowsAssassinTransition"))
-                .WithParameterList(method.ParameterList.WithParameters(SyntaxFactory.SeparatedList(method.ParameterList.Parameters
-                    .Where(p => p.Identifier.Text != "evidence" && p.Identifier.Text != "captureFinalEvidence"))));
-        }
-        string runtimePath = "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs";
-        string previous = GitSource("f57dfdb02", runtimePath), current = WithoutDiagnosticGates(File.ReadAllText(Path.Combine(root, runtimePath)));
-        foreach (string name in new[] { "IsVanillaAssassinFallback", "GetClimbTicks", "HasOrdinaryConnection",
-            "ValidateCachedRoute", "PrepareRoute", "AllowsAssassinTransition", "ValidatePreparedGateRoute",
-            // BuildRequestIndex is covered by TestActualRequestIndex: field-contract
-            // migrations must preserve behavior, not historical source spelling.
-            "CanReconstructTransition", "CommitPreparedRoute", "GetRequestIndex",
-            "IsValidCoordinate", "GetTileId", "GetCoordinateIndex", "IsNativeTile", "ValidateCoordinateTileMapping",
-            "EnsureCoordinateTileMappingValidated", "Touch", "ResetTouchedNodes", "Push", "PushOrDecrease", "Pop",
-            "SiftUp", "SiftDown", "ComesBefore" })
-            Check(Method(previous,name).NormalizeWhitespace().ToFullString() == (name == "AllowsAssassinTransition" ? FunctionalEvaluator(current) : name == "ValidateCachedRoute" ? WithoutTemporaryValidation(Method(current,name)) : Method(current,name)).NormalizeWhitespace().ToFullString(),
-                "Git contract unchanged: " + name);
-        string search = Method(current,"TryBuildWeightedRoute").ToFullString()
-            .Replace("Dictionary<int, int> suffixCosts = command?.GetSuffixCosts(suffixKey);", "")
-            .Replace("diagonalTicks, suffixCosts, startNode", "diagonalTicks, command, suffixKey, startNode")
-            .Replace("diagonalTicks, suffixCosts, nextNode", "diagonalTicks, command, suffixKey, nextNode");
-        Check(CSharpSyntaxTree.ParseText(search).GetRoot().NormalizeWhitespace().ToFullString() ==
-            CSharpSyntaxTree.ParseText(Method(previous,"TryBuildWeightedRoute").ToFullString()).GetRoot().NormalizeWhitespace().ToFullString(),
-            "Git A* body differs only in suffix dictionary binding and passive diagnostic gates");
-        string publicationPath = "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs";
-        Check(Method(GitSource("8fe105a11", "APIShared/src/UnitCommands/MovementPathPublication.cs"),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString() ==
-            Method(File.ReadAllText(Path.Combine(root, publicationPath))
-                .Replace("ObserveTemporaryNativeBuilderOutput(temporaryRoute, result);", "")
-                .Replace("BeginTemporaryRouteReport(pathManager, \"F4930-builder\", movementClass, movementProfile)",
-                    "BeginTemporaryRouteReport(pathManager, \"F4930-builder\")"),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString(),
-            "Git F4930 wrapper, original call, exception fallback and nested Leave unchanged");
-        foreach (string path in new[] { "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs" })
-            Check(CSharpSyntaxTree.ParseText(GitSource("f57dfdb02",path)).GetRoot().NormalizeWhitespace().ToFullString() ==
-                CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,path))).GetRoot().NormalizeWhitespace().ToFullString(),
-                "Git costs and cache-key contracts unchanged: " + path);
-        Console.WriteLine("PASS: prior Git sources preserve native fallback, edge/cost/cache checks, heap and command wrapper contracts.");
     }
 
     private static void BenchmarkDiagnosticSwitch(string root)

@@ -10,7 +10,8 @@ if ($contract -match 'AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager.F
     $contract -notmatch 'ProbeBackend\(target, NativeMemoryManager.AllocateStub\)' -or
     $contract -notmatch 'AllowedSchemes = DetourScheme.Indirect' -or
     $contract -notmatch 'NativeMemoryManager.WriteStub\(copy, buffer\)' -or
-    $runtime -notmatch 'AIKeepRangeNativeContract.Backend.CreateDetour') {
+    # The install-phase wrapper keeps the same Indirect-only options (HookInstallPhase.Backend).
+    $runtime -notmatch 'AIKeepRangeNativeContract\.Backend\)?\.CreateDetour') {
     throw 'Probe storage must use target-relative RedBird slabs and the same Indirect-only backend as the real hook.'
 }
 $vm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))

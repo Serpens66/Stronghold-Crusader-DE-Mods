@@ -9,7 +9,9 @@ param(
     [string]$BootConfig = '',
     # Unity command-line arguments (e.g. -force-d3d12); the game executable is then started directly.
     [string]$LaunchArgs = '',
-    [int]$TimeoutSeconds = 420
+    [int]$TimeoutSeconds = 420,
+    # 0 disables the stall watchdog; measurement phases log at least every ~25 s.
+    [int]$StallSeconds = 120
 )
 # Runs one automated PerfFixTest measurement: writes the [Automation]/[Features] config, starts the
 # game through Steam, waits for the automation to quit the game and copies the logs and the
@@ -62,6 +64,7 @@ if ($BootConfig) {
     [IO.File]::WriteAllText($bootPath, $bootText, (New-Object Text.UTF8Encoding($false)))
 }
 $started = Get-Date
+$stalled = $false
 try {
     if ($LaunchArgs) { Start-Process -FilePath (Join-Path $game ($process + '.exe')) -ArgumentList $LaunchArgs -WorkingDirectory $game }
     else { Start-Process 'steam://rungameid/3024040' }
@@ -74,6 +77,17 @@ try {
     }
     while (Get-Process -Name $process -ErrorAction SilentlyContinue) {
         if ((Get-Date) -gt $deadline) { throw "Timeout after $TimeoutSeconds s; the game is still running." }
+        # A test instance that writes no log line for StallSeconds is hung (e.g. a deadlocked probe):
+        # stop this automated instance so the series does not wait for the full timeout.
+        if ($StallSeconds -gt 0 -and (Test-Path -LiteralPath $log) -and
+            ((Get-Date) - (Get-Item -LiteralPath $log).LastWriteTime).TotalSeconds -gt $StallSeconds -and
+            ((Get-Date) - $started).TotalSeconds -gt $StallSeconds) {
+            Copy-Item -LiteralPath $log -Destination (Join-Path $OutputDirectory ($Label + '_stalled_LogOutput.log'))
+            Get-Process -Name $process -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
+            # Continue with log copy and config reset below; the summary reports the stall.
+            $stalled = $true
+            break
+        }
         Start-Sleep -Seconds 2
     }
     Start-Sleep -Seconds 2
@@ -97,6 +111,6 @@ $text = Set-Value $text 'RunSeconds' '25'
 
 $gfx = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_Player.log')) -Pattern 'GfxDevice: creating|Version:  Direct3D|Vulkan API|Graphics API' | ForEach-Object { $_.Line.Trim() }
 $markers = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_LogOutput.log')) -Pattern 'AUTOMATION .*(result|framestats|screenshot|probe=|v7 )' | ForEach-Object Line
-"run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + 's'
+"run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + 's' + $(if ($stalled) { " STALLED: no log output for $StallSeconds s, test instance stopped" } else { '' })
 $gfx
 $markers

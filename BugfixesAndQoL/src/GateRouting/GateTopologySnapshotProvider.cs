@@ -377,7 +377,10 @@ namespace BugfixesAndQoL.GateRouting
                 return;
             try
             {
+                long diagStep = 0; // TEMP_PERF_DIAG (map-start candidate, BFQoLPerformace.md)
+                Shared.DevDiag.Start(ref diagStep); // TEMP_PERF_DIAG
                 InitializeDeferredEpochIfNeeded(now);
+                Shared.DevDiag.StopSpike(ref diagStep, "gate.tick.epochInit", 20000); // TEMP_PERF_DIAG
                 bool capturePost = captureEvents.Consume();
                 if (capturePost | captureRefresh.Consume())
                 {
@@ -388,8 +391,12 @@ namespace BugfixesAndQoL.GateRouting
                         if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                             "Gate capture Post refresh deferred, epoch=" + Volatile.Read(ref epochNumber));
                 }
+                Shared.DevDiag.Start(ref diagStep); // TEMP_PERF_DIAG
                 RefreshGateAccessIfDue(now);
+                Shared.DevDiag.StopSpike(ref diagStep, "gate.tick.accessRefresh", 20000); // TEMP_PERF_DIAG
+                Shared.DevDiag.Start(ref diagStep); // TEMP_PERF_DIAG
                 RefreshTopologyIfDue(now);
+                Shared.DevDiag.StopSpike(ref diagStep, "gate.tick.topologyRefresh", 20000); // TEMP_PERF_DIAG
             }
             catch (Exception ex)
             {
@@ -528,7 +535,9 @@ namespace BugfixesAndQoL.GateRouting
             if (!forced && fingerprint == lastAccessFingerprint)
                 return;
 
+            Shared.DevDiag.Start(ref measured); // TEMP_PERF_DIAG
             NativeGateAccessSnapshot rebuilt = BuildGateAccessSnapshot(fingerprint, recordCapacity);
+            Shared.DevDiag.StopSpike(ref measured, "gate.access.build", 20000); // TEMP_PERF_DIAG
             if (rulesRevision != APIShared.GateAccessRules.Version) return;
             NativeGateAccessSnapshot previous = lastStableAccessSnapshot;
             bool policyChanged = !previous.PolicyEquals(rebuilt);

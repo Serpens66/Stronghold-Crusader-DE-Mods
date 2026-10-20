@@ -258,7 +258,7 @@ namespace BugfixesAndQoL
                 }
                 transaction = new HookTransaction(context.Region,
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                    new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = false });
+                    new HookTransactionOptions { Backend = HookInstallPhase.Backend(), FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = false });
                 transaction.AddDetour(allocateHook, HookTarget.FromAddress(module + (ulong)rvas["allocate"]), AllocateSpec);
                 transaction.AddDetour(economyOxenHook, HookTarget.FromAddress(module + (ulong)rvas["economy-oxen"]), EconomyOxen);
                 transaction.AddDetour(economyQuarryHook, HookTarget.FromAddress(module + (ulong)rvas["economy-quarry"]), EconomyQuarry);

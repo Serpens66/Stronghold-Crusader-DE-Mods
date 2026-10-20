@@ -14,14 +14,9 @@ namespace Shared { internal static class DebugLogHelper {
     internal static readonly List<string> Lines = new List<string>();
     internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) => Lines.Add(text);
 }
-// Same [Conditional] contract as Shared/Runtime/Diagnostics/DevDiag.cs: this compilation has no
-// SERP_DEVDIAG symbol, so measurement calls in extracted production methods are removed.
-internal static class DevDiag {
-    [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Start(ref long started) { }
-    [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Stop(ref long started, string name) { }
-    [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void StopSpike(ref long started, string name, long spikeMicros) { }
-    [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Count(string name) { }
-} }
+// Shared.DevDiag is the real Shared/Runtime/Diagnostics/DevDiag.cs (see Program.cs files): this
+// compilation has no SERP_DEVDIAG symbol, so measurement calls in extracted methods are removed.
+}
 namespace SHCDESE.Interop.Enums {
     public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused }
     public enum eChimps { CHIMP_TYPE_ARAB_ASSASIN = 0x49 }

@@ -71,6 +71,12 @@ namespace BugfixesAndQoL.GateRouting
                 owner.regionPairReachabilityDetour?.Committed!=true)
             {Shared.DebugLogHelper.LogError(log,"Gate routing inactive: required existing search-hook owner is incomplete");return;}
             context=library;
+            // Native gate hooks install here, not in the first map tick (~0.3-0.5 s freeze there).
+            // User decision 2026-10-20: a longer game start is preferred over map-start lags.
+            // Only when gate routing can be wanted (same rule as RefreshCore, without the map): with the
+            // fix off and no foreign rules the hooks stay uninstalled; later enabling uses the lazy path.
+            if(settings!=null&&settings.EnableMod&&(settings.EnableEnemyGatePathfindingFix||GateAccessRules.HasRegistrations))
+                lock(StateGate) EnsureRuntime();
             GameTimeManagerAPI.Instance.OnTick+=Tick;
             Refresh();
         }
@@ -106,19 +112,23 @@ namespace BugfixesAndQoL.GateRouting
             if(active&&(!wanted||nextOwn!=ownRule||nextVersion!=rulesVersion)) {active=false;runtime.EndMap("Gate setting/rule/map transition");if(ruleErrorCount!=0)Shared.DebugLogHelper.LogError(log,"Gate contribution failures: count="+ruleErrorCount+",causes="+ruleErrors.Count);active=false;}
             ownRule=nextOwn;rulesVersion=nextVersion;
             if(!wanted||active)return;
-            if(runtime==null&&!attempted) {
-                attempted=true;
-                try {
-                    // The installed legacy package is removed by the migration driver before startup.
-                    if(BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("EnemyGatePathfindingTest_Serp"))
-                        throw new InvalidOperationException("Legacy gate testmod is loaded; disable it before integrated gate initialization");
-                    var candidate=new EnemyGatePathfindingRuntime(log,detailed,macemen);
-                    candidate.InitializeNative(context,true);runtime=candidate;
-                }catch(Exception ex){Shared.DebugLogHelper.LogError(log,"Gate routing initialization failed; unrelated mainmod features remain active: "+ex);return;}
-            }
+            EnsureRuntime();
             if(runtime==null)return;
             ruleErrors.Clear();ruleErrorCount=0;accessMemo.Clear();runtime.BeginMap(editor);active=true;
             Shared.DebugLogHelper.LogInfo(log,"TEMP_GATE_MIGRATION_DIAGNOSTICS provider=BugfixesAndQoL; nativeOwner=APIShared; hostFix="+ownRule+"; DetailedDiagnostics="+detailed+"; MacemenDiagnostics="+macemen+"; accessRulesVersion="+rulesVersion);
+        }
+        // Caller holds StateGate. One attempt per process; a failure leaves Vanilla and other features active.
+        private static void EnsureRuntime()
+        {
+            if(runtime!=null||attempted||context==null)return;
+            attempted=true;
+            try {
+                // The installed legacy package is removed by the migration driver before startup.
+                if(BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("EnemyGatePathfindingTest_Serp"))
+                    throw new InvalidOperationException("Legacy gate testmod is loaded; disable it before integrated gate initialization");
+                var candidate=new EnemyGatePathfindingRuntime(log,detailed,macemen);
+                candidate.InitializeNative(context,true);runtime=candidate;
+            }catch(Exception ex){Shared.DebugLogHelper.LogError(log,"Gate routing initialization failed; unrelated mainmod features remain active: "+ex);}
         }
         internal static bool IsBlocked(int player,int gate,uint global,int owner,int capturer,bool defaultBlocked)
         {

@@ -10,7 +10,9 @@ string[] files = {
     "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs", "APIShared/src/Units/UnitAccess.cs", "Shared/Runtime/Native/TemporaryPackedRouteInspection.cs",
     "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs", "BugfixesAndQoL/src/GateRouting/TemporaryGateRouteAcceptance.DevDiag.cs",
     "BugfixesAndQoL/src/GateRouting/NativeAssassinTrace.DevDiag.cs", "BugfixesAndQoL/src/GateRouting/TemporaryGateAcceptanceAggregate.DevDiag.cs", "BugfixesAndQoL/src/GateRouting/RouteTilePolicySnapshot.cs",
-    "BugfixesAndQoL/src/GateRouting/GateEdgeOwnership.cs", "BugfixesAndQoL/src/GateRouting/TemporaryGateCaptureTimeline.DevDiag.cs"
+    "BugfixesAndQoL/src/GateRouting/GateEdgeOwnership.cs", "BugfixesAndQoL/src/GateRouting/TemporaryGateCaptureTimeline.DevDiag.cs",
+    // Real development-diagnostics facade instead of a copied stub (all overloads, no drift).
+    "Shared/Runtime/Diagnostics/DevDiag.cs"
 };
 var trees = files.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, f)), path: f)).ToList();
 var production = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs")));

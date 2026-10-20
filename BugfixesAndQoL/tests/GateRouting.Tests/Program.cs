@@ -40,6 +40,7 @@ namespace BugfixesAndQoL.GateRouting
                 CaptureTransitionCoverageIsDeterministic();
                 CapturerComparisonAndFlagRestorationAreExact();
                 CapturerAdapterMachineTests.Run();
+                DemandGatedContextHookTests.Run();
                 NativeContractIncludesDrawbridgePclAndExactFilterSite();
                 CapturerHooksCoverBothNativeSitesAtomically();
                 SnapshotRefreshPathsAreSeparatedAndBounded();

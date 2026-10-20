@@ -81,14 +81,57 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly Func<bool> featureEnabled;
         private readonly object stateRoot = new object();
-        private readonly HookHandle<X64InlineHook> visibleTileHook = new HookHandle<X64InlineHook>();
+        private X64InlineHook visibleTileHook;
+        // Native demand byte read by the visible-tile stub (process lifetime, never freed):
+        // 1 while preview or overflow markers may need drawing, otherwise 0.
+        private readonly IntPtr renderDemand = AllocateDemandByte();
+        private readonly object demandRoot = new object();
         private readonly DetourHandle<ResetDrawListDelegate> resetDrawListHook =
             new DetourHandle<ResetDrawListDelegate>();
         private readonly LargeMoveTargetOverflowBuffer firstBuffer = new LargeMoveTargetOverflowBuffer();
         private readonly LargeMoveTargetOverflowBuffer secondBuffer = new LargeMoveTargetOverflowBuffer();
         private readonly HashSet<int> previewRequestBuffer = new HashSet<int>();
-        private volatile LargeMoveTargetOverflowBuffer publishedOverflow;
-        private volatile PreviewPublication publishedPreview = EmptyPreview;
+        private volatile LargeMoveTargetOverflowBuffer publishedOverflowValue;
+        private volatile PreviewPublication publishedPreviewValue = EmptyPreview;
+        private volatile bool renderingActiveValue;
+
+        // Every state change that can make the visible-tile callback draw refreshes the demand byte.
+        private LargeMoveTargetOverflowBuffer publishedOverflow
+        {
+            get => publishedOverflowValue;
+            set { publishedOverflowValue = value; UpdateRenderDemand(); }
+        }
+
+        private PreviewPublication publishedPreview
+        {
+            get => publishedPreviewValue;
+            set { publishedPreviewValue = value; UpdateRenderDemand(); }
+        }
+
+        private bool renderingActive
+        {
+            get => renderingActiveValue;
+            set { renderingActiveValue = value; UpdateRenderDemand(); }
+        }
+
+        private static IntPtr AllocateDemandByte()
+        {
+            IntPtr demand = Marshal.AllocHGlobal(8);
+            Marshal.WriteInt64(demand, 0);
+            return demand;
+        }
+
+        // Serialized so the last writer always publishes the current state; a stale 1 only costs
+        // one early-returning callback, a 0 is written only when nothing can be drawn.
+        private void UpdateRenderDemand()
+        {
+            lock (demandRoot)
+            {
+                PreviewPublication preview = publishedPreviewValue;
+                bool needed = renderingActiveValue && (publishedOverflowValue != null || (preview != null && preview.Count != 0));
+                Marshal.WriteByte(renderDemand, needed ? (byte)1 : (byte)0);
+            }
+        }
         private LargeMoveTargetOverflowBuffer stagingBuffer;
         private HookTransaction transaction;
         private SpriteBuilderDelegate spriteBuilder;
@@ -96,7 +139,6 @@ namespace BugfixesAndQoL
         private IntPtr libraryHandle;
         private volatile bool installed;
         private volatile bool failed;
-        private volatile bool renderingActive;
         private bool overlayPassActive;
         private PreviewPublication previewCheckedThisPass;
         private bool previewAllowedThisPass;
@@ -111,7 +153,7 @@ namespace BugfixesAndQoL
         }
 
         public bool ReplacementAvailable =>
-            installed && !failed && visibleTileHook.Success && visibleTileHook.IsInstalled &&
+            installed && !failed && visibleTileHook != null && visibleTileHook.IsInstalled &&
             resetDrawListHook.Success;
 
         public void Install(CrusaderLibraryLoadContext context, bool fixedLayoutHashValidated)
@@ -151,30 +193,48 @@ namespace BugfixesAndQoL
 
             HookTransaction candidate = new HookTransaction(context.Region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+                new HookTransactionOptions { Backend = HookInstallPhase.Backend(), FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+            X64InlineHook visible = null;
             try
             {
+                // The visible-tile hook runs once per visible tile and render pass; its callback has
+                // nothing to draw unless preview or overflow markers are published. A native demand
+                // byte (renderDemand) keeps that loop free of managed transitions in between.
+                visible = BugfixesHookInfrastructure.CreateDemandGatedContextHook(
+                    unchecked((ulong)(libraryHandle + VisibleTileHookRva).ToInt64()),
+                    VisibleTileMinimumHookLength,
+                    RenderVisibleLargeMoveTarget,
+                    new ContextHookOptions {
+                        Registers = X64SmartCPUContextRegs.All,
+                        HookSize = VisibleTileMinimumHookLength,
+                        ErrorMode = CallbackErrorMode.LogAndContinue,
+                        Placement = OverwrittenInstructionPlacement.AfterCallback },
+                    renderDemand,
+                    "visibleTileHook");
+                if (visible.DisplacedByteCount != ExpectedVisibleTileDisplacedBytes)
+                    throw new InvalidOperationException(
+                        $"Large Move marker visible-tile hook displaced an unexpected span: {visible.DisplacedByteCount}.");
                 candidate.AddDetour(
                     resetDrawListHook,
                     HookTarget.FromAddress(unchecked((ulong)(libraryHandle + ResetDrawListRva).ToInt64())),
                     ResetDrawList);
-                candidate.AddContextHook(visibleTileHook,
-                    HookTarget.FromAddress(unchecked((ulong)(libraryHandle + VisibleTileHookRva).ToInt64())),
-                    RenderVisibleLargeMoveTarget, new ContextHookOptions {
-                        Registers = X64SmartCPUContextRegs.All,
-                        HookSize = VisibleTileMinimumHookLength,
-                        ErrorMode = CallbackErrorMode.LogAndContinue,
-                        Placement = OverwrittenInstructionPlacement.AfterCallback });
                 CommitResult result = candidate.Commit();
                 transaction = candidate;
-                if (!result.IsCompleteSuccess || !visibleTileHook.Success ||
-                    !visibleTileHook.IsInstalled || !resetDrawListHook.Success ||
-                    visibleTileHook.Hook.DisplacedByteCount != ExpectedVisibleTileDisplacedBytes)
+                if (!result.IsCompleteSuccess || !resetDrawListHook.Success)
                 {
                     throw new InvalidOperationException(
-                        "Large Move marker overflow hooks failed or displaced an unexpected span: " +
-                        $"result={result}, visible={visibleTileHook.Hook?.DisplacedByteCount}.");
+                        "Large Move marker overflow hooks failed: " + $"result={result}.");
                 }
+                // Demand is still 0 (renderingActive is false), so enabling cannot enter managed code
+                // before this runtime is ready. Permanent from here on.
+                // Deliberately outside the transaction: the demand-gated stub is a prebuilt X64InlineHook.
+                // If Enable fails (only a write failure), ResetDrawList stays published but the catch below
+                // sets failed: OnVanillaDrawListReset returns at once and Formation speech keeps running, so
+                // the partial state is fail-open and never reaches marker code.
+                visible.Enable();
+                if (!visible.IsInstalled)
+                    throw new InvalidOperationException("Large Move marker visible-tile hook was not installed.");
+                visibleTileHook = visible;
 
                 APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
@@ -190,6 +250,8 @@ namespace BugfixesAndQoL
                 installed = false;
                 renderingActive = false;
                 if (transaction == null) candidate.Dispose();
+                // Only a never-enabled (unpublished) candidate stub is released.
+                if (visible != null && !visible.IsInstalled) visible.Dispose();
                 failed = true;
                 throw;
             }
@@ -390,7 +452,7 @@ namespace BugfixesAndQoL
 
         private void SetRenderingActiveCore(bool shouldBeActive)
         {
-            if (!visibleTileHook.IsInstalled)
+            if (visibleTileHook == null || !visibleTileHook.IsInstalled)
                 throw new InvalidOperationException("Visible-tile marker hook is no longer installed.");
             renderingActive = shouldBeActive;
         }

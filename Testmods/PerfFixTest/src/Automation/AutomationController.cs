@@ -34,7 +34,7 @@ namespace PerfFixTest.Automation
         private static int lastFrame = -1, zoomSteps, unchangedSteps;
         private static long ticks, ticksAtPhase;
         private static long startStamp, phaseStamp;
-        private static float zoomBeforeStep = -1f;
+        private static float zoomBeforeStep = -1f, targetZoom;
         private static bool stepPending, resumeConfirmed, screenshotTaken;
         private static string screenshotDir;
         private static bool sheetProbe, sheetProbeDone, sheetMergeMidPause, sheetMergeControl, sheetRenderCheck, midPauseDone, secondShotTaken, lodProbe, quadProbe, lodDone, noesisProbe, noesisSingleMip, hudProbe, rebindProbe;
@@ -56,6 +56,8 @@ namespace PerfFixTest.Automation
             runSeconds = config.Bind("Automation", "RunSeconds", 25, "Seconds to run unpaused at full zoom-out.").Value;
             timeoutSeconds = config.Bind("Automation", "TimeoutSeconds", 300, "Overall timeout from game start; FAIL on expiry.").Value;
             maxZoomSteps = config.Bind("Automation", "MaxZoomSteps", 20, "Upper bound of zoom-out steps.").Value;
+            gameSpeed = config.Bind("Automation", "GameSpeed", 0, "Game speed set after loading (0 = keep the save's speed).").Value;
+            targetZoom = config.Bind("Automation", "TargetZoom", 0f, "Stop zooming out at this zoom (0 = until the zoom-out limit).").Value;
             quitWhenDone = config.Bind("Automation", "QuitWhenDone", true, "Quit the game after PASS or FAIL.").Value;
             sheetProbe = config.Bind("Probes", "SheetMergeProbe", false,
                 "V7 feasibility probe in the main menu (GPU limits, sprite geometry of the TeamColour sheets, one test page copy).").Value;
@@ -98,7 +100,21 @@ namespace PerfFixTest.Automation
         // An armed run with SheetMergeMidPause switches V7 itself in the middle of the pause.
         internal static bool ControlsSheetMerge { get; private set; }
 
-        private static void OnTick(int tick) => Interlocked.Increment(ref ticks);
+        // Sim-thread tick gaps while running unpaused (> 100 ms = simulation stall, even if frames stay smooth).
+        private static volatile bool recordTickGaps;
+        private static long lastTickStamp, tickGapMaxTicks, tickGapsOver100, tickGapsOver50;
+
+        private static void OnTick(int tick)
+        {
+            Interlocked.Increment(ref ticks);
+            long now = Stopwatch.GetTimestamp();
+            long previous = Interlocked.Exchange(ref lastTickStamp, now);
+            if (!recordTickGaps || previous == 0) return;
+            long gap = now - previous;
+            if (gap > Interlocked.Read(ref tickGapMaxTicks)) Interlocked.Exchange(ref tickGapMaxTicks, gap);
+            if (gap > Stopwatch.Frequency / 10) Interlocked.Increment(ref tickGapsOver100);
+            if (gap > Stopwatch.Frequency / 20) Interlocked.Increment(ref tickGapsOver50);
+        }
 
         private static void OnBeforeRender()
         {
@@ -146,6 +162,8 @@ namespace PerfFixTest.Automation
             var header = MapFileManager.Instance.GetFileInfoFromFileName(resolved, resolved, 0, true);
             if (header == null) { Fail("Vanilla rejected the savegame header: " + resolved); return; }
             if (!tickSubscribed) { GameTimeManagerAPI.Instance.OnTick += OnTick; tickSubscribed = true; }
+            Log("startup menuReadySinceProcessStartS=" + ProcessUptime() + " sincePluginBindS=" + Seconds(startStamp).ToString("0.00", C));
+            loadStamp = Stopwatch.GetTimestamp();
             Enter(Phase.WaitMission, "loading " + resolved);
             // Same preparation as FrontendMenus' single-player load confirmation (as in AutoLoadSave).
             Platform_Multiplayer.Instance.gameMembers = null;
@@ -163,6 +181,19 @@ namespace PerfFixTest.Automation
             MainViewModel view = MainViewModel.Instance;
             if (view.HUDmain == null || view.Show_HUD_Briefing || PerfectPixelWithZoom.instance == null || CameraControls2D.instance == null) return;
             if (director.MultiplayerGame) { Fail("multiplayer session; automation is single-player only"); return; }
+            if (!missionReadyLogged)
+            {
+                missionReadyLogged = true;
+                Log("startup missionReadyAfterLoadS=" + Seconds(loadStamp).ToString("0.00", C) + " sinceProcessStartS=" + ProcessUptime());
+            }
+            if (gameSpeed > 0 && !speedApplied)
+            {
+                // Same call as Vanilla's speed slider path; more simulated game time per measured second.
+                speedApplied = true;
+                director.SetEngineFrameRate(gameSpeed);
+                Log("game speed requested=" + gameSpeed + " engineFrameTime=" + director.EngineFrameTime.ToString("0.#####", C) +
+                    " observed=" + (director.EngineFrameTime > 0 ? (1.0 / director.EngineFrameTime).ToString("0", C) : "n/a"));
+            }
             if (Interlocked.Read(ref ticks) - ticksAtPhase < warmupTicks) return;
             Enter(Phase.ZoomOut, "mission ready; starting zoom-out from zoom=" + Zoom());
         }
@@ -180,6 +211,8 @@ namespace PerfFixTest.Automation
                 // Two completed steps without change: the zoom-out limit is reached.
                 if (unchangedSteps >= 2) { Enter(Phase.Settle, "zoom-out limit reached zoom=" + now.ToString("0.###", C) + " steps=" + zoomSteps); return; }
             }
+            // Fixed comparison zoom: mods with an extended zoom range must not change the measured scene.
+            if (targetZoom > 0 && zoom.getZoom() <= targetZoom + 0.0001f) { Enter(Phase.Settle, "target zoom reached zoom=" + Zoom() + " steps=" + zoomSteps); return; }
             if (zoomSteps >= maxZoomSteps) { Enter(Phase.Settle, "zoom step bound reached zoom=" + Zoom() + " steps=" + zoomSteps); return; }
             zoomBeforeStep = zoom.getZoom();
             float step = ConfigSettings.Settings_ExtraZoom ? 0.5f : 1f;
@@ -245,6 +278,12 @@ namespace PerfFixTest.Automation
             Log("phase=pause-end held=" + Seconds(phaseStamp).ToString("0.0", C) + "s zoom=" + Zoom());
             if (!TrySetPause(false)) { Fail("native pause could not be lifted"); return; }
             resumeConfirmed = false;
+            Interlocked.Exchange(ref lastTickStamp, 0);
+            Interlocked.Exchange(ref tickGapMaxTicks, 0);
+            Interlocked.Exchange(ref tickGapsOver100, 0);
+            Interlocked.Exchange(ref tickGapsOver50, 0);
+            recordTickGaps = true;
+            Log("nativecounters phase=run-start " + NativePathCounters());
             Enter(Phase.RunHold, "unpaused zoom=" + Zoom());
         }
 
@@ -257,11 +296,37 @@ namespace PerfFixTest.Automation
             }
             if (!resumeConfirmed && Seconds(phaseStamp) > 5) { Fail("no simulation ticks after unpause"); return; }
             if (Seconds(phaseStamp) < runSeconds) return;
+            recordTickGaps = false;
+            double ran = Seconds(phaseStamp);
+            long ranTicks = Interlocked.Read(ref ticks) - ticksAtPhase;
             Log("framestats phase=run " + frames.Summary());
+            Log(string.Format(C, "tickstats phase=run ticks={0} ticksPerS={1:0.0} maxGapMs={2:0.0} gapsOver50={3} gapsOver100={4}",
+                ranTicks, ranTicks / ran, Interlocked.Read(ref tickGapMaxTicks) * 1000.0 / Stopwatch.Frequency,
+                Interlocked.Read(ref tickGapsOver50), Interlocked.Read(ref tickGapsOver100)));
+            Log("nativecounters phase=run-end " + NativePathCounters());
             frames.Clear();
             Log("phase=run-end ran=" + Seconds(phaseStamp).ToString("0.0", C) + "s ticks=" + (Interlocked.Read(ref ticks) - ticksAtPhase) + " zoom=" + Zoom());
             Finish(Phase.Done, "PASS total=" + Seconds(startStamp).ToString("0.0", C) + "s");
         }
+
+        // Native path manager (FBCB9319 base+0x60AD660): +0x78 counts failed route reconstructions
+        // (0xE1640, each followed by a full-map rebuild 0xDAA50), +0x74 executed PCL rebuilds (0xE49D0).
+        // Read-only, so the same counters can be compared between SE-only and mod runs.
+        private static string NativePathCounters()
+        {
+            IntPtr module = GetModuleHandle("CrusaderDE.dll");
+            if (module == IntPtr.Zero) return "unavailable";
+            // Fixed layout of the audited DLL: refuse a smaller image instead of reading outside it.
+            int peOffset = System.Runtime.InteropServices.Marshal.ReadInt32(module, 0x3C);
+            uint imageSize = (uint)System.Runtime.InteropServices.Marshal.ReadInt32(module, peOffset + 0x18 + 0x38);
+            if (imageSize < 0x60AD660 + 0x80) return "unavailable(image)";
+            IntPtr manager = new IntPtr(module.ToInt64() + 0x60AD660);
+            return "reconstructFailures=" + System.Runtime.InteropServices.Marshal.ReadInt32(manager, 0x78).ToString(C) +
+                " pclRebuilds=" + System.Runtime.InteropServices.Marshal.ReadInt32(manager, 0x74).ToString(C);
+        }
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern IntPtr GetModuleHandle(string name);
 
         // Paused, identical scene: the PNG of run A and B must match pixel for pixel unless a fix changes the image.
         private static void TakeScreenshot(string suffix)
@@ -335,6 +400,16 @@ namespace PerfFixTest.Automation
                     if (listener is BepInEx.Logging.DiskLogListener disk) disk.LogWriter?.Flush();
             }
             catch (Exception exception) { PerfFixTestPlugin.Fail("disk log flush failed: " + exception.Message); }
+        }
+
+        private static long loadStamp;
+        private static bool missionReadyLogged, speedApplied;
+        private static int gameSpeed;
+
+        private static string ProcessUptime()
+        {
+            try { return (DateTime.Now - Process.GetCurrentProcess().StartTime).TotalSeconds.ToString("0.00", C); }
+            catch (Exception exception) { return "n/a(" + exception.GetType().Name + ")"; }
         }
 
         private static string Zoom() => PerfectPixelWithZoom.instance != null ? PerfectPixelWithZoom.instance.getZoom().ToString("0.###", C) : "n/a";

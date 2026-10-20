@@ -327,6 +327,17 @@ namespace BugfixesAndQoL
             }
         }
 
+        // TEMP_PERF_DIAG (BFQoLPerformace.md, assassin-search candidate): last search outcome/size, read
+        // only by the assassin:BuildWeightedPath spike line; plain field stores in normal builds.
+        private string diagOutcome; // TEMP_PERF_DIAG
+        private int diagExpanded; // TEMP_PERF_DIAG
+
+        private void SetOutcome(string outcome)
+        {
+            diagOutcome = outcome; // TEMP_PERF_DIAG
+            if (activeObservation != null) activeObservation.Outcome = outcome;
+        }
+
         private string DescribeNativeAssassinState(IntPtr context)
         {
             // Every audited D9C40 caller passes this singleton; unknown pointers are not read.
@@ -399,6 +410,20 @@ namespace BugfixesAndQoL
 
         private int BuildWeightedPathCore(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
+            // TEMP_PERF_DIAG (assassin-search candidate): whole request incl. Vanilla builder; spike lines
+            // name outcome and size.
+            long diagStarted = 0; // TEMP_PERF_DIAG
+            Shared.DevDiag.Start(ref diagStarted); // TEMP_PERF_DIAG
+            diagExpanded = 0; diagOutcome = "native-only"; // TEMP_PERF_DIAG
+            int result = SearchAndPublishWeightedPath(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+            Shared.DevDiag.StopSpike(ref diagStarted, "assassin:BuildWeightedPath", 5000, () => // TEMP_PERF_DIAG
+                "outcome=" + diagOutcome + " expanded=" + diagExpanded + " maxNodes=" + maximumNodes + " cont=" + continuation + // TEMP_PERF_DIAG
+                " start=" + startX + "/" + startY + " target=" + targetX + "/" + targetY + " command=" + (activeCommand != null)); // TEMP_PERF_DIAG
+            return result;
+        }
+
+        private int SearchAndPublishWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
+        {
             if (!IsInstalled)
                 return 0;
 
@@ -406,7 +431,10 @@ namespace BugfixesAndQoL
             long requestStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             long nativeStarted = requestStarted;
             // Vanilla initializes internal queue state even when our compact route field replaces it.
+            long diagVanilla = 0; // TEMP_PERF_DIAG
+            Shared.DevDiag.Start(ref diagVanilla); // TEMP_PERF_DIAG
             int vanillaResult = AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+            Shared.DevDiag.Stop(ref diagVanilla, "assassin:vanillaBuilder"); // TEMP_PERF_DIAG
             if (activeObservation != null)
             { activeObservation.NativeResult = vanillaResult; activeObservation.Outcome = "native-only"; }
             long nativeTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - nativeStarted;
@@ -417,12 +445,12 @@ namespace BugfixesAndQoL
             if (activeObservation != null) activeObservation.EffectiveWeighted = enabled;
             if (!enabled || continuation != 0)
             {
-                if (activeObservation != null) activeObservation.Outcome = !enabled ? "weighted-disabled" : "continuation";
+                SetOutcome(!enabled ? "weighted-disabled" : "continuation");
                 return vanillaResult;
             }
             if (targetX < 0 || targetY < 0)
             {
-                if (activeObservation != null) activeObservation.Outcome = "native-flood-field";
+                SetOutcome("native-flood-field");
                 return vanillaResult;
             }
 
@@ -432,21 +460,21 @@ namespace BugfixesAndQoL
                 if (!TryResolveAssassinRequest(command, context, startX, startY, targetX, targetY, out int playerId, out int speedDelay))
                 {
                     if (PerformanceDiagnosticsEnabled) command?.RecordResolution((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - resolutionStarted);
-                    if (activeObservation != null) activeObservation.Outcome = "unresolved-player";
+                    SetOutcome("unresolved-player");
                     return vanillaResult;
                 }
                 if (PerformanceDiagnosticsEnabled) command?.RecordResolution((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - resolutionStarted);
                 if (activeObservation != null) activeObservation.Player = playerId;
                 if (!EnsureCoordinateTileMappingValidated())
                 {
-                    if (activeObservation != null) activeObservation.Outcome = "coordinate-map-unready";
+                    SetOutcome("coordinate-map-unready");
                     return vanillaResult;
                 }
 
                 if (!AssassinGateRoutePolicy.TryCapture(EnemyGatePathPolicyBridge.Current, playerId,
                     out IEnemyGateRoutePolicySnapshot gatePolicy))
                 {
-                    if (activeObservation != null) activeObservation.Outcome = "gate-context-fallback";
+                    SetOutcome("gate-context-fallback");
                     return vanillaResult;
                 }
                 bool allowClimbing = command?.GetClimbingAllowed(playerId, climbRuntime) ??
@@ -465,6 +493,24 @@ namespace BugfixesAndQoL
                 bool routeReady = command != null &&
                     TryLoadCachedRoute(command, cacheKey, out routeSummary, out preparedRoute);
                 if (PerformanceDiagnosticsEnabled) command?.RecordCacheLookup((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - cacheStarted);
+                if (!routeReady && UsesRouteExistenceOnly(context, startX, startY, targetX, targetY, maximumNodes))
+                {
+                    // Without an exact single-unit frame the weighted route is never published:
+                    // this request returns Vanilla's result when a valid weighted route exists and
+                    // 0 otherwise. Answer exactly that question without the cost-optimal search.
+                    RouteExistence existence = FindAnyWeightedRoute(startX, startY, targetX, targetY, speedDelay,
+                        allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy);
+                    if (existence != RouteExistence.Undecided)
+                    {
+                        diagOutcome = existence == RouteExistence.Exists ? "existence-fallback" : "existence-no-route"; // TEMP_PERF_DIAG
+                        if (!AssassinGateRoutePolicy.IsCurrent(gatePolicy))
+                        {
+                            SetOutcome("gate-snapshot-fallback");
+                            return vanillaResult;
+                        }
+                        return existence == RouteExistence.Exists ? vanillaResult : 0;
+                    }
+                }
                 if (!routeReady)
                 {
                     activeObservation?.ParentDecisions?.Clear();
@@ -484,12 +530,13 @@ namespace BugfixesAndQoL
                         preparedRoute = CachePreparedRoute(command, cacheKey, routeSummary);
                 }
 
+                diagOutcome = routeReady ? (routeSummary.CacheHit ? "cache-hit" : "weighted-prepared") : "weighted-no-route"; // TEMP_PERF_DIAG
                 if (activeObservation != null)
                 { activeObservation.CacheHit = routeSummary.CacheHit;
                   activeObservation.Outcome = routeReady ? "weighted-prepared" : "weighted-no-route"; }
                 if (!AssassinGateRoutePolicy.IsCurrent(gatePolicy))
                 {
-                    if (activeObservation != null) activeObservation.Outcome = "gate-snapshot-fallback";
+                    SetOutcome("gate-snapshot-fallback");
                     return vanillaResult;
                 }
                 if (!routeReady)
@@ -501,12 +548,12 @@ namespace BugfixesAndQoL
                 // An owned F4930 frame instead receives the exact route after Vanilla returns.
                 if (TryStagePreparedRoute(context, cacheKey, routeSummary, preparedRoute, command))
                 {
-                    if (activeObservation != null) activeObservation.Outcome = "weighted-staged-exact";
+                    SetOutcome("weighted-staged-exact");
                     return vanillaResult;
                 }
                 if (AssassinPathAPI.HasSingleUnitRoutePublication)
                 {
-                    if (activeObservation != null) activeObservation.Outcome = "weighted-exact-fallback";
+                    SetOutcome("weighted-exact-fallback");
                     return vanillaResult;
                 }
                 // Validate before the first native stamp/distance write. A stale policy
@@ -515,7 +562,7 @@ namespace BugfixesAndQoL
                     !ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength, allowClimbing, allowWalkableReservedClimbEndpoints) ||
                     !AssassinGateRoutePolicy.IsCurrent(gatePolicy))
                 {
-                    if (activeObservation != null) activeObservation.Outcome = "gate-publication-fallback";
+                    SetOutcome("gate-publication-fallback");
                     return vanillaResult;
                 }
                 bool published = CommitPreparedRoute(context, routeSummary.RouteLength);
@@ -537,7 +584,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                if (activeObservation != null) activeObservation.Outcome = "exception-fallback:" + ex.GetType().Name;
+                SetOutcome("exception-fallback:" + ex.GetType().Name);
                 if (!fallbackLogged)
                 {
                     fallbackLogged = true;
@@ -598,6 +645,7 @@ namespace BugfixesAndQoL
                 expanded++;
                 if (currentNode == targetNode)
                 {
+                    diagExpanded = expanded; // TEMP_PERF_DIAG
                     long reconstructionStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                     if (!PrepareRoute(startNode, targetNode, costs[targetNode], expanded,
                         heapOperations, searchStarted, reconstructionStarted, out routeSummary))
@@ -693,9 +741,91 @@ namespace BugfixesAndQoL
                 }
             }
 
+            diagExpanded = expanded; // TEMP_PERF_DIAG
             if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
                 (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, expanded, heapOperations);
             return false;
+        }
+
+        private enum RouteExistence { Undecided, Exists, None }
+
+        // Existence-only requests (group/field callers): no exact frame can consume a weighted
+        // route, so SearchAndPublishWeightedPath would return Vanilla's result or 0. Diagnostic
+        // observers keep the full search (they record its edges). A budget below the tile count
+        // could stop A* and a different search order at different points, so it stays exact A*.
+        private bool UsesRouteExistenceOnly(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes) =>
+            activeObservation == null && maximumNodes >= TileCount && AssassinPathAPI.HasSingleUnitRoutePublication &&
+            !AssassinPathAPI.TryGetCurrentWeightedRequest(BugfixesAndQoLPlugin.PluginGuid, context,
+                startX, startY, targetX, targetY, out _, out _);
+
+        // Greedy best-first search over exactly the edges of TryBuildWeightedRoute (same ground,
+        // climb, reserved-endpoint and gate rules). Without a node budget it is complete: None means
+        // the reachable region is exhausted, as A* would. A* additionally rejects optimal routes over
+        // MaximumCommittedPathLength nodes; every edge costs at least cardinalTicks, so a found route
+        // with cost < cardinalTicks * MaximumCommittedPathLength proves an optimal route of < that
+        // many nodes. Otherwise the caller runs the exact A* (Undecided).
+        private RouteExistence FindAnyWeightedRoute(int startX, int startY, int targetX, int targetY, int speedDelay,
+            bool allowClimbing, bool allowWalkableReservedClimbEndpoints, IEnemyGateRoutePolicySnapshot gatePolicy)
+        {
+            if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
+                return RouteExistence.None;
+            ResetTouchedNodes();
+            int cardinalTicks = AssassinClimbCostPolicy.GetCardinalMovementTicks(speedDelay);
+            int diagonalTicks = AssassinClimbCostPolicy.GetDiagonalMovementTicks(speedDelay);
+            if (!IsNativeTile(GetTileId(startX, startY)) || !IsNativeTile(GetTileId(targetX, targetY)))
+                return RouteExistence.None;
+            int startNode = GetCoordinateIndex(startX, startY);
+            int targetNode = GetCoordinateIndex(targetX, targetY);
+            // costs[] holds the cost of the found parent chain; the heap orders by the estimate only.
+            Touch(startNode, 0, -1, 0, AssassinAStarPolicy.EstimateOctileTicks(startX, startY, targetX, targetY, cardinalTicks, diagonalTicks));
+            Push(startNode);
+            while (heapCount > 0)
+            {
+                int currentNode = Pop();
+                if (currentNode == targetNode)
+                {
+                    long bound = (long)cardinalTicks * MaximumCommittedPathLength;
+                    return costs[targetNode] < bound ? RouteExistence.Exists : RouteExistence.Undecided;
+                }
+                int currentX = currentNode % MapWidth;
+                int currentY = currentNode / MapWidth;
+                int currentTile = GetTileId(currentX, currentY);
+                if (!IsNativeTile(currentTile))
+                    continue;
+                uint currentFlags = tileFlags[currentTile];
+                for (int direction = 0; direction < DirectionX.Length; direction++)
+                {
+                    int nextX = currentX + DirectionX[direction];
+                    int nextY = currentY + DirectionY[direction];
+                    if (!IsValidCoordinate(nextX, nextY))
+                        continue;
+                    int nextNode = GetCoordinateIndex(nextX, nextY);
+                    if (costs[nextNode] != int.MaxValue)
+                        continue;
+                    int nextTile = GetTileId(nextX, nextY);
+                    if (!IsNativeTile(nextTile))
+                        continue;
+                    bool cardinal = (direction & 1) == 0;
+                    bool climbEdge = false;
+                    if (!HasOrdinaryConnection(currentTile, nextTile, direction))
+                    {
+                        if (!cardinal || !IsVanillaAssassinFallback(currentTile, nextTile, currentFlags, allowWalkableReservedClimbEndpoints))
+                            continue;
+                        climbEdge = true;
+                        if (!allowClimbing)
+                            continue;
+                    }
+                    if (!AllowsAssassinTransition(gatePolicy, currentTile, nextTile, direction, allowClimbing, allowWalkableReservedClimbEndpoints))
+                        continue;
+                    int edgeCost = AssassinAStarPolicy.SaturatingAdd(cardinal ? cardinalTicks : diagonalTicks,
+                        climbEdge ? GetClimbTicks(currentTile, nextTile) : 0);
+                    Touch(nextNode, AssassinAStarPolicy.SaturatingAdd(costs[currentNode], edgeCost), currentNode,
+                        climbEdge ? ClimbEdgeKind : GroundEdgeKind,
+                        AssassinAStarPolicy.EstimateOctileTicks(nextX, nextY, targetX, targetY, cardinalTicks, diagonalTicks));
+                    Push(nextNode);
+                }
+            }
+            return RouteExistence.None;
         }
 
         private bool IsVanillaAssassinFallback(

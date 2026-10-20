@@ -2517,6 +2517,7 @@ namespace BugfixesAndQoL
         private static HookTransactionOptions CreateTransactionOptions() =>
             new HookTransactionOptions
             {
+                Backend = HookInstallPhase.Backend(),
                 FailureMode = TransactionFailureMode.RollbackAndThrow,
                 // This runtime is process-rooted; startup never tears these hooks down.
                 OwnsHooks = false

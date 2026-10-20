@@ -125,7 +125,7 @@ namespace BugfixesAndQoL
                 initialized = true;
                 ulong address = unchecked((ulong)copy.ToInt64());
                 var request = new DetourRequest<AIKeepDistanceCheck> { Name = "AI distance copied-entry probe", TargetAddress = address, Callback = callback };
-                candidate = Backend.CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
+                candidate = HookInstallPhase.Backend(Backend).CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
                 ValidateDetour(candidate, address, false);
                 candidate.Enable();
                 ValidateDetour(candidate, address, true);

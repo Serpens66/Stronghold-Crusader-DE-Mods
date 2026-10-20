@@ -107,7 +107,7 @@ namespace BugfixesAndQoL.UnitCommands
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     // Published hooks remain process-owned permanently.
                     OwnsHooks = true,
-                    Backend = APIShared.AssassinPathAPI.Backend
+                    Backend = HookInstallPhase.Backend(APIShared.AssassinPathAPI.Backend)
                 });
         }
 

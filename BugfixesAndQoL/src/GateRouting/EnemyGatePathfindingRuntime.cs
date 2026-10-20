@@ -165,6 +165,13 @@ namespace BugfixesAndQoL.GateRouting
             DiagAttachSamePcl();
             topologyProvider.SetRoutePolicyConsumer(updated =>
                 samePclRouteRuntime?.UpdatePolicy(updated));
+            try { samePclRouteRuntime.InstallHooksEagerly(); }
+            catch (Exception ex)
+            {
+                // Same fail-open outcome as a failed first publication: no gate masks are applied.
+                Shared.DebugLogHelper.LogWarning(log,
+                    $"Native gate-mask hooks could not be installed; gate masks remain inactive: {ex.GetType().Name}: {ex.Message}");
+            }
             // TEMP_GATE_ROUTE_ACCEPTANCE: publish only after the existing initialization succeeds.
             DiagInstallNative(context);
 

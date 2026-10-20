@@ -63,7 +63,7 @@ namespace BugfixesAndQoL.BuildPreview
                 {
                     Name = Name, TargetAddress = target, Callback = callback
                 };
-                candidate = (NativeDetour<PreviewNativeContract.PreviewDelegate>)PreviewNativeContract.Backend().CreateDetour(in request);
+                candidate = (NativeDetour<PreviewNativeContract.PreviewDelegate>)HookInstallPhase.Backend(PreviewNativeContract.Backend()).CreateDetour(in request);
                 PreviewNativeContract.Validate(candidate, target, false);
                 // The inactive wrapper can safely call Original even during installation.
                 permanentHook = candidate;

@@ -4341,7 +4341,8 @@ namespace BugfixesAndQoL
                     !troopPatch.Contains("AttributeName=\"{clr-namespace:"),
                 "XAML SetAttribute operations use the audited Script Extender patch contract");
             Check(moatWork.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
-                    moatWork.Contains("relationshipMode == 1 && !friendlyMovementEnabled") &&
+                    // Dig work (mode 1) is routed only by an active traversal provider (MoatMove), which requires EnableMod.
+                    moatWork.Contains("relationshipMode == 1 && !TraversalEnabled") &&
                     moatWork.Contains("if (!ExtensionsEnabled)") &&
                     !moatWork.Contains("RegisterImprovedMoatFillingProvider"),
                 "hostile filling remains independent while Off blocks every friendly moat work route");
@@ -5772,6 +5773,7 @@ namespace BugfixesAndQoL
             {
                 (0xE19D8, 6, 18, "Assassin current-tile building rejection"),
                 (0xE19F9, 6, 23, "Assassin neighbor-tile building rejection"),
+                (0xE19C0, 14, 14, "Assassin reconstruction connection test"),
                 (0x912AF, 16, 16, "assembly-point shared failure status"),
                 (0x912E2, 6, 16, "assembly-point tunneler rejection"),
                 (0x913D1, 6, 18, "assembly-point knight rejection"),

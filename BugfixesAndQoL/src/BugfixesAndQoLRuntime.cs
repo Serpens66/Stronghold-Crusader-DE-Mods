@@ -1071,6 +1071,8 @@ namespace BugfixesAndQoL
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter("FeatureInitialize", featureName.GetHashCode()))
             {
+                long diagStarted = 0; // TEMP_PERF_DIAG
+                Shared.DevDiag.Start(ref diagStarted); // TEMP_PERF_DIAG
                 try
                 {
                     initialize();
@@ -1081,6 +1083,8 @@ namespace BugfixesAndQoL
                     diagnostic.Complete(-1);
                     Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
                 }
+                // TEMP_PERF_DIAG (startup-time candidate, BFQoLPerformace.md): startup cost per feature.
+                finally { Shared.DevDiag.StopSpike(ref diagStarted, "startup.feature", 15000, () => featureName); } // TEMP_PERF_DIAG
             }
         }
 
@@ -1089,6 +1093,8 @@ namespace BugfixesAndQoL
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter("PersistentInitialize", featureName.GetHashCode()))
             {
+                long diagStarted = 0; // TEMP_PERF_DIAG
+                Shared.DevDiag.Start(ref diagStarted); // TEMP_PERF_DIAG
                 try
                 {
                     initialize();
@@ -1099,6 +1105,8 @@ namespace BugfixesAndQoL
                     diagnostic.Complete(-1);
                     Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
                 }
+                // TEMP_PERF_DIAG (startup-time candidate, BFQoLPerformace.md): startup cost per feature.
+                finally { Shared.DevDiag.StopSpike(ref diagStarted, "startup.feature", 15000, () => featureName); } // TEMP_PERF_DIAG
             }
         }
 

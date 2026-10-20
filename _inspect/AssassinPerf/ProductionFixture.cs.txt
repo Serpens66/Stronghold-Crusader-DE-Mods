@@ -120,6 +120,11 @@ namespace BugfixesAndQoL {
    public int PlayerId=>2;internal bool Current=true,Allowed=true;public bool IsCurrent=>Current;
    public bool IsDirectionAllowed(int tile,int direction)=>Allowed;
   }
+  // Deterministic partial gate mask: blocks a fixed pattern of tile directions.
+  sealed class StripeMask:IEnemyGateRoutePolicySnapshot {
+   public int PlayerId=>2;public bool IsCurrent=>true;
+   public bool IsDirectionAllowed(int tile,int direction)=>(tile*7+direction)%5!=0;
+  }
   public static void VerifyTemporaryRouteValidation() {
    var r=new AssassinPathfindingRuntime("open");var mask=new ValidationMask();
    var key=new RouteCacheKey(5,5,10,5,TileCount,4,2,true,true,mask,true);
@@ -270,6 +275,7 @@ namespace BugfixesAndQoL {
        if(c.RouteCache.ContainsKey(key))
         Assert(r.TryLoadCachedRoute(c,key,out var cached,out _)&&cached.TotalCost==oracle,"validated productive cache");
        else Assert(c.RouteCache.Count==AssassinCommandScope.MaximumCachedRoutes,"unchanged bounded route cache");}
+      VERIFY_EXISTENCE
      }
      if(terrain=="gate"){
       Assert(r.TryBuildWeightedRoute(5,24,55,24,TileCount,4,true,true,null,null,out var entrance)&&entrance.ClimbEdges==0,"cheap open entrance wins");

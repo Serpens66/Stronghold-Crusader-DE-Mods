@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Assassin reconstruction repair](./sem/FBCB9319/knowledge/ASSASSIN_RECONSTRUCTION_REPAIR.md): E1640 mode-3 one-way connection failure, per-unit full-map repair cost and the APIShared 0xE19C0 correction; confirmed by runtime replay and executed fixture.
+
 - [Pause and zoom automation boundaries](./sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md): native versus managed pause, multiplayer transport asymmetry, public camera methods and static validation limits.
 
 - [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; generated baseline remains on its recorded 2.14.2 provenance.

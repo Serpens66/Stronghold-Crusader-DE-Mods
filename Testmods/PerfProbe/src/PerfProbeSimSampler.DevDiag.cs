@@ -22,11 +22,13 @@ namespace PerfProbe
     {
         private const int StartAfterMs = 80, MaxFrames = 48, MaxSamples = 4000;
         private const uint ContextFull = 0x10000B;
-        private const int ContextSize = 1232, OffFlags = 0x30, OffRsp = 0x98, OffRip = 0xF8;
+        private const int ContextSize = 1232, OffFlags = 0x30, OffRip = 0xF8;
         private static readonly CultureInfo C = CultureInfo.InvariantCulture;
 
         private static int simThreadId;
         private static long runStart;
+        internal static int SimThreadId => Volatile.Read(ref simThreadId);
+        internal static long RunStart => Volatile.Read(ref runStart);
         private static ulong imageBase, imageEnd;
         private static Thread worker;
 
@@ -43,6 +45,14 @@ namespace PerfProbe
             int peOffset = Marshal.ReadInt32(module, 0x3C);
             imageEnd = imageBase + (uint)Marshal.ReadInt32(module, peOffset + 0x18 + 0x38); // OptionalHeader.SizeOfImage
             for (int i = 0; i < MaxSamples; i++) samples[i] = new uint[MaxFrames];
+            // The thread sampler supersedes this long-tick sampler. Running both crashed the process:
+            // this walker resolves JIT frames through Mono's dynamic unwind tables, which faulted in
+            // RtlVirtualUnwind on long ticks (2026-10-20). Run-state tracking above stays active.
+            if (PerfProbeThreadSampler.IsEnabled)
+            {
+                Shared.DevDiag.Log(() => "simSampler worker not started: threadSampler is enabled");
+                return;
+            }
             worker = new Thread(Loop) { IsBackground = true, Name = "PerfProbe.SimSampler", Priority = ThreadPriority.Highest };
             worker.Start();
             Shared.DevDiag.Log(() => string.Format(C, "simSampler ready image=0x{0:X}-0x{1:X} startAfterMs={2}", imageBase, imageEnd, StartAfterMs));
@@ -127,14 +137,10 @@ namespace PerfProbe
                     frames[depth++] = inGame ? (entry != IntPtr.Zero ? (uint)Marshal.ReadInt32(entry) : (uint)(rip - imageBase) | 0x80000000u) : 0u;
                     if (entry == IntPtr.Zero)
                     {
-                        // Leaf function without unwind data: return address on top of the stack.
-                        ulong rsp = (ulong)Marshal.ReadInt64(context, OffRsp);
-                        if (rsp == 0) break;
-                        Marshal.WriteInt64(context, OffRip, Marshal.ReadInt64(new IntPtr((long)rsp)));
-                        Marshal.WriteInt64(context, OffRsp, (long)(rsp + 8));
-                        // Leaving the game DLL without unwind data: stop (managed/JIT frames follow).
-                        if (!inGame) break;
-                        continue;
+                        // No unwind data (leaf, stub or JIT code): a guessed return address would let
+                        // RtlVirtualUnwind read the stack through a wrong frame and crash the process
+                        // (observed 2026-10-20 on long ticks). Stop the walk here.
+                        break;
                     }
                     RtlVirtualUnwind(0, moduleBase, rip, entry, context, out _, out _, IntPtr.Zero);
                 }

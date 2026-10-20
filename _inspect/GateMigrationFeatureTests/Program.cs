@@ -6,13 +6,28 @@ using APIShared;
 class Program {
  static int checks;static void Check(bool b,string why){checks++;if(!b)throw new Exception(why);}
  static void Main(string[] args){
- BepInEx.Configuration.ConfigFile.Fail=args.Length!=0;
+ bool fixOff=Array.IndexOf(args,"--own-fix-off")>=0;
+ BepInEx.Configuration.ConfigFile.Fail=Array.IndexOf(args,"--config-save-fails")>=0;
  var vm=new BugfixesAndQoLViewModel();
+ if(fixOff)vm.EnableEnemyGatePathfindingFix=false;
  GateRoutingFeature.Configure(new BepInEx.Logging.ManualLogSource(),new BepInEx.Configuration.ConfigFile(),vm);
  // The Macemen option exists only in DEVDIAG builds; otherwise only the detail migration can fail.
- Check(Shared.DebugLogHelper.Errors==(args.Length==0?0:(GateDiagnosticConfiguration.BuildAvailable?2:1)),"config errors are contained and reported");
+ Check(Shared.DebugLogHelper.Errors==(!BepInEx.Configuration.ConfigFile.Fail?0:(GateDiagnosticConfiguration.BuildAvailable?2:1)),"config errors are contained and reported");
  GateRoutingFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext(),true);
- Check(EnemyGatePathfindingRuntime.Created==0,"inactive menu does not initialize native service");
+ if(fixOff)
+ {
+  // Fix off and no foreign rules: no native hooks at library load; enabling later installs lazily.
+  Check(EnemyGatePathfindingRuntime.Created==0,"library load without wanted gate routing installs nothing");
+  Shared.GameplaySessionLifecycle.Start.Fire(new Shared.Session());
+  Check(!GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.Created==0,"map without wanted gate routing stays Vanilla");
+  vm.EnableEnemyGatePathfindingFix=true;vm.Changed(nameof(vm.EnableEnemyGatePathfindingFix));
+  Check(GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.Created==1&&EnemyGatePathfindingRuntime.Begin==1,"later enabling uses the lazy path once");
+  Console.WriteLine("PASS: "+checks+" fix-off orchestration checks (no eager install).");
+  return;
+ }
+ // Native hooks install at library load (user decision 2026-10-20: longer start instead of a
+ // first-map-tick freeze); the map stays inactive until a session starts.
+ Check(EnemyGatePathfindingRuntime.Created==1&&EnemyGatePathfindingRuntime.Begin==0&&!GateRoutingFeature.IsActive,"library load initializes native service once, map stays inactive");
  Shared.GameplaySessionLifecycle.Start.Fire(new Shared.Session{IsEditor=true});
  Check(GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.Created==1&&EnemyGatePathfindingRuntime.Begin==1,"editor starts once");
  Check(GateRoutingFeature.IsBlocked(2,1,42,1,0,true),"default own rule restricts");

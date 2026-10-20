@@ -1,0 +1,89 @@
+# Performance: FPS, Lags, Startzeit und Effizienz
+
+**Lesen, wenn:** FPS-, Lag-, Startzeit- oder Effizienzprobleme untersucht werden, ein Mod gemessen bzw. optimiert wird oder ein neuer nativer Hook, Detour, Tick-/Frame-Callback bzw. eine neue Suche in heißen Pfaden entsteht (z. B. pro Einheit, Kachel, Tick oder Frame). Gilt zusätzlich zur Root-`AGENTS.md`; bei Hooks zusätzlich [native-hooks.md](native-hooks.md).
+
+Konkrete Messwerte und Verlauf stehen in [BFQoLPerformace.md](../BFQoLPerformace.md) (Mods) und [VanillaOptimization.md](../VanillaOptimization.md) (Vanilla/Engine). Diese Datei enthält nur dauerhafte Methoden und Regeln.
+
+## Grundlagen des Spiels
+
+- **Zwei Threads zählen.** Der Unity-Main-Thread rendert und verarbeitet pro Tick die Änderungsdaten (`GameMap.processTestMap`). Der Simulationsthread führt `EngineInterface.run` → `DLL_RunTick` aus.
+- **Das Bild friert nicht nur im Main-Thread ein.** Ein langer Sim-Tick hält `EngineInterface.threadLock`, und der GUI-Check wartet darauf. Lange Sim-Ticks zeigen sich also auch als Frame-Lags.
+- **Native Hooks im Sim-Thread kosten Durchsatz.** Bei hoher Spielgeschwindigkeit begrenzt die Simulation; jede Mikrosekunde pro Tick fehlt dann direkt.
+- **Teurer als der Callback ist oft der Übergang.** Ein RedBird-Context-Hook sichert bis zu 16 Register und die Flags und wechselt über einen nativ→verwaltet-Wrapper in Mono, auch wenn der Callback sofort zurückkehrt. In Schleifen über Kacheln oder Einheiten summiert sich das auf Millisekunden pro Tick (gemessen: Sichtkachel-Hook ≈ 1 ms/Tick).
+- **Vanilla-Grundkosten** (Einheiten-Rendering, KI-Gruppenwegsuche mit Ticks bis ~490 ms) sind keine Mod-Kosten. Abgrenzung siehe [VanillaOptimization.md](../VanillaOptimization.md).
+
+## Werkzeuge
+
+| Werkzeug | Zweck | Hinweise |
+|---|---|---|
+| `Testmods/PerfFixTest` `[Automation]` | Reproduzierbarer Lauf: Save laden, fester Zoom (`TargetZoom`), Spielgeschwindigkeit (`GameSpeed`, 0 = aus dem Save), Pause- und Laufphase, Beenden | Gibt aus: `framestats` (FPS, p50/p95/p99, Frames > 50/> 100 ms), `tickstats` (Ticks/s, Tick-Lücken > 50/> 100 ms, nur Laufphase), `startup` (Prozessstart → Menü, Laden → Mission bereit) und `nativecounters` (native Pfadmanager-Zähler zu Beginn und Ende der Laufphase). Fixes unter `[Features]` für Mod-Messungen ausschalten; nach Messungen `[Automation] Enabled = false`. |
+| `Testmods/PerfFixTest/tools/Run-Automation.ps1` | Ein Lauf inkl. Log-Sicherung | Hängererkennung `-StallSeconds` (Standard 120) beendet eine hängende Testinstanz. |
+| `.work/a/bfqol-perf/001/Run-Variant.ps1`, `Run-Series.ps1` | Plugin-Auswahl pro Lauf umschalten (geparkt unter `BepInEx/plugins_parked`), Serien abwechselnd ausführen | Eine Serie hinterlässt die Plugin-Auswahl ihres letzten Laufs: danach immer `Run-Variant.ps1 -RestoreOnly -Label restore -Plugins x`. |
+| `.work/a/bfqol-perf/001/Show-SamplerHotspots.ps1` | Sampler-Sicht eines Laufs pro Fenster auflisten | `-Thread` sim oder main, `-View` inner, self, asm oder incl, `-MinPercent n`. |
+| `.work/a/bfqol-perf/001/Build-Clean.ps1` | Buildtreiber ausführen und die eigene `.work/b/working/<nr>`-Kopie danach per Git entfernen | Exitcode prüfen: Bei einem Fehlschlag bleibt die zuletzt installierte DLL im Spiel, ein anschließender Messlauf misst dann den alten Stand. |
+| `Testmods/PerfProbe` (nur `build.bat /devdiag`) `[Sampler]` | Sampling-Profiler für Main- und Sim-Thread (≈ 1 kHz) | Zeilen `threadSample … self/asm/incl/entry/inner/guard/nomod`; siehe unten. |
+| PerfProbe `[Spikes]`, `simSample` | Einzelne lange Sim-Ticks, Main-Thread-Aufrufe, Frame-Lücken; Stack-Sampler nur für lange Ticks | RVAs mit `query.ps1 function <RVA>` auflösen. |
+| `Shared.DevDiag` (`build.bat /devdiag`) | Gezielte Zeitmessung und Spike-Zeilen im Mod (`StopSpike` mit Detail) | Für Entscheidungsgrößen (Ergebnis, Knotenzahl, Scope) in der Spike-Zeile. Im normalen Build entfernt der Compiler Aufruf und Detail-Lambda (`[Conditional]`). Auf `develop` erlaubt, vor `main`/Release `Shared/Tools/Validation/Test-DevDiagnostics.ps1 -Enforce`. Nur Messpunkte behalten, die für offene Fragen gebraucht werden, und sie mit `TEMP_PERF_DIAG` samt Zweck markieren, damit sie später gezielt entfernt werden können; Einmal-Untersuchungen (z. B. Nachrechnen nativer Algorithmen) nach dem Befund entfernen. |
+
+### Sampler-Ausgaben lesen
+
+- `asm` zählt, in wie vielen Stichproben eine Assembly *irgendwo* auf dem Stack liegt. Harmony-Hüllen um `EngineInterface.run` (z. B. FormationRuntime, APIShared MarkedUnitSelection) erscheinen dadurch in fast allen Sim-Stichproben. Das ist **kein** Kostenmaß.
+- `inner` = innerster Mod-Frame je Stichprobe; er zeigt, welche Mod-Methode Arbeit verursacht. Ist der innerste Frame die `run`-Hülle, handelt es sich um Vanilla-Arbeit.
+- `guard` = Callback direkt unter `RedBird ContextStub.Guard`; zeigt, welche Context-Hooks feuern.
+- `nomod` = Stichproben ohne Mod-Frame, nach erstem Nicht-System-Frame. Darin stehen Hook-Stubs als `dyn@0x…`. Zuordnung offline über die Logzeilen `["<Name>"] compiled stub at 0x… size …` bzw. `prepared at … trampoline 0x…`: höchste Stub-Adresse ≤ Stichprobe innerhalb Stubgröße.
+- `self` pro Tick normieren (Stichproben ÷ Ticks im Fenster) und SE gegen Mod vergleichen. Zusatzzeit in `dyn`, `mono-2.0-bdwgc` und `ntdll` bedeutet **Hook-Übergangskosten**.
+
+## Messverfahren
+
+1. **Baseline zuerst:** nur Script Extender (+ Messtreiber), gleiche Save-, Zoom-, Speed- und Auflösungseinstellungen. Erweiterter Zoom eines Mods ändert sonst die Szene; deshalb `TargetZoom` fest setzen.
+2. **Mindestens zwei abwechselnde Läufe je Variante** (A, B, A, B). Fremdlast auf dem PC drückt einzelne Läufe deutlich: Pausierte FPS um 84 statt ~110 entlarven einen gestörten Lauf, er wird nicht gewertet.
+3. **Varianten trennen:** SE → SE + APIShared → SE + APIShared + Mod. So wird der Anteil jeder Schicht sichtbar.
+4. **Hohe Spielgeschwindigkeit** (z. B. 250) zeigt Sim-Kosten als Ticks/s. **Vorsicht:** Ticks/s zwischen Varianten vermischt Overhead mit Verhaltensänderungen. Ein Mod ändert KI und Einheiten, die Simulation läuft also anders. Für Overhead die direkt zugeordneten Sampler-Anteile verwenden, nicht allein Ticks/s.
+5. **Lags zuordnen:** Tick-Lücken > 100 ms mit DEVDIAG-Spike-Zeilen oder Sampler zeitlich abgleichen. Ein Lag gilt nur als Mod-verursacht, wenn er in der Baseline fehlt oder Mod-Code nachweislich die Zeit verbraucht.
+6. **Startzeit:** `startup menuReadySinceProcessStartS` vergleichen. Lücken im Log zwischen „Applying Managed Detours“ und „MapModManager“ eingrenzen; Hook-Transaktionen protokollieren ihre `Commit`-Dauer.
+7. **Verstärkende Szenarien:** Ein Save mit vielen KI-Lords (z. B. `test_8lordsmiddle`, 8 KI) macht seltene Mod-Kosten sichtbar, die auf einem 2-KI-Save in der Streuung untergehen (Gruppenbefehle, Gate- und Gebäudeangriffe).
+8. **Erster Tick nach dem Laden:** `tickstats` zählt nur die Laufphase. Kartenstart-Lags über die PerfProbe-Spike-Zeile `sim:EngineInterface.run` direkt nach `LoadSaveFile` gegen SE vergleichen.
+9. **Sampler-Fenster:** 2 s, um einen einzelnen Stillstand zu isolieren; 10 s für Durchschnittsanteile. Der Sampler kostet selbst Leistung: Läufe mit PerfProbe nur mit Läufen mit PerfProbe vergleichen.
+10. **Native Zähler zuerst vergleichen:** Weichen Vanilla-Zähler (Rekonstruktionsfehler, Reparaturen) mit Mod deutlich von SE ab, löst der Mod einen Vanilla-Fehlerpfad aus. Das ist oft billiger zu beheben als jede Mikro-Optimierung.
+11. **Hypothesen billig prüfen:** ein Feature per temporärer Codezeile abschalten (DEVDIAG-Build), messen, per `git checkout -- <Datei>` zurücksetzen. Ein ausbleibender Effekt in Ticks/s widerlegt eine Sampler-Zuordnung wegen Punkt 4 nicht automatisch.
+
+## Abwägungen
+
+- **Nutzervorgabe (20.10.2026):** Ein längerer Spielstart ist besser als Lags beim Kartenstart oder im laufenden Spiel. Optimierungen, die Arbeit vom Spielstart in den Kartenstart oder ins Spiel verschieben (z. B. Hooks erst lazy installieren), nicht selbst entscheiden, sondern dem Nutzer vorlegen. Optimierungen, die Kosten nur senken, ohne sie zu verschieben, sind unkritisch.
+
+## Typische Kostenfallen (Checkliste für neue Fixes/Features)
+
+- **Context-Hook in einer Schleife** (pro Kachel, Einheit, Pfadknoten): Ist der Callback meist ein No-op, `DemandGatedContextHook` (`BugfixesAndQoL/src/DemandGatedContextHook.cs`) verwenden. Ein natives Bedarfsbyte lässt den Stub ohne verwalteten Übergang nur die verdrängten Instruktionen ausführen. Das Byte bei jeder Zustandsänderung neu berechnen (Beispiel: `LargeMoveTargetMarkerRenderer.UpdateRenderDemand`). Für Detours gibt es das Gegenstück in APIShared (`SoundBridgeCode.EmitGuard`).
+- **Doppelte Arbeit:** Erst Vanilla rechnen lassen und danach dasselbe nochmals verwaltet berechnen. Prüfen, ob das verwaltete Ergebnis überhaupt verwendet wird. Beispiel Assassinen: 41 von 42 gewichteten Suchen eines Gruppenbefehls wurden verworfen; für diese Anfragen genügt eine Existenzprüfung.
+- **Teure Vorarbeit vor dem Cache:** Schlüssel billig bilden, teure Sammlungen erst nach einem Cache-Fehlschlag (Beispiel Gatehouse-Erreichbarkeit: Drawbridge-Snapshot pro Abfrage vor dem Tick-Cache).
+- **Allokationen pro Ereignis** (Listen, HashSets, Closures, LINQ, String-Formatierung) in Tick-, Einheiten- oder Kachelpfaden vermeiden; Puffer wiederverwenden, Closures in eigene Methoden auslagern (C# allokiert sie beim Methodeneintritt).
+- **Unerreichbare Ziele** in Suchen expandieren bis zum Budget; Erschöpfung und Wiederholung innerhalb eines Befehls bedenken.
+- **Kantenprüfung für bereits besuchte Knoten** in Breiten-/Flutsuchen: Ist die Kantenfunktion (Delegate, Policy-Abfrage) seiteneffektfrei, für markierte Nicht-Ziele gar nicht erst aufrufen; Ziele per Generationsarray statt Dictionary-Lookup pro Nachbar erkennen. Beispiel `MoatCandidateField.Resolve`: 102 → 22 ms bei 177 661 Knoten, identisches Ergebnis.
+- **Hook-Installation oder teure Initialisierung im ersten Kartentick:** erkennbar als langer erster Sim-Tick nach dem Laden mit RedBird, `ntdll` und Mono im Sampler. Nach Nutzervorgabe in `LibraryLoaded` vorziehen (Beispiel Gate-Routing: 490 → 174–210 ms); die logische Aktivierung bleibt beim Kartenstart.
+- **Vanilla-Fehlerpfade, die eine Mod-Änderung häufiger auslöst.** Lockert ein Fix eine Suche (z. B. Klettern, Gate-Regeln), müssen Rekonstruktion und Ausführung dieselben Kanten akzeptieren. Sonst scheitert Vanilla und startet teure Reparaturen. Beispiel: E1640 scheiterte pro Assassine an Einbahnkanten am eigenen Tor und rief jedes Mal die Vollkarten-Reparatur auf (~19 ms, 28 Einheiten ≈ 530 ms in einem Tick). Details: `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ASSASSIN_RECONSTRUCTION_REPAIR.md`.
+  - **So findet man so etwas:** Der Sampler zeigt einen Mod-Hook als „inner“-Hotspot, obwohl er selbst kaum Arbeit macht → in der `self`-Sicht prüfen, welche native Funktion darunter läuft, und deren native Zähler vergleichen (z. B. `pathManager+0x78`, von PerfFixTest als `nativecounters` im SE-only-Lauf und im Mod-Lauf geloggt). Bei Abweichung im DevDiag-Build die Aufrufer per verwaltetem Stack und Befehlskontext loggen und den nativen Algorithmus auf dem unveränderten Zustand nachrechnen, bevor die Reparatur ihn ändert.
+  - **Ursache eingrenzen:** Kandidaten-Features einzeln abschalten. Das geht auch per direktem MSBuild der Mod-DLL, wenn Quelltextverträge des Buildskripts die Testumschaltung verbieten; danach wieder regulär bauen.
+- **Polling statt Events** und Frame-Callbacks, die auch ohne Bedarf arbeiten (siehe Root-`AGENTS.md`).
+- **Viele Hook-Transaktionen beim Start:** RedBird-Detours mit Thread-Suspendierung kosten ~60–65 ms pro Hook. In BFQoLs `LibraryLoaded` wählt `HookInstallPhase.Backend()` deshalb dasselbe Backend ohne Suspendierung (threadgebunden). Neue Start-Detours darüber anlegen; Detours, die später installiert werden, behalten die Suspendierung.
+
+## Fallen der Messwerkzeuge
+
+- **Sampler darf beim Anhalten eines Threads nichts aufrufen, das Sperren nimmt.** `RtlLookupFunctionEntry` nimmt die Loader-Sperre; ein angehaltener Main-Thread beim DLL-Laden führte zum Deadlock. PerfProbe sucht deshalb selbst in `.pdata`.
+- **`RtlVirtualUnwind` nach heuristischen rbp-Sprüngen** liest über falsche Frames und stürzt ab. Der Rückweg endet am ersten nativen Frame oberhalb verwalteten Codes.
+- **Die CLR-Testumgebung kann RedBirds `ContextHookDelegate` nicht marshallen** (generischer Parameter). Maschinentests ersetzen den Callback-Rumpf durch nativen Testcode (`DemandGatedContextHook.CreateGated`).
+- **`.work/b/working/<nr>`-Build-Kopien sind ~5 GB groß.** Nach Messbuilds aufräumen, z. B. mit `.work/a/bfqol-perf/001/Build-Clean.ps1`, der die eigene Kopie per `git worktree remove` entfernt.
+- **Zweiter FPS-Modus:** Läufe derselben Variante landen teils ~25 % tiefer (8 KI: ~145–155 statt ~190–206 FPS), auch nur mit SE. Die Sampler-Anteile bleiben gleich. Nie einen einzelnen Lauf als Mod-Kosten werten; Sampler-Anteile und native Zähler sind belastbarer.
+- **Messpunkte mit Kontext-Lambda** (`StopSpike(..., () => …)`) erst aufteilen (Vanilla-Aufruf vs. eigener Fallback), bevor optimiert wird. Ein Spike wie `uc.attack.buildingConsumer` sagt allein nicht, ob Vanilla oder die Mod die Zeit braucht.
+- **Testdateien mit `Compile Remove`** laufen nicht im Build. Vor dem Verlassen auf einen Test prüfen, dass er tatsächlich ausgeführt wird. Beispiel: Die Suchkern-Tests für `MoatCandidateField` laufen in `Testmods/MoatMove/tests/SearchKernelTests.cs` gegen die BFQoL-Produktivklasse; tote BFQoL-Dubletten dieser Tests wurden entfernt (21.10.2026).
+- **Ein früher Sampler als BepInEx-Preloader** (vor dem ersten Plugin) verursachte Heap-Korruption beim Start (0xC0000374) und wurde verworfen. Der Thread-Sampler startet im `Awake` von PerfProbe.
+- **Quelltext-Vertragsprüfungen im Buildskript** (z. B. `_inspect/AssassinGateClimb/verify.ps1`, Orchestrierungstests) verbieten oft genau die temporäre Umschaltung eines Experiments. Für Experimente die Mod-DLL direkt per MSBuild bauen (`/p:SerpDevDiagnostics=true`) und in den Plugin-Ordner kopieren; danach wieder regulär bauen.
+- **PowerShell-Fallen bei Textersetzungen:**
+  - `[IO.File]` nutzt das .NET-Arbeitsverzeichnis, nicht das PowerShell-`cd`. Immer `Resolve-Path` bzw. absolute Pfade verwenden, sonst scheitert eine Experiment-Änderung stumm und der Lauf misst den alten Stand.
+  - Das Komma bindet stärker als `+`: In `@('alt', 'neu1' + $nl + 'neu2')` wird nur `'neu1'` eingesetzt, der Rest wird zu weiteren Array-Elementen. Ersetzungstexte vorher einer Variablen zuweisen oder das Edit-Werkzeug nutzen und das Ergebnis prüfen.
+- **`BepInEx/LogOutput.log` wird bei jedem Start überschrieben** (AppendLog aus). Logs nach jedem Lauf sichern (macht `Run-Automation.ps1`).
+
+## Tests für Optimierungen
+
+- Verhalten statt Wortlaut prüfen: Ergebnisgleichheit gegen eine Referenz (z. B. A* gegen Dijkstra, Existenzsuche gegen A*), identische Prüfsummen, Zähler.
+- Nativer Stub-Code: ausführen (Harness mit Sentinel-Registern, XMM, Flags/ZF über die Hook-Stelle, Stack-Prüfung), nicht nur dekodieren.
+- Wortlautvergleiche mit alten Commits blockieren jede Optimierung; nicht neu einführen.

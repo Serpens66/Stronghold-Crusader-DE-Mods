@@ -338,6 +338,17 @@ namespace BugfixesAndQoL.GateRouting
 
         internal bool Installed => hooksInstalled;
 
+        // Installs the movement hooks during plugin initialization instead of on the first non-empty
+        // gate mask: that first mask arrives in the first simulation tick of a map, and installing
+        // there froze the map start for ~230 ms (user decision 2026-10-20: longer game start rather
+        // than map-start lags). Same single attempt as before; empty masks keep every filter on the
+        // Vanilla result.
+        internal void InstallHooksEagerly()
+        {
+            if (Installed || Interlocked.CompareExchange(ref installAttempted, 1, 0) != 0) return;
+            InstallHooks();
+        }
+
         bool IEnemyGatePathPolicy.HasPublishedMask =>
             publishedPolicy.NonEmptyPlayerMaskCount != 0;
 

@@ -22,6 +22,9 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Dictionary<ReachabilityKey, bool> reachabilityCache =
             new Dictionary<ReachabilityKey, bool>();
+        // Entry/exit-only results per tick (key signature 0); drawbridges are not involved.
+        private readonly Dictionary<ReachabilityKey, bool> directReachabilityCache =
+            new Dictionary<ReachabilityKey, bool>();
         private IDisposable gatehouseQuerySubscription;
         private bool reachabilityAvailable;
         private int lastCacheTick = int.MinValue;
@@ -167,6 +170,7 @@ namespace BugfixesAndQoL
             if (tick != lastCacheTick)
             {
                 reachabilityCache.Clear();
+                directReachabilityCache.Clear();
                 lastCacheTick = tick;
             }
 
@@ -177,6 +181,24 @@ namespace BugfixesAndQoL
             int mode = unit->r_PathConnectionMode;
             if (sourcePcl <= 0 || entryPcl <= 0 || exitPcl <= 0)
                 return false;
+
+            PathConnectionQueryMode queryMode = (PathConnectionQueryMode)mode;
+            // A reachable entry or exit already decides "reachable" (the caller then keeps
+            // Vanilla's close decision, exactly as when the drawbridge evaluation is unavailable).
+            // Only an unreachable gatehouse needs the synchronized drawbridge approaches, whose
+            // footprint scan dominated this query's cost.
+            var directKey = new ReachabilityKey(playerId, sourcePcl, entryPcl, exitPcl, mode, 0);
+            if (!directReachabilityCache.TryGetValue(directKey, out bool directlyReachable))
+            {
+                directlyReachable = FindRoute(pathingApi, playerId, sourcePcl, entryPcl, queryMode) != 0 ||
+                    FindRoute(pathingApi, playerId, sourcePcl, exitPcl, queryMode) != 0;
+                directReachabilityCache[directKey] = directlyReachable;
+            }
+            if (directlyReachable)
+            {
+                reachable = true;
+                return true;
+            }
 
             if (!TryCollectSynchronizedDrawbridges(
                     gatehouseBuilding,
@@ -197,14 +219,9 @@ namespace BugfixesAndQoL
             if (reachabilityCache.TryGetValue(key, out reachable))
                 return true;
 
-            PathConnectionQueryMode queryMode = (PathConnectionQueryMode)mode;
-            int entryResult = FindRoute(
-                pathingApi, playerId, sourcePcl, entryPcl, queryMode);
-            int exitResult = entryResult != 0
-                ? 0
-                : FindRoute(pathingApi, playerId, sourcePcl, exitPcl, queryMode);
-            reachable = entryResult != 0 || exitResult != 0;
-            if (!reachable && drawbridges.Count > 0)
+            // Entry and exit are known to be unreachable here (checked above).
+            reachable = false;
+            if (drawbridges.Count > 0)
             {
                 reachable = SynchronizedGatehouseReachabilityPolicy.CanReachAnyExteriorApproach(
                     drawbridges,
@@ -363,6 +380,7 @@ namespace BugfixesAndQoL
         private void ClearCache()
         {
             reachabilityCache.Clear();
+            directReachabilityCache.Clear();
             lastCacheTick = int.MinValue;
         }
 
