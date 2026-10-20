@@ -207,7 +207,7 @@ namespace ExtendedData
                 var result = new List<TrailModCompatibilityInfo>();
                 // Consume the same decision and diagnostic as savegame preparation. A
                 // rejected endpoint must not be re-probed through a second contract here.
-                var reports = SavegameModSettings.GetParticipantDiagnostics()
+                var reports = SavegameModSettings.GetParticipantDiagnostics(ModSettingsParticipantPurpose.MissionAuthoring)
                     .Where(item => !string.IsNullOrEmpty(item.ModGuid))
                     .GroupBy(item => item.ModGuid, StringComparer.Ordinal)
                     .ToDictionary(group => group.Key,
@@ -218,10 +218,14 @@ namespace ExtendedData
                     string modId = group.Key;
                     if (string.Equals(modId, ExtendedDataPlugin.PluginGuid, StringComparison.Ordinal)) continue;
                     reports.TryGetValue(modId, out var report);
-                    if (report?.Status == ModSettingsParticipantStatus.Excluded) continue;
-                    string reason = group.Skip(1).Any()
-                        ? "multiple mod-settings panels use the same plugin GUID"
-                        : report?.Diagnostic ?? (report?.IsCompatible == true ? null : "missing owning plugin GUID or mod-settings registration");
+                    string reason = null;
+                    if (group.Skip(1).Any())
+                        reason = "multiple mod-settings panels use the same plugin GUID";
+                    else if (report?.IsCompatible != true)
+                        // Provider exception messages may be empty. A rejected status must
+                        // never become compatible through the legacy reason-string adapter.
+                        reason = !string.IsNullOrWhiteSpace(report?.Diagnostic) ? report.Diagnostic
+                            : report == null ? "missing owning plugin GUID or mod-settings registration" : report.Status.ToString();
                     result.Add(new TrailModCompatibilityInfo(modId, GetModDisplayName(group.First()),
                         report?.IsCompatible == true ? report.HostProperties.ToArray() : Array.Empty<PropertyInfo>(),
                         reason, report?.IsCompatible == true ? (object)report.Endpoint : group.First()?.ViewModel));

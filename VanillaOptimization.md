@@ -111,6 +111,22 @@ Alle Vorschläge sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMo
 
 - Die gesparte Skriptzeit (~0.6 ms pro Frame pausiert) wirkt sich nur teilweise auf die Frame-Zeit aus (−0.13 ms). Bei ~200 FPS wartet der Main-Thread einen Teil der Zeit auf den Render-Thread (`Gfx.WaitForPresentOnGfxThread`). Im laufenden Spiel ist der Gewinn größer (+8 %).
 - Der ~450-ms-Sim-Tick trat in beiden Läufen ~4 s nach dem Entpausieren bzw. ~30 s nach dem Laden auf, unabhängig vom Zoomzeitpunkt. Er hängt also vermutlich nicht am Zoom; die Ursache bleibt nativ offen.
+- **A/B-Vergleich in der schweren Szene (`test_dustyFPS2.sav`, Kamera an einer Stelle mit vielen Einheiten, 2026-10-20 02:00/02:01):** Die Szene war identisch, mit 1 804 Draw Calls, 3 714 sichtbaren Sprites und 3 080 Einheiten in beiden Läufen. Beide Läufe endeten mit PASS.
+
+| Messgröße | A2 (V1+V5+V9 an), pausiert / laufend | B2 (alle aus), pausiert / laufend | Differenz |
+|---|---|---|---|
+| FPS | **119.5** / 110.0 | 114.5 / 112.0 | **+4.4 %** (−0.37 ms pro Frame) / −1.8 % (im Rauschen, siehe unten) |
+| `Director.Update` | 28 / 109 ms/s | 193 / 190 ms/s | −165 / −81 ms/s |
+| davon `ApplyRadarMap` (V1) | 5 / 5 ms/s | 177 / 105 ms/s | −1.4 / −0.9 ms pro Frame |
+| `lerpChimps` (V9) | 43 / 96 ms/s | 35 / 71 ms/s | **langsamer** (+0.05 / +0.23 ms pro Frame) |
+| Heap-Wachstum | 7.5 / 17.3 MB/s | 39.6 / 37.8 MB/s | **−81 % / −54 %** |
+| GC-Sammlungen je 5 s | 4.5 / 4.75 | 5.75 / 6.0 | **−22 %** |
+| `PlayerLoop` | 8.2 / 8.9 ms | 8.9 / 9.3 ms | −0.7 / −0.4 ms |
+| Sim-Spike ~4 s nach dem Entpausieren | 491 ms; `V5 served cached merit data`, kein Main-Thread-Spike | 467 ms; kein `GetMeritData`-Aufruf währenddessen | wie zuvor |
+
+- Die pausierte Phase ist die belastbare Messung, weil die Szene stillsteht. Die laufende Phase streut stärker: `processTestMap` lag in A2 bei 83 statt 66 ms/s, obwohl die Fixes darauf keinen Einfluss haben. Ein FPS-Unterschied von ±2 % ist dort nicht aussagekräftig.
+- **V9 kostet Zeit:** Die Allokation sinkt wie geplant. Die Harmony-Hülle (Prefix + Finalizer = try/finally) um den Extender-Hook, der ~3 000-mal pro Frame läuft, macht `lerpChimps` aber etwas langsamer. Verbesserung: die Verschachtelungserkennung ohne Prefix/Finalizer direkt per Transpiler einbauen (Belegt-Markierung im wiederverwendeten Objekt, Freigabe nach `Raise` und im `catch`).
+- Der Engpass bleibt die Darstellung: Mit ~1 800 Draw Calls liegt `PlayerLoop` bei ~8–9 ms. Den großen Hebel dafür bietet V7.
 - Sichtprüfung durch den Nutzer bestanden (2026-10-20): Minimap läuft weiter, Bündnisanzeige normal, Einheiten normal dargestellt.
 
 ### V1 – Minimap-Bild nicht bei jedem Tick neu an Noesis binden — im Testmod bestätigt

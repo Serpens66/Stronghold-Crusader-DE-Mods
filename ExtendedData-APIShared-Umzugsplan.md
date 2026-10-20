@@ -1,6 +1,42 @@
 # ExtendedData → APIShared: Umzugs- und Integrationsplan
 
-Stand: 20.10.2026. Status: Erste Runtime-Etappe und spielunabhängiger Quellumzug aus Etappe 2 implementiert und automatisiert geprüft. Spielabnahme noch offen.
+Stand: 20.10.2026. Status: Erste Runtime-Etappe und spielunabhängiger Quellumzug aus Etappe 2 implementiert; Etappe 3 mit gemeinsamer Teilnehmerermittlung und zweckabhängigen Diagnosen begonnen. Automatisierte Prüfungen bestanden, Spielabnahme noch offen.
+
+## Beginn von Etappe 3: Gemeinsame Teilnehmerdiagnose (20.10.2026)
+
+Der zuletzt übertragene Schema-3-Codec und seine Core-Adapter wurden erneut geprüft. Es ergab sich kein weiterer konkreter Codec-Änderungsbedarf; die bisherigen Grenz-, Alias-, Fehler- und Dateivertragstests bestehen erneut. Der nächste zusammenhängende Schritt bündelt die bisherige Teilnehmerermittlung:
+
+- `APIShared/src/ModSettings/ModSettingsParticipantDiscovery.cs` prüft die bestehenden Lobbyregistrierungen und dynamischen Einträge aus `ModSettingsApplication.Endpoints`. Es gibt keine zusätzliche Registry und keinen neuen Provider. Automatische Savegame-Auswahl und öffentliche Diagnose verwenden dieselbe Implementierung.
+- `SavegameModSettings.GetParticipantDiagnostics()` liefert schreibgeschützte Metadaten für akzeptierte und abgelehnte Teilnehmer. `ModSettingsParticipantInfo` und `ModSettingsParticipantStatus` unterscheiden unter anderem fehlende GUIDs, doppelte Panels, Ausschlüsse, fehlende Endpoints, ungültige Hostschemas, ungültige Missionssnapshots, Inspektionsfehler und konkurrierende Anbieter. Endpoints und PropertyInfo-Ziele bleiben lebende Objekte; die Abfrage ist kein Wert-Snapshot und kein dauerhaft gültiger Berechtigungsnachweis.
+- Der Überladungsparameter `ModSettingsParticipantPurpose` trennt automatische Savegames von `MissionAuthoring`. Ein reiner Savegame-Opt-out schließt den Mod weiterhin nicht aus der Map-/Trail-Bearbeitung aus. Die bisherigen zusätzlichen Lese-/Serialisierungsproben für solche Autorenendpoints bleiben erhalten. Existiert bereits ein expliziter dynamischer Anbieter für dieselbe GUID, behält dieser seinen bisherigen Vorrang; das verdeckte Panel wird nicht zusätzlich geprüft. Die parameterlose Diagnose und `GetCompatibleParticipants()` behalten die automatische Savegame-Auswahl.
+- Reflection-Prüfungen lagen zuvor teilweise außerhalb der Fehlerbehandlung je Teilnehmer. Fehlerhafte Attribute, Snapshot-Fabriken oder dynamische Deskriptoren lehnen jetzt den betroffenen Teilnehmer ab, ohne andere Teilnehmer aus der Ermittlung zu verlieren. Echte Fehler der Registrierungsquelle selbst werden weiterhin weitergegeben. Zwei akzeptierte konkurrierende Anbieter werden diagnostiziert; automatische Operationen brechen dafür wie bisher mit einer Exception ab.
+- ExtendedData bezieht die Ergebnisse für seine bestehende Map-/Trail-Kompatibilitätsanzeige mit Zweck `MissionAuthoring`. Die zweite private Endpoint-Prüfung entfällt; der veröffentlichte Core-Kompatibilitätshelfer bleibt erhalten. Inhaltsabhängige Panelauswahl, der bisherige explizite ExtendedData-Opt-out und die UI-Reihenfolge bleiben lokal.
+- Ein zusätzlicher Prüfbefund ist abgesichert: Eine fremde Exception kann eine leere Meldung liefern. Der Teilnehmerstatus bleibt dann abgelehnt; ExtendedDatas bisheriger String-Adapter erhält einen nichtleeren Ersatzgrund und kann die Ablehnung nicht versehentlich als Kompatibilität behandeln.
+- Die öffentliche API wurde additiv erweitert; bestehende Signaturen bleiben erhalten. Katalog, Integrationsleitfaden, Architektur und die betroffenen README-Abschnitte dokumentieren den neuen Stand. Für die neue Abfrage gelten Unity-Thread, abgeschlossene Registrierung und nicht verändernde Snapshot-Fabriken. Es wurden keine Hooks, Spielmember, Transportwege, Speicherformate oder Missionslifecycle-Wege geändert.
+
+Prüfergebnis des abschließenden Arbeitsstands:
+
+- Vollständiger APIShared-Build `/workspace /nopause /noinstall`: 639 Tests bestanden, zwei optionale Integrationsfälle wie zuvor übersprungen. Darin enthalten sind zwölf neue Teilnehmer-Verhaltenstests, die bestehenden 13 Content-Tests und die API-Kompatibilitätsprüfungen. Paket-/Bootstrap-Prüfungen und öffentliche Verbraucherbeispiele bestehen. Die separaten Host-Bash-Fixtures bleiben unter Windows nicht ausgeführt.
+- Vollständiger ExtendedData-Build `/workspace /apishared:dev /nopause /noinstall`: 73/73 Core-/Runtimefälle und beide Upload-Suiten bestanden. Auch der äußere Buildtreiber ist mit Exitcode 0 abgeschlossen. Die abschließenden modbezogenen Shared-Boundary-Prüfungen bestehen.
+- Die einschlägigen `HostClientPresetTests` mit `preset-storage` bestehen, einschließlich persönlicher Persistenz, Autorität, Restart-Wiederherstellung, externer Anbieter und dynamischer Settings bis 16384 Optionen.
+- Der Vergleich zum Core-Paket aus Lauf 140 bestätigt erneut 600 unveränderte öffentliche/geschützte Metadateneinträge. Der gegen den Core-Stand vor dem Codec-Umzug kompilierte Verbraucher funktioniert unverändert mit dem neuen Paket, einschließlich zweimaligem atomarem Schreiben und anschließendem Lesen, ohne Spielassemblies oder APIShared-Runtime.
+- Keine Installation, Veröffentlichung oder Versionsänderung durch diesen Schritt. Dieser Chat hat keine Commits ausgeführt. Während der Arbeit wurden beide Repositories extern weitercommittet; die abschließenden Nachweise beziehen sich auf die tatsächlich ausgewählten aktuellen Arbeitsstände: Mod-Repository `develop` / `321e513ce7ea8c5c00d1625960433bb1a2e9abf3`, APIShared `dev/Serpens66` / `3e71352b2422777a1be4aac086b3644258cc1e13`, jeweils einschließlich der zu diesem Lauf erfassten Änderungen.
+
+| Gegenstand | Lokaler Nachweis |
+|---|---|
+| Abschließender APIShared-Build | `APIShared/.local/participant-final-build.log` und `APIShared/.local/build-proof.json` |
+| Teilnehmer-Verhaltenstests | `APIShared/tests/APISharedTests/ModSettingsParticipantTests.cs`; Ergebnisse im vollständigen APIShared-Testlauf |
+| Gezielt geprüfte Zweck-/Vorrangregeln | `APIShared/.local/participant-purpose-tests.log` |
+| Abschließender ExtendedData-Build | `ExtendedData/obj/participant-final-build.log` und `.work/b/working/143.build.json` |
+| Gebautes ExtendedData-Paket | `.work/b/working/143/ExtendedData/BepInEx/plugins/ExtendedData_Serp` |
+| Abschließende Quell-/Lifecycle-/XAML-/Hook-Prüfung | `ExtendedData/obj/participant-final-boundaries.log` |
+| Preset-/Persistenzintegration | `_inspect/HostClientPresetTests/participant-build.log` und `_inspect/HostClientPresetTests/participant-storage.log` |
+| Core-Metadatenvergleich | `ExtendedData/obj/participant-core-surface.log`, `.before.txt` und `.after.txt` |
+| Unverändert ausgeführter alter Verbraucher | `.work/t/core-participants/001/consumer.log` |
+
+**Verbleibend:** Etappe 3 ist begonnen, nicht abgeschlossen. Als nächster Quellabschnitt folgen gemeinsame Dokumentprüfung, Capture und Snapshot-/Quellenmaterialisierung mit den bisherigen Endpoints; danach Anwendung, Rollback und Sitzungsübernahme. `ModSettingsWorkingSourceRegistry` bleibt dabei die einzige Quellenregistry. Die Runtime-Engine selbst liegt weiterhin in ExtendedData. Die offene UI-/Save-/Neustart-/MP-/Coop-Spielabnahme sowie der Spielstart des vollständigen APIShared-Pakets ohne ExtendedData sind durch die CLI-Prüfungen nicht ersetzt. Etappen 4 und 5 bleiben offen.
+
+Die folgenden Abschnitte sind historische Zwischenstände; der aktuelle Stand oben ersetzt deren damalige nächste Schritte.
 
 ## Weitere Nachprüfung und Missionssettings-Codec (20.10.2026)
 
