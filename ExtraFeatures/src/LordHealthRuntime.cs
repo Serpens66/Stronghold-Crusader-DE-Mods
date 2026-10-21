@@ -73,7 +73,7 @@ namespace ExtraFeatures
                     byte[] bytes = GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveFileName, ignoreCase: true);
                     if (bytes == null || bytes.Length == 0)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:76", "Extra Features Lord health inactive: this save has no recorded Vanilla HP basis. Legacy saves are not supported.");
+                        log?.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Extra Features Lord health inactive: this save has no recorded Vanilla HP basis. Legacy saves are not supported.");
                         return;
                     }
                     LordHealthSaveState state = LordHealthSaveState.Decode(bytes);
