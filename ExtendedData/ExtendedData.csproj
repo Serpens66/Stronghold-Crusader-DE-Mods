@@ -66,6 +66,7 @@
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs"><Link>Shared\Runtime\UI\CoopTrailSetupPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Workshop\WorkshopContentPaths.cs"><Link>Shared\Runtime\Workshop\WorkshopContentPaths.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs"><Link>Shared\Runtime\Workshop\WorkshopUploadStaging.cs</Link></Compile>
     <Compile Include="src\ExtendedDataPlugin.cs" />
@@ -93,6 +94,7 @@
     <Compile Include="src\BugfixesAndQoLTrailCustomizationBridge.cs" />
     <Compile Include="src\MissionPresetLifecycleState.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
+    <Compile Include="src\TrailSettingsSourceState.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\EditorModSettingsSaveOptionsViewModel.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />

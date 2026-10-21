@@ -31,12 +31,6 @@ namespace BugfixesAndQoL
             "MPLocalReadyLocked", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly MethodInfo ShowSetupScreenMethod = typeof(FRONT_Multiplayer).GetMethod(
             "ShowSetupScreen", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly MethodInfo SetupSkirmishModeSettingsMethod = typeof(FRONT_Multiplayer).GetMethod(
-            "SetupSkirmishModeSettings", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly MethodInfo UpdateSteamIdMappingsMethod = typeof(FRONT_Multiplayer).GetMethod(
-            "updateSteamIDMappings", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly MethodInfo UpdateRadarShieldPositionsMethod = typeof(FRONT_Multiplayer).GetMethod(
-            "UpdateRadarShieldPositions", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo MpSetupDataField = typeof(FRONT_Multiplayer).GetField(
             "MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -401,9 +395,6 @@ namespace BugfixesAndQoL
                     MainViewModel.Instance.Show_MPIsHost = true;
                     MainViewModel.Instance.Show_MPSteamIdentity = false;
                     RequireMethod(ShowSetupScreenMethod, "ShowSetupScreen").Invoke(self, null);
-                    RequireMethod(SetupSkirmishModeSettingsMethod, "SetupSkirmishModeSettings").Invoke(self, null);
-                    RequireMethod(UpdateSteamIdMappingsMethod, "updateSteamIDMappings").Invoke(self, null);
-                    RequireMethod(UpdateRadarShieldPositionsMethod, "UpdateRadarShieldPositions").Invoke(self, null);
                 }
                 else
                 {
@@ -424,6 +415,7 @@ namespace BugfixesAndQoL
             MainViewModel.Instance.Show_CoopOptions = false;
             MainViewModel.Instance.Show_CoopWaiting = false;
             MainViewModel.Instance.Show_MPSharing = false;
+            Shared.CoopTrailSetupPresentation.Refresh(self);
             MainViewModel.Instance.Show_MultiplayerSetup = true;
             if (trailId == 0) MainViewModel.Instance.Show_CoopTrail1 = false;
             if (trailId == 1) MainViewModel.Instance.Show_CoopTrail2 = false;

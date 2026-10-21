@@ -20,7 +20,7 @@ public sealed partial class CustomisationFileManager
 
 namespace CrusaderDE
 {
-    public sealed class FRONT_Multiplayer
+    public sealed partial class FRONT_Multiplayer
     {
         public sealed class MPAIVInfo
         {

@@ -162,7 +162,7 @@ namespace ExtendedData
             private bool activeSidecarEditable;
             private bool activeSidecarPreviewOnly;
             private bool workingContextEditable;
-            private ModSettingsDefinition trailSourceDocument;
+            private readonly TrailSettingsSourceState trailSource = new TrailSettingsSourceState();
             private ModSettingsDefinition activeCreatorDocument;
             private bool launchedThroughCustomize;
             private ModSettingsDefinition mapSourceDocument;
@@ -462,13 +462,16 @@ namespace ExtendedData
             {
                 try
                 {
-                    document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
-                    ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
-                    ApplyDocument(document, editable, presetLabel);
-                    activeCreatorDocument = CloneDocument(document);
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:497", $"Loaded {source} mod settings; editable={editable}.");
-                    return GetMissingMentionedMods(document);
+                    return trailSource.Activate(document, source, () =>
+                    {
+                        document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
+                        ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
+                        ApplyDocument(document, editable, presetLabel);
+                        activeCreatorDocument = CloneDocument(document);
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:497", $"Loaded {source} mod settings; editable={editable}.");
+                        return GetMissingMentionedMods(document);
+                    });
                 }
                 catch (Exception exception)
                 {
@@ -478,6 +481,7 @@ namespace ExtendedData
                     activeCreatorDocument = ModSettingsDefinition.CreateModDefaults();
                     return Array.Empty<string>();
                 }
+                finally { SourcesChanged?.Invoke(); }
             }
 
             internal string[] EnterStrict(
@@ -526,7 +530,7 @@ namespace ExtendedData
             {
                 mapSourceDocument = CloneDocument(document);
                 if (document != null) ModSettingsApplication.EnterContext(BuildRestartContext("map:" + (contextId ?? ""), document, File.Exists(contextId) ? contextId : null));
-                if (trailSourceDocument == null)
+                if (!trailSource.IsAvailable)
                     workingSourceContextId = document == null ? string.Empty : "map:" + (contextId ?? string.Empty);
                 SourcesChanged?.Invoke();
             }
@@ -534,10 +538,11 @@ namespace ExtendedData
             public IReadOnlyList<ModSettingsWorkingSource> GetSources(string targetGuid)
             {
                 var result = new List<ModSettingsWorkingSource>();
-                if (trailSourceDocument != null)
-                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings", IsPreferred = true, PreferenceContextId = workingSourceContextId });
+                string preferenceContext = trailSource.IsAvailable ? trailSource.ContextId : workingSourceContextId;
+                if (trailSource.IsAvailable)
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings", IsPreferred = true, PreferenceContextId = preferenceContext });
                 if (mapSourceDocument != null)
-                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings", IsPreferred = trailSourceDocument == null, PreferenceContextId = workingSourceContextId });
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings", IsPreferred = !trailSource.IsAvailable, PreferenceContextId = preferenceContext });
                 return result;
             }
 
@@ -586,8 +591,8 @@ namespace ExtendedData
             {
                 if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
                     return ModSettingsDefinition.CreateModDefaults();
-                if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) && trailSourceDocument != null)
-                    return CloneDocument(trailSourceDocument);
+                if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) && trailSource.IsAvailable)
+                    return trailSource.Capture();
                 if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) && mapSourceDocument != null)
                     return CloneDocument(mapSourceDocument);
                 throw new InvalidOperationException("The selected reset source is unavailable.");
@@ -657,7 +662,7 @@ namespace ExtendedData
                     ClearTrailMakerAuthoringState();
                     missionPresetLifecycle.Reset();
                     workingContextEditable = false;
-                    trailSourceDocument = null;
+                    trailSource.Clear();
                     activeCreatorDocument = null;
                     launchedThroughCustomize = false;
                     mapSourceDocument = null;
@@ -678,7 +683,7 @@ namespace ExtendedData
                 ClearActiveSidecar();
                 ClearTrailMakerAuthoringState();
                 missionPresetLifecycle.Reset();
-                trailSourceDocument = null;
+                trailSource.Clear();
                 activeCreatorDocument = null;
                 launchedThroughCustomize = false;
                 mapSourceDocument = null;
@@ -902,13 +907,14 @@ namespace ExtendedData
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         ModSettingsJson.WriteAtomic(sidecar, document);
-                        trailSourceDocument = CloneDocument(document);
+                        workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
+                        trailSource.Set(document, workingSourceContextId);
                     }
                     else
                     {
                         if (File.Exists(sidecar))
                             File.Delete(sidecar);
-                        trailSourceDocument = null;
+                        trailSource.Clear();
                     }
                     SourcesChanged?.Invoke();
                     capturedDocumentsByTrailPath.Remove(IOPath.GetFullPath(trailPath));
@@ -3010,9 +3016,6 @@ namespace ExtendedData
                         MainViewModel.Instance.Show_MPIsHost = true;
                         MainViewModel.Instance.Show_MPSteamIdentity = false;
                         showSetup.Invoke(self, null);
-                        typeof(FRONT_Multiplayer).GetMethod("SetupSkirmishModeSettings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
-                        typeof(FRONT_Multiplayer).GetMethod("updateSteamIDMappings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
-                        typeof(FRONT_Multiplayer).GetMethod("UpdateRadarShieldPositions", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
                     }
                     else
                     {
@@ -3033,6 +3036,7 @@ namespace ExtendedData
                 MainViewModel.Instance.Show_CoopOptions = false;
                 MainViewModel.Instance.Show_CoopWaiting = false;
                 MainViewModel.Instance.Show_MPSharing = false;
+                Shared.CoopTrailSetupPresentation.Refresh(self, preserveMissionText: trailSource.IsAvailable);
                 MainViewModel.Instance.Show_MultiplayerSetup = true;
                 if (trailId == 0) MainViewModel.Instance.Show_CoopTrail1 = false;
                 if (trailId == 1) MainViewModel.Instance.Show_CoopTrail2 = false;
@@ -3384,26 +3388,32 @@ namespace ExtendedData
                     return exists;
                 }
 
-                ModSettingsDefinition document = exists
-                    ? ModSettingsJson.Read(sidecar)
-                    : ModSettingsDefinition.CreateModDefaults();
-                trailSourceDocument = exists ? CloneDocument(document) : null;
-                activeCreatorDocument = CloneDocument(document);
-                workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
-                ModSettingsApplication.EnterContext(BuildRestartContext(workingSourceContextId, document, trailPath));
-                SourcesChanged?.Invoke();
-                ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
-                    previewOnly: previewOnly, preserveCurrentValues: editable);
-                string[] mentionedMods = document.Mods.Keys.ToArray();
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3343", $"Loaded Trail sidecar [{sidecar}]; exists={exists}, editable={editable}, " +
-                        "mentioned=[" + string.Join(", ", mentionedMods) + "].");
-                activeSidecarPath = sidecar;
-                activeSidecarLength = length;
-                activeSidecarWriteTicks = writeTicks;
-                activeSidecarEditable = editable;
-                activeSidecarPreviewOnly = previewOnly;
-                return exists;
+                trailSource.Clear();
+                try
+                {
+                    ModSettingsDefinition document = exists
+                        ? ModSettingsJson.Read(sidecar)
+                        : ModSettingsDefinition.CreateModDefaults();
+                    workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
+                    return trailSource.Activate(exists ? document : null, workingSourceContextId, () =>
+                    {
+                        ModSettingsApplication.EnterContext(BuildRestartContext(workingSourceContextId, document, trailPath));
+                        ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
+                            previewOnly: previewOnly, preserveCurrentValues: editable);
+                        activeCreatorDocument = CloneDocument(document);
+                        string[] mentionedMods = document.Mods.Keys.ToArray();
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3343", $"Loaded Trail sidecar [{sidecar}]; exists={exists}, editable={editable}, " +
+                                "mentioned=[" + string.Join(", ", mentionedMods) + "].");
+                        activeSidecarPath = sidecar;
+                        activeSidecarLength = length;
+                        activeSidecarWriteTicks = writeTicks;
+                        activeSidecarEditable = editable;
+                        activeSidecarPreviewOnly = previewOnly;
+                        return exists;
+                    });
+                }
+                finally { SourcesChanged?.Invoke(); }
             }
 
             private ModSettingsDefinition CaptureDocument()

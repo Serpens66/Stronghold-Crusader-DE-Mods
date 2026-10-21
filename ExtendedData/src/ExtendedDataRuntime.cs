@@ -754,6 +754,7 @@ namespace ExtendedData
                     GetExistingMainViewModel()?.FRONTMultiplayer,
                     editable: true,
                     source: "custom Coop mission setup");
+                MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
                         LogInfo("Refreshed custom Coop mission mod-settings context after opening the setup screen.");

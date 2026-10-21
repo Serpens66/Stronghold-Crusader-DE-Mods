@@ -16,6 +16,8 @@
     <Compile Include="..\src\TrailLordRequirementSource.cs" Link="TrailLordRequirementSource.cs" />
     <Compile Include="..\src\TrailLordSourceSelector.cs" Link="TrailLordSourceSelector.cs" />
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
+    <Compile Include="..\src\TrailSettingsSourceState.cs" Link="TrailSettingsSourceState.cs" />
+    <Compile Include="..\..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs" Link="CoopTrailSetupPresentation.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
     <!-- Production reader with the same local SDK boundary doubles as the legacy facade tests. -->

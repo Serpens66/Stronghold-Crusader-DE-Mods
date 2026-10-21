@@ -124,6 +124,40 @@ try {
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateHostInfo' @(
         'System.Boolean') 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateRadarShieldPositions' @() 'Private'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'PopulateTeamsPanel' @() 'Private'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'SetupSkirmishModeSettings' @() 'Private'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'PopulateMapDetailsPanel' @('FileHeader') 'Private'
+    # Shared.CoopTrailSetupPresentation uses these private members by checked reflection,
+    # and only the following public game members by direct access.
+    $front = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'CrusaderDE.FRONT_Multiplayer'
+    $panelActive = @($front.Fields | Where-Object Name -CEQ 'panelActive')
+    if ($panelActive.Count -ne 1 -or -not $panelActive[0].IsPublic -or $panelActive[0].IsStatic -or
+        $panelActive[0].FieldType.FullName -cne 'System.Boolean') { throw 'Coop presentation input gate contract changed.' }
+    foreach ($contract in @(@('MPsetupData', 'EngineInterface/MultiplayerSetupData'), @('selectedMPHeader', 'FileHeader'))) {
+        $field = @($front.Fields | Where-Object Name -CEQ $contract[0])
+        if ($field.Count -ne 1 -or -not $field[0].IsPrivate -or $field[0].IsStatic -or
+            $field[0].FieldType.FullName -cne $contract[1]) { throw "Coop presentation field changed: $($contract[0])" }
+    }
+    $mapping = @($front.Methods | Where-Object { $_.Name -ceq 'updateSteamIDMappings' -and $_.Parameters.Count -eq 0 })
+    if ($mapping.Count -ne 1 -or -not $mapping[0].IsPrivate -or $mapping[0].IsStatic -or
+        $mapping[0].ReturnType.FullName -cne 'System.Boolean') { throw 'Coop presentation mapping contract changed.' }
+    $engine = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'EngineInterface'
+    $setupType = $engine.NestedTypes | Where-Object Name -CEQ 'MultiplayerSetupData'
+    $advanced = @($setupType.Methods | Where-Object { $_.Name -ceq 'advancedSkirmishOptionsEnabled' -and $_.Parameters.Count -eq 0 })
+    $advancedField = @($setupType.Fields | Where-Object Name -CEQ 'advanced_skirmish_options')
+    if ($advanced.Count -ne 1 -or -not $advanced[0].IsPublic -or $advanced[0].IsStatic -or
+        $advanced[0].ReturnType.FullName -cne 'System.Boolean' -or $advancedField.Count -ne 1 -or
+        -not $advancedField[0].IsPublic -or $advancedField[0].FieldType.FullName -cne 'System.Int32') {
+        throw 'Coop presentation advanced settings contract changed.'
+    }
+    $mainView = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'CrusaderDE.MainViewModel'
+    foreach ($contract in @(@('StandaloneMissionText', 'System.String'), @('Show_SkirmishAdvancedEnabled', 'System.Boolean'))) {
+        $property = @($mainView.Properties | Where-Object Name -CEQ $contract[0])
+        if ($property.Count -ne 1 -or $property[0].PropertyType.FullName -cne $contract[1] -or
+            -not $property[0].GetMethod.IsPublic -or -not $property[0].SetMethod.IsPublic) {
+            throw "Coop presentation property changed: $($contract[0])"
+        }
+    }
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'ReSortTeamInfo' @() 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateCustomLordNamesFromMP' @() 'Public'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FrontendMenus' 'GenerateSwords' @() 'Public'

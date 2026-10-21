@@ -9,6 +9,8 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Trail reset sources retain authored rules and replace or clear mission identity", TrailSetupTests.Sources),
+    ("Coop Customize refreshes setup, map, team and radar presentation on hosts and clients", TrailSetupTests.Presentation),
     ("legacy mission-settings adapter preserves aliases, mutation and wire contracts", MissionSettingsAdapterTests.Run),
     ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),

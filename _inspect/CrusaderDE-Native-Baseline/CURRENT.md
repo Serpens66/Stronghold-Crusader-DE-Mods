@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Coop Trail Customize presentation](./sem/FBCB9319/knowledge/COOP_TRAIL_CUSTOMIZE_PRESENTATION.md): managed team-shield/radar refresh, setup metadata and input-callback suppression; static/member checks and pending visual acceptance.
+
 - [Assassin reconstruction repair](./sem/FBCB9319/knowledge/ASSASSIN_RECONSTRUCTION_REPAIR.md): E1640 mode-3 one-way connection failure, per-unit full-map repair cost and the APIShared 0xE19C0 correction; confirmed by runtime replay and executed fixture.
 
 - [Pause and zoom automation boundaries](./sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md): native versus managed pause, multiplayer transport asymmetry, public camera methods and static validation limits.

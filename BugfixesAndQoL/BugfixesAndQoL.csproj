@@ -87,6 +87,7 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs"><Link>Shared\Runtime\UI\CoopTrailSetupPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>Shared\Runtime\Native\NativeBuildingCompoundGroup.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
