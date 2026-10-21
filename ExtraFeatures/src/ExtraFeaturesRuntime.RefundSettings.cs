@@ -82,7 +82,7 @@ namespace ExtraFeatures
             if (amount <= 0)
                 return;
 
-            string key = BuildResourceEventKey(playerId, good);
+            long key = ResourceEventKey(playerId, good);
             refundResourceGuards[key] = new ResourceEventCountGuard
             {
                 RemainingAmount = amount,
@@ -99,8 +99,8 @@ namespace ExtraFeatures
             if (args.Phase != EventHookPhase.Post || activeRefundGuardKeys.Count == 0)
                 return;
 
-            foreach (string key in activeRefundGuardKeys)
-                refundResourceGuards.Remove(key);
+            for (int index = 0; index < activeRefundGuardKeys.Count; index++)
+                refundResourceGuards.Remove(activeRefundGuardKeys[index]);
             activeRefundGuardKeys.Clear();
         }
 

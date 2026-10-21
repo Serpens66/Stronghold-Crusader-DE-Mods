@@ -137,9 +137,17 @@ ExtraFeatures war in keiner Messreihe enthalten. Die Optimierungen beruhen auf C
 |---|---|---|---|
 | E1 | Furchtfaktor: Detour auf die Schadensfunktion `0x180560` und Context-Hook im Einheiten-Overlay `0x1A19F2` durch rein native Inline-Stubs mit Flag-Byte ersetzt (`FearFactorNativeStubs`) | kein verwalteter Übergang mehr pro Nah-/Fernkampftreffer und pro markierter sichtbarer Einheit und Tick im Renderer `0x41D60`, auch nicht im Standardzustand „aus“; Start −55 ms (Detour-Suspendierung entfällt) | identisch (Ausführungstest gegen die Vanilla-Bytes) |
 | E2 | Start-Detours ohne Thread-Suspendierung im eigenen `LibraryLoaded` (`ExtraFeaturesHookInfrastructure.DetourBackend`, wie A3) | Heiler-Detour, Heiler-Probe und KI-Pestflaggen-Detour sparen zusammen ~0,2 s (Log_349: 55 + 55 ms Commits plus ~0,1 s Probe) | gleiche Hooks, gleicher Zeitpunkt |
+| E4 | Warenmultiplikator (`OnGoodsyardAddGood`, jede Lagerbewegung aller Spieler in beiden Phasen): Phase/Zugang/Menge vor Besitzerabfrage; Guard-Schlüssel `long` statt `"spieler:ware"`-String; Aufräumen mit wiederverwendetem Puffer statt neuer Liste | keine String-/Boxing-Allokation pro Lagerbewegung, keine Liste pro Aufräumlauf | identisch (gleiche Schlüsselidentität, nur reine Lesezugriffe umgestellt) |
+| E5 | Torhausautomatik: `OnBuildingDelete`/`OnBuildingSpawn` (prozessweit, jedes Gebäude aller Spieler) filtern vor Closure und Main-Thread-Dispatch | Closure + Dispatch nur noch für ein gelöschtes ausgewähltes Gebäude bzw. im Editor mit offenen Lokatoren | identisch; die Main-Thread-Aktion prüft weiter den Live-Zustand |
 
 - **E1-Test:** `_inspect/ExtraFeaturesNativeTests/FearFactorStubTests.cs` (läuft im `build.bat`) führt Vanilla-Bytes und beide Stub-Pfade in einem Fake-Image mit den auditierten RVA-Abständen aus und vergleicht alle GPRs; dazu echte RedBird-Spannen und ein Rohscan aller ausführbaren Sektionen auf Sprünge in die 17-Byte-Spanne. Mutationsprobe: falsches Rückgaberegister bzw. fehlender Flag-Sprung lassen den Test scheitern.
 - **Geprüft, nicht geändert:** Tick- und Event-Handler kehren früh zurück (der Script Extender allokiert seine Event-Args ohnehin unabhängig von Abonnenten). Der Pest-Lebensdauer-Hook `0x9A16C` läuft nur für Krankheitsprojektile, der Heiler-Listen-Detour einmal pro nativer Listen-Neuberechnung, der KI-Platzierungs-Detour pro KI-Bauschritt. Dort lohnt sich der Umbau nicht.
+- **Code-Review 21.10.2026 (ohne Spiellauf, da die meisten Features nur bei Menschen und nicht dauerhaft wirken), geprüft und unverändert:**
+  - Heiler-Listen-Detour `0x181340`: Vanillas Scheduler `0xD1AD0` ruft ihn gestaffelt auf (Zählerwerte 10–18, 60–68, 100–108), höchstens einmal pro Sim-Tick.
+  - Knight-Fortschrittsbalken (`OnUnitUnityVisualInterpolate`, pro Einheit und Frame): Der Script Extender erzeugt die Args ohnehin und hat selbst einen Abonnenten; ExtraFeatures kehrt bei leerer Warteschlange sofort zurück.
+  - Knopfsichtbarkeit (Knight, Torhaus): nur bei Vanilla-Truppenaktionen bzw. HUD-Aktionen, nicht pro Frame.
+  - Torhaus-Abfrage, Gebäudeschaden, Reparaturnähe, Projektil-Events, Tick-Handler, `MainViewModel.PropertyChanged`: früher Rücksprung bzw. nur Feld- und String-Vergleiche.
+  - Start: ~130 ms entfallen auf APIShareds Marktpreis-Detours mit Thread-Suspendierung (`MarketPriceNativeRuntime`). Eine Lösung bräuchte ein APIShared-seitiges Startfenster und wurde wegen < 1 % Startzeit zurückgestellt.
 
 ## Bestätigte und widerlegte Befunde
 

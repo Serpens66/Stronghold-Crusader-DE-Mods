@@ -12,13 +12,14 @@ namespace ExtraFeatures
     {
         private void OnGoodsyardAddGood(AddGoodToGoodsyardEventArgs args)
         {
-            int playerId = GameBuildingManagerAPI.Instance.GetOwner(args.BuildingId);
-            string key = BuildResourceEventKey(playerId, args.Good);
-            if (args.Phase != EventHookPhase.Post || !args.Add || args.AddAmount <= 0 ||
-                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
-            {
+            // Raised for every stockpile change of every player (both phases, additions and
+            // removals): the event-shape checks come before any native lookup or key.
+            if (args.Phase != EventHookPhase.Post || !args.Add || args.AddAmount <= 0)
                 return;
-            }
+            int playerId = GameBuildingManagerAPI.Instance.GetOwner(args.BuildingId);
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
+                return;
+            long key = ResourceEventKey(playerId, args.Good);
 
             PruneExpiredResourceGuards();
             if (resourceAddReentryGuards.Contains(key))
@@ -57,7 +58,7 @@ namespace ExtraFeatures
             }
         }
 
-        private static bool ConsumeGuard(Dictionary<string, ResourceEventCountGuard> guards, string key, int amount)
+        private static bool ConsumeGuard(Dictionary<long, ResourceEventCountGuard> guards, long key, int amount)
         {
             if (!guards.TryGetValue(key, out ResourceEventCountGuard guard))
                 return false;
@@ -74,20 +75,23 @@ namespace ExtraFeatures
             PruneExpiredCountGuardKeys(refundResourceGuards);
         }
 
-        private static void PruneExpiredCountGuardKeys(Dictionary<string, ResourceEventCountGuard> guards)
+        private void PruneExpiredCountGuardKeys(Dictionary<long, ResourceEventCountGuard> guards)
         {
             if (guards.Count == 0)
                 return;
 
             int now = CurrentGameTick();
-            List<string> expiredKeys = new List<string>();
-            foreach (KeyValuePair<string, ResourceEventCountGuard> entry in guards)
+            // Reused buffer: pruning runs before every guarded stockpile addition.
+            List<long> expiredKeys = expiredResourceGuardKeys;
+            expiredKeys.Clear();
+            foreach (KeyValuePair<long, ResourceEventCountGuard> entry in guards)
             {
                 if (IsTickWindowExpired(entry.Value.CreatedTick, now, ResourceGuardLifetimeTicks))
                     expiredKeys.Add(entry.Key);
             }
-            foreach (string key in expiredKeys)
-                guards.Remove(key);
+            for (int index = 0; index < expiredKeys.Count; index++)
+                guards.Remove(expiredKeys[index]);
+            expiredKeys.Clear();
         }
 
         private void LogDebugForResourceEventPlayer(int playerId, params object[] parts)

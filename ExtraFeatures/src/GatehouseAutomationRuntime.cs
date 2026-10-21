@@ -425,6 +425,11 @@ namespace ExtraFeatures
             if (args == null || args.Phase != EventHookPhase.Post)
                 return;
             int buildingId = args.BuildingId;
+            // Raised for every building of every player for the whole process. Pre-filter on the
+            // raising thread (plain reads) so only a deleted selected building costs a closure
+            // and dispatch; the Unity-thread action re-checks the live state.
+            if (!mapActive || GamePlayerManagerAPI.Instance.GetSelectedBuildingId() != buildingId)
+                return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 if (mapActive && GamePlayerManagerAPI.Instance.GetSelectedBuildingId() == buildingId)
@@ -434,7 +439,9 @@ namespace ExtraFeatures
 
         private void OnBuildingSpawned(BuildingSpawnEventArgs args)
         {
-            if (args == null || args.Phase != EventHookPhase.Post)
+            // Pending locators exist only in an editor session; skip the closure otherwise.
+            if (args == null || args.Phase != EventHookPhase.Post ||
+                !editorSessionActive || pendingMapLocators.Count == 0)
                 return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {

@@ -46,10 +46,12 @@ namespace ExtraFeatures
         // Process-lifetime mission subscriptions; intentionally never disposed.
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
         private bool missionLifecycleSubscribed;
-        private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
-        private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
-        private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
-        private readonly List<string> activeRefundGuardKeys = new List<string>();
+        // Keys pack (player, good) without allocation; see ResourceEventKey.
+        private readonly HashSet<long> resourceAddReentryGuards = new HashSet<long>();
+        private readonly Dictionary<long, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<long, ResourceEventCountGuard>();
+        private readonly Dictionary<long, ResourceEventCountGuard> refundResourceGuards = new Dictionary<long, ResourceEventCountGuard>();
+        private readonly List<long> activeRefundGuardKeys = new List<long>();
+        private readonly List<long> expiredResourceGuardKeys = new List<long>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly UnitLimitBridge unitLimitBridge;
         private readonly KnightDismountRuntime knightDismountRuntime;
@@ -925,7 +927,9 @@ namespace ExtraFeatures
             originalCampPeasantsCap = null;
         }
 
-        private static string BuildResourceEventKey(int playerId, eGoods good) => playerId + ":" + (int)good;
+        // Same identity as the former "player:good" text key, without per-event allocation.
+        private static long ResourceEventKey(int playerId, eGoods good) =>
+            ((long)playerId << 32) | (uint)(int)good;
 
         private void ClearResourceEventGuards()
         {
