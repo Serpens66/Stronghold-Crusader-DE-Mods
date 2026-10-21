@@ -7,10 +7,17 @@ internal static partial class Program
 {
     // Compile the actual production bodies for both revisions. Only native memory,
     // native calls, game managers and passive diagnostics are supplied by the fixture.
-    private static Type CompileProductionKernel(string root, bool before, bool diagnostics = false)
+    // revision: a snapshot directory (<file name>.txt per replaced source) compiled with the
+    // current fixture contract, for comparisons between two current-API revisions.
+    private static Type CompileProductionKernel(string root, bool before, bool diagnostics = false, string revision = null)
     {
         string Read(string relative)
         {
+            if (revision != null)
+            {
+                string snapshot = Path.Combine(revision, Path.GetFileName(relative) + ".txt");
+                if (File.Exists(snapshot)) return File.ReadAllText(snapshot);
+            }
             string saved = Path.Combine(root, "_inspect/AssassinPerf/before", Path.GetFileName(relative) + ".txt");
             return File.ReadAllText(before && File.Exists(saved) ? saved : Path.Combine(root, relative));
         }
@@ -214,5 +221,50 @@ internal static partial class Program
             Console.WriteLine("after," + sample + "," + right);
             Console.Out.Flush();
         }
+    }
+
+    // --compare <snapshot directory>: the snapshot revision (A) against the current sources (B),
+    // both with the current fixture contract. Each pair must publish identical routes with
+    // identical expansions and heap operations; samples alternate order to spread drift.
+    private static void CompareRevisions(string root, string snapshot)
+    {
+        Type a = CompileProductionKernel(root, false, revision: snapshot), b = CompileProductionKernel(root, false);
+        foreach (Type type in new[] { a, b })
+        {
+            InvokeKernel(type, "Verify");
+            InvokeKernel(type, "VerifyCastle");
+            InvokeKernel(type, "Run", "castle", 8, "independent", true);
+        }
+        Check(true, "both revisions agree with Dijkstra on all terrains including castle scale");
+        Console.WriteLine("revision,sample,terrain,requests,mode,warm,total_ms,us_request,expanded,heap_operations,full_unit_scans,allocated_bytes,gc0,gc1,gc2,cache_hits,publications,native_stub_ms,native_calls,checksum");
+        var totals = new Dictionary<string, double[]>();
+        foreach (var (terrain, count) in new[] { ("castle", 40), ("gate", 1000), ("detour", 1000), ("open", 1000) })
+        foreach (string mode in new[] { "independent", "group", "field" })
+        for (int sample = 1; sample <= 3; sample++)
+        {
+            string left, right;
+            if (sample % 2 == 1)
+            {
+                left = (string)InvokeKernel(a, "Run", terrain, count, mode, true);
+                right = (string)InvokeKernel(b, "Run", terrain, count, mode, true);
+            }
+            else
+            {
+                right = (string)InvokeKernel(b, "Run", terrain, count, mode, true);
+                left = (string)InvokeKernel(a, "Run", terrain, count, mode, true);
+            }
+            string[] l = left.Split(','), r = right.Split(',');
+            Check(l[^1] == r[^1] && l[14] == r[14], "identical published routes " + terrain + "/" + mode);
+            Check(l[6] == r[6] && l[7] == r[7], "identical expansions and heap operations " + terrain + "/" + mode);
+            Console.WriteLine("A," + sample + "," + left);
+            Console.WriteLine("B," + sample + "," + right);
+            string key = terrain + "/" + mode;
+            if (!totals.ContainsKey(key)) totals[key] = new double[2];
+            totals[key][0] += double.Parse(l[4], System.Globalization.CultureInfo.InvariantCulture);
+            totals[key][1] += double.Parse(r[4], System.Globalization.CultureInfo.InvariantCulture);
+            Console.Out.Flush();
+        }
+        foreach (var entry in totals)
+            Console.WriteLine($"SUMMARY {entry.Key}: A={entry.Value[0]:F1} ms, B={entry.Value[1]:F1} ms, B/A={entry.Value[1] / entry.Value[0]:P1}");
     }
 }

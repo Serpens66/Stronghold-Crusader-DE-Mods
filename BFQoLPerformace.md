@@ -49,6 +49,8 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
 | A8 | APIShared: Assassinen-Rekonstruktion akzeptiert die Kante, die Suche und Bewegung schon nutzen | 8 KI: Rekonstruktionsfehler 112 → 3, größte Tick-Lücke ~1 s → ~140 ms | Nutzerentscheidung |
 | A9 | Gate-Routing-Laufzeit beim Laden der Bibliothek statt im ersten Kartentick | erster Sim-Tick 490 → 174–210 ms, Start +0,25 s | Nutzerentscheidung |
 | A10 | Gebäude-Angriffs-Fallback: besuchte Felder nicht neu bewerten | Spitze 94–107 → 28–30 ms | identisch |
+| A11 | Assassinen-A*: Kostenschranke vor den Kantenprüfungen (O1), Prioritätsschlüssel im Heap-Slot (O2) | gewichtete Suche offline −13 bis −21 % (Burggelände, ~11 700 Expansionen) bzw. −21 bis −32 % (kleine Gelände) | identisch (Routen, Expansionen, Heap-Operationen) |
+| A12 | APIShared: Detours im synchronen Startlauf ohne Thread-Suspendierung (`NativeStartupPatchWindow`) | Audio-, AIV-, Marktpreis-, Assassinen- und Gate-Routing-Detours sparen je ~60 ms; laut Startlog ~0,7 s (noch nicht nachgemessen) | gleiche Hooks, gleicher Zeitpunkt |
 
 ### A1 – Existenzprüfung für Assassinen-Gruppenanfragen
 
@@ -69,6 +71,15 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
   - `LargeMoveTargetMarkerRenderer.UpdateRenderDemand` berechnet das Byte bei jeder Änderung des Rendering-, Vorschau- oder Überlaufzustands neu.
 - **Bewusst:** Der Hook wird nach dem Commit der übrigen Transaktion aktiviert. Scheitert das, bleibt der Zustand fail-open (Begründung im Code).
 - **Test:** `DemandGatedContextHookTests` führt den echten Stub aus und prüft Flags, Register, XMM, Stack sowie die verdrängten Instruktionen auf beiden Pfaden. Der Vertrag von RedBirds Context-Generator mit `Suppress` ist nur über die Quelle belegt (siehe [AGENTS/native-hooks.md](AGENTS/native-hooks.md)).
+
+### A11 – Assassinen-A* (21.10.2026)
+
+- **Ursache:** Pro expandiertem Knoten liefen für alle acht Nachbarn zuerst die Kantenprüfungen (Gate-Policy, Kletterendpunkte/-oberfläche mit nativem Vegetationsprädikat `0x107160`, zwei APIShared-Endpunktabfragen, Kletterkosten) und erst danach `newCost >= costs[next]`. Jeder Heap-Vergleich las drei knotenindizierte Arrays über 640 000 Einträge.
+- **O1:** Kletterkosten sind nie negativ, die Laufkosten sind also eine untere Kantenschranke. Ist der Nachbar damit schon gleich günstig erreicht, wird er vor den reinen Prüfungen verworfen; ohne Schranke hätte der Kostenvergleich ihn ebenso verworfen. Mit aktivem Diagnosebeobachter bleibt die alte Reihenfolge (seine Zähler bleiben gleich).
+- **O2:** Jeder Heap-Slot trägt eine Kopie seines Schlüssels (Schätzung, Kosten, Einfügereihenfolge). Ein Schlüssel ändert sich nur vor `Push`/`PushOrDecrease`, die die Kopie auffrischen. Vergleiche und Tie-Break sind identisch. Kosten: +7,7 MB je Laufzeitinstanz.
+- **Vanilla-Audit:** keine nativen Verträge geändert. `0x107160` ist reine Lesefunktion (`ASSASSIN_ATTACK_CONTROL_TEST.md`); die gelesenen Layer ändern sich während des synchronen Detours nicht. Kanten bleiben die von `0xD9C40` (`ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md`).
+- **Nachweis:** `dotnet run --project BugfixesAndQoL/tests/AssassinPathfinding.Tests -c Release -- . --compare <Snapshot>` kompiliert Snapshot und aktuelle Produktionsmethoden per Roslyn. Beide müssen auf allen Geländen inkl. des neuen 320×320-Burggeländes (`VerifyCastle`: drei Mauerringe, Dijkstra-Orakel, Gate-Masken) mit Dijkstra übereinstimmen und pro Lauf identische Routen-Prüfsummen, Veröffentlichungen, Expansionen und Heap-Operationen liefern. Snapshot von HEAD `a9bd337f9`: `.work/a/assassin-perf/001`. Zwei Läufe (je drei Proben, abwechselnd): Burg 87/79 %, Tor 71/68 %, Umweg 79/77 %, offen 69/70 % der alten Zeit (O1 allein: 89/79/84/91 %).
+- **Grenzen:** CoreCLR-Messung; das Spiel läuft unter Unitys Mono. Die Tick-Lücke im Spiel ist nicht nachgemessen.
 
 ### A3 – Detours ohne Thread-Suspendierung beim Laden
 
@@ -193,7 +204,7 @@ ExtraFeatures war in keiner Messreihe enthalten. Die Optimierungen beruhen auf C
 |---|---|---|---|---|
 | 1 | Wiederholungsläufe dusty-Save | FPS-Gleichheit belegen | Serie SE/BFQ im Wechsel, je mindestens 2 gültige Läufe; Läufe mit pausiert < ~100 FPS nicht werten | Tabelle „Ergebnis“ aktualisieren |
 | 2 | Spielstart | Hauptmenü näher an SE (heute +4,4 s) | a) A3-Restliste: erledigt bzw. gegenstandslos (siehe A3, 21.10.2026). b) APIShared- und BFQoL-Start untersuchen: Hook-Commits kosten laut Startlog nichts Nennenswertes mehr, die Zeit liegt in der übrigen Initialisierung (z. B. Workshop). Startphasen mit `startup.feature` eingrenzen | `startup menuReadySinceProcessStartS` über ≥ 2 Läufe; kein Freeze beim Kartenstart |
-| 3 | Assassinen-Suche mit exaktem Frame | größte Tick-Lücke näher an SE (heute 140–150 ms) | Die gewichtete A*-Suche für die veröffentlichte Route (`SearchAndPublishWeightedPath` → `TryBuildWeightedRoute`) beschleunigen, ohne die Route zu ändern. Ansätze: Suffix-Heuristik über Befehle hinweg wiederverwenden, Kantenauswertung wie bei A10 entschlacken, Allokationen im Suchpfad prüfen. Ergebnis und Knotenzahl über `assassin:BuildWeightedPath` messen | Produktionsfixture: A* gegen Dijkstra, identische Routen-Prüfsummen; 8-KI-Save |
+| 3 | Assassinen-Suche mit exaktem Frame | größte Tick-Lücke näher an SE (heute 140–150 ms) | Kantenauswertung und Heap erledigt (A11). Offen: Suffix-Heuristik über Befehle hinweg wiederverwenden; Tick-Lücke im Spiel über `assassin:BuildWeightedPath` nachmessen | Produktionsfixture (`--compare`): A* gegen Dijkstra, identische Routen-Prüfsummen; 8-KI-Save |
 | 4 | Gate-Topologie im ersten Tick | Kartenstart näher an SE (heute +28–47 ms) | Den Topologie-Snapshot vor dem ersten Sim-Tick aufbauen | **vorher Nutzer fragen** (Arbeit verschiebt sich in den Ladevorgang) |
 | 5 | Gatehouse-Erreichbarkeit mit Zugbrücken | 1–2 % Sim-Zeit | Footprint-Kandidaten pro Torhaus und Tick zwischenspeichern | nur bei geringem Aufwand; identisches Verhalten |
 

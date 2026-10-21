@@ -67,6 +67,7 @@ namespace BugfixesAndQoL
         private readonly int[] insertionOrder = new int[CoordinateCount];
         private readonly int[] estimatedTotalCosts = new int[CoordinateCount];
         private readonly int[] heap = new int[CoordinateCount];
+        private readonly HeapKey[] heapKeys = new HeapKey[CoordinateCount];
         private readonly int[] heapPositions = new int[CoordinateCount];
         private readonly int[] touched = new int[CoordinateCount];
         private readonly byte[] incomingEdgeKinds = new byte[CoordinateCount];
@@ -677,8 +678,14 @@ namespace BugfixesAndQoL
                         continue;
 
                     int nextNode = GetCoordinateIndex(nextX, nextY);
-                    uint nextFlags = tileFlags[nextTile];
                     bool cardinal = (direction & 1) == 0;
+                    int movementTicks = cardinal ? cardinalTicks : diagonalTicks;
+                    // Climb ticks are never negative, so the movement cost alone bounds this edge from
+                    // below. A neighbor already reached at that cost or cheaper is rejected by the cost
+                    // test below on every path; skip its pure edge predicates (gate policy, climb
+                    // endpoints/surface, native vegetation predicate). Observers keep the full order.
+                    if (activeObservation == null && (long)costs[currentNode] + movementTicks >= costs[nextNode])
+                        continue;
                     bool ordinaryEdge = HasOrdinaryConnection(currentTile, nextTile, direction);
                     bool climbEdge = false;
                     if (!ordinaryEdge)
@@ -706,9 +713,6 @@ namespace BugfixesAndQoL
                         }
                         continue;
                     }
-                    int movementTicks = (direction & 1) == 0
-                        ? cardinalTicks
-                        : diagonalTicks;
                     int climbTicks = climbEdge ? GetClimbTicks(currentTile, nextTile) : 0;
                     int edgeCost = movementTicks > int.MaxValue - climbTicks ? int.MaxValue : movementTicks + climbTicks;
                     int newCost = costs[currentNode] > int.MaxValue - edgeCost ? int.MaxValue : costs[currentNode] + edgeCost;
@@ -1573,11 +1577,19 @@ namespace BugfixesAndQoL
             nextInsertionOrder = 0;
         }
 
+        // Each heap slot carries a copy of its node's priority key. Comparisons then read the
+        // contiguous slot instead of three node-indexed arrays spread over 640,000 entries.
+        // A node's key changes only before Push or PushOrDecrease, which refresh the copy, so
+        // every comparison sees the same values as reading the node arrays would.
+        private HeapKey KeyOf(int tile) =>
+            new HeapKey(estimatedTotalCosts[tile], costs[tile], insertionOrder[tile]);
+
         private void Push(int tile)
         {
             if (PerformanceDiagnosticsEnabled) heapOperations++;
             int position = heapCount++;
             heap[position] = tile;
+            heapKeys[position] = KeyOf(tile);
             heapPositions[tile] = position;
             SiftUp(position);
         }
@@ -1588,7 +1600,10 @@ namespace BugfixesAndQoL
             if (position < 0)
                 Push(tile);
             else
+            {
+                heapKeys[position] = KeyOf(tile);
                 SiftUp(position);
+            }
         }
 
         private int Pop()
@@ -1600,6 +1615,7 @@ namespace BugfixesAndQoL
             if (heapCount > 0)
             {
                 heap[0] = tail;
+                heapKeys[0] = heapKeys[heapCount];
                 heapPositions[tail] = 0;
                 SiftDown(0);
             }
@@ -1609,44 +1625,64 @@ namespace BugfixesAndQoL
         private void SiftUp(int position)
         {
             int tile = heap[position];
+            HeapKey key = heapKeys[position];
             while (position > 0)
             {
                 int parent = (position - 1) >> 1;
-                if (!ComesBefore(tile, heap[parent]))
+                if (!ComesBefore(in key, in heapKeys[parent]))
                     break;
                 heap[position] = heap[parent];
+                heapKeys[position] = heapKeys[parent];
                 heapPositions[heap[position]] = position;
                 position = parent;
             }
             heap[position] = tile;
+            heapKeys[position] = key;
             heapPositions[tile] = position;
         }
 
         private void SiftDown(int position)
         {
             int tile = heap[position];
+            HeapKey key = heapKeys[position];
             while (true)
             {
                 int left = position * 2 + 1;
                 if (left >= heapCount)
                     break;
                 int right = left + 1;
-                int best = right < heapCount && ComesBefore(heap[right], heap[left]) ? right : left;
-                if (!ComesBefore(heap[best], tile))
+                int best = right < heapCount && ComesBefore(in heapKeys[right], in heapKeys[left]) ? right : left;
+                if (!ComesBefore(in heapKeys[best], in key))
                     break;
                 heap[position] = heap[best];
+                heapKeys[position] = heapKeys[best];
                 heapPositions[heap[position]] = position;
                 position = best;
             }
             heap[position] = tile;
+            heapKeys[position] = key;
             heapPositions[tile] = position;
         }
 
-        private bool ComesBefore(int left, int right)
+        private static bool ComesBefore(in HeapKey left, in HeapKey right)
         {
             return AssassinAStarPolicy.ComesBefore(
-                estimatedTotalCosts[left], costs[left], insertionOrder[left],
-                estimatedTotalCosts[right], costs[right], insertionOrder[right]);
+                left.EstimatedTotal, left.Cost, left.InsertionOrder,
+                right.EstimatedTotal, right.Cost, right.InsertionOrder);
+        }
+
+        private readonly struct HeapKey
+        {
+            internal readonly int EstimatedTotal;
+            internal readonly int Cost;
+            internal readonly int InsertionOrder;
+
+            internal HeapKey(int estimatedTotal, int cost, int insertionOrder)
+            {
+                EstimatedTotal = estimatedTotal;
+                Cost = cost;
+                InsertionOrder = insertionOrder;
+            }
         }
 
         private readonly struct RouteSearchSummary

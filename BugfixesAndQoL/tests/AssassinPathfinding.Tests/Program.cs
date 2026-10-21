@@ -19,6 +19,13 @@ internal static partial class Program
                 BenchmarkDiagnosticSwitch(Path.GetFullPath(args[0]));
                 return 0;
             }
+            int compare = Array.IndexOf(args, "--compare");
+            if (compare >= 0 && compare + 1 < args.Length)
+            {
+                CompareRevisions(Path.GetFullPath(args[0]), Path.GetFullPath(args[compare + 1]));
+                Console.WriteLine($"PASS: {assertions} revision comparison assertions.");
+                return 0;
+            }
             if (args.Contains("--performance") || args.Contains("--performance-spread"))
             {
                 BenchmarkProduction(Path.GetFullPath(args[0]), args.Contains("--performance-spread"));
@@ -236,9 +243,14 @@ internal static partial class Program
             "runtime heap uses the exact A* estimate");
         Check(runtime.Split("AssassinPathAPI.RunVanillaBuilder(context").Length == 2,
             "the native builder executes exactly once per request");
+        // Source guardrail only (behavior: the masked Dijkstra comparisons). A gated edge may be
+        // rejected early by the pure cost bound, but nothing is admitted before the gate filter.
         string expansion = runtime.Substring(runtime.IndexOf("private bool TryBuildWeightedRoute", StringComparison.Ordinal));
-        Check(expansion.IndexOf("AllowsAssassinTransition(gatePolicy", StringComparison.Ordinal) <
-              expansion.IndexOf("int movementTicks", StringComparison.Ordinal),
+        int gateFilter = expansion.IndexOf("AllowsAssassinTransition(gatePolicy", StringComparison.Ordinal);
+        Check(gateFilter >= 0 &&
+              gateFilter < expansion.IndexOf("Touch(nextNode", StringComparison.Ordinal) &&
+              gateFilter < expansion.IndexOf("costs[nextNode] = newCost", StringComparison.Ordinal) &&
+              gateFilter < expansion.IndexOf("PushOrDecrease(nextNode)", StringComparison.Ordinal),
             "gate edge filtering precedes cost/heap admission");
         Check(runtime.Contains("AllowsAssassinTransition(key.GatePolicy") &&
               runtime.Contains("ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength, allowClimbing"),
