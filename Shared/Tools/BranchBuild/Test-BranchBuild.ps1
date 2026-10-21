@@ -18,6 +18,9 @@ function Invoke-Fixture([string[]]$Arguments, [int]$Expected = 0) {
     return $output
 }
 $cases = 0
+# The fake SDK proof records no machine paths. Explicit overrides from the developer's
+# shell would correctly mark every cached SDK as foreign, so the fixture runs without them.
+foreach ($name in @('SHCDE_GAME_DIR','SHCDESE_EXTENDER_DIR','SHCDE_MSBUILD')) { [Environment]::SetEnvironmentVariable($name, $null, 'Process') }
 try {
     Git-Fixture @('init','-b','main')
     Git-Fixture @('config','user.name','Branch build fixture')
@@ -53,7 +56,8 @@ exit /b 0
     Git-Fixture @('add','.')
     Git-Fixture @('commit','-m','develop fixture')
     Write-BranchText (Join-Path $repo 'Fixture/source.txt') "UNCOMMITTED_MUST_NOT_BUILD`r`n"
-    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1')) {
+    # main builds also load the DEVDIAG release guard.
+    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1','../Validation/DevDiagnostics.Common.ps1')) {
         Write-BranchText (Join-Path $repo ('Shared/Tools/BranchBuild/' + $name)) ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)))
     }
     # Independent fake APIShared: no game binaries, compiler or network are used.
@@ -109,6 +113,32 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case (($output -join "`n") -match 'API_DEVELOP') 'develop did not select APIShared develop'
     Assert-Case ([IO.File]::ReadAllText((Join-Path $devDir 'built.txt')).Trim() -ceq 'DEVELOP_COMMITTED') 'develop installation failed'
     Assert-Case ([IO.File]::ReadAllText((Join-Path $mainDir 'built.txt')).Trim() -ceq 'MAIN_COMMITTED') 'develop overwrote main'
+    # Build copies (workspace and nested SDK sources) must not accumulate; records stay.
+    # Only the one reusable SDK per APIShared branch remains, in .work/c.
+    $cacheRoot = [IO.Path]::GetFullPath((Join-Path $repo '.work/c')) + '\'
+    function Get-ApiCopies { @(Invoke-BranchGit $apiRepo @('worktree','list','--porcelain') | Where-Object { $_ -like 'worktree *' } |
+        ForEach-Object { [IO.Path]::GetFullPath($_.Substring(9)) } | Where-Object { $_ -ine [IO.Path]::GetFullPath($apiRepo) }) }
+    Assert-Case (@(Invoke-BranchGit $repo @('worktree','list','--porcelain') | Where-Object { $_ -like 'worktree *' }).Count -eq 1) 'build copies were left behind'
+    Assert-Case (@(Get-ApiCopies | Where-Object { -not $_.StartsWith($cacheRoot, [StringComparison]::OrdinalIgnoreCase) }).Count -eq 0 -and @(Get-ApiCopies).Count -eq 2) 'SDK build copies were left behind'
+    Assert-Case (@(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b') -Recurse -Filter '*.build.json').Count -ge 2) 'build records were removed with the copies'
+    $output = Invoke-Fixture @('/branch:develop','/nopause','/noinstall','/keepsource')
+    Assert-Case (($output -join "`n") -notmatch 'BUILD_ARGUMENTS=.*?/keepsource') '/keepsource reached the build driver'
+    Assert-Case (($output -join "`n") -match 'reusing the verified develop SDK' -and ($output -join "`n") -match 'API_DEVELOP') 'unchanged SDK was rebuilt'
+    $kept = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b/develop') -Directory)
+    Assert-Case ($kept.Count -eq 1) '/keepsource did not keep exactly one build copy'
+    Remove-BranchSource $repo $kept[0].FullName
+    Assert-Case (-not (Test-Path -LiteralPath $kept[0].FullName) -and @(Get-ApiCopies).Count -eq 2) 'kept build copy could not be removed'
+    # A changed SDK input invalidates the cache and rebuilds it exactly once.
+    Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_DEVELOP_CHANGED'
+    Invoke-BranchGit $apiRepo @('commit','-am','API develop change') | Out-Null
+    $output = Invoke-Fixture @('/branch:develop','/nopause','/noinstall')
+    Assert-Case (($output -join "`n") -match 'not reusable' -and ($output -join "`n") -match 'API_DEVELOP_CHANGED') 'changed SDK was not rebuilt'
+    $output = Invoke-Fixture @('/branch:develop','/nopause','/noinstall')
+    Assert-Case (($output -join "`n") -match 'reusing the verified develop SDK' -and @(Get-ApiCopies).Count -eq 2) 'rebuilt SDK was not reused'
+    # A damaged package fails its proof and is rebuilt instead of being used.
+    Write-BranchText (Join-Path $cacheRoot 'apishared-develop/BepInEx/plugins/APIShared_Serp/APIShared.dll') 'TAMPERED'
+    $output = Invoke-Fixture @('/branch:develop','/nopause','/noinstall')
+    Assert-Case (($output -join "`n") -match 'not reusable' -and ($output -join "`n") -notmatch 'TAMPERED') 'damaged SDK cache was used'
     Write-BranchText (Join-Path $mainDir 'built.txt') 'KEEP_MAIN_NOINSTALL'
     Write-BranchText (Join-Path $devDir 'built.txt') 'KEEP_DEV_NOINSTALL'
     $beforeMain = Get-BranchHash (Join-Path $mainDir 'built.txt'); $beforeDev = Get-BranchHash (Join-Path $devDir 'built.txt')
@@ -161,14 +191,18 @@ function Assert-ApiBuildProof([string]$Root) {
     }
     # Exercise the real Read-Host menu through a fresh PowerShell/BAT process.
     $start = [Diagnostics.ProcessStartInfo]::new()
-    $start.FileName = 'powershell.exe'
-    $entryPath = (Join-Path $repo 'Fixture/build.bat').Replace("'", "''")
-    $start.Arguments = '-NoProfile -Command "& ''' + $entryPath + '''; exit $LASTEXITCODE"'
+    # Start the BAT through cmd.exe like a user does.
+    $start.FileName = 'cmd.exe'
+    $start.Arguments = '/d /c ""' + (Join-Path $repo 'Fixture\build.bat') + '""'
     $start.UseShellExecute = $false; $start.CreateNoWindow = $true
     $start.RedirectStandardInput = $true; $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
     $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
     try {
-        $null = $process.Start()
+        # On a UTF-8 console, .NET Framework writes the encoding's BOM into the redirected
+        # stdin pipe at Start(); the child then reads "<BOM>1", an invalid menu choice.
+        $inputEncoding = [Console]::InputEncoding
+        try { [Console]::InputEncoding = [Text.UTF8Encoding]::new($false); $null = $process.Start() }
+        finally { [Console]::InputEncoding = $inputEncoding }
         $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
         $process.StandardInput.WriteLine('1'); $process.StandardInput.WriteLine('')
         $process.StandardInput.Close()

@@ -14,18 +14,17 @@ using System.Runtime.InteropServices;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class FearFactorNeutralizationRuntime
+    internal sealed class FearFactorNeutralizationRuntime
     {
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int FearDamageDelegate(IntPtr unitManager, int baseDamage, int playerIndex);
-
         private readonly ManualLogSource log;
         private readonly CrusaderLibraryLoadContext context;
-        private readonly DetourHandle<FearDamageDelegate> damageHook =
-            new DetourHandle<FearDamageDelegate>();
+        private readonly HookHandle<X64InlineHook> damageHook =
+            new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> unitOverlayHook =
             new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
+        // Read by both native stubs; 1 neutralizes fear. Allocated once, never freed after publication.
+        private IntPtr enabledFlag;
         private volatile bool enabled;
         private MainViewModel armyReportViewModel;
 
@@ -84,19 +83,21 @@ namespace ExtraFeatures
                     FearFactorNativeDefinition.UiFearLoadPattern, "fear overlay") != uiHookRva)
                 throw new InvalidOperationException("Fear-factor patterns are not unique at the audited targets.");
             // Decode through the actual backend before writing either native patch.
-            using (var probe = new X64InlineHook(imageBase + (ulong)uiHookRva,
-                FearFactorNativeDefinition.UiHookLength))
-            {
-                if (probe.DisplacedByteCount != FearFactorNativeDefinition.UiHookLength)
-                    throw new InvalidOperationException("Unexpected RedBird UI span before installation.");
-            }
+            ProbeSpan(imageBase + (ulong)damageResolution.Rva, FearFactorNativeDefinition.DamageHookLength, "damage");
+            ProbeSpan(imageBase + (ulong)uiHookRva, FearFactorNativeDefinition.UiHookLength, "UI");
             Shared.DebugLogHelper.LogDebug(log,
                 $"FEAR_FACTOR_VALIDATED: sha256={FearFactorNativeDefinition.ReferenceSha256}, " +
+                "damageStart=0x180560, damageEnd=0x180571, instructionLengths=3,7,7, " +
                 "uiStart=0x1A19F2, uiEnd=0x1A1A00, instructionLengths=7,7, next=TEST_EAX_EAX.");
 
             HookTransaction pending = null;
+            IntPtr flag = IntPtr.Zero;
             try
             {
+                flag = Marshal.AllocHGlobal(1);
+                Marshal.WriteByte(flag, 0);
+                ulong flagAddress = unchecked((ulong)flag.ToInt64());
+                ulong fearTableAddress = imageBase + (ulong)FearFactorNativeDefinition.FearTableRva;
                 pending = new HookTransaction(
                     context.Region,
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
@@ -105,24 +106,20 @@ namespace ExtraFeatures
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
                         OwnsHooks = true
                     });
-                pending.AddDetour(
+                // Native stubs only: both sites are hot, so neither the enabled nor the
+                // default disabled path pays a managed transition.
+                pending.AddInline(
                     damageHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)damageResolution.Rva)),
-                    NeutralizeFearDamage);
-                pending.AddContextHook(
+                    (assembler, instructions, returnAddress) => FearFactorNativeStubs.GenerateDamage(
+                        assembler, instructions, returnAddress, flagAddress, fearTableAddress),
+                    hookSize: FearFactorNativeDefinition.DamageHookLength);
+                pending.AddInline(
                     unitOverlayHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)uiHookRva)),
-                    HideFearOverlay,
-                    new ContextHookOptions
-                    {
-                        // The managed call clobbers volatile GPRs. In particular R11 carries
-                        // the render-cache key across this load; saving only RAX corrupts it.
-                        Registers = X64SmartCPUContextRegs.All,
-                        // RedBird requires >=14 bytes. Include IMUL+MOV, leaving TEST/JE outside.
-                        HookSize = FearFactorNativeDefinition.UiHookLength,
-                        ErrorMode = CallbackErrorMode.LogAndContinue,
-                        Placement = OverwrittenInstructionPlacement.BeforeCallback
-                    });
+                    (assembler, instructions, returnAddress) => FearFactorNativeStubs.GenerateOverlay(
+                        assembler, instructions, returnAddress, flagAddress),
+                    hookSize: FearFactorNativeDefinition.UiHookLength);
 
                 CommitResult result = pending.Commit();
                 if (!result.IsCompleteSuccess || !damageHook.Success || !unitOverlayHook.Success)
@@ -130,11 +127,14 @@ namespace ExtraFeatures
                     throw new InvalidOperationException(
                         $"The atomic fear-factor hook transaction was incomplete: {result}.");
                 }
-                if (unitOverlayHook.Hook.DisplacedByteCount != FearFactorNativeDefinition.UiHookLength)
-                    throw new InvalidOperationException("Unexpected actual UI overwrite length; rolling back both hooks.");
+                if (damageHook.Hook.DisplacedByteCount != FearFactorNativeDefinition.DamageHookLength ||
+                    unitOverlayHook.Hook.DisplacedByteCount != FearFactorNativeDefinition.UiHookLength)
+                    throw new InvalidOperationException("Unexpected actual fear-factor overwrite length; rolling back both hooks.");
 
                 transaction = pending;
                 pending = null;
+                enabledFlag = flag;
+                flag = IntPtr.Zero;
             }
             catch
             {
@@ -148,37 +148,30 @@ namespace ExtraFeatures
                     {
                     }
                 }
+                // Only an unpublished candidate's flag is released; a published one lives
+                // as long as its stubs.
+                if (flag != IntPtr.Zero)
+                    Marshal.FreeHGlobal(flag);
                 throw;
             }
 
             Shared.DebugLogHelper.LogDebug(
                 log,
                 $"FEAR_FACTOR_NEUTRALIZATION_READY: damageRva=0x{damageResolution.Rva:X}, " +
-                $"damageDetourLength={FearFactorNativeDefinition.DamageDetourLength}, " +
+                $"actualDamageHookLength={damageHook.Hook.DisplacedByteCount}, " +
                 $"uiHookRva=0x{uiHookRva:X}, actualUiHookLength={unitOverlayHook.Hook.DisplacedByteCount}, " +
                 "scope=allPlayersAndAI, initiallyEnabled=false, " +
-                "registers=All, editorEnabled=true, " +
+                "nativeStubs=true, editorEnabled=true, " +
                 "fearStateMutation=false, hooksInstalledAtomically=true.");
         }
 
-        private int NeutralizeFearDamage(IntPtr unitManager, int baseDamage, int playerIndex)
+        private static void ProbeSpan(ulong address, int expectedLength, string name)
         {
-            if (!enabled)
-                return damageHook.Original(unitManager, baseDamage, playerIndex);
-
-            return FearFactorNeutralizationPolicy.CalculateNeutralDamage(baseDamage);
-        }
-
-        private void HideFearOverlay(NativePointer<X64SmartCPUContext> contextPointer)
-        {
-            X64SmartCPUContext* registers = contextPointer.Pointer;
-            if (registers == null)
-                return;
-
-            if (!enabled) return;
-
-            // The relocated Vanilla load has already run; only its result is neutralized.
-            registers->RAX = 0;
+            using (var probe = new X64InlineHook(address, expectedLength))
+            {
+                if (probe.DisplacedByteCount != expectedLength)
+                    throw new InvalidOperationException($"Unexpected RedBird {name} span before installation.");
+            }
         }
 
         internal void SetEnabled(bool value)
@@ -187,6 +180,7 @@ namespace ExtraFeatures
             bool next = value && transaction != null;
             if (enabled == next) return;
             enabled = next;
+            Marshal.WriteByte(enabledFlag, next ? (byte)1 : (byte)0);
             if (next)
             {
                 TryAttachArmyReportViewModel();

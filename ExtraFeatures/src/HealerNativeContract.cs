@@ -121,7 +121,9 @@ namespace ExtraFeatures
                     TargetAddress = unchecked((ulong)copy.ToInt64()),
                     Callback = callback
                 };
-                probe = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<T>;
+                // Same options as the real installation; no thread can execute this private copy.
+                probe = ExtraFeaturesHookInfrastructure.DetourBackend(NativeDetourBackend.Instance)
+                    .CreateDetour(in request) as NativeDetour<T>;
                 if (probe == null || probe.Scheme.ToString() != "Indirect" ||
                     probe.DisplacedByteCount != ExpectedDisplacedBytes || probe.IsInstalled ||
                     probe.TargetAddress != unchecked((ulong)copy.ToInt64()) ||

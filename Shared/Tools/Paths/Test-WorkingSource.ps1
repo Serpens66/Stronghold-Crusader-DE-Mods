@@ -28,7 +28,8 @@ if ([IO.File]::ReadAllText((Join-Path $copy.Root 'Fixture/unchanged.txt')) -cne 
     [IO.File]::ReadAllText((Join-Path $copy.Root 'Fixture/untracked.txt')) -cne 'untracked' -or
     [IO.File]::Exists((Join-Path $copy.Root 'Fixture/deleted.txt'))) { throw 'Working input copy mismatch.' }
 $dispatcher = Join-Path $PSScriptRoot '../BranchBuild/Invoke-BranchBuild.ps1'
-foreach ($arguments in @(@('/source:working','/nopause'),@('/source:working','/branch:develop','/noinstall','/nopause'),@('/source:unknown','/noinstall','/nopause'))) {
+# Working builds may install (Test-BranchBuild covers that); only contradictory selections fail.
+foreach ($arguments in @(@('/source:working','/branch:develop','/noinstall','/nopause'),@('/source:unknown','/noinstall','/nopause'))) {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $dispatcher -Repository $repo -Driver Fixture/build.bat @arguments
     if ($LASTEXITCODE -ne 1) { throw 'Invalid working build arguments were accepted.' }
 }
@@ -37,6 +38,9 @@ if ($LASTEXITCODE) { throw 'Working build failed.' }
 $records = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b/working') -Filter '*.build.json')
 if ($records.Count -ne 1) { throw 'Working build record missing.' }
 $record = [IO.File]::ReadAllText($records[0].FullName) | ConvertFrom-Json
-if (-not $record.WorkingSource -or -not $record.NoInstall -or -not @($record.SourceFiles | Where-Object Path -eq 'Fixture/untracked.txt').Count) { throw 'Working provenance incomplete.' }
+# The commit covers unchanged files; the record hashes exactly the working differences.
+$recorded = @($record.SourceFiles | ForEach-Object Path | Sort-Object)
+if (-not $record.WorkingSource -or -not $record.NoInstall -or ($recorded -join ',') -cne 'Fixture/deleted.txt,Fixture/source.txt,Fixture/untracked.txt' -or
+    -not @($record.SourceFiles | Where-Object { $_.Path -eq 'Fixture/deleted.txt' -and $_.Deleted }).Count) { throw 'Working provenance incomplete.' }
 if (((Invoke-BranchGit $repo @('rev-parse','HEAD')) -join '') -cne $head) { throw 'Working build moved HEAD.' }
-Write-Host "PASS: working/deleted/untracked sources, forbidden argument combinations, no-install, full file hashes and unchanged HEAD; $fixture"
+Write-Host "PASS: working/deleted/untracked sources, forbidden argument combinations, no-install, changed-file hashes and unchanged HEAD; $fixture"

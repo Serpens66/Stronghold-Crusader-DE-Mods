@@ -81,6 +81,8 @@ namespace ExtraFeatures
         private bool initialized;
         private bool nativeInitialized;
         private bool nativeUnavailable;
+        // Reported only when the feature is enabled; a disabled feature stays silent.
+        private Exception placementInstallFailure;
         private bool mapActive;
         private bool mapPrepared;
         private bool gameModeKnown;
@@ -154,25 +156,34 @@ namespace ExtraFeatures
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
-            if (nativeInitialized || nativeUnavailable || placementHook.Success)
+            if (nativeInitialized || nativeUnavailable)
                 return;
+
+            // The first call comes from the LibraryLoaded window, where the detour costs almost
+            // nothing, instead of from the first map load with the feature enabled. Until the
+            // observer below is registered, the detour is a pure pass-through.
+            if (!placementHook.Success && placementInstallFailure == null)
+            {
+                try
+                {
+                    InstallPlacementHook(libraryHandle, region, memory, referenceHashMatches);
+                }
+                catch (Exception ex)
+                {
+                    placementInstallFailure = ex;
+                }
+            }
             if (!NeedsNativeRebuildHooks)
                 return;
 
             // This method is retried on every settings reconciliation. Any failure is final
             // for the process so a half-registered state is never retried and logged again.
             nativeUnavailable = true;
-
-            // The placement helper's process-state origin fields are fixed-layout data, not
-            // proven by either function signature. Fail closed on an unaudited DLL.
-            if (!referenceHashMatches)
+            if (!placementHook.Success)
                 throw new InvalidOperationException(
-                    "AI defense rebuild timing requires the audited placement-origin layout for this CrusaderDE.dll.");
+                    "The AI defense placement hook could not be installed at startup.",
+                    placementInstallFailure);
 
-            Shared.NativeResolution placement = Shared.NativePatternResolver.ResolveUnique(
-                memory, PlacementPattern, PlacementRva, referenceHashMatches,
-                "AI AIV placement helper", log);
-            ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
             IApiShared api = ApiShared.Current;
             NativeCapabilityDiagnostic failure;
             if (!api.TryGetAivBuildStep(
@@ -185,9 +196,42 @@ namespace ExtraFeatures
                     (failure?.Reason ?? "unknown failure"));
             }
 
-            // Install the detour first: without nativeInitialized it is a pure pass-through, so a
-            // later observer-registration failure leaves a harmless published hook instead of an
-            // APIShared observer whose placement hook never existed.
+            // Registered only on demand: without observers APIShared's build-step hook stays a
+            // zero-allocation pass-through. A registration failure leaves the placement detour
+            // a harmless pass-through because nativeInitialized remains false.
+            if (!capability.TryRegisterObserver(
+                    "ai-defense-rebuild",
+                    buildStepObserver,
+                    out failure))
+            {
+                throw new InvalidOperationException(
+                    "APIShared AIV build-step registration failed; the placement hook stays a pass-through: " +
+                    (failure?.Reason ?? "unknown failure"));
+            }
+
+            nativeInitialized = true;
+            nativeUnavailable = false;
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "AI defense rebuild registered through APIShared.");
+        }
+
+        private void InstallPlacementHook(
+            IntPtr libraryHandle,
+            ScanRegion region,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
+        {
+            // The placement helper's process-state origin fields are fixed-layout data, not
+            // proven by either function signature. Fail closed on an unaudited DLL.
+            if (!referenceHashMatches)
+                throw new InvalidOperationException(
+                    "AI defense rebuild timing requires the audited placement-origin layout for this CrusaderDE.dll.");
+
+            Shared.NativeResolution placement = Shared.NativePatternResolver.ResolveUnique(
+                memory, PlacementPattern, PlacementRva, referenceHashMatches,
+                "AI AIV placement helper", log);
+            ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
             try
             {
                 transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
@@ -208,22 +252,9 @@ namespace ExtraFeatures
                 }
                 throw;
             }
-
-            if (!capability.TryRegisterObserver(
-                    "ai-defense-rebuild",
-                    buildStepObserver,
-                    out failure))
-            {
-                throw new InvalidOperationException(
-                    "APIShared AIV build-step registration failed; the placement hook stays a pass-through: " +
-                    (failure?.Reason ?? "unknown failure"));
-            }
-
-            nativeInitialized = true;
-            nativeUnavailable = false;
             Shared.DebugLogHelper.LogDebug(
                 log,
-                $"AI defense rebuild registered through APIShared; placement hook installed at RVA 0x{placement.Rva:X}.");
+                $"AI defense placement hook installed as a pass-through at RVA 0x{placement.Rva:X}.");
         }
 
         public void Dispose()
@@ -750,6 +781,11 @@ namespace ExtraFeatures
             ulong placementStateAddress, int playerId, int offsetX, int offsetY,
             short mapperValue, int orientation)
         {
+            // The detour is installed at startup even when the feature stays off; keep the
+            // path before observer registration free of breadcrumbs and settings reads.
+            if (!nativeInitialized || !IsConfigured)
+                return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
+
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter(
                     "AiDefensePlacement",
@@ -758,9 +794,6 @@ namespace ExtraFeatures
                     offsetX,
                     offsetY))
             {
-            if (!nativeInitialized || !IsConfigured)
-                return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
-
             BuildStepContext context = activeContext;
             if (context == null || context.PlayerId != playerId || !IsDefenseMapper(mapperValue))
                 return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);

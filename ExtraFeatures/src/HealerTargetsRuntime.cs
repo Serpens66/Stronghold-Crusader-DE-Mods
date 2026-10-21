@@ -81,6 +81,7 @@ namespace ExtraFeatures
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     new HookTransactionOptions
                     {
+                        Backend = ExtraFeaturesHookInfrastructure.DetourBackend(),
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
                         OwnsHooks = true
                     });

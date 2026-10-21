@@ -13,7 +13,11 @@ namespace ExtraFeatures
 
         internal const int DamageFunctionRva = 0x180560;
         internal const int DamageFunctionLength = 47;
-        internal const int DamageDetourLength = 10;
+        // RedBird's inline hook needs >= 14 bytes: MOVSXD(3) + IMUL(7) + LEA(7).
+        internal const int DamageHookLength = 17;
+        // Per-player fear value: [image + FearTableRva + player * PlayerRecordStride].
+        internal const int FearTableRva = 0x379CF04;
+        internal const uint PlayerRecordStride = 0x583C;
         internal const string DamageFunctionPattern =
             "49 63 C0 48 69 C8 3C 58 00 00 48 8D 05 93 C9 61 03 8B 04 01 " +
             "83 C0 14 0F AF C2 8D 0C 80 B8 1F 85 EB 51 F7 E9 C1 FA 05 8B " +
@@ -67,23 +71,28 @@ namespace ExtraFeatures
             Decoder decoder = CreateDecoder(memory, imageBase, DamageFunctionRva, DamageFunctionLength);
             decoder.Decode(out Instruction first);
             decoder.Decode(out Instruction second);
-            if (first.IsInvalid || second.IsInvalid ||
-                first.Length != 3 || second.Length != 7 ||
+            decoder.Decode(out Instruction third);
+            if (first.IsInvalid || second.IsInvalid || third.IsInvalid ||
+                first.Length != 3 || second.Length != 7 || third.Length != 7 ||
                 first.Mnemonic != Mnemonic.Movsxd ||
                 first.Op0Register != Register.RAX || first.Op1Register != Register.R8D ||
                 second.Mnemonic != Mnemonic.Imul ||
                 second.Op0Register != Register.RCX || second.Op1Register != Register.RAX ||
-                second.Op2Kind != OpKind.Immediate32to64 || second.Immediate32 != 0x583CU ||
+                second.Op2Kind != OpKind.Immediate32to64 || second.Immediate32 != PlayerRecordStride ||
+                third.Mnemonic != Mnemonic.Lea || third.Op0Register != Register.RAX ||
+                !third.IsIPRelativeMemoryOperand ||
+                third.IPRelativeMemoryAddress != imageBase + (ulong)FearTableRva ||
                 first.IsIPRelativeMemoryOperand || second.IsIPRelativeMemoryOperand ||
-                first.FlowControl != FlowControl.Next || second.FlowControl != FlowControl.Next)
+                first.FlowControl != FlowControl.Next || second.FlowControl != FlowControl.Next ||
+                third.FlowControl != FlowControl.Next)
             {
                 throw new InvalidOperationException(
-                    "The fear-factor damage detour span no longer matches its audited ABI.");
+                    "The fear-factor damage hook span no longer matches its audited ABI.");
             }
 
-            int decodedLength = first.Length + second.Length;
-            if (decodedLength != DamageDetourLength)
-                throw new InvalidOperationException("The fear-factor damage detour boundary changed.");
+            int decodedLength = first.Length + second.Length + third.Length;
+            if (decodedLength != DamageHookLength)
+                throw new InvalidOperationException("The fear-factor damage hook boundary changed.");
 
             Instruction last = default;
             int totalLength = 0;
@@ -107,8 +116,8 @@ namespace ExtraFeatures
                 DamageFunctionRva,
                 DamageFunctionLength,
                 DamageFunctionRva,
-                checked(DamageFunctionRva + DamageDetourLength),
-                "fear-factor damage detour");
+                checked(DamageFunctionRva + DamageHookLength),
+                "fear-factor damage hook");
         }
 
         private static void ValidateUiFearLoad(ReadOnlySpan<byte> memory, ulong imageBase)
@@ -123,7 +132,7 @@ namespace ExtraFeatures
             if (stride.IsInvalid || stride.Length != 7 ||
                 stride.Mnemonic != Mnemonic.Imul || stride.Op0Register != Register.RCX ||
                 stride.Op1Register != Register.R10 || stride.Op2Kind != OpKind.Immediate32to64 ||
-                stride.Immediate32 != 0x583C || stride.IsIPRelativeMemoryOperand ||
+                stride.Immediate32 != PlayerRecordStride || stride.IsIPRelativeMemoryOperand ||
                 stride.FlowControl != FlowControl.Next ||
                 stride.Length + load.Length != UiHookLength ||
                 test.IP != imageBase + (ulong)(UiHookRva + UiHookLength) ||
@@ -133,7 +142,7 @@ namespace ExtraFeatures
                 load.Op0Kind != OpKind.Register || load.Op0Register != Register.EAX ||
                 load.Op1Kind != OpKind.Memory || load.MemoryBase != Register.RCX ||
                 load.MemoryIndex != Register.RDI || load.MemoryIndexScale != 1 ||
-                load.MemoryDisplacement64 != 0x379CF04UL ||
+                load.MemoryDisplacement64 != (ulong)FearTableRva ||
                 load.IsIPRelativeMemoryOperand || load.FlowControl != FlowControl.Next ||
                 test.Length != 2 || test.Mnemonic != Mnemonic.Test ||
                 test.Op0Register != Register.EAX || test.Op1Register != Register.EAX)

@@ -66,7 +66,9 @@ function Get-BranchInstallSuffix([string]$Branch, [string[]]$DriverArguments) {
     return ''
 }
 function New-BranchSource([string]$Repository, [string]$Branch, [string]$Destination = '') {
-    $commit = (Invoke-BranchGit $Repository @('rev-parse','--verify',$(if ($Branch -eq 'working') { 'HEAD^{commit}' } else { "refs/heads/${Branch}^{commit}" }))) -join ''
+    # $Branch may also be an exact commit, e.g. the one a cached SDK was built from.
+    $reference = if ($Branch -eq 'working') { 'HEAD^{commit}' } elseif ($Branch -cmatch '^[0-9a-f]{40}$') { "${Branch}^{commit}" } else { "refs/heads/${Branch}^{commit}" }
+    $commit = (Invoke-BranchGit $Repository @('rev-parse','--verify',$reference)) -join ''
     if ($commit -cnotmatch '^[0-9a-f]{40}$') { throw "Missing local branch: $Branch" }
     $root = if ($Destination) { [IO.Path]::GetFullPath($Destination) } else { New-ShortWorkDirectory -Root $Repository -Kind b -Name $Branch -Identity $commit }
     if ($Destination) { $root = [IO.Path]::GetFullPath($Destination) }
@@ -76,6 +78,34 @@ function New-BranchSource([string]$Repository, [string]$Branch, [string]$Destina
     Invoke-BranchGit $Repository @('config','core.longpaths','true') | Out-Null
     Invoke-BranchGit $Repository @('worktree','add','--quiet','--detach',$root,$commit) | Out-Host
     return [pscustomobject]@{ Root=$root; Branch=$Branch; Commit=$commit }
+}
+function Remove-BranchSource([string]$Repository, [string]$Root) {
+    # A build copy holds the whole tracked workspace (~5 GB, mostly _inspect data). Its
+    # inputs are commits or copies of the working tree, and the build record stays beside
+    # it, so the copy itself is disposable. Remove only Git-registered copies through Git.
+    $Repository = [IO.Path]::GetFullPath($Repository).TrimEnd('\','/')
+    $Root = [IO.Path]::GetFullPath($Root).TrimEnd('\','/')
+    if (-not $Root.StartsWith($Repository + '\.work\b\', [StringComparison]::OrdinalIgnoreCase)) { throw "Refusing to remove a build copy outside .work\b: $Root" }
+    if (-not (Test-Path -LiteralPath $Root)) { return }
+    Assert-BranchUnlinkedPath $Root
+    $nested = Join-Path $Root 'APIShared'
+    if (Test-Path -LiteralPath (Join-Path $nested '.git') -PathType Leaf) {
+        # The SDK copy belongs to the APIShared repository and must be unregistered there.
+        $common = ((Invoke-BranchGit $nested @('rev-parse','--path-format=absolute','--git-common-dir')) -join '').Trim()
+        Invoke-BranchGit (Split-Path -Parent $common) @('worktree','remove','--force',$nested) | Out-Null
+    }
+    Invoke-BranchGit $Repository @('worktree','remove','--force',$Root) | Out-Null
+    # Git leaves directory junctions created by test fixtures. Delete the remaining
+    # empty skeleton only; a link is removed as a link and never followed.
+    if (Test-Path -LiteralPath $Root) { Remove-BranchEmptyTree $Root }
+}
+function Remove-BranchEmptyTree([string]$Path) {
+    $item = [IO.DirectoryInfo]::new($Path)
+    if (-not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        if (@($item.GetFiles()).Count) { throw "Build copy still contains files: $Path" }
+        foreach ($child in $item.GetDirectories()) { Remove-BranchEmptyTree $child.FullName }
+    }
+    [IO.Directory]::Delete($Path, $false)
 }
 function New-WorkingSource([string]$Repository, [string]$Destination = '') {
     $selection = New-BranchSource $Repository 'working' $Destination
@@ -96,6 +126,68 @@ function New-WorkingSource([string]$Repository, [string]$Destination = '') {
     return $selection
 }
 
+function Get-BranchSourceDifferences([string]$Root) {
+    # The record's commit identifies every unchanged tracked file. Hash only what differs
+    # from it (working overlays, adapter rewrites, untracked inputs) instead of rehashing
+    # the whole ~5 GB tree after every build.
+    $paths = @(Invoke-BranchGit $Root @('-c','core.quotepath=false','diff','--name-only','--no-renames','HEAD')) +
+        @(Invoke-BranchGit $Root @('-c','core.quotepath=false','ls-files','--others','--exclude-standard'))
+    foreach ($relative in @($paths | Sort-Object -Unique)) {
+        $file = Join-Path $Root $relative
+        if (Test-Path -LiteralPath $file -PathType Leaf) { [ordered]@{ Path=$relative; Sha256=(Get-BranchHash $file) } }
+        else { [ordered]@{ Path=$relative; Deleted=$true } }
+    }
+}
+function Get-CachedApiSdk([string]$Repository, [string]$ApiRepository, [string]$Branch) {
+    # APIShared's own build runs its complete suite and then attests exactly its inputs:
+    # Assert-ApiBuildProof fingerprints sources, tests, tools, game/Extender references and
+    # MSBuild. An unchanged SDK therefore needs no rebuild and no second test run per
+    # consumer build; any changed input fails the proof and rebuilds the cache once.
+    $commit = (Invoke-BranchGit $ApiRepository @('rev-parse','--verify',"refs/heads/${Branch}^{commit}")) -join ''
+    if ($commit -cnotmatch '^[0-9a-f]{40}$') { throw "Missing local APIShared branch: $Branch" }
+    $cache = [IO.Path]::GetFullPath((Join-Path $Repository ".work\c\apishared-$Branch"))
+    Assert-BranchUnlinkedPath $cache
+    if (Test-Path -LiteralPath $cache) {
+        $reason = 'source commit changed'
+        if ((Test-Path -LiteralPath (Join-Path $cache '.git') -PathType Leaf) -and
+            ((Invoke-BranchGit $cache @('rev-parse','HEAD')) -join '') -ceq $commit) {
+            try {
+                . (Join-Path $cache 'tools/BuildProof.ps1')
+                $proof = Assert-ApiBuildProof $cache
+                # Explicit machine-path overrides select other references than the cached build.
+                foreach ($pair in @(@('SHCDE_GAME_DIR','GameDir'),@('SHCDESE_EXTENDER_DIR','ExtenderDir'),@('SHCDE_MSBUILD','MSBuild'))) {
+                    $requested = [Environment]::GetEnvironmentVariable($pair[0], 'Process')
+                    $recorded = if ($proof.PSObject.Properties[$pair[1]]) { [string]$proof.($pair[1]) } else { '' }
+                    if ($requested -and (-not $recorded -or
+                        [IO.Path]::GetFullPath($requested).TrimEnd('\') -ine [IO.Path]::GetFullPath($recorded).TrimEnd('\'))) {
+                        throw "$($pair[0]) differs from the cached build"
+                    }
+                }
+                Write-BranchMessage "APIShared: reusing the verified $Branch SDK $commit from $cache (no rebuild or retest)."
+                return [pscustomobject]@{ Root=$cache; Branch=$Branch; Commit=$commit; Cached=$true }
+            } catch { $reason = $_.Exception.Message }
+        }
+        Write-BranchMessage "APIShared SDK cache is not reusable ($reason); rebuilding it."
+        Remove-CachedApiSdk $ApiRepository $cache
+    }
+    $source = New-BranchSource $ApiRepository $Branch $cache
+    if ($source.Commit -cne $commit) { Remove-CachedApiSdk $ApiRepository $cache; throw "APIShared $Branch moved during SDK preparation." }
+    try {
+        # SDK builds have no installation side effects and keep their own repository state.
+        return Invoke-SelectedBranchBuild -Repository $ApiRepository -Driver 'build.bat' -Branch $Branch -DriverArguments @('/nopause','/noinstall') -ControllerRoot $ApiRepository -Api -SourceSelection $source
+    } catch {
+        # A failed build would never pass its proof; do not keep ~GBs of unusable output.
+        try { Remove-CachedApiSdk $ApiRepository $cache } catch { Write-Warning "Failed SDK cache could not be removed: $($_.Exception.Message)" }
+        throw
+    }
+}
+function Remove-CachedApiSdk([string]$ApiRepository, [string]$Cache) {
+    if (Test-Path -LiteralPath (Join-Path $Cache '.git') -PathType Leaf) {
+        Invoke-BranchGit $ApiRepository @('worktree','remove','--force',$Cache) | Out-Null
+    }
+    Invoke-BranchGit $ApiRepository @('worktree','prune') | Out-Null
+    if (Test-Path -LiteralPath $Cache) { Remove-BranchEmptyTree $Cache }
+}
 function New-LocalApiInspectionSource([string]$Repository, [string]$Destination) {
     # /apishared:dev explicitly opts into the already-built personal working package.
     # Give source preflight the same working inputs, rather than another branch's API.
@@ -286,6 +378,7 @@ function Invoke-SelectedBranchBuild {
             if (Test-Path -LiteralPath (Join-Path $baselineRoot 'CURRENT.json')) { $env:SHCDE_NATIVE_BASELINE_ROOT=$baselineRoot }
         }
         $sdk = $null
+        $sdkLock = $null
         $projectRoot = Split-Path -Parent $selectedDriver
         $usesApi = -not $Api -and (@(Get-ChildItem -LiteralPath $projectRoot -File -Filter '*.csproj' | Where-Object {
             [IO.File]::ReadAllText($_.FullName) -match '<Reference Include="APIShared(?:,|"|\s)'
@@ -314,9 +407,15 @@ function Invoke-SelectedBranchBuild {
             } elseif ($apiBranch -in @('main','develop')) {
                 $apiController = Join-Path $apiRepository 'tools/BranchBuild/BranchBuild.Common.ps1'
                 if (-not (Test-Path -LiteralPath $apiController)) { throw 'APIShared branch build tools are missing; update the standalone checkout.' }
-                # SDK builds have no installation side effects and keep their own repository state.
-                $apiSource = New-BranchSource $apiRepository $apiBranch (Join-Path $selection.Root 'APIShared')
-                $sdk = Invoke-SelectedBranchBuild -Repository $apiRepository -Driver 'build.bat' -Branch $apiBranch -DriverArguments @('/nopause','/noinstall') -ControllerRoot $apiRepository -Api -SourceSelection $apiSource
+                # The cached SDK is shared by every consumer build of this branch. Serialize those
+                # builds so none rebuilds it while another still compiles against it.
+                $sdkLock = [Threading.Mutex]::new($false, 'Local\SHCDE-APIShared-SDK-' + $apiBranch)
+                try {
+                    if (-not $sdkLock.WaitOne(0)) { Write-BranchMessage "Waiting for another build that uses the APIShared $apiBranch SDK..."; [void]$sdkLock.WaitOne() }
+                } catch [Threading.AbandonedMutexException] { }
+                $sdk = Get-CachedApiSdk $Repository $apiRepository $apiBranch
+                # Scoped preflight inspects the same committed APIShared sources.
+                $apiSource = New-BranchSource $apiRepository $sdk.Commit (Join-Path $selection.Root 'APIShared')
             } else { throw "Unsupported APIShared source: $apiBranch" }
             $env:SHCDE_BRANCH_API_ROOT = $sdk.Root
             $env:SHCDE_BRANCH_API_COMMIT = $sdk.Commit
@@ -372,7 +471,7 @@ function Invoke-SelectedBranchBuild {
         foreach ($target in $targets) { Write-BranchMessage "Installation: $target" }
         # Run the selected BAT directly; preserve error codes and argument boundaries.
         Set-Location -LiteralPath $projectRoot
-        $arguments = @($DriverArguments | Where-Object { $_ -notmatch '^/branch:' })
+        $arguments = @($DriverArguments | Where-Object { $_ -notmatch '^/branch:' -and $_ -ine '/keepsource' })
         if ($arguments -inotcontains '/nopause') { $arguments += '/nopause' }
         if ($env:SHCDE_BRANCH_NOINSTALL -eq '1' -and $arguments -inotcontains '/noinstall') { $arguments += '/noinstall' }
         Assert-ToolPathBudget -Path $selectedDriver
@@ -380,17 +479,18 @@ function Invoke-SelectedBranchBuild {
         $code = $LASTEXITCODE
         $record = [ordered]@{ SchemaVersion=1; Branch=$Branch; Commit=$selection.Commit; Driver=$Driver; SourceRoot=$selection.Root;
             ApiShared=$sdk; InstallationTargets=$targets; NoInstall=($env:SHCDE_BRANCH_NOINSTALL -eq '1'); ExitCode=$code; DevDiagnostics=$devDiag;
-            CreatedUtc=[DateTime]::UtcNow.ToString('o'); WorkingSource=($DriverArguments -icontains '/source:working'); SourceFiles=@(Invoke-BranchGit $selection.Root @('-c','core.quotepath=false','ls-files','--cached','--others','--exclude-standard') | ForEach-Object { $f=Join-Path $selection.Root $_; if (Test-Path -LiteralPath $f -PathType Leaf) { [ordered]@{Path=$_;Sha256=(Get-BranchHash $f)} } }); BuildToolOverrides=$overrides }
+            CreatedUtc=[DateTime]::UtcNow.ToString('o'); WorkingSource=($DriverArguments -icontains '/source:working'); SourceFiles=@(Get-BranchSourceDifferences $selection.Root); BuildToolOverrides=$overrides }
         $recordPath = $selection.Root + '.build.json'
         Write-BranchText $recordPath (($record | ConvertTo-Json -Depth 8) + "`r`n")
         Write-BranchMessage "Build record: $recordPath; exit code $code"
         if ($code -ne 0) {
-            $failure = [InvalidOperationException]::new("Selected branch build failed with exit code $code. Evidence retained at $($selection.Root).")
+            $failure = [InvalidOperationException]::new("Selected branch build failed with exit code $code. Build record: $recordPath.")
             $failure.Data['BuildExitCode'] = $code
             throw $failure
         }
         return $selection
     } finally {
+        if ($sdkLock) { $sdkLock.ReleaseMutex(); $sdkLock.Dispose() }
         Set-Location -LiteralPath $oldDirectory
         foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $oldEnvironment[$name], 'Process') }
     }

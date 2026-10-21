@@ -75,9 +75,7 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
 - **Ursache:** RedBird hält bei jedem `NativeDetour` alle Threads an (≈ 60 ms pro Detour); BFQoL setzt beim Start 63 eigene Detours.
 - **Lösung:** `BugfixesAndQoL/src/HookInstallPhase.cs` liefert nur während BFQoLs `LibraryLoaded` und nur auf dem Thread, der dieses Fenster geöffnet hat, dasselbe Backend mit `SuspendThreadsDuringPatch = false`.
 - **Begründung:** Zu diesem Zeitpunkt läuft noch keine Simulation, und der Script Extender installiert seine Detours zur selben Zeit ebenso. Später installierte Hooks behalten die Suspendierung.
-- **Noch nicht abgedeckt:**
-  - `DamagedHealthBarsRuntime`, `GatehouseLivingCapture/CaptureRuntime`, `RaidSearchObserver`;
-  - Direkt-Detours in `UnitCommands/Native` (siehe Weiterarbeit).
+- **Restliste geprüft (21.10.2026):** `DamagedHealthBarsRuntime`, `GatehouseLivingCapture/CaptureRuntime` und `RaidSearchObserver` installieren nur Inline-Hooks; diese schreiben ohne Thread-Suspendierung (Commit 0 ms). Die `CreateDetour`-Aufrufe in `UnitCommands/Native` sind nicht installierte Vertragsproben. Im Startlog vom 21.10.2026 00:32 (SE, APIShared, BFQoL, ExtendedData) kostet kein Mod-Commit ≥ 20 ms; nur der SE-eigene Commit (72 ms). Die verbleibende Startzeit liegt also nicht in Hook-Transaktionen.
 
 ### A4 – Fear-Popularity-Ziel merken (APIShared)
 
@@ -128,6 +126,21 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
   - unabhängige BFS-Referenz, 6480 Distanzen;
   - Prüfung, dass besuchte Nicht-Ziele nicht neu bewertet werden.
 
+## ExtraFeatures (21.10.2026)
+
+ExtraFeatures war in keiner Messreihe enthalten. Die Optimierungen beruhen auf Code- und Startlog-Analyse. Laufzeitnachweis (Lauf `EF1`, 8-KI-Save, Speed aus dem Save, SE + APIShared + BFQoL + ExtendedData + ExtraFeatures develop-Arbeitsstand): PASS, 7247 Ticks in 60 s, keine Error-Zeilen, beide Furcht-Stubs installiert, Heiler- und Pestflaggen-Commit < 20 ms. Ein A/B-Vergleich mit und ohne ExtraFeatures steht noch aus.
+
+- **E3 (Nutzerentscheidung 21.10.2026: vorziehen):** Der KI-Verteidigungs-Detour `placementHook` und die 20 ElevatedMoat-Hooks werden jetzt im eigenen `LibraryLoaded` installiert, nicht mehr beim ersten Kartenstart mit aktivem Feature. Sie bleiben bis zur Aktivierung logisch abgeschaltet (Vanilla-Pfad). Der APIShared-Build-Step-Observer wird weiterhin erst bei Bedarf registriert, damit dessen Hook ohne Observer allokationsfrei bleibt. Ein Installationsfehler wird nur gemeldet, wenn das Feature eingeschaltet wird. Ergebnis im Log: Kartenstart ohne Commit statt 8 + 66 ms; Start +7 ms (Moat-Commit) bzw. 0 ms (Detour ohne Suspendierung).
+- **E3-Lauf:** `EF3` (gleiches Setup wie `EF1`): PASS, 173,9 FPS / 125,6 Ticks/s gegenüber 170,8 / 120,8 bei EF1, keine Error-Zeilen. Der Lauf `EF2` direkt nach mehreren Builds lag bereits in der Pause-Phase (ohne Spiellogik) 15 % niedriger und gilt als Hintergrundlast, nicht als Effekt.
+
+| Nr. | Was | Wirkung | Verhalten |
+|---|---|---|---|
+| E1 | Furchtfaktor: Detour auf die Schadensfunktion `0x180560` und Context-Hook im Einheiten-Overlay `0x1A19F2` durch rein native Inline-Stubs mit Flag-Byte ersetzt (`FearFactorNativeStubs`) | kein verwalteter Übergang mehr pro Nah-/Fernkampftreffer und pro markierter sichtbarer Einheit und Tick im Renderer `0x41D60`, auch nicht im Standardzustand „aus“; Start −55 ms (Detour-Suspendierung entfällt) | identisch (Ausführungstest gegen die Vanilla-Bytes) |
+| E2 | Start-Detours ohne Thread-Suspendierung im eigenen `LibraryLoaded` (`ExtraFeaturesHookInfrastructure.DetourBackend`, wie A3) | Heiler-Detour, Heiler-Probe und KI-Pestflaggen-Detour sparen zusammen ~0,2 s (Log_349: 55 + 55 ms Commits plus ~0,1 s Probe) | gleiche Hooks, gleicher Zeitpunkt |
+
+- **E1-Test:** `_inspect/ExtraFeaturesNativeTests/FearFactorStubTests.cs` (läuft im `build.bat`) führt Vanilla-Bytes und beide Stub-Pfade in einem Fake-Image mit den auditierten RVA-Abständen aus und vergleicht alle GPRs; dazu echte RedBird-Spannen und ein Rohscan aller ausführbaren Sektionen auf Sprünge in die 17-Byte-Spanne. Mutationsprobe: falsches Rückgaberegister bzw. fehlender Flag-Sprung lassen den Test scheitern.
+- **Geprüft, nicht geändert:** Tick- und Event-Handler kehren früh zurück (der Script Extender allokiert seine Event-Args ohnehin unabhängig von Abonnenten). Der Pest-Lebensdauer-Hook `0x9A16C` läuft nur für Krankheitsprojektile, der Heiler-Listen-Detour einmal pro nativer Listen-Neuberechnung, der KI-Platzierungs-Detour pro KI-Bauschritt. Dort lohnt sich der Umbau nicht.
+
 ## Bestätigte und widerlegte Befunde
 
 | Befund | Status | Beleg |
@@ -171,7 +184,7 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
 | Nr. | Aufgabe | Ziel | Vorgehen | Prüfung |
 |---|---|---|---|---|
 | 1 | Wiederholungsläufe dusty-Save | FPS-Gleichheit belegen | Serie SE/BFQ im Wechsel, je mindestens 2 gültige Läufe; Läufe mit pausiert < ~100 FPS nicht werten | Tabelle „Ergebnis“ aktualisieren |
-| 2 | Spielstart | Hauptmenü näher an SE (heute +4,4 s) | a) A3 auf die restlichen Start-Detours ausweiten (oben genannt). Dort scheiterte A3 an Wortlautprüfungen in Preflights; diese Verträge mit anpassen, nicht umgehen. b) Danach APIShared-Start untersuchen: Workshop-Initialisierung und Audio-Detours, die noch mit Thread-Suspendierung installiert werden. Startphasen mit `startup.feature` und den RedBird-Commit-Zeiten im Log eingrenzen | `startup menuReadySinceProcessStartS` über ≥ 2 Läufe; kein Freeze beim Kartenstart |
+| 2 | Spielstart | Hauptmenü näher an SE (heute +4,4 s) | a) A3-Restliste: erledigt bzw. gegenstandslos (siehe A3, 21.10.2026). b) APIShared- und BFQoL-Start untersuchen: Hook-Commits kosten laut Startlog nichts Nennenswertes mehr, die Zeit liegt in der übrigen Initialisierung (z. B. Workshop). Startphasen mit `startup.feature` eingrenzen | `startup menuReadySinceProcessStartS` über ≥ 2 Läufe; kein Freeze beim Kartenstart |
 | 3 | Assassinen-Suche mit exaktem Frame | größte Tick-Lücke näher an SE (heute 140–150 ms) | Die gewichtete A*-Suche für die veröffentlichte Route (`SearchAndPublishWeightedPath` → `TryBuildWeightedRoute`) beschleunigen, ohne die Route zu ändern. Ansätze: Suffix-Heuristik über Befehle hinweg wiederverwenden, Kantenauswertung wie bei A10 entschlacken, Allokationen im Suchpfad prüfen. Ergebnis und Knotenzahl über `assassin:BuildWeightedPath` messen | Produktionsfixture: A* gegen Dijkstra, identische Routen-Prüfsummen; 8-KI-Save |
 | 4 | Gate-Topologie im ersten Tick | Kartenstart näher an SE (heute +28–47 ms) | Den Topologie-Snapshot vor dem ersten Sim-Tick aufbauen | **vorher Nutzer fragen** (Arbeit verschiebt sich in den Ladevorgang) |
 | 5 | Gatehouse-Erreichbarkeit mit Zugbrücken | 1–2 % Sim-Zeit | Footprint-Kandidaten pro Torhaus und Tick zwischenspeichern | nur bei geringem Aufwand; identisches Verhalten |

@@ -63,6 +63,14 @@ namespace ExtraFeatures
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
+            // Initial native installation window (see ExtraFeaturesHookInfrastructure.DetourBackend).
+            ExtraFeaturesHookInfrastructure.InitialLibraryLoad = true;
+            try { InitializeLibraryRuntime(context); }
+            finally { ExtraFeaturesHookInfrastructure.InitialLibraryLoad = false; }
+        }
+
+        private void InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
+        {
             // The Script Extender registers its built-in packet types in its earlier LibraryLoaded
             // handler. Register ours immediately afterwards, unconditionally and before any settings.
             try

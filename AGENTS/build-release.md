@@ -84,7 +84,18 @@ tracked and untracked sources without committing or switching the checkout.
 `/noinstall` is optional and independent of this source selection. Automated
 `/nopause` calls without a source choice default to the working tree; calls without
 arguments retain the branch menu.
-Do not combine it with `/branch`. Mod consumers can select a previously validated
+Do not combine it with `/branch`. Every branch or working build removes its copy
+afterwards (about 5 GB, mostly tracked `_inspect` data); the `.build.json` record and
+local provenance stay beside it. Pass `/keepsource` only to inspect a copy, then remove it.
+The record hashes only files that differ from its commit (working overlays, adapter
+rewrites, untracked inputs); the commit identifies everything else.
+An APIShared `main`/`develop` SDK is built and fully tested once per input state and kept
+as the only SDK of that branch in `.work/c/apishared-<branch>` (a Git worktree of the
+APIShared repository). Consumer builds reuse it while `Assert-ApiBuildProof` still matches
+(sources, tests, tools, game/Extender references, MSBuild); any change rebuilds and retests
+it once. Consumer builds of the same SDK branch are serialized. The cache may be deleted
+at any time through `git -C APIShared worktree remove --force <path>`; the next build
+recreates it. Mod consumers can select a previously validated
 package explicitly with `/apishared:package` and `SHCDE_API_SHARED_DIR`; the package
 is verified, never rebuilt. Test and analysis work uses `.work/t` and `.work/a`.
 Historical evidence and published package paths retain their original locations.
