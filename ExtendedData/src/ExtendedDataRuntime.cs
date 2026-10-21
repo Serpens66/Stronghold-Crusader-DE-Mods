@@ -493,6 +493,7 @@ namespace ExtendedData
             }
             missionSettingsCoordinator.ResetCustomizeForNewCoopSelection();
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
+            missionSettingsCoordinator.ObserveCoopLobby(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
             if (!enabled)
                 return;
@@ -527,6 +528,12 @@ namespace ExtendedData
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
+            // Vanilla ignores every button while its leave confirmation is open.
+            if (self?.closePanelDisplayed == true)
+            {
+                buttonTrampoline(self, command);
+                return;
+            }
             // A failed validation must never trap a player in the ready/locked state.
             if (string.Equals(command, "Ready", StringComparison.Ordinal) && ReadLobbyFlag(self, LocalReadyField) ||
                 string.Equals(command, "ReadyLock", StringComparison.Ordinal) &&
@@ -654,8 +661,13 @@ namespace ExtendedData
                     ActivateSelectedMissionSettingsUnlessMap(
                         self,
                         editable: false,
-                        source: "custom Coop mission " + command);
-                    if (IsStartCommand(command))
+                        source: "custom Coop mission " + command,
+                        starting: IsStartCommand(command) &&
+                            (!string.Equals(command, "COOP_START", StringComparison.Ordinal) ||
+                             self.singlePlayerCoop || self.currentLobby?.CountHumanPlayers() == 2));
+                    if (IsStartCommand(command) &&
+                        (!string.Equals(command, "COOP_START", StringComparison.Ordinal) ||
+                         self.singlePlayerCoop || self.currentLobby?.CountHumanPlayers() == 2))
                     {
                         if (!missionSettingsCoordinator.TryPrepareRestartSettings()) return;
                         coopLaunchPending = true;
@@ -670,13 +682,24 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
+                    missionSettingsCoordinator.RecoverCoopDraft();
                     string reason = SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message;
                     LogError("Blocked custom Coop mission " + command + " because launch preparation failed: " + exception);
                     ShowBlockedMessage(reason);
                     return;
                 }
             }
-            buttonTrampoline(self, command);
+            try
+            {
+                buttonTrampoline(self, command);
+                if (missionSettingsCoordinator.IsCustomizeDraftEditable) coopLaunchPending = false;
+            }
+            catch
+            {
+                coopLaunchPending = false;
+                missionSettingsCoordinator.RecoverCoopDraft();
+                throw;
+            }
         }
 
         private void UpdateHostInfoHook(FRONT_Multiplayer self, bool delayed)
@@ -1657,20 +1680,21 @@ namespace ExtendedData
             coopLaunchPending = false;
         }
 
-        private void ActivateSelectedMissionSettings(bool editable, string source)
+        private void ActivateSelectedMissionSettings(bool editable, string source, bool starting)
         {
             if (selected == null)
                 return;
-            missingMods = missionSettingsCoordinator.Enter(
+            missingMods = missionSettingsCoordinator.PrepareCoopSettings(
                 selected.Loaded.Definition.ModSettings,
-                editable,
-                "coop:" + settings.ActiveCoopPackageId + ":" + settings.ActiveCoopPackageFingerprint + ":" + selected.Loaded.TrailNumber + ":" + selected.Loaded.MissionNumber);
+                "coop:" + settings.ActiveCoopPackageId + ":" + settings.ActiveCoopPackageFingerprint + ":" + selected.Loaded.TrailNumber + ":" + selected.Loaded.MissionNumber,
+                editable, starting);
         }
 
         private void ActivateSelectedMissionSettingsUnlessMap(
             FRONT_Multiplayer lobby,
             bool editable,
-            string source)
+            string source,
+            bool starting = false)
         {
             if (MissionRestart.IsInProgress)
             {
@@ -1684,7 +1708,7 @@ namespace ExtendedData
                     LogInfo("Retained the manually selected Map mod-settings preset during " + source + ".");
                 return;
             }
-            ActivateSelectedMissionSettings(editable, source);
+            ActivateSelectedMissionSettings(editable, source, starting);
         }
 
         private void OnMapStarted(MissionContext mission)
@@ -1756,7 +1780,7 @@ namespace ExtendedData
                 ActivateSelectedMissionSettingsUnlessMap(
                     lobby,
                     editable: false,
-                    source: "single-player Coop restart");
+                    source: "single-player Coop restart", starting: true);
                 if (!missionSettingsCoordinator.TryPrepareRestartSettings()) return false;
                 ExtendedDataLaunchOriginApi.PrepareCoopLaunch(trailId, missionId, MissionRestart.IsInProgress);
                 missionSettingsCoordinator.PrepareCoopMissionLaunch();
@@ -1769,11 +1793,16 @@ namespace ExtendedData
             }
             catch (Exception exception)
             {
-                selected = null;
-                lordDataCoordinator.SetEmbeddedTrailSlots(null);
-                missingMods = Array.Empty<string>();
                 coopLaunchPending = false;
-                missionSettingsCoordinator.ExitContext(force: true);
+                if (missionSettingsCoordinator.HasCustomizeDraft)
+                    missionSettingsCoordinator.RecoverCoopDraft();
+                else
+                {
+                    selected = null;
+                    lordDataCoordinator.SetEmbeddedTrailSlots(null);
+                    missingMods = Array.Empty<string>();
+                    missionSettingsCoordinator.ExitContext(force: true);
+                }
                 string reason = SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message;
                 LogError("Blocked custom single-player Coop restart: " + exception);
                 ShowBlockedMessage(reason);
@@ -1818,7 +1847,7 @@ namespace ExtendedData
             ActivateSelectedMissionSettingsUnlessMap(
                 GetExistingMainViewModel()?.FRONTMultiplayer,
                 editable: false,
-                source: "authenticated host Coop launch");
+                source: "authenticated host Coop launch", starting: true);
             coopLaunchPending = true;
             missionSettingsCoordinator.PrepareCoopMissionLaunch();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -1829,7 +1858,10 @@ namespace ExtendedData
         {
             bool retained = missionSettingsCoordinator?.HandleMissionEnded(notification) == true;
             if (retained)
+            {
+                if (!notification.HasStarted) coopLaunchPending = false;
                 return;
+            }
             ClearLaunchTracking();
         }
 

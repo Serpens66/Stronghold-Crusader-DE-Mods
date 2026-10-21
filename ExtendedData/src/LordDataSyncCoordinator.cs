@@ -372,8 +372,9 @@ namespace ExtendedData
                             Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/LordDataSyncCoordinator.cs:365", "Custom Trail Lord media provider for slot " +
                                 slot.PlayerId + ": " + mediaName);
                     }
-                    else if (!string.IsNullOrWhiteSpace(error))
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/LordDataSyncCoordinator.cs:369", "Optional Custom Trail Lord media unavailable for slot " +
+                    else if (!string.IsNullOrWhiteSpace(error) && Shared.DebugLogHelper.DiagnosticsEnabled)
+                        // Embedded gameplay data remains usable; absent optional media is no mod failure.
+                        Shared.DebugLogHelper.LogDebugLimited(log, "optional-trail-lord-media:" + slot.PlayerId, "Optional Custom Trail Lord media unavailable for slot " +
                             slot.PlayerId + ": " + error);
                 }
                 return true;
@@ -998,11 +999,17 @@ namespace ExtendedData
                 return false;
             }
             string expected = "READY|" + active.Digest;
+            PlayerIdentityResolution localIdentity = PlayerIdentityHelper.CaptureLocalPlayerId(false);
+            if (!localIdentity.IsResolved)
+            {
+                reason = localIdentity.Error;
+                return false;
+            }
             foreach (int playerId in players.Keys)
             {
                 string status = playerId > 0 && playerId < settings.LordDataStatusData.Length
                     ? settings.LordDataStatusData[playerId] : null;
-                if (playerId == GameNetworkAPI.GetLocalPlayerId())
+                if (playerId == localIdentity.PlayerId)
                     status = settings.LordDataStatus;
                 if (!string.Equals(status, expected, StringComparison.Ordinal))
                 {
@@ -1025,9 +1032,15 @@ namespace ExtendedData
             }
             int requiredMask = packageManifest.Slots.Where(slot => allSlots || slot.NeedsLocalFiles)
                 .Aggregate(0, (mask, slot) => mask | (1 << (slot.PlayerId - 1)));
+            PlayerIdentityResolution localIdentity = PlayerIdentityHelper.CaptureLocalPlayerId(false);
+            if (!localIdentity.IsResolved)
+            {
+                reason = localIdentity.Error;
+                return false;
+            }
             foreach (int playerId in players.Keys)
             {
-                string status = playerId == GameNetworkAPI.GetLocalPlayerId()
+                string status = playerId == localIdentity.PlayerId
                     ? settings.LordPackageStatus
                     : playerId > 0 && playerId < settings.LordPackageStatusData.Length
                         ? settings.LordPackageStatusData[playerId] : null;

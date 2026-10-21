@@ -95,6 +95,7 @@
     <Compile Include="src\MissionPresetLifecycleState.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\TrailSettingsSourceState.cs" />
+    <Compile Include="src\CoopSettingsDraftState.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\EditorModSettingsSaveOptionsViewModel.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />

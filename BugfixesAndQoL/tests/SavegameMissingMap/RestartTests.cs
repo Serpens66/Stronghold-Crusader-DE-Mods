@@ -71,9 +71,10 @@ namespace BugfixesAndQoL.SavegameMissingMap
             SavegameFix.ValidateMembers();
             CheckInvocationContracts();
             var targets = SavegameFix.HookTargets;
-            Require(targets.Length == 4 && targets.Distinct().Count() == 4, "Unexpected hook target list.");
+            Require(targets.Length != 0 && targets.All(method => method != null) && targets.Distinct().Count() == targets.Length,
+                "Hook publication must have non-null unique targets.");
             Require(targets.All(m => m.Name != "ButtonIngameMenuFunction" && m.Name != "RestartSkirmishGame"), "Conflicting owner hooked.");
-            Require(targets[3] == SavegameFix.RestartConfirmation && targets[3].DeclaringType == typeof(HUD_IngameMenu), "Exit callback substituted for restart.");
+            Require(targets.Contains(SavegameFix.RestartConfirmation) && SavegameFix.RestartConfirmation.DeclaringType == typeof(HUD_IngameMenu), "Exit callback substituted for restart.");
             int ownerRuns = 0;
             roots.Add(new ILHook(Method(nameof(Outer)), il => { ownerRuns++; new ILCursor(il).Emit(OpCodes.Nop); }));
             int before = ownerRuns;
@@ -174,7 +175,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
                 });
             int published = 0, prepared = 0;
             var transforms = SavegameFix.HookTransforms;
-            transforms[3] = il =>
+            transforms[Array.IndexOf(SavegameFix.HookTargets, SavegameFix.RestartConfirmation)] = il =>
             {
                 var call = il.Body.Instructions.First(i => i.Operand is MethodReference m && m.Name == "RestartSkirmishGame");
                 ((MethodReference)call.Operand).Name = "ChangedRestart";
@@ -183,10 +184,10 @@ namespace BugfixesAndQoL.SavegameMissingMap
             bool failed = false;
             try { SavegameFix.RunHookPlan(SavegameFix.HookTargets, transforms, () => prepared++, (method, transform) => published++); }
             catch (InvalidOperationException ex) { failed = ex.Message.Contains("phase=preflight") && ex.Message.Contains(SavegameFix.RestartConfirmation.Name); }
-            Require(failed && prepared == 0 && published == 0, "Failed fourth preflight reached registration or hook publication.");
+            Require(failed && prepared == 0 && published == 0, "Failed callback preflight reached registration or hook publication.");
             SavegameFix.RunHookPlan(SavegameFix.HookTargets, SavegameFix.HookTransforms, () => prepared++, (method, transform) => published++);
-            Require(prepared == 1 && published == 4, "Valid hook plan did not publish all four targets.");
-            Console.WriteLine("PASS: Invoke short/long labels, preserved targets, invalid/external operands, all-four preflight before publication.");
+            Require(prepared == 1 && published == SavegameFix.HookTargets.Length, "Valid hook plan did not publish every preflighted target.");
+            Console.WriteLine("PASS: Invoke short/long labels, preserved targets, invalid/external operands, full preflight before publication.");
         }
     }
 }

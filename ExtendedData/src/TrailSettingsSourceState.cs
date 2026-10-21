@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using ExtendedData.Core;
 
 namespace ExtendedData
@@ -25,6 +27,19 @@ namespace ExtendedData
             Activate(source, contextId, () => true);
 
         internal ModSettingsDefinition Capture() => Copy(document);
+
+        // Reset starts from the playable disabled baseline, retaining only explicit
+        // Player/Fixed host values resolved by APIShared. Neither input is editable state.
+        internal static Dictionary<string, byte[]> ComposeResetSnapshot(
+            Dictionary<string, byte[]> disabled, Dictionary<string, byte[]> resolved, ModSettingsEntry entry)
+        {
+            var result = disabled.ToDictionary(item => item.Key,
+                item => item.Value == null ? null : (byte[])item.Value.Clone(), StringComparer.Ordinal);
+            foreach (string name in (entry?.PlayerSettings ?? Array.Empty<string>())
+                .Concat(entry?.Overrides?.Keys ?? Enumerable.Empty<string>()))
+                if (resolved.TryGetValue(name, out byte[] bytes)) result[name] = bytes == null ? null : (byte[])bytes.Clone();
+            return result;
+        }
 
         internal void Clear()
         {

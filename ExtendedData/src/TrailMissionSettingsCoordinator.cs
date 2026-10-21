@@ -79,6 +79,8 @@ namespace ExtendedData
                 Action successAction,
                 Action failAction);
             private delegate void ManageTrailInitDelegate(FRONT_ManageTrail self, bool preserveSelection);
+            private delegate List<FileHeader> MultiplayerMapsDelegate(MapFileManager self, int sortMode,
+                bool ascending, int players, bool builtIn, bool user, bool workshop);
             private delegate void ImportDelegate(FRONT_ManageTrail self, string customFolderName);
             private delegate void ExportDelegate(FRONT_ManageTrail self, string destination);
             private delegate void TwoStringDelegate(FRONT_ManageTrail self, string first, string second);
@@ -119,12 +121,26 @@ namespace ExtendedData
             private readonly Dictionary<string, ModSettingsDefinition> capturedDocumentsByTrailPath =
                 new Dictionary<string, ModSettingsDefinition>(StringComparer.OrdinalIgnoreCase);
             private readonly MissionModSettingsSession settingsSession = new MissionModSettingsSession();
+            private readonly CoopSettingsDraftState coopSettingsDraft = new CoopSettingsDraftState();
+            private Dictionary<string, Dictionary<string, byte[]>> customizeDraftSnapshots;
+            private object coopPacketEpoch = new object();
+            private object coopPacketLobby;
+
+            internal void ObserveCoopLobby(FRONT_Multiplayer self)
+            {
+                object lobby = self?.currentLobby;
+                if (ReferenceEquals(coopPacketLobby, lobby)) return;
+                coopPacketLobby = lobby;
+                System.Threading.Volatile.Write(ref coopPacketEpoch, new object());
+            }
             private readonly MissionPresetLifecycleState missionPresetLifecycle = new MissionPresetLifecycleState();
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
             private EditorSetupButtonDelegate editorSetupButtonOriginal;
             private UploadWorkshopMapDelegate uploadWorkshopMapOriginal;
             private ManageTrailInitDelegate manageTrailInitOriginal;
+            private MultiplayerMapsDelegate multiplayerMapsOriginal;
+            private FileHeader embeddedMakerMapHeader;
             private TwoStringDelegate backupOriginal;
             private ImportDelegate importOriginal;
             private ExportDelegate exportOriginal;
@@ -161,6 +177,7 @@ namespace ExtendedData
             private long activeSidecarWriteTicks;
             private bool activeSidecarEditable;
             private bool activeSidecarPreviewOnly;
+            private bool activeSidecarAuthoring;
             private bool workingContextEditable;
             private readonly TrailSettingsSourceState trailSource = new TrailSettingsSourceState();
             private ModSettingsDefinition activeCreatorDocument;
@@ -356,6 +373,9 @@ namespace ExtendedData
                 manageTrailButtonOriginal = InstallHook(
                     typeof(FRONT_ManageTrail).GetMethod("ButtonClicked", BindingFlags.Instance | BindingFlags.Public),
                     (ManageTrailButtonDelegate)ManageTrailButtonHook);
+                multiplayerMapsOriginal = InstallHook(
+                    typeof(MapFileManager).GetMethod(nameof(MapFileManager.GetMultiplayerMaps)),
+                    (MultiplayerMapsDelegate)MultiplayerMapsHook);
                 editorSetupButtonOriginal = InstallHook(
                     typeof(FRONT_EditorSetup).GetMethod("ButtonClicked", BindingFlags.Instance | BindingFlags.Public),
                     (EditorSetupButtonDelegate)EditorSetupButtonHook);
@@ -509,7 +529,51 @@ namespace ExtendedData
 
             internal ModSettingsDefinition CaptureCurrentDocument() => CaptureDocument();
             internal bool WasLaunchedThroughCustomize() => launchedThroughCustomize;
-            internal void ResetCustomizeForNewCoopSelection() => launchedThroughCustomize = false;
+            internal void ResetCustomizeForNewCoopSelection()
+            {
+                launchedThroughCustomize = false;
+                coopSettingsDraft.Reset();
+                customizeDraftSnapshots = null;
+            }
+
+            internal string[] PrepareCoopSettings(ModSettingsDefinition document, string source,
+                bool editable, bool starting)
+            {
+                if (!trailContext) coopSettingsDraft.Reset();
+                coopSettingsDraft.Prepare(source, launchedThroughCustomize, editable, starting,
+                    () => Enter(document, editable, source),
+                    FreezeWorkingDraft, ReopenWorkingDraft);
+                return GetMissingMentionedMods(document);
+            }
+
+            internal bool HasCustomizeDraft => trailContext && launchedThroughCustomize;
+            internal bool IsCustomizeDraftEditable => HasCustomizeDraft && workingContextEditable;
+
+            internal void RecoverCoopDraft()
+            {
+                coopSettingsDraft.Recover(ReopenWorkingDraft);
+                if (HasCustomizeDraft && !workingContextEditable) ReopenWorkingDraft();
+            }
+
+            private void FreezeWorkingDraft()
+            {
+                customizeDraftSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());
+                try
+                {
+                    ApplyDocument(CaptureDocument(), editable: false,
+                        materializeCurrentValues: true, preserveEditorModes: true);
+                }
+                catch (Exception failure)
+                {
+                    try { ReopenWorkingDraft(); }
+                    catch (Exception recovery) { throw new AggregateException("Draft preparation and recovery failed.", failure, recovery); }
+                    throw;
+                }
+            }
+
+            private void ReopenWorkingDraft() => ApplyDocument(ModSettingsDefinition.CreateModDefaults(),
+                editable: true, preserveCurrentValues: true, startingSnapshots: customizeDraftSnapshots,
+                preserveEditorModes: true);
 
             internal Dictionary<string, Dictionary<string, TrailCreatorRule>> CaptureCreatorRulesForActiveTrail()
             {
@@ -564,7 +628,8 @@ namespace ExtendedData
                         throw new InvalidOperationException("The selected mod does not support editable mission working sources: " + id);
                     workingEndpoints[id] = endpoint;
                     rollback[id] = endpoint.System_CreateCurrentMissionPresetSnapshot();
-                    prepared[id] = MaterializeSource(id, endpoint, source);
+                    prepared[id] = MaterializeSource(id, endpoint, source,
+                        string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal));
                 }
                 ModSettingsDefinition oldModes = CaptureDocument();
                 try
@@ -598,11 +663,15 @@ namespace ExtendedData
                 throw new InvalidOperationException("The selected reset source is unavailable.");
             }
 
-            private Dictionary<string, byte[]> MaterializeSource(string modId, IModSettingsWorkingCopyEndpoint endpoint, ModSettingsDefinition document)
+            private Dictionary<string, byte[]> MaterializeSource(string modId, IModSettingsWorkingCopyEndpoint endpoint,
+                ModSettingsDefinition document, bool playableBaseline)
             {
                 ModSettingsEntry entry = null;
                 document?.Mods?.TryGetValue(modId, out entry);
-                return MissionModSettingsPreparation.MaterializeSource(endpoint, ToSharedEntry(entry));
+                var resolved = MissionModSettingsPreparation.MaterializeSource(endpoint, ToSharedEntry(entry));
+                if (!playableBaseline) return resolved;
+                return TrailSettingsSourceState.ComposeResetSnapshot(
+                    endpoint.System_CreateDisabledMissionPresetSnapshot(), resolved, entry);
             }
 
             private static MissionModSettingsEntry ToSharedEntry(ModSettingsEntry entry) => entry == null ? null :
@@ -652,6 +721,8 @@ namespace ExtendedData
                 }
                 if (!trailContext)
                 {
+                    coopSettingsDraft.Reset();
+                    customizeDraftSnapshots = null;
                     if (ModSettingsApplication.ContextId.Length != 0) ModSettingsApplication.ExitContext();
                     preserveContextForLaunch = false;
                     customTrailLaunchActive = false;
@@ -672,6 +743,8 @@ namespace ExtendedData
                 }
 
                 ExitActiveParticipants();
+                coopSettingsDraft.Reset();
+                customizeDraftSnapshots = null;
                 ModSettingsApplication.ExitContext();
                 trailContext = false;
                 workingContextEditable = false;
@@ -712,6 +785,14 @@ namespace ExtendedData
                 MissionEndReason reason = notification == null
                     ? MissionEndReason.Unloaded
                     : notification.EndReason;
+                if (HasCustomizeDraft && notification?.HasStarted == false &&
+                    (reason == MissionEndReason.Failed || reason == MissionEndReason.Exception))
+                {
+                    missionPresetLifecycle.Reset();
+                    customTrailLaunchActive = false;
+                    RecoverCoopDraft();
+                    return true;
+                }
                 MissionPresetEndAction action = missionPresetLifecycle.End(MapEndKind(reason));
                 if (action == MissionPresetEndAction.Preserve)
                 {
@@ -810,6 +891,7 @@ namespace ExtendedData
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:845", "Configuration launch preparation failed: " + error);
                     ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), error.GetBaseException().Message);
                 }
+                RecoverCoopDraft();
                 return false;
             }
 
@@ -988,7 +1070,40 @@ namespace ExtendedData
                 pendingTrailMakerTrailPath = loadedHeader?.filePath;
                 try
                 {
-                    manageTrailButtonOriginal(self, command);
+                    if (pendingTrailMakerLoad)
+                    {
+                        try
+                        {
+                            // The Maker's Vanilla reader rejects absent source maps before Open.
+                            // Decode the portable setup here, preserving its embedded Lord data.
+                            HUD_IngameMenu.RestartSkirmishMapInfo restart;
+                            // Keep both readers on the same source bytes; an external edit or
+                            // replacement must not combine one setup with a different map.
+                            using (var sourceLock = File.OpenRead(pendingTrailMakerTrailPath))
+                            {
+                                FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
+                                    pendingTrailMakerTrailPath, pendingTrailMakerTrailPath, 4, loadRestartInfo: true);
+                                restart = container?.restartSkirmishInfo ??
+                                    throw new InvalidDataException("The Trail mission has no readable saved setup.");
+                                embeddedMakerMapHeader = null;
+                                if (restart.selectedHeader == null)
+                                    restart.selectedHeader = embeddedMakerMapHeader = TrailMakerEmbeddedMap.Prepare(
+                                        pendingTrailMakerTrailPath,
+                                        IOPath.Combine(BepInEx.Paths.CachePath, "ExtendedData", "TrailMaker"),
+                                        ReadEmbeddedMakerMap);
+                            }
+                            FRONT_Multiplayer.Open(skirmishSetup: true, restartInfo: restart, coopSetup: false, trailMaker: true);
+                        }
+                        catch (Exception exception)
+                        {
+                            embeddedMakerMapHeader = null;
+                            Shared.DebugLogHelper.LogErrorLimited(log, "trail-maker-embedded-map",
+                                "Could not open the embedded Trail Maker map: " + exception);
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                                SerpLocalization.Get("ExtendedData.TrailMakerMapUnavailable"));
+                        }
+                    }
+                    else manageTrailButtonOriginal(self, command);
                 }
                 finally
                 {
@@ -2084,7 +2199,7 @@ namespace ExtendedData
                 {
                     // Customize is an editable draft. The launched mission receives the
                     // materialized result as a read-only working snapshot.
-                    ApplyDocument(CaptureDocument(), editable: false, presetLabel: "Trail", materializeCurrentValues: true);
+                    FreezeWorkingDraft();
                 }
                 try
                 {
@@ -2112,6 +2227,7 @@ namespace ExtendedData
                     LordDataCoordinator?.PrepareTrail(null, null, false, out _);
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2029", "Blocked Custom Trail launch: " + exception);
                     ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                    RecoverCoopDraft();
                     return;
                 }
                 if (!TryPrepareRestartSettings()) return;
@@ -2119,7 +2235,8 @@ namespace ExtendedData
                 customTrailLaunchActive = true;
                 if (!MissionRestart.IsInProgress)
                     missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
-                startCustomTrailOriginal(self, trailName, missionId, difficulty);
+                try { startCustomTrailOriginal(self, trailName, missionId, difficulty); }
+                catch { RecoverCoopDraft(); throw; }
             }
 
             private void LaunchCustomTrailHook(FRONT_Multiplayer self,
@@ -2210,7 +2327,32 @@ namespace ExtendedData
                         ExitContext(force: true);
                     }
                 }
+                ObserveCoopLobby(self);
                 LobbyOpened?.Invoke(self);
+            }
+
+            private static FileHeader ReadEmbeddedMakerMap(string path, string label)
+            {
+                FileHeader header = MapFileManager.Instance.GetFileInfoFromFileName(path, path, 0);
+                if (header == null || header.mapType != 1)
+                    throw new InvalidDataException("The embedded Trail map is not a readable multiplayer map.");
+                if (!string.IsNullOrWhiteSpace(label)) header.display_filename = label;
+                return header;
+            }
+
+            private List<FileHeader> MultiplayerMapsHook(MapFileManager self, int sortMode, bool ascending,
+                int players, bool builtIn, bool user, bool workshop)
+            {
+                List<FileHeader> maps = multiplayerMapsOriginal(self, sortMode, ascending, players, builtIn, user, workshop);
+                // populateMapList selects by object identity. Expose the loaded document's map
+                // for this authoring context only, including when normal user maps are filtered.
+                // Do not install it into the user's global map catalog or change their filters.
+                if (enabled && embeddedMakerMapHeader != null && (pendingTrailMakerLoad || trailMakerAuthoringActive))
+                {
+                    maps = maps == null ? new List<FileHeader>() : new List<FileHeader>(maps);
+                    if (!maps.Contains(embeddedMakerMapHeader)) maps.Insert(0, embeddedMakerMapHeader);
+                }
+                return maps;
             }
 
             private void StartSkirmishGameHook(
@@ -2228,97 +2370,111 @@ namespace ExtendedData
                     startSkirmishGameOriginal(self, customTrailRestartInfo);
                     return;
                 }
-                if (self?.trailMakerMode == true)
+                bool startInvoked = false;
+                try
                 {
-                    if (!PrepareTrailMakerTestLaunch())
-                        return;
-                }
-                if (enabled && self?.singlePlayerCoop == true && self.currentLobby?.coopTrailGame == true)
-                {
-                    Func<FRONT_Multiplayer, bool> prepare = SinglePlayerCoopStarting;
-                    if (prepare != null && !prepare(self))
-                        return;
-                }
-                if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
-                {
-                    // Rebuild the embedded restart data from the edited lobby while retaining
-                    // the Custom Trail identity needed by the native mission loader and restart flow.
-                    customTrailRestartInfo = customTrailSetupRestartInfo;
-                    customTrailRestartInfo.MPsetupData = (EngineInterface.MultiplayerSetupData)typeof(FRONT_Multiplayer)
-                        .GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic)
-                        .GetValue(self);
-                    customTrailRestartInfo.importMembers(self.currentLobby);
-                    customTrailRestartInfo.importAIVs(self.AIVs);
-                    // The lobby uses the original map header, while Vanilla's Custom Trail
-                    // launch path requires the .trail container header in the restart payload.
-                    customTrailRestartInfo.selectedHeader = customTrailSetupHeader;
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2172", $"Starting customized Custom Trail [{customTrailRestartInfo.customTrailName}] " +
-                            $"mission {customTrailRestartInfo.customTrailLevel}.");
-                }
-
-                if (customTrailRestartInfo?.customTrail == true)
-                {
-                    try
+                    if (self?.trailMakerMode == true)
                     {
-                        FileHeader lordHeader = ResolveCustomTrailHeader(
-                            customTrailRestartInfo.customTrailName,
-                            customTrailRestartInfo.customTrailLevel);
-                        TrailLordRequirements requirements = TrailLordRequirements.Read(lordHeader.filePath);
-                        if (requirements == null)
+                        if (!PrepareTrailMakerTestLaunch())
+                            return;
+                    }
+                    if (enabled && self?.singlePlayerCoop == true && self.currentLobby?.coopTrailGame == true)
+                    {
+                        Func<FRONT_Multiplayer, bool> prepare = SinglePlayerCoopStarting;
+                        if (prepare != null && !prepare(self))
+                            return;
+                    }
+                    if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
+                    {
+                        // Rebuild the embedded restart data from the edited lobby while retaining
+                        // the Custom Trail identity needed by the native mission loader and restart flow.
+                        customTrailRestartInfo = customTrailSetupRestartInfo;
+                        customTrailRestartInfo.MPsetupData = (EngineInterface.MultiplayerSetupData)typeof(FRONT_Multiplayer)
+                            .GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic)
+                            .GetValue(self);
+                        customTrailRestartInfo.importMembers(self.currentLobby);
+                        customTrailRestartInfo.importAIVs(self.AIVs);
+                        // The lobby uses the original map header, while Vanilla's Custom Trail
+                        // launch path requires the .trail container header in the restart payload.
+                        customTrailRestartInfo.selectedHeader = customTrailSetupHeader;
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2172", $"Starting customized Custom Trail [{customTrailRestartInfo.customTrailName}] " +
+                                $"mission {customTrailRestartInfo.customTrailLevel}.");
+                    }
+
+                    if (customTrailRestartInfo?.customTrail == true)
+                    {
+                        try
+                        {
+                            FileHeader lordHeader = ResolveCustomTrailHeader(
+                                customTrailRestartInfo.customTrailName,
+                                customTrailRestartInfo.customTrailLevel);
+                            TrailLordRequirements requirements = TrailLordRequirements.Read(lordHeader.filePath);
+                            if (requirements == null)
+                            {
+                                LordDataCoordinator?.SetEmbeddedTrailSlots(null);
+                                LordDataCoordinator?.PrepareTrail(null, null, false, out _);
+                            }
+                            else
+                            {
+                                Dictionary<int, FRONT_Multiplayer.MPAIVInfo> infos =
+                                    ToLordInfoMap(customTrailRestartInfo.aivs);
+                                LordDataCoordinator?.SetEmbeddedTrailSlots(requirements.Slots
+                                    .Where(slot => infos.TryGetValue(slot.PlayerId,
+                                        out FRONT_Multiplayer.MPAIVInfo info) && info?.lordConfig != null &&
+                                        TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
+                                            info.builtInLord, info.lordName,
+                                            LordDataCoordinator.PreparedTrailMediaAlias(
+                                                requirements, slot.PlayerId), info.lordType,
+                                            info.lordConfig.lordType, info.lordConfig.name,
+                                            info.lordConfig.checksum.ToString()))
+                                    .Select(slot => slot.PlayerId));
+                                PrepareCustomTrailLords(requirements, infos, true);
+                                LordDataCoordinator.RemapTrailMedia(infos);
+                            }
+                        }
+                        catch (Exception exception)
                         {
                             LordDataCoordinator?.SetEmbeddedTrailSlots(null);
                             LordDataCoordinator?.PrepareTrail(null, null, false, out _);
-                        }
-                        else
-                        {
-                            Dictionary<int, FRONT_Multiplayer.MPAIVInfo> infos =
-                                ToLordInfoMap(customTrailRestartInfo.aivs);
-                            LordDataCoordinator?.SetEmbeddedTrailSlots(requirements.Slots
-                                .Where(slot => infos.TryGetValue(slot.PlayerId,
-                                    out FRONT_Multiplayer.MPAIVInfo info) && info?.lordConfig != null &&
-                                    TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
-                                        info.builtInLord, info.lordName,
-                                        LordDataCoordinator.PreparedTrailMediaAlias(
-                                            requirements, slot.PlayerId), info.lordType,
-                                        info.lordConfig.lordType, info.lordConfig.name,
-                                        info.lordConfig.checksum.ToString()))
-                                .Select(slot => slot.PlayerId));
-                            PrepareCustomTrailLords(requirements, infos, true);
-                            LordDataCoordinator.RemapTrailMedia(infos);
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2211", "Blocked customized Custom Trail launch: " + exception);
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                                exception.Message);
+                            return;
                         }
                     }
-                    catch (Exception exception)
-                    {
-                        LordDataCoordinator?.SetEmbeddedTrailSlots(null);
-                        LordDataCoordinator?.PrepareTrail(null, null, false, out _);
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2211", "Blocked customized Custom Trail launch: " + exception);
-                        ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
-                            exception.Message);
-                        return;
-                    }
-                }
 
-                if (customTrailRestartInfo != null && customTrailRestartInfo.customTrail)
-                    customTrailLaunchActive = true;
-                if (self?.singlePlayerCoop == true &&
-                    ExtendedDataLaunchOriginApi.Origin == ExtendedDataLaunchOriginKind.CustomizedCoopTrail)
-                {
-                    try
+                    if (customTrailRestartInfo != null && customTrailRestartInfo.customTrail)
+                        customTrailLaunchActive = true;
+                    if (self?.singlePlayerCoop == true &&
+                        ExtendedDataLaunchOriginApi.Origin == ExtendedDataLaunchOriginKind.CustomizedCoopTrail)
                     {
-                        ValidateSinglePlayerCoopAivs(self);
+                        try
+                        {
+                            ValidateSinglePlayerCoopAivs(self);
+                        }
+                        catch (Exception exception)
+                        {
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2229", "Blocked Custom Coop Trail launch: " + exception);
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                            return;
+                        }
                     }
-                    catch (Exception exception)
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2229", "Blocked Custom Coop Trail launch: " + exception);
-                        ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
-                        return;
-                    }
+                    if (HasCustomizeDraft && workingContextEditable && !MissionRestart.IsInProgress)
+                        FreezeWorkingDraft();
+                    if (!TryPrepareRestartSettings()) return;
+                    startInvoked = true;
+                    try { startSkirmishGameOriginal(self, customTrailRestartInfo); }
+                    catch { RecoverCoopDraft(); throw; }
+                    customTrailSetupRestartInfo = null;
+                    customTrailSetupHeader = null;
                 }
-                if (!TryPrepareRestartSettings()) return;
-                startSkirmishGameOriginal(self, customTrailRestartInfo);
-                customTrailSetupRestartInfo = null;
-                customTrailSetupHeader = null;
+                finally
+                {
+                    // Validation can reject a start without an exception or a lifecycle
+                    // attempt. Release the read-only draft in that path as well.
+                    if (!startInvoked) RecoverCoopDraft();
+                }
             }
 
             private static void ValidateSinglePlayerCoopAivs(FRONT_Multiplayer self)
@@ -3131,8 +3287,13 @@ namespace ExtendedData
                     Launch = source.Launch
                 };
                 ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
-                UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                    () => ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId)));
+                object epoch = System.Threading.Volatile.Read(ref coopPacketEpoch);
+                APIShared.ApiShared.ForMod(ExtendedDataPlugin.PluginGuid).Network.TryPostPresentation(
+                    () => {
+                        if (!ReferenceEquals(epoch, coopPacketEpoch) ||
+                            !ReferenceEquals(coopPacketLobby, Platform_Multiplayer.Instance?.activeLobby)) return;
+                        ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId));
+                    });
             }
 
             private void ProcessCoopCustomizePacket(CoopCustomizePacket packet, CSteamID senderSteamId)
@@ -3193,8 +3354,13 @@ namespace ExtendedData
                     MissionId = source.MissionId
                 };
                 ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
-                UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                    () => ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId)));
+                object epoch = System.Threading.Volatile.Read(ref coopPacketEpoch);
+                APIShared.ApiShared.ForMod(ExtendedDataPlugin.PluginGuid).Network.TryPostPresentation(
+                    () => {
+                        if (!ReferenceEquals(epoch, coopPacketEpoch) ||
+                            !ReferenceEquals(coopPacketLobby, Platform_Multiplayer.Instance?.activeLobby)) return;
+                        ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId));
+                    });
             }
 
             private void ProcessBuiltInCustomizeOriginPacket(
@@ -3260,7 +3426,7 @@ namespace ExtendedData
                 {
                     if (pendingTrailMakerLoad && !string.IsNullOrWhiteSpace(requestedTrailPath))
                     {
-                        bool sidecarExists = EnterSidecar(requestedTrailPath, editable: true);
+                        bool sidecarExists = EnterSidecar(requestedTrailPath, editable: true, authoring: true);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), requestedTrailPath);
                         source = sidecarExists ? "loaded mission sidecar" : "loaded mission defaults";
                     }
@@ -3357,6 +3523,7 @@ namespace ExtendedData
 
             private void ClearTrailMakerAuthoringState()
             {
+                embeddedMakerMapHeader = null;
                 trailMakerWorkingDocument = null;
                 trailMakerWorkingSnapshots = null;
                 trailMakerTrailPath = null;
@@ -3366,7 +3533,7 @@ namespace ExtendedData
                 missionPresetLifecycle.Reset();
             }
 
-            private bool EnterSidecar(string trailPath, bool editable, bool previewOnly = false)
+            private bool EnterSidecar(string trailPath, bool editable, bool previewOnly = false, bool authoring = false)
             {
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 bool exists = File.Exists(sidecar);
@@ -3381,6 +3548,7 @@ namespace ExtendedData
 
                 if (trailContext && activeSidecarEditable == editable &&
                     activeSidecarPreviewOnly == previewOnly &&
+                    activeSidecarAuthoring == authoring &&
                     string.Equals(activeSidecarPath, sidecar, StringComparison.OrdinalIgnoreCase) &&
                     activeSidecarLength == length && activeSidecarWriteTicks == writeTicks &&
                     AreAllTrailPresetsActive())
@@ -3399,7 +3567,7 @@ namespace ExtendedData
                     {
                         ModSettingsApplication.EnterContext(BuildRestartContext(workingSourceContextId, document, trailPath));
                         ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
-                            previewOnly: previewOnly, preserveCurrentValues: editable);
+                            previewOnly: previewOnly, preserveCurrentValues: editable && authoring);
                         activeCreatorDocument = CloneDocument(document);
                         string[] mentionedMods = document.Mods.Keys.ToArray();
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -3410,6 +3578,7 @@ namespace ExtendedData
                         activeSidecarWriteTicks = writeTicks;
                         activeSidecarEditable = editable;
                         activeSidecarPreviewOnly = previewOnly;
+                        activeSidecarAuthoring = authoring;
                         return exists;
                     });
                 }
@@ -3444,7 +3613,8 @@ namespace ExtendedData
                 bool previewOnly = false,
                 bool preserveCurrentValues = false,
                 Dictionary<string, Dictionary<string, byte[]>> startingSnapshots = null,
-                bool materializeCurrentValues = false)
+                bool materializeCurrentValues = false,
+                bool preserveEditorModes = false)
             {
                 ClearActiveSidecar();
                 var shared = new MissionModSettingsDocument {
@@ -3461,7 +3631,7 @@ namespace ExtendedData
                         prepared =>
                         {
                             CopyPreparedEntries(prepared, document);
-                            if (editable) applyEditorModes?.Invoke(document, useFixedDefaults);
+                            if (editable && !preserveEditorModes) applyEditorModes?.Invoke(document, useFixedDefaults);
                         });
                     foreach (var item in removed)
                         if (item.Value.Count != 0)
@@ -3472,6 +3642,10 @@ namespace ExtendedData
                             }
                     trailContext = true;
                     workingContextEditable = editable;
+                    if (preserveEditorModes)
+                        foreach (var participant in FindCompatibleViewModels())
+                            if (participant.Value is IModSettingsMissionSourceEndpoint source)
+                                source.System_SetExplicitMissionSettings(activeCreatorDocument?.Mods.ContainsKey(participant.Key) == true);
                     activeContextLabel = string.IsNullOrWhiteSpace(presetLabel) ? "Trail" : presetLabel;
                 }
                 catch
@@ -3501,7 +3675,9 @@ namespace ExtendedData
                 var snapshots = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal);
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
-                    snapshots[participant.Key] = MissionModSettingsPreparation.CaptureCurrentSnapshot(participant.Value);
+                    snapshots[participant.Key] = participant.Value is IModSettingsWorkingCopyEndpoint working
+                        ? working.System_CreateCurrentWorkingSnapshot()
+                        : MissionModSettingsPreparation.CaptureCurrentSnapshot(participant.Value);
                 }
                 return snapshots;
             }
@@ -3532,6 +3708,7 @@ namespace ExtendedData
                 activeSidecarWriteTicks = 0;
                 activeSidecarEditable = false;
                 activeSidecarPreviewOnly = false;
+                activeSidecarAuthoring = false;
             }
 
 

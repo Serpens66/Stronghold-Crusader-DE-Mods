@@ -28,14 +28,15 @@ namespace BugfixesAndQoL.SavegameMissingMap
         internal static readonly MethodInfo Decode = RestartType.GetMethod("decode", new[] { typeof(byte[]), typeof(bool) });
         internal static readonly MethodInfo Encode = RestartType.GetMethod("encode", Type.EmptyTypes);
         internal static readonly MethodInfo Menu = typeof(HUD_IngameMenu).GetMethod("SetAsNormal", BindingFlags.Instance | BindingFlags.NonPublic);
+        internal static readonly MethodInfo MakerSelection = typeof(FRONT_ManageTrail).GetMethod("SelectMission", BindingFlags.Instance | BindingFlags.NonPublic);
         internal static MethodInfo RestartConfirmation { get; private set; }
-        internal static MethodInfo[] HookTargets => new[] { Decode, Encode, Menu, RestartConfirmation };
-        internal static ILContext.Manipulator[] HookTransforms => new ILContext.Manipulator[] { ModifyDecode, ModifyEncode, ModifyMenu, ModifyRestartConfirmation };
+        internal static MethodInfo[] HookTargets => new[] { Decode, Encode, Menu, RestartConfirmation, MakerSelection };
+        internal static ILContext.Manipulator[] HookTransforms => new ILContext.Manipulator[] { ModifyDecode, ModifyEncode, ModifyMenu, ModifyRestartConfirmation, ModifyMakerSelection };
         private static readonly FieldInfo RestartButton = typeof(HUD_IngameMenu).GetField("RefButtonRestart", BindingFlags.Instance | BindingFlags.NonPublic);
 
         internal static void ValidateMembers()
         {
-            if (Decode == null || Encode == null || Menu == null || RestartButton == null || RestartButton.FieldType != typeof(Noesis.Button))
+            if (Decode == null || Encode == null || Menu == null || MakerSelection == null || RestartButton == null || RestartButton.FieldType != typeof(Noesis.Button))
                 throw new InvalidOperationException("Installed game member contract changed.");
             RestartConfirmation = FindRestartConfirmation();
         }
@@ -151,6 +152,36 @@ namespace BugfixesAndQoL.SavegameMissingMap
             if (value.selectedHeader != null) return value.selectedHeader;
             if (Enabled && identities.TryGetValue(value, out var identity)) return identity.SerializationHeader;
             return null;
+        }
+
+        // Recovery deliberately leaves selectedHeader null. Presentation may use the retained
+        // identity, but must never turn that serialization-only header into a loadable map.
+        internal static string MakerMapLabel(Restart value)
+        {
+            if (value.selectedHeader != null) return value.selectedHeader.display_filename;
+            if (Enabled && identities.TryGetValue(value, out var identity)) return identity.SerializationHeader.fileName;
+            if (Enabled) return string.Empty;
+            return value.selectedHeader.display_filename;
+        }
+
+        internal static void ModifyMakerSelection(ILContext il)
+        {
+            var targets = il.Body.Instructions.Where(i => Field(i, "selectedHeader") &&
+                i.Next?.OpCode == OpCodes.Ldfld && i.Next.Operand is FieldReference f &&
+                f.DeclaringType.FullName == "FileHeader" && f.Name == "display_filename").ToArray();
+            if (targets.Length != 1)
+                throw new InvalidOperationException("Trail Maker map-label IL contract changed.");
+            var target = targets[0];
+            if (il.Body.Instructions.Any(i => ReferenceEquals(i.Operand, target.Next) ||
+                i.Operand is ILLabel label && label.Target == target.Next ||
+                i.Operand is Instruction[] branches && branches.Contains(target.Next)) ||
+                il.Body.ExceptionHandlers.Any(handler => handler.TryStart == target.Next || handler.TryEnd == target.Next ||
+                    handler.HandlerStart == target.Next || handler.HandlerEnd == target.Next || handler.FilterStart == target.Next))
+                throw new InvalidOperationException("Trail Maker map-label access has an unexpected control-flow entry.");
+            target.OpCode = OpCodes.Call;
+            target.Operand = il.Import(typeof(SavegameFix).GetMethod(nameof(MakerMapLabel), BindingFlags.Static | BindingFlags.NonPublic));
+            target.Next.OpCode = OpCodes.Nop;
+            target.Next.Operand = null;
         }
 
         internal static FileHeader TrailLookup(MapFileManager manager, string trail, string file)

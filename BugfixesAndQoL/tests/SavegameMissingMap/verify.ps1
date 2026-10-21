@@ -1,11 +1,27 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$GameDir = $env:SHCDE_GAME_DIR,
+    [string]$ApiSharedDir,
+    [Parameter(Mandatory = $true)][string]$SavePath,
+    [string]$MSBuild = $env:SHCDE_MSBUILD
+)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
-$game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 . (Join-Path $workspace 'Shared\Tools\Release\Release.Common.ps1')
-$api = Join-Path $game 'BepInEx\plugins\APIShared_Serp\APIShared.dll'
-if ([Reflection.AssemblyName]::GetAssemblyName($api).Version -ne [version]'0.9.2.0') { throw 'Installed APIShared 0.9.2 is required; never rebuild it.' }
+$configuration = Get-ReleaseConfiguration
+if (-not $GameDir) { $GameDir = $configuration.GameDir }
+if (-not $MSBuild) { $MSBuild = $configuration.MSBuild }
+$game = (Resolve-Path -LiteralPath $GameDir).Path
+$SavePath = (Resolve-Path -LiteralPath $SavePath).Path
+if (-not $ApiSharedDir) { $ApiSharedDir = Join-Path $game 'BepInEx\plugins\APIShared_Serp' }
+$api = Join-Path $ApiSharedDir 'APIShared.dll'
+$manifest = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL/info.json')) | ConvertFrom-Json
+$dependency = @($manifest.Dependencies | Where-Object GUID -CEQ 'APIShared_Serp')
+if ($dependency.Count -ne 1) { throw 'The APIShared dependency must be declared exactly once.' }
+if ([Reflection.AssemblyName]::GetAssemblyName($api).Version -lt [version]$dependency[0].MinimumVersion) {
+    throw 'Selected APIShared SDK is below the manifest minimum.'
+}
+# The exact managed hash below binds the audited IL transform, not an SDK snapshot.
 $managed = Join-Path $game 'Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'
 if ((Get-Sha256Hex $managed) -ne 'bc8b6a395f01d48557db413600c8dd8d1fdfd3abdf97bfbbb68a3c56b04fd789') { throw 'Game assembly contract changed.' }
 $null = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $game 'BepInEx\core\Mono.Cecil.dll')))
@@ -40,9 +56,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Shared boundary checks failed.' }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $workspace 'Shared\Tools\Validation\Test-DependencyMetadata.ps1') -Workspace $workspace -ProjectFiles (Join-Path $PSScriptRoot '..\..\BugfixesAndQoL.csproj')
 if ($LASTEXITCODE -ne 0) { throw 'Dependency metadata checks failed.' }
 # The mod-scoped boundary check above includes permanent-hook validation.
-$builder = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
-& $builder (Join-Path $PSScriptRoot 'Tests.csproj') /nologo /verbosity:minimal "/p:ApiSharedDir=$game\BepInEx\plugins\APIShared_Serp"
+& $MSBuild (Join-Path $PSScriptRoot 'Tests.csproj') /nologo /verbosity:minimal "/p:GameDir=$game" "/p:ApiSharedDir=$ApiSharedDir"
 if ($LASTEXITCODE -ne 0) { throw 'Contract tests failed to build.' }
-& (Join-Path $PSScriptRoot 'bin\BugfixesAndQoL.SavegameMissingMap.Tests.exe') $game 'C:\Users\Serpens66\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\Saves\test_dusty.sav'
+& (Join-Path $PSScriptRoot 'bin\BugfixesAndQoL.SavegameMissingMap.Tests.exe') $game $SavePath $ApiSharedDir
 if ($LASTEXITCODE -ne 0) { throw 'Contract execution tests failed.' }
 Write-Output 'PASS: metadata, public members, lifecycle, CRLF and actual Vanilla codec transformations.'

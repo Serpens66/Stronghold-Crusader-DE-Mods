@@ -75,6 +75,23 @@ function Assert-ManagedMethodContract {
 
 $managedAssembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($assemblyPath)
 try {
+    # Portable Maker editing uses real public catalog readers and a real embedded-map
+    # header; private selection access remains inside the existing checked hooks.
+    $maps = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'MapFileManager'
+    foreach ($contract in @(
+        @('GetMultiplayerMaps', 'System.Collections.Generic.List`1<FileHeader>', 6),
+        @('GetFileInfoFromFileName', 'FileHeader', 4))) {
+        $method = @($maps.Methods | Where-Object { $_.Name -ceq $contract[0] -and $_.Parameters.Count -eq $contract[2] })
+        if ($method.Count -ne 1 -or -not $method[0].IsPublic -or $method[0].IsStatic -or
+            $method[0].ReturnType.FullName -cne $contract[1]) { throw "Portable Maker reader contract changed: $($contract[0])" }
+    }
+    $header = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'FileHeader'
+    foreach ($contract in @(@('filePath', 'System.String'), @('display_filename', 'System.String'),
+        @('mapType', 'System.Int32'), @('restartSkirmishInfo', 'CrusaderDE.HUD_IngameMenu/RestartSkirmishMapInfo'))) {
+        $field = @($header.Fields | Where-Object Name -CEQ $contract[0])
+        if ($field.Count -ne 1 -or -not $field[0].IsPublic -or $field[0].IsStatic -or
+            $field[0].FieldType.FullName -cne $contract[1]) { throw "Portable Maker header contract changed: $($contract[0])" }
+    }
     $platformType = $managedAssembly.MainModule.Types | Where-Object { $_.FullName -ceq 'Platform_Multiplayer' }
     $memberType = $platformType.NestedTypes | Where-Object { $_.Name -ceq 'MPLobbyMember' }
     $combinedNameGetter = @($memberType.Methods | Where-Object {
@@ -133,11 +150,15 @@ try {
     $panelActive = @($front.Fields | Where-Object Name -CEQ 'panelActive')
     if ($panelActive.Count -ne 1 -or -not $panelActive[0].IsPublic -or $panelActive[0].IsStatic -or
         $panelActive[0].FieldType.FullName -cne 'System.Boolean') { throw 'Coop presentation input gate contract changed.' }
-    foreach ($contract in @(@('MPsetupData', 'EngineInterface/MultiplayerSetupData'), @('selectedMPHeader', 'FileHeader'))) {
+    foreach ($contract in @(@('MPsetupData', 'EngineInterface/MultiplayerSetupData'), @('selectedMPHeader', 'FileHeader'),
+        @('MPLocalReady', 'System.Boolean'), @('MPLocalReadyLocked', 'System.Boolean'))) {
         $field = @($front.Fields | Where-Object Name -CEQ $contract[0])
         if ($field.Count -ne 1 -or -not $field[0].IsPrivate -or $field[0].IsStatic -or
             $field[0].FieldType.FullName -cne $contract[1]) { throw "Coop presentation field changed: $($contract[0])" }
     }
+    $closePanel = @($front.Fields | Where-Object Name -CEQ 'closePanelDisplayed')
+    if ($closePanel.Count -ne 1 -or -not $closePanel[0].IsPublic -or $closePanel[0].IsStatic -or
+        $closePanel[0].FieldType.FullName -cne 'System.Boolean') { throw 'Coop confirmation input gate contract changed.' }
     $mapping = @($front.Methods | Where-Object { $_.Name -ceq 'updateSteamIDMappings' -and $_.Parameters.Count -eq 0 })
     if ($mapping.Count -ne 1 -or -not $mapping[0].IsPrivate -or $mapping[0].IsStatic -or
         $mapping[0].ReturnType.FullName -cne 'System.Boolean') { throw 'Coop presentation mapping contract changed.' }

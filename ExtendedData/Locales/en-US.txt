@@ -181,3 +181,4 @@ ExtendedData.SettingsRestartRequired=Settings prepared. Restart the game and reo
 ExtendedData.Options.Filter=Filter settings
 ExtendedData.Options.Previous=Previous page
 ExtendedData.Options.Next=Next page
+ExtendedData.TrailMakerMapUnavailable=The embedded map or saved mission setup could not be read. The Trail Maker mission was not opened.

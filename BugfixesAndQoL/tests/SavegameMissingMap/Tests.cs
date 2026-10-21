@@ -15,9 +15,12 @@ namespace BugfixesAndQoL.SavegameMissingMap
     internal static class Launcher
     {
         private static string game;
+        private static string sdk;
         public static int Main(string[] args)
         {
+            if (args.Length != 3) { Console.Error.WriteLine("Expected game directory, rich skirmish save, and APIShared SDK directory."); return 1; }
             game = args[0];
+            sdk = args[2];
             AppDomain.CurrentDomain.AssemblyResolve += Resolve;
             try { StartupTests.Run(game); Run(args[1]); return 0; }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -25,6 +28,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
         private static Assembly Resolve(object sender, ResolveEventArgs args)
         {
             string file = new AssemblyName(args.Name).Name + ".dll";
+            if (new AssemblyName(args.Name).Name == "APIShared") return Assembly.LoadFrom(Path.Combine(sdk, file));
             foreach (string root in new[] { "BepInEx/core", "Stronghold Crusader Definitive Edition_Data/Managed", "BepInEx/plugins/000shcdese", "BepInEx/plugins/APIShared_Serp" })
             {
                 string path = Path.Combine(game, root, file);
@@ -98,6 +102,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
                 payload = reader.ReadBytes(reader.ReadInt32());
             }
             RestartTests.Run(payload);
+            MakerTests.Run(payload);
             using (var decode = new DynamicMethodDefinition(SavegameFix.Decode))
             using (var encode = new DynamicMethodDefinition(SavegameFix.Encode))
             {
@@ -110,9 +115,13 @@ namespace BugfixesAndQoL.SavegameMissingMap
                 SavegameFix.Enabled = true;
                 var recovered = read(payload, false);
                 Require(recovered != null && recovered.selectedHeader == null, "Missing map not recovered or fabricated as installed.");
-                Require(recovered.aivs[0].lordName == "Mansur" && recovered.aivs[1].lordName.EndsWith("The Leopard"), "Lord identities lost.");
-                Require(recovered.aivs[0].imageData.Length == 43750 && recovered.aivs[1].imageData.Length == 11956, "Portrait data lost.");
-                Require(recovered.aivs[0].lordConfig != null && recovered.aivs[1].lordConfig != null && recovered.aivs[0].aivs.Count == 1, "AI data lost.");
+                // Input coverage requirements, not identities/sizes from a personal save.
+                // Byte-identical encoding below checks every Lord, portrait, AIC and AIV.
+                Require(!recovered.customTrail && recovered.aivs != null && recovered.aivs.Any(aiv => aiv != null &&
+                    !string.IsNullOrEmpty(aiv.lordName) && aiv.imageData != null && aiv.imageData.Length > 0 &&
+                    aiv.lordConfig != null && aiv.aivs != null && aiv.aivs.Count > 0),
+                    "Choose a non-trail skirmish save containing an embedded Lord with portrait, AIC and AIV to cover data preservation.");
+                FileHeader identity = SavegameFix.HeaderForEncoding(recovered);
                 Require(write(recovered).SequenceEqual(payload), "Recovered encode differs from original save payload.");
                 var second = read(write(recovered), false);
                 Require(write(second).SequenceEqual(payload), "Second load/save lost metadata.");
@@ -148,21 +157,25 @@ namespace BugfixesAndQoL.SavegameMissingMap
                 Require(!SavegameFix.BlockRestart(menu), "Inactive action guard changed Vanilla.");
                 SavegameFix.Enabled = true;
                 Require(read(new byte[] { 60, 8 }, false) == null, "Truncated data accepted.");
-                installed = new FileHeader { workshopMap = true, fileName = "Tactical Boardgame (2 Player)" };
+                installed = new FileHeader { workshopMap = identity.workshopMap, builtinMap = identity.builtinMap, fileName = identity.fileName };
                 var normal = read(payload, false);
                 Require(ReferenceEquals(normal.selectedHeader, installed) && !SavegameFix.Missing(normal), "Installed map changed.");
                 Require(write(normal).SequenceEqual(payload), "Installed-map encoding changed.");
                 menu.restartSkirmishMapInfo = normal;
                 Require(!SavegameFix.BlockRestart(menu), "Installed-map restart was blocked.");
                 installed = null;
-                byte[] local = (byte[])payload.Clone(); local[5 + 8 * 12] = 0;
+                // The hash-bound codec stores a version byte, player count, then 12 bytes
+                // per player before the map origin. Do not assume a particular roster size.
+                int originOffset = checked(5 + BitConverter.ToInt32(payload, 1) * 12);
+                byte[] local = (byte[])payload.Clone(); local[originOffset] = 0;
                 Require(write(read(local, false)).SequenceEqual(local), "Local map identity lost.");
-                byte[] builtin = (byte[])payload.Clone(); builtin[5 + 8 * 12] = 1;
+                byte[] builtin = (byte[])payload.Clone(); builtin[originOffset] = 1;
                 Require(write(read(builtin, false)).SequenceEqual(builtin), "Built-in map identity lost.");
                 Require(write(read(payload, true)).SequenceEqual(payload), "Editor/trail decode lost serialization identity.");
-                byte[] trail = (byte[])payload.Clone(); trail[trail.Length - 13] = 1;
+                recovered.customTrail = true;
+                byte[] trail = write(recovered);
                 Require(write(read(trail, false)).SequenceEqual(trail), "Missing custom-trail map lost data.");
-                installedTrail = new FileHeader { fileName = "Tactical Boardgame (2 Player)", workshopMap = true };
+                installedTrail = new FileHeader { fileName = identity.fileName, workshopMap = identity.workshopMap, builtinMap = identity.builtinMap };
                 Require(ReferenceEquals(read(trail, false).selectedHeader, installedTrail), "Available custom-trail fallback was bypassed.");
                 Console.WriteLine("PASS: transformed installed Vanilla decoder/encoder executed; disabled, missing/installed/local/builtin, portrait/AIC/AIV, repeated roundtrip and corruption cases.");
             }

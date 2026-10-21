@@ -9,6 +9,8 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Coop Customize drafts survive ready, repeated start, rejection and mission replacement", CoopDraftTests.Run),
+    ("Maker embedded maps retain original data and publish validated immutable cache entries", TrailMakerEmbeddedMapTests.Run),
     ("Trail reset sources retain authored rules and replace or clear mission identity", TrailSetupTests.Sources),
     ("Coop Customize refreshes setup, map, team and radar presentation on hosts and clients", TrailSetupTests.Presentation),
     ("legacy mission-settings adapter preserves aliases, mutation and wire contracts", MissionSettingsAdapterTests.Run),

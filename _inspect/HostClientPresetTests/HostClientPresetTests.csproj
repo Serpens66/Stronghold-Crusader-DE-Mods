@@ -95,6 +95,7 @@
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
     <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\HostLobbySettingsPublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs" />
@@ -276,6 +277,7 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\LobbySettingsRestoreScope.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
     <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
     <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />

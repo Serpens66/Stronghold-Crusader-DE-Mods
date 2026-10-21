@@ -13,3 +13,30 @@ With no restart object, MainViewModel.getAIFace falls back to GameSprites[738] f
 Removing only the final rejection is insufficient: encode dereferences selectedHeader three times (workshopMap, builtinMap, fileName). Correct portable metadata must retain that original identity separately, while leaving selectedHeader null. RestartSkirmishGame ultimately loads selectedMPHeader.filePath and requires the original map; its menu and action must reject missing-map restarts. FRONT_Multiplayer.doOpen clears selectedMPHeader before listing installed maps.
 
 Testmods/SavegameMissingMapFixTest implements this as managed IL transforms with no native hook. Desktop tests execute clones of the actual game decoder/encoder, isolate catalog and Unity image creation, adapt one Unity Mono String.Split overload in a cloned setup parser, and verify byte-identical save roundtrips, disabled behavior, installed/local/Workshop/built-in/trail cases, corruption rejection and restart guarding. In-game acceptance of the new mod remains pending; the user confirmation above concerns Vanilla's original map dependency.
+
+## Trail Maker consumer audit (2026-10-21)
+
+The same native and managed hashes were checked again. The integrated BugfixesAndQoL
+recovery can expose a non-null restart object with a null selectedHeader to Trail Maker.
+FRONT_ManageTrail.DoImport's confirmation copies missions, rescans the Maker catalog,
+then calls Init. Init clears its exists array, projects all 50 button markers and calls
+SelectMission while doing so. SelectMission dereferences the restart's selectedHeader
+display_filename without a null check (managed IL 0x01CB..0x01DB). The tested session's
+Unity Player log records 14 null-reference exceptions there, including the import
+confirmation -> Init chain; BepInEx's log does not contain those exceptions. An early
+selection therefore interrupts the remaining markers, leaving stale occupied icons.
+
+The Maker Load command reads with folderType 3 and may reject missing-map metadata
+before FRONT_Multiplayer.Open is reached. Portable editing must decode with the existing
+folderType 4 Custom Trail contract and supply a real extracted map, not the serialization
+header. GetFileInfoFromFileName selects map versus campaign parsing from the first
+argument's .map extension, including for temporary validation files. populateMapList
+selects a supplied header only by reference identity among GetMultiplayerMaps results;
+an extracted map outside that catalog needs a context-local row containing that same
+header. No native address is involved in these selection and presentation contracts.
+
+Regression evidence: BugfixesAndQoL/tests/SavegameMissingMap executes transformed
+copies of the installed Init/SelectMission with catalog/Noesis boundaries isolated:
+selected slots 1/5, 5 -> 2 -> 5, empty/reopened lists, installed/missing source maps,
+inactive fix and changed-IL rejection. These tests do not prove actual Noesis rendering
+or a portable lobby/gameplay roundtrip; those remain in-game acceptance items.

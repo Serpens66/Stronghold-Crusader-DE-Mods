@@ -18,6 +18,19 @@ internal static class TrailSetupTests
         });
         Check(result == 42 && state.IsAvailable && state.ContextId == "coop:package:fingerprint:1:1", "successful source missing");
         Check(ModSettingsJson.Serialize(state.Capture()) == original, "live draft changed reset rules");
+        var disabled = new Dictionary<string, byte[]> { ["EnableMod"] = new byte[] { 0 }, ["personal"] = new byte[] { 5 }, ["fixed"] = new byte[] { 7 } };
+        var resolved = new Dictionary<string, byte[]> { ["EnableMod"] = new byte[] { 1 }, ["personal"] = new byte[] { 23 }, ["fixed"] = new byte[] { 17 }, ["LocalOption"] = new byte[] { 99 } };
+        for (int pass = 0; pass < 3; pass++)
+        {
+            var trailReset = TrailSettingsSourceState.ComposeResetSnapshot(disabled, resolved, state.Capture().Mods["mod"]);
+            Check(trailReset["EnableMod"][0] == 0 && trailReset["personal"][0] == 23 && trailReset["fixed"][0] == 17,
+                "Trail reset did not combine the disabled baseline with original explicit rules");
+            Check(!trailReset.ContainsKey("LocalOption"), "Trail reset captured a personal option");
+            trailReset["personal"][0] = 200;
+            Check(resolved["personal"][0] == 23 && disabled["personal"][0] == 5 && resolved["EnableMod"][0] == 1,
+                "Repeated Trail reset changed its sources or full mod defaults");
+            Check(ModSettingsJson.Serialize(state.Capture()) == original, "Trail reset changed the authored rules");
+        }
         ((System.Collections.IList)authored.Mods["mod"].Overrides["sequence"])[0] = 88L;
         Check(ModSettingsJson.Serialize(state.Capture()) == original, "authored sequence aliases the reset source");
         var reset = state.Capture();

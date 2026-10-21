@@ -17,6 +17,7 @@
     <Compile Include="..\src\TrailLordSourceSelector.cs" Link="TrailLordSourceSelector.cs" />
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
     <Compile Include="..\src\TrailSettingsSourceState.cs" Link="TrailSettingsSourceState.cs" />
+    <Compile Include="..\src\CoopSettingsDraftState.cs" Link="CoopSettingsDraftState.cs" />
     <Compile Include="..\..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs" Link="CoopTrailSetupPresentation.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
