@@ -6,7 +6,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 
 namespace ExtraFeatures
 {
@@ -42,13 +41,9 @@ namespace ExtraFeatures
         {
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            using (var stream = File.OpenRead(path))
-            using (var sha = SHA256.Create())
-            {
-                string actual = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
-                if (!string.Equals(actual, NativeSha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Installed CrusaderDE.dll differs from the audited native build: " + actual);
-            }
+            string actual = Shared.DebugLogHelper.GetFileSha256(path);
+            if (!string.Equals(actual, NativeSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Installed CrusaderDE.dll differs from the audited native build: " + actual);
 
             if (typeof(NativeDetour<>).Assembly.GetName().Version != new Version(1, 5, 0, 0))
                 throw new InvalidOperationException("Installed RedBird NativeX64 backend version differs from 1.5.0.0.");

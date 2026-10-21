@@ -328,14 +328,8 @@ namespace BugfixesAndQoL
             }
         }
 
-        // TEMP_PERF_DIAG (BFQoLPerformace.md, assassin-search candidate): last search outcome/size, read
-        // only by the assassin:BuildWeightedPath spike line; plain field stores in normal builds.
-        private string diagOutcome; // TEMP_PERF_DIAG
-        private int diagExpanded; // TEMP_PERF_DIAG
-
         private void SetOutcome(string outcome)
         {
-            diagOutcome = outcome; // TEMP_PERF_DIAG
             if (activeObservation != null) activeObservation.Outcome = outcome;
         }
 
@@ -411,20 +405,6 @@ namespace BugfixesAndQoL
 
         private int BuildWeightedPathCore(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
-            // TEMP_PERF_DIAG (assassin-search candidate): whole request incl. Vanilla builder; spike lines
-            // name outcome and size.
-            long diagStarted = 0; // TEMP_PERF_DIAG
-            Shared.DevDiag.Start(ref diagStarted); // TEMP_PERF_DIAG
-            diagExpanded = 0; diagOutcome = "native-only"; // TEMP_PERF_DIAG
-            int result = SearchAndPublishWeightedPath(context, startX, startY, targetX, targetY, maximumNodes, continuation);
-            Shared.DevDiag.StopSpike(ref diagStarted, "assassin:BuildWeightedPath", 5000, () => // TEMP_PERF_DIAG
-                "outcome=" + diagOutcome + " expanded=" + diagExpanded + " maxNodes=" + maximumNodes + " cont=" + continuation + // TEMP_PERF_DIAG
-                " start=" + startX + "/" + startY + " target=" + targetX + "/" + targetY + " command=" + (activeCommand != null)); // TEMP_PERF_DIAG
-            return result;
-        }
-
-        private int SearchAndPublishWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
-        {
             if (!IsInstalled)
                 return 0;
 
@@ -432,10 +412,7 @@ namespace BugfixesAndQoL
             long requestStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             long nativeStarted = requestStarted;
             // Vanilla initializes internal queue state even when our compact route field replaces it.
-            long diagVanilla = 0; // TEMP_PERF_DIAG
-            Shared.DevDiag.Start(ref diagVanilla); // TEMP_PERF_DIAG
             int vanillaResult = AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation);
-            Shared.DevDiag.Stop(ref diagVanilla, "assassin:vanillaBuilder"); // TEMP_PERF_DIAG
             if (activeObservation != null)
             { activeObservation.NativeResult = vanillaResult; activeObservation.Outcome = "native-only"; }
             long nativeTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - nativeStarted;
@@ -503,7 +480,6 @@ namespace BugfixesAndQoL
                         allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy);
                     if (existence != RouteExistence.Undecided)
                     {
-                        diagOutcome = existence == RouteExistence.Exists ? "existence-fallback" : "existence-no-route"; // TEMP_PERF_DIAG
                         if (!AssassinGateRoutePolicy.IsCurrent(gatePolicy))
                         {
                             SetOutcome("gate-snapshot-fallback");
@@ -531,7 +507,6 @@ namespace BugfixesAndQoL
                         preparedRoute = CachePreparedRoute(command, cacheKey, routeSummary);
                 }
 
-                diagOutcome = routeReady ? (routeSummary.CacheHit ? "cache-hit" : "weighted-prepared") : "weighted-no-route"; // TEMP_PERF_DIAG
                 if (activeObservation != null)
                 { activeObservation.CacheHit = routeSummary.CacheHit;
                   activeObservation.Outcome = routeReady ? "weighted-prepared" : "weighted-no-route"; }
@@ -646,7 +621,6 @@ namespace BugfixesAndQoL
                 expanded++;
                 if (currentNode == targetNode)
                 {
-                    diagExpanded = expanded; // TEMP_PERF_DIAG
                     long reconstructionStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                     if (!PrepareRoute(startNode, targetNode, costs[targetNode], expanded,
                         heapOperations, searchStarted, reconstructionStarted, out routeSummary))
@@ -745,7 +719,6 @@ namespace BugfixesAndQoL
                 }
             }
 
-            diagExpanded = expanded; // TEMP_PERF_DIAG
             if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
                 (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, expanded, heapOperations);
             return false;

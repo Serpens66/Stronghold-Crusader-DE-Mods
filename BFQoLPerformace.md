@@ -10,28 +10,30 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
 
 | Messgröße | vor der Optimierung | jetzt | nur SE |
 |---|---|---|---|
-| dusty-Save (Speed 250): FPS pausiert / laufend | 106–107 / 84–85 | 107,9 / 86,7 | 108–109 / 80,0–89,3 |
-| dusty-Save: Frames > 100 ms | 0–1 | 1 | 1 |
-| dusty-Save: Ticks/s | 143–145 | 203 | 208–217 |
-| dusty-Save: größte Tick-Lücke | 323–334 ms | 150 ms | 102 ms |
+| dusty-Save (Speed 250): FPS pausiert / laufend | 106–107 / 84–85 | 104–108 / 78,5–86,7 | 101–109 / 80,0–89,3 |
+| dusty-Save: Frames > 100 ms | 0–1 | 0–1 | 1 |
+| dusty-Save: Ticks/s | 143–145 | 185–204 | 208–217 |
+| dusty-Save: größte Tick-Lücke | 323–334 ms | 130–150 ms | 102–105 ms |
 | 8-KI-Save (Speed 300): FPS laufend | 142–155 | 189–206 | 193–207 |
 | 8-KI-Save: Tick-Lücken > 100 ms pro Lauf | 7 | 1 | 1 |
 | 8-KI-Save: größte Tick-Lücke | 940–1020 ms | 140–143 ms | 110–114 ms |
 | erster Sim-Tick nach dem Laden (8 KI) | 487–495 ms | 174–210 ms | ~115–124 ms |
-| BFQoL-Initialisierung (`LibraryLoaded`) | 6,0 s | 2,25–2,34 s | – |
-| Hauptmenü nach Prozessstart | 20–21 s | 16,9–17,3 s | 12,5–13,0 s |
+| BFQoL-Initialisierung (`LibraryLoaded`) | 6,0 s | 1,35–1,38 s | – |
+| Hauptmenü nach Prozessstart (mit ExtendedData und ExtraFeatures) | 20–21 s | 16,6–17,4 s | 12,5–13,0 s |
 
 **Belastbarkeit:**
 
 - Die SE-Werte und die 8-KI-Werte stammen aus je mindestens zwei Läufen.
-- Für den aktuellen Stand gibt es auf dem dusty-Save **einen** verwertbaren BFQoL-Lauf. Der zweite fiel in den langsamen FPS-Modus, siehe „Befunde“.
-- Die FPS-Gleichheit auf dem dusty-Save ist daher plausibel, aber noch nicht mit Wiederholungsläufen belegt.
+- dusty-Serie vom 21.10.2026 (SE + PerfFixTest gegen SE + PerfFixTest + APIShared 0.12.2 + BFQoL 1.0.194, ohne DEVDIAG, abwechselnd; `.work/a/bfqol-perf/001/results/D*`/`E*`): gültig sind D3 (SE), E2 und E3 (BFQ). D1, D2 und E1 liefen neben Builds bzw. Tests und zählen nicht; D4 und E4 fielen in den langsamen FPS-Modus (pausiert 75–80 FPS).
+- Ergebnis: Laufende FPS liegen in zwei von drei gültigen BFQ-Läufen im SE-Bereich (85,5 und 86,7 gegenüber 80,0–89,3), einmal knapp darunter (78,5). Frames > 100 ms: BFQ 0–1, SE 1. Gleichheit ist damit plausibel; die Streuung zwischen Läufen ist aber größer als ein möglicher Restunterschied. Ticks/s sind kein Maß für den Mod-Overhead (siehe „Befunde“).
+- Die größte Tick-Lücke bleibt um 25–30 ms über SE (Assassinen-Gruppenbefehle, siehe unten).
 
 **Verbleibende Unterschiede zu SE:**
 
-- **Größte Tick-Lücke** (+35–48 ms): Ursache sind KI-Assassinen-Gruppenbefehle mit gewichteter Suche für die Einheit, deren Route tatsächlich veröffentlicht wird. Eine solche Suche kostet 16–48 ms (bis 92 550 Knoten) zusätzlich zu Vanillas eigener Suche.
-- **Kartenstart** (+50–90 ms): Gate-Topologie und Gate-Zugang kosten im ersten Tick 28–47 ms.
-- **Spielstart** (+4,4 s bis zum Hauptmenü): APIShared kostet ~2,6 s, BFQoL ~2,3 s (nach A3).
+- **Größte Tick-Lücke** (dusty +25–30 ms): Ursache sind KI-Assassinen-Gruppenbefehle mit gewichteter Suche für die Einheit, deren Route tatsächlich veröffentlicht wird. Eine solche Suche kostet 16–48 ms (bis 92 550 Knoten) zusätzlich zu Vanillas eigener Suche.
+- **Kartenstart** (+50–90 ms): Gate-Topologie und Gate-Zugang kosten im ersten Tick 21–47 ms; bewusst belassen (MP-Determinismus, siehe Punkt 4).
+- **Assassinen (8 KI, 21.10.2026):** `assassin:BuildWeightedPath` höchstens 14–16 ms pro Anfrage.
+- **Spielstart** (+3,6–4,9 s bis zum Hauptmenü, Läufe streuen stark): BFQoL ~1,4 s (nach A3, A14). Bei APIShared bleiben vor allem der UnitHud-Hook (~0,6 s JIT) und der absichtlich blockierende Workshop-Abgleich (siehe A13).
 - **Sim-Thread im laufenden Spiel:** Gatehouse-Erreichbarkeit mit Zugbrücken ~1–2 %, Gate-Routing-Tick < 1 %.
 - **Hauptthread:** keine BFQoL-Anteile über 1 %.
 
@@ -50,7 +52,9 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
 | A9 | Gate-Routing-Laufzeit beim Laden der Bibliothek statt im ersten Kartentick | erster Sim-Tick 490 → 174–210 ms, Start +0,25 s | Nutzerentscheidung |
 | A10 | Gebäude-Angriffs-Fallback: besuchte Felder nicht neu bewerten | Spitze 94–107 → 28–30 ms | identisch |
 | A11 | Assassinen-A*: Kostenschranke vor den Kantenprüfungen (O1), Prioritätsschlüssel im Heap-Slot (O2) | gewichtete Suche offline −13 bis −21 % (Burggelände, ~11 700 Expansionen) bzw. −21 bis −32 % (kleine Gelände) | identisch (Routen, Expansionen, Heap-Operationen) |
-| A12 | APIShared: Detours im synchronen Startlauf ohne Thread-Suspendierung (`NativeStartupPatchWindow`) | Audio-, AIV-, Marktpreis-, Assassinen- und Gate-Routing-Detours sparen je ~60 ms; laut Startlog ~0,7 s (noch nicht nachgemessen) | gleiche Hooks, gleicher Zeitpunkt |
+| A12 | APIShared: Detours im synchronen Startlauf ohne Thread-Suspendierung (`NativeStartupPatchWindow`) | im Spiel nachgemessen: Marktpreis 129 → 1 ms, Assassinen-Angriff 65 → 0 ms, Gate-Routing 250 → 61 ms | gleiche Hooks, gleicher Zeitpunkt |
+| A13 | APIShared: hashgebundene Mustersuchen prüfen zuerst die auditierte RVA (`FindUniqueAtReference`); Workshop-Manifest validiert jeden Pfad/Hash einmal (`ValidationMemo`) | Kontrollgruppen- und AIV-Vollscan je ~70 ms entfallen; Katalogaufbau (308 ms, fast nur Manifestprüfung) ~−70 % | identisch: fremde Bytes → voller Scan; Fehler werfen wie bisher |
+| A14 | Shared: SHA-256 von `CrusaderDE.dll` einmal pro Assembly (`DebugLogHelper.GetFileSha256`, Größe/Schreibzeit geprüft); Gerberei-Pfad über `GetModuleFileNameW` statt `Process.Modules` | BFQoL-Initialisierung 1,77–1,86 → 1,35–1,38 s | identisch: gleiche Datei, gleicher Hashvergleich |
 
 ### A1 – Existenzprüfung für Assassinen-Gruppenanfragen
 
@@ -79,7 +83,19 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
 - **O2:** Jeder Heap-Slot trägt eine Kopie seines Schlüssels (Schätzung, Kosten, Einfügereihenfolge). Ein Schlüssel ändert sich nur vor `Push`/`PushOrDecrease`, die die Kopie auffrischen. Vergleiche und Tie-Break sind identisch. Kosten: +7,7 MB je Laufzeitinstanz.
 - **Vanilla-Audit:** keine nativen Verträge geändert. `0x107160` ist reine Lesefunktion (`ASSASSIN_ATTACK_CONTROL_TEST.md`); die gelesenen Layer ändern sich während des synchronen Detours nicht. Kanten bleiben die von `0xD9C40` (`ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md`).
 - **Nachweis:** `dotnet run --project BugfixesAndQoL/tests/AssassinPathfinding.Tests -c Release -- . --compare <Snapshot>` kompiliert Snapshot und aktuelle Produktionsmethoden per Roslyn. Beide müssen auf allen Geländen inkl. des neuen 320×320-Burggeländes (`VerifyCastle`: drei Mauerringe, Dijkstra-Orakel, Gate-Masken) mit Dijkstra übereinstimmen und pro Lauf identische Routen-Prüfsummen, Veröffentlichungen, Expansionen und Heap-Operationen liefern. Snapshot von HEAD `a9bd337f9`: `.work/a/assassin-perf/001`. Zwei Läufe (je drei Proben, abwechselnd): Burg 87/79 %, Tor 71/68 %, Umweg 79/77 %, offen 69/70 % der alten Zeit (O1 allein: 89/79/84/91 %).
-- **Grenzen:** CoreCLR-Messung; das Spiel läuft unter Unitys Mono. Die Tick-Lücke im Spiel ist nicht nachgemessen.
+- **Grenzen:** CoreCLR-Messung; das Spiel läuft unter Unitys Mono. Im Spiel (8 KI, DEVDIAG, 21.10.2026) kostete eine gewichtete Anfrage höchstens 14–16 ms.
+
+### A13, A14 und geprüfte Startkosten (21.10.2026)
+
+- **A13 Mustersuchen:** Für das auditierte Image hat der Vollscan die Eindeutigkeit bereits bewiesen. Steht das Muster an der Referenz-RVA, entfällt der Scan; jede Abweichung fällt auf das volle `FindUnique` zurück. Test: `TestCompiledPatternSearch` (echte DLL plus Zufallsfälle gegen die Referenzsuche). Shareds `NativePatternResolver` arbeitete bereits so.
+- **A13 Workshop:** Die SerpsMods-Manifestdatei wiederholt fast alle Pfade und Hashes in jedem Legacy-Release. `ValidationMemo` merkt sich nur erfolgreich geprüfte Werte, und `DeliveredPath` gibt seine Eingabe unverändert zurück oder wirft. Test: `LegacyReleasesShareValidationButStillRejectUnsafeEntries`.
+- **A14 DLL-Hash:** `Shared.DebugLogHelper.IsCurrentNativeLibraryVersion`/`ReportNativeLibraryVersion` und sieben Feature-Prüfungen (BFQoL: AI keep range, Bauvorschau, Schadens-Lebensbalken, Torhaus-Gefangennahme, Gerberei, Zugbrücke; EF: Heiler) hashten jeweils die ganze `CrusaderDE.dll` (3,4 MB) mit Monos verwaltetem SHA-256. `GetFileSha256` hasht einmal pro Assembly und Pfad und rechnet bei geänderter Größe oder Schreibzeit neu. Die Gerberei fand den DLL-Pfad über `Process.Modules`; `GetModuleFileNameW` liefert für denselben Modul-Handle dieselbe Datei. Zugbrücke: `ReadReferenceFunction(path, fileSha256)` bekommt den Hash vom Aufrufer, damit das Testprojekt ohne BepInEx auskommt. Tests: `FileHashCacheTests` (Cache-Treffer, Neuberechnung nach Änderung), Zugbrücken-Fixture mit fremdem Hash.
+- **A14 Messung (8-KI-Save, DEVDIAG, je 2 Läufe):** BFQoL `startup.libraryLoaded(total)` 1,77–1,86 s → **1,35–1,38 s**. Gerberei 68 → < 15 ms, AI keep range 30, Torhaus-Gefangennahme 28,5 und Zugbrücke 27,7 → je < 15 ms; den einen verbleibenden Hash zahlt jetzt der erste Aufrufer („friendly moat movement“ 64 → 78 ms). Keine Initialisierungsfehler. Hauptmenü nach Prozessstart 16,6–17,4 s (streut stark; der Gewinn zeigt sich verlässlich nur in der BFQoL-Initialisierung).
+- **Geprüft, bleibt:**
+  - APIShared-UnitHud-Hook auf `MainViewModel.UpdateUITroopSprites` (~0,6 s): Das ist im Wesentlichen JIT und IL-Kopie durch MonoMod. Ohne Hook fiele die JIT-Zeit beim ersten Aufruf im Spiel an.
+  - BFQoL „Trail Customize buttons“ und „Coop custom-lord selection“ (je ~65 ms): ebenfalls MonoMod-`Hook`s, gleiche Begründung.
+  - Workshop-Versionsvergleich (~0,33 s): blockiert absichtlich vor Steams Initialisierung (`WorkshopStartupGate`). Der Hauptanteil war die Manifestprüfung (A13).
+  - Sparse Checkout der Build-Kopie ohne `_inspect` (~17 s Build): verworfen, weil ~20 Prüfungen relative Baseline-Dateien lesen; Risiko größer als Nutzen.
 
 ### A3 – Detours ohne Thread-Suspendierung beim Laden
 
@@ -127,7 +143,7 @@ Ergebnisse der Performance-Optimierung von BugfixesAndQoL (BFQoL) und APIShared 
   - Modus 1 bleibt unverändert;
   - ein Schritt ganz ohne Bit scheitert weiter.
   - Dazu kommen Spannentests in APIShared (Site-Registry) und BFQoL.
-- **APIShared-Release:** Die Wirkung von `SetWeightedReconstructionEnabled` und `SetDirectGatehouseClimbing` ist erweitert (Remarks im Code). Beim nächsten APIShared-Release die Version anheben und die Änderung nennen.
+- **APIShared-Release:** Die Wirkung von `SetWeightedReconstructionEnabled` und `SetDirectGatehouseClimbing` ist erweitert (Remarks im Code); im Changelog von 0.12.2 genannt.
 
 ### A10 – Gebäude-Angriffs-Fallback
 
@@ -184,16 +200,13 @@ ExtraFeatures war in keiner Messreihe enthalten. Die Optimierungen beruhen auf C
    - `git status --short` im Workspace und in `APIShared`;
    - die installierten Plugins unter `BepInEx/plugins`;
    - die ursprüngliche Auswahl in `.work/a/bfqol-perf/001/original-plugins.txt`.
-3. **Messpunkte:** Die Messpunkte für die offenen Punkte sind im Code mit `TEMP_PERF_DIAG` markiert (`git grep -n TEMP_PERF_DIAG`). Sie wirken nur im DEVDIAG-Build:
-   - Startzeit: `startup.feature`, `startup.libraryLoaded(total)`;
-   - Assassinen: `assassin:BuildWeightedPath`, `assassin:vanillaBuilder`;
-   - Kartenstart: `gate.tick.*`, `gate.access.build`.
+3. **Messpunkte:** Die `TEMP_PERF_DIAG`-Messpunkte (`startup.feature`, `startup.libraryLoaded(total)`, `assassin:BuildWeightedPath`, `assassin:vanillaBuilder`, `gate.tick.epochInit/accessRefresh/topologyRefresh`, `gate.access.build`) wurden am 21.10.2026 nach Abschluss aller Punkte entfernt. Für neue Untersuchungen bei Bedarf wieder über `Shared.DevDiag` anlegen; die dauerhaften DevDiag-Punkte (z. B. `gate.tick.topology+access`) bestehen weiter.
 4. **Messen:**
    - DEVDIAG-Build: `.work/a/bfqol-perf/001/Build-Clean.ps1 -Driver BugfixesAndQoL\build.bat -Arguments /nopause,/devdiag`. Den Exitcode prüfen: Bei einem Fehlschlag bleibt die alte DLL installiert.
    - Serie, abwechselnd und mindestens zweimal je Variante, z. B. `.work/a/bfqol-perf/001/Run-Series.ps1 -Runs 'S1=SE','B1=BFQ','S2=SE','B2=BFQ' -SavePath test_dustynoattack2.sav -GameSpeed 250`.
    - 8-KI-Save: `test_8lordsmiddle.sav` mit `-GameSpeed 0`. Für den Sampler `+PerfProbe_Serp` anhängen und `-SamplerWindow 2|10` wählen.
 5. **Nach jeder Serie:**
-   - Plugin-Auswahl wiederherstellen: `.work/a/bfqol-perf/001/Run-Variant.ps1 -RestoreOnly -Label restore -Plugins x`;
+   - Plugin-Auswahl nur auf Wunsch des Nutzers wiederherstellen: `.work/a/bfqol-perf/001/Run-Variant.ps1 -RestoreOnly -Label restore -Plugins x`;
    - im PerfProbe-Config `[Sampler] Enabled = false` setzen;
    - BFQoL wieder ohne `/devdiag` bauen.
 6. **Abwägungsregel des Nutzers:** Arbeit nicht vom Spielstart in den Kartenstart oder ins laufende Spiel verschieben; solche Abwägungen vorher vorlegen. Funktionen bleiben exakt erhalten; bei mehreren wesentlich verschiedenen Lösungen oder einer empfohlenen Feature-Entfernung den Nutzer fragen.
@@ -202,11 +215,16 @@ ExtraFeatures war in keiner Messreihe enthalten. Die Optimierungen beruhen auf C
 
 | Nr. | Aufgabe | Ziel | Vorgehen | Prüfung |
 |---|---|---|---|---|
-| 1 | Wiederholungsläufe dusty-Save | FPS-Gleichheit belegen | Serie SE/BFQ im Wechsel, je mindestens 2 gültige Läufe; Läufe mit pausiert < ~100 FPS nicht werten | Tabelle „Ergebnis“ aktualisieren |
-| 2 | Spielstart | Hauptmenü näher an SE (heute +4,4 s) | a) A3-Restliste: erledigt bzw. gegenstandslos (siehe A3, 21.10.2026). b) APIShared- und BFQoL-Start untersuchen: Hook-Commits kosten laut Startlog nichts Nennenswertes mehr, die Zeit liegt in der übrigen Initialisierung (z. B. Workshop). Startphasen mit `startup.feature` eingrenzen | `startup menuReadySinceProcessStartS` über ≥ 2 Läufe; kein Freeze beim Kartenstart |
-| 3 | Assassinen-Suche mit exaktem Frame | größte Tick-Lücke näher an SE (heute 140–150 ms) | Kantenauswertung und Heap erledigt (A11). Offen: Suffix-Heuristik über Befehle hinweg wiederverwenden; Tick-Lücke im Spiel über `assassin:BuildWeightedPath` nachmessen | Produktionsfixture (`--compare`): A* gegen Dijkstra, identische Routen-Prüfsummen; 8-KI-Save |
-| 4 | Gate-Topologie im ersten Tick | Kartenstart näher an SE (heute +28–47 ms) | Den Topologie-Snapshot vor dem ersten Sim-Tick aufbauen | **vorher Nutzer fragen** (Arbeit verschiebt sich in den Ladevorgang) |
-| 5 | Gatehouse-Erreichbarkeit mit Zugbrücken | 1–2 % Sim-Zeit | Footprint-Kandidaten pro Torhaus und Tick zwischenspeichern | nur bei geringem Aufwand; identisches Verhalten |
+| 1 | Wiederholungsläufe dusty-Save | FPS-Gleichheit belegen | **Abgeschlossen (21.10.2026):** Ergebnis und Grenzen unter „Belastbarkeit“. Weitere SE-Läufe würden nur die Streuung genauer beziffern | – |
+| 2 | Spielstart | Hauptmenü näher an SE | **Abgeschlossen (21.10.2026):** A12, A13, A14; geprüfte und bewusst belassene Kosten unter „A13, A14 und geprüfte Startkosten“ | – |
+| 3 | Assassinen-Suche mit exaktem Frame | größte Tick-Lücke näher an SE (heute 140–150 ms) | **Abgeschlossen (21.10.2026).** Kantenauswertung und Heap erledigt (A11); im Spiel (8 KI, DEVDIAG) kostet `assassin:BuildWeightedPath` höchstens ~15 ms. Suffix-Heuristik über Befehle hinweg: **verworfen**, siehe unten | – |
+| 4 | Gate-Topologie im ersten Tick | Kartenstart näher an SE (heute +21–44 ms) | **Verworfen (21.10.2026, Nutzerauftrag: das MP-sicherere wählen)**, siehe unten | – |
+| 5 | Gatehouse-Erreichbarkeit mit Zugbrücken | 1–2 % Sim-Zeit | **Verworfen:** Ein Cache pro Torhaus und Tick wäre nicht exakt verhaltensgleich (er würde die Zugbrücken-Erkennung innerhalb des Ticks aushebeln); seit A6 läuft die Zugbrücken-Auswertung ohnehin nur noch selten | – |
+
+**Begründungen der verworfenen Punkte:**
+
+- **3 – Suffix-Heuristik über Befehle:** Die Suffixkosten sind die echten Restkosten der optimalen Route auf dem Kartenstand *dieses* Befehls und innerhalb des synchronen Befehls eine zulässige Schätzung. Wird die Karte bis zum nächsten Befehl günstiger (Mauer zerstört, Tor offen, Kletterreservierung frei), überschätzen sie, und A* kann teurere Routen liefern. Eine exakte Invalidierung bräuchte einen Änderungszähler für alle kantenrelevanten Layer; `mapEpoch` ändert sich nur beim Kartenwechsel. Zudem sucht nach A1 pro Befehl meist nur die Einheit mit exaktem Frame voll.
+- **4 – Gate-Snapshot vor dem ersten Tick:** `OnStart` setzt im MP eine bereits gestartete Simulation voraus ([AGENTS/mission-lifecycle.md](AGENTS/mission-lifecycle.md)). Ein Aufbau beim Laden liefe auf dem Main-Thread parallel zu Sim-Ticks und würde die Policies je Peer zu unterschiedlichen Ticks veröffentlichen (Wegfindungs-Desync). Heute entsteht der Snapshot im ersten Sim-Tick auf allen Peers am selben Simulationspunkt. Vorbauen plus Validierung im ersten Tick wäre aufwendig und wegen paralleler Sim-Schreibzugriffe nicht sicher; der einmalige Spike (21–44 ms, 8-KI-Save) liegt unter der 100-ms-Grenze.
 
 ### Noch offen außerhalb der Optimierung
 
@@ -214,8 +232,8 @@ ExtraFeatures war in keiner Messreihe enthalten. Die Optimierungen beruhen auf C
   - Großbefehl-Marker (Vorschau beim Ziehen, Überlaufmarker; A2);
   - KI-Assassinen verlassen ihr Torhaus über die Zugbrücke (A8);
   - Gebäudeangriffe wählen dieselben Angriffsplätze (A10).
-- **Diagnose aufräumen:** Jeden `TEMP_PERF_DIAG`-Messpunkt entfernen, sobald sein Punkt erledigt ist. Vor `main` oder einem Release: `Shared/Tools/Validation/Test-DevDiagnostics.ps1 -ModDirectory BugfixesAndQoL -Enforce`.
-- **APIShared-Version:** beim nächsten Release anheben (A8).
+- **Diagnose:** `TEMP_PERF_DIAG` ist entfernt (21.10.2026). Vor `main` oder einem Release weiterhin `Shared/Tools/Validation/Test-DevDiagnostics.ps1 -ModDirectory BugfixesAndQoL -Enforce` für die übrigen DevDiag-Punkte.
+- **Versionen (21.10.2026):** APIShared 0.12.2 (nennt A8, A12, A13), BugfixesAndQoL 1.0.194, ExtraFeatures 1.0.115.
 
 ## Geänderte Tests und Werkzeuge
 
@@ -228,7 +246,8 @@ ExtraFeatures war in keiner Messreihe enthalten. Die Optimierungen beruhen auf C
   - Spannentest für `0xE19C0`;
   - Existenztest im Assassinen-Produktionsfixture;
   - `_inspect/GateMigrationFeatureTests` mit dem Modus `--own-fix-off`.
-- **APIShared-Tests:** `AssassinReconstructionConnectionTests`, `NativeSiteRegistryTests`, `FearPopularityIlTests`.
+- **APIShared-Tests:** `AssassinReconstructionConnectionTests`, `NativeSiteRegistryTests`, `FearPopularityIlTests`; `TestCompiledPatternSearch` deckt `FindUniqueAtReference` ab (A13), `LegacyReleasesShareValidationButStillRejectUnsafeEntries` das Workshop-Memo.
+- **Shared/BFQoL-Tests zu A14:** `Shared/Tests/Diagnostics.Tests/FileHashCacheTests.cs` (Cache-Treffer, Neuberechnung nach geänderter Datei); das Zugbrücken-Fixture prüft zusätzlich, dass ein fremder DLL-Hash abgelehnt wird.
 - **Behaltene Verhaltensprüfungen, entfernte Wortlautprüfungen:**
   - `AssassinPathfinding.Tests` vergleicht keine Methodentexte mit einem alten Commit mehr; die Verhaltensprüfungen bleiben.
   - `_inspect/TemporaryGateAcceptanceRuntimeTests` nutzt die echte `DevDiag.cs`.

@@ -17,7 +17,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Threading;
 using UnityEngine;
 
@@ -128,13 +127,9 @@ namespace BugfixesAndQoL
         {
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            using (var sha = SHA256.Create())
-            using (var stream = File.OpenRead(path))
-            {
-                string actual = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
-                if (!string.Equals(actual, HealthBarNativeContract.NativeSha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Installed native DLL differs from the audited build: " + actual);
-            }
+            string actual = Shared.DebugLogHelper.GetFileSha256(path);
+            if (!string.Equals(actual, HealthBarNativeContract.NativeSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Installed native DLL differs from the audited build: " + actual);
         }
 
         private static void ValidateInteropLayout()

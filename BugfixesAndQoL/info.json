@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.193",
+  "Version": "1.0.194",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,10 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.194",
+      "Changes": ["Faster game start: native hooks install without suspending game threads while the library loads, the native DLL hash is computed once, and gate-routing hooks install at game start instead of the first map tick.", "Lower in-game cost: cheaper AI assassin group path searches, a demand-gated move-marker render hook, and faster gatehouse-reachability and building-attack fallback searches; routes and behavior are unchanged."]
+    },
     {
       "Version": "1.0.193",
       "Changes": ["Keep uncertain AI raid search diagnostics at Debug level; preserve warnings for validation failures and leave raid behavior unchanged."]

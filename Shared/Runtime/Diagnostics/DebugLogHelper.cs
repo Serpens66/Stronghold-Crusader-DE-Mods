@@ -15,6 +15,49 @@ namespace Shared
         public const string CurrentNativeSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
 
+        // Uppercase SHA-256 of a whole file, cached per path for this assembly. Unity's Mono hashes
+        // CrusaderDE.dll in tens of milliseconds and several startup checks hash the same file. A
+        // changed size or write time recomputes it, so a replaced file never reports an old hash.
+        private static readonly object fileHashSync = new object();
+        private static readonly Dictionary<string, CachedFileHash> fileHashes =
+            new Dictionary<string, CachedFileHash>(StringComparer.OrdinalIgnoreCase);
+
+        public static string GetFileSha256(string path)
+        {
+            string fullPath = Path.GetFullPath(path);
+            var info = new FileInfo(fullPath);
+            long length = info.Length;
+            DateTime written = info.LastWriteTimeUtc;
+            lock (fileHashSync)
+            {
+                if (fileHashes.TryGetValue(fullPath, out CachedFileHash cached) &&
+                    cached.Length == length && cached.Written == written)
+                    return cached.Hash;
+            }
+
+            string hash;
+            using (FileStream stream = File.OpenRead(fullPath))
+            using (SHA256 sha256 = SHA256.Create())
+                hash = BitConverter.ToString(sha256.ComputeHash(stream)).Replace("-", string.Empty);
+            lock (fileHashSync)
+                fileHashes[fullPath] = new CachedFileHash(length, written, hash);
+            return hash;
+        }
+
+        private readonly struct CachedFileHash
+        {
+            public CachedFileHash(long length, DateTime written, string hash)
+            {
+                Length = length;
+                Written = written;
+                Hash = hash;
+            }
+
+            public long Length { get; }
+            public DateTime Written { get; }
+            public string Hash { get; }
+        }
+
         private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(1);
         private static DateTime debugEnabledCacheExpiresAtUtc;
         private static bool debugEnabledCache;
@@ -201,14 +244,7 @@ namespace Shared
                     return false;
                 }
 
-                string actualHash;
-                using (FileStream stream = File.OpenRead(path))
-                using (SHA256 sha256 = SHA256.Create())
-                {
-                    actualHash = BitConverter.ToString(sha256.ComputeHash(stream))
-                        .Replace("-", string.Empty);
-                }
-
+                string actualHash = GetFileSha256(path);
                 long fileSize = new FileInfo(path).Length;
                 if (string.Equals(actualHash, CurrentNativeSha256, StringComparison.OrdinalIgnoreCase))
                 {
@@ -268,16 +304,10 @@ namespace Shared
                 if (!File.Exists(path))
                     return false;
 
-                using (FileStream stream = File.OpenRead(path))
-                using (SHA256 sha256 = SHA256.Create())
-                {
-                    string actualHash = BitConverter.ToString(sha256.ComputeHash(stream))
-                        .Replace("-", string.Empty);
-                    return string.Equals(
-                        actualHash,
-                        CurrentNativeSha256,
-                        StringComparison.OrdinalIgnoreCase);
-                }
+                return string.Equals(
+                    GetFileSha256(path),
+                    CurrentNativeSha256,
+                    StringComparison.OrdinalIgnoreCase);
             }
             catch
             {

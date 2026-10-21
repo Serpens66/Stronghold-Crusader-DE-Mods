@@ -27,7 +27,7 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("Native load context unavailable.");
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            bool known = Hash(File.ReadAllBytes(path)) == NativeHash;
+            bool known = Shared.DebugLogHelper.GetFileSha256(path) == NativeHash;
             var resolved = Shared.NativePatternResolver.ResolveUnique(context.Memory, Pattern, Rva,
                 known, "AI keep distance predicate");
             // Full caller/xref coverage is bound to this binary; a pattern alone is not sufficient.

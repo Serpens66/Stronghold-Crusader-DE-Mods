@@ -8,10 +8,8 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.Interop;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Threading;
 
 namespace BugfixesAndQoL
@@ -253,25 +251,36 @@ namespace BugfixesAndQoL
                     "The tannery updater pointer slot differs from the installed patch.");
         }
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true,
+            EntryPoint = "GetModuleFileNameW")]
+        private static extern uint GetModuleFileName(IntPtr module, char[] fileName, uint size);
+
+        // The module handle is the loaded image's base address, so this resolves the same file as
+        // searching Process.Modules for that base. Unity's Mono builds a ProcessModule (with version
+        // info) for every loaded module there, which cost ~40 ms at startup.
+        private static string GetLoadedModulePath(IntPtr handle)
+        {
+            for (uint size = 260; size <= 32768; size *= 2)
+            {
+                var buffer = new char[size];
+                uint length = GetModuleFileName(handle, buffer, size);
+                if (length == 0)
+                    return null;
+                if (length < size)
+                    return new string(buffer, 0, (int)length);
+            }
+            return null;
+        }
+
         private static void ValidateInstalledDll(IntPtr handle)
         {
-            string path = null;
-            foreach (ProcessModule module in Process.GetCurrentProcess().Modules)
-                if (module.BaseAddress == handle)
-                {
-                    path = module.FileName;
-                    break;
-                }
+            string path = GetLoadedModulePath(handle);
             if (path == null)
                 throw new InvalidOperationException("The loaded CrusaderDE.dll path could not be resolved.");
-            using (var stream = File.OpenRead(path))
-            using (var sha = SHA256.Create())
-            {
-                string actual = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
-                if (!string.Equals(actual, AuditedSha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException(
-                        $"The installed native DLL is not the audited build: {actual}.");
-            }
+            string actual = Shared.DebugLogHelper.GetFileSha256(path);
+            if (!string.Equals(actual, AuditedSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"The installed native DLL is not the audited build: {actual}.");
         }
 
         private void Write(string message, [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>

@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.114",
+  "Version": "1.0.115",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.115",
+      "Changes": [
+        "Faster game start: startup detours install without suspending game threads and the native DLL hash is shared; AI defense and elevated-moat hooks install at game start and stay inactive until their feature is enabled.",
+        "Fear factor uses native stubs instead of managed callbacks; lighter goods-multiplier and gatehouse-automation event handling. Behavior is unchanged."
+      ]
+    },
     {
       "Version": "1.0.114",
       "Changes": [

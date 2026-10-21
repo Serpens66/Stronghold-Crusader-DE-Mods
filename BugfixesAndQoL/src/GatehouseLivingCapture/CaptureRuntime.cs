@@ -12,7 +12,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Threading;
 
 namespace BugfixesAndQoL.GatehouseLivingCapture
@@ -37,9 +36,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
             NativeDefinition.ValidateLayout();
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            string hash;
-            using (var sha = SHA256.Create())
-            using (var input = File.OpenRead(path)) hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "");
+            string hash = Shared.DebugLogHelper.GetFileSha256(path);
             if (hash != NativeDefinition.Sha256)
                 throw new InvalidOperationException("Unknown native field/layout contract: " + hash);
             if (context == null || context.ModuleHandle == IntPtr.Zero)

@@ -23,8 +23,16 @@ internal static class Program
             NativeContract.ValidateLayouts();
             foreach (bool mod in new[] { false, true }) foreach (bool fix in new[] { false, true })
                 Require(NativeContract.IsEnabled(mod, fix) == (mod && fix), "mod/host option activation");
-            byte[] function = NativeContract.ReadReferenceFunction(args[0]);
+            string fileHash;
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            using (var stream = File.OpenRead(args[0]))
+                fileHash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
+            byte[] function = NativeContract.ReadReferenceFunction(args[0], fileHash);
             Require(function.Length == NativeContract.FunctionSize, "reference function length");
+            bool rejected = false;
+            try { NativeContract.ReadReferenceFunction(args[0], new string('0', 64)); }
+            catch (InvalidOperationException) { rejected = true; }
+            Require(rejected, "foreign native hash accepted");
             SpanAndResolver();
             foreach (eStructs type in new[] { eStructs.STRUCT_GATE_MAIN, eStructs.STRUCT_GATE_INNER, eStructs.STRUCT_DRAWBRIDGE, eStructs.STRUCT_GATE_WOOD, eStructs.STRUCT_GATE_POSTERN })
             foreach (int flag in new[] { 0, 1, 2 })

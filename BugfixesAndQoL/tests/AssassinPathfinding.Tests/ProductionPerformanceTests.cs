@@ -146,7 +146,7 @@ internal static partial class Program
             .Where(f => f.FieldType == typeof(System.Reflection.Emit.OpCode))
             .Select(f => (System.Reflection.Emit.OpCode)f.GetValue(null)).ToDictionary(c => unchecked((ushort)c.Value));
         foreach (var method in kernel.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
-            .Where(m => m.Name is "BuildWeightedPathCore" or "SearchAndPublishWeightedPath" or "TryBuildWeightedRoute" or "PrepareRoute" or
+            .Where(m => m.Name is "BuildWeightedPathCore" or "TryBuildWeightedRoute" or "PrepareRoute" or
                 "GetRequestIndex" or "TryStagePreparedRoute" or "StagePreparedRouteCore" or "Push" or "Pop"))
         {
             byte[] il = method.GetMethodBody().GetILAsByteArray();

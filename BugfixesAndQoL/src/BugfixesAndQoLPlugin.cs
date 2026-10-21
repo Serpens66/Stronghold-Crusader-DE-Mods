@@ -44,7 +44,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.193";
+        public const string PluginVersion = "1.0.194";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -133,8 +133,6 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:135", $"Bugfixes and QoL display-resolution persistence could not be initialized; Vanilla behavior remains active: {ex}");
             }
-            // TEMP_PERF_DIAG (startup-time candidate): DEVDIAG builds only, attach before the first measured startup step.
-            Shared.DevDiag.Attach(Logger); // TEMP_PERF_DIAG
             runtime = new BugfixesAndQoLRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
@@ -195,8 +193,6 @@ namespace BugfixesAndQoL
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
             {
-            long diagLibraryLoaded = 0; // TEMP_PERF_DIAG (startup-time candidate, BFQoLPerformace.md)
-            Shared.DevDiag.Start(ref diagLibraryLoaded); // TEMP_PERF_DIAG
             // Initial native installation window (see BugfixesHookInfrastructure.DetourBackend).
             HookInstallPhase.InitialLibraryLoad = true;
             bool completed;
@@ -205,7 +201,6 @@ namespace BugfixesAndQoL
             // A fail-closed stop inside the runtime initialization leaves the breadcrumb incomplete, as before.
             if (!completed) return;
             diagnostic.Complete();
-            Shared.DevDiag.StopSpike(ref diagLibraryLoaded, "startup.libraryLoaded(total)", 1); // TEMP_PERF_DIAG
             }
         }
 

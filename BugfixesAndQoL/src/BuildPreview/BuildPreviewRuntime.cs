@@ -5,7 +5,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Threading;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
@@ -48,10 +47,8 @@ namespace BugfixesAndQoL.BuildPreview
             {
                 string path = Path.Combine(Paths.GameRootPath,
                     "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-                using (var stream = File.OpenRead(path))
-                using (var sha = SHA256.Create())
-                    if (BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "") != PreviewNativeContract.NativeHash)
-                        throw new InvalidOperationException("Unreviewed native hash; building preview remains Vanilla.");
+                if (Shared.DebugLogHelper.GetFileSha256(path) != PreviewNativeContract.NativeHash)
+                    throw new InvalidOperationException("Unreviewed native hash; building preview remains Vanilla.");
                 var resolution = Shared.NativePatternResolver.ResolveUnique(context.Memory,
                     PreviewNativeContract.Signature, PreviewNativeContract.PreviewRva, true, Name);
                 if (resolution.Rva != PreviewNativeContract.PreviewRva)

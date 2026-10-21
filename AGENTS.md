@@ -89,6 +89,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - **SHC-HD-Quellen:** https://github.com/sourcehold, https://github.com/UnofficialCrusaderPatch (teils lokal unter `D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\HD sources\UCP`), https://github.com/gynt?tab=repositories&type=source, `D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\HD sources\Stronghold Crusader HD reversed`.
 - **KI-Lords:** `C:\Users\Serpens66\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\CustomLords` und `ExtendedLords` enthalten `.lordjson` (AIC: grobes KI-Verhalten wie Wirtschaft und Militär) und `.aivjson` (AIV: Burgaufbau, Mauern, Gebäudeplatzierung). Editor: `E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition - Castle & CPU Lord Editor`.
 - **Werkzeuge:** `git` (unter `C:/Program Files/Git/mingw64/libexec/git-core`), `dotnet`, `ilspycmd`; weitere Reverse-Engineering-Werkzeuge in `.tools` und `.native-analysis`.
+- **Python:** nicht im PATH (`python`/`python3` schlagen fehl); portables WinPython unter `D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe` direkt aufrufen.
 
 ## Verträge, veränderliche Strukturen und Momentaufnahmen
 
