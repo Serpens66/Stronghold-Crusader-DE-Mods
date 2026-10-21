@@ -35,14 +35,25 @@ namespace BugfixesAndQoL.GateRouting
         private static readonly int DecisionCount =
             Enum.GetValues(typeof(NativeGateSnapshotDecision)).Length;
         // TEMP_GATE_ROUTE_ACCEPTANCE: compact minute windows for the endurance test.
+#if SERP_DEVDIAG
         private static readonly long DiagnosticInterval = Stopwatch.Frequency * 60L;
+#endif
 
         private readonly ManualLogSource log;
+#if SERP_DEVDIAG
         private readonly bool detailedDiagnostics;
         private readonly bool macemenDiagnostics;
+#else
+        private const bool detailedDiagnostics = false;
+        private const bool macemenDiagnostics = false;
+#endif
         // Coverage counters only feed Info checkpoints. Without diagnostics the per-edge
         // callback keeps just the rare integrity categories that can raise warnings.
+#if SERP_DEVDIAG
         private readonly bool coverageCounters;
+#else
+        private const bool coverageCounters = false;
+#endif
         private readonly DeferredGateDiagnosticErrors deferredErrors = new DeferredGateDiagnosticErrors();
         private uint reportedIntegrityErrors;
         private long nextErrorCheckAt;
@@ -53,32 +64,55 @@ namespace BugfixesAndQoL.GateRouting
         private ulong libraryBase;
         private int mapActive;
         private int callbackWarnings;
+#if SERP_DEVDIAG
         private long nextDiagnosticAt;
+
         private readonly long[] siteCalls = new long[SiteCount];
+
         private readonly long[] lastSiteCalls = new long[SiteCount];
+#endif
+
         private readonly long[] decisions = new long[SiteCount * DecisionCount];
+#if SERP_DEVDIAG
         private readonly long[] lastDecisions = new long[SiteCount * DecisionCount];
+
         private readonly long[] queryPlayers = new long[9];
+
         private readonly long[] preservedOriginalZf = new long[2];
+
         private readonly long[] foreignOriginalZf = new long[2];
+
         private readonly long[] accessRuleOriginalZf = new long[2];
+
         private long nativeRejectionPreserved, permittedComparisonPreserved;
+
         private long untrackedPolicyClear;
+
         private long untrackedRemovedRecord;
+#endif
+
         private long untrackedUnexpectedGate;
+#if SERP_DEVDIAG
         private long untrackedNonGate;
+#endif
+
         private int pathfindingGlobalsCompared;
+#if SERP_DEVDIAG
         private readonly CapturerSample[] samples =
             new CapturerSample[SiteCount * DecisionCount];
+#endif
 
         internal EnemyGatePathfindingRuntime(ManualLogSource log, bool detailedDiagnostics = false, bool macemenDiagnostics = false)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             Shared.DevDiag.Attach(log);
+#if SERP_DEVDIAG
             this.detailedDiagnostics = detailedDiagnostics;
             this.macemenDiagnostics = macemenDiagnostics;
+
             coverageCounters = detailedDiagnostics || macemenDiagnostics ||
                 Shared.DebugLogHelper.DiagnosticsEnabled;
+#endif
         }
 
         internal void ObserveBuildingCapture(BuildingCaptureEventArgs args)
@@ -225,7 +259,11 @@ namespace BugfixesAndQoL.GateRouting
             if (!hadActiveEpoch)
                 return;
             AssassinGatehouseDescentFeature.SetObservers(null, null);
+            FlushDeferredErrors(final: true);
+#if SERP_DEVDIAG
             LogDiagnosticCheckpoint("final", reason);
+#endif
+
             DiagEndMap();
             topologyProvider?.EndEpoch(reason);
             gateAccess = NativeGateAccessSnapshot.Empty;
@@ -237,14 +275,21 @@ namespace BugfixesAndQoL.GateRouting
             {
                 ComparePathfindingGlobalsOnce();
                 DiagDeferred();
-                long now = Stopwatch.GetTimestamp();
+
                 FlushDeferredErrors();
+#if SERP_DEVDIAG
+                long now = Stopwatch.GetTimestamp();
                 if (detailedDiagnostics && Volatile.Read(ref mapActive) != 0 &&
                     now >= Volatile.Read(ref nextDiagnosticAt))
                 {
+
                     Volatile.Write(ref nextDiagnosticAt, now + DiagnosticInterval);
+
                     LogDiagnosticCheckpoint("periodic", "TEMP_GATE_ROUTE_ACCEPTANCE 60-second interval");
+
                 }
+#endif
+
             }
             catch (Exception ex)
             {
@@ -441,8 +486,10 @@ namespace BugfixesAndQoL.GateRouting
             bool originalZero = false;
             try
             {
+#if SERP_DEVDIAG
                 if (coverageCounters)
                     Interlocked.Increment(ref siteCalls[builderPrecheck ? 1 : 0]);
+#endif
 
                 registers = (X64SmartCPUContext*)context;
                 if (registers == null)
@@ -575,6 +622,7 @@ namespace BugfixesAndQoL.GateRouting
                 }
                 return;
             }
+#if SERP_DEVDIAG
             Interlocked.Increment(ref decisions[(site * DecisionCount) + decisionIndex]);
             if (queryPlayerId > 0 && queryPlayerId < queryPlayers.Length)
                 Interlocked.Increment(ref queryPlayers[queryPlayerId]);
@@ -627,6 +675,7 @@ namespace BugfixesAndQoL.GateRouting
             sample.Fingerprint = fingerprint;
             sample.SubjectGlobalId = subjectGlobalId;
             Volatile.Write(ref sample.State, 2);
+#endif
         }
 
         private void TryLogDiagnosticFailure(Exception ex)
@@ -643,13 +692,13 @@ namespace BugfixesAndQoL.GateRouting
             $"queryPlayer={DecisionTotal(NativeGateSnapshotDecision.InvalidQueryPlayer)},nativeException={DecisionTotal(NativeGateSnapshotDecision.Exception)}," +
             $"unexpectedGate={Read(ref untrackedUnexpectedGate)}";
 
-        private void FlushDeferredErrors()
+        private void FlushDeferredErrors(bool final = false)
         {
             foreach (string error in deferredErrors.DrainNewCauses())
                 Shared.DebugLogHelper.LogWarning(log, "Enemy-gate deferred failure: " + error);
-            if (detailedDiagnostics || Volatile.Read(ref mapActive) == 0) return;
+            if (detailedDiagnostics || (!final && Volatile.Read(ref mapActive) == 0)) return;
             long now = Stopwatch.GetTimestamp();
-            if (now < nextErrorCheckAt) return;
+            if (!final && now < nextErrorCheckAt) return;
             nextErrorCheckAt = now + Stopwatch.Frequency;
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             TopologyCoverageSnapshot topology = topologyProvider?.GetCoverageSnapshot() ?? default;
@@ -664,7 +713,7 @@ namespace BugfixesAndQoL.GateRouting
                 (DecisionTotal(NativeGateSnapshotDecision.InvalidQueryPlayer) > 0 ? 2048U : 0) |
                 (DecisionTotal(NativeGateSnapshotDecision.Exception) > 0 ? 4096U : 0) |
                 (Read(ref untrackedUnexpectedGate) > 0 ? 8192U : 0);
-            if ((causes & ~reportedIntegrityErrors) != 0)
+            if ((causes & ~reportedIntegrityErrors) != 0 || (final && causes != 0))
                 Shared.DebugLogHelper.LogWarning(log, "Enemy-gate integrity errors (complete totals at map end): " + DescribeIntegrityErrors(same, topology));
             reportedIntegrityErrors |= causes;
         }
@@ -675,27 +724,49 @@ namespace BugfixesAndQoL.GateRouting
             reportedIntegrityErrors = 0;
             nextErrorCheckAt = 0;
             previousStableGateAccess = NativeGateAccessSnapshot.Empty;
+#if SERP_DEVDIAG
             Array.Clear(siteCalls, 0, siteCalls.Length);
+
             Array.Clear(lastSiteCalls, 0, lastSiteCalls.Length);
+#endif
+
             Array.Clear(decisions, 0, decisions.Length);
+#if SERP_DEVDIAG
             Array.Clear(lastDecisions, 0, lastDecisions.Length);
+
             Array.Clear(queryPlayers, 0, queryPlayers.Length);
+
             Array.Clear(preservedOriginalZf, 0, preservedOriginalZf.Length);
+
             Array.Clear(foreignOriginalZf, 0, foreignOriginalZf.Length);
+
             Array.Clear(accessRuleOriginalZf, 0, accessRuleOriginalZf.Length);
+
             Interlocked.Exchange(ref nativeRejectionPreserved, 0);
+
             Interlocked.Exchange(ref permittedComparisonPreserved, 0);
+
             Reset(ref untrackedPolicyClear);
+
             Reset(ref untrackedRemovedRecord);
+#endif
+
             Reset(ref untrackedUnexpectedGate);
+#if SERP_DEVDIAG
             Reset(ref untrackedNonGate);
+
             Array.Clear(samples, 0, samples.Length);
+#endif
+
             Interlocked.Exchange(ref callbackWarnings, 0);
+#if SERP_DEVDIAG
             Volatile.Write(ref nextDiagnosticAt, Stopwatch.GetTimestamp() + DiagnosticInterval);
+#endif
+
         }
 
         private static long Read(ref long value) => Interlocked.Read(ref value);
-
+#if SERP_DEVDIAG
         private void LogDiagnosticCheckpoint(string kind, string reason)
         {
             FlushDeferredErrors();
@@ -907,6 +978,7 @@ namespace BugfixesAndQoL.GateRouting
                 $"untrackedUnexpectedGate={Read(ref untrackedUnexpectedGate)}," +
                 $"causes=[{deferredErrors.Summary}],reason={reason}.");
         }
+#endif
 
         private long DecisionTotal(NativeGateSnapshotDecision decision) =>
             Read(ref decisions[(int)decision]) +
@@ -918,7 +990,7 @@ namespace BugfixesAndQoL.GateRouting
             snapshot.RecordsByBuildingId[buildingId].Valid;
 
         private static void Reset(ref long value) => Interlocked.Exchange(ref value, 0);
-
+#if SERP_DEVDIAG
         private string FormatSiteCoverage(int site)
         {
             var coverage = new StringBuilder();
@@ -961,6 +1033,7 @@ namespace BugfixesAndQoL.GateRouting
                     $"accessFingerprint=0x{sample.Fingerprint:X16}.");
             }
         }
+#endif
 
         // TEMP_GATE_MIGRATION_DIAGNOSTICS: implemented only in EnemyGatePathfindingRuntime.DevDiag.cs.
         // Without SERP_DEVDIAG the compiler removes every call including its arguments.
@@ -980,7 +1053,7 @@ namespace BugfixesAndQoL.GateRouting
             int queryPlayerId, int buildingId, int nativeOwner, int nativeCaptured,
             bool originalZero, bool finalZero, uint subjectGlobalId);
         partial void DiagDescribeOrderCheckpoint(ref string text);
-
+#if SERP_DEVDIAG
         private string DescribeOrderCheckpoint()
         {
             string text = "unavailable";
@@ -1010,6 +1083,7 @@ namespace BugfixesAndQoL.GateRouting
             internal ulong Fingerprint;
             internal uint SubjectGlobalId;
         }
+#endif
 
         private static void ProbeExactHookLength(
             ulong imageBase,

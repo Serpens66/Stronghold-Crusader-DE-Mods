@@ -125,7 +125,7 @@ namespace BugfixesAndQoL.UnitCommands
                     }
                 }
                 AttackCommandScope measuredCommand = scope?.OwnerCommand;
-                long floodStarted = Stopwatch.GetTimestamp();
+                long floodStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                 try
                 {
                     RunAttackApproachFloodWithVanillaLadderFix(
@@ -143,7 +143,7 @@ namespace BugfixesAndQoL.UnitCommands
                     if (measuredCommand != null)
                     {
                         measuredCommand.UnitFloodCalls++;
-                        measuredCommand.UnitFloodTicks += Stopwatch.GetTimestamp() - floodStarted;
+                        measuredCommand.UnitFloodTicks += (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - floodStarted;
                     }
                 }
                 nativeFloodCompleted = true;

@@ -110,7 +110,6 @@ namespace BugfixesAndQoL.UnitCommands
                     command.PlayerMaskAtDispatch |= 1u << playerId;
             }
 
-
         }
 
         internal void EnsureMoveCommandGroupSummary(MoveCommandScope command)
@@ -224,8 +223,10 @@ namespace BugfixesAndQoL.UnitCommands
                 getGroupUnitId(nativeTribeManager, tribeId, 0) == unitId;
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogWeightedPublicationDecision(int unitId, string message)
         {
+#if SERP_DEVDIAG
             if (lastWeightedPublicationDecisionByUnit.TryGetValue(
                     unitId, out string previous) &&
                 string.Equals(previous, message, StringComparison.Ordinal))
@@ -235,13 +236,17 @@ namespace BugfixesAndQoL.UnitCommands
             lastWeightedPublicationDecisionByUnit[unitId] = message;
             BufferOrLogCommandDiagnostic(message.StartsWith("Bugfixes and QoL friendly-moat-movement ", StringComparison.Ordinal)
                 ? message.Substring("Bugfixes and QoL friendly-moat-movement ".Length) : message);
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogWeightedShadowDecision(
             BuilderWeightedScope shadow, string decision)
         {
+#if SERP_DEVDIAG
             RecordFillRouteDecision(shadow, decision);
             RecordWeightedCommandDecision(shadow, decision);
+#endif
         }
 
         internal void RecordWeightedCommandDecision(BuilderWeightedScope shadow, string decision)

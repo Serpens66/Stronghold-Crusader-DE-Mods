@@ -346,8 +346,10 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogDirectCursorMove(DirectCursorMoveScope scope)
         {
+#if SERP_DEVDIAG
             string signature = $"{scope.MapEpoch}:{scope.TribeId}:{scope.TargetTileId}:" +
                 $"{scope.QualifyingUnitIds.Length}:{scope.RegionFallbackCalls}";
             if (string.Equals(signature, lastDirectCursorMoveDecision, StringComparison.Ordinal))
@@ -361,6 +363,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"regionFallbackCalls={scope.RegionFallbackCalls} " +
                 $"terrainUnchanged=True feedbackOnly=True " +
                 $"{scope.Route.ToLogFields()}.");
+#endif
         }
 
         internal void ResetDirectMoatCommandScopes()

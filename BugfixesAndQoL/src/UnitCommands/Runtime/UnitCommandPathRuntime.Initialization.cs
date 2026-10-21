@@ -569,7 +569,6 @@ namespace BugfixesAndQoL.UnitCommands
                     Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:568", "Friendly moat movement disabled after a committed mode-detour contract mismatch: " + exception);
                 }
 
-
                 centralMovementPlanDetour = pendingPlanDetour;
                 combatFinishResumeDetour = pendingCombatFinishResume;
                 cursorMoveStagerDetour = pendingCursorMoveStager;
@@ -625,7 +624,9 @@ namespace BugfixesAndQoL.UnitCommands
                 TryInstallAttackApproachDiagnostics(memory, libraryBase);
                 TryInstallMoatWorkTargetSelection(memory, libraryBase);
                 InstallConnectivityAndRecovery(memory, libraryBase);
+#if SERP_DEVDIAG
                 UnityEngine.Application.onBeforeRender += ObserveCursorPerformance;
+#endif
             }
             catch
             {
@@ -679,11 +680,19 @@ namespace BugfixesAndQoL.UnitCommands
             trackedAttackUnits.Clear();
             trackedMoatMoves.Clear();
             requiredBackgroundTrackedUnitIds.Clear();
+#if SERP_DEVDIAG
             requiredBackgroundDiagnostics.Clear();
+
             requiredBackgroundSuppressedDiagnostics.Clear();
+#endif
+
             requiredBackgroundDiagnosticTick = int.MinValue;
+#if SERP_DEVDIAG
             lastAttackCommandCandidates.Clear();
+
             loggedBuildingCursorReachabilityDecisions.Clear();
+#endif
+
         }
 
     }

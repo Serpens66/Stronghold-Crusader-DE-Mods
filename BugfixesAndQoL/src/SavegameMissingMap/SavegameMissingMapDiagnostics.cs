@@ -1,3 +1,4 @@
+#if SERP_DEVDIAG
 using System;
 using APIShared;
 using BepInEx.Logging;
@@ -42,3 +43,4 @@ namespace BugfixesAndQoL.SavegameMissingMap
         }
     }
 }
+#endif

@@ -144,7 +144,7 @@ namespace BugfixesAndQoL.UnitCommands
                     weightedMoatRoutePlanner.BeginReachabilityProbe();
                     try
                     {
-                        long fieldStarted = Stopwatch.GetTimestamp();
+                        long fieldStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                         int[] distances = ResolveMovementCandidates(field, leaderStarts, targets, normal, terminal, out int expanded);
                         if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
                         if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += expanded; }
@@ -159,7 +159,7 @@ namespace BugfixesAndQoL.UnitCommands
                         {
                             int supplementBase=0;
                             foreach(var c in candidates) if(c.Score<VanillaUnreachableCandidateScore) supplementBase=Math.Max(supplementBase,c.Score);
-                            fieldStarted = Stopwatch.GetTimestamp();
+                            fieldStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                             distances = ResolveMovementCandidates(field, otherStarts, remaining, normal, terminal, out expanded);
                             if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
                             if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += expanded; }

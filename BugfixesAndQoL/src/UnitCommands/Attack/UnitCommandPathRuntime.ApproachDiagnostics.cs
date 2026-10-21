@@ -25,6 +25,7 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogBuildingConsumerCandidates(
             AttackApproachDiagnosticScope scope,
             BuildingApproachCandidate[] before,
@@ -32,6 +33,7 @@ namespace BugfixesAndQoL.UnitCommands
             BuildingConsumerFallbackResult fallback,
             LadderBuildingCandidateRestoreResult ladderRestore)
         {
+#if SERP_DEVDIAG
             int producerPairs = 0;
             int producerApproachOnly = 0;
             foreach (BuildingApproachCandidate candidate in before)
@@ -68,12 +70,15 @@ namespace BugfixesAndQoL.UnitCommands
                 $"reservedBlocked={fallback.ReservedBlocked} " +
                 $"ownerRouteRejected={fallback.OwnerRouteRejected} " +
                 fallback.Summary.ToLogFields());
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogBuildingConsumerPerformance(
             BuildingConsumerPerformanceScope performance,
             BuildingConsumerFallbackResult fallback)
         {
+#if SERP_DEVDIAG
             if (performance == null)
                 return;
 
@@ -92,11 +97,14 @@ namespace BugfixesAndQoL.UnitCommands
                 $"moatOwnerCache={performance.MoatOwnerCacheHits}/" +
                 $"{performance.MoatOwnerCacheMisses} " +
                 $"applied={fallback.WasApplied} reason={fallback.Reason}");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogBuildingApproachPerformance(
             BuildingApproachPerformanceScope performance)
         {
+#if SERP_DEVDIAG
             if (performance == null)
                 return;
 
@@ -121,6 +129,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"reachabilityCacheHits={performance.ReachabilityCacheHits} " +
                 $"moatOwnerCache={performance.MoatOwnerCacheHits}/" +
                 $"{performance.MoatOwnerCacheMisses}");
+#endif
         }
 
         internal static AttackApproachState CaptureAttackApproachState(
@@ -181,8 +190,10 @@ namespace BugfixesAndQoL.UnitCommands
                 firstScore);
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogAttackApproachDiagnostic(AttackApproachDiagnosticScope scope)
         {
+#if SERP_DEVDIAG
             if (!scope.OwnerCommand.AttackApproachDiagnosticSignatures.Add(
                 scope.GetSemanticSignature()))
             {
@@ -198,6 +209,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"consumerVariant={scope.ConsumerVariantText} " +
                 $"before=[{scope.Before.ToLogFields()}] after=[{scope.After.ToLogFields()}] " +
                 $"regionPairs={scope.FormatRegionPairs()} tilePairs={scope.FormatTilePairs()}");
+#endif
         }
 
         internal void DiagnoseAttackApproachTilePair(

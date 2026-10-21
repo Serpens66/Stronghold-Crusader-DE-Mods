@@ -39,6 +39,7 @@ namespace BugfixesAndQoL.GateRouting
         internal static void Configure(ManualLogSource logger,ConfigFile config,BugfixesAndQoLViewModel options)
         {
             if(configured)return;configured=true;log=logger;settings=options;
+#if SERP_DEVDIAG
             detailed=GateDiagnosticConfiguration.Read(config,ex=>Shared.DebugLogHelper.LogError(log,"Gate diagnostic config migration failed; diagnosis is disabled for this process and will be retried: "+ex));
             if(GateDiagnosticConfiguration.BuildAvailable)
             {
@@ -49,14 +50,17 @@ namespace BugfixesAndQoL.GateRouting
             // the diagnosis itself is compiled only into DEVDIAG builds.
             detailed &= Shared.DebugLogHelper.DiagnosticsEnabled && GateDiagnosticConfiguration.BuildAvailable;
             macemen &= Shared.DebugLogHelper.DiagnosticsEnabled && GateDiagnosticConfiguration.BuildAvailable;
+#endif
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log,c=>{map=true;editor=c.IsEditor;Refresh();}));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_=>{map=false;Refresh();}));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingCapture.Observable.Subscribe(a=>{if(active)runtime?.ObserveBuildingCapture(a);}));
+#if SERP_DEVDIAG
             if(detailed||macemen) {
                 subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(a=>{if(active)runtime?.ObserveTargetOrder(a);}));
                 subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(a=>{if(active)runtime?.ObserveTribeMove(a);}));
                 subscriptions.Add(UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(a=>{if(active)runtime?.ObserveUnitMove(a);}));
             }
+#endif
             Application.onBeforeRender+=Deferred;
             settings.SettingChanged+=Changed;
         }
@@ -115,7 +119,9 @@ namespace BugfixesAndQoL.GateRouting
             EnsureRuntime();
             if(runtime==null)return;
             ruleErrors.Clear();ruleErrorCount=0;accessMemo.Clear();runtime.BeginMap(editor);active=true;
+#if SERP_DEVDIAG
             Shared.DebugLogHelper.LogInfo(log,"TEMP_GATE_MIGRATION_DIAGNOSTICS provider=BugfixesAndQoL; nativeOwner=APIShared; hostFix="+ownRule+"; DetailedDiagnostics="+detailed+"; MacemenDiagnostics="+macemen+"; accessRulesVersion="+rulesVersion);
+#endif
         }
         // Caller holds StateGate. One attempt per process; a failure leaves Vanilla and other features active.
         private static void EnsureRuntime()

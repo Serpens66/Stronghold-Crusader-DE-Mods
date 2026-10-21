@@ -573,7 +573,11 @@ namespace BugfixesAndQoL.UnitCommands
             bool requireMoat = true, int maximumEdges = MaximumRouteEdges,
             int maximumExpanded = int.MaxValue, long? groundPreferenceCost = null, long? moatPreferenceCost = null)
         {
+#if SERP_DEVDIAG
             Stopwatch stopwatch = Stopwatch.StartNew();
+#else
+            Stopwatch stopwatch = null;
+#endif
             summary = default; encodedRoute = default;
             if (searchSession == null || searchPlayer != playerId)
                 SetSearchSession(null, playerId, searchEpoch, searchTick);
@@ -603,7 +607,7 @@ namespace BugfixesAndQoL.UnitCommands
                 summary = WeightedMoatRouteSummary.Failed(
                     kernel.LastSearchBudgetExceeded ? "search-budget-exceeded" :
                     improvement ? "no-publishable-improvement" : captureEncodedRoute ? "no-encodable-route" : "unreachable",
-                    stopwatch.Elapsed.TotalMilliseconds, expanded);
+                    (stopwatch?.Elapsed.TotalMilliseconds ?? 0.0), expanded);
                 return false;
             }
             int ground = 0, moatEdges = 0, structures = 0, diagonal = 0, changes = 0, previous = -1;
@@ -616,7 +620,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!TryGetEdge(playerId, from % MapWidth, from / MapWidth, GetTileId(from % MapWidth, from / MapWidth),
                     to % MapWidth, to / MapWidth, GetTileId(to % MapWidth, to / MapWidth), direction,
                     i == nodes.Length - 1, allowReservedTarget, traversalPolicy, out bool wet, out bool structure))
-                { summary = WeightedMoatRouteSummary.Failed("live-edge-changed", stopwatch.Elapsed.TotalMilliseconds, expanded); return false; }
+                { summary = WeightedMoatRouteSummary.Failed("live-edge-changed", (stopwatch?.Elapsed.TotalMilliseconds ?? 0.0), expanded); return false; }
                 if (wet) moatEdges++; else ground++;
                 if (structure) structures++;
                 if ((direction & 1) != 0) diagonal++;
@@ -625,7 +629,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (bytes != null) bytes[(i - 1) >> 1] |= (byte)(direction << (((i - 1) & 1) * 4));
             }
             summary = WeightedMoatRouteSummary.Succeeded(nodes.Length - 1, ground, moatEdges, structures, diagonal,
-                changes, fingerprint, costProfile.EstimateRouteTicks(ground, moatEdges), stopwatch.Elapsed.TotalMilliseconds, expanded);
+                changes, fingerprint, costProfile.EstimateRouteTicks(ground, moatEdges), (stopwatch?.Elapsed.TotalMilliseconds ?? 0.0), expanded);
             if (bytes != null) encodedRoute = new WeightedMoatEncodedRoute(bytes, nodes.Length - 1);
             return true;
         }

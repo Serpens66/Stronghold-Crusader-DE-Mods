@@ -155,15 +155,16 @@ namespace BugfixesAndQoL.GateRouting
     // without changing the global grid.
     // TEMP_GATE_MIGRATION_DIAGNOSTICS: optional observers attach through the partial Diag* methods
     // implemented in SamePclGateRouteRuntime.DevDiag.cs (SERP_DEVDIAG builds only).
-    internal sealed unsafe partial class SamePclGateRouteRuntime : IEnemyGatePathPolicy,
-        IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, IEnemyGateRoutePolicyProvider, ITemporaryAssassinGateObserver
+    internal sealed unsafe partial class SamePclGateRouteRuntime : IEnemyGatePathPolicy, IEnemyGateRoutePolicyProvider
+#if SERP_DEVDIAG
+        , IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, ITemporaryAssassinGateObserver
+#endif
     {
         private readonly GateRoutingNativeHooks nativeHooks;
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
         private static readonly long CursorRefreshInterval = Math.Max(
             1L, Stopwatch.Frequency / 5L);
-
 
         private sealed class PlayerKindSnapshot
         {
@@ -301,7 +302,6 @@ namespace BugfixesAndQoL.GateRouting
         private readonly DeferredGateDiagnosticErrors deferredErrors;
         private bool DetailedDiagnostics { get { bool detailed = false; DiagIsDetailed(ref detailed); return detailed; } }
 
-
         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
             ScanRegion region, ulong libraryBase, bool existingHookOwner,
             object diagnostics, GateRoutingNativeHooks nativeHooks, DeferredGateDiagnosticErrors deferredErrors = null)
@@ -351,12 +351,13 @@ namespace BugfixesAndQoL.GateRouting
 
         bool IEnemyGatePathPolicy.HasPublishedMask =>
             publishedPolicy.NonEmptyPlayerMaskCount != 0;
-
+#if SERP_DEVDIAG
         void IEnemyGateRegionPairObserver.ObserveRegionPair(int playerId,
             int sourceComponentId, int destinationComponentId, int queryMode,
             int vanillaResult, int effectiveResult, string source) =>
             DiagRegionPair(playerId, sourceComponentId,
                 destinationComponentId, queryMode, vanillaResult, effectiveResult, source);
+#endif
 
         bool IEnemyGateRoutePolicyProvider.TryCaptureRoutePolicy(int playerId,
             out IEnemyGateRoutePolicySnapshot snapshot) =>
@@ -366,11 +367,17 @@ namespace BugfixesAndQoL.GateRouting
             publishedPolicy.IsDirectionAllowed(playerId, tileId, direction);
         // TEMP_GATE_ROUTE_ACCEPTANCE: read-only publication identity.
         // TEMP_GATE_ROUTE_ACCEPTANCE: retains gate geometry even when all player masks are empty.
+#if SERP_DEVDIAG
         private RouteTilePolicySnapshot temporaryPublishedPolicy = RouteTilePolicySnapshot.Empty;
+
         internal Action<RouteTilePolicySnapshot, int> TemporaryPolicyPublished;
+
         internal RouteTilePolicySnapshot TemporaryAcceptanceSnapshot => temporaryPublishedPolicy;
+#endif
+
         // TEMP_MACEMEN_GATE_DIAGNOSTICS: functional publication exists in every mode.
         internal RouteTilePolicySnapshot MacemenDiagnosticSnapshot => publishedPolicy;
+#if SERP_DEVDIAG
         private void NotifyTemporaryPublication(RouteTilePolicySnapshot policy, int generation)
         {
             if (!DetailedDiagnostics) return;
@@ -378,10 +385,13 @@ namespace BugfixesAndQoL.GateRouting
             try { TemporaryPolicyPublished?.Invoke(temporaryPublishedPolicy, generation); }
             catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("capture-policy-publication", error); }
         }
+#endif
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: remove optional forwarding after acceptance.
+#if SERP_DEVDIAG
         void ITemporaryAssassinGateObserver.ObserveAssassinStage(object token, int player, string stage, string result, string detail) =>
             DiagAssassinStage(token, player, stage, result, detail);
+
         void ITemporaryAssassinGateObserver.ObserveAssassinDecision(object token, int player, int from, int to, int direction,
             bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence) =>
             DiagAssassinDecision(token, player, from, to, direction, prepared, movement, allowed, gate, global, evidence);
@@ -409,6 +419,7 @@ namespace BugfixesAndQoL.GateRouting
         void IEnemyGateAssassinObserver.EndAssassinSearch(object token, int playerId,
             int vanillaResult, int effectiveResult, string outcome, bool cacheHit, int routeLength) =>
             DiagEndAssassinSearch(token, playerId, vanillaResult, effectiveResult, outcome, cacheHit, routeLength);
+#endif
 
         int IEnemyGatePathPolicy.ResolveTribePlayer(int tribeId) =>
             tribePlayers.Resolve(tribeId);
@@ -533,7 +544,6 @@ namespace BugfixesAndQoL.GateRouting
             }
         }
 
-
         internal void UpdatePolicy(RouteTilePolicySnapshot policy)
         {
             if (policy == null || policy.NonEmptyPlayerMaskCount == 0)
@@ -545,7 +555,10 @@ namespace BugfixesAndQoL.GateRouting
                     currentMasks = NativeMaskSnapshot.Empty;
                     publishedPolicy = RouteTilePolicySnapshot.Empty;
                     routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
+#if SERP_DEVDIAG
                     NotifyTemporaryPublication(policy, policyGeneration);
+#endif
+
                 }
                 return;
             }
@@ -574,7 +587,10 @@ namespace BugfixesAndQoL.GateRouting
                 currentMasks = NativeMaskSnapshot.Empty;
                 publishedPolicy = RouteTilePolicySnapshot.Empty;
                 routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
+#if SERP_DEVDIAG
                 NotifyTemporaryPublication(RouteTilePolicySnapshot.Empty, generation);
+#endif
+
             }
             TryPublishPending(policy, generation);
         }
@@ -905,7 +921,10 @@ namespace BugfixesAndQoL.GateRouting
                     publishedPolicy = policy;
                     routePolicySource.Publish(policy);
                     pendingPolicy = null;
+#if SERP_DEVDIAG
                     NotifyTemporaryPublication(policy, generation);
+#endif
+
                 }
             }
             catch (Exception ex)
@@ -987,10 +1006,6 @@ namespace BugfixesAndQoL.GateRouting
                 Volatile.Write(ref tacticalEdgeSampleState[index], 0);
         }
 
-
-
-
-
         private void FilterAlternateConsumer(IntPtr tribeManager, int tribe, int variant)
         {
             if (!GateRoutingFeature.IsActive) { originalAlternateConsumer(tribeManager,tribe,variant);return; }
@@ -1056,7 +1071,6 @@ namespace BugfixesAndQoL.GateRouting
             }
             finally { CompleteTactical(scope); }
         }
-
 
         private int FilterDirectCursorSearch(IntPtr manager, int x, int y,
             int argument4, int argument5, int argument6)

@@ -11,9 +11,11 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogMoatWorkSelection(MoatWorkSelectionScope scope)
         {
-            double elapsedMilliseconds = (Stopwatch.GetTimestamp() - scope.StartTimestamp) *
+#if SERP_DEVDIAG
+            double elapsedMilliseconds = ((DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - scope.StartTimestamp) *
                 1000.0 / Stopwatch.Frequency;
             if (scope.FillFallbackEvaluations == 0 &&
                 elapsedMilliseconds < 50.0)
@@ -68,10 +70,13 @@ namespace BugfixesAndQoL.UnitCommands
                 $"searchMs={scope.SearchMilliseconds:F3} elapsedMs={elapsedMilliseconds:F3} " +
                 $"selectedRoute=[{selectedRoute.ToLogFields()}] " +
                 $"observedRoutes=[{scope.Route.ToLogFields()}].");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogResolvedFillMoatApproach(PendingFillMoatApproach pending)
         {
+#if SERP_DEVDIAG
             MoatWorkApproach approach = pending.Approach;
             string signature =
                 $"{mapEpoch}:{pending.MoatId}:{approach.MoatTileId}:{approach.TileId}:" +
@@ -90,10 +95,13 @@ namespace BugfixesAndQoL.UnitCommands
                 $"approach=({approach.X},{approach.Y})/{approach.TileId} " +
                 $"nativeOrder={approach.NativeOrder} handoff=owner-qualified-plan " +
                 $"{approach.Summary.ToLogFields()}.");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogResolvedDigMoatTarget(PendingDigMoatTarget pending)
         {
+#if SERP_DEVDIAG
             string signature =
                 $"{mapEpoch}:dig:{pending.MoatId}:{pending.TileId}:" +
                 $"{pending.X}:{pending.Y}:{pending.Summary.ObservedOwnerMask}";
@@ -110,6 +118,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"approach=({pending.X},{pending.Y})/{pending.TileId} " +
                 $"selectedRegion={pending.TargetRegion} handoff=owner-qualified-plan " +
                 $"{pending.Summary.ToLogFields()}.");
+#endif
         }
     }
 }

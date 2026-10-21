@@ -230,7 +230,7 @@ namespace BugfixesAndQoL.UnitCommands
             RefreshCursorPortals(topology, player);
             if (!buildConnections) return topology;
             if (topology.Ready && topology.Dirty.Count == 0) return topology;
-            long started = Stopwatch.GetTimestamp();
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             weightedMoatRoutePlanner.BeginReachabilityProbe();
             try
             {
@@ -244,7 +244,7 @@ namespace BugfixesAndQoL.UnitCommands
                     foreach (int tile in topology.Dirty) { UpdateCursorBoundary(topology, player, tile); cursorTopologyUpdates++; }
                 topology.Dirty.Clear();
             }
-            finally { weightedMoatRoutePlanner.EndReachabilityProbe(); cursorTopologyTicks += Stopwatch.GetTimestamp() - started; }
+            finally { weightedMoatRoutePlanner.EndReachabilityProbe(); cursorTopologyTicks += (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started; }
             return topology;
         }
 
@@ -253,7 +253,7 @@ namespace BugfixesAndQoL.UnitCommands
             summary = new RouteProbeSummary(player);
             if (!ExtensionsEnabled || !IsValidTileId(start) || !IsValidTileId(target)) return false;
             if (!TraversalEnabled) return ProbeNativeCursorConnectivity(player, start, target, out summary);
-            long started = Stopwatch.GetTimestamp(); cursorQueries++;
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L); cursorQueries++;
             try
             {
                 if (RequiredOnlyMode)
@@ -287,17 +287,18 @@ namespace BugfixesAndQoL.UnitCommands
                 summary.RouteFound = reachable;
                 return true;
             }
-            finally { cursorQueryTicks += Stopwatch.GetTimestamp() - started; }
+            finally { cursorQueryTicks += (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started; }
         }
 
         internal void ObserveCursorPerformance()
         {
+#if SERP_DEVDIAG
             if (disposed)
                 return;
             if (cursorQueries == cursorLastLogQueries)
                 return;
 
-            long now = Stopwatch.GetTimestamp();
+            long now = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             if (now - cursorLastLogTime < Stopwatch.Frequency * 5L) return;
             cursorLastLogTime = now; cursorLastLogQueries = cursorQueries;
             long nodes = 0, hits = 0;
@@ -320,6 +321,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"unstackCalls={unstackCalls} unstackMoves={unstackMoves} " +
                 $"formationRejected={formationRejected} formationReplaced={formationReplaced} formationFallbacks={formationFallbacks} " +
                 $"fillRoutes=[{string.Join(";", fillRouteDecisions)}].");
+#endif
         }
 
         internal void RefreshCursorPortals(CursorTopology topology, int player)
@@ -399,17 +401,23 @@ namespace BugfixesAndQoL.UnitCommands
         }
 
         internal bool cursorSelectionAvailable;
+#if SERP_DEVDIAG
         internal readonly Dictionary<string, long> cursorDecisionCounts = new Dictionary<string, long>();
-        internal readonly HashSet<string> cursorDecisionDetails = new HashSet<string>();
 
+        internal readonly HashSet<string> cursorDecisionDetails = new HashSet<string>();
+#endif
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void RecordCursorDecision(string reason, AttackCursorPairScope scope)
         {
+#if SERP_DEVDIAG
             cursorDecisionCounts.TryGetValue(reason, out long count);
             cursorDecisionCounts[reason] = count + 1;
             if (!cursorDecisionDetails.Add(reason)) return;
             LogDetailedInfo($"Bugfixes and QoL stage=friendly-moat-movement-cursor-decision reason={reason} " +
                 $"selectionSourceAvailable={cursorSelectionAvailable} selected={selectedCursorIds.Length} " +
                 $"unit={scope?.UnitId ?? 0} target=({scope?.TargetX},{scope?.TargetY}) kind={scope?.FallbackKind}.");
+#endif
         }
 
         internal bool CaptureCursorSelection(int player, out int[] ids, out string token)

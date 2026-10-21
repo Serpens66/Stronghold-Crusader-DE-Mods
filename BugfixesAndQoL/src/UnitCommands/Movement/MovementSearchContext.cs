@@ -121,7 +121,10 @@ namespace BugfixesAndQoL.UnitCommands
                 plan?.PlayerId ?? -1, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("reconstructed-builder", plan?.PlayerId ?? -1);
             // TEMP_GATE_ROUTE_ACCEPTANCE
+#if SERP_DEVDIAG
             object temporaryRoute = BeginTemporaryRouteReport(pathManager, "E32B0-reconstruction");
+#endif
+
             int gateResult = 0;
             bool gateCompleted = false;
             BuilderWeightedScope shadow = null;
@@ -132,7 +135,7 @@ namespace BugfixesAndQoL.UnitCommands
             if (shadow != null)
             {
                 AttackCommandScope measuredCommand = activeAttackCommand;
-                long weightedStarted = Stopwatch.GetTimestamp();
+                long weightedStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                 bool previousWeightedTiming = weightedPhaseTimingActive;
                 weightedPhaseTimingActive = true;
                 try { ObserveWeightedMoatShadowResult(pathManager, result, shadow); }
@@ -141,7 +144,7 @@ namespace BugfixesAndQoL.UnitCommands
                     weightedPhaseTimingActive = previousWeightedTiming;
                     if (measuredCommand != null)
                         measuredCommand.WeightedPhaseTicks +=
-                            Stopwatch.GetTimestamp() - weightedStarted;
+                            (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - weightedStarted;
                 }
             }
                 gateResult = shadow != null && shadow.PublishedBuilderResult >= 0
@@ -151,7 +154,10 @@ namespace BugfixesAndQoL.UnitCommands
             }
             finally
             {
+#if SERP_DEVDIAG
                 EndTemporaryRouteReport(pathManager, temporaryRoute, gateCompleted, gateResult);
+#endif
+
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     gateCompleted, gateResult > 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, gateCompleted, gateResult);

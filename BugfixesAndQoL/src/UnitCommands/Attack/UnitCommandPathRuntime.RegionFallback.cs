@@ -151,13 +151,14 @@ namespace BugfixesAndQoL.UnitCommands
                         decision = EvaluateAttackUnitRegionFallback(
                             scope, movementClass, sourceRegion, targetRegion, routeKind);
                         scope.RegionFallbackDecisions[decisionKey] = decision;
-
+#if SERP_DEVDIAG
                         string logSignature =
                             $"attack-unit-region:{scope.CommandSequence}:{decisionKey}:" +
                             $"{decision.Allowed}:{decision.Reason}:{decision.ApproachX}:" +
                             $"{decision.ApproachY}:{decision.Summary.ObservedOwnerMask}:" +
                             $"{decision.Summary.FriendlyMoatTiles}:" +
                             $"{decision.Summary.EnemyMoatTiles}";
+
                         if (scope.OwnerCommand.AttackApproachDiagnosticSignatures.Add(logSignature))
                         {
                             LogCommandDiagnostic(
@@ -171,6 +172,8 @@ namespace BugfixesAndQoL.UnitCommands
                                 $"approach=({decision.ApproachX},{decision.ApproachY}) " +
                                 $"reason={decision.Reason} {decision.Summary.ToLogFields()}");
                         }
+#endif
+
                     }
 
                     if (decision.Allowed)
@@ -187,7 +190,7 @@ namespace BugfixesAndQoL.UnitCommands
                     {
                         BuildingApproachPerformanceScope performance =
                             activeBuildingApproachPerformance;
-                        long fallbackStarted = Stopwatch.GetTimestamp();
+                        long fallbackStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                         try
                         {
                             decision = EvaluateAttackBuildingRegionFallback(
@@ -199,17 +202,18 @@ namespace BugfixesAndQoL.UnitCommands
                             {
                                 performance.RegionFallbackEvaluations++;
                                 performance.RegionFallbackElapsedTicks +=
-                                    Stopwatch.GetTimestamp() - fallbackStarted;
+                                    (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - fallbackStarted;
                             }
                         }
                         scope.RegionFallbackDecisions[decisionKey] = decision;
-
+#if SERP_DEVDIAG
                         string logSignature =
                             $"attack-building-region:{scope.CommandSequence}:{decisionKey}:" +
                             $"{decision.Allowed}:{decision.Reason}:{decision.ApproachX}:" +
                             $"{decision.ApproachY}:{decision.Summary.ObservedOwnerMask}:" +
                             $"{decision.Summary.FriendlyMoatTiles}:" +
                             $"{decision.Summary.EnemyMoatTiles}";
+
                         if (scope.OwnerCommand.AttackApproachDiagnosticSignatures.Add(logSignature))
                         {
                             LogCommandDiagnostic(
@@ -223,6 +227,8 @@ namespace BugfixesAndQoL.UnitCommands
                                 $"approach=({decision.ApproachX},{decision.ApproachY}) " +
                                 $"reason={decision.Reason} {decision.Summary.ToLogFields()}");
                         }
+#endif
+
                     }
 
                     if (decision.Allowed)
@@ -446,7 +452,7 @@ namespace BugfixesAndQoL.UnitCommands
                 weightedMoatRoutePlanner.BeginReachabilityProbe();
                 try
                 {
-                    long fieldStarted = Stopwatch.GetTimestamp();
+                    long fieldStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                     int[] distances=ResolveMovementCandidates(field,starts,targets,
                         (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,false,false,out m,out st),
                         (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,true,true,out m,out st),
@@ -481,7 +487,7 @@ namespace BugfixesAndQoL.UnitCommands
                     : Array.Empty<int>();
             }
 
-            long started = Stopwatch.GetTimestamp();
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             Dictionary<int, List<int>> byRegion = new Dictionary<int, List<int>>();
             Dictionary<int, HashSet<int>> seenByRegion = new Dictionary<int, HashSet<int>>();
             int footprintTiles = 0;
@@ -534,7 +540,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             if (performance != null && performance.BuildingId == buildingId)
             {
-                performance.IndexElapsedTicks += Stopwatch.GetTimestamp() - started;
+                performance.IndexElapsedTicks += (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started;
                 performance.IndexScans++;
                 performance.IndexedNativeTiles += NativeTileCount;
                 performance.IndexedFootprintTiles = footprintTiles;

@@ -33,9 +33,9 @@ unsafe static class UnitAccess {
  internal static bool IsReallyAlive(GameUnit* unit)=>unit!=null&&IsReallyAlive(in *unit);
  internal static bool IsReallyAlive(in GameUnit unit)=>unit.r_AliveState==AliveState.IsAlive&&(unit.N0000019A&0xffff)==0;
 }
-namespace BepInEx.Logging { sealed class ManualLogSource {} }
-namespace APIShared.Internal { static class DebugLogHelper { internal static void LogDebug(object log,string text){} } }
-namespace Shared { static class DebugLogHelper { internal static void LogInfo(object log,string text){} internal static void LogDebugLimited(object log,string site,params object[] parts){} internal static void LogDebug(object log,string text){} } }
+namespace BepInEx.Logging { sealed class ManualLogSource { public void LogMessage(string text) {} } }
+namespace APIShared.Internal { static class DebugLogHelper { internal static bool DiagnosticsEnabled => true; internal static void LogDebug(object log,string text){} } }
+namespace Shared { static class DebugLogHelper { internal static bool DiagnosticsEnabled => true; internal static void LogInfo(object log,string text){} internal static void LogDebugLimited(object log,string site,params object[] parts){} internal static void LogDebug(object log,string text){} } }
 namespace APIShared {
  unsafe static class AssassinPathAPI {
   static string weightedOwner="fixture"; public static bool IsInstalled=>true;
@@ -125,6 +125,7 @@ namespace BugfixesAndQoL {
    public int PlayerId=>2;public bool IsCurrent=>true;
    public bool IsDirectionAllowed(int tile,int direction)=>(tile*7+direction)%5!=0;
   }
+#if SERP_DEVDIAG
   public static void VerifyTemporaryRouteValidation() {
    var r=new AssassinPathfindingRuntime("open");var mask=new ValidationMask();
    var key=new RouteCacheKey(5,5,10,5,TileCount,4,2,true,true,mask,true);
@@ -196,8 +197,13 @@ namespace BugfixesAndQoL {
     Assert(sink.Decisions==16,"every masked actual validation is counted, including throwing observer");
    } finally {activeObservation=null;AssassinPathAPI.DirectEndpoint=-1;GameBuildingManagerAPI.Instance.Building=null;runtime.Release();}
   }
+#endif
   RUNTIME_MEMBERS
-  sealed class AssassinObservation { internal object Token;internal int NativeResult,Player,RouteLength;internal string Outcome;internal bool CacheHit;internal long FilteredClimb,FilteredGround;internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int,GateTransitionEvidence> ParentDecisions;internal GateTransitionEvidence LastDecision; }
+  sealed class AssassinObservation { internal object Token;internal int NativeResult,Player,RouteLength;internal string Outcome;internal bool CacheHit;internal long FilteredClimb,FilteredGround;internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;
+#if SERP_DEVDIAG
+internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int,GateTransitionEvidence> ParentDecisions;internal GateTransitionEvidence LastDecision;
+#endif
+ }
   bool IsInstalled=>true;
   void ObservePreparedAssassinRoute(int player,int length){}
   void LogDebug(string message){}

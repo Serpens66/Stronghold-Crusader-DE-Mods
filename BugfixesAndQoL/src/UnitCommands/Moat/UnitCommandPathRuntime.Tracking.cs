@@ -25,9 +25,11 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void StartOrRefreshMoatMoveTracker(
             PlanScope plan, RouteProbeSummary summary, int builderResult)
         {
+#if SERP_DEVDIAG
             try
             {
                 if (!APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
@@ -102,8 +104,10 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 TryLogDiagnosticFailure("move-track-start", ex);
             }
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void StartOrRefreshWeightedShadowTracker(
             BuilderWeightedScope shadow,
             int builderResult,
@@ -111,6 +115,7 @@ namespace BugfixesAndQoL.UnitCommands
             bool nativeValid,
             string decision)
         {
+#if SERP_DEVDIAG
             if (!APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
             {
@@ -190,10 +195,13 @@ namespace BugfixesAndQoL.UnitCommands
                 : tracker.CombatInterrupted
                     ? "combat-interrupted"
                     : "group-or-route-unvalidated";
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void ObserveTrackedMoatMoveStates(int tick)
         {
+#if SERP_DEVDIAG
             if (trackedMoatMoves.Count == 0)
                 return;
 
@@ -457,6 +465,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 TryLogDiagnosticFailure("move-state-tick", ex);
             }
+#endif
         }
 
         internal static int CaptureCurrentGameTick()
@@ -544,6 +553,7 @@ namespace BugfixesAndQoL.UnitCommands
             return GamePlayerManagerAPI.Instance.IsPlayerIdValid(ownerId);
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogMoveMilestone(
             int tick,
             int unitId,
@@ -552,6 +562,7 @@ namespace BugfixesAndQoL.UnitCommands
             TribeAICommand command,
             string milestone)
         {
+#if SERP_DEVDIAG
             string cadenceSnapshot = tracker.RequiredOnlyAtPublication
                 ? "skipped-required-only"
                 : TryCaptureWeightedMovementCostProfile(
@@ -572,14 +583,17 @@ namespace BugfixesAndQoL.UnitCommands
                 $"moatConsumerMode={ReadUnitMoatPathConsumptionMode(unit)} " +
                 $"cadence={cadenceSnapshot} " +
                 $"builderResult={tracker.BuilderResult}.");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void MarkPostCombatRepathEntered(
             int unitId,
             GameUnit* unit,
             PlanScope plan,
             bool requiredFriendlyMoat)
         {
+#if SERP_DEVDIAG
             if (!trackedMoatMoves.TryGetValue(unitId, out MoatMoveTracker tracker) ||
                 tracker.MapEpoch != mapEpoch ||
                 tracker.TargetX != plan.TargetX || tracker.TargetY != plan.TargetY)
@@ -599,6 +613,7 @@ namespace BugfixesAndQoL.UnitCommands
                 requiredFriendlyMoat
                     ? "post-combat-repath-entered-required-moat"
                     : "post-combat-repath-entered-ground-or-faster-moat");
+#endif
         }
 
         internal static ushort ReadUnitMoatPathConsumptionMode(GameUnit* unit)
@@ -611,8 +626,10 @@ namespace BugfixesAndQoL.UnitCommands
             return *(ushort*)((byte*)unit + UnitMoatPathConsumptionModeOffset);
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void RemoveTrackedMoatMovesForTribe(int tribeId, string reason)
         {
+#if SERP_DEVDIAG
             if (trackedMoatMoves.Count == 0)
                 return;
 
@@ -625,10 +642,13 @@ namespace BugfixesAndQoL.UnitCommands
                     EndTrackedMoatMove(unitId, tracker, reason);
                 }
             }
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void EndTrackedMoatMove(int unitId, MoatMoveTracker tracker, string reason)
         {
+#if SERP_DEVDIAG
             trackedMoatMoves.Remove(unitId);
             requiredBackgroundTrackedUnitIds.Remove(unitId);
             bool completedAtTarget = string.Equals(
@@ -785,6 +805,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"shadowMatchesPublishedCostProfile={tracker.ShadowMatchesPublishedCostProfile} " +
                 $"shadowCalibrationReason={shadowCalibrationReason} " +
                 $"calibrationReason={tracker.CalibrationReason ?? "not-instrumented"}.");
+#endif
         }
 
         internal sealed class MoatMoveTracker

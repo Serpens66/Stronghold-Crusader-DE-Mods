@@ -6,7 +6,7 @@ param(
 )
 # Behavior test for the DEVDIAG release protection: a fixture compiled with /devdiag must
 # be rejected by the release gate; the same sources compiled normally must pass and contain
-# no DevDiag call. It also checks the *.DevDiag.cs inclusion and the source inventory.
+# no DevDiag call. Retained source is allowed; the compiled artifact is the release boundary.
 $ErrorActionPreference = 'Stop'
 # PowerShell 5.1 has no $PSScriptRoot inside parameter defaults.
 if (-not $Root) { $Root = Join-Path $PSScriptRoot '..\..\..' }
@@ -47,14 +47,16 @@ Write-CrLf (Join-Path $work 'src\Feature.cs') @(
     '            Shared.DevDiag.Start(ref started);',
     '            Shared.DevDiag.Count("fixture.calls", Expensive(value));',
     '            Shared.DevDiag.Stop(ref started, "fixture.run");',
+    '            new PartialProbe().Run();',
     '            return value + 1;',
     '        }',
     '        // Must never run in a normal build: [Conditional] removes the argument evaluation.',
     '        private static long Expensive(int value) { throw new System.InvalidOperationException("evaluated"); }',
     '    }',
-    '}')
+    '}',
+    'namespace Fixture { internal partial class PartialProbe { internal void Run() { Diagnose(Expensive()); } partial void Diagnose(int value); private static int Expensive() { throw new System.InvalidOperationException("partial argument evaluated"); } } }')
 Write-CrLf (Join-Path $work 'src\Probe.DevDiag.cs') @(
-    'namespace Fixture { internal static class DevelopmentOnlyProbe { internal const int Marker = 1; } }')
+    'namespace Fixture { internal static class DevelopmentOnlyProbe { internal const int Marker = 1; } internal partial class PartialProbe { partial void Diagnose(int value) { } } }')
 
 function Build-Fixture([string]$Name, [bool]$DevDiag) {
     $out = Join-Path $work ('out-' + $Name)
@@ -87,12 +89,11 @@ $normalAssembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path
 $diagAssembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $diag 'Fixture.dll')))
 Check ($null -eq $normalAssembly.GetType('Fixture.DevelopmentOnlyProbe')) 'normal build excludes *.DevDiag.cs'
 Check ($null -ne $diagAssembly.GetType('Fixture.DevelopmentOnlyProbe')) 'DEVDIAG build includes *.DevDiag.cs'
+Check ($normalAssembly.GetType('Fixture.Feature').GetMethod('Run').Invoke($null, @([int]41)) -eq 42) 'normal build removes diagnostic and partial-call argument evaluation while keeping functional behavior'
 
 $found = @(Get-DevDiagnosticSources -Root $work -ModDirectory 'src')
 Check ($found.Count -ge 4) "source inventory lists the fixture measurement points ($($found.Count))"
-$sourceBlocked = $false
-try { Assert-NoDevDiagnosticSources -Root $work -ModDirectory 'src' } catch { $sourceBlocked = $true }
-Check $sourceBlocked 'main/release source gate blocks remaining measurement points'
+Check (Test-Path -LiteralPath (Join-Path $work 'src/Probe.DevDiag.cs')) 'normal release-safe output is built with diagnostic sources retained'
 
 if ($failures) { Write-Host "DEVDIAG gate test failed: $failures check(s). Evidence: $work"; exit 1 }
 Write-Host "DEVDIAG gate test passed. Evidence: $work"

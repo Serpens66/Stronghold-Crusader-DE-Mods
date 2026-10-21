@@ -244,7 +244,7 @@ namespace BugfixesAndQoL.UnitCommands
                 StartRegion = startRegion;
                 Route = new RouteProbeSummary(playerId);
                 CapturedTick = CaptureCurrentGameTick();
-                StartTimestamp = Stopwatch.GetTimestamp();
+                StartTimestamp = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             }
 
             public int MapEpoch { get; }

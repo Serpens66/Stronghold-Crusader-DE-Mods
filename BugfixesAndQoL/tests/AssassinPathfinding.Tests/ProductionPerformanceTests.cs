@@ -9,7 +9,7 @@ internal static partial class Program
     // native calls, game managers and passive diagnostics are supplied by the fixture.
     // revision: a snapshot directory (<file name>.txt per replaced source) compiled with the
     // current fixture contract, for comparisons between two current-API revisions.
-    private static Type CompileProductionKernel(string root, bool before, bool diagnostics = false, string revision = null)
+    private static Type CompileProductionKernel(string root, bool before, bool diagnostics = false, string revision = null, bool development = false)
     {
         string Read(string relative)
         {
@@ -21,34 +21,36 @@ internal static partial class Program
             string saved = Path.Combine(root, "_inspect/AssassinPerf/before", Path.GetFileName(relative) + ".txt");
             return File.ReadAllText(before && File.Exists(saved) ? saved : Path.Combine(root, relative));
         }
-        var runtime = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/AssassinPathfindingRuntime.cs"))
+        var parseOptions = development ? CSharpParseOptions.Default.WithPreprocessorSymbols("SERP_DEVDIAG") : CSharpParseOptions.Default;
+        var runtime = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/AssassinPathfindingRuntime.cs"), parseOptions)
             .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
         string[] excluded = { "InitializeNative", "Dispose", "BuildWeightedPath", "DescribeNativeAssassinState",
             "ObservePreparedAssassinRoute", "ObserveMoveCommand", "ObserveTargetCommand", "CloseCommandScope",
             "CompleteCommand", "ClearTransientState", "ResetMapValidation", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
         var members = runtime.Members.Where(m => m is FieldDeclarationSyntax || m is DelegateDeclarationSyntax ||
             m is MethodDeclarationSyntax method && !excluded.Contains(method.Identifier.Text) ||
-            m is BaseTypeDeclarationSyntax type && type.Identifier.Text != "AssassinObservation");
-        string body = string.Join("\n", members.Select(m => m.ToFullString()));
+            m is BaseTypeDeclarationSyntax type && type.Identifier.Text != "AssassinObservation" ||
+            m is PropertyDeclarationSyntax property && property.Identifier.Text is "PerformanceDiagnosticsEnabled" or "DetailedDiagnosticsEnabled");
+        string body = string.Join("\n", members.Select(m => ActiveDiagnosticFixtureCode(m)));
         if (before) body = "private const bool PerformanceDiagnosticsEnabled = true;\n" + body;
-        if (diagnostics) body = body.Replace("PerformanceDiagnosticsEnabled = false", "PerformanceDiagnosticsEnabled = true");
+        body = System.Text.RegularExpressions.Regex.Replace(body, @"(?:const bool PerformanceDiagnosticsEnabled = false|static bool PerformanceDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled)", diagnostics ? "const bool PerformanceDiagnosticsEnabled = true" : "const bool PerformanceDiagnosticsEnabled = false");
         // Identical counters in both revisions; no search decision is changed.
         body = body.Replace("int result = heap[0];", "fixturePops++; int result = heap[0];")
             .Replace("heapOperations++;", "heapOperations++; fixtureHeapOperations++;");
-        var publication = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs"));
+        var publication = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs"), parseOptions);
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
-            .Select(m => m.ToFullString()));
-        if (!before)
+            .Select(m => ActiveDiagnosticFixtureCode(m)));
+        if (!before && development)
         {
-            var reporting = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs"));
+            var reporting = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs"), parseOptions);
             publishing += reporting.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-                .Single(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").ToFullString();
+                .Where(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").Select(ActiveDiagnosticFixtureCode).Single();
         }
         var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs"));
         string boundary = string.Join("\n", api.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "TryStageWeightedRoute" or "TryGetCurrentWeightedRequest")
-            .Select(m => m.ToFullString()));
+            .Select(m => ActiveDiagnosticFixtureCode(m)));
         string fixture = File.ReadAllText(Path.Combine(root, "_inspect/AssassinPerf/ProductionFixture.cs.txt"))
             .Replace("RUNTIME_MEMBERS", body).Replace("PUBLICATION_MEMBERS", publishing).Replace("API_BOUNDARY", boundary);
         if (before) fixture = fixture.Replace("out var cached,out _", "out var cached");
@@ -101,7 +103,7 @@ internal static partial class Program
             "BugfixesAndQoL/src/AssassinRouteEncoding.cs",
             // Real development-diagnostics facade: without SERP_DEVDIAG every call compiles away.
             "Shared/Runtime/Diagnostics/DevDiag.cs" };
-        var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f))).Append(CSharpSyntaxTree.ParseText(fixture));
+        var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f), parseOptions)).Append(CSharpSyntaxTree.ParseText(fixture, parseOptions));
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var compilation = CSharpCompilation.Create("ProductionAssassin" + (before ? "Before" : "After"), trees, refs,
@@ -114,6 +116,11 @@ internal static partial class Program
         return Assembly.Load(stream.ToArray()).GetType("BugfixesAndQoL.AssassinPathfindingRuntime");
     }
 
+    // Retain only active tokens; member-level #if directives belong to the source file.
+    private static string ActiveDiagnosticFixtureCode(SyntaxNode node) =>
+        node.ReplaceTrivia(node.DescendantTrivia(descendIntoTrivia: true), (_, _) => default(SyntaxTrivia))
+            .NormalizeWhitespace().ToFullString();
+
     private static object InvokeKernel(Type kernel, string method, params object[] args)
     {
         try { return kernel.GetMethod(method).Invoke(null, args); }
@@ -125,7 +132,8 @@ internal static partial class Program
         Type disabled = CompileProductionKernel(root, false), enabled = CompileProductionKernel(root, false, true);
         InvokeKernel(disabled, "Verify");
         InvokeKernel(enabled, "Verify");
-        InvokeKernel(disabled, "VerifyTemporaryDecisions");
+        Type developmentKernel = CompileProductionKernel(root, false, development: true);
+        InvokeKernel(developmentKernel, "VerifyTemporaryDecisions");
         Check(true, "actual gate transition observer on/off preserves predicates, results and legitimate climbing");
         foreach (string mode in new[] { "group", "independent", "field" })
         {
@@ -135,7 +143,7 @@ internal static partial class Program
                 "diagnostics switch preserves route checksum, expansion, heap operations and unit scans: " + mode);
             Check(long.Parse(off[9]) <= long.Parse(on[9]), "disabled diagnostics do not allocate more: " + mode);
         }
-        InvokeKernel(CompileProductionKernel(root, false), "VerifyTemporaryRouteValidation");
+        InvokeKernel(developmentKernel, "VerifyTemporaryRouteValidation");
         CheckDisabledDiagnosticIL(disabled);
         Check(true, "production search, cache, resolution, final publication and Dijkstra agree");
     }

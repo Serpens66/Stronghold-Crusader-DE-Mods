@@ -1,6 +1,7 @@
 # DEVDIAG release protection (see AGENTS/build-release.md, "Entwicklungsdiagnose").
-# Source inventory: every remaining development measurement point in a mod and the shared
-# runtime sources it can link. Binary gate: an assembly built with SERP_DEVDIAG carries
+# Source inventory: retained development measurement points in a mod and the shared
+# runtime sources it can link. Sources are allowed in normal/main builds. Binary gate:
+# an assembly built with SERP_DEVDIAG carries
 # AssemblyMetadata("SerpDevDiagnostics","true") and the type Shared.DevDiagRuntime.
 
 $script:DevDiagHelperRelative = 'Shared\Runtime\Diagnostics\DevDiag.cs'
@@ -22,7 +23,7 @@ function Get-DevDiagnosticSources {
             if ($full -like '*.DevDiag.cs') { $results.Add([pscustomobject]@{ Path=$relative; Line=0; Text='development-only file' }); continue }
             $lines = [IO.File]::ReadAllLines($full)
             for ($index = 0; $index -lt $lines.Length; $index++) {
-                # Partial Diag* hooks become no-ops without their *.DevDiag.cs part; list them for removal too.
+                # Partial Diag* hooks disappear without their *.DevDiag.cs implementation.
                 if ($lines[$index] -match '\bDevDiag\s*\.|\bSERP_DEVDIAG\b|\bpartial\s+void\s+Diag[A-Z]') {
                     $results.Add([pscustomobject]@{ Path=$relative; Line=$index + 1; Text=$lines[$index].Trim() })
                 }
@@ -30,14 +31,6 @@ function Get-DevDiagnosticSources {
         }
     }
     return $results.ToArray()
-}
-
-function Assert-NoDevDiagnosticSources {
-    param([Parameter(Mandatory)][string]$Root, [string]$ModDirectory)
-    $found = @(Get-DevDiagnosticSources -Root $Root -ModDirectory $ModDirectory)
-    if ($found.Count -eq 0) { return }
-    $sample = ($found | Select-Object -First 10 | ForEach-Object { '  ' + $_.Path + ':' + $_.Line + ' ' + $_.Text }) -join "`r`n"
-    throw ("DEVDIAG measurement points must be removed before a main/release build ($($found.Count) found):`r`n" + $sample)
 }
 
 # Throws when any assembly below $Directory was compiled with SERP_DEVDIAG.

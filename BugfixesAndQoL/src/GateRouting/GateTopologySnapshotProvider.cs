@@ -144,15 +144,20 @@ namespace BugfixesAndQoL.GateRouting
         private long peakCapturedRecords;
         private long peakBlockedPairs;
         private int drawbridgeObserved;
-
+#if SERP_DEVDIAG
         private readonly bool detailedDiagnostics;
+#else
+        private const bool detailedDiagnostics = false;
+#endif
         private readonly DeferredGateDiagnosticErrors deferredErrors;
         internal int DiagnosticEpoch => Volatile.Read(ref epochNumber);
 
         internal GateTopologySnapshotProvider(ManualLogSource log, bool detailedDiagnostics = true, DeferredGateDiagnosticErrors deferredErrors = null)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+#if SERP_DEVDIAG
             this.detailedDiagnostics = detailedDiagnostics;
+#endif
             this.deferredErrors = deferredErrors;
         }
 
@@ -227,7 +232,6 @@ namespace BugfixesAndQoL.GateRouting
                 if (info.RelevantPcls[index] == pcl) return true;
             return false;
         }
-
 
         internal void SetGateAccessConsumer(Action<NativeGateAccessSnapshot> consumer)
         {
@@ -624,6 +628,7 @@ namespace BugfixesAndQoL.GateRouting
                     routePolicyConsumer?.Invoke(rebuilt.RoutePolicy);
                 peakMissingRequiredMasks = Math.Max(peakMissingRequiredMasks, rebuilt.RoutePolicy.MissingRequiredGateMasks.Length);
                 RecordTopologyCoverage(rebuilt);
+#if SERP_DEVDIAG
                 if (policyChanged)
                 {
                     lastTopologyFingerprint = rebuilt.Fingerprint;
@@ -640,6 +645,8 @@ namespace BugfixesAndQoL.GateRouting
                         $"Gate passage axes: {rebuilt.RoutePolicy.DirectionMaskDiagnostics}.");
                     if (detailedDiagnostics) LogTestCases(rebuilt);
                 }
+#endif
+
                 if (firstBuild && !string.IsNullOrEmpty(rebuilt.Detail))
                     if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
                         $"Initial gate/drawbridge topology detail: {rebuilt.Detail}");
@@ -655,6 +662,7 @@ namespace BugfixesAndQoL.GateRouting
         }
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: existing snapshot only, once per topology change.
+#if SERP_DEVDIAG
         private void LogTestCases(TopologySnapshot current)
         {
             var bridges = new HashSet<int>();
@@ -670,6 +678,7 @@ namespace BugfixesAndQoL.GateRouting
                     ",basis=published-topology-snapshot,actualQuery=not-proven,physicalGateState=not-inferred");
             }
         }
+#endif
 
         private TopologySnapshot BuildTopologySnapshot(
             bool includeDetail,
@@ -1020,8 +1029,6 @@ namespace BugfixesAndQoL.GateRouting
             return new NativeGateAccessSnapshot(records, fingerprint, gateGlobals);
         }
 
-
-
         private static ulong MixSignature(ulong hash, uint value)
         {
             unchecked { return (hash ^ value) * 1099511628211UL; }
@@ -1064,8 +1071,6 @@ namespace BugfixesAndQoL.GateRouting
             }
             return points.ToArray();
         }
-
-
 
         private static ulong ComputeTopologySignature(ulong accessFingerprint)
         {
@@ -1357,8 +1362,6 @@ namespace BugfixesAndQoL.GateRouting
             diagnostics = BuildTileDiagnostics(tiles, footprint);
             return diagnostics.Length != 0;
         }
-
-
 
         private static bool TryReadSparseFootprint(
             GameTileManagerAPI tiles,
@@ -1928,8 +1931,6 @@ namespace BugfixesAndQoL.GateRouting
                 return (hash ^ (uint)rejections.InconsistentReread) * 1099511628211UL;
             }
         }
-
-
 
         private sealed class TopologySnapshot
         {

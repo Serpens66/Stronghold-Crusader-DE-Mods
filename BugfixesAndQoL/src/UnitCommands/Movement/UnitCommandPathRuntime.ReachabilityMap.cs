@@ -389,8 +389,10 @@ namespace BugfixesAndQoL.UnitCommands
             return friendly;
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogUnscopedAttackMode(int unitId, GameUnit* unit, int vanillaResult)
         {
+#if SERP_DEVDIAG
             TribeAICommand command = (TribeAICommand)unit->r_AI_LastIssuedTribeCommand;
             if (command != TribeAICommand.AttackUnit &&
                 command != TribeAICommand.AttackBuilding &&
@@ -422,6 +424,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
                 $"contextTile=({unit->r_ContextTargetTileX},{unit->r_ContextTargetTileY}) " +
                 $"vanillaStandingOnMoat={vanillaResult}.");
+#endif
         }
 
         // Each fallible reset step is isolated, so a provider, diagnostic or UI failure can
@@ -435,9 +438,11 @@ namespace BugfixesAndQoL.UnitCommands
         internal void ResetMapState()
         {
             // TEMP_GATE_ROUTE_ACCEPTANCE: maps never retain an unfinished order association.
+#if SERP_DEVDIAG
             if (temporaryAssassinScope != null)
                 ResetMapStep("temporary-assassin", () => TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-map-unpaired-order"));
             temporaryAssassinScope = null;
+#endif
             manualCommandContexts?.Clear(); targetCommandParents?.Clear();
             moveEventObservers?.Clear(); moveEventDepths?.Clear(); targetEventObservers?.Clear();
             nativeCursorAnswers.Clear(); nativeCursorAnswerTick = int.MinValue;
@@ -446,7 +451,12 @@ namespace BugfixesAndQoL.UnitCommands
             mapEpoch++;
             ResetMapStep("fast-moat-data", InvalidateFastMoatData);
             cursorTopologies.Clear(); noBuilderDetails = 0; preBuilderRejections.Clear();
-            cursorDecisionCounts.Clear(); cursorDecisionDetails.Clear();
+#if SERP_DEVDIAG
+cursorDecisionCounts.Clear();
+
+cursorDecisionDetails.Clear();
+#endif
+
             fillRouteDecisions.Clear(); fillRouteLogTick = -1; fillRouteLogCount = 0; formationOwner = null;
             if (formationRuntime != null) ResetMapStep("formation", formationRuntime.ResetTransientState);
             ResetMapStep("moat-work-target", ResetMoatWorkTargetSelection);
@@ -458,9 +468,14 @@ namespace BugfixesAndQoL.UnitCommands
             cachedTraversedRegionCount = 0;
             cachedReachabilityMapHits = 0;
             cachedRouteSummary = default;
+#if SERP_DEVDIAG
             loggedBuildingCursorReachabilityDecisions.Clear();
+
             lastUnscopedAttackModes.Clear();
+
             lastAttackCommandCandidates.Clear();
+#endif
+
             trackedAttackUnits.Clear();
             activeMoveCommand = null;
             if (Traversal != null) ResetMapStep("traversal-provider", Traversal.ResetMapState);
@@ -474,12 +489,20 @@ namespace BugfixesAndQoL.UnitCommands
             activeBuildingConsumerPerformance = null;
             trackedMoatMoves.Clear();
             requiredBackgroundTrackedUnitIds.Clear();
+#if SERP_DEVDIAG
             requiredBackgroundDiagnostics.Clear();
+
             requiredBackgroundSuppressedDiagnostics.Clear();
+#endif
+
             requiredBackgroundDiagnosticTick = int.MinValue;
             trackedNativeWaypointQueues.Clear();
+#if SERP_DEVDIAG
             loggedDiggerDecisions.Clear();
+
             lastWeightedPublicationDecisionByUnit.Clear();
+#endif
+
         }
 
     }

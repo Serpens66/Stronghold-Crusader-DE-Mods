@@ -1,3 +1,4 @@
+#if SERP_DEVDIAG
 // TEMP_GATE_ROUTE_ACCEPTANCE: read-only decoder for the audited low-nibble-first output.
 using System;
 namespace Shared
@@ -32,3 +33,4 @@ namespace Shared
         }
     }
 }
+#endif

@@ -219,7 +219,7 @@ namespace BugfixesAndQoL.UnitCommands
             out string rejectionReason)
         {
             AttackCommandScope command = activeAttackCommand;
-            long started = Stopwatch.GetTimestamp();
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             attackQualificationTimingDepth++;
             try
             {
@@ -231,7 +231,7 @@ namespace BugfixesAndQoL.UnitCommands
                 attackQualificationTimingDepth--;
                 if (command != null)
                 {
-                    long elapsed = Stopwatch.GetTimestamp() - started;
+                    long elapsed = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started;
                     command.QualificationCalls++;
                     command.QualificationTicks += elapsed;
                     if (activeAttackApproachDiagnostic?.Kind == AttackApproachKind.UnitFlood)
@@ -321,7 +321,10 @@ namespace BugfixesAndQoL.UnitCommands
             rejectionReason = nativeUnitApproach
                 ? "native-unit-approach-endpoint"
                 : "friendly-moat-required";
+#if SERP_DEVDIAG
             GetOrCreateAttackTracker(scope, unitId);
+#endif
+
             return true;
         }
 

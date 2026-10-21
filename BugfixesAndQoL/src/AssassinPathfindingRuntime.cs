@@ -49,10 +49,18 @@ namespace BugfixesAndQoL
         private const byte ClimbEdgeKind = 2;
         private const byte MoveCommandKind = 1;
         private const byte TargetCommandKind = 2;
-        // Enable only for targeted performance diagnostics, then rebuild.
+        // Development traces require both the dedicated build and the local diagnostic opt-in.
+#if SERP_DEVDIAG
+        private static bool PerformanceDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled;
+#else
         private const bool PerformanceDiagnosticsEnabled = false;
+#endif
         private const int MaximumDetailedRequestsPerCommand = 8;
-        private static readonly bool DetailedDiagnosticsEnabled = false;
+#if SERP_DEVDIAG
+        private static bool DetailedDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled;
+#else
+        private const bool DetailedDiagnosticsEnabled = false;
+#endif
         private const string AssassinBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 EA 48 8B D9 49 63 F9";
 
@@ -101,16 +109,20 @@ namespace BugfixesAndQoL
         private bool commandScopeMismatchLogged;
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: rooted reader only; never drives reconstruction behavior.
+#if SERP_DEVDIAG
         private static AssassinPathfindingRuntime temporaryDiagnosticRuntime;
         internal static string TemporaryReconstructionRelaxation => temporaryDiagnosticRuntime?.reconstructionPatch == null
             ? "unavailable" : temporaryDiagnosticRuntime.reconstructionPatch.IsApplied ? "active" : "inactive";
+#endif
 
         public AssassinPathfindingRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, AssassinClimbRuntime climbRuntime)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.climbRuntime = climbRuntime ?? throw new ArgumentNullException(nameof(climbRuntime));
+#if SERP_DEVDIAG
             temporaryDiagnosticRuntime = this; // TEMP_GATE_ROUTE_ACCEPTANCE
+#endif
             for (int node = 0; node < CoordinateCount; node++)
             {
                 costs[node] = int.MaxValue;
@@ -231,10 +243,13 @@ namespace BugfixesAndQoL
             internal bool? EffectiveWeighted, EffectiveClimbing, ReservedEndpoints;
             internal string Outcome = "native-exception", Error;
             // TEMP_GATE_ROUTE_ACCEPTANCE: current parents only, discarded with the synchronous search.
+#if SERP_DEVDIAG
             internal ITemporaryAssassinGateObserver DetailedObserver;
             internal Dictionary<int, GateTransitionEvidence> ParentDecisions;
             internal GateTransitionEvidence LastDecision;
+#endif
         }
+#if SERP_DEVDIAG
         private sealed class GateTransitionEvidence
         {
             internal int From, To, Direction, Gate;
@@ -243,6 +258,7 @@ namespace BugfixesAndQoL
             internal bool Allowed;
             internal string Detail;
         }
+#endif
 
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
@@ -257,10 +273,13 @@ namespace BugfixesAndQoL
             AssassinObservation previous = activeObservation;
             AssassinObservation observation = null;
             // TEMP_GATE_ROUTE_ACCEPTANCE: link only to an already active publication call.
-            object temporaryNativeSearch = UnitCommandPathRuntime.BeginTemporaryAssassinSearch(context,
+            object temporaryNativeSearch = null;
+#if SERP_DEVDIAG
+            temporaryNativeSearch = UnitCommandPathRuntime.BeginTemporaryAssassinSearch(context,
                 startX, startY, targetX, targetY, continuation);
             bool temporaryCompleted = false;
             int temporaryResult = 0;
+#endif
             try
             {
                 if (observer != null || bridgeObserver != null || temporaryNativeSearch != null)
@@ -277,6 +296,7 @@ namespace BugfixesAndQoL
                     try { observation.BridgeToken = bridgeObserver.BeginAssassinSearch(startX, startY, targetX, targetY,
                         maximumNodes, continuation, DescribeNativeAssassinState(context)); }
                     catch (Exception ex) { LogWarning("Bridge Assassin begin failed: " + ex.GetType().Name); }
+#if SERP_DEVDIAG
                 if (observation != null && observer is ITemporaryAssassinGateObserver detailed)
                 {
                     observation.DetailedObserver = detailed;
@@ -288,17 +308,23 @@ namespace BugfixesAndQoL
                         ",directGateClimb=" + AssassinPathAPI.DirectGatehouseClimbingEnabled + ",weightedConfigured=" + (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)); }
                     catch (Exception ex) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-entry", ex); }
                 }
+#endif
+
                 activeObservation = observation;
                 int result = BuildWeightedPathCore(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+#if SERP_DEVDIAG
                 temporaryCompleted = true; temporaryResult = result;
+#endif
                 if (observation != null) observation.EffectiveResult = result;
                 return result;
             }
             finally
             {
+#if SERP_DEVDIAG
                 UnitCommandPathRuntime.EndTemporaryAssassinSearch(temporaryNativeSearch, temporaryCompleted,
                     observation?.NativeResult ?? 0, temporaryResult, observation?.Player ?? -1,
                     observation?.Outcome ?? "unobserved", observation?.CacheHit ?? false, observation?.RouteLength ?? 0);
+
                 if (observation?.DetailedObserver != null)
                     try { observation.DetailedObserver.ObserveAssassinStage(observation.Token, observation.Player, "search-exit",
                         observation.Outcome, "native=" + observation.NativeResult + ",effective=" + observation.EffectiveResult +
@@ -306,6 +332,8 @@ namespace BugfixesAndQoL
                     ",reservedEndpoints=" + observation.ReservedEndpoints + ",completed=" + temporaryCompleted + ",cache=" + observation.CacheHit + ",nodes=" + observation.RouteLength +
                         ",requestReason=" + AssassinPathAPI.TemporaryWeightedRequestReason); }
                     catch (Exception ex) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-exit", ex); }
+#endif
+
                 activeObservation = previous;
                 if (observation != null && bridgeObserver != null)
                     try { bridgeObserver.ObserveAssassinPolicyFiltering(observation.BridgeToken, observation.Player,
@@ -376,6 +404,7 @@ namespace BugfixesAndQoL
                     bool climb = !HasOrdinaryConnection(fromTile, toTile, direction);
                     try
                     {
+#if SERP_DEVDIAG
                         if (observation.DetailedObserver != null && observation.ParentDecisions.TryGetValue(toTile, out GateTransitionEvidence evidence) &&
                             evidence.From == fromTile && evidence.To == toTile)
                             observation.DetailedObserver.ObserveAssassinDecision(observation.Token, player, fromTile, toTile, direction,
@@ -390,6 +419,10 @@ namespace BugfixesAndQoL
                                 true, movement, true, 0, 0, "movementSource=prepared-weighted-route,gateValidatorEvidence=not-retained,weightedClimb=" + climb);
                         }
                         else observation.Observer?.ObserveAssassinEdge(observation.Token, player, fromTile, toTile, direction, climb);
+#else
+                        observation.Observer?.ObserveAssassinEdge(observation.Token, player, fromTile, toTile, direction, climb);
+#endif
+
                     }
                     catch (Exception ex) { LogWarning("Assassin diagnostic edge failed: " + ex.GetType().Name); }
                     try { observation.BridgeObserver?.ObserveAssassinEdge(observation.BridgeToken, player, fromTile, toTile, direction, climb); }
@@ -490,7 +523,10 @@ namespace BugfixesAndQoL
                 }
                 if (!routeReady)
                 {
+#if SERP_DEVDIAG
                     activeObservation?.ParentDecisions?.Clear();
+#endif
+
                     routeReady = TryBuildWeightedRoute(
                         startX,
                         startY,
@@ -714,7 +750,10 @@ namespace BugfixesAndQoL
                         estimatedTotalCosts[nextNode] =
                             AssassinAStarPolicy.SaturatingAdd(newCost, heuristic);
                     }
-                    RememberTemporaryParent(nextTile);
+#if SERP_DEVDIAG
+            RememberTemporaryParent(nextTile);
+#endif
+
                     PushOrDecrease(nextNode);
                 }
             }
@@ -901,12 +940,19 @@ namespace BugfixesAndQoL
 
         private bool ValidateCachedRoute(RouteCacheKey key, CachedRoute cached)
         {
+#if SERP_DEVDIAG
             UnitCommandPathRuntime.BeginTemporaryFinalValidation();
+#endif
+
             int length = cached.Nodes.Length;
             int expectedStart = GetCoordinateIndex(key.StartX, key.StartY);
             int expectedTarget = GetCoordinateIndex(key.TargetX, key.TargetY);
             if (cached.Nodes[length - 1] != expectedStart || cached.Nodes[0] != expectedTarget)
+#if SERP_DEVDIAG
                 return TemporaryRouteValidation(false, key, "endpoint-mismatch", cached.Summary);
+#else
+                return false;
+#endif
 
             int totalCost = 0;
             int groundEdges = 0;
@@ -923,23 +969,43 @@ namespace BugfixesAndQoL
                 int nextY = nextNode / MapWidth;
                 if (!IsValidCoordinate(currentX, currentY) ||
                     !IsValidCoordinate(nextX, nextY))
+#if SERP_DEVDIAG
                     return TemporaryRouteValidation(false, key, "invalid-coordinate", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode);
+#else
+                    return false;
+#endif
+
                 int dx = nextX - currentX;
                 int dy = nextY - currentY;
                 int direction = GetDirectionIndex(dx, dy);
                 if (direction < 0)
+#if SERP_DEVDIAG
                     return TemporaryRouteValidation(false, key, "invalid-direction", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode);
+#else
+                    return false;
+#endif
 
                 int currentTile = GetTileId(currentX, currentY);
                 int nextTile = GetTileId(nextX, nextY);
                 if (!IsNativeTile(currentTile) || !IsNativeTile(nextTile))
+#if SERP_DEVDIAG
                     return TemporaryRouteValidation(false, key, "invalid-native-tile", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode, direction, currentTile, nextTile);
+#else
+                    return false;
+#endif
 
                 bool directClimbingMatches = key.DirectGatehouseClimbing == AssassinPathAPI.DirectGatehouseClimbingEnabled;
                 if (!directClimbingMatches ||
                     !AllowsAssassinTransition(key.GatePolicy, currentTile, nextTile, direction, key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints, publicationValidation: true))
+#if SERP_DEVDIAG
                     return TemporaryRouteValidation(false, key, directClimbingMatches ? "gate-transition-rejected" : "direct-climb-switch", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode, direction, currentTile, nextTile);
+#else
+                    return false;
+#endif
+#if SERP_DEVDIAG
                 RememberTemporaryParent(nextTile);
+#endif
+
                 bool cardinal = (direction & 1) == 0;
                 bool ordinaryEdge = HasOrdinaryConnection(currentTile, nextTile, direction);
                 int edgeCost;
@@ -957,7 +1023,12 @@ namespace BugfixesAndQoL
                             tileFlags[currentTile],
                             key.AllowWalkableReservedClimbEndpoints))
                     {
+#if SERP_DEVDIAG
                         return TemporaryRouteValidation(false, key, (direction & 1) != 0 ? "noncardinal-climb" : !key.AllowClimbing ? "climbing-disabled" : "native-climb-fallback", cached.Summary, length - 1 - reverseIndex, currentNode, nextNode, direction, currentTile, nextTile);
+#else
+                        return false;
+#endif
+
                     }
                     climbEdges++;
                     edgeCost = AssassinAStarPolicy.SaturatingAdd(
@@ -965,14 +1036,21 @@ namespace BugfixesAndQoL
                 }
                 totalCost = AssassinAStarPolicy.SaturatingAdd(totalCost, edgeCost);
             }
-
+#if SERP_DEVDIAG
             return TemporaryRouteValidation(totalCost == cached.Summary.TotalCost &&
                 groundEdges == cached.Summary.GroundEdges &&
                 climbEdges == cached.Summary.ClimbEdges, key, "route-summary", cached.Summary,
                 totalCost: totalCost, groundEdges: groundEdges, climbEdges: climbEdges);
+#else
+                return totalCost == cached.Summary.TotalCost &&
+                groundEdges == cached.Summary.GroundEdges &&
+                climbEdges == cached.Summary.ClimbEdges;
+#endif
+
         }
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: returns the existing result; never repeats a native predicate.
+#if SERP_DEVDIAG
         private bool TemporaryRouteValidation(bool result, RouteCacheKey key, string reason, RouteSearchSummary summary,
             int edgeIndex = -1, int fromNode = -1, int toNode = -1, int direction = -1, int fromTile = -1, int toTile = -1,
             int totalCost = -1, int groundEdges = -1, int climbEdges = -1)
@@ -1000,6 +1078,7 @@ namespace BugfixesAndQoL
             catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("route-validation-report", error); }
             return result;
         }
+#endif
 
         private static int GetDirectionIndex(int dx, int dy) => AssassinRouteEncoding.GetDirection(dx, dy);
 
@@ -1043,15 +1122,21 @@ namespace BugfixesAndQoL
             }
             byte[] bytes = prepared.GetPackedDirections();
             if (bytes == null) return false;
+#if SERP_DEVDIAG
             if (!PerformanceDiagnosticsEnabled || command == null)
+#endif
                 return AssassinPathAPI.TryStageWeightedRoute(BugfixesAndQoLPlugin.PluginGuid, context,
                     key.StartX, key.StartY, key.TargetX, key.TargetY, key.PlayerId, bytes, length - 1,
                     prepared.GetValidator());
+#if SERP_DEVDIAG
             return StagePreparedRouteWithDiagnostics(context, key, prepared, command, started, bytes, length);
+#endif
         }
 
         // Isolate the measurement closure so disabled diagnostics allocate no callback.
-        private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key,
+
+#if SERP_DEVDIAG
+private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key,
             CachedRoute prepared, AssassinCommandScope command, long started, byte[] bytes, int length)
         {
             long stagingTicks = 0;
@@ -1066,6 +1151,8 @@ namespace BugfixesAndQoL
             stagingTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - started;
             return staged;
         }
+#endif
+
 
         private bool PrepareRoute(
             int startNode,
@@ -1116,6 +1203,7 @@ namespace BugfixesAndQoL
         }
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: capture the existing decision without repeating native predicates.
+#if SERP_DEVDIAG
         private void RememberTemporaryParent(int to)
         {
             AssassinObservation observation = activeObservation;
@@ -1123,16 +1211,25 @@ namespace BugfixesAndQoL
             if (observation.LastDecision == null) observation.ParentDecisions.Remove(to);
             else observation.ParentDecisions[to] = observation.LastDecision;
         }
+#endif
+
         private bool AllowsAssassinTransition(IEnemyGateRoutePolicySnapshot policy, int from, int to,
             int direction, bool allowClimbing, bool allowReserved, bool publicationValidation = false)
         {
-            bool result = EvaluateAssassinTransition(policy, from, to, direction, allowClimbing, allowReserved,
-                out GateTransitionEvidence evidence, publicationValidation && UnitCommandPathRuntime.WantsTemporaryFinalValidation);
+            bool result = EvaluateAssassinTransition(policy, from, to, direction, allowClimbing, allowReserved
+#if SERP_DEVDIAG
+                , out GateTransitionEvidence evidence, publicationValidation && UnitCommandPathRuntime.WantsTemporaryFinalValidation
+#endif
+                );
+#if SERP_DEVDIAG
             if (publicationValidation && evidence != null)
                 UnitCommandPathRuntime.RememberTemporaryFinalEdge(policy?.PlayerId ?? 0, from, to, direction,
                     evidence.Movement, result, evidence.Gate, evidence.Global, evidence.Detail);
+#endif
+
             AssassinObservation observation = activeObservation;
-            if (observation?.DetailedObserver != null)
+#if SERP_DEVDIAG
+                if (observation?.DetailedObserver != null)
             {
                 observation.LastDecision = evidence;
                 if (evidence != null)
@@ -1143,26 +1240,40 @@ namespace BugfixesAndQoL
                     catch (Exception ex) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-functional-transition", ex); }
                 }
             }
+#endif
+
             return result;
         }
         private bool EvaluateAssassinTransition(IEnemyGateRoutePolicySnapshot policy, int from, int to,
-            int direction, bool allowClimbing, bool allowReserved, out GateTransitionEvidence evidence, bool captureFinalEvidence = false)
+            int direction, bool allowClimbing, bool allowReserved
+#if SERP_DEVDIAG
+            , out GateTransitionEvidence evidence, bool captureFinalEvidence = false
+#endif
+            )
         {
+#if SERP_DEVDIAG
             evidence = null;
+#endif
             if (AssassinGateRoutePolicy.Allows(policy, from, direction)) return true;
+#if SERP_DEVDIAG
             if (activeObservation?.DetailedObserver != null || captureFinalEvidence)
                 evidence = new GateTransitionEvidence { From = from, To = to, Direction = direction,
                     Movement = AssassinTransitionKind.Unknown, Detail = "policy=masked,climbing=" + allowClimbing + ",reservedEndpoints=" + allowReserved };
+#endif
+
             if (policy == null || !policy.IsCurrent || (uint)direction > 7 || !IsNativeTile(from) || !IsNativeTile(to)) return false;
             bool endpointAndSurface = (direction & 1) == 0 && allowClimbing &&
                 IsVanillaAssassinFallback(from, to, tileFlags[from], allowReserved);
             AssassinTransitionKind movement = AssassinGateTransitionPolicy.Classify(direction,
                 occupancyLayer[from], occupancyLayer[to], directionMasks[direction], directionMasks[direction ^ 4],
                 tileFlags[from], tileFlags[to], endpointAndSurface, allowClimbing, endpointAndSurface);
+#if SERP_DEVDIAG
             if (evidence != null) { evidence.Movement = movement; evidence.Detail += ",fallbackEndpointAndSurface=" + endpointAndSurface +
                 ",sourceConnection=" + occupancyLayer[from] + ",targetConnection=" + occupancyLayer[to] +
                 ",forwardMask=" + directionMasks[direction] + ",reverseMask=" + directionMasks[direction ^ 4] +
                 ",sourceSurface=" + tileFlags[from] + ",targetSurface=" + tileFlags[to]; }
+#endif
+
             if (movement != AssassinTransitionKind.ClimbUp && movement != AssassinTransitionKind.ClimbDown) return false;
             // A building endpoint exception alone is insufficient. The blocked cut must
             // belong to this exact, still live gate publication, including capture values.
@@ -1174,8 +1285,11 @@ namespace BugfixesAndQoL
                 live->r_GlobalId != global || live->r_PlayerIdOwner != owner || live->r_CapturedByPlayerId != capturer ||
                 live->r_AliveState == AliveState.None || live->r_AliveState == AliveState.MarkedForDeletion ||
                 (live->r_BuildingType != eStructs.STRUCT_GATE_MAIN && live->r_BuildingType != eStructs.STRUCT_GATE_INNER)) return false;
+#if SERP_DEVDIAG
             if (evidence != null) { evidence.Gate = gate; evidence.Global = global;
                 evidence.Detail += ",gate=" + gate + "/" + global + ",owner=" + owner + ",capturer=" + capturer + ",identity=verified"; }
+#endif
+
             return AssassinGateTransitionPolicy.Allows(false, movement, policy.IsCurrent);
         }
 
@@ -1747,6 +1861,7 @@ namespace BugfixesAndQoL
             // Every Stage/Complete invocation still checks current map, settings,
             // climbing, gate policy, physical edges and costs in full.
             public Func<bool> GetValidator() => validator ?? (validator = Validate);
+#if SERP_DEVDIAG
             private bool Validate() =>
                 (epoch == runtime.mapEpoch || runtime.TemporaryRouteValidation(false, key, "map-epoch", Summary)) &&
                 (runtime.settings.EnableMod || runtime.TemporaryRouteValidation(false, key, "mod-disabled", Summary)) &&
@@ -1755,6 +1870,15 @@ namespace BugfixesAndQoL
                     runtime.TemporaryRouteValidation(false, key, "player-climb-switch", Summary)) &&
                 (AssassinGateRoutePolicy.IsCurrent(key.GatePolicy) ||
                     runtime.TemporaryRouteValidation(false, key, "gate-policy-stale", Summary)) && runtime.ValidateCachedRoute(key, this);
+#else
+            private bool Validate() =>
+                (epoch == runtime.mapEpoch) &&
+                (runtime.settings.EnableMod) &&
+                (runtime.settings.EnableImprovedAssassinPathfinding) &&
+                (key.AllowClimbing == runtime.climbRuntime.IsClimbingAllowed(key.PlayerId)) &&
+                (AssassinGateRoutePolicy.IsCurrent(key.GatePolicy)) && runtime.ValidateCachedRoute(key, this);
+#endif
+
         }
 
         private sealed class AssassinCommandScope

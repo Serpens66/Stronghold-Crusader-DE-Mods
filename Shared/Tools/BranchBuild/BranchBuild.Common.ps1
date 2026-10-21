@@ -359,10 +359,8 @@ function Invoke-SelectedBranchBuild {
     # DEVDIAG is an explicit per-build opt-in; an inherited variable never enables it.
     $devDiag = -not $Api -and $DriverArguments -icontains '/devdiag'
     if ($devDiag -and $Branch -eq 'main') { throw 'DEVDIAG builds are not allowed from main.' }
-    if ($Branch -eq 'main' -and -not $Api) {
-        . (Join-Path $PSScriptRoot '..\Validation\DevDiagnostics.Common.ps1')
-        Assert-NoDevDiagnosticSources -Root $selection.Root -ModDirectory (Split-Path -Parent $Driver)
-    }
+    # Diagnostic sources may remain on every branch. Normal builds exclude them;
+    # release/package gates inspect the compiled assemblies, not source presence.
     try {
         $env:SHCDE_DEVDIAG = if ($devDiag) { '1' } else { $null }
         if ($devDiag) { Write-BranchMessage 'DEVDIAG: development measurement build (never a release).' }

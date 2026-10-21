@@ -25,9 +25,11 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogSynchronousAttackCandidate(
             AttackCommandScope scope, int unitId, GameUnit* unit)
         {
+#if SERP_DEVDIAG
             if (scope.DetailLogs >= 24) return;
             scope.DetailLogs++;
             string signature = $"sync:{scope.MapEpoch}:{scope.TribeId}:{scope.Command}:" +
@@ -48,8 +50,10 @@ namespace BugfixesAndQoL.UnitCommands
                 $"contextUnit={unit->r_AI_ContextTargetUnitId}/{unit->r_AI_ContextTargetUnitGlobalId} " +
                 $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
                 $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY})");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogAttackScopeDecision(
             string stage,
             int unitId,
@@ -58,6 +62,7 @@ namespace BugfixesAndQoL.UnitCommands
             string reason,
             RouteProbeSummary summary)
         {
+#if SERP_DEVDIAG
             AttackCommandScope scope = activeAttackCommand;
             string signature =
                 $"{stage}:{mapEpoch}:{scope?.TribeId}:{scope?.Command}:{scope?.TargetValue1}:" +
@@ -90,6 +95,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"attackMove=({unit->r_AttackMoveToTargetTileX},{unit->r_AttackMoveToTargetTileY}) " +
                 $"vanillaMode={vanillaResult} reason={reason}{buildingPair} " +
                 summary.ToLogFields());
+#endif
         }
 
     }

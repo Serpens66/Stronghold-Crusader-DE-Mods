@@ -236,6 +236,7 @@ namespace BugfixesAndQoL.UnitCommands
             return false;
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogEarlyMoveHereGroupRegionDecision(
             MoveCommandScope command,
             EarlyGroupRegionDecision decision,
@@ -244,6 +245,7 @@ namespace BugfixesAndQoL.UnitCommands
             int targetRegion,
             string helper)
         {
+#if SERP_DEVDIAG
             string signature = $"early-group-region:{helper}:{playerId}:" +
                 $"{sourceRegion?.ToString() ?? "none"}:{targetRegion}:" +
                 $"{decision.Allowed}:{decision.UnitId}:{decision.Reason}";
@@ -257,6 +259,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"effective={(decision.Allowed ? targetRegion : 0)} " +
                 $"qualifyingUnit={decision.UnitId} reason={decision.Reason} " +
                 decision.Summary.ToLogFields());
+#endif
         }
 
         internal int AllowTribeFloodFillForMoveOrder(IntPtr tribeManager, int tribeId, int floodFillStamp)

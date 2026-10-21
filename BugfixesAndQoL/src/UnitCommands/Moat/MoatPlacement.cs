@@ -131,7 +131,7 @@ namespace BugfixesAndQoL.UnitCommands
         {
             PlacementBatch previous = placementBatch;
             PlacementBatch batch = null;
-            long started = Stopwatch.GetTimestamp();
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             try
             {
                 try
@@ -188,7 +188,7 @@ namespace BugfixesAndQoL.UnitCommands
                         connectivity += state.ReverseExpanded + state.FromAnchor.ExpandedNodes; }
                     try { LogCommandDiagnostic($"stage=placement tribe={tribe} candidatesExpanded={nodes} " +
                         $"connectivityExpanded={connectivity} regionChecks={checks} cacheHits={hits} allocated={batch.Pending.Count} " +
-                        $"elapsedMs={(Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency:F3}"); }
+                        $"elapsedMs={((DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started) * 1000.0 / Stopwatch.Frequency:F3}"); }
                     catch { }
                 }
                 placementBatch = previous;

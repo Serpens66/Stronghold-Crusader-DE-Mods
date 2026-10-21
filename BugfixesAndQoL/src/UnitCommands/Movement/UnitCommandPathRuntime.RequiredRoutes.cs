@@ -26,9 +26,6 @@ namespace BugfixesAndQoL.UnitCommands
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
 
-
-
-
         internal bool TryFindRequiredFriendlyCompletedMoatRouteForPlan(
             PlanScope plan, out RouteProbeSummary summary)
         {
@@ -118,7 +115,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             plan.QualifiedRoute = null;
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
+            Stopwatch stopwatch = DetailedDiagnosticsEnabled ? Stopwatch.StartNew() : null;
             WeightedMoatRouteSummary ground = default;
             WeightedMoatRouteSummary friendly = default;
             long nodesBefore = weightedMoatRoutePlanner.SearchNodes;
@@ -133,7 +130,7 @@ namespace BugfixesAndQoL.UnitCommands
             targetedRouteProbeBusy = true;
             try
             {
-                long groundStarted = Stopwatch.GetTimestamp();
+                long groundStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                 bool samePclProof = requiredOnly && !plan.VanillaFailureProven &&
                     IsSamePositiveGroundRegion(startTileId, targetTileId);
                 groundDecision = requiredOnly && plan.VanillaFailureProven
@@ -151,7 +148,7 @@ namespace BugfixesAndQoL.UnitCommands
                     (exactGroundSearch && weightedMoatRoutePlanner.TryProbeReachability(
                         playerId, startX, startY, plan.TargetX, plan.TargetY,
                         allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground));
-                long groundElapsed = Stopwatch.GetTimestamp() - groundStarted;
+                long groundElapsed = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - groundStarted;
                 if (requiredMetrics != null)
                 {
                     requiredMetrics.GroundChecks++;
@@ -180,11 +177,11 @@ namespace BugfixesAndQoL.UnitCommands
                     HasFastFriendlyMoatBridge(playerId, startTileId, targetTileId);
                 if (!groundReachable && (!requiredOnly || fastBridgeProven))
                 {
-                    long requiredSearchStarted = Stopwatch.GetTimestamp();
+                    long requiredSearchStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                     if (requiredMetrics != null) requiredMetrics.Searches++;
                     WeightedMoatEncodedRoute encoded = default;
                     if (requiredOnly) fastSearches++;
-                    long fastSearchStarted = requiredOnly ? Stopwatch.GetTimestamp() : 0;
+                    long fastSearchStarted = requiredOnly ? (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) : 0;
                     long fastNodesBefore = requiredOnly ? weightedMoatRoutePlanner.SearchNodes : 0;
                     friendlyReachable = requiredOnly
                         ? weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
@@ -214,7 +211,7 @@ namespace BugfixesAndQoL.UnitCommands
                     }
                     if (requiredMetrics != null)
                     {
-                        long searchElapsed = Stopwatch.GetTimestamp() - requiredSearchStarted;
+                        long searchElapsed = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - requiredSearchStarted;
                         requiredMetrics.SearchTicks += searchElapsed;
                         requiredMetrics.RecordNestedSearchTicks(searchElapsed);
                     }
@@ -255,7 +252,7 @@ namespace BugfixesAndQoL.UnitCommands
                     ? (plan.QualifiedTerminalRoute.IsValid ? plan.QualifiedTerminalRoute.DirectionCount : friendly.RouteLength)
                     : groundReachable ? ground.RouteLength : int.MaxValue,
                 TargetedExpandedNodes = (int)Math.Min(int.MaxValue, weightedMoatRoutePlanner.SearchNodes - nodesBefore),
-                TargetedSearchMilliseconds = stopwatch.Elapsed.TotalMilliseconds
+                TargetedSearchMilliseconds = (DetailedDiagnosticsEnabled ? stopwatch.Elapsed.TotalMilliseconds : 0.0)
             };
             if (command != null)
             {

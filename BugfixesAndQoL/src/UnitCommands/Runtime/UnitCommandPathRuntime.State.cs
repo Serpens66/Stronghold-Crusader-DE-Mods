@@ -26,7 +26,11 @@ namespace BugfixesAndQoL.UnitCommands
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
         // Detailed command traces are opt-in diagnostics, not production logging.
-        internal static readonly bool DetailedDiagnosticsEnabled = false;
+#if SERP_DEVDIAG
+        internal static bool DetailedDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled;
+#else
+        internal const bool DetailedDiagnosticsEnabled = false;
+#endif
 
         internal const int CentralMovementPlanRva = 0x18E1E0;
         internal const int TribeFloodFillMembershipRva = 0x124740;
@@ -458,29 +462,45 @@ namespace BugfixesAndQoL.UnitCommands
         internal int cachedTraversedRegionCount;
         internal int cachedReachabilityMapHits;
         internal RouteProbeSummary cachedRouteSummary;
+#if SERP_DEVDIAG
         internal readonly HashSet<ulong> loggedBuildingCursorReachabilityDecisions =
             new HashSet<ulong>();
+#endif
+
         internal readonly Dictionary<int, NativeWaypointQueueTracker> trackedNativeWaypointQueues =
             new Dictionary<int, NativeWaypointQueueTracker>();
+#if SERP_DEVDIAG
         internal readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
+
         internal readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
+#endif
+
         internal readonly Dictionary<int, AttackUnitTracker> trackedAttackUnits =
             new Dictionary<int, AttackUnitTracker>();
         internal readonly Dictionary<int, MoatMoveTracker> trackedMoatMoves =
             new Dictionary<int, MoatMoveTracker>();
         internal readonly HashSet<int> requiredBackgroundTrackedUnitIds = new HashSet<int>();
+#if SERP_DEVDIAG
         internal readonly Dictionary<string, int> requiredBackgroundDiagnostics =
             new Dictionary<string, int>(StringComparer.Ordinal);
+
         internal readonly Dictionary<string, int> requiredBackgroundSuppressedDiagnostics =
             new Dictionary<string, int>(StringComparer.Ordinal);
+#endif
+
         internal int requiredBackgroundDiagnosticTick = int.MinValue;
         internal readonly HashSet<string> reportedDiagnosticFailureStages =
             new HashSet<string>(StringComparer.Ordinal);
+#if SERP_DEVDIAG
         internal readonly HashSet<string> loggedDiggerDecisions =
             new HashSet<string>(StringComparer.Ordinal);
+
         internal readonly HashSet<int> loggedFormationExecuteMoveTypes = new HashSet<int>();
+
         internal readonly Dictionary<int, string> lastWeightedPublicationDecisionByUnit =
             new Dictionary<int, string>();
+#endif
+
         internal int moveCommandSequence;
         internal int attackCommandSequence;
         internal bool callbackFailureReported;

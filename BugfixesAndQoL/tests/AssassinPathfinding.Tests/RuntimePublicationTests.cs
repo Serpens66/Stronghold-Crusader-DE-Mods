@@ -8,19 +8,20 @@ internal static partial class Program
     private static void TestActualPublication(string[] args)
     {
         string root = Path.GetFullPath(args[0]);
+        var developmentOptions = CSharpParseOptions.Default.WithPreprocessorSymbols("SERP_DEVDIAG");
         var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs")));
+            "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs")), developmentOptions);
         string[] names = { "BuildPathWithCompletedMoatRouteVariant", "BeginAssassinRoutePublication" };
         string methods = string.Join("\n", tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Where(m => names.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
+            .Where(m => names.Contains(m.Identifier.Text)).Select(m => ActiveDiagnosticFixtureCode(m)));
         var movement = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
             "BugfixesAndQoL/src/UnitCommands/Movement/UnitMovementContext.cs")));
         methods += movement.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "GetNativeMovementStart").ToFullString();
         var reporting = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs")));
+            "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs")), developmentOptions);
         methods += reporting.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Single(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").ToFullString();
+            .Where(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").Select(ActiveDiagnosticFixtureCode).Single();
         string fixture = """
 using System;
 using System.Diagnostics;
@@ -178,7 +179,7 @@ unsafe partial class UnitCommandPathRuntime {
 } }
 """;
         fixture = fixture.Replace("PLACEHOLDER", methods);
-        var sources = new[] { CSharpSyntaxTree.ParseText(fixture), CSharpSyntaxTree.ParseText(
+        var sources = new[] { CSharpSyntaxTree.ParseText(fixture, developmentOptions), CSharpSyntaxTree.ParseText(
             File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Assassin/AssassinRouteHandoff.cs"))),
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs"))),
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs"))) };

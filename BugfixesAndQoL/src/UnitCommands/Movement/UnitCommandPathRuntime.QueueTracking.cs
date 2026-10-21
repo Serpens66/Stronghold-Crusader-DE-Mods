@@ -25,9 +25,11 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void ObserveNativeWaypointQueueAtCommand(
             MoveCommandScope command, string phase, int requestedX, int requestedY)
         {
+#if SERP_DEVDIAG
             try
             {
                 if (command == null || !TryReadNativeWaypointQueue(
@@ -65,12 +67,15 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 TryLogDiagnosticFailure("native-waypoint-queue-command", ex);
             }
+#endif
         }
 
         private readonly List<int> waypointTribeIdBuffer = new List<int>();
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void ObserveNativeWaypointQueues(int tick)
         {
+#if SERP_DEVDIAG
             if (trackedNativeWaypointQueues.Count == 0)
                 return;
 
@@ -108,6 +113,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 TryLogDiagnosticFailure("native-waypoint-queue-tick", ex);
             }
+#endif
         }
 
         internal bool TryReadNativeWaypointQueue(

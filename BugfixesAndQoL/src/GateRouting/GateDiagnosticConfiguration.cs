@@ -1,3 +1,4 @@
+#if SERP_DEVDIAG
 using System;
 using BepInEx.Configuration;
 
@@ -44,3 +45,4 @@ namespace BugfixesAndQoL.GateRouting
         }
     }
 }
+#endif

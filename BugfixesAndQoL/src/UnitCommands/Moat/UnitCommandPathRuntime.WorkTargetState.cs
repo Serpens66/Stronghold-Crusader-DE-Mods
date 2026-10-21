@@ -74,7 +74,10 @@ namespace BugfixesAndQoL.UnitCommands
         internal HookTransaction moatWorkHookTransaction;
         internal readonly Dictionary<int, string> lastMoatWorkSelectionByUnit =
             new Dictionary<int, string>();
+#if SERP_DEVDIAG
         internal readonly Dictionary<int, string> lastMoatWorkApproachByUnit =
             new Dictionary<int, string>();
+#endif
+
     }
 }

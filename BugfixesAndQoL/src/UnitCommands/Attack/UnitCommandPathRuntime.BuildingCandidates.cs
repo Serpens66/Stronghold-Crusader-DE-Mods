@@ -39,7 +39,10 @@ namespace BugfixesAndQoL.UnitCommands
                 ResolveEnemyGateBuildingPlayer(movementClass, tribeId),
                 EnemyGateSearchKind.BuildingApproach, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("BuildingApproach", movementClass);
+#if SERP_DEVDIAG
             object temporaryScope = BeginTemporaryAssassinScope("building-query", tribeId, movementClass, buildingId, sourceRegion);
+#endif
+
             bool bridgeCompleted = false;
             try
             {
@@ -51,7 +54,10 @@ namespace BugfixesAndQoL.UnitCommands
             }
             finally
             {
+#if SERP_DEVDIAG
                 EndTemporaryAssassinScope(temporaryScope, bridgeCompleted, 0);
+#endif
+
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingApproach, bridgeCompleted, false);
@@ -115,14 +121,14 @@ namespace BugfixesAndQoL.UnitCommands
 
             try
             {
-                started = Stopwatch.GetTimestamp();
+                started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                 RunBuildingApproachBuilderWithVanillaLadderFix(
                     pathManager, tribeId, buildingId, requestedResults, sourceRegion, movementClass);
             }
             finally
             {
                 if (performance != null && started != 0)
-                    performance.TotalElapsedTicks = Stopwatch.GetTimestamp() - started;
+                    performance.TotalElapsedTicks = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started;
                 if (scope != null)
                 {
                     try
@@ -241,7 +247,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             try
             {
-                vanillaStarted = Stopwatch.GetTimestamp();
+                vanillaStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                 originalBuildingCandidateConsumer(tribeManager, tribeId, builderVariant);
                 vanillaCompleted = true;
             }
@@ -249,7 +255,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 if (vanillaStarted != 0)
                 {
-                    vanillaElapsedTicks = Stopwatch.GetTimestamp() - vanillaStarted;
+                    vanillaElapsedTicks = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - vanillaStarted;
                     if (performance != null)
                         performance.VanillaElapsedTicks = vanillaElapsedTicks;
                 }
@@ -284,7 +290,7 @@ namespace BugfixesAndQoL.UnitCommands
                             CaptureAttackApproachState(nativePathManager, requirePairedResult: true);
                         BuildingConsumerFallbackResult fallback;
                         LadderBuildingCandidateRestoreResult ladderRestore;
-                        long fallbackStarted = Stopwatch.GetTimestamp();
+                        long fallbackStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                         activeBuildingConsumerPerformance = performance;
                         try
                         {
@@ -298,7 +304,7 @@ namespace BugfixesAndQoL.UnitCommands
                             if (performance != null)
                             {
                                 performance.FallbackElapsedTicks =
-                                    Stopwatch.GetTimestamp() - fallbackStarted;
+                                    (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - fallbackStarted;
                             }
                             activeBuildingConsumerPerformance = previousPerformance;
                         }

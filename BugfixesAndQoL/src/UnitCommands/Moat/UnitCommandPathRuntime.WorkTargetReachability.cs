@@ -25,7 +25,7 @@ namespace BugfixesAndQoL.UnitCommands
             // Nested searches may replace the single map; their data must not leak back.
             scope.EndpointRoutes.Clear();
             cacheMapEpoch = -1;
-            long started = Stopwatch.GetTimestamp();
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
             EnsureReachabilityMap(scope.PlayerId, scope.StartX, scope.StartY, deferTraversal: true, owner: scope);
@@ -36,7 +36,7 @@ namespace BugfixesAndQoL.UnitCommands
             scope.ReachabilityGeneration = gridGeneration;
             scope.SearchBuilds++;
             scope.SearchExpandedNodes += cachedReachabilityExpandedNodes;
-            scope.SearchMilliseconds += (Stopwatch.GetTimestamp() - started) * 1000.0 /
+            scope.SearchMilliseconds += ((DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started) * 1000.0 /
                 Stopwatch.Frequency;
         }
 
@@ -77,10 +77,10 @@ namespace BugfixesAndQoL.UnitCommands
                 return summary.RouteFound;
             }
             int expandedBefore = cachedReachabilityExpandedNodes;
-            long searchStart = Stopwatch.GetTimestamp();
+            long searchStart = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             summary = GetCachedRouteSummaryForTarget(targetX, targetY);
             scope.SearchExpandedNodes += cachedReachabilityExpandedNodes - expandedBefore;
-            scope.SearchMilliseconds += (Stopwatch.GetTimestamp() - searchStart) * 1000.0 / Stopwatch.Frequency;
+            scope.SearchMilliseconds += ((DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - searchStart) * 1000.0 / Stopwatch.Frequency;
             summary.AttackProbeEvaluated = true;
             summary.RouteFound = summary.ReachedWithMoat && !summary.ReachedWithoutMoat &&
                 summary.FriendlyMoatTiles > 0;

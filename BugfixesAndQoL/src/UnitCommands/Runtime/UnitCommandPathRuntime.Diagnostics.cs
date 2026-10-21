@@ -25,39 +25,51 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
-        // DetailedDiagnosticsEnabled is a fixed false; without the (never defined) trace symbol the
-        // compiler removes these calls including their large interpolated arguments, which
-        // otherwise were built on every tribe order. Define BUGFIXES_UNITCOMMAND_TRACE and enable
-        // the flag together to restore the trace.
-        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
+        // The dedicated diagnostic build includes these traces. Ordinary builds remove
+        // the calls and their interpolated arguments; local support logging stays independent.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogCursorDecision(string message)
         {
+#if SERP_DEVDIAG
             LogDetailedInfo($"Bugfixes and QoL friendly-moat-movement {message}.");
+
+#endif
         }
 
-        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogDetailedInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
+#if SERP_DEVDIAG
             if (DetailedDiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
+
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogPositiveCursorDecision(ref int lastLoggedGeneration, string message)
         {
+#if SERP_DEVDIAG
             if (lastLoggedGeneration == gridGeneration)
                 return;
 
             lastLoggedGeneration = gridGeneration;
             LogCursorDecision(message);
+
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogCursorOwnerBlockDecision(ref int lastLoggedGeneration, string message)
         {
+#if SERP_DEVDIAG
             if (lastLoggedGeneration == gridGeneration)
                 return;
 
             lastLoggedGeneration = gridGeneration;
             LogCursorDecision(message);
+
+#endif
         }
 
         // Commands and work selections have aggregate counters; avoid formatting a
@@ -67,33 +79,46 @@ namespace BugfixesAndQoL.UnitCommands
             activeMoatWorkSelection == null &&
             !((activePlan ?? pendingPlan)?.MoatWorkMovement ?? false);
 
-        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogMovementContext(string message)
         {
+#if SERP_DEVDIAG
             BufferOrLogCommandDiagnostic(message);
+
+#endif
         }
 
-        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogBuilderDecision(string message)
         {
+#if SERP_DEVDIAG
             BufferOrLogCommandDiagnostic(message);
+
+#endif
         }
 
-        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogPipelineDiagnostic(string message)
         {
+#if SERP_DEVDIAG
             BufferOrLogCommandDiagnostic(message);
+
+#endif
         }
 
-        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogCommandDiagnostic(string message)
         {
+#if SERP_DEVDIAG
             BufferOrLogCommandDiagnostic(message);
+
+#endif
         }
 
-        [System.Diagnostics.Conditional("BUGFIXES_UNITCOMMAND_TRACE")]
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void BufferOrLogCommandDiagnostic(string message)
         {
+#if SERP_DEVDIAG
             if (!DetailedDiagnosticsEnabled)
                 return;
 
@@ -118,8 +143,12 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     FlushRequiredBackgroundDiagnosticSummary();
                     requiredBackgroundDiagnosticTick = tick;
+#if SERP_DEVDIAG
                     requiredBackgroundDiagnostics.Clear();
+
                     requiredBackgroundSuppressedDiagnostics.Clear();
+#endif
+
                 }
                 string stage = AttackCommandScope.GetDiagnosticStage(message ?? string.Empty);
                 requiredBackgroundDiagnostics.TryGetValue(stage, out int retained);
@@ -133,10 +162,14 @@ namespace BugfixesAndQoL.UnitCommands
             }
 
             LogDetailedInfo($"Bugfixes and QoL friendly-moat-movement {message}.");
+
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void FlushRequiredBackgroundDiagnosticSummary()
         {
+#if SERP_DEVDIAG
             if (!DetailedDiagnosticsEnabled)
                 return;
 
@@ -145,22 +178,27 @@ namespace BugfixesAndQoL.UnitCommands
             LogDetailedInfo(
                 $"Bugfixes and QoL stage=friendly-moat-movement-background-diagnostics tick={requiredBackgroundDiagnosticTick} " +
                 $"suppressed={FormatCounts(requiredBackgroundSuppressedDiagnostics)}.");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void FlushAttackDiagnostics(AttackCommandScope command)
         {
+#if SERP_DEVDIAG
             if (!DetailedDiagnosticsEnabled || command == null)
                 return;
-            long started = Stopwatch.GetTimestamp();
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             foreach (string message in command.Diagnostics)
                 LogDetailedInfo($"Bugfixes and QoL friendly-moat-movement {message}.");
-            command.LogFlushTicks = Stopwatch.GetTimestamp() - started;
+            command.LogFlushTicks = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started;
             LogDetailedInfo(
                 $"Bugfixes and QoL stage=friendly-moat-movement-attack-command-performance commandSeq={command.Sequence} " +
                 $"dispatchMs={command.DispatchMilliseconds:F3} logFlushMs={command.LogFlushMilliseconds:F3} " +
                 $"observerTotalMs={(command.DispatchMilliseconds + command.LogFlushMilliseconds):F3} " +
                 $"diagnostics={command.DiagnosticMessages}/{command.Diagnostics.Count} " +
                 $"diagnosticChars={command.DiagnosticCharacters} suppressed={FormatCounts(command.SuppressedDiagnostics)}.");
+
+#endif
         }
 
         internal static string FormatCounts(Dictionary<string, int> counts)
@@ -175,18 +213,24 @@ namespace BugfixesAndQoL.UnitCommands
             return string.Join(",", values);
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal static void MarkCommandMoatRelevant(
             MoveCommandScope command, RouteProbeSummary summary)
         {
+#if SERP_DEVDIAG
+
             if (command != null &&
                 (summary.FriendlyMoatTiles > 0 || summary.EnemyMoatTiles > 0))
             {
                 command.MoatRelevant = true;
             }
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void QualifyPendingCommandDiagnostics(MoveCommandScope command)
         {
+#if SERP_DEVDIAG
             if (command == null || command.BuilderReached || pendingPlan == null ||
                 command.DiggersAtDispatch == 0)
                 return;
@@ -205,10 +249,13 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 LogFailure("command-diagnostic-route", ex);
             }
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void FlushCommandDiagnostics(MoveCommandScope command)
         {
+#if SERP_DEVDIAG
             if (!DetailedDiagnosticsEnabled)
                 return;
 
@@ -248,10 +295,14 @@ namespace BugfixesAndQoL.UnitCommands
                     $"diagnosticChars={command.DiagnosticCharacters} " +
                     $"suppressed={FormatCounts(command.SuppressedDiagnostics)}.");
             }
+
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogQueuedMoveHereOutcome(MoveCommandScope command, long returnValue)
         {
+#if SERP_DEVDIAG
             if (command == null || command.IsNewOrder)
                 return;
 
@@ -283,8 +334,9 @@ namespace BugfixesAndQoL.UnitCommands
                 $"earlyRegionCalls={command.EarlyRegionCalls} " +
                 $"earlyRegionBypasses={command.EarlyRegionBypasses} " +
                 $"skipProbe=[{skipProbe}]");
+#endif
         }
-
+#if SERP_DEVDIAG
         internal string DescribeRejectedQueueWaypoint(MoveCommandScope command)
         {
             int alive = 0;
@@ -319,9 +371,12 @@ namespace BugfixesAndQoL.UnitCommands
             return $"alive={alive} diggers={diggers} " +
                 $"cachedRequiredFriendly={requiredFriendly} {observed.ToLogFields()}";
         }
+#endif
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogModeContext(PlanScope plan, GameUnit* unit, int vanillaResult)
         {
+#if SERP_DEVDIAG
             if (!ShouldLogUnitPipeline)
                 return;
             int startX = unit->r_CurrentTilePositionX;
@@ -349,30 +404,41 @@ namespace BugfixesAndQoL.UnitCommands
                 $"targetTile={targetTileId} targetRegion={targetRegion} " +
                 $"targetFlags=0x{targetFlags:X8} targetAvailability={targetAvailability} " +
                 $"vanillaMode={vanillaResult} effectiveMode=1");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal static void RecordBuilderResult(MoveCommandScope command, int result)
         {
+#if SERP_DEVDIAG
+
             if (command == null)
                 return;
 
             command.LastBuilderResult = result;
             if (result > 0)
                 command.PositiveBuilderCalls++;
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal static void RecordVanillaBuilderResult(
             MoveCommandScope command, int result)
         {
+#if SERP_DEVDIAG
+
             if (command == null)
                 return;
 
             command.VanillaBuilderCalls++;
             command.LastVanillaBuilderResult = result;
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogRejectedPlannerRoute(PlanScope plan, RouteProbeSummary summary)
         {
+#if SERP_DEVDIAG
             if (plan == null)
                 return;
 
@@ -406,6 +472,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"Bugfixes and QoL stage=friendly-moat-movement-planner-owner-rejected unit={plan.UnitId} player={plan.PlayerId} " +
                 $"target=({plan.TargetX},{plan.TargetY}) targetAvailability={targetAvailability} " +
                 $"targetRegion={targetRegion} reason={reason} {summary.ToLogFields()}.");
+#endif
         }
 
         internal void LogFailure(string stage, Exception ex)

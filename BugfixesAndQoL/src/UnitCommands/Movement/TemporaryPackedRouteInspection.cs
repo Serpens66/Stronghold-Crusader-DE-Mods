@@ -1,3 +1,4 @@
+#if SERP_DEVDIAG
 // APIShared-owned implementation; independent of workspace Shared helpers.
 // Initial provenance: a7888900e, Shared/TemporaryPackedRouteInspection.cs. No automatic synchronization.
 // TEMP_GATE_ROUTE_ACCEPTANCE: read-only decoder for the audited low-nibble-first output.
@@ -34,3 +35,4 @@ namespace APIShared.Internal
         }
     }
 }
+#endif

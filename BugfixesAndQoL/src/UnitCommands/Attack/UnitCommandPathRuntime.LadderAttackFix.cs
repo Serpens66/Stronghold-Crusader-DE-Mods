@@ -467,10 +467,12 @@ namespace BugfixesAndQoL.UnitCommands
             ((ulong)(uint)candidate.ApproachTileId << 32) |
             (uint)candidate.FootprintTileId;
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogVanillaGroupModeResult(
             LadderAttackProbeScope probe,
             AttackApproachState result)
         {
+#if SERP_DEVDIAG
             if (probe.ModeRetryCount == 0)
                 return;
             Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:471", $"Bugfixes and QoL Vanilla ladder attack group-mode result: " +
@@ -481,18 +483,22 @@ namespace BugfixesAndQoL.UnitCommands
                 $"positiveModeRetries={probe.PositiveModeRetryCount}, " +
                 $"lastModeResult={probe.LastModeRetryResult}, " +
                 $"results={result.UsableResultCount}.");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogVanillaLadderProbeNotCreated(
             AttackApproachKind kind,
             int tribeId,
             string reason)
         {
+#if SERP_DEVDIAG
             if (!DetailedDiagnosticsEnabled || activeAttackCommand == null)
                 return;
             Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:490", $"Bugfixes and QoL Vanilla ladder attack scope not created: " +
                 $"commandSeq={activeAttackCommand.Sequence}, kind={kind}, tribe={tribeId}, " +
                 $"reason={reason}, setting={settings.EnableLadderAttackPathfindingFix}.");
+#endif
         }
     }
 }

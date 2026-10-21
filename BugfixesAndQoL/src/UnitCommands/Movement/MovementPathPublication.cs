@@ -25,7 +25,10 @@ namespace BugfixesAndQoL.UnitCommands
                 movementClass, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("builder", movementClass);
             // TEMP_GATE_ROUTE_ACCEPTANCE
+#if SERP_DEVDIAG
             object temporaryRoute = BeginTemporaryRouteReport(pathManager, "F4930-builder", movementClass, movementProfile);
+#endif
+
             int result = 0;
             bool completed = false;
             AssassinRouteHandoff assassinRoute;
@@ -39,7 +42,10 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 result = BuildPathWithCompletedMoatRouteVariantWithMoat(
                     pathManager, movementClass, movementProfile);
+#if SERP_DEVDIAG
                 ObserveTemporaryNativeBuilderOutput(temporaryRoute, result);
+#endif
+
                 try { result = assassinRoute.Complete(result); }
                 catch (Exception ex) { TryLogDiagnosticFailure("assassin-route-publication", ex); }
                 completed = true;
@@ -48,7 +54,10 @@ namespace BugfixesAndQoL.UnitCommands
             finally
             {
                 assassinRoute.Leave();
+#if SERP_DEVDIAG
                 EndTemporaryRouteReport(pathManager, temporaryRoute, completed, result);
+#endif
+
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     completed, result > 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, completed, result);
@@ -78,29 +87,130 @@ namespace BugfixesAndQoL.UnitCommands
             IntPtr expectedPath = (IntPtr)path;
             Func<bool> valid = () =>
             {
-                if (pathManager != nativePathManager) return TemporaryAssassinPublicationRejected("path-manager");
-                if (nativeUnitManager == null) return TemporaryAssassinPublicationRejected("unit-manager");
-                if (!UnitAccess.TryGetById(unitId, out GameUnit* live, out _)) return TemporaryAssassinPublicationRejected("unit-lookup");
-                if (!UnitAccess.IsReallyAlive(live)) return TemporaryAssassinPublicationRejected("unit-not-alive");
-                if (live->r_GlobalId != global) return TemporaryAssassinPublicationRejected("unit-global");
-                if (live->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN) return TemporaryAssassinPublicationRejected("unit-type");
-                if (live->r_ControllableForPlayerId != controlPlayer) return TemporaryAssassinPublicationRejected("unit-control");
-                if (live->r_CurrentSpeed != speedDelay) return TemporaryAssassinPublicationRejected("unit-speed");
+                if (pathManager != nativePathManager)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("path-manager");
+#else
+            return false;
+#endif
+
+                if (nativeUnitManager == null)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-manager");
+#else
+            return false;
+#endif
+
+                if (!UnitAccess.TryGetById(unitId, out GameUnit* live, out _))
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-lookup");
+#else
+            return false;
+#endif
+
+                if (!UnitAccess.IsReallyAlive(live))
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-not-alive");
+#else
+            return false;
+#endif
+
+                if (live->r_GlobalId != global)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-global");
+#else
+            return false;
+#endif
+
+                if (live->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-type");
+#else
+            return false;
+#endif
+
+                if (live->r_ControllableForPlayerId != controlPlayer)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-control");
+#else
+            return false;
+#endif
+
+                if (live->r_CurrentSpeed != speedDelay)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-speed");
+#else
+            return false;
+#endif
+
                 GetNativeMovementStart(live, out int x, out int y);
                 byte* m = (byte*)pathManager.ToPointer();
                 int length = *(int*)(m + PathManagerOutputLengthOffset);
-                if (x != sx || y != sy) return TemporaryAssassinPublicationRejected("unit-start");
-                if (*(int*)(m + 8) != sx || *(int*)(m + 12) != sy) return TemporaryAssassinPublicationRejected("request-start");
-                if (*(int*)(m + 16) != tx || *(int*)(m + 20) != ty) return TemporaryAssassinPublicationRejected("request-target");
-                if (length < 0 || length > 2000) return TemporaryAssassinPublicationRejected("output-length");
-                if (*(int*)(m + 0x88) == 0) return TemporaryAssassinPublicationRejected("assassin-mode88");
-                if (*(int*)(m + 0x84) != 0) return TemporaryAssassinPublicationRejected("output-mode84");
+                if (x != sx || y != sy)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("unit-start");
+#else
+            return false;
+#endif
+
+                if (*(int*)(m + 8) != sx || *(int*)(m + 12) != sy)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("request-start");
+#else
+            return false;
+#endif
+
+                if (*(int*)(m + 16) != tx || *(int*)(m + 20) != ty)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("request-target");
+#else
+            return false;
+#endif
+
+                if (length < 0 || length > 2000)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("output-length");
+#else
+            return false;
+#endif
+
+                if (*(int*)(m + 0x88) == 0)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("assassin-mode88");
+#else
+            return false;
+#endif
+
+                if (*(int*)(m + 0x84) != 0)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("output-mode84");
+#else
+            return false;
+#endif
+
                 // F4930 can replace the Assassin reconstruction with a later normal route when +94 != 0.
                 // Keep this exclusion: publishing the staged route would overwrite that native output.
-                if (*(int*)(m + 0x94) != 0) return TemporaryAssassinPublicationRejected("output-mode94");
-                if (*(IntPtr*)(m + PathManagerOutputBufferOffset) != expectedPath) return TemporaryAssassinPublicationRejected("output-pointer");
+                if (*(int*)(m + 0x94) != 0)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("output-mode94");
+#else
+            return false;
+#endif
+
+                if (*(IntPtr*)(m + PathManagerOutputBufferOffset) != expectedPath)
+#if SERP_DEVDIAG
+            return TemporaryAssassinPublicationRejected("output-pointer");
+#else
+            return false;
+#endif
+
                 if ((byte*)expectedPath != nativeUnitManager + NativeUnitPathBufferOffset + unitId * NativeUnitPathBufferStride)
+#if SERP_DEVDIAG
                     return TemporaryAssassinPublicationRejected("unit-buffer");
+#else
+                    return false;
+#endif
+
                 return true;
             };
             return new AssassinRouteHandoff(pathManager, sx, sy, tx, ty, player, valid, (bytes, count) =>
@@ -118,8 +228,13 @@ namespace BugfixesAndQoL.UnitCommands
                 }
                 return count;
             }, controlPlayer, speedDelay,
+#if SERP_DEVDIAG
                 TemporaryGateRouteAcceptanceBridge.CurrentRequested is ITemporaryAssassinGateObserver
-                    ? (Action<string, string, string>)((stage, result, detail) => ReportTemporaryAssassinStage(stage, result, detail)) : null);
+                    ? (Action<string, string, string>)((stage, result, detail) => ReportTemporaryAssassinStage(stage, result, detail)) : null
+#else
+                null
+#endif
+                );
         }
 
         internal int BuildPathWithCompletedMoatRouteVariantWithMoat(
@@ -136,7 +251,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (shadow != null)
                 {
                     AttackCommandScope measuredCommand = activeAttackCommand;
-                    long weightedStarted = Stopwatch.GetTimestamp();
+                    long weightedStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                     bool previousWeightedTiming = weightedPhaseTimingActive;
                     weightedPhaseTimingActive = true;
                     try { ObserveWeightedMoatShadowResult(pathManager, result, shadow); }
@@ -145,7 +260,7 @@ namespace BugfixesAndQoL.UnitCommands
                         weightedPhaseTimingActive = previousWeightedTiming;
                         if (measuredCommand != null)
                             measuredCommand.WeightedPhaseTicks +=
-                                Stopwatch.GetTimestamp() - weightedStarted;
+                                (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - weightedStarted;
                     }
                 }
                 return shadow != null && shadow.PublishedBuilderResult >= 0
@@ -234,7 +349,7 @@ namespace BugfixesAndQoL.UnitCommands
             int vanilla;
             if (plan.ModeObserved) *moatPathMode = plan.VanillaModeDetected ? 1 : 0;
             AttackCommandScope measuredBuilderCommand = activeAttackCommand;
-            long nativeBuilderStarted = Stopwatch.GetTimestamp();
+            long nativeBuilderStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             try { vanilla = CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction); }
             finally
             {
@@ -243,7 +358,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     measuredBuilderCommand.NativeBuilderCalls++;
                     measuredBuilderCommand.NativeBuilderTicks +=
-                        Stopwatch.GetTimestamp() - nativeBuilderStarted;
+                        (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - nativeBuilderStarted;
                 }
             }
             RecordVanillaBuilderResult(command, vanilla);
@@ -266,7 +381,7 @@ namespace BugfixesAndQoL.UnitCommands
                 ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
                 : null;
             long requiredPublicationStarted = requiredMetrics != null
-                ? Stopwatch.GetTimestamp()
+                ? (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L)
                 : 0;
             bool nativeSafe = vanilla > 0 && !auditRequired;
             if (vanilla > 0 && auditRequired && owned)
@@ -299,7 +414,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     requiredMetrics.Published++;
                     requiredMetrics.PublicationTicks +=
-                        Stopwatch.GetTimestamp() - requiredPublicationStarted;
+                        (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - requiredPublicationStarted;
                 }
                 RecordBuilderResult(command, vanilla);
                 return vanilla;
@@ -321,7 +436,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     requiredMetrics.Reject("publication-contract-or-route-variant");
                     requiredMetrics.PublicationTicks +=
-                        Stopwatch.GetTimestamp() - requiredPublicationStarted;
+                        (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - requiredPublicationStarted;
                 }
                 return vanilla;
             }
@@ -367,7 +482,7 @@ namespace BugfixesAndQoL.UnitCommands
                 }
                 if (requiredMetrics != null)
                     requiredMetrics.PublicationTicks +=
-                        Stopwatch.GetTimestamp() - requiredPublicationStarted;
+                        (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - requiredPublicationStarted;
                 }
             RecordBuilderResult(command, result);
             return result;
@@ -522,9 +637,12 @@ namespace BugfixesAndQoL.UnitCommands
             path == nativeUnitManager + NativeUnitPathBufferOffset +
                 plan.UnitId * NativeUnitPathBufferStride;
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void RecordFallbackContractRejection(
             PlanScope plan, string reason = "retry-contract", IntPtr pathManager = default)
         {
+#if SERP_DEVDIAG
+
             fallbackContractRejections++;
             if (activeMoveCommand != null)
             {
@@ -550,6 +668,7 @@ namespace BugfixesAndQoL.UnitCommands
                     // A diagnostic failure must not escape into the native builder.
                 }
             }
+#endif
         }
 
         internal static string FormatContractRejectionReasons(MoveCommandScope command)
@@ -571,7 +690,7 @@ namespace BugfixesAndQoL.UnitCommands
             out string details)
         {
             AttackCommandScope command = activeAttackCommand;
-            long started = Stopwatch.GetTimestamp();
+            long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             try
             {
                 return TryAuditFallbackPathCore(
@@ -579,7 +698,7 @@ namespace BugfixesAndQoL.UnitCommands
             }
             finally
             {
-                long elapsed = Stopwatch.GetTimestamp() - started;
+                long elapsed = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started;
                 if (command != null)
                 {
                     command.AuditCalls++;

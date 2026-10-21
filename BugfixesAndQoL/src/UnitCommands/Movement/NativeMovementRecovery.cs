@@ -318,8 +318,10 @@ namespace BugfixesAndQoL.UnitCommands
             *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset)) = frame.FailedPortalRegion;
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogUnitWithoutBuilder(UnitMoveFrame frame, long result)
         {
+#if SERP_DEVDIAG
             if (result > 0 || noBuilderDetails++ >= 32) return;
             int x = frame.Args.TileX, y = frame.Args.TileY;
             int tile = (uint)x < MapWidth && (uint)y < MapWidth ? GameTileManagerAPI.Instance.GetTileId(x, y) : -1;
@@ -329,6 +331,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"modeReached={frame.NativeModeReached} regionReached={frame.RegionReached} recoveryAttempted={frame.RecoveryAttempted} " +
                 $"availability={(IsValidTileId(tile) ? movementTargetAvailability[y * MapWidth + x] : 0)} " +
                 $"targetFlags={(IsValidTileId(tile) ? tileFlags[tile] : 0):X8} targetRegion={(IsValidTileId(tile) ? pathRegionGrid[tile] : 0)} result={result}.");
+#endif
         }
     }
 }

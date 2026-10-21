@@ -621,7 +621,9 @@ namespace BugfixesAndQoL
                 return;
             if (processUnitCommandPathRuntime == null)
             {
+#if SERP_DEVDIAG
                 UnitCommandPathAPI.AssassinReconstructionRelaxation = () => AssassinPathfindingRuntime.TemporaryReconstructionRelaxation;
+#endif
                 processUnitCommandPathRuntime = UnitCommandPathAPI.RegisterCommands(
                     log, settings, context, referenceHashMatches, BugfixesAndQoLPlugin.PluginGuid);
             }
