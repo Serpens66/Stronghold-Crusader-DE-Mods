@@ -33,6 +33,12 @@ namespace CastlePlanner
 
     internal static class FreeCastlePacketRouting
     {
+        // An identity failure must still be reportable by an authenticated human.
+        // Abort grants no player mutation; all gameplay packets retain exact slot matching.
+        internal static bool IsAuthenticatedParticipantPacket(FreeCastlePacketKind kind, int senderPlayerId, int claimedPlayerId) =>
+            senderPlayerId >= 1 && senderPlayerId <= 8 &&
+            (kind == FreeCastlePacketKind.AbortRequest || claimedPlayerId == senderPlayerId);
+
         internal static bool IsOperationBootstrap(
             FreeCastlePacketKind kind,
             bool receiverIsHost,

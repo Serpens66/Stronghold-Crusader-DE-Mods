@@ -42,6 +42,7 @@ $selectedFiles = [Collections.Generic.HashSet[string]]::new([StringComparer]::Or
 foreach ($file in $files) { [void]$selectedFiles.Add($file.FullName) }
 $errors = [System.Collections.Generic.List[string]]::new()
 $wheatMemory = Join-Path $workspace 'APIShared\src\Compatibility\FixesWheatMemory.cs'
+$spectatorGateway = Join-Path $workspace 'Spectator\src\NativePowerContext.cs'
 if ((-not $ModDirectory -or $selectedFiles.Contains($wheatMemory)) -and (Test-Path -LiteralPath $wheatMemory)) {
     # APIShared owns the expressly approved startup-only exception and its checks.
     & (Join-Path $workspace 'APIShared\tools\Validation\Test-FixesWheatBoundary.ps1')
@@ -63,7 +64,16 @@ foreach ($file in $files) {
             $line -match '\bGatehouseNativeMutation\b' -or
             $line -match '\bVirtualProtect\s*\(' -or
             $line -match '\bFlushInstructionCache\s*\(') {
-            if ($file.FullName -ne $wheatMemory) {
+            # A fresh, unpublished process-lived selection stub is not a rewrite of live code.
+            # The narrow exception covers only its publication flush, never another address/call.
+            $freshSpectatorStub = $file.FullName -eq $spectatorGateway -and
+                ($line.Trim() -ceq 'if (!FlushInstructionCache(GetCurrentProcess(), gateway, (UIntPtr)code.Length))' -or
+                 $line.Trim() -ceq '[DllImport("kernel32", SetLastError = true)] private static extern bool FlushInstructionCache(IntPtr process, IntPtr address, UIntPtr length);') -and
+                $source.Contains('IntPtr gateway = NativeMemoryManager.AllocateStub(image + 0x105548, 128);') -and
+                $source.Contains('Marshal.Copy(code, 0, gateway, code.Length);') -and
+                $source.Contains('Roots.Add(this);') -and
+                $source -notmatch 'VirtualFree|FreeStub|\.Undo\(|transaction\??\.Dispose\('
+            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub) {
                 $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
             }
         }

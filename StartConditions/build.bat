@@ -130,6 +130,12 @@ echo [%date% %time%] Issue 6 preset and infinite-patrol regressions
 dotnet run --project "%PROJECT_DIR%..\BugfixesAndQoL\tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.." --settings-only
 if not "%ERRORLEVEL%"=="0" exit /b 1
 
+echo [%date% %time%] AI start-troop save and restore regressions
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\StartConditionsAIIsolationTests\StartConditionsAIIsolationTests.csproj" /nologo /v:minimal /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" exit /b 1
+"%PROJECT_DIR%..\_inspect\StartConditionsAIIsolationTests\bin\StartConditionsAIIsolationTests.exe" --behavior-only
+if not "%ERRORLEVEL%"=="0" exit /b 1
+
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" StartConditions.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"

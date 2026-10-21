@@ -111,6 +111,12 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "preview-identity")
+            {
+                TestPreviewIdentityFailureKinds();
+                Console.WriteLine("PASS: preview identity availability, final mapping and conflict classification.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "settings-opacity")
             {
                 TestSettingsOpacity();
@@ -5002,6 +5008,23 @@ internal static class Program
     {
         try { value = MessagePackSerializer.Deserialize<int>(bytes); return true; }
         catch { value = 0; return false; }
+    }
+
+    private static void TestPreviewIdentityFailureKinds()
+    {
+        foreach (bool multiplayer in new[] { false, true })
+        {
+            var missing = PlayerIdentityHelper.ResolveLocalPlayerId(multiplayer, false, 0, 0, 0);
+            Check(!missing.IsResolved && !missing.IsConflict, "temporary missing identity must be retryable");
+        }
+        var mismatch = PlayerIdentityHelper.ResolveLocalPlayerId(true, true, 4, 3, 3);
+        Check(!mismatch.IsResolved && mismatch.IsConflict, "native/roster mismatch must abort rather than wait");
+        mismatch = PlayerIdentityHelper.ResolveLocalPlayerId(true, true, 3, 3, 2);
+        Check(!mismatch.IsResolved && mismatch.IsConflict, "final lobby/roster mismatch must abort rather than wait");
+        var ready = PlayerIdentityHelper.ResolveLocalPlayerId(true, true, 3, 3, 3);
+        Check(ready.IsResolved && ready.PlayerId == 3 && !ready.IsConflict, "matching final MP identity must be accepted");
+        var provisional = PlayerIdentityHelper.ResolveLocalPlayerId(true, false, 4, 0, 3);
+        Check(provisional.IsResolved && provisional.PlayerId == 3, "lobby capture must retain final lobby precedence over stale native state");
     }
 
     private static void TestFreeCastleProtocol()

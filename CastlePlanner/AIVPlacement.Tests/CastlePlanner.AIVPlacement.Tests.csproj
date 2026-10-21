@@ -27,6 +27,7 @@
     <Compile Include="..\src\CoalescedSynchronizationContextQueue.cs" Link="Protocol\CoalescedSynchronizationContextQueue.cs" />
     <Compile Include="..\src\DecorationVerificationPolicy.cs" Link="SpawnPlan\DecorationVerificationPolicy.cs" />
     <Compile Include="..\src\FreeCastleProtocol.cs" Link="Protocol\FreeCastleProtocol.cs" />
+    <Compile Include="..\src\FreeCastleIdentityReadiness.cs" Link="Protocol\FreeCastleIdentityReadiness.cs" />
     <Compile Include="..\src\MultiplayerLoadingWarningGate.cs" Link="Protocol\MultiplayerLoadingWarningGate.cs" />
     <Reference Include="SHCDESE">
       <HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath>

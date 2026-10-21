@@ -6,26 +6,29 @@ using SHCDESE.API.Components.ModManager;
 using SHCDESE.BepInEx.Bootstrap;
 using SHCDESE.NoesisUtil;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace SerpsModsHost
 {
     public sealed class ModSettingsSearchViewModel : INotifyPropertyChanged
     {
-        private const string ExportMethodName = "System_GetModSettingsSearchEntries";
-        private const string ApplyTargetMethodName = "System_ApplyModSettingsSearchTarget";
         private readonly ManualLogSource log;
         private readonly List<IndexedModSetting> index = new List<IndexedModSetting>();
         private string searchText = string.Empty;
         private bool includeToolTips;
         private ModSettingsSearchFilter selectedModFilter;
+        private string selectedModName;
+        private bool filtersDirty = true;
+        private bool indexDirty = true;
+        private bool refreshing;
+        private bool refreshPending;
+        private bool rebuildingModFilters;
+        private int stateVersion;
 
         public ModSettingsSearchViewModel(ManualLogSource log)
         {
@@ -33,18 +36,16 @@ namespace SerpsModsHost
             ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
             Results = new ObservableCollection<ModSettingsSearchResult>();
             ModFilters = new ObservableCollection<ModSettingsSearchFilter>();
-            RebuildModFilters();
-
+            RequestRefresh();
             GameXAMLManagerAPI.Instance.RegisteredModSettings.CollectionChanged += OnModTabsChanged;
             Plugin.ModSettingsHubViewModel.PropertyChanged += OnHubPropertyChanged;
+            ModSettingsSearchCatalog.SourceChanged += OnSearchSourceChanged;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
-
         public ObservableCollection<ModSettingsSearchResult> Results { get; }
         public ObservableCollection<ModSettingsSearchFilter> ModFilters { get; }
         public RelayCommand ClearSearchCommand { get; }
-
         public string SearchLabelText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchLabel);
         public string SearchHelpText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchHelp);
         public string ClearSearchHelpText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchClearHelp);
@@ -60,14 +61,12 @@ namespace SerpsModsHost
             set
             {
                 string normalized = (value ?? string.Empty).TrimStart();
-                if (string.Equals(searchText, normalized, StringComparison.Ordinal))
-                    return;
+                if (string.Equals(searchText, normalized, StringComparison.Ordinal)) return;
                 searchText = normalized;
+                stateVersion++;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(SearchResultsVisibility));
-                if (!string.IsNullOrWhiteSpace(searchText) && index.Count == 0)
-                    RebuildIndex();
-                ApplyFilter();
+                RequestRefresh();
             }
         }
 
@@ -76,11 +75,11 @@ namespace SerpsModsHost
             get => includeToolTips;
             set
             {
-                if (includeToolTips == value)
-                    return;
+                if (includeToolTips == value) return;
                 includeToolTips = value;
+                stateVersion++;
                 OnPropertyChanged();
-                ApplyFilter();
+                RequestRefresh();
             }
         }
 
@@ -89,35 +88,38 @@ namespace SerpsModsHost
             get => selectedModFilter;
             set
             {
-                if (ReferenceEquals(selectedModFilter, value))
-                    return;
+                // Clearing ItemsSource may synchronously write a temporary null selection.
+                if ((rebuildingModFilters && value == null) || ReferenceEquals(selectedModFilter, value)) return;
                 selectedModFilter = value;
+                selectedModName = value?.ModName;
+                stateVersion++;
                 OnPropertyChanged();
-                ApplyFilter();
+                RequestRefresh();
             }
         }
 
         public Visibility SearchResultsVisibility =>
             string.IsNullOrWhiteSpace(searchText) ? Visibility.Collapsed : Visibility.Visible;
-
         public Visibility NoResultsVisibility =>
-            !string.IsNullOrWhiteSpace(searchText) && Results.Count == 0
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            !string.IsNullOrWhiteSpace(searchText) && Results.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        public string ResultCountText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchResultCount, "Count", Results.Count);
 
-        public string ResultCountText => SerpLocalization.Get(
-            SerpLocalization.SerpsModsSearchResultCount,
-            "Count", Results.Count);
+        private void OnModTabsChanged(object sender, NotifyCollectionChangedEventArgs args) => InvalidateCatalog();
 
-        private void OnModTabsChanged(object sender, NotifyCollectionChangedEventArgs args)
+        private void OnSearchSourceChanged(object viewModel)
         {
-            RebuildModFilters();
-            index.Clear();
-            if (!string.IsNullOrWhiteSpace(searchText))
-            {
-                RebuildIndex();
-                ApplyFilter();
-            }
+            // Normal preset registration announces its source before publishing the tab. Do not
+            // evaluate consumer getters until that tab's normal registration has completed.
+            if (GameXAMLManagerAPI.Instance.RegisteredModSettings.Any(tab => ReferenceEquals(tab.ViewModel, viewModel)))
+                InvalidateCatalog();
+        }
+
+        private void InvalidateCatalog()
+        {
+            stateVersion++;
+            filtersDirty = true;
+            indexDirty = true;
+            RequestRefresh();
         }
 
         private void OnHubPropertyChanged(object sender, PropertyChangedEventArgs args)
@@ -125,325 +127,123 @@ namespace SerpsModsHost
             if (args.PropertyName == nameof(SHCDESE.ViewModels.LobbyModSettingsHubViewModel.WindowVisibility) &&
                 Plugin.ModSettingsHubViewModel.WindowVisibility == Visibility.Visible)
             {
-                // Opening the native Noesis modal must remain side-effect free. Indexing begins
-                // only when the user enters a query, after the selected view is fully attached.
-                index.Clear();
-                Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:131", "[ModSettingsSearch] Hub opened; indexing is deferred until the first query.");
+                // Do not evaluate catalogs or mutate bound collections during modal opening.
+                stateVersion++;
+                indexDirty = true;
+                if (refreshing) refreshPending = true;
             }
         }
 
         private void RebuildModFilters()
         {
-            string selectedName = selectedModFilter?.ModName;
-            ModFilters.Clear();
-            ModFilters.Add(new ModSettingsSearchFilter(
-                SerpLocalization.Get(SerpLocalization.SerpsModsSearchAllMods),
-                null));
-            foreach (LobbyModSettingsEntry tab in GameXAMLManagerAPI.Instance.RegisteredModSettings)
+            filtersDirty = false;
+            LobbyModSettingsEntry[] tabs = GetSupportedTabs();
+            rebuildingModFilters = true;
+            try
             {
-                if (!(tab.ViewModel is SerpsModsDiagnosticsViewModel))
+                ModFilters.Clear();
+                ModFilters.Add(new ModSettingsSearchFilter(SerpLocalization.Get(SerpLocalization.SerpsModsSearchAllMods), null));
+                foreach (LobbyModSettingsEntry tab in tabs)
                     ModFilters.Add(new ModSettingsSearchFilter(tab.Name, tab.Name));
+                selectedModFilter = ModFilters.FirstOrDefault(filter =>
+                    string.Equals(filter.ModName, selectedModName, StringComparison.Ordinal)) ?? ModFilters[0];
+                selectedModName = selectedModFilter.ModName;
+                OnPropertyChanged(nameof(SelectedModFilter));
             }
-            SelectedModFilter = ModFilters.FirstOrDefault(filter =>
-                string.Equals(filter.ModName, selectedName, StringComparison.Ordinal)) ?? ModFilters[0];
+            finally { rebuildingModFilters = false; }
         }
+
+        private static LobbyModSettingsEntry[] GetSupportedTabs() =>
+            GameXAMLManagerAPI.Instance.RegisteredModSettings
+                .Where(tab => tab != null && !(tab.ViewModel is SerpsModsDiagnosticsViewModel) &&
+                    ModSettingsSearchCatalog.IsRegistered(tab.ViewModel)).ToArray();
 
         private void RebuildIndex()
         {
+            // The flag describes validity, not entry count: an empty catalog is a valid snapshot.
+            indexDirty = false;
+            var snapshot = new List<IndexedModSetting>();
+            foreach (LobbyModSettingsEntry tab in GetSupportedTabs())
+            {
+                if (!ModSettingsSearchCatalog.TryGetEntries(tab.ViewModel, out IReadOnlyList<ModSettingsSearchEntry> entries)) continue;
+                foreach (ModSettingsSearchEntry entry in entries)
+                {
+                    if (entry == null || string.IsNullOrWhiteSpace(entry.Key) || string.IsNullOrWhiteSpace(entry.Title)) continue;
+                    snapshot.Add(new IndexedModSetting(tab, entry.Key, entry.Title, entry.ToolTip,
+                        entry.SectionKey, entry.SectionTitle, entry.IsSection));
+                }
+            }
             index.Clear();
-            Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:156", "[ModSettingsSearch] Building search index without changing the selected tab.");
-            foreach (LobbyModSettingsEntry tab in GameXAMLManagerAPI.Instance.RegisteredModSettings)
+            index.AddRange(snapshot);
+        }
+
+        private void RequestRefresh()
+        {
+            refreshPending = true;
+            if (refreshing) return;
+            refreshing = true;
+            try
             {
-                if (tab.ViewModel is SerpsModsDiagnosticsViewModel)
-                    continue;
-                try
+                int passes = 0;
+                // Bindings and consumer getters can synchronously request another refresh. Finish
+                // the current notification before publishing anything for the latest state.
+                while (refreshPending)
                 {
-                    int previousCount = index.Count;
-                    List<IndexedModSetting> exportedEntries;
-                    try
+                    // An opted-in consumer may replace its source from a title getter. If it
+                    // never settles, leave search retryable instead of locking the Unity thread.
+                    if (++passes > 8)
                     {
-                        exportedEntries = ReadExplicitEntries(tab);
+                        refreshPending = false;
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ModSettingsSearch.UnstableSource",
+                            "[ModSettingsSearch] Reentrant settings changes did not settle; retaining the last results until the next search action.");
+                        break;
                     }
-                    catch (Exception ex)
+                    refreshPending = false;
+                    if (filtersDirty) RebuildModFilters();
+                    string query = searchText.Trim();
+                    if (query.Length > 0 && indexDirty) RebuildIndex();
+                    int version = stateVersion;
+                    List<ModSettingsSearchResult> snapshot = BuildResults(query, selectedModName, includeToolTips);
+                    if (version != stateVersion || filtersDirty || (query.Length > 0 && indexDirty))
                     {
-                        // A foreign or older shared implementation must not make the whole mod
-                        // unsearchable. Its text remains available through the fallback.
-                        Shared.DebugLogHelper.LogWarningLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:175", $"[ModSettingsSearch] Search-anchor export failed for [{tab.Name}]; using automatic text search: {ex}");
-                        exportedEntries = new List<IndexedModSetting>();
-                    }
-
-                    index.AddRange(
-                        exportedEntries.Count > 0
-                            ? exportedEntries
-                            : ReadAutomaticEntries(tab));
-                    int addedCount = index.Count - previousCount;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:186", $"[ModSettingsSearch] Indexed [{tab.Name}]: entries={addedCount}, source={(exportedEntries.Count > 0 ? "shared" : "automatic")}.");
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:192", $"[ModSettingsSearch] Could not index [{tab.Name}]; other mods remain searchable: {ex}");
-                }
-            }
-            Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:197", $"[ModSettingsSearch] Search index ready: entries={index.Count}.");
-        }
-
-        private static List<IndexedModSetting> ReadExplicitEntries(LobbyModSettingsEntry tab)
-        {
-            var result = new List<IndexedModSetting>();
-            MethodInfo export = tab.ViewModel?.GetType().GetMethod(
-                ExportMethodName,
-                BindingFlags.Instance | BindingFlags.Public);
-            if (export == null || !(export.Invoke(tab.ViewModel, new object[] { tab.View }) is IEnumerable entries))
-                return result;
-
-            foreach (object entry in entries)
-            {
-                if (entry == null)
-                    continue;
-                Type type = entry.GetType();
-                string key = ReadString(type, entry, "Key");
-                string title = ReadString(type, entry, "Title");
-                string toolTip = ReadString(type, entry, "ToolTip");
-                string sectionKey = ReadString(type, entry, "SectionKey");
-                string sectionTitle = ReadString(type, entry, "SectionTitle");
-                bool isSection = ReadBool(type, entry, "IsSection");
-                if (key.Length == 0 || title.Length == 0)
-                    continue;
-                result.Add(new IndexedModSetting(
-                    tab,
-                    key,
-                    title,
-                    toolTip,
-                    sectionKey,
-                    sectionTitle,
-                    isSection));
-            }
-            return result;
-        }
-
-        private static string ReadString(Type type, object instance, string propertyName) =>
-            type.GetProperty(propertyName)?.GetValue(instance, null)?.ToString()?.Trim() ?? string.Empty;
-
-        private static bool ReadBool(Type type, object instance, string propertyName) =>
-            type.GetProperty(propertyName)?.GetValue(instance, null) is bool value && value;
-
-        private static List<IndexedModSetting> ReadAutomaticEntries(LobbyModSettingsEntry tab)
-        {
-            var result = new List<IndexedModSetting>();
-            var seen = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
-            var visited = new HashSet<DependencyObject>();
-            var structuralParents = new Dictionary<DependencyObject, DependencyObject>();
-            VisitAutomatic(tab, tab.View, result, seen, visited, structuralParents, null, 0);
-            return result;
-        }
-
-        private static void VisitAutomatic(
-            LobbyModSettingsEntry tab,
-            DependencyObject current,
-            List<IndexedModSetting> result,
-            HashSet<string> seen,
-            HashSet<DependencyObject> visited,
-            Dictionary<DependencyObject, DependencyObject> structuralParents,
-            DependencyObject structuralParent,
-            int depth)
-        {
-            if (current == null || depth > 80 || !visited.Add(current))
-                return;
-
-            if (structuralParent != null && !structuralParents.ContainsKey(current))
-                structuralParents.Add(current, structuralParent);
-
-            if (current is FrameworkElement element && IsInteractive(element))
-            {
-                string toolTip = ReadToolTip(element);
-                string title = FindAutomaticTitle(element, structuralParents);
-                if (title.Length == 0 && toolTip.Length > 0)
-                    title = FirstSentence(toolTip);
-                string identity = title + "\u001f" + toolTip;
-                if (title.Length > 0 && seen.Add(identity))
-                    result.Add(new IndexedModSetting(tab, identity, title, toolTip));
-            }
-
-            foreach (DependencyObject child in EnumerateChildren(current))
-                VisitAutomatic(tab, child, result, seen, visited, structuralParents, current, depth + 1);
-        }
-
-        private static IEnumerable<DependencyObject> EnumerateChildren(DependencyObject current)
-        {
-            var result = new List<DependencyObject>();
-            var seen = new HashSet<DependencyObject>();
-            if (current is Panel panel)
-            {
-                for (int index = 0; index < panel.Children.Count; index++)
-                    AddChild(result, seen, panel.Children[index]);
-            }
-            if (current is Decorator decorator)
-                AddChild(result, seen, decorator.Child);
-            if (current is ContentControl contentControl)
-                AddChild(result, seen, contentControl.Content as DependencyObject);
-            int visualCount = VisualTreeHelper.GetChildrenCount(current);
-            for (int index = 0; index < visualCount; index++)
-                AddChild(result, seen, VisualTreeHelper.GetChild(current, index));
-            return result;
-        }
-
-        private static void AddChild(
-            ICollection<DependencyObject> result,
-            ISet<DependencyObject> seen,
-            DependencyObject child)
-        {
-            if (child != null && seen.Add(child))
-                result.Add(child);
-        }
-
-        private static bool IsInteractive(FrameworkElement element) =>
-            element is Button || element is CheckBox || element is ComboBox ||
-            element is Slider || element is TextBox;
-
-        private static string FindAutomaticTitle(
-            FrameworkElement element,
-            IReadOnlyDictionary<DependencyObject, DependencyObject> structuralParents)
-        {
-            if (element is ContentControl contentControl)
-            {
-                string contentText = ReadContentText(contentControl.Content);
-                if (contentText.Length > 0)
-                    return contentText;
-            }
-
-            DependencyObject current = element;
-            for (int level = 0; level < 4; level++)
-            {
-                DependencyObject parent = VisualTreeHelper.GetParent(current);
-                if (parent == null)
-                    structuralParents.TryGetValue(current, out parent);
-                if (parent == null)
-                    break;
-                int row = Grid.GetRow(current);
-                var candidates = new List<string>();
-                int count = VisualTreeHelper.GetChildrenCount(parent);
-                for (int index = 0; index < count; index++)
-                {
-                    DependencyObject sibling = VisualTreeHelper.GetChild(parent, index);
-                    if (ReferenceEquals(sibling, current))
+                        refreshPending = true;
                         continue;
-                    if (sibling is TextBlock textBlock &&
-                        (parent is not Grid || Grid.GetRow(textBlock) == row) &&
-                        !string.IsNullOrWhiteSpace(textBlock.Text))
-                    {
-                        candidates.Add(textBlock.Text.Trim());
                     }
-                    else if (sibling is FrameworkElement siblingElement &&
-                        (parent is not Grid || Grid.GetRow(siblingElement) == row))
+                    Results.Clear();
+                    foreach (ModSettingsSearchResult result in snapshot)
                     {
-                        string nested = ReadContentText(siblingElement);
-                        if (nested.Length > 0)
-                            candidates.Add(nested);
+                        if (version != stateVersion) break;
+                        Results.Add(result);
                     }
-                }
-                if (candidates.Count > 0)
-                    return candidates[0];
-                current = parent;
-            }
-            return string.Empty;
-        }
-
-        private static string ReadContentText(object content)
-        {
-            if (content is string text)
-                return text.Trim();
-            if (content is TextBlock textBlock)
-                return textBlock.Text?.Trim() ?? string.Empty;
-            if (content is DependencyObject dependencyObject)
-            {
-                int count = VisualTreeHelper.GetChildrenCount(dependencyObject);
-                for (int index = 0; index < count; index++)
-                {
-                    string nested = ReadContentText(VisualTreeHelper.GetChild(dependencyObject, index));
-                    if (nested.Length > 0)
-                        return nested;
+                    NotifyResultPresentation();
                 }
             }
-            return string.Empty;
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "ModSettingsSearch.Refresh",
+                    $"[ModSettingsSearch] Could not refresh search results: {ex}");
+            }
+            finally { refreshing = false; }
         }
 
-        private static string ReadToolTip(DependencyObject element)
+        private List<ModSettingsSearchResult> BuildResults(string query, string modName, bool toolTips)
         {
-            object toolTip = ToolTipService.GetToolTip(element);
-            if (toolTip is ToolTip explicitToolTip)
-                toolTip = explicitToolTip.Content;
-            return ReadContentText(toolTip);
-        }
-
-        private static string FirstSentence(string text)
-        {
-            string normalized = (text ?? string.Empty).Trim();
-            int end = normalized.IndexOfAny(new[] { '.', '!', '?', '\r', '\n' });
-            if (end >= 0)
-                normalized = normalized.Substring(0, end + 1);
-            return normalized.Length <= 120 ? normalized : normalized.Substring(0, 117) + "...";
-        }
-
-        private void ApplyFilter()
-        {
-            Results.Clear();
-            string query = searchText.Trim();
-            if (query.Length == 0)
-            {
-                NotifyResultPresentation();
-                return;
-            }
-
-            IEnumerable<IndexedModSetting> candidates = index;
-            if (!string.IsNullOrEmpty(selectedModFilter?.ModName))
-            {
-                candidates = candidates.Where(candidate =>
-                    string.Equals(candidate.Tab.Name, selectedModFilter.ModName, StringComparison.Ordinal));
-            }
-
-            List<IndexedModSetting> candidateList = candidates.ToList();
-            var matchedSections = new HashSet<string>(
-                candidateList
-                    .Where(candidate => candidate.IsSection &&
-                        APIShared.ModSettings.ModSettingsSearchMatcher.IsSectionTitleMatch(query, candidate.Title))
-                    .Select(candidate => candidate.SectionIdentity),
-                StringComparer.Ordinal);
-
-            foreach (IndexedModSetting candidate in candidateList
-                .Where(candidate =>
-                    ModSettingsSearchPolicy.ShouldIncludeCandidate(
-                        candidate.IsSection,
-                        candidate.SectionIdentity,
-                        candidate.SectionIdentity,
-                        matchedSections) &&
-                    (candidate.IsSection ||
-                        APIShared.ModSettings.ModSettingsSearchMatcher.IsMatch(
-                                query,
-                                includeToolTips,
-                                string.Empty,
-                                candidate.Key,
-                                candidate.Title,
-                                candidate.ToolTip,
-                                candidate.SectionKey,
-                                candidate.SectionTitle)))
-                .Select(candidate => new
-                {
-                    Candidate = candidate,
-                    Rank = ModSettingsSearchPolicy.Rank(
-                        candidate.Title,
-                        candidate.ToolTip,
-                        candidate.SectionTitle,
-                        query,
-                        includeToolTips)
-                })
-                .OrderBy(item => item.Rank)
-                .ThenBy(item => item.Candidate.Tab.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(item => item.Candidate.Title, StringComparer.CurrentCultureIgnoreCase)
-                .Select(item => item.Candidate))
-            {
-                Results.Add(new ModSettingsSearchResult(candidate, OpenResult));
-            }
-            NotifyResultPresentation();
+            if (query.Length == 0) return new List<ModSettingsSearchResult>();
+            List<IndexedModSetting> candidates = index.Where(candidate => string.IsNullOrEmpty(modName) ||
+                string.Equals(candidate.Tab.Name, modName, StringComparison.Ordinal)).ToList();
+            var matchedSections = new HashSet<string>(candidates
+                .Where(candidate => candidate.IsSection && ModSettingsSearchMatcher.IsSectionTitleMatch(query, candidate.Title))
+                .Select(candidate => candidate.SectionIdentity), StringComparer.Ordinal);
+            return candidates.Where(candidate =>
+                    ModSettingsSearchPolicy.ShouldIncludeCandidate(candidate.IsSection, candidate.SectionIdentity,
+                        candidate.SectionIdentity, matchedSections) &&
+                    (candidate.IsSection || ModSettingsSearchMatcher.IsMatch(query, toolTips, string.Empty,
+                        candidate.Key, candidate.Title, candidate.ToolTip, candidate.SectionKey, candidate.SectionTitle)))
+                .OrderBy(candidate => ModSettingsSearchPolicy.Rank(candidate.Title, candidate.ToolTip,
+                    candidate.SectionTitle, query, toolTips))
+                .ThenBy(candidate => candidate.Tab.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(candidate => candidate.Title, StringComparer.CurrentCultureIgnoreCase)
+                .Select(candidate => new ModSettingsSearchResult(candidate, OpenResult)).ToList();
         }
 
         private void NotifyResultPresentation()
@@ -456,20 +256,22 @@ namespace SerpsModsHost
         {
             try
             {
-                MethodInfo applyTarget = result.Tab.ViewModel?.GetType().GetMethod(
-                    ApplyTargetMethodName,
-                    BindingFlags.Instance | BindingFlags.Public);
-                if (applyTarget != null)
+                var tabs = GameXAMLManagerAPI.Instance.RegisteredModSettings;
+                if (!tabs.Contains(result.Tab) ||
+                    !ModSettingsSearchCatalog.TryGetEntries(result.Tab.ViewModel, out IReadOnlyList<ModSettingsSearchEntry> entries) ||
+                    !entries.Any(entry => string.Equals(entry.Key, result.Key, StringComparison.Ordinal)))
                 {
-                    applyTarget.Invoke(result.Tab.ViewModel, new object[] { result.Key, result.Title });
-                    Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:477", $"[ModSettingsSearch] Applied exact local filter [{result.Tab.Name}/{result.Key}].");
+                    InvalidateCatalog();
+                    return;
                 }
+                ModSettingsSearchCatalog.TryNavigate(result.Tab.ViewModel, result.Key);
+                if (tabs.Contains(result.Tab)) Plugin.ModSettingsHubViewModel.SelectedTab = result.Tab;
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "SerpsModsHost/src/ModSettingsSearchViewModel.cs:484", $"[ModSettingsSearch] Could not apply the optional local filter for [{result.Tab.Name}/{result.Key}]; opening the tab normally: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ModSettingsSearch.OpenResult",
+                    $"[ModSettingsSearch] Could not open search result: {ex}");
             }
-            Plugin.ModSettingsHubViewModel.SelectedTab = result.Tab;
         }
 
         private void OnPropertyChanged([CallerMemberName] string propertyName = null) =>

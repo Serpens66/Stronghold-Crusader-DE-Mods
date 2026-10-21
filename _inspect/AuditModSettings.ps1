@@ -31,6 +31,17 @@ function Test-SeTooltipScaleStyle([System.Xml.XmlNode] $Style) {
 }
 
 $workspace = Split-Path -Parent $PSScriptRoot
+# Windows PowerShell 5.1 has no Path.GetRelativePath. Every audited input is owned
+# by this workspace; verify that boundary before computing its relative spelling.
+function Get-AuditRelativePath([string] $Path) {
+    $full = [IO.Path]::GetFullPath($Path)
+    $prefix = $workspace.TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
+    if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Audit input is outside the workspace: $full"
+    }
+    return $full.Substring($prefix.Length)
+}
+
 $settingsByMod = [ordered]@{
     BugfixesAndQoL = 'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml'
     BuildingCosts = 'BuildingCosts/BepInEx/plugins/BuildingCosts_Serp/Override/ScriptExtenderUI/BuildingCostsSettings.xaml'
@@ -938,7 +949,16 @@ $productiveCsFiles = @($productiveRoots | ForEach-Object {
     Get-ChildItem -LiteralPath (Join-Path $workspace "$_/src") -File -Filter '*.cs'
 })
 $directRegistrations = @($productiveCsFiles | Where-Object {
-    [IO.File]::ReadAllText($_.FullName).Contains('RegisterLobbyModSettings(')
+    $registrationText = [IO.File]::ReadAllText($_.FullName)
+    $calls = [regex]::Matches($registrationText, 'RegisterLobbyModSettings\(').Count
+    # This diagnostic page must work when APIShared is absent. It is not a settings
+    # participant and cannot use the dependency whose absence it reports.
+    $missingApiBootstrap = [IO.Path]::GetFullPath((Join-Path $workspace 'SerpsModsHost/src/SerpsModsHostBootstrap.cs'))
+    $onlyMissingApiPage = $_.FullName.Equals($missingApiBootstrap, [StringComparison]::OrdinalIgnoreCase) -and
+        $calls -eq 1 -and
+        $registrationText.Contains('RegisterLobbyModSettings(instance, PluginName, failure,') -and
+        $registrationText.Contains('"ScriptExtenderUI/SerpsModsMissingApi.xaml"')
+    $calls -gt 0 -and -not $onlyMissingApiPage
 })
 if ($directRegistrations.Count -ne 0) {
     throw "Direct lobby-settings registration bypasses Shared: $($directRegistrations.FullName -join ', ')"
@@ -985,7 +1005,7 @@ $settingsViewModels = @($productiveCsFiles | Where-Object {
     [IO.File]::ReadAllText($_.FullName).Contains('PresetLobbyModSettingsViewModel')
 })
 foreach ($viewModelFile in $settingsViewModels) {
-    $relativePath = [IO.Path]::GetRelativePath($workspace, $viewModelFile.FullName)
+    $relativePath = (Get-AuditRelativePath $viewModelFile.FullName)
     $source = [IO.File]::ReadAllText($viewModelFile.FullName)
     $fullSource = $source
     $nestedTypeStart = $source.IndexOf('private sealed class', [StringComparison]::Ordinal)
@@ -1028,6 +1048,7 @@ if ($sharedSettingsSource.Contains('ScriptExtenderMultiplayerSyncWorkaround')) {
     throw 'APIShared settings still contain the obsolete pre-2.0.2 multiplayer-sync workaround.'
 }
 $sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettings/UI/ModSettingsSearch.cs'))
+$searchCatalogSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettings/UI/ModSettingsSearchCatalog.cs'))
 foreach ($required in @(
     'DependencyProperty.RegisterAttached(',
     'System_GetModSettingsSearchEntries',
@@ -1048,12 +1069,12 @@ foreach ($required in @(
     'current is Decorator decorator',
     'current is ContentControl contentControl',
     'VisualTreeHelper.GetChildrenCount',
-    'ModSettingsSearch.RegisterSource',
+    'ModSettingsSearchCatalog.RegisterSource',
     'XDocument.Load',
     'ResolveDataContexts',
     'ResolveElementContent',
-    'return source.GetEntries(viewModel);')) {
-    $searchContractText = $sharedSearchSource + $sharedSettingsSource
+    'ModSettingsSearchCatalog.TryGetEntries')) {
+    $searchContractText = $sharedSearchSource + $sharedSettingsSource + $searchCatalogSource
     if (-not $searchContractText.Contains($required)) {
         throw "APIShared mod-settings search contract marker is missing: $required"
     }
@@ -1066,14 +1087,14 @@ $hostSettingsXaml = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/
 $hostPluginSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/SerpsModsHostPlugin.cs'))
 $hostBuildSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/build.bat'))
 foreach ($required in @(
-    'System_GetModSettingsSearchEntries',
-    'System_ApplyModSettingsSearchTarget',
+    'ModSettingsSearchCatalog.TryGetEntries',
+    'ModSettingsSearchCatalog.TryNavigate',
+    'ModSettingsSearchCatalog.IsRegistered',
+    'ModSettingsSearchCatalog.SourceChanged',
     'ShouldIncludeCandidate',
     'matchedSections',
-    'ReadAutomaticEntries',
-    'using automatic text search',
-    'Hub opened; indexing is deferred until the first query.',
-    'Building search index without changing the selected tab.',
+    'indexDirty',
+    'refreshPending',
     'Plugin.ModSettingsHubViewModel.SelectedTab = result.Tab',
     'tab.ViewModel is SerpsModsDiagnosticsViewModel',
     'IncludeToolTips',
@@ -1093,6 +1114,14 @@ foreach ($required in @(
     if (-not ($hostSearchSource + $hostSettingsXaml + $hostPluginSource).Contains($required)) {
         throw "SerpsModsHost search implementation marker is missing: $required"
     }
+}
+foreach ($forbidden in @('ReadAutomaticEntries', 'VisualTreeHelper', 'EnumerateChildren', 'System_GetModSettingsSearchEntries', 'System.Reflection', 'tab.View,', 'tab.View)', 'tab.View;')) {
+    if ($hostSearchSource.Contains($forbidden)) {
+        throw "Global settings search must use only explicitly registered catalogs: $forbidden"
+    }
+}
+if ($searchCatalogSource -match '(?m)^using Noesis;' -or $searchCatalogSource.Contains('VisualTreeHelper')) {
+    throw 'Registered search catalogs must remain independent of native UI trees.'
 }
 foreach ($required in @(
     'PropertyChanged += OnDiagnosticsPropertyChanged',
@@ -1545,7 +1574,7 @@ $selectedAdditionalCrlfTargets = @($selectedModNames |
 $crlfTargets = @($settings.Values) + @(
     $selectedLocaleDirectories | ForEach-Object {
         Get-ChildItem -LiteralPath (Join-Path $workspace $_) -File -Filter '*.txt' |
-            ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) }
+            ForEach-Object { (Get-AuditRelativePath $_.FullName) }
     }
 ) + @(
     'APIShared/src/ModSettings/Presets/PresetLobbyModSettingsViewModel.cs',
@@ -1554,7 +1583,7 @@ $crlfTargets = @($settings.Values) + @(
     'SerpsModsHost/src/ModSettingsSearchPolicy.cs',
     'SerpsModsHost/src/ModSettingsSearchViewModel.cs',
     '_inspect/HostClientPresetTests/Program.cs')
-$crlfTargets += @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Recurse -Filter '*.cs' | ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) })
+$crlfTargets += @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Recurse -Filter '*.cs' | ForEach-Object { (Get-AuditRelativePath $_.FullName) })
 $crlfTargets += $selectedAdditionalCrlfTargets
 foreach ($relativePath in $crlfTargets) {
     $text = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))

@@ -1,6 +1,6 @@
 # Vanilla-Optimierung SHCDE
 
-Ergebnis der Untersuchung, warum SHCDE beim Herauszoomen stark an FPS verliert, und welche Optimierungen per Mod sinnvoll sind. Alle Optimierungen sind im Testmod `Testmods/PerfFixTest` umgesetzt. Eine Übernahme in Hauptmods oder APIShared ist derzeit nicht vorgesehen (Nutzervorgabe).
+Ergebnis der Untersuchung, warum SHCDE beim Herauszoomen stark an FPS verliert, und welche Optimierungen per Mod sinnvoll sind. Alle Optimierungen sind im Testmod `Testmods/PerfFixTest` umgesetzt. Seit 21.10.2026 sind V1, V5 und V7 als lokale Client-Optionen in BugfixesAndQoL übernommen (`src/VanillaPerformance`, Standard an) und V9 als Script-Extender-Korrektur in APIShared (`src/ScriptExtenderFixes/InterpolateEvent`).
 
 ## Kurzfazit
 
@@ -24,10 +24,10 @@ Die Werte sind Mittel bzw. typische Werte aus mehreren automatisierten Läufen. 
 
 | Nr. | Maßnahme | Wirkung | Bild | Status |
 |---|---|---|---|---|
-| V1 | Minimap nicht bei jedem Tick neu an Noesis binden | −0.5…1.4 ms pro Frame, p95-Frame-Zeit −30 % (zusammen mit V5/V9) | unverändert | umgesetzt (Testmod) |
-| V5 | Merit-Daten nicht blockierend lesen | kein Bild-Freeze bei langen Sim-Ticks | unverändert | umgesetzt (Testmod) |
-| V9 | Script-Extender-Event ohne Allokation pro Einheit | −10…14 MB/s Allokation, weniger GC | unverändert | umgesetzt (Testmod) |
-| V7 | TeamColour-Sheets auf gemeinsame Texturseiten | Draw Calls −54 %, +23–25 % FPS | pixelgleich bis auf Rundung | umgesetzt (Testmod), Sichtprüfung offen |
+| V1 | Minimap nicht bei jedem Tick neu an Noesis binden | −0.5…1.4 ms pro Frame, p95-Frame-Zeit −30 % (zusammen mit V5/V9) | unverändert | BugfixesAndQoL |
+| V5 | Merit-Daten nicht blockierend lesen | kein Bild-Freeze bei langen Sim-Ticks | unverändert | BugfixesAndQoL |
+| V9 | Script-Extender-Event ohne Allokation pro Einheit | −10…14 MB/s Allokation, weniger GC | unverändert | APIShared (nur bei nachweislich synchronen Abonnenten) |
+| V7 | TeamColour-Sheets auf gemeinsame Texturseiten | Draw Calls −54 %, +23–25 % FPS | pixelgleich bis auf Rundung | BugfixesAndQoL (eigener Schalter), Sichtprüfung offen |
 | V10 | LOD (Details bei weitem Zoom ausblenden) | ≤ 3 %, im Messrauschen | würde sich ändern | verworfen |
 | V11 | Sprite-Meshes als Rechteck statt Polygon | Obergrenze +2–5 % | würde sich ändern | verworfen |
 | – | Graphics Jobs (D3D11) | kein Gewinn, laufend eher langsamer | unverändert | verworfen |
@@ -74,7 +74,7 @@ Alle Eingriffe sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode
 - **Problem:** Der Extender (2.14.3) erzeugt vor `GameMap.interpChimp` für jede Einheit und jeden Frame ein neues `UnitUnityVisualInterpolateEventArgs`. Das sind ~450 000 Objekte bzw. 10–14 MB pro Sekunde, die größte Allokationsquelle im Spiel.
 - **Lösung:** Ein Transpiler auf die Extender-Methode verwendet ein Objekt wieder. Verschachtelte Aufrufe und andere Threads allokieren wie bisher. Bei unerwartetem Code wird das Feature nicht aktiviert (fail-closed). Alle bekannten Abonnenten lesen das Objekt nur synchron.
 - **Wirkung:** Allokation in `lerpChimps` sinkt auf ~1–3 MB/s, weniger GC-Spitzen.
-- **Hinweis:** Das korrigiert den Extender; bei einer Übernahme gehört es nach APIShared.
+- **Hinweis:** Das korrigiert den Extender und liegt deshalb in APIShared. Dort wird das Objekt nur wiederverwendet, solange jeder Abonnent per IL-Analyse nachweislich nur synchron liest (`TransientObserverGate`); sonst bleibt die Allokation des Extenders.
 
 ### V7 – TeamColour-Sheets auf gemeinsame Seiten (`SheetMerge`)
 
@@ -130,7 +130,7 @@ Alle Eingriffe sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode
 ## Offene Punkte
 
 - **V7:** Sichtprüfung durch den Nutzer in verschiedenen Spielständen. Tests mit Atlas-Overrides, dem Foliage-Begleitplugin des AtlasBuilders und auf Grafikkarten mit wenig VRAM bzw. kleinerer maximaler Texturgröße.
-- **Übernahme** von V1/V5/V9/V7 in Hauptmods: derzeit nicht vorgesehen. Bei einer Übernahme gehört V9 nach APIShared.
+- **Übernahme** (21.10.2026): V1/V5/V7 in BugfixesAndQoL, V9 in APIShared. Noch offen: Spieltest der übernommenen Fassungen. PerfFixTest bleibt Messwerkzeug; seine `[Features]` neben BugfixesAndQoL/APIShared abschalten, sonst greifen beide Fassungen (harmlos, aber Messungen werden ununterscheidbar).
 - **Ladephase** (unabhängig vom Zoom): `EngineInterface.LoadSaveFile` ~300 ms, `NoesisView.OnGUI` ~800 ms nach dem Laden, `FatControler.Update` ~2.4 s beim Wechsel vom Hauptmenü auf die Karte.
 
 ## Anhang

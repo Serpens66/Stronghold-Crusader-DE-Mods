@@ -31,6 +31,10 @@
   <ItemGroup>
     <Compile Include="src\GatehouseTargetMarkerHeightPolicy.cs" />
     <Compile Include="src\GatehouseTargetMarkerHeightHook.cs" />
+    <Compile Include="src\VanillaPerformance\VanillaPerformanceFeature.cs" />
+    <Compile Include="src\VanillaPerformance\RadarRebindOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\MeritDataLockOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\SpriteSheetMergeOptimization.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />

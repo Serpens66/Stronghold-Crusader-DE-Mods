@@ -103,6 +103,8 @@ namespace BugfixesAndQoL
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
         private bool enableGatehouseTargetMarkerHeightFix = true;
+        private bool enableVanillaPerformanceOptimizations = true;
+        private bool enableSpriteSheetMerge = true;
         private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
         private const int HealthBarKeyMask = 0xffff;
@@ -465,6 +467,10 @@ namespace BugfixesAndQoL
         public string PreserveDisplayResolutionHelpText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolutionHelp");
         public string EnableGatehouseTargetMarkerHeightFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix");
         public string EnableGatehouseTargetMarkerHeightFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp");
+        public string EnableVanillaPerformanceOptimizationsText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizations");
+        public string EnableVanillaPerformanceOptimizationsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp");
+        public string EnableSpriteSheetMergeText => SerpLocalization.Get("BugfixesAndQoL.EnableSpriteSheetMerge");
+        public string EnableSpriteSheetMergeHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSpriteSheetMergeHelp");
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string PreventMoveOrderOnPlacementCancelText => SerpLocalization.Get("BugfixesAndQoL.PreventMoveOrderOnPlacementCancel");
@@ -848,6 +854,22 @@ namespace BugfixesAndQoL
         {
             get => enableGatehouseTargetMarkerHeightFix;
             set => SetSetting(ref enableGatehouseTargetMarkerHeightFix, value, nameof(EnableGatehouseTargetMarkerHeightFix));
+        }
+
+        // Local presentation optimizations (V1/V5); no simulation effect, therefore not synchronized.
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableVanillaPerformanceOptimizations
+        {
+            get => enableVanillaPerformanceOptimizations;
+            set => SetSetting(ref enableVanillaPerformanceOptimizations, value, nameof(EnableVanillaPerformanceOptimizations));
+        }
+
+        // Local V7 sprite-sheet merge; read once after Vanilla's sprite loading, so changes need a restart.
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableSpriteSheetMerge
+        {
+            get => enableSpriteSheetMerge;
+            set => SetSetting(ref enableSpriteSheetMerge, value, nameof(EnableSpriteSheetMerge));
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1575,6 +1597,8 @@ namespace BugfixesAndQoL
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
             EnableGatehouseTargetMarkerHeightFix = true;
+            EnableVanillaPerformanceOptimizations = true;
+            EnableSpriteSheetMerge = true;
             EnableWorkshopUploadLordSelectionFix = true;
             EnableAllyGoodsAmountModifiers = true;
         }

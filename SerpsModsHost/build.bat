@@ -100,6 +100,10 @@ if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\ModSettingsSearchTests\ModSettingsSearchTests.csproj" /p:Configuration=Release
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\ModSettingsSearchTests\bin\ModSettingsSearchTests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe" "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" "%GAME_DIR%" "%PROJECT_DIR%info.json" "%EXTENDER_DIR%"

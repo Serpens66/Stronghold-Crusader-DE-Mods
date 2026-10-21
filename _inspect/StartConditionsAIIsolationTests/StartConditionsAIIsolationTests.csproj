@@ -21,6 +21,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath></Reference>
     <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath></Reference>
@@ -29,6 +30,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\StartConditions\src\AIStartTroopIsolationSaveState.cs"><Link>AIStartTroopIsolationSaveState.cs</Link></Compile>
+    <Compile Include="..\..\StartConditions\src\AIStartTroopRestorePolicy.cs"><Link>AIStartTroopRestorePolicy.cs</Link></Compile>
     <Compile Include="..\..\StartConditions\src\RepairFailureLogState.cs"><Link>RepairFailureLogState.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>

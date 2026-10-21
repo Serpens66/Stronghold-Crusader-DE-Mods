@@ -346,6 +346,14 @@ namespace BugfixesAndQoL
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {
+                VanillaPerformance.VanillaPerformanceFeature.Install(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:353", "BUGFIXES_AND_QOL_VANILLA_PERFORMANCE_DISABLED: Vanilla behavior retained; " + ex);
+            }
+            try
+            {
                 if (damagedHealthBarsRuntime == null)
                     damagedHealthBarsRuntime = DamagedHealthBarsRuntime.Install(context, Logger, Settings);
             }
