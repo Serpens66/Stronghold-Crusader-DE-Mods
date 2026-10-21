@@ -86,7 +86,8 @@ namespace BugfixesAndQoL
             {
                 Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
                 bool isHost = multiplayer?.IsGameMemberHost() == true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:89", $"Post-game lobby handoff armed: host={isHost}, creationRequested={creationRequested}, snapshotReady={snapshot != null}, receivedLobbyId={multiplayer?.CoopContinuationLobbyID ?? 0UL}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:89", $"Post-game lobby handoff armed: host={isHost}, creationRequested={creationRequested}, snapshotReady={snapshot != null}, receivedLobbyId={multiplayer?.CoopContinuationLobbyID ?? 0UL}.");
             }
         }
 
@@ -115,7 +116,8 @@ namespace BugfixesAndQoL
             {
                 Action<string, string, int> chatCallback =
                     MultiplayerLobbyChatCallback.Capture(multiplayer);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:122", $"Creating post-game lobby: trigger={trigger}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:122", $"Creating post-game lobby: trigger={trigger}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
                 multiplayer.CreateLobby(
                     snapshot.GameName,
                     snapshot.MapName,
@@ -243,7 +245,8 @@ namespace BugfixesAndQoL
             snapshot = CaptureLobbySnapshot();
             if (snapshot != null)
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:258", $"Captured multiplayer lobby for post-game return: source={source}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}, mode={mode.ToDiagnosticString()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:258", $"Captured multiplayer lobby for post-game return: source={source}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}, mode={mode.ToDiagnosticString()}.");
             }
             else if (source.StartsWith("session-start", StringComparison.Ordinal))
             {
@@ -315,7 +318,8 @@ namespace BugfixesAndQoL
                 // Use the exact Vanilla Coop transport. SendPacketToAll already excludes self
                 // and AI members, while SendGameData rejects kicked recipients.
                 multiplayer.SendCoopContinuationLobby(created.identifier);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:334", $"Post-game lobby created and announced to connected peers: lobbyId={created.identifier}, steamMembers={created.numLobbyMembers}, eligibleGamePeers={eligiblePeers}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:334", $"Post-game lobby created and announced to connected peers: lobbyId={created.identifier}, steamMembers={created.numLobbyMembers}, eligibleGamePeers={eligiblePeers}.");
             }
             catch (Exception ex)
             {
@@ -346,7 +350,8 @@ namespace BugfixesAndQoL
                 else
                     JoinClientLobby(multiplayer, lobbyId);
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:369", $"Post-game lobby transition started: role={(transitionAsHost ? "host" : "client")}, lobbyId={lobbyId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:369", $"Post-game lobby transition started: role={(transitionAsHost ? "host" : "client")}, lobbyId={lobbyId}.");
                 return true;
             }
             catch (Exception ex)
@@ -447,7 +452,8 @@ namespace BugfixesAndQoL
                     new[] { typeof(FileHeader), typeof(bool) })
                     .Invoke(front, new object[] { header, false });
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:478", $"Post-game host lobby map presentation restored through Vanilla selection: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:478", $"Post-game host lobby map presentation restored through Vanilla selection: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
             }
             catch (Exception ex)
             {
@@ -524,7 +530,8 @@ namespace BugfixesAndQoL
             if (clearContinuationId && Platform_Multiplayer.Instance != null)
                 Platform_Multiplayer.Instance.CoopContinuationLobbyID = 0UL;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:563", $"Post-game lobby handoff state reset: reason={reason}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:563", $"Post-game lobby handoff state reset: reason={reason}.");
         }
 
         private void ClearPendingExit()

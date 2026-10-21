@@ -59,7 +59,8 @@ namespace BugfixesAndQoL
                 throw;
             }
             Refresh();
-            try { Shared.DebugLogHelper.LogDebug(log, "AI_KEEP_RANGE_READY: " + resolution + ", scheme=Indirect, displaced=10; AI-only distance exception."); } catch { }
+            try { if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                      Shared.DebugLogHelper.LogDebug(log, "AI_KEEP_RANGE_READY: " + resolution + ", scheme=Indirect, displaced=10; AI-only distance exception."); } catch { }
         }
 
         internal void SubscribeLifecycle()

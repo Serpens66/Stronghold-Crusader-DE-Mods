@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 $fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedConsumerPackage'
 $previousProof = $env:SHCDE_API_SHARED_RELEASE_PROOF
+$previousProofHash = $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256
+$env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256 = ''
 $previousTest = $env:SHCDE_WORKSHOP_TEST
 $previousDirectory = $env:SHCDE_API_SHARED_DIR
 function Write-SdkFixture([string]$Path, [string]$Text) {
@@ -151,6 +153,7 @@ try {
     Write-Host 'PASS: published SDK reuse, retained provenance, runtime changes, mode/path conflicts and complete file hashes.'
 } finally {
     $env:SHCDE_API_SHARED_RELEASE_PROOF = $previousProof
+    $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256 = $previousProofHash
     $env:SHCDE_WORKSHOP_TEST = $previousTest
     $env:SHCDE_API_SHARED_DIR = $previousDirectory
     if ([IO.Path]::GetFullPath($fixture).StartsWith([IO.Path]::GetTempPath(), [StringComparison]::OrdinalIgnoreCase)) { Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue }

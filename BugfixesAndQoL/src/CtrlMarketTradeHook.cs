@@ -135,8 +135,9 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:138", $"Single market execution entered: player={args.PlayerId}, selling={args.Selling}, " +
-                $"good={(int)args.Good} ({args.Good}), mode={args.ShiftModifier}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:138", $"Single market execution entered: player={args.PlayerId}, selling={args.Selling}, " +
+                    $"good={(int)args.Good} ({args.Good}), mode={args.ShiftModifier}.");
 
             if (!CanExecuteSingleMarketTrade(args.PlayerId, args.Selling, args.Good))
             {
@@ -160,8 +161,9 @@ namespace BugfixesAndQoL
                 resources->N00004513 += (uint)proceeds;
                 marketSellGoldStatistic[args.PlayerId] += proceeds;
                 playerApi.RemoveGood(args.PlayerId, args.Good, 1);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:165", $"Single market sell executed: player={args.PlayerId}, good={(int)args.Good} ({args.Good}), " +
-                    $"proceeds={proceeds}, goldAfter={resources->r_TotalGoodsGold}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:165", $"Single market sell executed: player={args.PlayerId}, good={(int)args.Good} ({args.Good}), " +
+                        $"proceeds={proceeds}, goldAfter={resources->r_TotalGoodsGold}.");
                 return;
             }
 
@@ -175,8 +177,9 @@ namespace BugfixesAndQoL
 
             resources->r_TotalGoodsGold -= cost;
             resources->N00004513 -= (uint)cost;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:184", $"Single market buy executed: player={args.PlayerId}, good={(int)args.Good} ({args.Good}), " +
-                $"cost={cost}, goldAfter={resources->r_TotalGoodsGold}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:184", $"Single market buy executed: player={args.PlayerId}, good={(int)args.Good} ({args.Good}), " +
+                    $"cost={cost}, goldAfter={resources->r_TotalGoodsGold}.");
         }
 
         private void InstallNativeValidator(ReadOnlySpan<byte> memory)
@@ -235,12 +238,13 @@ namespace BugfixesAndQoL
                 sizeof(int) * 9,
                 "AutoMarket sell statistic array");
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Ctrl market native dependencies resolved by instruction patterns: " +
-                $"validatorRva=0x{validator - imageBase:X}, packetTailRva=0x{tail - imageBase:X}, " +
-                $"storageFunctionRva=0x{storageFunction - imageBase:X}, senderRva=0x{sender - imageBase:X}, " +
-                $"sellStatisticRva=0x{statisticRva:X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Ctrl market native dependencies resolved by instruction patterns: " +
+                    $"validatorRva=0x{validator - imageBase:X}, packetTailRva=0x{tail - imageBase:X}, " +
+                    $"storageFunctionRva=0x{storageFunction - imageBase:X}, senderRva=0x{sender - imageBase:X}, " +
+                    $"sellStatisticRva=0x{statisticRva:X}.");
             return validator;
         }
 
@@ -319,9 +323,10 @@ namespace BugfixesAndQoL
             int gold = validPlayer ? playerApi.GetPlayerGold(playerId) : 0;
             int storage = validPlayer && validGood ? GetAvailableGoodStorage(playerId, good) : -1;
             PackedGoodPrice price = validGood ? playerApi.GetTradeBasePrice(good) : default(PackedGoodPrice);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:330", $"Single market validator entered: selling={selling}, mode={tradeMode}, goodValue={goodValue}, " +
-                $"player={playerId}, validPlayer={validPlayer}, good={goodValue} ({good}), validGood={validGood}, " +
-                $"stock={stock}, gold={gold}, storage={storage}, buyPrice={price.BuyPrice}, sellPrice={price.SellPrice}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:330", $"Single market validator entered: selling={selling}, mode={tradeMode}, goodValue={goodValue}, " +
+                    $"player={playerId}, validPlayer={validPlayer}, good={goodValue} ({good}), validGood={validGood}, " +
+                    $"stock={stock}, gold={gold}, storage={storage}, buyPrice={price.BuyPrice}, sellPrice={price.SellPrice}.");
 
             if (!CanExecuteSingleMarketTrade(playerId, selling == 1, good))
             {
@@ -404,7 +409,8 @@ namespace BugfixesAndQoL
         {
             // Vanilla's native Buy/Sell validator queues SFX 26; its managed enum name is a misleading legacy label.
             GameSoundManagerAPI.Instance.PlayUnitySoundEx(VanillaMarketTradeSoundId);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:419", $"Queued Vanilla successful market trade sound ID {VanillaMarketTradeSoundId}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CtrlMarketTradeHook.cs:419", $"Queued Vanilla successful market trade sound ID {VanillaMarketTradeSoundId}.");
         }
 
         private bool CanExecuteSingleMarketTrade(int playerId, bool selling, eGoods good)

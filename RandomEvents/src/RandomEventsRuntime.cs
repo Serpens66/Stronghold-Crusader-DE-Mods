@@ -115,8 +115,9 @@ namespace RandomEvents
                 memory.Length > PeaceTimeActiveFlagRva)
             {
                 peaceTimeActiveFlagAddress = IntPtr.Add(libraryHandle, PeaceTimeActiveFlagRva);
-                Shared.DebugLogHelper.LogDebug(log,
-                    $"Random Events Vanilla Peace Time flag resolved by reference-rva: rva=0x{PeaceTimeActiveFlagRva:X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(log,
+                        $"Random Events Vanilla Peace Time flag resolved by reference-rva: rva=0x{PeaceTimeActiveFlagRva:X}.");
             }
             else
             {
@@ -149,11 +150,15 @@ namespace RandomEvents
             initializationAckPacketSubscription = initializationAckPacketHook.GetBaseHook().Observable
                 .Subscribe(OnInitializationAckPacketReceived);
             networkInitialized = true;
-            LogDebug($"Random Events Chore packets registered eagerly: initialization={initializationChorePacketHook.GetPacketId()}, batch={batchChorePacketHook.GetPacketId()}, signpost={signpostChorePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
-            LogDebug($"Random Events initialization-ACK packet registered eagerly: packetId={initializationAckPacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
-            LogDebug($"Random Events Script Extender binary: {RandomEventsDiagnostics.DescribeScriptExtenderBinary()}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Random Events Chore packets registered eagerly: initialization={initializationChorePacketHook.GetPacketId()}, batch={batchChorePacketHook.GetPacketId()}, signpost={signpostChorePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Random Events initialization-ACK packet registered eagerly: packetId={initializationAckPacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Random Events Script Extender binary: {RandomEventsDiagnostics.DescribeScriptExtenderBinary()}.");
             string serializerTests = RandomEventsDiagnostics.RunSerializerSelfTests(ChoreProtocolVersion);
-            LogDebug($"Random Events Chore serializer self-tests passed: {serializerTests}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Random Events Chore serializer self-tests passed: {serializerTests}.");
         }
 
         public void Initialize()
@@ -358,7 +363,8 @@ namespace RandomEvents
             string gameModeDetails = gameMode.ToDiagnosticString();
             if (!Shared.GameplayModActivationGate.IsAllowed)
             {
-                LogDebug("Random Events disabled by the gameplay-mode gate: " + gameModeDetails);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("Random Events disabled by the gameplay-mode gate: " + gameModeDetails);
                 ResetMapState();
                 return;
             }
@@ -373,7 +379,10 @@ namespace RandomEvents
                 Shared.GameplayFeatureId.RandomEventsRuntime,
                 gameMode))
             {
-                LogDebug("Random Events disabled for map editor session.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("Random Events disabled for map editor session.");
+                }
                 state = null;
                 return;
             }
@@ -385,21 +394,26 @@ namespace RandomEvents
                 state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
                 state.SignpostBuildingIds = new[] { -1, -1, -1, -1 };
                 mapActive = configuration.Enabled;
-                LogInfo($"Random Events save state restored: session={currentSessionId}, mode=singleplayer.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"Random Events save state restored: session={currentSessionId}, mode=singleplayer.");
                 return;
             }
 
             startState.DiscardLoadedState();
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
-                LogDebug("Random Events disabled by the effective map setting.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("Random Events disabled by the effective map setting.");
+                }
                 state = null;
                 return;
             }
 
             state = CreateFreshState(configuration);
             mapActive = true;
-            LogInfo($"Random Events state initialized fresh: session={currentSessionId}, mode=singleplayer.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"Random Events state initialized fresh: session={currentSessionId}, mode=singleplayer.");
         }
 
         private void InitializeMultiplayerMap(string gameModeDetails)
@@ -431,7 +445,8 @@ namespace RandomEvents
                 state = null;
                 startState.DiscardLoadedState();
                 mapActive = false;
-                LogDebug($"Random Events multiplayer client waiting for host initialization Chore. Network details: {gameModeDetails}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Random Events multiplayer client waiting for host initialization Chore. Network details: {gameModeDetails}.");
                 return;
             }
 
@@ -440,7 +455,8 @@ namespace RandomEvents
             {
                 startState.DiscardLoadedState();
                 state = CreateFreshState(configuration);
-                LogInfo($"Random Events state initialized fresh: session={currentSessionId}, mode=multiplayer-host.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"Random Events state initialized fresh: session={currentSessionId}, mode=multiplayer-host.");
             }
             else
             {
@@ -448,14 +464,16 @@ namespace RandomEvents
                 // Revalidate restored native signposts on every peer after the host snapshot arrives.
                 state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
                 state.SignpostBuildingIds = new[] { -1, -1, -1, -1 };
-                LogInfo($"Random Events save state restored: session={currentSessionId}, mode=multiplayer-host.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"Random Events save state restored: session={currentSessionId}, mode=multiplayer-host.");
             }
 
             mapActive = state.EffectiveEnabled;
-            LogDebug(
-                $"Random Events multiplayer host prepared initialization and will wait for startup stability: " +
-                $"minimumElapsedMilliseconds={MultiplayerStartupDelayMilliseconds}, minimumElapsedTicks={MultiplayerStartupMinimumTicks}, " +
-                $"networkDetails={gameModeDetails}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Random Events multiplayer host prepared initialization and will wait for startup stability: " +
+                    $"minimumElapsedMilliseconds={MultiplayerStartupDelayMilliseconds}, minimumElapsedTicks={MultiplayerStartupMinimumTicks}, " +
+                    $"networkDetails={gameModeDetails}.");
         }
 
         private void RetrySignpostInitialization(int tick)
@@ -594,13 +612,14 @@ namespace RandomEvents
                 state.PreparedDirectKinds,
                 state.PreparedDirectStrengths,
                 state.PreparedDirectTargetPlayerIds);
-            LogDebug(
-                $"Random Events batch prepared: mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
-                $"includeAIPlayers={state.IncludeAIPlayers}, dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"actions={directKinds.Count}, targetPlayers=[{string.Join(",", targetPlayerIds)}], " +
-                $"prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
-                $"actionDigest={actionDigest}, actionOrder={RandomEventsDiagnostics.DescribeActions(state.PreparedDirectKinds, state.PreparedDirectStrengths, state.PreparedDirectTargetPlayerIds)}, " +
-                $"stateDigest={RandomEventsDiagnostics.GetStateDigest(state)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Random Events batch prepared: mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
+                    $"includeAIPlayers={state.IncludeAIPlayers}, dueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
+                    $"actions={directKinds.Count}, targetPlayers=[{string.Join(",", targetPlayerIds)}], " +
+                    $"prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
+                    $"actionDigest={actionDigest}, actionOrder={RandomEventsDiagnostics.DescribeActions(state.PreparedDirectKinds, state.PreparedDirectStrengths, state.PreparedDirectTargetPlayerIds)}, " +
+                    $"stateDigest={RandomEventsDiagnostics.GetStateDigest(state)}.");
             return true;
         }
 
@@ -647,10 +666,11 @@ namespace RandomEvents
                 if (!startupDelayLogged)
                 {
                     startupDelayLogged = true;
-                    LogDebug(
-                        $"Random Events multiplayer initialization delayed until the map startup is stable: " +
-                        $"requiredMilliseconds={MultiplayerStartupDelayMilliseconds}, requiredTicks={MultiplayerStartupMinimumTicks}, " +
-                        $"currentTicks={elapsedTicks}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(
+                            $"Random Events multiplayer initialization delayed until the map startup is stable: " +
+                            $"requiredMilliseconds={MultiplayerStartupDelayMilliseconds}, requiredTicks={MultiplayerStartupMinimumTicks}, " +
+                            $"currentTicks={elapsedTicks}.");
                 }
                 return;
             }
@@ -687,12 +707,13 @@ namespace RandomEvents
             int[] expected = GetLivingHumanPlayerIds();
             var missing = new List<int>();
             foreach (int playerId in expected) if (!initializationAcknowledgedPlayerIds.Contains(playerId)) missing.Add(playerId);
-            LogDebug(
-                $"Random Events initialization Chore queued: attempt={initializationAttemptCount}, operationId={initializationOperationId}, " +
-                $"bodyBytes={cachedInitializationBody.Length}, bodySha256={cachedInitializationBodyHash}, cooldownEncoding={cachedInitializationCooldownEncoding}, " +
-                $"includeAIPlayers={state.IncludeAIPlayers}, configurationDigest={RandomEventsDiagnostics.ToHex(state.ConfigurationDigest)}, " +
-                $"stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}, " +
-                $"expectedPlayers=[{string.Join(",", expected)}], missingPlayers=[{string.Join(",", missing)}].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Random Events initialization Chore queued: attempt={initializationAttemptCount}, operationId={initializationOperationId}, " +
+                    $"bodyBytes={cachedInitializationBody.Length}, bodySha256={cachedInitializationBodyHash}, cooldownEncoding={cachedInitializationCooldownEncoding}, " +
+                    $"includeAIPlayers={state.IncludeAIPlayers}, configurationDigest={RandomEventsDiagnostics.ToHex(state.ConfigurationDigest)}, " +
+                    $"stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}, " +
+                    $"expectedPlayers=[{string.Join(",", expected)}], missingPlayers=[{string.Join(",", missing)}].");
             return true;
         }
 
@@ -815,7 +836,8 @@ namespace RandomEvents
             }
 
             lastRandomEventsChoreQueuedTick = queueTick;
-            LogDebug($"Random Events {label} Chore queued: packetId={packetId}, operationId={operationId}, bodyBytes={body.Length}, payloadBytes={sizeof(short) + body.Length}, bodySha256={RandomEventsDiagnostics.HashBytes(body)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Random Events {label} Chore queued: packetId={packetId}, operationId={operationId}, bodyBytes={body.Length}, payloadBytes={sizeof(short) + body.Length}, bodySha256={RandomEventsDiagnostics.HashBytes(body)}.");
             return true;
         }
 
@@ -932,9 +954,10 @@ namespace RandomEvents
                 // a simulation action. Remove this exception only after sender propagation is
                 // verified fixed; revalidate packet sender semantics after every Extender update.
                 initializationAcknowledgedPlayerIds.Add(packet.PlayerId);
-                LogDebug(
-                    $"Random Events initialization ACK accepted: operationId={packet.OperationId}, " +
-                    $"playerId={packet.PlayerId}, stateDigest={RandomEventsDiagnostics.ToHex(packet.StateDigest)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Random Events initialization ACK accepted: operationId={packet.OperationId}, " +
+                        $"playerId={packet.PlayerId}, stateDigest={RandomEventsDiagnostics.ToHex(packet.StateDigest)}.");
                 TryCompleteInitializationHandshake();
             }
             catch (Exception ex)
@@ -963,7 +986,8 @@ namespace RandomEvents
                 {
                     initializationChoreQueued = false;
                     SendInitializationAck();
-                    LogDebug($"Random Events duplicate initialization acknowledged without state replay: operationId={packet.OperationId}, bodySha256={bodyHash}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug($"Random Events duplicate initialization acknowledged without state replay: operationId={packet.OperationId}, bodySha256={bodyHash}.");
                     return;
                 }
                 if (packet.OperationId < acceptedInitializationOperationId)
@@ -1026,16 +1050,18 @@ namespace RandomEvents
                 initializationOperationId = packet.OperationId;
                 initializationStateDigest = stateDigest;
                 SendInitializationAck();
-                LogInfo($"Random Events host state applied: session={currentSessionId}, mode=multiplayer-client.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"Random Events host state applied: session={currentSessionId}, mode=multiplayer-client.");
             }
 
             // Every peer starts from the host's private PRNG state. Signpost placement derives a
             // separate deterministic stream and therefore never perturbs Vanilla's synchronized RNG.
-            LogDebug(
-                $"Random Events initialization Chore executed: operationId={packet.OperationId}, mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
-                $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, prng={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
-                $"actionDigest={RandomEventsDiagnostics.GetActionDigest(state.PreparedDirectKinds, state.PreparedDirectStrengths, state.PreparedDirectTargetPlayerIds)}, " +
-                $"stateDigest={RandomEventsDiagnostics.ToHex(stateDigest)}, bodySha256={bodyHash}, localHandshakeReady={multiplayerInitializationConfirmed}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Random Events initialization Chore executed: operationId={packet.OperationId}, mode={(MultiplayerEventMode)state.MultiplayerMode}, " +
+                    $"nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, prng={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, " +
+                    $"actionDigest={RandomEventsDiagnostics.GetActionDigest(state.PreparedDirectKinds, state.PreparedDirectStrengths, state.PreparedDirectTargetPlayerIds)}, " +
+                    $"stateDigest={RandomEventsDiagnostics.ToHex(stateDigest)}, bodySha256={bodyHash}, localHandshakeReady={multiplayerInitializationConfirmed}.");
         }
 
         private void SendInitializationAck()
@@ -1067,10 +1093,11 @@ namespace RandomEvents
                 // ACKs are control-plane receipts. They deliberately use the ordinary packet path so
                 // they cannot consume another synchronized simulation Chore in the same game tick.
                 GameNetworkAPI.SendPacketToAll(packet, initializationAckPacketHook.GetPacketId());
-                LogDebug(
-                    $"Random Events initialization ACK sent: packetId={initializationAckPacketHook.GetPacketId()}, " +
-                    $"operationId={packet.OperationId}, playerId={packet.PlayerId}, bodyBytes={body.Length}, " +
-                    $"bodySha256={RandomEventsDiagnostics.HashBytes(body)}, stateDigest={RandomEventsDiagnostics.ToHex(packet.StateDigest)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Random Events initialization ACK sent: packetId={initializationAckPacketHook.GetPacketId()}, " +
+                        $"operationId={packet.OperationId}, playerId={packet.PlayerId}, bodyBytes={body.Length}, " +
+                        $"bodySha256={RandomEventsDiagnostics.HashBytes(body)}, stateDigest={RandomEventsDiagnostics.ToHex(packet.StateDigest)}.");
             }
             catch (Exception ex)
             {
@@ -1098,10 +1125,11 @@ namespace RandomEvents
 
             if (missingPlayers.Count != 0)
             {
-                LogDebug(
-                    $"Random Events initialization handshake waiting: operationId={initializationOperationId}, " +
-                    $"acknowledgedPlayers=[{string.Join(",", initializationAcknowledgedPlayerIds)}], " +
-                    $"missingPlayers=[{string.Join(",", missingPlayers)}], stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Random Events initialization handshake waiting: operationId={initializationOperationId}, " +
+                        $"acknowledgedPlayers=[{string.Join(",", initializationAcknowledgedPlayerIds)}], " +
+                        $"missingPlayers=[{string.Join(",", missingPlayers)}], stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}.");
                 return;
             }
 
@@ -1109,10 +1137,11 @@ namespace RandomEvents
             initializationChoreQueued = false;
             lastSignpostAttemptTick = int.MinValue;
             RestoreDeferredPreparedBatch();
-            LogDebug(
-                $"Random Events initialization handshake completed: operationId={initializationOperationId}, " +
-                $"players=[{string.Join(",", expectedPlayers)}], stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}. " +
-                "Signpost and event Chores are now enabled.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Random Events initialization handshake completed: operationId={initializationOperationId}, " +
+                    $"players=[{string.Join(",", expectedPlayers)}], stateDigest={RandomEventsDiagnostics.ToHex(initializationStateDigest)}. " +
+                    "Signpost and event Chores are now enabled.");
         }
 
         private void CaptureDeferredPreparedBatch()
@@ -1138,7 +1167,10 @@ namespace RandomEvents
             state.PreparedDirectStrengths = (int[])deferredPreparedState.PreparedDirectStrengths.Clone();
             state.PreparedDirectTargetPlayerIds = (int[])deferredPreparedState.PreparedDirectTargetPlayerIds.Clone();
             deferredPreparedState = null;
-            LogDebug("Random Events restored one prepared save-game batch after initialization handshake completion.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("Random Events restored one prepared save-game batch after initialization handshake completion.");
+            }
         }
 
         private void ApplySignpostInitializationChore(RandomEventsSignpostChorePacket packet)
@@ -1163,7 +1195,8 @@ namespace RandomEvents
                 return;
 
             bool completed = signpostPlacement.TryInitialize(state);
-            LogDebug($"Random Events signpost initialization Chore executed: operationId={packet.OperationId}, completed={completed}, initialized={state.SignpostsInitialized}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Random Events signpost initialization Chore executed: operationId={packet.OperationId}, completed={completed}, initialized={state.SignpostsInitialized}.");
         }
 
         private void ApplyBatchChore(RandomEventsBatchChorePacket packet)
@@ -1205,12 +1238,13 @@ namespace RandomEvents
             // All direct native mutations run in one Chore callback and in the host-recorded order.
             // FreeBuild_Event executes immediately in this callback, so every peer must invoke it.
             ExecuteDueBatch();
-            LogDebug(
-                $"Random Events batch Chore executed: operationId={packet.OperationId}, actions={packet.EventKinds.Length}, " +
-                $"executedDueAbsoluteMonth={packet.DueAbsoluteMonth}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
-                $"prngBeforePacket={prngBefore}, prngFromPacket={RandomEventsDiagnostics.FormatPrng(packet.PrngState0, packet.PrngState1)}, " +
-                $"prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, actionDigest={RandomEventsDiagnostics.GetActionDigest(packet.EventKinds, packet.EventStrengths, packet.TargetPlayerIds)}, " +
-                $"stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Random Events batch Chore executed: operationId={packet.OperationId}, actions={packet.EventKinds.Length}, " +
+                    $"executedDueAbsoluteMonth={packet.DueAbsoluteMonth}, nextDueAbsoluteMonth={state.NextDueAbsoluteMonth}, " +
+                    $"prngBeforePacket={prngBefore}, prngFromPacket={RandomEventsDiagnostics.FormatPrng(packet.PrngState0, packet.PrngState1)}, " +
+                    $"prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, actionDigest={RandomEventsDiagnostics.GetActionDigest(packet.EventKinds, packet.EventStrengths, packet.TargetPlayerIds)}, " +
+                    $"stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
         }
 
         private bool ValidateActionArrays(RandomEventsBatchChorePacket packet, out string failure)
@@ -1250,12 +1284,14 @@ namespace RandomEvents
                     int targetPlayerId = index < targetPlayerIds.Length ? targetPlayerIds[index] : -1;
                     if (suppressPeaceTimeEvents && RandomEventDefinitions.IsPeaceTimeRestricted(definition.Kind))
                     {
-                        LogDebug($"Random Events action skipped: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, targetPlayerId={targetPlayerId}, reason=Vanilla Peace Time active or unavailable; no cooldown started.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug($"Random Events action skipped: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, targetPlayerId={targetPlayerId}, reason=Vanilla Peace Time active or unavailable; no cooldown started.");
                         continue;
                     }
                     string prngBefore = RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1);
                     string stateDigestBefore = RandomEventsDiagnostics.GetStateDigest(state);
-                    LogDebug($"Random Events action begin: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, prng={prngBefore}, stateDigest={stateDigestBefore}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug($"Random Events action begin: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, prng={prngBefore}, stateDigest={stateDigestBefore}.");
                     if (RandomEventsSignpostPolicy.ShouldSkipEvent(definition, state.SignpostsInitialized))
                     {
                         LogWarning($"Random Events action skipped: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, targetPlayerId={targetPlayerId}, reason=signposts-unavailable; no cooldown started.");
@@ -1269,7 +1305,8 @@ namespace RandomEvents
                     bool effectApplied = DispatchDirectEvent(definition, strength, targetPlayerId);
                     if (!cooldownStartedFromRoll && effectApplied)
                         StartEventCooldown(definition.Kind, targetPlayerId, due);
-                    LogDebug($"Random Events action end: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, effectApplied={effectApplied}, cooldownStartedFromRoll={cooldownStartedFromRoll}, prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug($"Random Events action end: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, effectApplied={effectApplied}, cooldownStartedFromRoll={cooldownStartedFromRoll}, prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
                 }
                 catch (Exception ex)
                 {
@@ -1310,9 +1347,10 @@ namespace RandomEvents
             if (state.MultiplayerMode == (int)MultiplayerEventMode.SharedEvents)
             {
                 state.SharedCooldownUntilAbsoluteMonths[kindIndex] = cooldownUntil;
-                LogDebug(
-                    $"Shared event cooldown started: event={kind}, triggeredAbsoluteMonth={triggeredAbsoluteMonth}, " +
-                    $"cooldownMonths={state.CooldownMonths}, eligibleAbsoluteMonth={cooldownUntil}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Shared event cooldown started: event={kind}, triggeredAbsoluteMonth={triggeredAbsoluteMonth}, " +
+                        $"cooldownMonths={state.CooldownMonths}, eligibleAbsoluteMonth={cooldownUntil}.");
                 return;
             }
 
@@ -1326,10 +1364,11 @@ namespace RandomEvents
 
             int playerEventIndex = targetPlayerId * EventKindCount + kindIndex;
             state.IndividualCooldownUntilAbsoluteMonths[playerEventIndex] = cooldownUntil;
-            LogDebug(
-                $"Individual event cooldown started: event={kind}, targetPlayerId={targetPlayerId}, " +
-                $"triggeredAbsoluteMonth={triggeredAbsoluteMonth}, cooldownMonths={state.CooldownMonths}, " +
-                $"eligibleAbsoluteMonth={cooldownUntil}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Individual event cooldown started: event={kind}, targetPlayerId={targetPlayerId}, " +
+                    $"triggeredAbsoluteMonth={triggeredAbsoluteMonth}, cooldownMonths={state.CooldownMonths}, " +
+                    $"eligibleAbsoluteMonth={cooldownUntil}.");
         }
 
         private byte[] SaveState(SaveContext context)
@@ -1431,10 +1470,11 @@ namespace RandomEvents
                 presentationPlayerId);
             if (suppressLocalPresentation)
             {
-                LogDebug(
-                    $"Local event presentation suppressed: event={definition.Name}, " +
-                    $"targetPlayerId={targetPlayerId}, localPlayerId={presentationPlayerId}, " +
-                    $"multiplayerMode={(MultiplayerEventMode)state.MultiplayerMode}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Local event presentation suppressed: event={definition.Name}, " +
+                        $"targetPlayerId={targetPlayerId}, localPlayerId={presentationPlayerId}, " +
+                        $"multiplayerMode={(MultiplayerEventMode)state.MultiplayerMode}.");
             }
 
             RandomEventsPresentationScope.GetSuppressedCallCounts(
@@ -1451,12 +1491,13 @@ namespace RandomEvents
                     out int presentationCallsAfter,
                     out int actionPointCallsAfter,
                     out int soundEffectCallsAfter);
-                LogDebug(
-                    $"Local event presentation filter completed: event={definition.Name}, " +
-                    $"targetPlayerId={targetPlayerId}, localPlayerId={presentationPlayerId}, applied={applied}, " +
-                    $"presentationCallsSuppressed={presentationCallsAfter - presentationCallsBefore}, " +
-                    $"actionPointCallsSuppressed={actionPointCallsAfter - actionPointCallsBefore}, " +
-                    $"soundEffectCallsSuppressed={soundEffectCallsAfter - soundEffectCallsBefore}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Local event presentation filter completed: event={definition.Name}, " +
+                        $"targetPlayerId={targetPlayerId}, localPlayerId={presentationPlayerId}, applied={applied}, " +
+                        $"presentationCallsSuppressed={presentationCallsAfter - presentationCallsBefore}, " +
+                        $"actionPointCallsSuppressed={actionPointCallsAfter - actionPointCallsBefore}, " +
+                        $"soundEffectCallsSuppressed={soundEffectCallsAfter - soundEffectCallsBefore}.");
             }
             return applied;
         }
@@ -1476,17 +1517,19 @@ namespace RandomEvents
 
             if (!state.IncludeAIPlayers && GamePlayerManagerAPI.Instance.IsAIPlayer(targetPlayerId))
             {
-                LogDebug(
-                    $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
-                    "reason=AI targets are disabled by the effective host setting.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                        "reason=AI targets are disabled by the effective host setting.");
                 return false;
             }
 
             if (!RandomEventsParticipantResolver.TryGetLivingLord(targetPlayerId, out string lordFailure))
             {
-                LogDebug(
-                    $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
-                    $"reason=target player has no living Lord ({lordFailure}).");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Random event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                        $"reason=target player has no living Lord ({lordFailure}).");
                 return false;
             }
 
@@ -1495,14 +1538,16 @@ namespace RandomEvents
                 int factorTenths = strength;
                 int elapsedMonths = GetElapsedMonthsSinceStart();
                 strength = CalculateElapsedScaledUnitCount(elapsedMonths, factorTenths);
-                LogDebug(
-                    $"Elapsed-time strength calculated: event={definition.Name}, elapsedMonths={elapsedMonths}, " +
-                    $"rolledUnitsPerThreeMonths={factorTenths / 10.0:0.0}, totalUnits={strength}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Elapsed-time strength calculated: event={definition.Name}, elapsedMonths={elapsedMonths}, " +
+                        $"rolledUnitsPerThreeMonths={factorTenths / 10.0:0.0}, totalUnits={strength}.");
                 if (strength == 0)
                 {
-                    LogDebug(
-                        $"Random event had no effect: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
-                        "reason=elapsed-time strength rounded down to zero units.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(
+                            $"Random event had no effect: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                            "reason=elapsed-time strength rounded down to zero units.");
                     return false;
                 }
             }
@@ -1529,15 +1574,17 @@ namespace RandomEvents
                         out string detail);
                     if (status == NativeEventDispatchStatus.Applied)
                     {
-                        LogDebug(
-                            $"Native Vanilla event dispatched: event={definition.Name}, actionId={definition.VanillaActionId}, " +
-                            $"strength={strength}, targetPlayerId={targetPlayerId}, detail={detail}");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug(
+                                $"Native Vanilla event dispatched: event={definition.Name}, actionId={definition.VanillaActionId}, " +
+                                $"strength={strength}, targetPlayerId={targetPlayerId}, detail={detail}");
                     }
                     else if (status == NativeEventDispatchStatus.PrerequisiteNotMet)
                     {
-                        LogDebug(
-                            $"Native Vanilla event had no effect: event={definition.Name}, actionId={definition.VanillaActionId}, " +
-                            $"targetPlayerId={targetPlayerId}, detail={detail}");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug(
+                                $"Native Vanilla event had no effect: event={definition.Name}, actionId={definition.VanillaActionId}, " +
+                                $"targetPlayerId={targetPlayerId}, detail={detail}");
                     }
                     else
                     {
@@ -1639,9 +1686,10 @@ namespace RandomEvents
                 string unitDetail = definition.Kind == RandomEventKind.Archers
                     ? $"newUnits={DescribeNewUnits(unitGlobalIdsBefore)}"
                     : "unitCapture=not-requested";
-                LogDebug(
-                    $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
-                    $"strength={strength}, targetPlayerId={targetPlayerId}, {sourceDetail}, result=dispatched, {unitDetail}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Vanilla direct event dispatched: event={definition.Name}, textId={definition.TextId}, " +
+                        $"strength={strength}, targetPlayerId={targetPlayerId}, {sourceDetail}, result=dispatched, {unitDetail}.");
             }
             finally
             {
@@ -1706,9 +1754,10 @@ namespace RandomEvents
                         out int[] participantPlayerIds,
                         out string slotFailure))
                 {
-                    LogDebug(
-                        $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
-                        $"reason={slotFailure}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(
+                            $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
+                            $"reason={slotFailure}.");
                     return false;
                 }
 
@@ -1748,9 +1797,10 @@ namespace RandomEvents
                 List<BanditMoveTarget> moveTargets = FindBanditMoveTargets(targetPlayerId, sourcePathComponent);
                 if (moveTargets.Count == 0)
                 {
-                    LogDebug(
-                        $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
-                        $"reason=no living target building has a free approach tile in path component {sourcePathComponent}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(
+                            $"Bandit event ignored without spawning units: targetPlayerId={targetPlayerId}, " +
+                            $"reason=no living target building has a free approach tile in path component {sourcePathComponent}.");
                     return false;
                 }
 
@@ -1793,9 +1843,10 @@ namespace RandomEvents
 
                 if (spawnedUnits.Count == 0)
                 {
-                    LogDebug(
-                        $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
-                        "reason=no reserved-player-owned maceman could be created.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(
+                            $"Bandit event had no effect: targetPlayerId={targetPlayerId}, " +
+                            "reason=no reserved-player-owned maceman could be created.");
                     return false;
                 }
 
@@ -1855,13 +1906,14 @@ namespace RandomEvents
                         penaltyDetail);
                 }
 
-                LogDebug(
-                    $"Manual bandit event spawned: requestedUnits={requestedUnits}, createdUnits={spawnedUnits.Count}, " +
-                    $"ownerPlayerId={banditOwnerPlayerId}, targetPlayerId={targetPlayerId}, " +
-                    $"groups={scheduledGroups}, signpostBuildingId={signpostTarget.BuildingId}, " +
-                    $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
-                    $"distanceReference={signpostTarget.DistanceReference}, signpostDistance={signpostTarget.Distance:0.00}, " +
-                    $"spawnTile=({spawnTileX},{spawnTileY}), result=applied.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Manual bandit event spawned: requestedUnits={requestedUnits}, createdUnits={spawnedUnits.Count}, " +
+                        $"ownerPlayerId={banditOwnerPlayerId}, targetPlayerId={targetPlayerId}, " +
+                        $"groups={scheduledGroups}, signpostBuildingId={signpostTarget.BuildingId}, " +
+                        $"signpostTile=({signpostTarget.TileX},{signpostTarget.TileY}), " +
+                        $"distanceReference={signpostTarget.DistanceReference}, signpostDistance={signpostTarget.Distance:0.00}, " +
+                        $"spawnTile=({spawnTileX},{spawnTileY}), result=applied.");
                 return true;
             }
             catch (Exception ex)
@@ -2108,10 +2160,11 @@ namespace RandomEvents
                     $"Vanilla rejected MoveHere for bandit tribe {tribeId}.");
             }
 
-            LogDebug(
-                $"Bandit group activated: ownerPlayerId={pending.OwnerPlayerId}, targetPlayerId={pending.TargetPlayerId}, " +
-                $"tribeId={tribeId}, targetBuildingId={target.BuildingId}, targetBuildingType={building->r_BuildingType}, " +
-                $"targetTile=({target.TileX},{target.TileY}), command=MoveHerePosition.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Bandit group activated: ownerPlayerId={pending.OwnerPlayerId}, targetPlayerId={pending.TargetPlayerId}, " +
+                    $"tribeId={tribeId}, targetBuildingId={target.BuildingId}, targetBuildingType={building->r_BuildingType}, " +
+                    $"targetTile=({target.TileX},{target.TileY}), command=MoveHerePosition.");
         }
 
         private static unsafe List<BanditMoveTarget> FindBanditMoveTargets(
@@ -2383,9 +2436,10 @@ namespace RandomEvents
 
             if (farms.Count == 0)
             {
-                LogDebug(
-                    $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, " +
-                    "reason=no alive wheat or hops farm owned by the target player.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Rabbit infestation skipped: targetPlayerId={targetPlayerId}, " +
+                        "reason=no alive wheat or hops farm owned by the target player.");
                 return false;
             }
 
@@ -2516,12 +2570,14 @@ namespace RandomEvents
         {
             if (status == NativeEventDispatchStatus.Applied)
             {
-                LogDebug($"Native Vanilla wildlife event dispatched: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Native Vanilla wildlife event dispatched: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
                 return;
             }
             if (status == NativeEventDispatchStatus.PrerequisiteNotMet)
             {
-                LogDebug($"Native Vanilla wildlife event had no effect: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Native Vanilla wildlife event had no effect: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
                 return;
             }
             LogError($"Native Vanilla wildlife event disabled or failed: event={eventName}, targetPlayerId={targetPlayerId}, {details}.");
@@ -2564,9 +2620,10 @@ namespace RandomEvents
             mapActive = false;
             pendingBanditGroups.Clear();
             state = null;
-            LogDebug(
-                $"Random Events fully disabled: {reason}; no rolls, events, save data, or signposts will be created. " +
-                $"Network details: {details}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Random Events fully disabled: {reason}; no rolls, events, save data, or signposts will be created. " +
+                    $"Network details: {details}.");
         }
 
         // Diagnostics are a startup snapshot; skip the closure and dispatch when they are off.

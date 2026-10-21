@@ -327,8 +327,9 @@ namespace ExtendedData
                         throw new InvalidDataException("Captured Map mod settings exceed the supported payload size.");
                     pendingMapSavePayload = payload;
                     pendingMapSavePath = NormalizePath(path);
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:457", "Captured Map mod settings before save; mentioned=[" +
-                        string.Join(", ", document.Mods.Keys) + "].");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:457", "Captured Map mod settings before save; mentioned=[" +
+                            string.Join(", ", document.Mods.Keys) + "].");
                 }
                 else
                 {
@@ -576,8 +577,9 @@ namespace ExtendedData
             activeMapPath = NormalizePath(selected.filePath);
             activeMapCrc = selected.crc;
             activeJson = json;
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:712", "Applied Map mod settings from [" + selected.filePath + "]; mentioned=[" +
-                string.Join(", ", document.Mods.Keys) + "].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:712", "Applied Map mod settings from [" + selected.filePath + "]; mentioned=[" +
+                    string.Join(", ", document.Mods.Keys) + "].");
             if (missing.Length != 0)
             {
                 ShowMessage(
@@ -644,7 +646,8 @@ namespace ExtendedData
                     apply: false,
                     mapFileName: clearedMapFileName,
                     mapCrc: clearedMapCrc);
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:784", "Cleared Map mod-settings context: " + reason + ".");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:784", "Cleared Map mod-settings context: " + reason + ".");
         }
 
         private void OnMapSettingsPacket(ReceiveCustomPacketEventArgs<MapModSettingsPacket> args)
@@ -776,7 +779,8 @@ namespace ExtendedData
                 dataLength = bytes.Length,
                 dataOffset = 0,
             });
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:916", "Broadcast Map mod-settings " + (apply ? "apply" : "clear") + ".");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/MapModSettingsCoordinator.cs:916", "Broadcast Map mod-settings " + (apply ? "apply" : "clear") + ".");
         }
 
         private void RegisterLobbyObserver()

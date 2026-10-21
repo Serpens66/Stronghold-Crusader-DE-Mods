@@ -80,8 +80,9 @@ namespace BugfixesAndQoL
             }
             else
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:85", $"AI stone-reserve AIV backend: official SHCDE-SE {extenderVersion} API; " +
-                    $"{ShcdeSeCoarseGridBufferWorkaround.Marker} workaround inactive.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:85", $"AI stone-reserve AIV backend: official SHCDE-SE {extenderVersion} API; " +
+                        $"{ShcdeSeCoarseGridBufferWorkaround.Marker} workaround inactive.");
             }
 
             stoneCostResolver = ResolveStoneCost;
@@ -117,11 +118,12 @@ namespace BugfixesAndQoL
 
                 ApplySetting();
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Bugfixes and QoL AI stone-reserve hook installed: method={resolution.Method}, " +
-                    $"patternRva=0x{resolution.Rva:X}, hookRva=0x{hookRva:X}, " +
-                    $"nativeHookActive={reserveHook.IsInstalled}, enabled={IsEnabled}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Bugfixes and QoL AI stone-reserve hook installed: method={resolution.Method}, " +
+                        $"patternRva=0x{resolution.Rva:X}, hookRva=0x{hookRva:X}, " +
+                        $"nativeHookActive={reserveHook.IsInstalled}, enabled={IsEnabled}.");
                 if (!referenceHashMatches)
                 {
                     Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:131", "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller, AIV layout, first-build lifecycle, and typed Script Extender views were validated.");
@@ -255,14 +257,16 @@ namespace BugfixesAndQoL
                     if (!firstCalculationLogged)
                     {
                         firstCalculationLogged = true;
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:266", $"AI stone-reserve first live calculation succeeded: player={playerId}, " +
-                            $"slot={villageSlot}, maximumBuildStep={maximumBuildStep}, reserve={reserve}.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:266", $"AI stone-reserve first live calculation succeeded: player={playerId}, " +
+                                $"slot={villageSlot}, maximumBuildStep={maximumBuildStep}, reserve={reserve}.");
                     }
                     if (reserve > 0 && !firstPositiveReserveLogged)
                     {
                         firstPositiveReserveLogged = true;
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:274", $"AI stone-reserve first positive first-build buffer observed: " +
-                            $"player={playerId}, reserve={reserve}.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:274", $"AI stone-reserve first positive first-build buffer observed: " +
+                                $"player={playerId}, reserve={reserve}.");
                     }
                 }
                 catch (Exception ex)

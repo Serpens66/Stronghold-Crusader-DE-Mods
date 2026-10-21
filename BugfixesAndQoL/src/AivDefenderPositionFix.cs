@@ -66,9 +66,10 @@ namespace BugfixesAndQoL
                     RejectJumpInstructionIndex,
                     1,
                     "AIV defender-position exclusion"));
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"AIV defender-position permanent hook installed: rva=0x{patchRva:X}, displaced={ExpectedDisplacedByteCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AIV defender-position permanent hook installed: rva=0x{patchRva:X}, displaced={ExpectedDisplacedByteCount}.");
         }
 
         public void ApplySetting()

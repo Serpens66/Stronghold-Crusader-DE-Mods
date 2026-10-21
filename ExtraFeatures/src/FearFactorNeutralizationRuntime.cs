@@ -85,10 +85,11 @@ namespace ExtraFeatures
             // Decode through the actual backend before writing either native patch.
             ProbeSpan(imageBase + (ulong)damageResolution.Rva, FearFactorNativeDefinition.DamageHookLength, "damage");
             ProbeSpan(imageBase + (ulong)uiHookRva, FearFactorNativeDefinition.UiHookLength, "UI");
-            Shared.DebugLogHelper.LogDebug(log,
-                $"FEAR_FACTOR_VALIDATED: sha256={FearFactorNativeDefinition.ReferenceSha256}, " +
-                "damageStart=0x180560, damageEnd=0x180571, instructionLengths=3,7,7, " +
-                "uiStart=0x1A19F2, uiEnd=0x1A1A00, instructionLengths=7,7, next=TEST_EAX_EAX.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(log,
+                    $"FEAR_FACTOR_VALIDATED: sha256={FearFactorNativeDefinition.ReferenceSha256}, " +
+                    "damageStart=0x180560, damageEnd=0x180571, instructionLengths=3,7,7, " +
+                    "uiStart=0x1A19F2, uiEnd=0x1A1A00, instructionLengths=7,7, next=TEST_EAX_EAX.");
 
             HookTransaction pending = null;
             IntPtr flag = IntPtr.Zero;
@@ -155,14 +156,15 @@ namespace ExtraFeatures
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"FEAR_FACTOR_NEUTRALIZATION_READY: damageRva=0x{damageResolution.Rva:X}, " +
-                $"actualDamageHookLength={damageHook.Hook.DisplacedByteCount}, " +
-                $"uiHookRva=0x{uiHookRva:X}, actualUiHookLength={unitOverlayHook.Hook.DisplacedByteCount}, " +
-                "scope=allPlayersAndAI, initiallyEnabled=false, " +
-                "nativeStubs=true, editorEnabled=true, " +
-                "fearStateMutation=false, hooksInstalledAtomically=true.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"FEAR_FACTOR_NEUTRALIZATION_READY: damageRva=0x{damageResolution.Rva:X}, " +
+                    $"actualDamageHookLength={damageHook.Hook.DisplacedByteCount}, " +
+                    $"uiHookRva=0x{uiHookRva:X}, actualUiHookLength={unitOverlayHook.Hook.DisplacedByteCount}, " +
+                    "scope=allPlayersAndAI, initiallyEnabled=false, " +
+                    "nativeStubs=true, editorEnabled=true, " +
+                    "fearStateMutation=false, hooksInstalledAtomically=true.");
         }
 
         private static void ProbeSpan(ulong address, int expectedLength, string name)
@@ -186,7 +188,8 @@ namespace ExtraFeatures
                 TryAttachArmyReportViewModel();
                 RefreshArmyReportText();
             }
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/FearFactorNeutralizationRuntime.cs:195", $"FEAR_FACTOR_SETTING: enabled={enabled}, mode={Shared.GameplayModActivationGate.Snapshot.Kind}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/FearFactorNeutralizationRuntime.cs:195", $"FEAR_FACTOR_SETTING: enabled={enabled}, mode={Shared.GameplayModActivationGate.Snapshot.Kind}.");
         }
 
         internal void TryAttachArmyReportViewModel()

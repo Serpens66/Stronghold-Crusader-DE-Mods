@@ -11,8 +11,14 @@ class Program {
  var vm=new BugfixesAndQoLViewModel();
  if(fixOff)vm.EnableEnemyGatePathfindingFix=false;
  GateRoutingFeature.Configure(new BepInEx.Logging.ManualLogSource(),new BepInEx.Configuration.ConfigFile(),vm);
- // The Macemen option exists only in DEVDIAG builds; otherwise only the detail migration can fail.
- Check(Shared.DebugLogHelper.Errors==(!BepInEx.Configuration.ConfigFile.Fail?0:(GateDiagnosticConfiguration.BuildAvailable?2:1)),"config errors are contained and reported");
+ // Normal builds do not read any development diagnostic configuration. The dedicated
+ // build contains both detail migration and Macemen configuration, with isolated errors.
+#if SERP_DEVDIAG
+ const int diagnosticConfigErrors=2;
+#else
+ const int diagnosticConfigErrors=0;
+#endif
+ Check(Shared.DebugLogHelper.Errors==(BepInEx.Configuration.ConfigFile.Fail?diagnosticConfigErrors:0),"config errors are contained and reported");
  GateRoutingFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext(),true);
  if(fixOff)
  {

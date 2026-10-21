@@ -70,9 +70,10 @@ namespace CastlePlanner
                 return null;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:75", "CastlePlanner castle dropdown controller attached; " +
-                $"desiredMaximum={DesiredMaximumHeight:0}, " +
-                $"fallback={SafeFallbackHeight:0}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:75", "CastlePlanner castle dropdown controller attached; " +
+                    $"desiredMaximum={DesiredMaximumHeight:0}, " +
+                    $"fallback={SafeFallbackHeight:0}.");
             return new CastleDropDownHeightController(
                 log,
                 settings,
@@ -132,8 +133,9 @@ namespace CastlePlanner
             bool loaded = settings.EnsureCastleCatalogLoaded();
             EnsurePopupPlacementBelow();
             UpdateDropDownHeight();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:139", $"CastlePlanner {(loaded ? "loaded" : "reused")} the cached AIVJSON catalog when mod settings opened; " +
-                $"count={settings.AvailableFileCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:139", $"CastlePlanner {(loaded ? "loaded" : "reused")} the cached AIVJSON catalog when mod settings opened; " +
+                    $"count={settings.AvailableFileCount}.");
         }
 
         private void EnsurePopupPlacementBelow()
@@ -217,10 +219,11 @@ namespace CastlePlanner
                 return;
 
             lastAppliedHeight = height;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:230", "CastlePlanner castle dropdown height updated from current Noesis " +
-                $"geometry: viewHeight={viewHeight:0.0}, " +
-                $"comboBottom={comboBottom:0.0}, available={availableHeight:0.0}, " +
-                $"applied={height:0.0}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:230", "CastlePlanner castle dropdown height updated from current Noesis " +
+                    $"geometry: viewHeight={viewHeight:0.0}, " +
+                    $"comboBottom={comboBottom:0.0}, available={availableHeight:0.0}, " +
+                    $"applied={height:0.0}.");
         }
 
         private static bool IsFinitePositive(float value)

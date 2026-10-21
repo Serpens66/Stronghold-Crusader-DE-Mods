@@ -100,7 +100,10 @@ namespace ExtraFeatures
                     persistentSaveHook = saveCandidate;
                     PersistentSubscriptions.AddRange(subscriptionCandidates);
                     activeRuntime = this;
-                    LogDebug("Knight transformation persistent Stop/Save/movement/visual infrastructure installed.");
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("Knight transformation persistent Stop/Save/movement/visual infrastructure installed.");
+                    }
                 }
                 catch
                 {
@@ -370,7 +373,10 @@ namespace ExtraFeatures
             if (delaySeconds == 0 && started > 0)
                 UpdatePendingTransformations();
 
-            LogDebug($"Knight transformation pending batch: reason={reason}, action={action}, requested={ordered.Count}, affordable={affordableCount}, started={started}, goldCost={goldCost}, delaySeconds={delaySeconds}.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Knight transformation pending batch: reason={reason}, action={action}, requested={ordered.Count}, affordable={affordableCount}, started={started}, goldCost={goldCost}, delaySeconds={delaySeconds}.");
+            }
         }
 
         private void PlayMissingGoldSpeech()
@@ -463,9 +469,12 @@ namespace ExtraFeatures
 
             if (readyCount > 0 || cancelledCount > 0)
             {
-                LogDebug(
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(
                     $"Knight transformation pending update: examined={examinedCount}, ready={readyCount}, " +
                     $"completed={completedCount}, cancelled={cancelledCount}, remaining={pendingTransformations.Count}.");
+                }
             }
         }
 
@@ -513,9 +522,12 @@ namespace ExtraFeatures
             if (transferSelection)
                 selectedReplacementUnitId = knightUnitId;
 
-            LogDebug(
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
                 $"Knight mount completed: reason={reason}, sourceGlobalId={pending.Snapshot.GlobalId}, " +
                 $"knightUnitId={knightUnitId}, stableId={allocation.StableId}, slot={allocation.Slot}.");
+            }
             return true;
         }
 
@@ -1013,7 +1025,10 @@ namespace ExtraFeatures
 
             int currentTick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
             deferredSaveReadyAfterTick = (long)currentTick + 1L;
-            LogDebug($"Knight transformation save cleanup completed; save deferred until tick {deferredSaveReadyAfterTick}.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Knight transformation save cleanup completed; save deferred until tick {deferredSaveReadyAfterTick}.");
+            }
         }
 
         private void TryCompleteDeferredSave(int currentTick)

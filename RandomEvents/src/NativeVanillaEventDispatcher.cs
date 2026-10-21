@@ -372,7 +372,8 @@ namespace RandomEvents
                 presentationHandler = FilterPresentation;
                 installedDetour.Apply();
                 presentationDetour = installedDetour;
-                LogDebug($"Native event-presentation target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Native event-presentation target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
             }
             catch
             {
@@ -396,10 +397,11 @@ namespace RandomEvents
                     memory,
                     referenceHashMatches);
                 InstallEventSoundFilter(AtRva(libraryHandle, resolution.SoundHandlerRva));
-                LogDebug(
-                    $"Native event-sound target resolved: method={resolution.Method}, " +
-                    $"callsiteRva=0x{resolution.CallsiteRva:X}, managerRva=0x{resolution.SoundManagerRva:X}, " +
-                    $"handlerRva=0x{resolution.SoundHandlerRva:X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Native event-sound target resolved: method={resolution.Method}, " +
+                        $"callsiteRva=0x{resolution.CallsiteRva:X}, managerRva=0x{resolution.SoundManagerRva:X}, " +
+                        $"handlerRva=0x{resolution.SoundHandlerRva:X}.");
             }
             catch (Exception ex)
             {
@@ -436,7 +438,8 @@ namespace RandomEvents
                 soundEffectHandler = FilterSoundEffect;
                 installedDetour.Apply();
                 soundEffectDetour = installedDetour;
-                LogDebug($"Native event-sound target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Native event-sound target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
             }
             catch
             {

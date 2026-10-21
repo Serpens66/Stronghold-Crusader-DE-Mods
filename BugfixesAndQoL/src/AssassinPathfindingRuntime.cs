@@ -178,7 +178,8 @@ namespace BugfixesAndQoL
                 AssassinPathAPI.RegisterWeightedBuilder(BugfixesAndQoLPlugin.PluginGuid, BuildWeightedPath);
                 sharedBuilderRegistered = true;
                 ApplySetting();
-                LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
@@ -1484,7 +1485,8 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
 
             if (validCount <= 0 || validCount > TileCount)
                 throw new InvalidOperationException($"native coordinate map exposed an invalid valid-tile count: {validCount}");
-            LogDebug($"Assassin coordinate map validated for the current map: validCoordinates={validCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin coordinate map validated for the current map: validCoordinates={validCount}.");
         }
 
         private bool EnsureCoordinateTileMappingValidated()
@@ -1591,23 +1593,24 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                 command.ReconstructionTicks + command.PublicationTicks;
             double residualMilliseconds = ToMilliseconds(
                 Math.Max(0L, command.ElapsedTicks - accountedTicks));
-            LogInfo(
-                $"stage=assassin-path-command-summary commandSeq={command.Sequence} " +
-                $"kind={command.Kind} tribe={command.TribeId} commandTarget={command.TargetValue1},{command.TargetValue2} " +
-                $"tick={command.Tick} mapEpoch={command.MapEpoch} " +
-                $"elapsedMs={elapsedMilliseconds:F3} enabled={command.Enabled} " +
-                $"builderCalls={command.BuilderCalls} nativeBuilderMs={ToMilliseconds(command.NativeBuilderTicks):F3} " +
-                $"requestIndexBuilds={command.RequestIndexBuilds} directResolutions={command.DirectResolutions} requestIndexMs={ToMilliseconds(command.RequestIndexTicks):F3} " +
-                $"profileResolveMs={ToMilliseconds(Math.Max(0L, command.ResolutionTicks - command.RequestIndexTicks)):F3} " +
-                $"searches={command.Searches} cacheHits={command.CacheHits} failedSearches={command.FailedSearches} " +
-                $"cacheLookupMs={ToMilliseconds(command.CacheLookupTicks):F3} " +
-                $"expanded={command.ExpandedNodes} heapOps={command.HeapOperations} " +
-                $"searchMs={ToMilliseconds(command.SearchTicks):F3} reconstructionMs={ToMilliseconds(command.ReconstructionTicks):F3} " +
-                $"publicationCalls={command.PublicationCalls} publicationFailures={command.PublicationFailures} " +
-                $"publicationMs={ToMilliseconds(command.PublicationTicks):F3} " +
-                $"groundEdges={command.GroundEdges} climbEdges={command.ClimbEdges} " +
-                $"maxRouteLength={command.MaximumRouteLength} " +
-                $"assassinRequestMs={ToMilliseconds(command.TotalRequestTicks):F3} residualMs={residualMilliseconds:F3}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo(
+                    $"stage=assassin-path-command-summary commandSeq={command.Sequence} " +
+                    $"kind={command.Kind} tribe={command.TribeId} commandTarget={command.TargetValue1},{command.TargetValue2} " +
+                    $"tick={command.Tick} mapEpoch={command.MapEpoch} " +
+                    $"elapsedMs={elapsedMilliseconds:F3} enabled={command.Enabled} " +
+                    $"builderCalls={command.BuilderCalls} nativeBuilderMs={ToMilliseconds(command.NativeBuilderTicks):F3} " +
+                    $"requestIndexBuilds={command.RequestIndexBuilds} directResolutions={command.DirectResolutions} requestIndexMs={ToMilliseconds(command.RequestIndexTicks):F3} " +
+                    $"profileResolveMs={ToMilliseconds(Math.Max(0L, command.ResolutionTicks - command.RequestIndexTicks)):F3} " +
+                    $"searches={command.Searches} cacheHits={command.CacheHits} failedSearches={command.FailedSearches} " +
+                    $"cacheLookupMs={ToMilliseconds(command.CacheLookupTicks):F3} " +
+                    $"expanded={command.ExpandedNodes} heapOps={command.HeapOperations} " +
+                    $"searchMs={ToMilliseconds(command.SearchTicks):F3} reconstructionMs={ToMilliseconds(command.ReconstructionTicks):F3} " +
+                    $"publicationCalls={command.PublicationCalls} publicationFailures={command.PublicationFailures} " +
+                    $"publicationMs={ToMilliseconds(command.PublicationTicks):F3} " +
+                    $"groundEdges={command.GroundEdges} climbEdges={command.ClimbEdges} " +
+                    $"maxRouteLength={command.MaximumRouteLength} " +
+                    $"assassinRequestMs={ToMilliseconds(command.TotalRequestTicks):F3} residualMs={residualMilliseconds:F3}.");
 
             if (DetailedDiagnosticsEnabled)
             {

@@ -52,7 +52,8 @@ namespace ExtendedData
                     : Interlocked.Exchange(ref uploadPageVerificationLogged, 1) == 0;
                 if (firstSuccess)
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/LordUpload/CustomLordPopupPatchVerifier.cs:55", description + " XAML patch matched exactly once.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/LordUpload/CustomLordPopupPatchVerifier.cs:55", description + " XAML patch matched exactly once.");
                 }
             }
             else

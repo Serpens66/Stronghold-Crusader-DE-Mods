@@ -6947,6 +6947,7 @@ namespace Shared
 {
     internal static class DebugLogHelper
     {
+        public static bool DiagnosticsEnabled => false;
         public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { }
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }

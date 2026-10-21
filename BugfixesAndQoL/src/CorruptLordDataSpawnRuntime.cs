@@ -70,10 +70,11 @@ namespace BugfixesAndQoL
                 // editor has no equivalent gameplay-spawn contract.
                 sessionEligible = notification.Context.StartKind == MissionStartKind.NewGame;
                 mapActive = true;
-                Shared.DebugLogHelper.LogDebug(log,
-                    $"Corrupt Lord-data spawn fix session armed: session={notification.Context.SessionId}, " +
-                    $"eligible={sessionEligible}, phase={notification.Phase}, " +
-                    $"startKind={notification.Context.StartKind}, mode={notification.Context.Mode.Kind}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(log,
+                        $"Corrupt Lord-data spawn fix session armed: session={notification.Context.SessionId}, " +
+                        $"eligible={sessionEligible}, phase={notification.Phase}, " +
+                        $"startKind={notification.Context.StartKind}, mode={notification.Context.Mode.Kind}.");
             }
             catch (Exception ex)
             {
@@ -248,10 +249,11 @@ namespace BugfixesAndQoL
                 return;
 
             sessionState.MarkConfirmed(playerId);
-            Shared.DebugLogHelper.LogDebug(log,
-                $"Vanilla Lord spawn confirmed after corrupt-data repair: session={sessionState.SessionId}, " +
-                $"player={playerId}, unit/global={lordUnitId}/{lordGlobalId}, " +
-                $"observationTick={observationTick}, simulationTick={simulationTick}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(log,
+                    $"Vanilla Lord spawn confirmed after corrupt-data repair: session={sessionState.SessionId}, " +
+                    $"player={playerId}, unit/global={lordUnitId}/{lordGlobalId}, " +
+                    $"observationTick={observationTick}, simulationTick={simulationTick}.");
         }
 
         private void LogOutstandingConfirmations(int simulationTick)

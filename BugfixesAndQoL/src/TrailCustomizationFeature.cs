@@ -268,7 +268,8 @@ namespace BugfixesAndQoL
                 trailMaker: false,
                 customiseTrailType: -1,
                 customiseTrailID: -1);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:273", $"Opened standalone Custom Trail setup [{menus.CustomTrailName}] mission {missionId}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:273", $"Opened standalone Custom Trail setup [{menus.CustomTrailName}] mission {missionId}.");
         }
 
         private void EnsureCoopButtons()
@@ -428,7 +429,8 @@ namespace BugfixesAndQoL
             if (trailId == 1) MainViewModel.Instance.Show_CoopTrail2 = false;
             if (trailId == 2) MainViewModel.Instance.Show_CoopTrail3 = false;
             if (trailId == 3) MainViewModel.Instance.Show_CoopTrail4 = false;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:435", $"Opened standalone Coop Trail setup trail={trailId + 1}, mission={missionId}, source={source}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationFeature.cs:435", $"Opened standalone Coop Trail setup trail={trailId + 1}, mission={missionId}, source={source}.");
         }
 
         private void Broadcast(int trailId, int missionId, bool launch)

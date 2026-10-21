@@ -124,7 +124,7 @@ namespace Shared
         public static void BeforeLoad() => MissionEvents.Initialization.Emit(new MissionInitializationArgs { Phase = APIShared.MissionInitializationPhase.BeforeLoad });
     }
     public static class DebugLogHelper
-    {
+    { public static bool DiagnosticsEnabled => true;
         public static int Warnings, Errors, Factories; public static bool FailDebug;
         public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log, string site, System.Func<string> text) { LogDebug(log, text); } public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { if (FailDebug) { Factories++; throw new Exception("listener failure"); } }
         public static void LogWarningLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogWarning(log, System.String.Concat(parts)); } public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { Warnings++; }

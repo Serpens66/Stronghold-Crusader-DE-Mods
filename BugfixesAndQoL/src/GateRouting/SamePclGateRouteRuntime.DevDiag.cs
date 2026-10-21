@@ -57,7 +57,7 @@ namespace BugfixesAndQoL.GateRouting
         partial void DiagBuildingContext(BuildingSearchPlayerContext context)
         {
             try { attackOrderDiagnostics?.ObserveBuildingContext(context); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
         }
 
         partial void DiagBuildingException(int rawSearchArgument, int tribeId, Exception error)
@@ -70,11 +70,11 @@ namespace BugfixesAndQoL.GateRouting
         {
             MacemenDiagnostics?.BeginSearch(playerId, (int)kind);
             try { attackOrderDiagnostics?.BeginNativeSearch(kind.ToString(), playerId); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
             if (kind == EnemyGateSearchKind.Builder)
             {
                 try { attackOrderDiagnostics?.BeginBuilder(); }
-                catch { Interlocked.Increment(ref exceptions); }
+                catch { CountIntegrityError(ref exceptions); }
             }
         }
 
@@ -84,39 +84,39 @@ namespace BugfixesAndQoL.GateRouting
             MacemenDiagnostics?.EndSearch(completed, success, touched);
             if (kind != EnemyGateSearchKind.Builder) return;
             try { attackOrderDiagnostics?.ObserveBuilder(playerId, diagnostic, completed, success, touched, fingerprint); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
         }
 
         partial void DiagEndNativeSearch(EnemyGateSearchKind kind, bool completed, bool success)
         {
             try { attackOrderDiagnostics?.EndNativeSearch(kind.ToString(), completed, success); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
         }
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
         partial void DiagBeginAlternateConsumer(int player)
         {
             try { attackOrderDiagnostics?.BeginNativeSearch("AlternateBuildingConsumer", player); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
         }
 
         partial void DiagEndAlternateConsumer(bool completed)
         {
             try { attackOrderDiagnostics?.EndNativeSearch("AlternateBuildingConsumer", completed, false); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
         }
 
         partial void DiagScopeMismatch(string source, int nativePlayer, int tribePlayer)
         {
             try { attackOrderDiagnostics?.ObserveScopeMismatch(source, nativePlayer, tribePlayer); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
         }
 
         partial void DiagScopeResult(int playerId, QueryKind kind, bool hasResultContract, bool completed, bool success, long touched)
         {
             if (kind == QueryKind.CursorPreview) return;
             try { attackOrderDiagnostics?.ObserveScopeResult(playerId, kind.ToString(), hasResultContract, completed, success, touched); }
-            catch { Interlocked.Increment(ref exceptions); }
+            catch { CountIntegrityError(ref exceptions); }
         }
     }
 }

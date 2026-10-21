@@ -1875,11 +1875,18 @@ namespace BugfixesAndQoL
                 if (!marketGoodsVisualsResolvedLogged)
                 {
                     marketGoodsVisualsResolvedLogged = true;
-                    Shared.DebugLogHelper.LogDebug(
-                        marketGoodsLog,
-                        () =>
-                            $"Bugfixes and QoL market-goods visuals resolved: icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
-                            $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}, gameSprites={spriteCount}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    {
+                        // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                        var diagnosticResolvedIconCount = @resolvedIconCount;
+                        var diagnosticResolvedNameCount = @resolvedNameCount;
+                        var diagnosticSpriteCount = @spriteCount;
+                        Shared.DebugLogHelper.LogDebug(
+                            marketGoodsLog,
+                            () =>
+                                $"Bugfixes and QoL market-goods visuals resolved: icons={diagnosticResolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
+                                $"localizedNames={diagnosticResolvedNameCount}/{MarketGoodsOrderDefinition.Count}, gameSprites={diagnosticSpriteCount}.");
+                    }
                 }
 
                 return;
@@ -1903,14 +1910,23 @@ namespace BugfixesAndQoL
                 return;
 
             marketGoodsVisualsDeferredLogged = true;
-            Shared.DebugLogHelper.LogDebug(
-                marketGoodsLog,
-                () =>
-                    $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
-                    $"mainViewModelReady={mainViewModelReady}, gameSprites={spriteCount}, " +
-                    $"icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
-                    $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}" +
-                    (string.IsNullOrEmpty(detail) ? "." : $", detail={detail}."));
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticMainViewModelReady = @mainViewModelReady;
+                var diagnosticSpriteCountValue = @spriteCount;
+                var diagnosticResolvedIconCountValue = @resolvedIconCount;
+                var diagnosticResolvedNameCountValue = @resolvedNameCount;
+                var diagnosticDetail = @detail;
+                Shared.DebugLogHelper.LogDebug(
+                    marketGoodsLog,
+                    () =>
+                        $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
+                        $"mainViewModelReady={diagnosticMainViewModelReady}, gameSprites={diagnosticSpriteCountValue}, " +
+                        $"icons={diagnosticResolvedIconCountValue}/{MarketGoodsOrderDefinition.Count}, " +
+                        $"localizedNames={diagnosticResolvedNameCountValue}/{MarketGoodsOrderDefinition.Count}" +
+                        (string.IsNullOrEmpty(diagnosticDetail) ? "." : $", detail={diagnosticDetail}."));
+            }
         }
 
         private void MoveMarketGood(int good, int direction)

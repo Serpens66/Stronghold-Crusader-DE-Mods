@@ -536,9 +536,10 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.AreaRemovalHeightLength,
                     "area moat-removal height");
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:543", $"Extra Features elevated-moat hooks installed (logically disabled until enabled); editor=true, " +
-                    $"adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
-                    $"healthReportInterval={ElevatedMoatHealthReporting.ReportInterval} corrections.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:543", $"Extra Features elevated-moat hooks installed (logically disabled until enabled); editor=true, " +
+                        $"adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
+                        $"healthReportInterval={ElevatedMoatHealthReporting.ReportInterval} corrections.");
 
                 transaction = pending;
                 pending = null;
@@ -815,9 +816,10 @@ namespace ExtraFeatures
             if (!ElevatedMoatHealthReporting.ShouldReport(total))
                 return;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:824", $"Extra Features elevated-moat healthy: corrections={total}, " +
-                $"completed={Interlocked.Read(ref completedHeightCorrections)}, " +
-                $"restored={Interlocked.Read(ref restoredHeightCorrections)}, errors=0.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:824", $"Extra Features elevated-moat healthy: corrections={total}, " +
+                    $"completed={Interlocked.Read(ref completedHeightCorrections)}, " +
+                    $"restored={Interlocked.Read(ref restoredHeightCorrections)}, errors=0.");
         }
 
         private static bool IsValidTileId(long tileId) =>

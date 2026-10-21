@@ -118,7 +118,7 @@ namespace Noesis {
 namespace UnityEngine {public class Camera {}}
 namespace Shared {
     public static class UnityMainThreadDispatch {public static bool TryRunInlineOrEnqueue(Action action){action();return true;}}
-    public static class DebugLogHelper {public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string t){}public static void LogErrorLimited(object l, string site, params object[] parts) { LogError(l, System.String.Concat(parts)); } public static void LogError(object l,string t){throw new Exception(t);}}
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string t){}public static void LogErrorLimited(object l, string site, params object[] parts) { LogError(l, System.String.Concat(parts)); } public static void LogError(object l,string t){throw new Exception(t);}}
 }
 namespace BugfixesAndQoL {
     using Noesis;using UnityEngine;

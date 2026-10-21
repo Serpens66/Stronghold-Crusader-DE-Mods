@@ -72,9 +72,9 @@ Alle Eingriffe sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode
 ### V9 – Script-Extender-Event ohne Allokation (`InterpolateEventReuse`)
 
 - **Problem:** Der Extender (2.14.3) erzeugt vor `GameMap.interpChimp` für jede Einheit und jeden Frame ein neues `UnitUnityVisualInterpolateEventArgs`. Das sind ~450 000 Objekte bzw. 10–14 MB pro Sekunde, die größte Allokationsquelle im Spiel.
-- **Lösung:** Ein Transpiler auf die Extender-Methode verwendet ein Objekt wieder. Verschachtelte Aufrufe und andere Threads allokieren wie bisher. Bei unerwartetem Code wird das Feature nicht aktiviert (fail-closed). Alle bekannten Abonnenten lesen das Objekt nur synchron.
-- **Wirkung:** Allokation in `lerpChimps` sinkt auf ~1–3 MB/s, weniger GC-Spitzen.
-- **Hinweis:** Das korrigiert den Extender und liegt deshalb in APIShared. Dort wird das Objekt nur wiederverwendet, solange jeder Abonnent per IL-Analyse nachweislich nur synchron liest (`TransientObserverGate`); sonst bleibt die Allokation des Extenders.
+- **Lösung:** APIShared verwendet für nachweislich rein lesende Empfänger ein internes Objekt wieder. Unmittelbar vor dem ersten unbekannten oder speichernden Empfänger wird für diese Auslieferung ein frisches Objekt erzeugt; alle folgenden Empfänger erhalten dasselbe frische Objekt. Verschachtelte Hook-Aufrufe und andere Threads allokieren wie bisher. Unbekannte Codeverträge verhindern die Aktivierung.
+- **Bisher gemessene Wirkung:** Allokation in `lerpChimps` sank mit der früheren Implementierung auf ~1–3 MB/s, mit weniger GC-Spitzen. Die Zahlen sind historische Messungen, keine Messung der überarbeiteten Absicherung.
+- **Absicherung, Quellstand 21.10.2026:** Die frühere Prüfung über `TransientObserverGate` konnte kurzzeitig hinzugekommene und wieder entfernte Abonnenten übersehen. Sie wird durch eine Prüfung direkt am tatsächlich aufgerufenen Empfänger ersetzt. R3-Auslieferung läuft als private Kopie des geprüften Originals; `Subject<T>.OnNext` und andere R3-Events werden nicht gepatcht. Die Freigabe erfolgt mit `finally`, ohne zusätzlichen Render-Callback. Build, Regressionstest-Ausführung und erneute Ingame-/Performancemessung dieser Fassung stehen noch aus.
 
 ### V7 – TeamColour-Sheets auf gemeinsame Seiten (`SheetMerge`)
 

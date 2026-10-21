@@ -488,7 +488,8 @@ namespace BugfixesAndQoL
             if (!firstRefreshLogged)
             {
                 firstRefreshLogged = true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomLordListEnhancementHook.cs:497", $"Bugfixes and QoL custom-lord list refreshed. enabled={active}, entries={rows.Count}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomLordListEnhancementHook.cs:497", $"Bugfixes and QoL custom-lord list refreshed. enabled={active}, entries={rows.Count}");
             }
         }
 

@@ -120,7 +120,8 @@ namespace BugfixesAndQoL.GateRouting
             if(runtime==null)return;
             ruleErrors.Clear();ruleErrorCount=0;accessMemo.Clear();runtime.BeginMap(editor);active=true;
 #if SERP_DEVDIAG
-            Shared.DebugLogHelper.LogInfo(log,"TEMP_GATE_MIGRATION_DIAGNOSTICS provider=BugfixesAndQoL; nativeOwner=APIShared; hostFix="+ownRule+"; DetailedDiagnostics="+detailed+"; MacemenDiagnostics="+macemen+"; accessRulesVersion="+rulesVersion);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogInfo(log,"TEMP_GATE_MIGRATION_DIAGNOSTICS provider=BugfixesAndQoL; nativeOwner=APIShared; hostFix="+ownRule+"; DetailedDiagnostics="+detailed+"; MacemenDiagnostics="+macemen+"; accessRulesVersion="+rulesVersion);
 #endif
         }
         // Caller holds StateGate. One attempt per process; a failure leaves Vanilla and other features active.

@@ -267,7 +267,8 @@ namespace ExtraFeatures
             transformationPacketHook = packetHookCandidate;
             transformationPacketSubscription = packetSubscriptionCandidate;
             networkInitialized = true;
-            LogDebug($"Knight transformation synchronization registered: protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Knight transformation synchronization registered: protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void Initialize()
@@ -898,7 +899,8 @@ namespace ExtraFeatures
 
                 StartPendingBatch(packet.PlayerId, packet.Action, snapshots, localAction, "multiplayer-chore");
 
-                LogDebug($"Knight transformation started: action={packet.Action}, unitCount={snapshots.Count}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Knight transformation started: action={packet.Action}, unitCount={snapshots.Count}.");
             }
             catch (Exception ex)
             {
@@ -1161,9 +1163,10 @@ namespace ExtraFeatures
             if (transferSelection)
                 selectedReplacementUnitId = swordsmanUnitId;
 
-            LogDebug(
-                $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +
-                $"swordsmanUnitId={swordsmanUnitId}, linkedHorseConsumed={consumedHorse.IsActive}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +
+                    $"swordsmanUnitId={swordsmanUnitId}, linkedHorseConsumed={consumedHorse.IsActive}.");
             return true;
         }
 
@@ -1272,10 +1275,11 @@ namespace ExtraFeatures
         {
             if (!unitLimitBridge.ArmReservation(limitReservationId))
             {
-                LogDebug(
-                    $"Knight {label} stopped because its UnitLimit reservation is no longer valid: " +
-                    $"reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, " +
-                    $"reservationId={limitReservationId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Knight {label} stopped because its UnitLimit reservation is no longer valid: " +
+                        $"reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, " +
+                        $"reservationId={limitReservationId}.");
                 return -1;
             }
 

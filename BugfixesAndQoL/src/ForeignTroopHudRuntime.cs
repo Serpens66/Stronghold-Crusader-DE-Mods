@@ -90,7 +90,8 @@ namespace BugfixesAndQoL
             lastSpectatorSelectionKey = null;
             lastCameraErrorKey = null;
             lastHealthErrorKey = null;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:91", () => "FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:91", () => "FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
         private static void OnSessionEnded(MissionLifecycleNotification notification)
@@ -327,9 +328,10 @@ namespace BugfixesAndQoL
                 if (selectionKey != lastSpectatorSelectionKey)
                 {
                     lastSpectatorSelectionKey = selectionKey;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:324", "FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
-                        ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
-                        ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units, selection));
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:324", "FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
+                            ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
+                            ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units, selection));
                 }
             }
             else lastSpectatorSelectionKey = null;

@@ -3,19 +3,31 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.15",
+  "Version": "1.0.16",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.1"
+      "MinimumVersion": "0.12.3"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.16",
+      "Changes": [
+        "Retain active Map, Trail and Savegame mod settings, author rules, source attribution and locks across confirmed restarts; discard abandoned session state.",
+        "Use APIShared mission-settings, mod-data and load/save requester services while preserving Lord readiness checks and editor save choices.",
+        "Start packaged Coop missions with their custom AI castle and behaviour data without requiring BugfixesAndQoL.",
+        "Preserve packaged Lord requirements and sidecar data when re-saving or exporting Custom and Coop Trails; report missing or conflicting mission assets explicitly.",
+        "Allow supported current-setting recovery when a save contains an unreadable APIShared settings record.",
+        "Avoid disabled synchronization and settings-log preparation and cache repeated failure hashes.",
+        "Require APIShared 0.12.3 or newer."
+      ]
+    },
     { "Version": "1.0.15", "Changes": ["Use the APIShared load/save requester service while retaining Lord readiness checks and editor save options."] },
     {
       "Version": "1.0.14",

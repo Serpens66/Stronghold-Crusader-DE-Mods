@@ -932,7 +932,8 @@ namespace BugfixesAndQoL
             nextRejectionCleanupTick = 0;
         }
 
-        private void Info(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, value); } catch { } }
+        private void Info(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                                                                                                                                                                    Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, value); } catch { } }
         private void Warn(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, value); } catch { } }
         private sealed class AttackCandidateCapture
         {

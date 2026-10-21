@@ -60,10 +60,11 @@ namespace BugfixesAndQoL
                 transaction = pending;
                 published = true;
                 Volatile.Write(ref enabled, 1);
-                Shared.DebugLogHelper.LogDebug(log,
-                    $"AI_RAID_HOOK: method=reference-rva,rva=0x{SiteRva:X}," +
-                    $"address=0x{module + SiteRva:X},displaced={SpanLength},continuation=0x{module + SiteRva + SpanLength:X}," +
-                    "backend=X64InlineHook,observer=readOnly,classification=authoritative.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(log,
+                        $"AI_RAID_HOOK: method=reference-rva,rva=0x{SiteRva:X}," +
+                        $"address=0x{module + SiteRva:X},displaced={SpanLength},continuation=0x{module + SiteRva + SpanLength:X}," +
+                        "backend=X64InlineHook,observer=readOnly,classification=authoritative.");
             }
             catch (Exception ex)
             {

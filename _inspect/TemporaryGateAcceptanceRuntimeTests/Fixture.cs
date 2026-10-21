@@ -8,14 +8,15 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using BugfixesAndQoL.GateRouting;
 using BugfixesAndQoL.UnitCommands;
-namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }
+namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } public void LogMessage(object message) => Shared.DebugLogHelper.Lines.Add(message.ToString()); } }
 namespace BepInEx.Bootstrap { public static class Chainloader { public static readonly Dictionary<string, object> PluginInfos=new Dictionary<string, object>(); } }
 namespace Shared { internal static class DebugLogHelper {
+    internal static bool DiagnosticsEnabled => true;
     internal static readonly List<string> Lines = new List<string>();
     internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) => Lines.Add(text);
 }
 // Shared.DevDiag is the real Shared/Runtime/Diagnostics/DevDiag.cs (see Program.cs files): this
-// compilation has no SERP_DEVDIAG symbol, so measurement calls in extracted methods are removed.
+// fixture opts into SERP_DEVDIAG to execute the retained diagnostic producers.
 }
 namespace SHCDESE.Interop.Enums {
     public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused }
@@ -103,7 +104,7 @@ namespace BugfixesAndQoL.GateRouting {
     internal class ActualStandaloneBuildings {
         private enum QueryKind {BuildingApproach,AlternateBuildingApproach}
         private struct QueryScope { }
-        private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions;
+        private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions,integrityRevision;
         private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics=new AttackOrderCorrelationDiagnostics();
         private MacemenCommandDiagnostics MacemenDiagnostics;
         private enum EnemyGateSearchKind { BuildingApproach, BuildingConsumer }

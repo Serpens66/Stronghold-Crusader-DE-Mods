@@ -72,10 +72,11 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("the Assassin post-combat path-context hook was not activated");
 
                 transaction = installedTransaction;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"installed Assassin post-combat path-context hook at RVA " +
-                    $"0x{AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva:X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"installed Assassin post-combat path-context hook at RVA " +
+                        $"0x{AssassinCombatResumeNativeDefinition.PostCombatPathContextHookRva:X}.");
             }
             catch
             {

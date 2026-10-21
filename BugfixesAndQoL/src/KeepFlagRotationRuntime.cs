@@ -73,9 +73,10 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Keep-flag rotation fix installed; scanDelayTicks={NewMapScanDelayTicks}, modeFilter=new-map-only.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Keep-flag rotation fix installed; scanDelayTicks={NewMapScanDelayTicks}, modeFilter=new-map-only.");
         }
 
         private bool Enabled => newMapActive && settings.EnableMod && settings.EnableKeepFlagRotationFix;
@@ -376,11 +377,12 @@ namespace BugfixesAndQoL
                 correctedAfterStart++;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/KeepFlagRotationRuntime.cs:381", $"Keep-flag rotation summary: session={sessionNumber}, tick={tick}, enabled={Enabled}, " +
-                $"captured={capturedCount}, correctedBeforeSpawn={correctedBeforeSpawnCount}, " +
-                $"alreadyCorrectBeforeSpawn={alreadyCorrectBeforeSpawnCount}, keeps={keeps}, " +
-                $"correctedAfterStart={correctedAfterStart}, verified={verified}, " +
-                $"rejected={rejectedCount + delayedRejected}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/KeepFlagRotationRuntime.cs:381", $"Keep-flag rotation summary: session={sessionNumber}, tick={tick}, enabled={Enabled}, " +
+                    $"captured={capturedCount}, correctedBeforeSpawn={correctedBeforeSpawnCount}, " +
+                    $"alreadyCorrectBeforeSpawn={alreadyCorrectBeforeSpawnCount}, keeps={keeps}, " +
+                    $"correctedAfterStart={correctedAfterStart}, verified={verified}, " +
+                    $"rejected={rejectedCount + delayedRejected}.");
         }
 
         private LoadedFlagMatch FindLoadedMainFlag(

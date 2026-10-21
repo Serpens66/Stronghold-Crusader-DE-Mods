@@ -66,6 +66,7 @@ namespace Shared
 {
     public static class DebugLogHelper
     {
+        public static bool DiagnosticsEnabled => false;
         public static int Warnings;
         public static void LogWarningLimited(object log, string key, string message) { Warnings++; }
         // Any caught failure in the host must fail this harness, not disappear into a log double.

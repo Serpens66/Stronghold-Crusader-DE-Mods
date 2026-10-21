@@ -7,7 +7,7 @@ function Get-ModpackCoordinator([string]$Workspace) {
 function Get-ModpackBranchChoice([string]$Branch,[string]$Selection) {
     if($Branch){if($Branch -notin @('main','develop')){throw 'Unsupported modpack branch.'};return $Branch}
     if(-not $Selection){
-        Write-Host "Modpack-Branch (APIShared bleibt veroeffentlichtes 0.9.2):`r`n1. main - oeffentlicher Release`r`n2. develop - privates Testpaket`r`n0. Abbrechen"
+        Write-Host "Modpack-Branch (APIShared aus geprueftem main-Release):`r`n1. main - oeffentlicher Release`r`n2. develop - privates Testpaket`r`n0. Abbrechen"
         $Selection=Read-Host 'Modpack-Branch'
     }
     switch($Selection){'1'{return 'main'} '2'{return 'develop'} '0'{return 'Cancel'} default{throw 'Invalid modpack branch selection.'}}
@@ -61,6 +61,20 @@ function Get-PreparedModpackSource([string]$Workspace,[bool]$Test,[string]$Branc
     $root=Assert-ModpackSource $Workspace $source
     Assert-ModpackPreparedOutputs $root $source.GeneratedOutputs
     return $source
+}
+
+# Upload consumes a preparation, never a newly selected release/SDK. Historical released
+# packages remain uploadable through their own immutable PublishedRelease proof.
+function Get-PreparedModpackUploadSource([string]$Workspace,[bool]$Test,[string]$Branch) {
+    $path=Join-Path (Get-ModpackStateRoot $Workspace $Test) 'prepared/SerpsMods.json'
+    if(-not(Test-Path -LiteralPath $path)){throw 'Prepare the modpack before uploading.'}
+    $proof=[IO.File]::ReadAllText($path)|ConvertFrom-Json
+    if($proof.Mode -cne $(if($Test){'Test'}else{'Production'})){throw 'Prepared modpack mode mismatch.'}
+    if($proof.PSObject.Properties['ModpackSource']){return Get-PreparedModpackSource $Workspace $Test $Branch}
+    if(-not $proof.PSObject.Properties['PublishedRelease'] -or ($Branch -and $Branch -cne 'main')){
+        throw 'Prepared modpack has no matching source or historical release proof.'
+    }
+    return Resolve-ModpackSource $Workspace 'main' -AllowGeneratedOutputs
 }
 
 # The host driver refreshes tracked output after the source commit. Freeze only these

@@ -10,7 +10,7 @@ using NoesisApp;
 using CrusaderDE;
 
 namespace BepInEx.Logging { public sealed class ManualLogSource { } }
-namespace Shared { public static class DebugLogHelper {
+namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
  public static readonly List<string> Errors = new List<string>();
  public static void LogDebug(object a,string b) { }
  public static void LogError(object a,string b) { Errors.Add(b); }

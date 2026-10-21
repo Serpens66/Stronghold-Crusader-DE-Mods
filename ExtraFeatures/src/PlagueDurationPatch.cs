@@ -171,10 +171,11 @@ namespace ExtraFeatures
                     }
                 }
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Extra Features AI flag and Cesspit Disease lifetime exceptions initialized: " +
-                    $"comparisonRva=0x{lifetimePatternRva + LifetimeComparisonOffset:X}, vanilla={VanillaLifetime}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Extra Features AI flag and Cesspit Disease lifetime exceptions initialized: " +
+                        $"comparisonRva=0x{lifetimePatternRva + LifetimeComparisonOffset:X}, vanilla={VanillaLifetime}.");
                 conditionalTransaction = candidate;
                 hookPublished = true;
             }

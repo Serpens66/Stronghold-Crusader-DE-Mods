@@ -148,10 +148,11 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Bugfixes and QoL multiplayer AIV sync initialized: packetId={packetHook.GetPacketId()}, " +
-                $"protocol={MultiplayerAivSyncProtocol.ProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Bugfixes and QoL multiplayer AIV sync initialized: packetId={packetHook.GetPacketId()}, " +
+                    $"protocol={MultiplayerAivSyncProtocol.ProtocolVersion}.");
         }
 
         private void HostStartGameHook(Platform_Multiplayer self)
@@ -230,9 +231,10 @@ namespace BugfixesAndQoL
             sourceFingerprint = BuildSelectionFingerprint(frontend, platform.activeLobby);
             transferInProgress = expectedAcks.Count > 0;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:233", $"Bugfixes and QoL AIV sync generation prepared: generation={generation}, lobby={manifest.LobbyId}, " +
-                $"slots={manifest.Slots.Count}, rawBytes={encoded.Length}, compressedBytes={compressed.Length}, " +
-                $"chunks={chunks.Count}, peers={expectedAcks.Count}, hash={hash}, candidates={DescribeManifest(manifest)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:233", $"Bugfixes and QoL AIV sync generation prepared: generation={generation}, lobby={manifest.LobbyId}, " +
+                    $"slots={manifest.Slots.Count}, rawBytes={encoded.Length}, compressedBytes={compressed.Length}, " +
+                    $"chunks={chunks.Count}, peers={expectedAcks.Count}, hash={hash}, candidates={DescribeManifest(manifest)}.");
 
             if (!transferInProgress)
             {
@@ -467,9 +469,10 @@ namespace BugfixesAndQoL
                 pendingClientOwner,
                 CreateResponse(MultiplayerAivSyncPacketKind.Ack, pendingClientBegin, string.Empty));
             SyncStatusText = SerpLocalization.Get("BugfixesAndQoL.AivSyncReady");
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:472", $"Bugfixes and QoL AIV sync accepted: generation={pendingClientBegin.Generation}, " +
-                $"lobby={pendingClientBegin.LobbyId}, slots={confirmedManifest.Slots.Count}, " +
-                $"hash={pendingClientBegin.ManifestHash}, candidates={DescribeManifest(confirmedManifest)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:472", $"Bugfixes and QoL AIV sync accepted: generation={pendingClientBegin.Generation}, " +
+                    $"lobby={pendingClientBegin.LobbyId}, slots={confirmedManifest.Slots.Count}, " +
+                    $"hash={pendingClientBegin.ManifestHash}, candidates={DescribeManifest(confirmedManifest)}.");
             ClearPendingClientManifest(clearConfirmed: false);
         }
 
@@ -553,8 +556,11 @@ namespace BugfixesAndQoL
                 // once at the AI upload. Only other starts import them right before the map load.
                 activeStartManifest = coopTrailId > 0 ? null : manifest;
                 if (coopTrailId > 0)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:557", $"Coop Trail AIV start plans prepared: trail={coopTrailId}, mission={coopMissionId}, " +
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:557", $"Coop Trail AIV start plans prepared: trail={coopTrailId}, mission={coopMissionId}, " +
                         $"plannedSlots={preparedSlots}, extraCandidateSlots={manifest?.Slots.Count ?? 0}.");
+                    }
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
             }
             catch (Exception ex)
@@ -676,9 +682,10 @@ namespace BugfixesAndQoL
                         }
                     }
                 }
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:680", $"Bugfixes and QoL imported synchronized extra AIV candidates immediately before map load: " +
-                    $"lobby={activeStartManifest.LobbyId}, slots={activeStartManifest.Slots.Count}, " +
-                    $"candidates={DescribeManifest(activeStartManifest)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:680", $"Bugfixes and QoL imported synchronized extra AIV candidates immediately before map load: " +
+                        $"lobby={activeStartManifest.LobbyId}, slots={activeStartManifest.Slots.Count}, " +
+                        $"candidates={DescribeManifest(activeStartManifest)}.");
             }
             return loadMapTrampoline(mapName, multiplayerSave);
         }

@@ -31,7 +31,10 @@ namespace BugfixesAndQoL.UnitCommands
             if (!startupConfirmed && initialized && HasValidMap())
             {
                 startupConfirmed = true;
-                LogDebugNoThrow("FORMATION_RUNTIME_AFTER_STARTUP_CLEANUP: persistent EngineInterface.run callback reached.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebugNoThrow("FORMATION_RUNTIME_AFTER_STARTUP_CLEANUP: persistent EngineInterface.run callback reached.");
+                }
             }
             if (!LocalInputEnabled)
             {

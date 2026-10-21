@@ -227,7 +227,8 @@ namespace BugfixesAndQoL
 
             TrackState(self, enabled, targetScale);
             self.UpdateCameraScale();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResolutionAwareZoomHook.cs:230", $"Resolution-aware zoom reconciled: enabled={enabled}, screenHeight={Screen.height}, factor={targetScale:0.###}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResolutionAwareZoomHook.cs:230", $"Resolution-aware zoom reconciled: enabled={enabled}, screenHeight={Screen.height}, factor={targetScale:0.###}.");
         }
 
         private void TrackState(

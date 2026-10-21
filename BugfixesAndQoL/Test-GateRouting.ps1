@@ -12,12 +12,14 @@ try { & '.\tests\GateRouting.Tests\bin\GateRouting.Tests.exe'; if ($LASTEXITCODE
 finally { Pop-Location }
 Push-Location $root
 try {
-    & dotnet run --project '_inspect/GateMigrationFeatureTests'
-    if ($LASTEXITCODE -ne 0) { throw 'Actual gate feature activation regression failed.' }
-    & dotnet run --no-build --project '_inspect/GateMigrationFeatureTests' -- --config-save-fails
-    if ($LASTEXITCODE -ne 0) { throw 'Config save failure broke feature orchestration.' }
-    & dotnet run --no-build --project '_inspect/GateMigrationFeatureTests' -- --own-fix-off
-    if ($LASTEXITCODE -ne 0) { throw 'Gate routing was installed although it is not wanted.' }
+    foreach ($diagnostics in @('false','true')) {
+        & dotnet run --project '_inspect/GateMigrationFeatureTests' "-p:SerpDevDiagnostics=$diagnostics"
+        if ($LASTEXITCODE -ne 0) { throw "Actual gate feature activation regression failed (diagnostics=$diagnostics)." }
+        & dotnet run --no-build --project '_inspect/GateMigrationFeatureTests' -- --config-save-fails
+        if ($LASTEXITCODE -ne 0) { throw "Config save failure broke feature orchestration (diagnostics=$diagnostics)." }
+        & dotnet run --no-build --project '_inspect/GateMigrationFeatureTests' -- --own-fix-off
+        if ($LASTEXITCODE -ne 0) { throw "Gate routing was installed although it is not wanted (diagnostics=$diagnostics)." }
+    }
     # A fresh isolated worktree has no NuGet assets yet.
     & dotnet run --project '_inspect/AssassinDescentRuntimeTests'
     if ($LASTEXITCODE -ne 0) { throw 'Actual descent reader regression failed.' }

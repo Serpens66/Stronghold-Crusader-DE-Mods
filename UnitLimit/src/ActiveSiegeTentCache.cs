@@ -45,7 +45,10 @@ namespace UnitLimit
                     .Subscribe(OnBuildingDelete));
 
                 subscribed = true;
-                LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:48", "ActiveSiegeTentCache hooks subscribed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:48", "ActiveSiegeTentCache hooks subscribed.");
+                }
             }
             catch
             {
@@ -104,7 +107,10 @@ namespace UnitLimit
                     CreateCountChangeEvents(oldCounts, countsByOwnerAndUnit, ref events, ActiveSiegeTentChangeReason.Resync);
             }
 
-            LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:107", "ActiveSiegeTentCache ResyncAll:", "countKeys", countsByOwnerAndUnit.Count);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:107", "ActiveSiegeTentCache ResyncAll:", "countKeys", countsByOwnerAndUnit.Count);
+            }
             RaiseEvents(events);
         }
 
@@ -340,7 +346,10 @@ namespace UnitLimit
                 countsByOwnerAndUnit.Clear();
             }
 
-            LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:343", "ActiveSiegeTentCache cleared.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:343", "ActiveSiegeTentCache cleared.");
+            }
         }
 
         private void LogDebug(string site, params object[] parts)

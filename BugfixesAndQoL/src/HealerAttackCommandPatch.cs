@@ -76,9 +76,10 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("A Healer AttackUnit hook displaced an unexpected native span.");
 
                 SetEnabled(true);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Healer AttackUnit permanent classifier hooks installed: first={FirstExpectedDisplacedBytes}, second={SecondExpectedDisplacedBytes}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Healer AttackUnit permanent classifier hooks installed: first={FirstExpectedDisplacedBytes}, second={SecondExpectedDisplacedBytes}.");
                 published = true;
             }
             catch

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 namespace BepInEx.Logging { public class ManualLogSource { } }
 namespace Shared {
-    public static class DebugLogHelper {
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
         public static void LogInfo(object log, string message) { }
         public static void LogErrorLimited(object log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } public static void LogError(object log, string message) { }
     }

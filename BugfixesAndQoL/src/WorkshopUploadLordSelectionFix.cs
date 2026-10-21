@@ -119,7 +119,8 @@ namespace BugfixesAndQoL
             if (!firstRestoreLogged)
             {
                 firstRestoreLogged = true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WorkshopUploadLordSelectionFix.cs:124", $"Bugfixes and QoL preserved Workshop upload Lord slot {restoredLordType} after a successful {refresh} upload.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WorkshopUploadLordSelectionFix.cs:124", $"Bugfixes and QoL preserved Workshop upload Lord slot {restoredLordType} after a successful {refresh} upload.");
             }
         }
 

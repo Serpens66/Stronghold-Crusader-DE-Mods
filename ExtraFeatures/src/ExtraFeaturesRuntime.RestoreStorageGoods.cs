@@ -38,7 +38,14 @@ namespace ExtraFeatures
                 int[] goods = CopyLocalGoods(building);
                 RestoreGoods(pending.PlayerId, goods);
                 pending.PartsRemaining--;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:41", () => $"Extra Features restored stockpile part goods: buildingId={args.BuildingId}, playerId={pending.PlayerId}, goods={BuildGoodsSummary(goods)}, partsRemaining={pending.PartsRemaining}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticArgs = @args;
+                    var diagnosticPending = @pending;
+                    var diagnosticGoods = @goods;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:41", () => $"Extra Features restored stockpile part goods: buildingId={diagnosticArgs.BuildingId}, playerId={diagnosticPending.PlayerId}, goods={BuildGoodsSummary(diagnosticGoods)}, partsRemaining={diagnosticPending.PartsRemaining}.");
+                }
 
                 if (pending.PartsRemaining <= 0)
                     pendingStockpileRefund = null;
@@ -83,8 +90,16 @@ namespace ExtraFeatures
                 int[] goods = CopyLocalGoods(building);
                 RestoreGoods(args.PlayerId, goods);
                 uint buildingGlobalId = building->r_GlobalId;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:87", () => $"Extra Features restored storage goods: type={structure}, buildingId={args.BuildingId}, " +
-                        $"buildingGlobalId={buildingGlobalId}, playerId={args.PlayerId}, goods={BuildGoodsSummary(goods)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticStructure = @structure;
+                    var diagnosticArgsValue = @args;
+                    var diagnosticBuildingGlobalId = @buildingGlobalId;
+                    var diagnosticGoodsValue = @goods;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:87", () => $"Extra Features restored storage goods: type={diagnosticStructure}, buildingId={diagnosticArgsValue.BuildingId}, " +
+                            $"buildingGlobalId={diagnosticBuildingGlobalId}, playerId={diagnosticArgsValue.PlayerId}, goods={BuildGoodsSummary(diagnosticGoodsValue)}.");
+                }
             }
             catch (Exception ex)
             {

@@ -2317,7 +2317,7 @@ namespace Shared
         internal static void Report(string feature, bool error, string detail = "") => Reports.Add(feature);
     }
     internal static class DebugLogHelper
-    {
+    { public static bool DiagnosticsEnabled => true;
         internal static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } internal static void LogError(BepInEx.Logging.ManualLogSource log, string message)
         {
         }

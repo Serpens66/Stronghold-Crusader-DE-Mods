@@ -169,12 +169,13 @@ namespace BugfixesAndQoL.VanillaPerformance
                     "SPRITE_SHEET_MERGE_LIVE_RENDERERS_FAILED: " + exception);
             }
             double ms = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
-            Shared.DebugLogHelper.LogInfo(log, string.Format(Invariant,
-                "SPRITE_SHEET_MERGE_APPLIED: pages={0} sheets={1} sprites={2} skippedAssetModFiles={3} liveRenderers={4} " +
-                "buildMs={5:0} textureMemoryMB={6:0}->{7:0}; {8}",
-                build.Pages.Count, sheets.Count, build.Sprites.Count, skippedFiles, renderers, ms,
-                memoryBefore / 1048576.0, Texture.currentTextureMemory / 1048576.0,
-                string.Join(" | ", build.Pages.Select(page => string.Join("+", page.Select(sheet => sheet.Color.name))))));
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogInfo(log, string.Format(Invariant,
+                    "SPRITE_SHEET_MERGE_APPLIED: pages={0} sheets={1} sprites={2} skippedAssetModFiles={3} liveRenderers={4} " +
+                    "buildMs={5:0} textureMemoryMB={6:0}->{7:0}; {8}",
+                    build.Pages.Count, sheets.Count, build.Sprites.Count, skippedFiles, renderers, ms,
+                    memoryBefore / 1048576.0, Texture.currentTextureMemory / 1048576.0,
+                    string.Join(" | ", build.Pages.Select(page => string.Join("+", page.Select(sheet => sheet.Color.name))))));
         }
 
         private static string DeviceRefusal()

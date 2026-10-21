@@ -43,7 +43,8 @@ namespace ExtraFeatures
                 callbackLogged = true;
                 try
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/KeepBuildRangeRuntime.cs:46", "Keep build range lifecycle active after startup: phase=" + notification.Phase + ".");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/KeepBuildRangeRuntime.cs:46", "Keep build range lifecycle active after startup: phase=" + notification.Phase + ".");
                 }
                 catch { /* Diagnostics must not interrupt mission callbacks. */ }
             }

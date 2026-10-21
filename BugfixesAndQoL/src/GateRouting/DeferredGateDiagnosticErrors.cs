@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 
 namespace BugfixesAndQoL.GateRouting
 {
@@ -17,7 +18,7 @@ namespace BugfixesAndQoL.GateRouting
                 if (!rows.TryGetValue(cause, out Row row))
                 {
                     rows.Add(cause, row = new Row { First = detail });
-                    unreportedCauses++;
+                    Volatile.Write(ref unreportedCauses, unreportedCauses + 1);
                 }
                 row.Count++;
                 row.Last = detail;
@@ -25,6 +26,7 @@ namespace BugfixesAndQoL.GateRouting
         }
         internal string[] DrainNewCauses()
         {
+            if (Volatile.Read(ref unreportedCauses) == 0) return System.Array.Empty<string>();
             lock (sync)
             {
                 if (unreportedCauses == 0) return System.Array.Empty<string>();
@@ -35,7 +37,7 @@ namespace BugfixesAndQoL.GateRouting
                     pair.Value.Reported = true;
                     output.Add(pair.Key + ",count=" + pair.Value.Count + ",first=" + pair.Value.First);
                 }
-                unreportedCauses = 0;
+                Volatile.Write(ref unreportedCauses, 0);
                 return output.ToArray();
             }
         }
@@ -52,6 +54,6 @@ namespace BugfixesAndQoL.GateRouting
                 }
             }
         }
-        internal void Reset() { lock (sync) { rows.Clear(); unreportedCauses = 0; } }
+        internal void Reset() { lock (sync) { rows.Clear(); Volatile.Write(ref unreportedCauses, 0); } }
     }
 }

@@ -28,7 +28,7 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using APIShared;
-namespace Shared { static class DebugLogHelper { internal static void LogDebugLimited(object log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } internal static void LogDebug(object log,string text) {} } }
+namespace Shared { static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  internal static void LogDebugLimited(object log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } internal static void LogDebug(object log,string text) {} } }
 namespace BugfixesAndQoL.UnitCommands {
 enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
 unsafe struct GameUnit { public uint r_GlobalId; public eChimps r_UnitChimp; public ushort r_ControllableForPlayerId; public int r_CurrentSpeed; public bool Alive; public int r_CurrentTilePositionX,r_CurrentTilePositionY,r_NextTilePositionX2,r_NextTilePositionY2,r_PathPlanStateBitFlags,r_MovementSubstep; }

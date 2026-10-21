@@ -149,9 +149,10 @@ namespace SerpsModsHost
             }
 
             diagnostics.SetStatus(manifest.PackVersion, assetMods.Count, validatedCount, registeredCount);
-            Shared.DebugLogHelper.LogDebug(
-                Logger,
-                $"[{PluginName}] pack={manifest.PackVersion}, expected={assetMods.Count}, validated={validatedCount}, registered={registeredCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    Logger,
+                    $"[{PluginName}] pack={manifest.PackVersion}, expected={assetMods.Count}, validated={validatedCount}, registered={registeredCount}.");
         }
 
         private void CheckScriptExtenderCompatibility(string root, PackManifest packManifest)
@@ -191,10 +192,11 @@ namespace SerpsModsHost
                 if (issueLines.Count == 0)
                 {
                     diagnostics.SetScriptExtenderCompatibilityWarning(string.Empty);
-                    Shared.DebugLogHelper.LogDebug(
-                        Logger,
-                        $"[{PluginName}] Script Extender {installedVersion} satisfies all {requirements.Count} " +
-                        $"runtime component requirements; {versionResolution.Diagnostic}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebug(
+                            Logger,
+                            $"[{PluginName}] Script Extender {installedVersion} satisfies all {requirements.Count} " +
+                            $"runtime component requirements; {versionResolution.Diagnostic}.");
                     return;
                 }
 
@@ -610,7 +612,8 @@ namespace SerpsModsHost
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebugLimited(Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:612", $"[{PluginName}] Could not refine the load diagnostic for {mod.Guid}: {ex.Message}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:612", $"[{PluginName}] Could not refine the load diagnostic for {mod.Guid}: {ex.Message}");
                 return false;
             }
         }

@@ -88,7 +88,10 @@ namespace BuildingCosts
             }
 
             hooksSubscribed = true;
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:90", "Building cost runtime hooks subscribed");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:90", "Building cost runtime hooks subscribed");
+            }
         }
 
         public void InitializeAfterLibraryLoaded()
@@ -100,7 +103,10 @@ namespace BuildingCosts
             if (!EffectsEnabled)
             {
                 libraryInitialized = true;
-                LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:102", "Building costs disabled; runtime hooks not subscribed");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:102", "Building costs disabled; runtime hooks not subscribed");
+                }
                 return;
             }
 
@@ -109,7 +115,10 @@ namespace BuildingCosts
             TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
             TryRunFeature("building costs", ApplyBuildingCosts);
             libraryInitialized = true;
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:111", "Applied initial building cost settings");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:111", "Applied initial building cost settings");
+            }
         }
 
         private void DeactivateHooks()
@@ -127,7 +136,8 @@ namespace BuildingCosts
                 if (!ApiShared.Current.TryGetBuildingRepair(BuildingCostsPlugin.PluginGuid,
                     out repairCapability, out NativeCapabilityDiagnostic diagnostic))
                 {
-                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:129", "Shared building repair unavailable: " + diagnostic?.Reason);
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:129", "Shared building repair unavailable: " + diagnostic?.Reason);
                     return;
                 }
             }
@@ -215,7 +225,8 @@ namespace BuildingCosts
             }
             try
             {
-                LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:202", "Gameplay session started: " + context.Kind);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:202", "Gameplay session started: " + context.Kind);
                 ApplyBuildingCosts();
                 ResetTooltipCache();
             }
@@ -290,7 +301,10 @@ namespace BuildingCosts
             {
                 if (!BuildingCostDefinitions.TryGetValue(entry.Key, out BuildingCostDefinition definition))
                 {
-                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:277", "Building cost mapper is not supported:", entry.Key);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:277", "Building cost mapper is not supported:", entry.Key);
+                    }
                     continue;
                 }
 
@@ -307,7 +321,10 @@ namespace BuildingCosts
                 }
             }
 
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:294", "Applied building cost materials:", changedMaterials);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:294", "Applied building cost materials:", changedMaterials);
+            }
             ResetTooltipCache();
         }
 
@@ -363,7 +380,10 @@ namespace BuildingCosts
             overriddenCostMaterials.Clear();
             foreach (KeyValuePair<eStructs, CostMaterialMask> failed in failedRestores)
                 overriddenCostMaterials[failed.Key] = failed.Value;
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:350", "Restored default building cost materials:", restoredMaterials);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:350", "Restored default building cost materials:", restoredMaterials);
+            }
             ResetTooltipCache();
         }
 

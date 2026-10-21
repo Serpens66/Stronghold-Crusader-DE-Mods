@@ -99,7 +99,10 @@ namespace UnitLimit
             if (hooksSubscribed)
                 return;
 
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:102", "Installing permanent unit limit runtime hooks");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:102", "Installing permanent unit limit runtime hooks");
+            }
             activeUnitCacheAvailable = TryInitializeFeature("active-unit cache", () =>
             {
                 activeUnitCache.SubscribeHooks();
@@ -148,7 +151,10 @@ namespace UnitLimit
                         .Subscribe(OnBuildingPlacementValidation));
             }
 
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:151", "Unit limit permanent runtime hooks installed");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:151", "Unit limit permanent runtime hooks installed");
+            }
             hooksSubscribed = true;
         }
 
@@ -163,7 +169,10 @@ namespace UnitLimit
             ApplyUnitLimits();
             if (EffectsEnabled)
                 Volatile.Write(ref effectsActive, 1);
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:166", "Applied unit limit settings");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:166", "Applied unit limit settings");
+            }
             libraryInitialized = true;
         }
 
@@ -187,14 +196,18 @@ namespace UnitLimit
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:190", "Gameplay session started: " + context.Kind);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug("UnitLimit/src/UnitLimitRuntime.cs:190", "Gameplay session started: " + context.Kind);
             ResetUnitRecruitableTracking();
             ApplyUnitLimits();
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:197", "OnUnloadMap");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:197", "OnUnloadMap");
+            }
             ClearPendingRecruitments("OnUnloadMap");
             ClearExternalReservations("OnUnloadMap");
             HideLimitMessage();

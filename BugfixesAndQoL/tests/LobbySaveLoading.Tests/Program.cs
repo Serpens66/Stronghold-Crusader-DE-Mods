@@ -188,7 +188,7 @@ namespace BugfixesAndQoL
 namespace Shared
 {
     internal static class DebugLogHelper
-    {
+    { public static bool DiagnosticsEnabled => true;
         public static bool ThrowOnWrite;
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text)
         { if (ThrowOnWrite) throw new Exception("logger unavailable"); }

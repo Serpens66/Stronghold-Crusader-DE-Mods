@@ -235,7 +235,9 @@ internal static class Program
 
         string cursor = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "UnitCommands", "Cursor", "CursorConnectivity.cs"));
         int queryGuard = cursor.IndexOf("if (cursorQueries == cursorLastLogQueries)", StringComparison.Ordinal);
-        int cursorStopwatch = cursor.IndexOf("long now = Stopwatch.GetTimestamp();", queryGuard, StringComparison.Ordinal);
+        // Supplementary source guardrail: the dirty check must precede the clock call,
+        // including a clock call additionally guarded by the diagnostic-build condition.
+        int cursorStopwatch = cursor.IndexOf("Stopwatch.GetTimestamp()", Math.Max(0, queryGuard), StringComparison.Ordinal);
         Check(queryGuard >= 0 && cursorStopwatch > queryGuard,
             "Friendly-Moat diagnostics check query dirtiness before reading Stopwatch");
 

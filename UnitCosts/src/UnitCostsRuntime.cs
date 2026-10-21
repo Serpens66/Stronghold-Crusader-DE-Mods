@@ -730,13 +730,14 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
-                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:859",
-                        "UnitCosts transition extra cost missing:",
-                        "unit", args.NextUnitType,
-                        "player", playerId,
-                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
-                        "required", requiredAmount,
-                        "available", availableAmount);
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:859",
+                            "UnitCosts transition extra cost missing:",
+                            "unit", args.NextUnitType,
+                            "player", playerId,
+                            "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                            "required", requiredAmount,
+                            "available", availableAmount);
                     return;
                 }
 
@@ -749,11 +750,14 @@ namespace UnitCosts
                     if (!TryFindAvailableHorseAllocation(playerId, out horseAllocation) ||
                         !TryLinkStableHorse(horseAllocation, args.UnitId, playerId))
                     {
-                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:878",
+                        {
+                            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:878",
                             "UnitCosts transition horse link failed:",
                             "unit", args.NextUnitType,
                             "unitId", args.UnitId,
                             "player", playerId);
+                        }
                         return;
                     }
 
@@ -798,14 +802,15 @@ namespace UnitCosts
 
                 args.CustomValidationRules = true;
                 args.ForceBlockPlacementState = true;
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:928",
-                    "UnitCosts blocked siege placement:",
-                    "unit", unitType,
-                    "player", args.PlayerId,
-                    "missing", missingHorse ? "HORSE" : missingGood.ToString(),
-                    "required", requiredAmount,
-                    "available", availableAmount,
-                    "mapper", args.Mappers);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:928",
+                        "UnitCosts blocked siege placement:",
+                        "unit", unitType,
+                        "player", args.PlayerId,
+                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                        "required", requiredAmount,
+                        "available", availableAmount,
+                        "mapper", args.Mappers);
                 ShowMissingResourcesMessageThrottledForSiege(missingGood);
             }
             catch (Exception ex)
@@ -832,25 +837,29 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
-                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:962",
-                        "UnitCosts siege extra cost skipped after spawn because resources are missing:",
-                        "unit", unitType,
-                        "player", args.PlayerId,
-                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
-                        "required", requiredAmount,
-                        "available", availableAmount,
-                        "building", args.Building);
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:962",
+                            "UnitCosts siege extra cost skipped after spawn because resources are missing:",
+                            "unit", unitType,
+                            "player", args.PlayerId,
+                            "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                            "required", requiredAmount,
+                            "available", availableAmount,
+                            "building", args.Building);
                     if (IsLocalPlayer(args.PlayerId))
                         ShowMissingResourcesMessageThrottledForSiege(missingGood);
                     return;
                 }
 
                 ApplyExtraCosts(args.PlayerId, costs, 1);
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:976",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:976",
                     "UnitCosts applied siege extra costs:",
                     "unit", unitType,
                     "player", args.PlayerId,
                     "building", args.Building);
+                }
             }
             catch (Exception ex)
             {
@@ -1133,13 +1142,16 @@ namespace UnitCosts
                 unit->r_LinkedStableGlobalId = 0;
             }
 
-            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1240",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1240",
                 "UnitCosts rolled back incomplete stable horse link:",
                 "stableId", allocation.StableId,
                 "slot", allocation.Slot,
                 "unitId", unitId,
                 "slotMatches", slotMatches,
                 "backlinkMatches", backlinkMatches);
+            }
             return false;
         }
 
@@ -1166,10 +1178,13 @@ namespace UnitCosts
                 (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1) != playerId ||
                 unit->r_GlobalId == 0)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1273",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1273",
                     "UnitCosts ignored invalid disband horse-link source:",
                     "unitId", unitId,
                     "player", playerId);
+                }
                 return;
             }
 
@@ -1183,13 +1198,16 @@ namespace UnitCosts
                 !IsUsableStable(stable, playerId) ||
                 stable->r_GlobalId != stableGlobalId)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1290",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1290",
                     "UnitCosts kept inconsistent disband horse link:",
                     "unitId", unitId,
                     "unitGlobalId", unitGlobalId,
                     "stableId", stableId,
                     "stableGlobalId", stableGlobalId,
                     "reason", "stable validation failed");
+                }
                 return;
             }
 
@@ -1204,13 +1222,16 @@ namespace UnitCosts
 
                 if (matchingSlot >= 0)
                 {
-                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1311",
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1311",
                         "UnitCosts kept ambiguous disband horse link:",
                         "unitId", unitId,
                         "unitGlobalId", unitGlobalId,
                         "stableId", stableId,
                         "firstSlot", matchingSlot,
                         "secondSlot", slot);
+                    }
                     return;
                 }
 
@@ -1219,11 +1240,14 @@ namespace UnitCosts
 
             if (matchingSlot < 0)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1326",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1326",
                     "UnitCosts kept unmatched disband horse backlink:",
                     "unitId", unitId,
                     "unitGlobalId", unitGlobalId,
                     "stableId", stableId);
+                }
                 return;
             }
 
@@ -1239,7 +1263,9 @@ namespace UnitCosts
                     usedBefore,
                     out int totalAfter))
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1346",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1346",
                     "UnitCosts kept invalid disband horse accounting:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1247,6 +1273,7 @@ namespace UnitCosts
                     "used", usedBefore,
                     "occupiedSlots", occupiedSlotsBefore,
                     "recharge", rechargeBefore);
+                }
                 return;
             }
 
@@ -1289,7 +1316,9 @@ namespace UnitCosts
                 stable->r_HorseRechargeTimer == rechargeBefore;
             if (!slotCleared || !backlinkCleared || !slotTopologyMatches || !accountingMatches)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1396",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1396",
                     "UnitCosts disband horse consumption verification failed:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1300,6 +1329,7 @@ namespace UnitCosts
                     "occupiedSlotsBefore", occupiedSlotsBefore,
                     "occupiedSlotsAfter", occupiedSlotsAfter,
                     "accountingMatches", accountingMatches);
+                }
                 RollbackDisbandHorseConsumption(
                     stableId,
                     stableGlobalId,
@@ -1343,11 +1373,14 @@ namespace UnitCosts
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit->r_GlobalId != unitGlobalId)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1452",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1452",
                     "UnitCosts could not reacquire disband horse rollback objects:",
                     "unitId", unitId,
                     "stableId", stableId,
                     "slot", slot);
+                }
                 return;
             }
 
@@ -1370,7 +1403,9 @@ namespace UnitCosts
                 !backlinkCanRestore || !totalCanRestore || !vanillaAccountingUnchanged ||
                 !slotTopologyCanRestore)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1479",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1479",
                     "UnitCosts skipped unsafe disband horse rollback:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1382,6 +1417,7 @@ namespace UnitCosts
                     "vanillaAccountingUnchanged", vanillaAccountingUnchanged,
                     "slotTopologyCanRestore", slotTopologyCanRestore,
                     "occupiedSlotsCurrent", occupiedSlotsCurrent);
+                }
                 return;
             }
 
@@ -1405,13 +1441,16 @@ namespace UnitCosts
                 stable->r_HorseRechargeTimer == rechargeBefore &&
                 TryCountOccupiedStableHorseSlots(stable, out int occupiedSlotsRestored) &&
                 occupiedSlotsRestored == occupiedSlotsBefore;
-            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1514",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1514",
                 rollbackMatches
                     ? "UnitCosts rolled back disband horse consumption:"
                     : "UnitCosts disband horse rollback verification failed:",
                 "unitId", unitId,
                 "stableId", stableId,
                 "slot", slot);
+            }
         }
 
         private static unsafe bool TryCountOccupiedStableHorseSlots(
@@ -1576,7 +1615,10 @@ namespace UnitCosts
                 string speechFileName = missingGood == eGoods.STORED_GOLD
                     ? GetRandomSpeechFileName(MissingGoldSpeechFileNames)
                     : MissingWeaponsSpeechFileName;
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1688", "UnitCosts missing resources speech:", "good", missingGood, "file", speechFileName);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1688", "UnitCosts missing resources speech:", "good", missingGood, "file", speechFileName);
+                }
 
                 SFXManager.instance?.playSpeech(
                     1,
@@ -1585,7 +1627,10 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1697", "Could not play UnitCosts missing resources speech:", ex.Message);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1697", "Could not play UnitCosts missing resources speech:", ex.Message);
+                }
             }
         }
 
@@ -1630,7 +1675,10 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1742", "Could not cancel UnitCosts material message timer:", ex.Message);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1742", "Could not cancel UnitCosts material message timer:", ex.Message);
+                }
             }
 
             materialMessageTimerHandle = null;

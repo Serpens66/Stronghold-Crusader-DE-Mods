@@ -531,8 +531,9 @@ namespace BugfixesAndQoL
                 int verified = *timer;
                 if (verified != 0)
                     throw new InvalidOperationException("The eligible legacy crushed-building timer could not be normalized.");
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:533", $"PREPLACED_LEGACY_TIMER_FIX_APPLIED: player={playerId}; timer=1->0; " +
-                    $"matchingDestroyedTowers={matchingTowers.Length}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:533", $"PREPLACED_LEGACY_TIMER_FIX_APPLIED: player={playerId}; timer=1->0; " +
+                        $"matchingDestroyedTowers={matchingTowers.Length}.");
             }
         }
 
@@ -920,7 +921,8 @@ namespace BugfixesAndQoL
                     }
                     economyFixEligiblePlayers.Remove(playerId);
                     session.EconomyFixState = EconomyFixActivationState.Suspended;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:893", $"PREPLACED_ECONOMY_FIX_SUSPENDED: player={playerId}; mode={activationState}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:893", $"PREPLACED_ECONOMY_FIX_SUSPENDED: player={playerId}; mode={activationState}.");
                     activationState = EconomyFixActivationState.Suspended;
                 }
 
@@ -949,7 +951,8 @@ namespace BugfixesAndQoL
                 session.EconomyFixState = economyAccessFix.Activate(activationState);
                 session.EconomyFixValidatedRevision = economyTopologyRevision;
                 economyFixEligiblePlayers.Add(playerId);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:923", $"PREPLACED_ECONOMY_FIX_ACTIVATED: player={playerId}; mode={session.EconomyFixState}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:923", $"PREPLACED_ECONOMY_FIX_ACTIVATED: player={playerId}; mode={session.EconomyFixState}.");
             }
             catch (Exception ex)
             {
@@ -987,7 +990,8 @@ namespace BugfixesAndQoL
             session.EconomyFixValidatedRevision = -1;
             dirtyBreachPlayers.Remove(playerId);
             InvalidateEconomyOverlayCaches();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:961", $"PREPLACED_CONFIRMED_WALL_BREACH: player={playerId}; wallTile={confirmed.WallTileId}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:961", $"PREPLACED_CONFIRMED_WALL_BREACH: player={playerId}; wallTile={confirmed.WallTileId}.");
         }
 
         private bool ReconcileEconomyAvailability(ulong state, PlayerSession session)

@@ -56,7 +56,21 @@ namespace BugfixesAndQoL.GateRouting
 #endif
         private readonly DeferredGateDiagnosticErrors deferredErrors = new DeferredGateDiagnosticErrors();
         private uint reportedIntegrityErrors;
-        private long nextErrorCheckAt;
+        private readonly IntegrityErrorFlushGate integrityFlush = new IntegrityErrorFlushGate();
+        private long integrityRevision;
+        internal long SupportIntegrityRevision => Interlocked.Read(ref integrityRevision);
+        private long CountIntegrityError(ref long counter)
+        {
+            long value = Interlocked.Increment(ref counter);
+            Interlocked.Increment(ref integrityRevision);
+            return value;
+        }
+        private int CountIntegrityError(ref int counter)
+        {
+            int value = Interlocked.Increment(ref counter);
+            Interlocked.Increment(ref integrityRevision);
+            return value;
+        }
         private GateTopologySnapshotProvider topologyProvider;
         private SamePclGateRouteRuntime samePclRouteRuntime;
         private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
@@ -209,7 +223,9 @@ namespace BugfixesAndQoL.GateRouting
             // TEMP_GATE_ROUTE_ACCEPTANCE: publish only after the existing initialization succeeds.
             DiagInstallNative(context);
 
-            if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+            if (detailedDiagnostics) {
+                                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
                 "capturerAdapter=post-cleanup-test, " +
                 $"pclGraphCapturerFilter=0x{pclGraphFilterRva:X} " +
@@ -224,10 +240,14 @@ namespace BugfixesAndQoL.GateRouting
                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
                 "Managed cursor searches, the whole PCL detour and every global " +
                 "Direction-Grid write were removed.");
+                                     }
             if (detailedDiagnostics && samePclRouteRuntime?.Installed != true && !friendlyMoatHookOwnerLoaded)
-                Shared.DebugLogHelper.LogInfo(log,
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogInfo(log,
                     "Same-PCL hook publication is waiting for the first non-empty gate direction mask; " +
                     "all searches remain fail-open until then.");
+                }
         }
 
         internal void BeginMap(bool editor = false)
@@ -247,10 +267,15 @@ namespace BugfixesAndQoL.GateRouting
             DiagBeginMap();
             topologyProvider?.BeginExplicitEpoch(reason);
             DiagBeginEpoch();
-            Shared.DebugLogHelper.LogInfo(log, () =>
-                $"Enemy-gate map started: epoch={topologyProvider?.DiagnosticEpoch}, editor={editor}, " +
-                $"direction masks={(samePclRouteRuntime?.Installed == true ? "active" :
-                    samePclRouteRuntime != null ? "pending-policy" : "inactive")}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticEditor = @editor;
+                Shared.DebugLogHelper.LogInfo(log, () =>
+                    $"Enemy-gate map started: epoch={topologyProvider?.DiagnosticEpoch}, editor={diagnosticEditor}, " +
+                    $"direction masks={(samePclRouteRuntime?.Installed == true ? "active" :
+                        samePclRouteRuntime != null ? "pending-policy" : "inactive")}.");
+            }
         }
 
         internal void EndMap(string reason = "MissionEnd")
@@ -322,9 +347,12 @@ namespace BugfixesAndQoL.GateRouting
                 string counts = FormatPathfindingGlobalCounts(comparison);
                 if (comparison.MatchesCanonical)
                 {
-                    if (detailedDiagnostics) Shared.DebugLogHelper.LogDebug(log,
+                    if (detailedDiagnostics) {
+                                                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                     Shared.DebugLogHelper.LogDebug(log,
                         "APIShared pathfinding globals match the canonical " +
                         $"FBCB9319 process-start tables: {counts}.");
+                                             }
                     return;
                 }
 
@@ -554,7 +582,7 @@ namespace BugfixesAndQoL.GateRouting
                 {
                     try { topologyProvider?.ObserveCaptureMismatch(current, buildingId,
                         subjectGlobalId, ownerPlayerId, nativeCapturedByPlayerId); }
-                    catch { Interlocked.Increment(ref callbackWarnings); }
+                    catch { CountIntegrityError(ref callbackWarnings); }
                 }
                 if ((decision == NativeGateSnapshotDecision.ExcludeForeignCapture || decision == NativeGateSnapshotDecision.ExcludeAccessRule))
                 {
@@ -572,7 +600,7 @@ namespace BugfixesAndQoL.GateRouting
                 // Restore the secured Vanilla Boolean; the emitter creates ZF later.
                 if (registers != null && originalZeroKnown)
                     registers->R11 = (registers->R11 & ~0xFFUL) | (originalZero ? 0UL : 1UL);
-                Interlocked.Increment(ref callbackWarnings);
+                CountIntegrityError(ref callbackWarnings);
                 try
                 {
                     RecordDecision(builderPrecheck, NativeGateSnapshotDecision.Exception,
@@ -581,6 +609,15 @@ namespace BugfixesAndQoL.GateRouting
                 }
                 catch { /* A diagnostic failure must not escape the native callback. */ }
             }
+        }
+
+        private void CountDecision(ref long counter, NativeGateSnapshotDecision decision)
+        {
+            Interlocked.Increment(ref counter);
+            // Publish the revision AFTER the counter, so a reader cannot consume a change too early.
+            if (decision == NativeGateSnapshotDecision.RecordIdMismatch || decision == NativeGateSnapshotDecision.OwnerMismatch ||
+                decision == NativeGateSnapshotDecision.InvalidQueryPlayer || decision == NativeGateSnapshotDecision.Exception)
+                Interlocked.Increment(ref integrityRevision);
         }
 
         private void RecordDecision(
@@ -611,19 +648,19 @@ namespace BugfixesAndQoL.GateRouting
                 // only feed Info checkpoints. Integrity categories stay counted for warnings.
                 if ((int)decision <= (int)NativeGateSnapshotDecision.ExcludeAccessRule)
                     return;
-                Interlocked.Increment(ref decisions[(site * DecisionCount) + decisionIndex]);
+                CountDecision(ref decisions[(site * DecisionCount) + decisionIndex], decision);
                 if (decision == NativeGateSnapshotDecision.UntrackedConnection)
                 {
                     NativeGateAccessSnapshot current = gateAccess;
                     if (current.TrackedRecords != 0 &&
                         !HasStableRecord(previousStableGateAccess, buildingId) &&
                         current.MatchesGateIdentity(buildingId, subjectGlobalId))
-                        Interlocked.Increment(ref untrackedUnexpectedGate);
+                        CountIntegrityError(ref untrackedUnexpectedGate);
                 }
                 return;
             }
 #if SERP_DEVDIAG
-            Interlocked.Increment(ref decisions[(site * DecisionCount) + decisionIndex]);
+            CountDecision(ref decisions[(site * DecisionCount) + decisionIndex], decision);
             if (queryPlayerId > 0 && queryPlayerId < queryPlayers.Length)
                 Interlocked.Increment(ref queryPlayers[queryPlayerId]);
             if ((int)decision <= (int)NativeGateSnapshotDecision.PreserveCapturerAlly)
@@ -646,7 +683,7 @@ namespace BugfixesAndQoL.GateRouting
                 else if (HasStableRecord(previousStableGateAccess, buildingId))
                     Interlocked.Increment(ref untrackedRemovedRecord);
                 else if (live.MatchesGateIdentity(buildingId, subjectGlobalId))
-                    Interlocked.Increment(ref untrackedUnexpectedGate);
+                    CountIntegrityError(ref untrackedUnexpectedGate);
                 else
                     Interlocked.Increment(ref untrackedNonGate);
             }
@@ -680,7 +717,7 @@ namespace BugfixesAndQoL.GateRouting
 
         private void TryLogDiagnosticFailure(Exception ex)
         {
-            Interlocked.Increment(ref callbackWarnings);
+            CountIntegrityError(ref callbackWarnings);
             deferredErrors.Record(ex.GetType().Name, ex.Message);
         }
 
@@ -697,9 +734,12 @@ namespace BugfixesAndQoL.GateRouting
             foreach (string error in deferredErrors.DrainNewCauses())
                 Shared.DebugLogHelper.LogWarning(log, "Enemy-gate deferred failure: " + error);
             if (detailedDiagnostics || (!final && Volatile.Read(ref mapActive) == 0)) return;
-            long now = Stopwatch.GetTimestamp();
-            if (!final && now < nextErrorCheckAt) return;
-            nextErrorCheckAt = now + Stopwatch.Frequency;
+            long ownRevision = SupportIntegrityRevision;
+            long sameRevision = samePclRouteRuntime?.SupportIntegrityRevision ?? 0;
+            long topologyRevision = topologyProvider?.SupportIntegrityRevision ?? 0;
+            if (!final && !integrityFlush.HasChanges(ownRevision, sameRevision, topologyRevision)) return;
+            if (!integrityFlush.TryReserve(ownRevision, sameRevision, topologyRevision,
+                Stopwatch.GetTimestamp(), Stopwatch.Frequency, final)) return;
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             TopologyCoverageSnapshot topology = topologyProvider?.GetCoverageSnapshot() ?? default;
             // Only a newly observed category emits a warning; repetitions remain in the final totals.
@@ -712,7 +752,8 @@ namespace BugfixesAndQoL.GateRouting
                 (DecisionTotal(NativeGateSnapshotDecision.OwnerMismatch) > 0 ? 1024U : 0) |
                 (DecisionTotal(NativeGateSnapshotDecision.InvalidQueryPlayer) > 0 ? 2048U : 0) |
                 (DecisionTotal(NativeGateSnapshotDecision.Exception) > 0 ? 4096U : 0) |
-                (Read(ref untrackedUnexpectedGate) > 0 ? 8192U : 0);
+                (Read(ref untrackedUnexpectedGate) > 0 ? 8192U : 0) |
+                (Volatile.Read(ref callbackWarnings) > 0 ? 16384U : 0);
             if ((causes & ~reportedIntegrityErrors) != 0 || (final && causes != 0))
                 Shared.DebugLogHelper.LogWarning(log, "Enemy-gate integrity errors (complete totals at map end): " + DescribeIntegrityErrors(same, topology));
             reportedIntegrityErrors |= causes;
@@ -722,7 +763,9 @@ namespace BugfixesAndQoL.GateRouting
         {
             deferredErrors.Reset();
             reportedIntegrityErrors = 0;
-            nextErrorCheckAt = 0;
+            integrityFlush.Reset(SupportIntegrityRevision,
+                samePclRouteRuntime?.SupportIntegrityRevision ?? 0,
+                topologyProvider?.SupportIntegrityRevision ?? 0);
             previousStableGateAccess = NativeGateAccessSnapshot.Empty;
 #if SERP_DEVDIAG
             Array.Clear(siteCalls, 0, siteCalls.Length);
@@ -780,8 +823,12 @@ namespace BugfixesAndQoL.GateRouting
             if (topologyProvider != null)
             {
                 foreach (string change in topologyProvider.CaptureDiagnostics.DrainChanges())
-                    Shared.DebugLogHelper.LogInfo(log, "Enemy-gate capture transition: " + change + ".");
-                Shared.DebugLogHelper.LogInfo(log, "Enemy-gate capture recovery: " +
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogInfo(log, "Enemy-gate capture transition: " + change + ".");
+                    }
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogInfo(log, "Enemy-gate capture recovery: " +
                     topologyProvider.CaptureDiagnostics.Summary + ".");
             }
             long pcl = Read(ref siteCalls[0]);
@@ -799,7 +846,8 @@ namespace BugfixesAndQoL.GateRouting
                 players.Append('p').Append(player).Append('=').Append(count);
             }
             if (players.Length == 0) players.Append("none:NOT_OBSERVED");
-            Shared.DebugLogHelper.LogInfo(log,
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate diagnostic checkpoint: kind={kind}, reason={reason}, " +
                 $"sites(pclGraph={pcl}(+{pclDelta}),builderPrecheck={builder}(+{builderDelta})), " +
                 $"coverageBySite(pclGraph=[{FormatSiteCoverage(0)}]," +
@@ -809,7 +857,8 @@ namespace BugfixesAndQoL.GateRouting
                 $"untracked(policyClear={Read(ref untrackedPolicyClear)},removedRecord={Read(ref untrackedRemovedRecord)}," +
                 $"nonGate={Read(ref untrackedNonGate)},unexpectedGate={Read(ref untrackedUnexpectedGate)}), " +
                 $"callbackWarnings={Volatile.Read(ref callbackWarnings)}.");
-            Shared.DebugLogHelper.LogInfo(log,
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate snapshot checkpoint: {topologyProvider?.DescribeState() ?? "unavailable"}.");
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             double cursorAverageMs = same.CursorNativeRefreshes == 0 ? 0.0 :
@@ -817,7 +866,8 @@ namespace BugfixesAndQoL.GateRouting
                 Stopwatch.Frequency / same.CursorNativeRefreshes;
             double cursorMaximumMs = same.CursorValidationMaxTicks * 1000.0 /
                 Stopwatch.Frequency;
-            Shared.DebugLogHelper.LogInfo(log,
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate Same-PCL checkpoint: kind={kind}, installed={same.Installed}," +
                 $"sharedHookOwner={same.OwnerConflict},queries={same.Queries}," +
                 $"searchWithoutRejectedEdges={same.Preserved},edgeRejected={same.RejectedEdges}," +
@@ -867,7 +917,8 @@ namespace BugfixesAndQoL.GateRouting
                 $"cursorDecisionSample=[{samePclRouteRuntime?.DescribeCursorDecisionSample() ?? "none"}]," +
                 $"cursorPreviewSample=[{samePclRouteRuntime?.DescribeCursorPreviewSample() ?? "none"}]," +
                 "managedCursorSearches=0,managedReplacementSearches=0,directionGridWrites=0.");
-            Shared.DebugLogHelper.LogInfo(log,
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate AI order checkpoint: kind={kind}, " +
                 DescribeOrderCheckpoint() +
                 ",plannerState0x419Queries=" + same.AiTacticalTargetQueries +
@@ -906,7 +957,8 @@ namespace BugfixesAndQoL.GateRouting
                 Read(ref untrackedUnexpectedGate) != 0 || policyFailures != 0;
             if (!detailedDiagnostics)
             {
-                Shared.DebugLogHelper.LogInfo(log,
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogInfo(log,
                     $"Enemy-gate map completed: epoch={topologyProvider?.DiagnosticEpoch}, reason={reason}, " +
                     $"queries={same.Queries}, aiQueries={same.AiQueries}, aiNegativeWithRejectedEdges={same.AiNegativeWithRejectedEdges}, " +
                     $"aiNegativeWithoutRejectedEdges={same.AiNegativeWithoutRejectedEdges}, incompleteSearches={same.IncompleteSearches}, " +
@@ -925,7 +977,8 @@ namespace BugfixesAndQoL.GateRouting
                 : !same.Installed ? DiagnosticVerdict.FAIL
                 : EnemyGatePathfindingPolicy.IntegrityVerdict(same.Queries > 0, false);
 
-            Shared.DebugLogHelper.LogInfo(log,
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate acceptance verdict: " +
                 $"capturerComparisonExecution={EnemyGatePathfindingPolicy.ObservationVerdict(hookActivity ? 1 : 0)}," +
                 $"runtimeIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity || same.Queries > 0, runtimeFailed)}," +
@@ -1021,7 +1074,8 @@ namespace BugfixesAndQoL.GateRouting
                 if (Volatile.Read(ref sample.State) != 2 ||
                     Interlocked.CompareExchange(ref sample.Reported, 1, 0) != 0)
                     continue;
-                Shared.DebugLogHelper.LogInfo(log,
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogInfo(log,
                     $"Enemy-gate first capturer sample: site={(sample.Site == 0 ? "pclGraph" : "builderPrecheck")}, " +
                     $"decision={(NativeGateSnapshotDecision)sample.Decision}, queryPlayer={sample.QueryPlayer}, " +
                     $"building={sample.BuildingId}, recordBuilding={sample.RecordBuildingId}, " +

@@ -13,7 +13,7 @@ namespace Shared {
  sealed class Subscription : IDisposable { public void Dispose() { throw new Exception("Published subscription disposed"); } }
  static class GameplaySessionLifecycle { internal static Action<object> Started; internal static IDisposable SubscribeStarted(object log,Action<object> call) { Started+=call;return new Subscription(); } }
  static class MissionEvents { internal static readonly Event Ended=new(); internal sealed class Event { internal Action<object> Call; internal IDisposable Subscribe(Action<object> call) { Call+=call;return new Subscription(); } } }
- static class DebugLogHelper { internal static void LogInfo(object log,string text) {} }
+ static class DebugLogHelper { internal static bool DiagnosticsEnabled => false; internal static void LogInfo(object log,string text) {} }
 }
 namespace BugfixesAndQoL {
  class BugfixesAndQoLViewModel { internal bool EnableMod=true,EnableAssassinGatehouseClimbFix=true,EnableEnemyGatePathfindingFix=true; }

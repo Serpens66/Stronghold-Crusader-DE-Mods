@@ -268,7 +268,8 @@ namespace BugfixesAndQoL
             ApplyDialogConstraints(working);
             outpostsUnavailableLogged = false;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:281", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_OPEN: peace={working.peacetime}, advancedSkirmish={working.advanced_skirmish_options}, noDogsAvailable={noDogsNativeAvailable}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:281", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_OPEN: peace={working.peacetime}, advancedSkirmish={working.advanced_skirmish_options}, noDogsAvailable={noDogsNativeAvailable}.");
         }
 
         private void RouteToWorkingCopy(FRONT_Multiplayer self, string command)
@@ -338,7 +339,8 @@ namespace BugfixesAndQoL
 
             UpdateHostInfoMethod.Invoke(self, new object[] { false });
             RefreshAllSkirmishViews(self);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:353", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_APPLY: peace={committed.peacetime}, advancedSkirmish={committed.advanced_skirmish_options}, strongWalls={committed.no_knockdown_walls}, noCows={committed.no_cows}, noDogs={committed.no_dogs}, autoTrading={committed.allow_autotrading}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:353", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_APPLY: peace={committed.peacetime}, advancedSkirmish={committed.advanced_skirmish_options}, strongWalls={committed.no_knockdown_walls}, noCows={committed.no_cows}, noDogs={committed.no_dogs}, autoTrading={committed.allow_autotrading}.");
         }
 
         private void NormalizeLoadedPreset(FRONT_Multiplayer self, string command)
@@ -348,7 +350,8 @@ namespace BugfixesAndQoL
                 return;
             CanonicalizeSharedAdvancedState(working, true);
             ApplyDialogConstraints(working);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:365", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_LOADED: command={command}, peace={working.peacetime}, advanced={working.advanced_options}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:365", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_LOADED: command={command}, peace={working.peacetime}, advanced={working.advanced_options}.");
         }
 
         private void SaveSharedPreset(FRONT_Multiplayer self, string command)
@@ -363,7 +366,8 @@ namespace BugfixesAndQoL
             CanonicalizeSharedAdvancedState(working, false);
             multiplayerButtonOriginal(self, command);
             UpdatePresetButtonAvailability();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:382", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_SAVED: command={command}, sharedWithMultiplayer=true.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:382", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_SAVED: command={command}, sharedWithMultiplayer=true.");
         }
 
         private void ApplyDialogConstraints(EngineInterface.MultiplayerSetupData working)
@@ -436,7 +440,8 @@ namespace BugfixesAndQoL
                 int.TryParse(Convert.ToString(parameter), out int command) &&
                 (command == 100 || command == 101))
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:459", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_AUTOTRADE_ACTION_BLOCKED: command={command}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:459", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_AUTOTRADE_ACTION_BLOCKED: command={command}.");
                 return;
             }
             buySellOriginal(self, parameter);

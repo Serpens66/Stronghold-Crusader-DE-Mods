@@ -17,8 +17,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $previousApiSharedDirectory = $env:SHCDE_API_SHARED_DIR
 $previousApiSharedReleaseProof = $env:SHCDE_API_SHARED_RELEASE_PROOF
+$previousApiSharedReleaseProofHash = $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256
 $previousApiSharedTestMode = $env:SHCDE_WORKSHOP_TEST
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
+. (Join-Path $PSScriptRoot 'ApiSharedSdkPolicy.ps1')
 $mainWorkspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){$env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $mainWorkspace}
 if(-not $Validate){Ensure-ApiMainBuild $mainWorkspace}
@@ -536,7 +538,7 @@ function Get-ApiSharedReleasePackage {
         [Parameter(Mandatory)]$Infrastructure
     )
 
-    $apiTest=$TestMode -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1'
+    $apiTest=$TestMode
     $tag = "APIShared/v$($Infrastructure.Version)"
     if ($apiTest) { $apiCommit=((Invoke-Checked -FilePath 'git' -Arguments @('-C',$Infrastructure.ProjectDirectory,'rev-parse','HEAD') -FailureCode 3).Output -join '').Trim(); $tag="APIShared/test/v$($Infrastructure.Version)-$($apiCommit.Substring(0,12))" }
     $base = "APIShared-v$($Infrastructure.Version)"
@@ -544,7 +546,7 @@ function Get-ApiSharedReleasePackage {
     $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @(
             'release','view',$tag,'--repo',$Infrastructure.Repository,'--json','tagName,isDraft,targetCommitish,url,assets'
     ) -FailureCode 7 -AllowFailure
-    if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is not published." }
+    if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is unavailable. Prepare and publish APIShared separately before preparing this modpack." }
     $release = ($releaseResult.Output -join "`n") | ConvertFrom-Json
     if ([string]$release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$apiTest) {
         Fail-Pack 7 "APIShared release $tag is missing, still a draft, or resolved to an unexpected tag."
@@ -555,6 +557,15 @@ function Get-ApiSharedReleasePackage {
         }
     }
 
+    $assetResponse = Invoke-Checked -FilePath 'gh' -Arguments @('api',("repos/"+$Infrastructure.Repository+"/releases/tags/"+[Uri]::EscapeDataString($tag))) -FailureCode 7
+    $assetRelease = ($assetResponse.Output -join "`n") | ConvertFrom-Json
+    if($assetRelease.tag_name -cne $tag -or [bool]$assetRelease.draft -ne [bool]$apiTest -or
+       $assetRelease.target_commitish -cne $release.targetCommitish){Fail-Pack 7 'APIShared release changed during identity selection.'}
+    $releaseAssets = @(Get-ApiSharedReleaseAssetRecords $assetRelease.assets $expectedAssetNames)
+    $provenanceAsset = @($releaseAssets | Where-Object Name -ceq "$base.provenance.json")[0]
+    $zipAsset = @($releaseAssets | Where-Object Name -ceq "$base.zip")[0]
+    $checksumAsset = @($releaseAssets | Where-Object Name -ceq "$base.zip.sha256")[0]
+
     $cache = Join-Path (Get-ApiMainWorkspace $script:Root) ".release-output\APIShared\cache\v$($Infrastructure.Version)"
     if ($apiTest) { $cache=Join-Path $script:OutputRoot ("cache/APIShared/v$($Infrastructure.Version)-"+$apiCommit.Substring(0,12)) }
     [void](New-Item -ItemType Directory -Path $cache -Force)
@@ -564,17 +575,24 @@ function Get-ApiSharedReleasePackage {
     $provenancePath = Get-CachedSteamReleaseAsset $cache "$base.provenance.json" $tag $Infrastructure.Repository {
         param($path)
         $p = [IO.File]::ReadAllText($path) | ConvertFrom-Json
-        return $p.Mod -ceq 'APIShared' -and $p.PluginGuid -ceq $Infrastructure.Guid -and
+        return (Get-SteamPackFileSha256 $path) -ceq $provenanceAsset.Sha256 -and
+            (Get-Item -LiteralPath $path).Length -eq $provenanceAsset.Size -and
+            $p.Mod -ceq 'APIShared' -and $p.PluginGuid -ceq $Infrastructure.Guid -and
             $p.Version -ceq $Infrastructure.Version -and $p.Tag -ceq $tag -and
-            $p.Commit -ceq $release.targetCommitish -and $p.Package.Sha256 -match '^[a-f0-9]{64}$'
+            $p.Commit -ceq $release.targetCommitish -and $p.Package.Sha256 -ceq $zipAsset.Sha256
     } 7
     $expected = [string](([IO.File]::ReadAllText($provenancePath) | ConvertFrom-Json).Package.Sha256)
     $zip = Get-CachedSteamReleaseAsset $cache "$base.zip" $tag $Infrastructure.Repository {param($path) Test-ReleaseAssetHash $path $expected} 7
-    $shaPath = Get-CachedSteamReleaseAsset $cache "$base.zip.sha256" $tag $Infrastructure.Repository {param($path) Test-ReleaseChecksum $path $expected} 7
+    $shaPath = Get-CachedSteamReleaseAsset $cache "$base.zip.sha256" $tag $Infrastructure.Repository {
+        param($path) (Test-ReleaseChecksum $path $expected) -and
+            (Get-SteamPackFileSha256 $path) -ceq $checksumAsset.Sha256 -and
+            (Get-Item -LiteralPath $path).Length -eq $checksumAsset.Size
+    } 7
     foreach ($path in @($zip,$shaPath,$provenancePath)) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail-Pack 7 "Missing APIShared release asset: $path" }
     }
 
+    Assert-ApiSharedReleaseAssetFiles $cache $releaseAssets
     $actualHash = Get-Sha256 $zip
     $shaText = [IO.File]::ReadAllText($shaPath)
     $declaredMatch = [regex]::Match($shaText, '(?i)\b([0-9a-f]{64})\b')
@@ -582,21 +600,30 @@ function Get-ApiSharedReleasePackage {
         Fail-Pack 7 "SHA-256 file mismatch for $tag."
     }
     $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
-    $mainProof=Assert-ApiMainSelection $script:Root $env:SHCDE_API_SHARED_MAIN_SELECTION
-    $mainAncestor=Invoke-ApiRepositoryProcess 'git' @('-C',$Infrastructure.ProjectDirectory,'merge-base','--is-ancestor',[string]$provenance.Commit,$mainProof.Commit)
-    if($mainAncestor.ExitCode -ne 0){Fail-Pack 7 'APIShared release source is not in selected main history.'}
     if ([string]$provenance.Mod -cne 'APIShared' -or
         [string]$provenance.PluginGuid -cne $Infrastructure.Guid -or
         [string]$provenance.Version -cne $Infrastructure.Version -or
         [string]$provenance.Tag -cne $tag -or
         [string]$provenance.Package.Sha256 -cne $actualHash -or
-        [string]::IsNullOrWhiteSpace([string]$provenance.Commit) -or
+        [string]$provenance.Commit -cnotmatch '^[0-9a-f]{40}$' -or
         [string]$provenance.Commit -cne [string]$release.targetCommitish) {
         Fail-Pack 7 "Provenance mismatch for $tag."
     }
 
+    $mainProof=Assert-ApiMainSelection $script:Root $env:SHCDE_API_SHARED_MAIN_SELECTION
+    $mainAncestor=Invoke-ApiRepositoryProcess 'git' @('-C',$Infrastructure.ProjectDirectory,'merge-base','--is-ancestor',[string]$provenance.Commit,$mainProof.Commit)
+    if($mainAncestor.ExitCode -ne 0){Fail-Pack 7 'APIShared release source is not in selected main history.'}
+    $sourcePaths=@(Invoke-ApiRepositoryGit $Infrastructure.ProjectDirectory @('diff','--name-only',[string]$provenance.Commit,$mainProof.Commit))
+    if(@(Get-SteamApiReleaseRelevantChanges $sourcePaths).Count){
+        Fail-Pack 7 'APIShared release-relevant main sources differ from the selected artifact. Publish the updated APIShared separately first.'
+    }
+
     Assert-ApiWorkshopZipLayout -ZipPath $zip -Guid $Infrastructure.Guid
     $audit = Join-Path $cache 'audit'
+    $audit=[IO.Path]::GetFullPath($audit)
+    if(-not $audit.StartsWith([IO.Path]::GetFullPath($cache).TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)){Fail-Pack 7 'Unsafe APIShared audit directory.'}
+    Assert-ApiWorkshopUnlinkedPath $audit
+    if(Test-Path -LiteralPath $audit){Assert-ApiWorkshopUnlinkedTree $audit}
     if (Test-Path -LiteralPath $audit) { Remove-Item -LiteralPath $audit -Recurse -Force }
     Expand-Archive -LiteralPath $zip -DestinationPath $audit
     $roots = @(Get-ChildItem -LiteralPath $audit -Directory)
@@ -635,10 +662,6 @@ function Get-ApiSharedReleasePackage {
         Fail-Pack 7 "APIShared release DLL identity/dependency mismatch for $tag."
     }
 
-    if($env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1' -and ($Infrastructure.Version -cne '0.9.2' -or
-       $provenance.Commit -cne 'c7b210f007035ff8edaf4d359a21f7bfbcbe479d' -or
-       $actualHash -cne 'a83714eb5ffaf24b6042cae4c972f0037c11169fdf25d3a1fe912e0d08c53097' -or
-       (Get-Sha256 $provenancePath) -cne 'c73265913ff8e7bcd0ad4aa010e4bb10ef7cbafa2fe7635e91c857467fbf3574')){Fail-Pack 7 'APIShared differs from the frozen public 0.9.2 release.'}
     return [pscustomobject]@{
         Zip = $zip
         Sha256 = $actualHash
@@ -648,6 +671,8 @@ function Get-ApiSharedReleasePackage {
         ReleaseUrl = [string]$release.url
         TargetCommit = [string]$release.targetCommitish
         ProvenancePath = $provenancePath
+        ProvenanceSha256 = $provenanceAsset.Sha256
+        ReleaseAssets = $releaseAssets
     }
 }
 
@@ -1491,6 +1516,12 @@ try {
         $apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version) {
         Fail-Pack 3 "Built APIShared infrastructure DLL differs from the source manifest v$([string]$apiSharedSourceInfo.Version)."
     }
+    foreach ($consumer in $mods) {
+        $manifest = [IO.File]::ReadAllText((Join-Path $script:Root ($consumer.Name+'/info.json'))) | ConvertFrom-Json
+        foreach ($dependency in @($manifest.Dependencies | Where-Object { $_.GUID -ceq 'APIShared_Serp' })) {
+            if ($dependency.MinimumVersion) { Assert-ApiSharedMinimumVersion $apiSharedSourceInfo.Version $dependency.MinimumVersion }
+        }
+    }
     $apiSharedChanges = @($apiSharedSourceInfo.SerpChangelog | Where-Object {
         [string]$_.Version -ceq [string]$apiSharedSourceInfo.Version
     })
@@ -1523,41 +1554,11 @@ try {
     . (Join-Path $script:Root 'Shared\Tools\Release\Release.Common.ps1')
     $headCommit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
 
-    $apiReleasesResult = Invoke-Checked -FilePath 'gh' -Arguments @('release','list','--repo',$apiSharedInfrastructure.Repository,'--limit','1000','--json','tagName,isDraft,publishedAt') -FailureCode 2
-    $apiReleases = @((($apiReleasesResult.Output -join "`n") | ConvertFrom-Json) | Where-Object { -not $_.isDraft -and ($env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1' -or $_.tagName -ceq 'APIShared/v0.9.2') })
-    $apiSharedLatest = Get-LatestReleaseForMod -ModName 'APIShared' -Releases $apiReleases -Repository $apiSharedInfrastructure.Repository
-    $apiSharedPublishedVersion = if ($null -eq $apiSharedLatest) { $null } else { [string]$apiSharedLatest.Version }
-    $apiSharedContentIsCurrent = $false
-    $apiSharedArtifactIsValid = $false
-    if ($null -ne $apiSharedLatest) {
-        $apiComparisonTarget = [pscustomobject]@{ Name = 'APIShared'; PackageDirectory = $apiSharedDirectory }
-        $apiSharedComparison = Get-PackagedContentComparison -Mod $apiComparisonTarget `
-            -BaseCommit $apiSharedLatest.Commit -HeadCommit $headCommit
-        $apiSharedContentIsCurrent = [bool]$apiSharedComparison.IsCurrent
-        if (-not $apiSharedContentIsCurrent) {
-            Write-RunLog "Packaged APIShared content changed: $(@($apiSharedComparison.Paths) -join ', ')"
-        }
-        if ([string]$apiSharedLatest.Version -ceq $apiSharedInfrastructure.Version -and $apiSharedContentIsCurrent) {
-            try {
-                $apiSharedInfrastructure.ReleasePackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure
-                $apiSharedArtifactIsValid = $true
-            } catch {
-                Write-RunLog "Published APIShared artifact validation failed: $($_.Exception.Message)" 'WARN'
-            }
-        }
-    }
-    try {
-        $apiSharedAction = if ($env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1') { if(-not $apiSharedArtifactIsValid){Fail-Pack 7 'The frozen public APIShared 0.9.2 artifact is required; no new API release will be created.'};[pscustomobject]@{NeedsRelease=$false;Reason='Frozen public APIShared 0.9.2'} } elseif ($TestMode) { [pscustomobject]@{ NeedsRelease=$false; Reason="Use reviewed APIShared test draft" } } else { Resolve-ApiSharedReleaseAction `
-            -PreparedVersion $apiSharedInfrastructure.Version `
-            -PublishedVersion $apiSharedPublishedVersion `
-            -PublishedContentIsCurrent $apiSharedContentIsCurrent `
-            -PublishedArtifactIsValid $apiSharedArtifactIsValid }
-    } catch {
-        Fail-Pack 3 $_.Exception.Message
-    }
-    $apiSharedInfrastructure.NeedsRelease = [bool]$apiSharedAction.NeedsRelease
-    if ($TestMode -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1') { $apiSharedInfrastructure.ReleasePackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure; $apiSharedInfrastructure.NeedsRelease = $false }
-    $apiSharedInfrastructure.ReleaseReason = [string]$apiSharedAction.Reason
+    # APIShared releases are prepared separately in its independent repository.
+    # Consumers only accept the exact reviewed, existing artifact of this mode.
+    $apiSharedInfrastructure.ReleasePackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure
+    $apiSharedInfrastructure.NeedsRelease = $false
+    $apiSharedInfrastructure.ReleaseReason = 'Use validated APIShared release artifact'
     if ($null -ne $apiSharedInfrastructure.ReleasePackage) {
         $apiPackage = $apiSharedInfrastructure.ReleasePackage
         $apiSharedInfrastructure.Directory = $apiPackage.PackageDirectory
@@ -1631,7 +1632,6 @@ try {
     }
     Write-RunLog "  Workshop packager: $resolvedPackager"
     Write-RunLog "  Preview: $PreviewPath"
-    if ($apiSharedInfrastructure.NeedsRelease) { Fail-Pack 2 'Prepare APIShared first through CreateSteamModPack.bat /apishared.' }
 
     if ($Validate) {
         Write-RunLog 'Validation completed before all source edits, builds, commits, pushes and releases.' 'OK'
@@ -1648,7 +1648,8 @@ try {
     }
     $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); ReusedReleases = @(); Status = 'source-preparation' }
     Write-JsonCrLf -Path $script:JournalPath -Value $journal
-    $apiPackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure
+    $apiPackage = $apiSharedInfrastructure.ReleasePackage
+    Assert-ApiSharedReleaseAssetFiles (Split-Path -Parent $apiPackage.ProvenancePath) $apiPackage.ReleaseAssets
     $apiSharedInfrastructure.ReleasePackage = $apiPackage
     $apiSharedInfrastructure.Directory = $apiPackage.PackageDirectory
     $apiSharedInfrastructure.DirectorySha256 = Get-DirectorySignature $apiPackage.PackageDirectory
@@ -1659,6 +1660,7 @@ try {
     # APIShared preparation is owned by the separate workflow target.
     $env:SHCDE_API_SHARED_DIR = $apiPackage.PackageDirectory
     $env:SHCDE_API_SHARED_RELEASE_PROOF = $apiPackage.ProvenancePath
+    $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256 = $apiPackage.ProvenanceSha256
     $env:SHCDE_WORKSHOP_TEST = $(if ($TestMode) { '1' } else { '' })
     $null = Assert-ApiConsumerPackage $script:Root $apiPackage.PackageDirectory
     Write-RunLog "Consumer builds use the verified published APIShared SDK: $($apiPackage.ReleaseTag)." 'OK'
@@ -1900,6 +1902,7 @@ try {
 } finally {
     $env:SHCDE_API_SHARED_DIR = $previousApiSharedDirectory
     $env:SHCDE_API_SHARED_RELEASE_PROOF = $previousApiSharedReleaseProof
+    $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256 = $previousApiSharedReleaseProofHash
     $env:SHCDE_WORKSHOP_TEST = $previousApiSharedTestMode
     $env:SHCDE_GAME_DIR = $previousGameDirectory
     $env:SHCDESE_EXTENDER_DIR = $previousExtenderDirectory

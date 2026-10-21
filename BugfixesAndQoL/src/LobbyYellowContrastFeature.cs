@@ -151,8 +151,9 @@ namespace BugfixesAndQoL
                     ApplySetting();
                     if (firstBinding && !faulted)
                     {
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/LobbyYellowContrastFeature.cs:154", "Bugfixes and QoL high-contrast yellow presentation ready; " +
-                            $"shields=4, enabled={IsActive}.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/LobbyYellowContrastFeature.cs:154", "Bugfixes and QoL high-contrast yellow presentation ready; " +
+                                $"shields=4, enabled={IsActive}.");
                     }
                 }
             }

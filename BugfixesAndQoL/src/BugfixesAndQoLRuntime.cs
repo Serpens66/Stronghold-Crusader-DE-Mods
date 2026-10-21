@@ -628,12 +628,13 @@ namespace BugfixesAndQoL
                     log, settings, context, referenceHashMatches, BugfixesAndQoLPlugin.PluginGuid);
             }
             friendlyMoatMovementRuntime = processUnitCommandPathRuntime;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL shared unit commands initialized: " +
-                $"manualCommands={settings.EnableImprovedManualUnitCommands}, improvedFill=" +
-                $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, " +
-                $"ladderAttackFix={settings.EnableMod && settings.EnableLadderAttackPathfindingFix}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "Bugfixes and QoL shared unit commands initialized: " +
+                    $"manualCommands={settings.EnableImprovedManualUnitCommands}, improvedFill=" +
+                    $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, " +
+                    $"ladderAttackFix={settings.EnableMod && settings.EnableLadderAttackPathfindingFix}.");
         }
 
         private void InitializeExtendedShiftCommandQueue(
@@ -1071,7 +1072,7 @@ namespace BugfixesAndQoL
         private void TryInitializeFeature(string featureName, Action initialize)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("FeatureInitialize", featureName.GetHashCode()))
+                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("FeatureInitialize", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
             {
                 try
                 {
@@ -1089,7 +1090,7 @@ namespace BugfixesAndQoL
         private void TryInitializePersistentFeature(string featureName, Action initialize)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("PersistentInitialize", featureName.GetHashCode()))
+                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("PersistentInitialize", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
             {
                 try
                 {
@@ -1107,7 +1108,7 @@ namespace BugfixesAndQoL
         private void TryApplyFeature(string featureName, Action apply)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("FeatureApply", featureName.GetHashCode()))
+                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("FeatureApply", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
             {
                 try
                 {

@@ -475,7 +475,8 @@ namespace BugfixesAndQoL.UnitCommands
 #if SERP_DEVDIAG
             if (probe.ModeRetryCount == 0)
                 return;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:471", $"Bugfixes and QoL Vanilla ladder attack group-mode result: " +
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:471", $"Bugfixes and QoL Vanilla ladder attack group-mode result: " +
                 $"commandSeq={probe.CommandSequence}, kind={probe.Kind}, " +
                 $"tribe={probe.TribeId}, leadUnitId={probe.LeadUnitId}, " +
                 $"building={probe.BuildingId}, groupMode={probe.GroupMovementMode}, " +
@@ -495,7 +496,8 @@ namespace BugfixesAndQoL.UnitCommands
 #if SERP_DEVDIAG
             if (!DetailedDiagnosticsEnabled || activeAttackCommand == null)
                 return;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:490", $"Bugfixes and QoL Vanilla ladder attack scope not created: " +
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:490", $"Bugfixes and QoL Vanilla ladder attack scope not created: " +
                 $"commandSeq={activeAttackCommand.Sequence}, kind={kind}, tribe={tribeId}, " +
                 $"reason={reason}, setting={settings.EnableLadderAttackPathfindingFix}.");
 #endif

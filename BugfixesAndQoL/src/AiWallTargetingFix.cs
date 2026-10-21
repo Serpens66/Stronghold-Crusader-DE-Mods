@@ -58,9 +58,10 @@ namespace BugfixesAndQoL
                     ExpectedDisplacedByteCount,
                     1,
                     "AI wall-target reservation rejection"));
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"AI wall-targeting permanent hook installed: rva=0x{patchRva:X}, displaced={ExpectedDisplacedByteCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AI wall-targeting permanent hook installed: rva=0x{patchRva:X}, displaced={ExpectedDisplacedByteCount}.");
         }
 
         public void ApplySetting()

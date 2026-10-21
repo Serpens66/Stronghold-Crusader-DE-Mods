@@ -93,9 +93,10 @@ namespace ExtraFeatures
                 CommitResult commitResult = candidate.Commit();
                 if (!commitResult.IsCompleteSuccess || !aiFlagRoutineHook.Success)
                     throw new InvalidOperationException("The AI flag projectile hook was not installed.");
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Extra Features AI flag disease tracking initialized: routineRva=0x{routineRva:X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Extra Features AI flag disease tracking initialized: routineRva=0x{routineRva:X}.");
                 transaction = candidate;
                 hookPublished = true;
             }
@@ -134,9 +135,10 @@ namespace ExtraFeatures
                 }
 
                 registry.Track(slotId, projectile->r_GlobalId);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Registered external Vanilla-equivalent Disease flag: slot={slotId}, globalId={projectile->r_GlobalId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Registered external Vanilla-equivalent Disease flag: slot={slotId}, globalId={projectile->r_GlobalId}.");
                 return true;
             }
             catch (Exception ex)
@@ -328,7 +330,8 @@ namespace ExtraFeatures
                 identities[index] = new PlagueFlagDiseaseIdentity(record.SlotId, record.GlobalId);
             }
             registry.Restore(identities);
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AiFlagDiseaseTracker.cs:333", $"AI flag disease state loaded: projectiles={registry.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AiFlagDiseaseTracker.cs:333", $"AI flag disease state loaded: projectiles={registry.Count}.");
         }
 
         private void PruneInvalidProjectiles()

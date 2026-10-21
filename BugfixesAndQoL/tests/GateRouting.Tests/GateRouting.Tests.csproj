@@ -47,6 +47,8 @@
     <Compile Include="..\..\src\GateRouting\CursorPreviewCache.cs" />
     <Compile Include="..\..\src\GateRouting\FunctionalGatePolicyAdapter.cs" />
     <Compile Include="..\..\src\GateRouting\DeferredGateDiagnosticErrors.cs" />
+    <Compile Include="..\..\src\GateRouting\IntegrityErrorFlushGate.cs" />
+    <Compile Include="IntegrityErrorFlushTests.cs" />
     <Compile Include="..\..\src\GateRouting\BuildingSearchPlayerResolver.cs" />
     <Compile Include="..\..\src\GateRouting\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
     <Compile Include="..\..\src\GateRouting\GatePassageMask.cs" />
@@ -61,6 +63,7 @@
     <Compile Include="..\..\src\GateRouting\PathDecisionAggregate.cs"><Link>AiGateDecisionAggregate.cs</Link></Compile>
     <Compile Include="..\..\src\GateRouting\GateDiagnosticClassification.cs" />
     <Compile Include="..\..\src\GateRouting\CaptureTransitionDiagnostics.cs" />
+    <Compile Include="..\..\src\GateRouting\CaptureTransitionDiagnostics.DevDiag.cs" />
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="CapturerAdapterMachineTests.cs" />

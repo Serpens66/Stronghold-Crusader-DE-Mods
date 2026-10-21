@@ -15,7 +15,7 @@ $status=@(& git -C $apiRoot status --porcelain);if($LASTEXITCODE -ne 0){throw 'C
 $null=Assert-ApiBuildProof $apiRoot
 if($status.Count){throw 'Pinned main worktree changed.'}
 $commit=(& git -C $apiRoot rev-parse HEAD).Trim();if($LASTEXITCODE -ne 0){throw 'Cannot read APIShared source commit.'}
-$tag=if($test -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1'){'APIShared/test/v'+$info.Version+'-'+$commit.Substring(0,12)}else{'APIShared/v'+$info.Version}
+$tag=if($test){'APIShared/test/v'+$info.Version+'-'+$commit.Substring(0,12)}else{'APIShared/v'+$info.Version}
 $packager=if($config.Packager -ne 'AUTO'){$config.Packager}else{(Get-ChildItem -LiteralPath (Join-Path $config.Root 'shcde-script-extender/src/SHCDESE.WorkshopPackager') -Recurse -File -Filter 'SHCDESE.WorkshopPackager.exe'|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1).FullName}
 if(-not $packager -or -not(Test-Path -LiteralPath $packager)){throw 'Build the existing Extender Workshop packager before preparing packages.'}
 if(-not(Test-Path -LiteralPath $api.Preview)){throw 'APIShared preview missing.'}
@@ -24,7 +24,7 @@ $release=Get-ApiGitHubRelease 'SHCDE-APIShared/APIShared' $tag
 $exists=$null -ne $release
 if($exists){
     if([string]$release.targetCommitish -cnotmatch '^[0-9a-f]{40}$'){throw 'Existing APIShared release has a different source or publication mode.'}
-    if([bool]$release.isDraft -ne ($test -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1')){throw 'Existing APIShared release has a different source or publication mode.'}
+    if([bool]$release.isDraft -ne ($test)){throw 'Existing APIShared release has a different source or publication mode.'}
     if($release.targetCommitish -cne $commit){
         if($test){throw 'Existing APIShared release has a different source or publication mode.'}
         . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
@@ -34,15 +34,8 @@ if($exists){
         Write-Host 'Reusing published APIShared: release-relevant main sources are unchanged.'
     }
 }
+if(-not $exists){throw "Required APIShared release $tag is unavailable. Prepare it through APIShared's own release.bat first; this consumer workflow never creates an APIShared release."}
 if($ValidateOnly){Write-Host "Validated APIShared $($info.Version), tag $tag; no release or build started.";exit 0}
-if(-not $exists -and $env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1'){throw 'Published APIShared 0.9.2 release is required; no new APIShared build or release is allowed.'}
-if(-not $exists){
-    $word=if($test){'TESTPAKET'}else{'VEROEFFENTLICHEN'}
-    if((Read-Host "Type $word to build and create the reviewed GitHub release") -cne $word){throw 'Preparation cancelled.'}
-    $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $apiRoot 'tools/Release/Release.ps1'),'-WorkshopPackagerPath',$packager,'-PreviewPath',$api.Preview)
-    if($test){$arguments+='-TestRelease'}else{$arguments+='-Publish'}
-    & powershell.exe @arguments;if($LASTEXITCODE -ne 0){throw 'APIShared release preparation failed.'}
-}
 $run=Join-Path (Get-WorkshopStateRoot $config $test) ('preparation/APIShared-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($run)
 & gh release download $tag --repo 'SHCDE-APIShared/APIShared' --pattern 'APIShared*' --dir $run
@@ -57,5 +50,6 @@ Assert-PreparedWorkshopFolder $content $info.Version $api.Guid
 Publish-WorkshopFolder $content (Get-WorkshopFolder $config $api $test) $config.Root
 $changes=@($info.SerpChangelog|Where-Object {$_.Version -ceq $info.Version})
 $releaseNotes='APIShared v'+$info.Version+': '+(@($changes.Changes) -join '; ')
-$null=Write-WorkshopPreparation $config $api $test $info.Version $deliveredCommit $tag $releaseNotes
+$sdkIdentity=Get-ApiSharedPackageIdentity $provenance (Get-ApiMainDeliveryIdentity $config.Root).Commit $test
+$null=Write-WorkshopPreparation $config $api $test $info.Version $deliveredCommit $tag $releaseNotes -SdkIdentity $sdkIdentity
 Write-Host ('APIShared upload folder ready: '+(Get-WorkshopFolder $config $api $test))

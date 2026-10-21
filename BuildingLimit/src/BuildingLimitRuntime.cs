@@ -61,16 +61,25 @@ namespace BuildingLimit
             if (hooksSubscribed)
                 return;
 
-            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:65", "Subscribing building limit runtime hooks");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:65", "Subscribing building limit runtime hooks");
+            }
             if (!TryInitializeFeature("active-building cache", activeBuildingCache.SubscribeHooks))
             {
                 TryInitializeFeature("active-building cache rollback", activeBuildingCache.Dispose);
-                LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:69", "Building limit enforcement remains inactive because its required cache is unavailable.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:69", "Building limit enforcement remains inactive because its required cache is unavailable.");
+                }
                 return;
             }
             towerSiegeCacheAvailable = TryInitializeFeature("tower-siege unit cache", towerSiegeUnitCache.SubscribeHooks);
             if (!towerSiegeCacheAvailable)
-                LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:74", "Tower-siege limits remain inactive because their unit cache is unavailable.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:74", "Tower-siege limits remain inactive because their unit cache is unavailable.");
+                }
             try
             {
                 InstallUpdateRolloverHook();
@@ -100,7 +109,10 @@ namespace BuildingLimit
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnTowerSiegeUnitCreated));
 
-            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:104", "Building limit runtime hooks subscribed");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:104", "Building limit runtime hooks subscribed");
+            }
             hooksSubscribed = true;
         }
 
@@ -112,7 +124,10 @@ namespace BuildingLimit
             SubscribeSettingsChanges();
             SubscribeHooks();
             ApplyBuildingLimits();
-            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:116", "Applied building limit settings");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:116", "Applied building limit settings");
+            }
             libraryInitialized = true;
         }
 
@@ -121,8 +136,10 @@ namespace BuildingLimit
             lastPlacementBlocked = false;
             try
             {
-                LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:124", "Gameplay session started: " + context.Kind);
-                Shared.DebugLogHelper.LogDebug(log, "BuildingLimit persistent runtime active after startup cleanup: " + context.Kind);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:124", "Gameplay session started: " + context.Kind);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(log, "BuildingLimit persistent runtime active after startup cleanup: " + context.Kind);
                 ClearTowerSiegeReservations();
                 ResetBuildingLimitTooltipCache();
                 ApplyBuildingLimits();
@@ -136,7 +153,10 @@ namespace BuildingLimit
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             lastPlacementBlocked = false;
-            LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:138", "OnUnloadMap");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:138", "OnUnloadMap");
+            }
             ClearTowerSiegeReservations();
             HideBuildingLimitMessage();
             ClearBuildingLimitTooltip();

@@ -3,19 +3,37 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.194",
+  "Version": "1.0.195",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.0"
+      "MinimumVersion": "0.12.3"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.195",
+      "Changes": [
+        "Add savegame loading fixes for Solo Multiplayer, lobby load-button visibility and missing original map assets, with configurable recovery.",
+        "Persist individual building pause overrides, assassin climbing restrictions and synchronized troop movement state in versioned save records; validate identities before restoring them.",
+        "Preserve formation command acknowledgements and improve formation destinations, movement markers, queued orders, gate crossings, building attacks and moat work recovery.",
+        "Improve notification skipping, final-frame notification display and speech playback without leaving stale audio or UI state.",
+        "Coordinate Custom Lord Coop starts through APIShared and retain consistent custom AI data on all peers.",
+        "Improve preplaced AI building recovery, plague and healer target reservations, waterboy reservations, foreign troop player colours and selected-unit health handling.",
+        "Add guarded Vanilla optimizations for merit-data locking, radar rebinding and sprite-sheet merging; reduce repeated assassin route searches and movement-marker work.",
+        "Move native hook installation to the synchronous startup phase and share the native DLL fingerprint instead of repeating expensive work.",
+        "Compile temporary gate, assassin movement, route acceptance and recovery-history diagnostics only in the dedicated diagnostic build.",
+        "Keep stale gate-snapshot refresh functional without diagnostics, coalesce refresh requests and reject delayed work from previous map sessions.",
+        "Skip gate-integrity aggregation when error revisions have not changed; retain throttled warning/error reports and final summaries.",
+        "Avoid disabled support-log formatting and breadcrumb preparation; bound repeated cause hashing without merging distinct failures.",
+        "Require APIShared 0.12.3 or newer."
+      ]
+    },
     {
       "Version": "1.0.194",
       "Changes": ["Faster game start: native hooks install without suspending game threads while the library loads, the native DLL hash is computed once, and gate-routing hooks install at game start instead of the first map tick.", "Lower in-game cost: cheaper AI assassin group path searches, a demand-gated move-marker render hook, and faster gatehouse-reachability and building-attack fallback searches; routes and behavior are unchanged."]

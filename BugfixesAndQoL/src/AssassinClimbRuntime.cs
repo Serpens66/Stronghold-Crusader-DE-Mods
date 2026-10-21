@@ -150,7 +150,8 @@ namespace BugfixesAndQoL
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<AssassinClimbStatePacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
             networkInitialized = true;
-            LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void Initialize()
@@ -203,7 +204,8 @@ namespace BugfixesAndQoL
             {
                 foreach (int playerId in state.ForbiddenPlayerIds)
                     climbingAllowed[playerId] = false;
-                LogDebug($"Assassin climb modes restored from save: forbiddenPlayers={string.Join(",", state.ForbiddenPlayerIds)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Assassin climb modes restored from save: forbiddenPlayers={string.Join(",", state.ForbiddenPlayerIds)}.");
             }
             InvalidateRenderState();
             RefreshButtonVisibility();
@@ -374,7 +376,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -402,7 +405,8 @@ namespace BugfixesAndQoL
 
             lastOperationIds[playerId] = operationId;
             climbingAllowed[playerId] = allowClimbing;
-            LogDebug($"Assassin climbing {(allowClimbing ? "enabled" : "disabled")}: source={source}, playerId={playerId}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climbing {(allowClimbing ? "enabled" : "disabled")}: source={source}, playerId={playerId}.");
         }
 
         private bool IsFeatureActive()

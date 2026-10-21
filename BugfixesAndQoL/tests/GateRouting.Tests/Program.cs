@@ -16,6 +16,7 @@ namespace BugfixesAndQoL.GateRouting
             try
             {
                 assertions += SharedTests.CaptureRefreshTests.Run();
+                assertions += IntegrityErrorFlushTests.Run();
                 assertions += LargeGateFootprintTests.Run();
                 assertions += NativeAssassinTraceTests.Run();
                 assertions += NativeTraceContractTests.Run();
@@ -1446,7 +1447,32 @@ namespace BugfixesAndQoL.GateRouting
                 records[1] = new NativeGateAccessRecord(true, owner, capture, 2, 4, 32);
                 return new NativeGateAccessSnapshot(records, 77, new uint[] { 0, global }, epoch, generation);
             }
+            Assert(CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 1, 1, 1, 1234, 1, 2),
+                "functional refresh qualifies without diagnostic history");
+            Assert(!CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 2, 1, 1, 1234, 1, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 2), 1, 1, 1, 1234, 1, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 1, 1, 1, 999, 1, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 1, 1, 1, 1234, 3, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(2, 1), 1, 1, 1, 1234, 1, 2),
+                "foreign session, unpublished generation, reused identity, owner change and unchanged capturer do not request refresh");
             var requests = new DeferredCaptureRefreshRequest();
+            requests.Begin(1);
+            requests.Reset();
+            Assert(!requests.Request(1) && !requests.Consume(1), "inactive session refuses delayed work");
+            requests.Begin(2);
+            Assert(!requests.Request(1), "old callback cannot repopulate a new session");
+            Assert(requests.Request(2) && !requests.Consume(1) && requests.Consume(2),
+                "old consumer cannot clear a new session request");
+            requests.Begin(1);
+            int diagnosticFailures = 0;
+            Assert(requests.RequestWithDiagnostics(1, () => { throw new InvalidOperationException("diagnostic fixture"); },
+                () => diagnosticFailures++) && requests.Consume(1) && diagnosticFailures == 1,
+                "diagnostic failure cannot block the functional refresh");
+            Assert(requests.RequestWithDiagnostics(1, () => { throw new InvalidOperationException("diagnostic fixture"); },
+                () => { throw new InvalidOperationException("diagnostic logger fixture"); }) && requests.Consume(1),
+                "failure of diagnostic error reporting cannot block the functional refresh");
+            Assert(!requests.RequestWithDiagnostics(2, () => diagnosticFailures++, null) && diagnosticFailures == 1,
+                "foreign-session callbacks perform neither recovery nor diagnostic work");
             var recovery = new CaptureTransitionDiagnostics();
             recovery.Reset(1);
             NativeGateAccessSnapshot source = Publication(0, 1);
@@ -1457,11 +1483,11 @@ namespace BugfixesAndQoL.GateRouting
             for (int i = 0; i < 43; i++)
             {
                 Assert(recovery.Observe(source, 1, 1234, 1, 2), "verified capture observation counted");
-                requests.Request();
+                requests.Request(1);
             }
-            Assert(requests.Consume() && !requests.Consume(), "43 callbacks request one deferred refresh");
-            requests.Request();
-            Assert(requests.Consume(), "request after consumption survives for next deferred pass");
+            Assert(requests.Consume(1) && !requests.Consume(1), "43 callbacks request one deferred refresh");
+            requests.Request(1);
+            Assert(requests.Consume(1), "request after consumption survives for next deferred pass");
             string[] pending = recovery.DrainChanges();
             Assert(pending.Length == 1 && pending[0].Contains("unresolved=43"), "repetitions compact, none lost");
             Assert(recovery.UnresolvedDetails().Length == 1 && recovery.UnresolvedDetails()[0].Contains("unresolved=43"),
@@ -1523,7 +1549,7 @@ namespace BugfixesAndQoL.GateRouting
             Assert(oldSnapshot.PolicyEquals(stamped) && oldSnapshot.TopologyFingerprint == stamped.TopologyFingerprint &&
                 oldSnapshot.Evaluate(5, 1, 1, 0) == stamped.Evaluate(5, 1, 1, 0),
                 "diagnostic generation never changes the access policy");
-            requests.Request(); requests.Reset(); Assert(!requests.Consume(), "map clear drops stale refresh request");
+            requests.Request(1); requests.Reset(); Assert(!requests.Consume(1), "map clear drops stale refresh request");
         }
 
         private static void AiTacticalTargetContractsAreAtomicAndExecutable()

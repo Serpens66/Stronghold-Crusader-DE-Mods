@@ -223,7 +223,8 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!assassinExactPublicationLogged)
                 {
                     assassinExactPublicationLogged = true;
-                    try { Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:116", $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
+                    try { if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                              Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:116", $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
                     catch { /* Logging cannot turn a published route into a native failure. */ }
                 }
                 return count;

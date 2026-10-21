@@ -405,6 +405,35 @@ namespace Shared
             this.owner = owner ?? "unknown"; this.write = write; this.clock = clock;
             interval = frequency * 30; this.capacity = capacity;
         }
+        private const int CauseCacheCapacity = 64, MaximumCachedCauseLength = 4096;
+        private readonly Dictionary<string, string> causeCache = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly Queue<string> causeCacheOrder = new Queue<string>();
+        internal int CachedCauseCount { get { lock (sync) return causeCache.Count; } }
+        internal long CauseHashComputations { get { return System.Threading.Interlocked.Read(ref causeHashComputations); } }
+        private long causeHashComputations;
+
+        private string CachedCause(string normalized)
+        {
+            bool cacheable = normalized.Length <= MaximumCachedCauseLength;
+            string cause;
+            if (cacheable)
+                lock (sync) if (causeCache.TryGetValue(normalized, out cause)) return cause;
+            System.Threading.Interlocked.Increment(ref causeHashComputations);
+            cause = HashCause(normalized);
+            if (cacheable)
+                lock (sync)
+                {
+                    // Another reporting thread may have inserted the same complete cause.
+                    if (!causeCache.ContainsKey(normalized))
+                    {
+                        if (causeCache.Count == CauseCacheCapacity) causeCache.Remove(causeCacheOrder.Dequeue());
+                        causeCache.Add(normalized, cause);
+                        causeCacheOrder.Enqueue(normalized);
+                    }
+                }
+            return cause;
+        }
+
         internal int Count { get { lock (sync) return entries.Count; } }
         // Repeated failures are the common case; parse the pattern once and reuse one hasher per thread.
         private static readonly System.Text.RegularExpressions.Regex TimestampPattern =
@@ -419,8 +448,7 @@ namespace Shared
                 string raw = detail ?? "";
                 string normalized = (raw.IndexOf('[') < 0 ? raw : TimestampPattern.Replace(raw, ""))
                     .Replace('\r', ' ').Replace('\n', ' ');
-                System.Security.Cryptography.SHA256 hash = causeHasher ?? (causeHasher = System.Security.Cryptography.SHA256.Create());
-                string cause = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized))).Replace("-", "");
+                string cause = CachedCause(normalized);
                 string key = feature + (error ? "\nerror\n" : "\nwarning\n") + cause;
                 long suppressed = 0;
                 lock (sync)
@@ -448,6 +476,11 @@ namespace Shared
                 try { write?.Invoke(error ? LogLevel.Error : LogLevel.Warning, message); } catch { }
             }
             catch { /* Logging cannot interrupt gameplay or cleanup. */ }
+        }
+        private static string HashCause(string normalized)
+        {
+            System.Security.Cryptography.SHA256 hash = causeHasher ?? (causeHasher = System.Security.Cryptography.SHA256.Create());
+            return BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized))).Replace("-", "");
         }
         private static string Clean(string value)
         {

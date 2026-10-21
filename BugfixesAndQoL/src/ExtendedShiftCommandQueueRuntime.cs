@@ -333,19 +333,20 @@ namespace BugfixesAndQoL
 
             installed = true;
             ApplySetting();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
-                $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
-                $"overlayRenderRva=0x{overlayRenderResolution.Rva:X}, " +
-                "tribeUnassign=SHCDESE-2.3.0-wrapper, " +
-                $"drawFilterInstalled={drawFilterInstalled}, " +
-                $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
-                $"largeMoveMarkerOverflowAvailable={largeMoveTargets.MarkerReplacementAvailable}, " +
-                $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
-                $"GameTribeSize=0x{actualTribeSize:X}, " +
-                $"queueLimit={MaximumPendingCommands}, " +
-                $"featureEnabled={FeatureEnabled}. Command capture no longer depends on an OnStartMap event.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
+                    $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
+                    $"overlayRenderRva=0x{overlayRenderResolution.Rva:X}, " +
+                    "tribeUnassign=SHCDESE-2.3.0-wrapper, " +
+                    $"drawFilterInstalled={drawFilterInstalled}, " +
+                    $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
+                    $"largeMoveMarkerOverflowAvailable={largeMoveTargets.MarkerReplacementAvailable}, " +
+                    $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
+                    $"GameTribeSize=0x{actualTribeSize:X}, " +
+                    $"queueLimit={MaximumPendingCommands}, " +
+                    $"featureEnabled={FeatureEnabled}. Command capture no longer depends on an OnStartMap event.");
         }
 
         public void ApplySetting()
@@ -359,7 +360,12 @@ namespace BugfixesAndQoL
             if (!enabled)
                 ResetMapState();
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:364", () => $"Extended Shift command queue setting applied: enabled={enabled}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticEnabled = @enabled;
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:364", () => $"Extended Shift command queue setting applied: enabled={diagnosticEnabled}.");
+            }
         }
 
         private void InstallMultiplayerSynchronization(
@@ -1600,7 +1606,8 @@ namespace BugfixesAndQoL
             if (!runtimeTickLogged)
             {
                 runtimeTickLogged = true;
-                Shared.DebugLogHelper.LogDebug(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
             }
             // Keep currentTick and the first runtime marker current even while idle.
             if (cohorts.Count == 0 && expectedMoveChores.Count == 0 && expectedMoveEvents.Count == 0)
@@ -2604,8 +2611,13 @@ namespace BugfixesAndQoL
             if (lastRealMultiplayerMode != realMultiplayer)
             {
                 lastRealMultiplayerMode = realMultiplayer;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2572", () => $"Extended Shift queue mode: realMultiplayer={realMultiplayer}, " +
-                        $"synchronizedQueueing={(realMultiplayer && multiplayerSynchronizationReady)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticRealMultiplayer = @realMultiplayer;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2572", () => $"Extended Shift queue mode: realMultiplayer={diagnosticRealMultiplayer}, " +
+                            $"synchronizedQueueing={(diagnosticRealMultiplayer && multiplayerSynchronizationReady)}.");
+                }
             }
             return realMultiplayer;
         }

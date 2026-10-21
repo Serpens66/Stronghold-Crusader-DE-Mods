@@ -55,7 +55,10 @@ namespace UnitLimit
                     .Subscribe(OnUnitTransition));
 
                 subscribed = true;
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:58", "ActiveUnitCache hooks subscribed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:58", "ActiveUnitCache hooks subscribed.");
+                }
             }
             catch
             {
@@ -139,13 +142,16 @@ namespace UnitLimit
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanActiveIds > 0 || humanCountKeys > 0)
             {
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:142",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:142",
                     "ActiveUnitCache ResyncAll:",
                     "raiseEvents", raiseEvents,
                     "scanned", scannedUnits,
                     "alive", aliveUnits,
                     "humanActiveIds", humanActiveIds,
                     "humanCountKeys", humanCountKeys);
+                }
             }
             if (verboseUnitEventLogging)
                 LogAllCounts("ActiveUnitCache ResyncAll count");
@@ -278,11 +284,14 @@ namespace UnitLimit
             {
                 if (ShouldLogCacheChange(fallbackReason, 0))
                 {
-                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:314",
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitLimit/src/ActiveUnitCache.cs:314",
                         "ActiveUnitCache NotifyNativeSnapshotChanged missing snapshot:",
                         "unitId", unitId,
                         "reason", fallbackReason,
                         "preferFallbackReason", preferFallbackReason);
+                    }
                 }
                 RemoveUnit(unitId, fallbackReason);
             }
@@ -408,15 +417,16 @@ namespace UnitLimit
 
             if (ShouldLogCacheChange(reason, key.PlayerId))
             {
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:479",
-                    "ActiveUnitCache count changed:",
-                    "player", key.PlayerId,
-                    "type", key.UnitType,
-                    "old", oldCount,
-                    "new", newCount,
-                    "delta", newCount - oldCount,
-                    "unitId", unitId,
-                    "reason", reason);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:479",
+                        "ActiveUnitCache count changed:",
+                        "player", key.PlayerId,
+                        "type", key.UnitType,
+                        "old", oldCount,
+                        "new", newCount,
+                        "delta", newCount - oldCount,
+                        "unitId", unitId,
+                        "reason", reason);
             }
 
             return true;
@@ -452,7 +462,10 @@ namespace UnitLimit
 
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanCountKeys > 0)
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:523", "ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:523", "ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                }
         }
 
         private int GetHumanActiveUnitIdCount()
@@ -487,21 +500,26 @@ namespace UnitLimit
 
         private void LogAllCounts(string prefix)
         {
-            Shared.DebugLogHelper.LogDebugLimited(log, "UnitLimit/src/ActiveUnitCache.cs.Summary", () =>
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
             {
-                int keys = 0;
-                int total = 0;
-                lock (syncRoot)
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticPrefix = @prefix;
+                Shared.DebugLogHelper.LogDebugLimited(log, "UnitLimit/src/ActiveUnitCache.cs.Summary", () =>
                 {
-                    foreach (KeyValuePair<UnitCountKey, int> pair in countsByOwnerAndType)
+                    int keys = 0;
+                    int total = 0;
+                    lock (syncRoot)
                     {
-                        if (!ShouldLogPlayer(pair.Key.PlayerId)) continue;
-                        keys++;
-                        total += pair.Value;
+                        foreach (KeyValuePair<UnitCountKey, int> pair in countsByOwnerAndType)
+                        {
+                            if (!ShouldLogPlayer(pair.Key.PlayerId)) continue;
+                            keys++;
+                            total += pair.Value;
+                        }
                     }
-                }
-                return prefix + ": humanCountKeys=" + keys + ", aliveTotal=" + total + ".";
-            });
+                    return diagnosticPrefix + ": humanCountKeys=" + keys + ", aliveTotal=" + total + ".";
+                });
+            }
         }
 
         private static void AddUnitEvent(ref List<ActiveUnitChangedEventArgs> events, int unitId, UnitSnapshot oldSnapshot, UnitSnapshot newSnapshot, ActiveUnitChangeReason reason)
@@ -631,7 +649,10 @@ namespace UnitLimit
                     "suppressedOwnerWarnings=" + suppressedOwnerWarnings +
                     ", suppressedTypeWarnings=" + suppressedTypeWarnings + ".");
             }
-            LogDebug("UnitLimit/src/ActiveUnitCache.cs:713", "ActiveUnitCache cleared.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:713", "ActiveUnitCache cleared.");
+            }
         }
 
         private void LogDebug(string site, params object[] parts)

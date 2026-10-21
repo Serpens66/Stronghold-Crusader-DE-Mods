@@ -215,14 +215,21 @@ namespace BugfixesAndQoL
                     herds.Add(capture.PlayerId, capture.Members);
                     managedPlayerIds.Add(capture.PlayerId);
                     ArmPopularityDiagnostic(capture.PlayerId);
-                    if (correctionEnabled) LogDebug(
-                        () => $"Plague herd captured: sourceBuildingId={capture.BuildingId}, " +
-                        $"sourceBuildingGlobalId={capture.BuildingGlobalId}, playerId={capture.PlayerId}, " +
-                        $"sourceTile=({capture.TileX},{capture.TileY}), projectileCount={capture.Members.Count}, " +
-                        $"projectiles={DescribeProjectiles(capture.Members)}, " +
-                        $"activeHerdsForPlayer={CountHerds(capture.PlayerId)}, " +
+                    if (correctionEnabled) {
+                                               if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                               {
+                                                   // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                                                   var diagnosticCapture = @capture;
+                                                   LogDebug(
+                        () => $"Plague herd captured: sourceBuildingId={diagnosticCapture.BuildingId}, " +
+                        $"sourceBuildingGlobalId={diagnosticCapture.BuildingGlobalId}, playerId={diagnosticCapture.PlayerId}, " +
+                        $"sourceTile=({diagnosticCapture.TileX},{diagnosticCapture.TileY}), projectileCount={diagnosticCapture.Members.Count}, " +
+                        $"projectiles={DescribeProjectiles(diagnosticCapture.Members)}, " +
+                        $"activeHerdsForPlayer={CountHerds(diagnosticCapture.PlayerId)}, " +
                         $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
                         $"mode={APIShared.GameModes.GameModeHelper.Capture().ToDiagnosticString()}.");
+                                               }
+                                           }
                 }
                 catch (Exception ex)
                 {
@@ -290,10 +297,15 @@ namespace BugfixesAndQoL
                 mapActive = true;
                 if (saveSlot != null && saveSlot.TryTake(context, out PlaguePopularitySaveState state))
                     RestoreSaveState(state);
-                LogDebug(
-                    () => $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
-                    $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
-                    $"source={context.Kind}, mode={context.Mode.ToDiagnosticString()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticContext = @context;
+                    LogDebug(
+                        () => $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
+                        $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
+                        $"source={diagnosticContext.Kind}, mode={diagnosticContext.Mode.ToDiagnosticString()}.");
+                }
             }
         }
 
@@ -359,14 +371,26 @@ namespace BugfixesAndQoL
                         GetCount(loggedDiagnosticRevisions, playerId) != diagnosticRevision)
                     {
                         loggedDiagnosticRevisions[playerId] = diagnosticRevision;
-                        LogDebug(
-                            () => $"Plague popularity correction applied: playerId={playerId}, " +
-                            $"diagnosticRevision={diagnosticRevision}, herdCount={herdCount}, " +
-                            $"livingProjectiles={CountProjectiles(playerId)}, vanillaModifier={vanillaModifier}, " +
-                            $"desiredModifier={desiredModifier}, currentPopularity={currentPopularity}, " +
-                            $"accumulatorBefore={accumulatorBefore}, correctedPopularity={correctedPopularity}, " +
-                            $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
-                            $"correctedCallbackCount={GetCount(correctedCallbackCounts, playerId)}.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        {
+                            // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                            var diagnosticPlayerId = @playerId;
+                            var diagnosticDiagnosticRevision = @diagnosticRevision;
+                            var diagnosticHerdCount = @herdCount;
+                            var diagnosticVanillaModifier = @vanillaModifier;
+                            var diagnosticDesiredModifier = @desiredModifier;
+                            var diagnosticCurrentPopularity = @currentPopularity;
+                            var diagnosticAccumulatorBefore = @accumulatorBefore;
+                            var diagnosticCorrectedPopularity = @correctedPopularity;
+                            LogDebug(
+                                () => $"Plague popularity correction applied: playerId={diagnosticPlayerId}, " +
+                                $"diagnosticRevision={diagnosticDiagnosticRevision}, herdCount={diagnosticHerdCount}, " +
+                                $"livingProjectiles={CountProjectiles(diagnosticPlayerId)}, vanillaModifier={diagnosticVanillaModifier}, " +
+                                $"desiredModifier={diagnosticDesiredModifier}, currentPopularity={diagnosticCurrentPopularity}, " +
+                                $"accumulatorBefore={diagnosticAccumulatorBefore}, correctedPopularity={diagnosticCorrectedPopularity}, " +
+                                $"callbackCount={GetCount(popularityCallbackCounts, diagnosticPlayerId)}, " +
+                                $"correctedCallbackCount={GetCount(correctedCallbackCounts, diagnosticPlayerId)}.");
+                        }
                     }
                 }
                 catch (Exception ex)

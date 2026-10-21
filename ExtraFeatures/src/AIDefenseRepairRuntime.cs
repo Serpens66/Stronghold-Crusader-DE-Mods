@@ -252,9 +252,10 @@ namespace ExtraFeatures
                 }
                 throw;
             }
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"AI defense placement hook installed as a pass-through at RVA 0x{placement.Rva:X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AI defense placement hook installed as a pass-through at RVA 0x{placement.Rva:X}.");
         }
 
         public void Dispose()
@@ -346,7 +347,8 @@ namespace ExtraFeatures
                     liveDefenseTargets[target] = new LiveDefenseIdentity(spanIndex + 1, building.r_GlobalId);
                     count++;
                 }
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:306", $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:306", $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
             }
             catch (Exception ex)
             {
@@ -372,7 +374,8 @@ namespace ExtraFeatures
                 realMultiplayer = snapshot.IsRealMultiplayer;
                 gameModeKnown = snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
                 gameModeFailureLogged = false;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:333", $"Enemy-proximity runtime captured map mode: {snapshot.ToDiagnosticString()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:333", $"Enemy-proximity runtime captured map mode: {snapshot.ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {
@@ -474,8 +477,9 @@ namespace ExtraFeatures
             if (destroyedDefenseTicks.ContainsKey(target))
                 return;
             destroyedDefenseTicks[target] = tick;
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:437", $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
-                $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:437", $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
+                    $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
         }
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
@@ -1038,8 +1042,9 @@ namespace ExtraFeatures
 
                 state = new RebuildDelayState(firstTick, source);
                 rebuildDelays.Add(target, state);
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1005", $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
-                    $"tick={context.Tick}, startTick={firstTick}, delaySeconds={delaySeconds}, source={source}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1005", $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
+                        $"tick={context.Tick}, startTick={firstTick}, delaySeconds={delaySeconds}, source={source}.");
             }
 
             int elapsed = ElapsedTicks(context.Tick, state.FirstDetectedTick);
@@ -1049,9 +1054,10 @@ namespace ExtraFeatures
                 if (!state.ReleaseLogged)
                 {
                     state.ReleaseLogged = true;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1017", $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
-                        $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
-                        $"source={state.Source}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1017", $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
+                            $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
+                            $"source={state.Source}.");
                 }
                 return;
             }
@@ -1060,9 +1066,10 @@ namespace ExtraFeatures
             if (!state.BlockLogged)
             {
                 state.BlockLogged = true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1029", $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
-                    $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
-                    $"requiredTicks={requiredTicks}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1029", $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
+                        $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
+                        $"requiredTicks={requiredTicks}.");
             }
         }
 

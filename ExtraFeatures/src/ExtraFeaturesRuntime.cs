@@ -565,8 +565,9 @@ namespace ExtraFeatures
             if (propertyName == nameof(ExtraFeaturesViewModel.ApothecaryPlagueSearchDistance))
             {
                 ApplyPlagueApothecarySearchRangeSetting();
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:541", $"Extra Features apothecary plague-search distance changed to " +
-                    $"{settings.ApothecaryPlagueSearchDistance}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:541", $"Extra Features apothecary plague-search distance changed to " +
+                        $"{settings.ApothecaryPlagueSearchDistance}.");
                 return;
             }
 

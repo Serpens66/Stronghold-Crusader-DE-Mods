@@ -32,7 +32,8 @@ namespace BugfixesAndQoL.GateRouting
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, c =>
             {
                 map = true; runtime.ResetCounters(); Refresh();
-                Shared.DebugLogHelper.LogInfo(log, "Assassin gatehouse descent ready: owner=EnableAssassinGatehouseClimbFix; gatePolicyIndependent=True; enabled=" + Enabled);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogInfo(log, "Assassin gatehouse descent ready: owner=EnableAssassinGatehouseClimbFix; gatePolicyIndependent=True; enabled=" + Enabled);
             }));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ =>
             {

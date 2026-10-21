@@ -65,8 +65,13 @@ namespace CastlePlanner
             LoadManifest(libraryDirectory);
             LoadDepthManifest(libraryDirectory);
             ReportStatus();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:68", () => $"Blueprint image manifests loaded: composites={entries.Count}, " +
-                $"depthCaptures={depthCaptures.Count}, elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticStopwatch = @stopwatch;
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:68", () => $"Blueprint image manifests loaded: composites={entries.Count}, " +
+                    $"depthCaptures={depthCaptures.Count}, elapsedMs={diagnosticStopwatch.Elapsed.TotalMilliseconds:F1}.");
+            }
         }
 
         public bool TryResolveComposite(
@@ -135,10 +140,11 @@ namespace CastlePlanner
                 Object.DontDestroyOnLoad(sprite);
                 sprites.Add(loaded.FullPath, sprite);
                 alphaBounds = GetAlphaBounds(loaded.Entry);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Loaded exact Blueprint composite: key={request.Key}, bytes={pngBytes.Length}, " +
-                    $"elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}, file={loaded.FullPath}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Loaded exact Blueprint composite: key={request.Key}, bytes={pngBytes.Length}, " +
+                        $"elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}, file={loaded.FullPath}.");
                 return true;
             }
             catch (Exception ex)
@@ -332,12 +338,24 @@ namespace CastlePlanner
                     capture.MinimumRow,
                     capture.MaximumRow);
                 depthVisuals.Add(key, visual);
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:345", () => $"Prepared Blueprint depth visual: key={key}, pages={pages.Count}, " +
-                    $"fragments={capture.Fragments.Count}, layers={layers.Count}, " +
-                    $"fileReadMs={readResult.ElapsedMilliseconds:F1}, " +
-                    $"pngDecodeMs={pngDecodeMilliseconds:F1}, " +
-                    $"meshBuildMs={meshBuildMilliseconds:F1}, " +
-                    $"mainThreadMs={total.Elapsed.TotalMilliseconds:F1}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticKey = @key;
+                    var diagnosticPages = @pages;
+                    var diagnosticCapture = @capture;
+                    var diagnosticLayers = @layers;
+                    var diagnosticReadResult = @readResult;
+                    var diagnosticPngDecodeMilliseconds = @pngDecodeMilliseconds;
+                    var diagnosticMeshBuildMilliseconds = @meshBuildMilliseconds;
+                    var diagnosticTotal = @total;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:345", () => $"Prepared Blueprint depth visual: key={diagnosticKey}, pages={diagnosticPages.Count}, " +
+                        $"fragments={diagnosticCapture.Fragments.Count}, layers={diagnosticLayers.Count}, " +
+                        $"fileReadMs={diagnosticReadResult.ElapsedMilliseconds:F1}, " +
+                        $"pngDecodeMs={diagnosticPngDecodeMilliseconds:F1}, " +
+                        $"meshBuildMs={diagnosticMeshBuildMilliseconds:F1}, " +
+                        $"mainThreadMs={diagnosticTotal.Elapsed.TotalMilliseconds:F1}.");
+                }
                 DepthVisualLoaded?.Invoke(key);
             }
             catch (Exception ex)
@@ -523,9 +541,16 @@ namespace CastlePlanner
                         missingDepth.Add(request.Key);
                 }
             }
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:544", () => $"Blueprint capture status: available={required - missing.Count}, required={required}, " +
-                $"missing={missing.Count}, depthAtlases={required - missingDepth.Count}, " +
-                $"missingDepth={missingDepth.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticRequired = @required;
+                var diagnosticMissing = @missing;
+                var diagnosticMissingDepth = @missingDepth;
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:544", () => $"Blueprint capture status: available={diagnosticRequired - diagnosticMissing.Count}, required={diagnosticRequired}, " +
+                    $"missing={diagnosticMissing.Count}, depthAtlases={diagnosticRequired - diagnosticMissingDepth.Count}, " +
+                    $"missingDepth={diagnosticMissingDepth.Count}.");
+            }
             if (missing.Count > 0)
                 Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintBuildingImageLibrary.cs:550", "Missing Blueprint captures: " + string.Join(", ", missing));
             if (missingDepth.Count > 0)

@@ -47,6 +47,9 @@ namespace APIShared {
         public static bool IsReallyAlive(GameUnit* unit)=>unit->Alive;
     }
 }
+// This fixture asserts the enabled compact fallback summary, so its logging boundary
+// explicitly opts in; the actual logger's disabled path is covered separately.
+namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; } }
 namespace SHCDESE.API {
     public class GameUnitManagerAPI {
         public static GameUnitManagerAPI Instance=new GameUnitManagerAPI();

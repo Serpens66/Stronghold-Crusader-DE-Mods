@@ -116,11 +116,12 @@ namespace BugfixesAndQoL
                 if (!commitResult.IsCompleteSuccess || !diseaseSearchHook.Success || !healerExitHook.Success)
                     throw new InvalidOperationException("The plague target-reservation hooks were not installed.");
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL plague target-reservation fix initialized from unique " +
-                    "disease-search and healer-update-exit signatures; radius=<7, " +
-                    "stationaryTimeoutGameMs=10000.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "Bugfixes and QoL plague target-reservation fix initialized from unique " +
+                        "disease-search and healer-update-exit signatures; radius=<7, " +
+                        "stationaryTimeoutGameMs=10000.");
             }
             catch
             {
@@ -528,15 +529,17 @@ namespace BugfixesAndQoL
             if (detailedLogCount < MaximumDetailedLogs)
             {
                 detailedLogCount++;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:520", $"Bugfixes and QoL {message}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:520", $"Bugfixes and QoL {message}");
                 return;
             }
             if (detailLimitLogged)
                 return;
 
             detailLimitLogged = true;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:527", $"Bugfixes and QoL plague reservation detailed-log limit of " +
-                $"{MaximumDetailedLogs} reached; repeated details are suppressed.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:527", $"Bugfixes and QoL plague reservation detailed-log limit of " +
+                    $"{MaximumDetailedLogs} reached; repeated details are suppressed.");
         }
 
         private bool IsEnabled => settings.EnableMod && settings.EnablePlagueTargetReservationFix;

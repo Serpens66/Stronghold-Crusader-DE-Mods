@@ -109,12 +109,13 @@ namespace ExtraFeatures
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Extra Features Monk movement hook installed disabled: " +
-                $"startRva=0x{decisionRva:X}, endRva=0x{decisionRva + HookSize:X}, " +
-                "instructionLengths=9,2,9, nextRva=0x15144A, " +
-                "incomingInteriorTargets=0, skins=FightingMonk/TempleGuard.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Extra Features Monk movement hook installed disabled: " +
+                    $"startRva=0x{decisionRva:X}, endRva=0x{decisionRva + HookSize:X}, " +
+                    "instructionLengths=9,2,9, nextRva=0x15144A, " +
+                    "incomingInteriorTargets=0, skins=FightingMonk/TempleGuard.");
             Shared.CrashBreadcrumbDiagnostics.Record(
                 "MonkMovementHookInstalled",
                 decisionRva,
@@ -132,8 +133,9 @@ namespace ExtraFeatures
             Shared.CrashBreadcrumbDiagnostics.Record(
                 "MonkMovementSetting",
                 value ? 1 : 0);
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/MonkAlwaysRunPatch.cs:127", $"Extra Features Monks Always Run is now {(value ? "enabled" : "disabled")}; " +
-                "the native Monk movement decision applies to both skins.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/MonkAlwaysRunPatch.cs:127", $"Extra Features Monks Always Run is now {(value ? "enabled" : "disabled")}; " +
+                    "the native Monk movement decision applies to both skins.");
         }
 
         public void Dispose()

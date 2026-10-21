@@ -174,7 +174,10 @@ namespace ExtraFeatures
                 timingReadinessRegistered = true;
                 ApiShared.WhenReady(OnApiSharedReady);
             }
-            LogInfo("gatehouse automation initialized; savegames use global building IDs and editor maps use stable locators in save schema v2.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo("gatehouse automation initialized; savegames use global building IDs and editor maps use stable locators in save schema v2.");
+            }
         }
 
         public void InitializeNetwork()
@@ -185,7 +188,8 @@ namespace ExtraFeatures
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<GatehouseAutomationPacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
             networkInitialized = true;
-            LogInfo($"gatehouse Chore packet registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse Chore packet registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void ApplySettings()
@@ -214,7 +218,8 @@ namespace ExtraFeatures
             ResolvePendingMapLocators(removeUnresolved: true);
             ReconcileManualGateTimers(removeMissing: true);
             RefreshButtonVisibility();
-            LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={manualOnlyGateGlobalIds.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={manualOnlyGateGlobalIds.Count}.");
         }
 
         public void EndMap()
@@ -326,7 +331,10 @@ namespace ExtraFeatures
                 }
                 automationReady = true;
                 ApplySettings();
-                LogInfo("gatehouse timing is owned by APIShared; no local native timing patch is installed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogInfo("gatehouse timing is owned by APIShared; no local native timing patch is installed.");
+                }
             }
             catch (Exception ex)
             {
@@ -479,7 +487,8 @@ namespace ExtraFeatures
             }
 
             buttonViewModel.SetIcon(icon);
-            LogInfo($"gatehouse automation icon loaded: asset='{AutomationIconAssetPath}', bytes={imageBytes.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse automation icon loaded: asset='{AutomationIconAssetPath}', bytes={imageBytes.Length}.");
         }
 
         private void ToggleSelectedGatehouse()
@@ -545,7 +554,8 @@ namespace ExtraFeatures
                 return false;
             }
 
-            LogInfo($"gatehouse Chore queued: operationId={operationId}, globalId={globalId}, automaticEnabled={automaticEnabled}, payloadBytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse Chore queued: operationId={operationId}, globalId={globalId}, automaticEnabled={automaticEnabled}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -599,7 +609,8 @@ namespace ExtraFeatures
             }
 
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
-            LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={building->r_GateState}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={building->r_GateState}.");
         }
 
         private void OnGatehouseQuery(GatehouseQueryEventArgs args)
@@ -645,9 +656,10 @@ namespace ExtraFeatures
                 if (!firstQueryLogged)
                 {
                     firstQueryLogged = true;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Extra Features gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Extra Features gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
                 }
 
                 // A manual gate still supplies Vanilla's enemy decision to automatic bridges.
@@ -681,7 +693,8 @@ namespace ExtraFeatures
                 ManualOnlyGateGlobalIds = editorMapSave ? Array.Empty<int>() : ids,
                 ManualOnlyGateLocators = locators
             });
-            LogInfo($"gatehouse state saved: context={(editorMapSave ? "editor-map" : "save-file")}, globalIds={(editorMapSave ? 0 : ids.Length)}, locators={locators.Length}, payloadBytes={bytes.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse state saved: context={(editorMapSave ? "editor-map" : "save-file")}, globalIds={(editorMapSave ? 0 : ids.Length)}, locators={locators.Length}, payloadBytes={bytes.Length}.");
             return bytes;
         }
 
@@ -718,7 +731,8 @@ namespace ExtraFeatures
                 pendingMapLocators.AddRange(savedLocators);
             }
 
-            LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
         }
 
         private GatehouseMapLocator[] BuildMapLocators()
@@ -772,7 +786,8 @@ namespace ExtraFeatures
 
             pendingMapLocators.Clear();
             pendingMapLocators.AddRange(remaining);
-            LogInfo($"gatehouse map locators resolved: resolved={resolved}, pending={pendingMapLocators.Count}, ambiguous={ambiguous}, finalPass={removeUnresolved}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse map locators resolved: resolved={resolved}, pending={pendingMapLocators.Count}, ambiguous={ambiguous}, finalPass={removeUnresolved}.");
         }
 
         public void BeginEditorMap()
@@ -921,7 +936,8 @@ namespace ExtraFeatures
                 ReleaseManualGateTimers();
             if (mapActive)
             {
-                LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}.");
             }
             mapActive = false;
             editorSessionActive = false;
@@ -1057,7 +1073,12 @@ namespace ExtraFeatures
             if (string.Equals(lastVisibilityState, state, StringComparison.Ordinal))
                 return;
             lastVisibilityState = state;
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures.GatehouseVisibility", () => $"Extra Features gatehouse button visibility: {state}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticState = @state;
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures.GatehouseVisibility", () => $"Extra Features gatehouse button visibility: {diagnosticState}.");
+            }
         }
 
         private void LogFailure(string message)

@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 $fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'MainSource'
-$savedSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION;$savedProof=$env:SHCDE_API_SHARED_RELEASE_PROOF;$savedDirectory=$env:SHCDE_API_SHARED_DIR
+$savedSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION;$savedProof=$env:SHCDE_API_SHARED_RELEASE_PROOF;$savedDirectory=$env:SHCDE_API_SHARED_DIR;$savedProofHash=$env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256
 $checks=0
 function Check([bool]$Condition,[string]$Message){if(-not $Condition){throw $Message};$script:checks++}
 function Reject([scriptblock]$Action){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Check $failed 'Expected rejection.'}
@@ -100,6 +100,7 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     $env:SHCDE_API_SHARED_RELEASE_PROOF=Join-Path $cache 'APIShared-v1.0.0.provenance.json'
     $env:SHCDE_API_SHARED_DIR=$sdk
     Write-Fixture $env:SHCDE_API_SHARED_RELEASE_PROOF (ConvertTo-Json -InputObject $sdkProof -Depth 8)
+    $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256=Get-ApiRepositoryHash $env:SHCDE_API_SHARED_RELEASE_PROOF
     $verified=Assert-ApiConsumerPackage $root $sdk
     Check ($verified.Version -ceq '1.0.0' -and $verified.Commit -ceq $selected.Commit) 'Dev manifest or source entered consumer proof.'
     Add-Type -TypeDefinition 'public class StableConsumer { public APIShared.MainOnly Value; }' -ReferencedAssemblies $dll -OutputAssembly (Join-Path $fixture 'consumer.dll')
@@ -118,6 +119,8 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Invoke-ApiRepositoryGit $author @('switch','main')|Out-Null
     Write-Fixture (Join-Path $author 'next-main.txt') 'new main'
     Commit-Fixture $author;Invoke-ApiRepositoryGit $author @('push','origin','main')|Out-Null
+    Check ((Resolve-ApiMainSelection $root) -ceq $delivery.Selection) 'Pinned preparation changed to newer main.'
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=''
     $later=Resolve-ApiMainSelection $root
     Check ($later -cne $delivery.Selection) 'New preparation reused old main.'
     $old=Assert-ApiMainDeliveryIdentity $root $delivery
@@ -144,7 +147,7 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'PR helper changed open file.'
     # Exercise both original BAT entrypoints with real policy/worktrees and inert target services.
     $steam=Join-Path $root 'Shared/Tools/Steam'
-    foreach($file in @('PublishedModpack.Common.ps1','ReleaseAssetCache.ps1','ModpackSource.Common.ps1','WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1')) {
+    foreach($file in @('PublishedModpack.Common.ps1','ReleaseAssetCache.ps1','ModpackSource.Common.ps1','WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1','ApiSharedSdkPolicy.ps1')) {
         Copy-Item -LiteralPath (Join-Path $workspace ('Shared/Tools/Steam/'+$file)) -Destination (Join-Path $steam $file)
     }
     foreach($file in @('CreateSteamModPack.bat','UploadWorkshop.bat')){Copy-Item -LiteralPath (Join-Path $workspace $file) -Destination (Join-Path $root $file)}
@@ -179,11 +182,18 @@ if($Target -ceq 'APIShared'){
 }else{[IO.File]::WriteAllText((Join-Path $stage 'payload.map'),$selected.Commit)}
 Publish-WorkshopFolder $stage $folder $config.Root
 if($env:APISHARED_RETENTION_FIXTURE_FAIL -ceq 'proof'){exit 18}
-$null=Write-WorkshopPreparation $config $config.$Target ($TestMode -eq 1) '1.0.0' $selected.Commit 'fixture'
+$tag=if($TestMode -eq 1){'APIShared/test/v1.0.0-'+$selected.Commit.Substring(0,12)}else{'APIShared/v1.0.0'}
+$sdk=[ordered]@{Version='1.0.0';Commit=$selected.Commit;MainCommit=$selected.Commit;ReleaseTag=$tag;PackageSha256=('c'*64)}
+if($Target -eq 'SerpsMods'){
+    $reference=Join-Path (Get-WorkshopStateRoot $config ($TestMode -eq 1)) 'references/SerpsMods.provenance.json'
+    [void][IO.Directory]::CreateDirectory((Split-Path -Parent $reference))
+    $provenance=@{ApiSharedCommit=$selected.Commit;ApiSharedMainCommit=$selected.Commit;Infrastructure=@(@{Guid='APIShared_Serp';Version='1.0.0';SourceCommit=$selected.Commit;ReleaseTag=$tag;PackageSha256=('c'*64)})}
+    [IO.File]::WriteAllText($reference,($provenance|ConvertTo-Json -Depth 6))
+}
+$null=Write-WorkshopPreparation $config $config.$Target ($TestMode -eq 1) '1.0.0' $selected.Commit $tag -SdkIdentity $sdk
 exit 0
 '@
     # SerpsMods preparation's real provenance layout remains covered in the existing suite.
-    $prepareService=$prepareService.Replace("`$null=Write-WorkshopPreparation", "if(`$Target -eq 'SerpsMods'){`$reference=Join-Path (Get-WorkshopStateRoot `$config (`$TestMode -eq 1)) 'references/SerpsMods.provenance.json';[void][IO.Directory]::CreateDirectory((Split-Path -Parent `$reference));[IO.File]::WriteAllText(`$reference,'{}')};`$null=Write-WorkshopPreparation")
     foreach($service in @('Prepare-APISharedWorkshop.ps1','Prepare-ModpackWorkflow.ps1')){Write-Fixture (Join-Path $steam $service) $prepareService}
     Write-Fixture (Join-Path $steam 'Upload-WorkshopTarget.ps1') @'
 param([int]$TestMode,[int]$ValidateOnly,[string]$Target)
@@ -247,5 +257,5 @@ exit 0
     [IO.File]::Delete((Join-Path $selected.Root '.local/WorkshopUploader/extra.dll'))
     Write-Host "PASS: $checks pinned-main, changed-worktree, publisher, preserved Dev, PR/conflict and real BAT checks. Fixtures: $fixture"
 } finally {
-    $env:SHCDE_API_SHARED_MAIN_SELECTION=$savedSelection;$env:SHCDE_API_SHARED_RELEASE_PROOF=$savedProof;$env:SHCDE_API_SHARED_DIR=$savedDirectory;$env:APISHARED_PR_FIXTURE='';$env:APISHARED_BUILD_FAIL='';$env:APISHARED_RETENTION_FIXTURE_FAIL=''
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=$savedSelection;$env:SHCDE_API_SHARED_RELEASE_PROOF=$savedProof;$env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256=$savedProofHash;$env:SHCDE_API_SHARED_DIR=$savedDirectory;$env:APISHARED_PR_FIXTURE='';$env:APISHARED_BUILD_FAIL='';$env:APISHARED_RETENTION_FIXTURE_FAIL=''
 }

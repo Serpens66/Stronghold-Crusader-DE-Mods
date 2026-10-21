@@ -143,4 +143,46 @@ public sealed class RuntimeHealthTests
         health.Report("apply", true, "required failure"); health.Report("apply", true, "required failure");
         health.Report("cleanup", true, "independent failure"); Assert.AreEqual(2, attempts);
     }
+
+    [TestMethod]
+    public void CauseCacheUsesCompleteNormalizedTextAndHasIndependentBounds()
+    {
+        var messages = new List<string>();
+        var health = new RuntimeHealthLedger("cache", (_, text) => messages.Add(text), () => 0, 1);
+        health.Report("A", true, "[2026-10-21 10:00:00.001] failure");
+        health.Report("A", true, "[2026-10-21 10:00:01.002] failure");
+        health.Report("B", false, "[2026-10-21 10:00:02.003] failure");
+        Assert.AreEqual(1L, health.CauseHashComputations, "Features and severity share only the hash, never their suppression state.");
+        Assert.AreEqual(2, messages.Count);
+        for (int i = 0; i < 100; i++) health.Report("A", true, "cause-" + i);
+        Assert.AreEqual(64, health.CachedCauseCount);
+        long before = health.CauseHashComputations;
+        health.Report("A", true, "[2026-10-21 10:00:03.004] failure");
+        Assert.AreEqual(before + 1, health.CauseHashComputations, "Eviction permits rehashing without losing throttle state.");
+        Assert.AreEqual(102, messages.Count, "Cache eviction does not emit a suppressed repeat.");
+        string prefix = new string('x', 5000);
+        before = health.CauseHashComputations;
+        health.Report("long", true, prefix + "first");
+        health.Report("long", true, prefix + "second");
+        health.Report("long", true, prefix + "first");
+        Assert.AreEqual(before + 3, health.CauseHashComputations, "Long causes are hashed completely and never retained in the small cache.");
+        Assert.AreEqual(104, messages.Count);
+        Assert.AreEqual(64, health.CachedCauseCount);
+    }
+
+    [TestMethod]
+    public void ConcurrentCauseCacheKeepsExactSuppressionCounts()
+    {
+        long now = 0;
+        var messages = new List<string>();
+        var health = new RuntimeHealthLedger("parallel", (_, text) => { lock (messages) messages.Add(text); },
+            () => System.Threading.Interlocked.Read(ref now), 1);
+        System.Threading.Tasks.Parallel.For(0, 1000, _ => health.Report("same", true, "failure"));
+        Assert.AreEqual(1, messages.Count);
+        Assert.AreEqual(1, health.CachedCauseCount);
+        now = 30;
+        health.Report("same", true, "failure");
+        Assert.AreEqual(2, messages.Count);
+        StringAssert.Contains(messages[1], "suppressed repeats=999");
+    }
 }

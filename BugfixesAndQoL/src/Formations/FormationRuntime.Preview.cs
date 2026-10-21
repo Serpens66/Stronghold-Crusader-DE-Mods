@@ -116,7 +116,8 @@ namespace BugfixesAndQoL.UnitCommands
             catch (Exception exception)
             {
                 ClearPreview();
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:129", $"Formation preview unavailable for this target: {exception.Message}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:129", $"Formation preview unavailable for this target: {exception.Message}");
             }
         }
 

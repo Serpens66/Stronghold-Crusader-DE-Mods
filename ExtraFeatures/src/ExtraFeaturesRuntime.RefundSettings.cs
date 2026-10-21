@@ -55,12 +55,15 @@ namespace ExtraFeatures
 
             PruneExpiredResourceGuards();
             AddBuildingRefundGuards(args);
-            LogDebugForResourceEventPlayer(
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebugForResourceEventPlayer(
                 args.PlayerId,
                 "OnBuildingRefund resource guard added:",
                 "player", args.PlayerId,
                 "buildingId", args.BuildingId,
                 "percentage", args.Percentage);
+            }
         }
 
         private void AddBuildingRefundGuards(BuildingRefundEventArgs args)

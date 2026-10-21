@@ -160,6 +160,14 @@ namespace BugfixesAndQoL.GateRouting
         , IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, ITemporaryAssassinGateObserver
 #endif
     {
+        private long integrityRevision;
+        internal long SupportIntegrityRevision => Interlocked.Read(ref integrityRevision);
+        private long CountIntegrityError(ref long counter)
+        {
+            long value = Interlocked.Increment(ref counter);
+            Interlocked.Increment(ref integrityRevision);
+            return value;
+        }
         private readonly GateRoutingNativeHooks nativeHooks;
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
@@ -459,13 +467,13 @@ namespace BugfixesAndQoL.GateRouting
                 var context = new BuildingSearchPlayerContext(rawSearchArgument, tribeId,
                     snapshot.Resolve(tribeId), snapshot.Global(tribeId), liveOwner, liveGlobal,
                     leaderId, leaderGlobal, control, planning, buildingMapEditor);
-                if (context.Failure != null) Interlocked.Increment(ref scopeMismatches);
+                if (context.Failure != null) CountIntegrityError(ref scopeMismatches);
                 DiagBuildingContext(context);
                 return context.MovementPlayer;
             }
             catch (Exception ex)
             {
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref exceptions);
                 DiagBuildingException(rawSearchArgument, tribeId, ex);
                 return -1;
             }
@@ -572,7 +580,7 @@ namespace BugfixesAndQoL.GateRouting
             }
             catch (Exception ex)
             {
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref exceptions);
                 if (deferredErrors != null) deferredErrors.Record("Native gate-mask publication failed open / " + ex.GetType().Name, ex.Message);
                 else Shared.DebugLogHelper.LogWarning(log,
                     $"Native gate-mask publication failed open: {ex.GetType().Name}: {ex.Message}");
@@ -699,7 +707,7 @@ namespace BugfixesAndQoL.GateRouting
             }
             catch
             {
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref exceptions);
                 finalResult = vanillaResult;
             }
             CaptureCursorDecisionSample(player, unitId, targetPcl, sourcePcl,
@@ -786,7 +794,7 @@ namespace BugfixesAndQoL.GateRouting
                 }
                 catch
                 {
-                    Interlocked.Increment(ref exceptions);
+                    CountIntegrityError(ref exceptions);
                     return false;
                 }
                 finally
@@ -815,7 +823,7 @@ namespace BugfixesAndQoL.GateRouting
                     }
                     catch
                     {
-                        Interlocked.Increment(ref exceptions);
+                        CountIntegrityError(ref exceptions);
                         return false;
                     }
                     finally
@@ -906,7 +914,7 @@ namespace BugfixesAndQoL.GateRouting
             if (slot == null)
             {
                 if (Interlocked.Exchange(ref lastPoolExhaustionGeneration, generation) != generation)
-                    Interlocked.Increment(ref poolExhaustions);
+                    CountIntegrityError(ref poolExhaustions);
                 return;
             }
             try
@@ -930,7 +938,7 @@ namespace BugfixesAndQoL.GateRouting
             catch (Exception ex)
             {
                 lock (maskGate) slot.Filling = false;
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref exceptions);
                 if (deferredErrors != null) deferredErrors.Record("Native gate-mask slot fill failed open / " + ex.GetType().Name, ex.Message);
                 else Shared.DebugLogHelper.LogWarning(log,
                     $"Native gate-mask slot fill failed open: {ex.GetType().Name}: {ex.Message}");
@@ -1017,7 +1025,7 @@ namespace BugfixesAndQoL.GateRouting
             // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
             DiagBeginAlternateConsumer(player);
             try { originalAlternateConsumer(tribeManager, tribe, variant); completed = true; }
-            catch { Interlocked.Increment(ref exceptions); throw; }
+            catch { CountIntegrityError(ref exceptions); throw; }
             finally
             {
                 try { Complete(scope, QueryKind.AlternateBuildingApproach, false, false, completed); }
@@ -1037,7 +1045,7 @@ namespace BugfixesAndQoL.GateRouting
             bool completed = false;
             try { originalCandidateSearch(manager, startTileId, count,
                     targetPcl, player, mode, candidateClass); completed = true; }
-            catch { Interlocked.Increment(ref exceptions); throw; }
+            catch { CountIntegrityError(ref exceptions); throw; }
             finally { Complete(scope, QueryKind.CandidateSearch, false, false, completed); }
         }
         private void FilterAiTacticalTarget(IntPtr tribeManager, int tribe)
@@ -1055,18 +1063,18 @@ namespace BugfixesAndQoL.GateRouting
                 if (nativePlayer > 0 && nativePlayer <= 8)
                 {
                     if (nativePlayer == snapshotPlayer) player = nativePlayer;
-                    else Interlocked.Increment(ref aiTacticalScopeConflicts);
+                    else CountIntegrityError(ref aiTacticalScopeConflicts);
                 }
             }
-            if (player < 1) Interlocked.Increment(ref aiTacticalInvalidPlayers);
+            if (player < 1) CountIntegrityError(ref aiTacticalInvalidPlayers);
             CaptureScopeSample(QueryKind.AiTacticalTarget, snapshotPlayer,
                 nativePlayer, snapshotPlayer, player);
             TacticalQueryScope scope = EnterTactical(player);
             try { originalAiTacticalTarget(tribeManager, tribe); }
             catch
             {
-                Interlocked.Increment(ref aiTacticalExceptions);
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref aiTacticalExceptions);
+                CountIntegrityError(ref exceptions);
                 throw;
             }
             finally { CompleteTactical(scope); }
@@ -1087,7 +1095,7 @@ namespace BugfixesAndQoL.GateRouting
                 completed = true;
                 return result;
             }
-            catch { Interlocked.Increment(ref exceptions); throw; }
+            catch { CountIntegrityError(ref exceptions); throw; }
             finally { Complete(scope, QueryKind.DirectCursor, true, result > 0, completed); }
         }
         private int ResolveTribePlayer(int tribeId) => tribePlayers.Resolve(tribeId);
@@ -1098,7 +1106,7 @@ namespace BugfixesAndQoL.GateRouting
                 return -1;
             if (nativePlayer != tribePlayer)
             {
-                Interlocked.Increment(ref scopeMismatches);
+                CountIntegrityError(ref scopeMismatches);
                 DiagScopeMismatch(source, nativePlayer, tribePlayer);
                 return -1;
             }
@@ -1193,12 +1201,12 @@ namespace BugfixesAndQoL.GateRouting
             }
             if (player <= 0 || player >= snapshot.PlayerMasks.Length)
             {
-                Interlocked.Increment(ref invalidPlayers);
+                CountIntegrityError(ref invalidPlayers);
                 Interlocked.Increment(ref missingContexts);
             }
             byte* slot=GateNativeSearchScopes.Enter(threadSlots,mask,out IntPtr previous,out long previousTouched);
             if(slot==null) {
-                Interlocked.Increment(ref slotConflicts);return new QueryScope(snapshot,null,IntPtr.Zero,0,player,diagnosticKind,
+                CountIntegrityError(ref slotConflicts);return new QueryScope(snapshot,null,IntPtr.Zero,0,player,diagnosticKind,
                     routePolicySource.Enter(player,unmasked,false,routePublication));
             }
             return new QueryScope(snapshot, slot, previous, previousTouched, player, diagnosticKind,
@@ -1217,7 +1225,7 @@ namespace BugfixesAndQoL.GateRouting
                     ? snapshot.PlayerMasks[player] : IntPtr.Zero;
             }
             byte* slot = GateNativeSearchScopes.EnterTactical(tacticalThreadSlots, mask);
-            if (slot == null) { Interlocked.Increment(ref aiTacticalScopeConflicts); return new TacticalQueryScope(snapshot, null); }
+            if (slot == null) { CountIntegrityError(ref aiTacticalScopeConflicts); return new TacticalQueryScope(snapshot, null); }
             return new TacticalQueryScope(snapshot, slot);
         }
 

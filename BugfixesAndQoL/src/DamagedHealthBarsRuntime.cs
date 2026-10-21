@@ -184,8 +184,9 @@ namespace BugfixesAndQoL
                     "/" + building.r_MaxHealth + ", type=" + building.r_BuildingType;
                 break;
             }
-            Shared.DebugLogHelper.LogInfo(log, "HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
-                "}, buildingSample={" + buildingSample + "}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogInfo(log, "HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
+                    "}, buildingSample={" + buildingSample + "}.");
         }
 
         private static void ProbeGeneratedStubs(ulong imageBase, ulong flagAddress)

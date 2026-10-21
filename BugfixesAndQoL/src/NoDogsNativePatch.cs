@@ -66,9 +66,10 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_INSTALLED: sha256={NoDogsNativeContract.ReferenceSha256}, rva=0x{NoDogsNativeContract.PatchRva:X}, original=74-31, replacement=90-90.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_INSTALLED: sha256={NoDogsNativeContract.ReferenceSha256}, rva=0x{NoDogsNativeContract.PatchRva:X}, original=74-31, replacement=90-90.");
         }
     }
 }

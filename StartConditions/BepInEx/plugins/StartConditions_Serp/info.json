@@ -3,13 +3,21 @@
   "Author": "Serpens66",
   "Name": "Start Conditions",
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.32",
+  "Version": "1.0.33",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.33",
+      "Changes": [
+        "Reset omitted starting-goods and extra-troop values to their defined minimum when loading settings instead of retaining stale UI values.",
+        "Write an explicit empty AI start-troop save record when appropriate and validate unit, owner, isolation marker and private-tribe identity before restoring protected troops.",
+        "Cache repeated diagnostic cause hashes while preserving full distinct failures and the existing throttling interval."
+      ]
+    },
     {
       "Version": "1.0.32",
       "Changes": [

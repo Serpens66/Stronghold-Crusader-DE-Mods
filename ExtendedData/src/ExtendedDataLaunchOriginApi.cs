@@ -157,7 +157,10 @@ namespace ExtendedData
                 missionSessionId = null;
             }
             if (previous != ExtendedDataLaunchOriginKind.None)
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:160", $"Cleared customized launch origin: previous={previous}.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:160", $"Cleared customized launch origin: previous={previous}.");
+                }
         }
 
         internal static void MarkMapStarted(long? sessionId = null)
@@ -261,7 +264,8 @@ namespace ExtendedData
                     data.TrailId,
                     data.MissionId,
                     restored: true);
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:227", $"Restored customized launch origin from save: origin={data.Origin}, trailId={data.TrailId}, missionId={data.MissionId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:227", $"Restored customized launch origin from save: origin={data.Origin}, trailId={data.TrailId}, missionId={data.MissionId}.");
             }
             catch (Exception exception)
             {
@@ -311,8 +315,9 @@ namespace ExtendedData
                 launchPending = true;
                 missionSessionId = null;
             }
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:278", $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
-                $"trailId={trailIdValue}, missionId={missionIdValue}, restored={restored}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:278", $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
+                    $"trailId={trailIdValue}, missionId={missionIdValue}, restored={restored}.");
         }
 
         [MessagePackObject]

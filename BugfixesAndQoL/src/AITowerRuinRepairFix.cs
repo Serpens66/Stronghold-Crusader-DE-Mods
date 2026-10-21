@@ -139,10 +139,11 @@ namespace BugfixesAndQoL
                     "The AI tower-ruin classifier hooks displaced an unexpected native span.");
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"AI tower-ruin classifiers installed at RVAs 0x{narrowResolution.Rva:X} and " +
-                $"0x{broadResolution.Rva:X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AI tower-ruin classifiers installed at RVAs 0x{narrowResolution.Rva:X} and " +
+                    $"0x{broadResolution.Rva:X}.");
         }
 
         public void ApplySetting()
@@ -218,8 +219,9 @@ namespace BugfixesAndQoL
                 // the true building type before cleanup, so this register-only surrogate never
                 // changes the building record.
                 registers->RCX = NativeDeletableSurrogateType;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:225", $"AI tower ruin routed through Vanilla {branch} cleanup: player={playerId}, " +
-                    $"type={type}, buildingId={buildingId}, globalId={building->r_GlobalId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:225", $"AI tower ruin routed through Vanilla {branch} cleanup: player={playerId}, " +
+                        $"type={type}, buildingId={buildingId}, globalId={building->r_GlobalId}.");
             }
             catch (Exception ex)
             {
@@ -290,7 +292,8 @@ namespace BugfixesAndQoL
                         building.r_TilePositionYBegin);
                 }
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:299", $"AI tower-ruin tracking reconstructed after save load: count={runtimeRuins.Count}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AITowerRuinRepairFix.cs:299", $"AI tower-ruin tracking reconstructed after save load: count={runtimeRuins.Count}.");
             }
             catch (Exception ex)
             {

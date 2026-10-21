@@ -71,13 +71,14 @@ namespace BugfixesAndQoL
                 }
 
                 ApplySetting();
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Bugfixes and QoL AI defense patrol hook installed: " +
-                    $"hookRva=0x{AiDefensePatrolNativeDefinition.DecisionHookRva:X}, " +
-                    $"hookLength={AiDefensePatrolNativeDefinition.DecisionHookLength}, " +
-                    $"nativeHookActive={assignmentDecisionHook.IsInstalled}, enabled={IsEnabled}, " +
-                    "unitIdsAreOneBased=true, scanIndicesAreZeroBased=true, existingPatrolMigration=false.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Bugfixes and QoL AI defense patrol hook installed: " +
+                        $"hookRva=0x{AiDefensePatrolNativeDefinition.DecisionHookRva:X}, " +
+                        $"hookLength={AiDefensePatrolNativeDefinition.DecisionHookLength}, " +
+                        $"nativeHookActive={assignmentDecisionHook.IsInstalled}, enabled={IsEnabled}, " +
+                        "unitIdsAreOneBased=true, scanIndicesAreZeroBased=true, existingPatrolMigration=false.");
             }
             catch
             {

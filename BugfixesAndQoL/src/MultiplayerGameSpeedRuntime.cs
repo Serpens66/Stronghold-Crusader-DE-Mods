@@ -76,7 +76,8 @@ namespace BugfixesAndQoL
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<MultiplayerGameSpeedChangePacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
             networkInitialized = true;
-            LogInfo($"Chore packet registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={MultiplayerGameSpeedPolicy.ProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"Chore packet registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={MultiplayerGameSpeedPolicy.ProtocolVersion}.");
         }
 
         public void InstallHooks()
@@ -132,7 +133,10 @@ namespace BugfixesAndQoL
                 sliderChangedHook = installedSliderHook;
                 sliderChangedTrampoline = installedSliderTrampoline;
                 hooksInstalled = true;
-                LogInfo("managed keybind and in-game options hooks installed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogInfo("managed keybind and in-game options hooks installed.");
+                }
             }
             catch
             {
@@ -337,10 +341,11 @@ namespace BugfixesAndQoL
             ConfigSettings.Settings_GameSpeed = resolvedSpeed;
             ConfigSettings.SaveSettings();
             RefreshOpenOptionsUi(resolvedSpeed);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Bugfixes and QoL multiplayer game speed: singleplayer Shift game-speed change executed: " +
-                $"action={action}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Bugfixes and QoL multiplayer game speed: singleplayer Shift game-speed change executed: " +
+                    $"action={action}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
         }
 
         private static bool IsSpeedFunction(Enums.KeyFunctions function) =>
@@ -501,7 +506,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogInfo($"multiplayer time-control Chore queued: source={source}, action={action}, targetSpeed={targetSpeed}, pauseState={pauseState}, payloadBytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"multiplayer time-control Chore queued: source={source}, action={action}, targetSpeed={targetSpeed}, pauseState={pauseState}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -509,7 +515,8 @@ namespace BugfixesAndQoL
         {
             if (!CanRequestMultiplayerChange())
             {
-                LogInfo($"direct unpause refused: source={source}, reason=local player is not permitted.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"direct unpause refused: source={source}, reason=local player is not permitted.");
                 return false;
             }
 
@@ -540,7 +547,8 @@ namespace BugfixesAndQoL
             try
             {
                 GameNetworkAPI.SendPacketToAll(packet, packetHook.GetPacketId(), instantMessage: true);
-                LogInfo($"direct unpause broadcast: source={source}, packetId={packetHook.GetPacketId()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"direct unpause broadcast: source={source}, packetId={packetHook.GetPacketId()}.");
 
                 // SendPacketToAll excludes the sender, so apply the same validated request locally.
                 ApplyPauseState(false, "direct unpause");
@@ -647,7 +655,10 @@ namespace BugfixesAndQoL
                         ? "direct unpause"
                         : "pause Chore";
                     if (delivery == MultiplayerTimeControlDelivery.Direct)
-                        LogInfo("direct unpause received.");
+                        {
+                            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                LogInfo("direct unpause received.");
+                        }
                     ApplyPauseState(requestedPaused, deliveryName);
                     return;
                 }
@@ -685,7 +696,8 @@ namespace BugfixesAndQoL
                 int uiSpeedSnapshot = resolvedSpeed;
                 Shared.UnityMainThreadDispatch.TryEnqueue(
                     () => RefreshOpenOptionsUi(uiSpeedSnapshot));
-                LogInfo($"game-speed Chore executed: action={packet.Action}, requestedTarget={packet.TargetSpeed}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"game-speed Chore executed: action={packet.Action}, requestedTarget={packet.TargetSpeed}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
             }
             catch (Exception ex)
             {
@@ -698,7 +710,8 @@ namespace BugfixesAndQoL
             bool previousPaused = GamePlayerManagerAPI.Instance.IsLocalPaused();
             if (!MultiplayerGameSpeedPolicy.ShouldApplyPauseState(previousPaused, requestedPaused))
             {
-                LogInfo($"{deliveryName} was already satisfied: paused={requestedPaused}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"{deliveryName} was already satisfied: paused={requestedPaused}.");
                 return;
             }
 
@@ -709,7 +722,8 @@ namespace BugfixesAndQoL
             bool appliedPaused = GamePlayerManagerAPI.Instance.IsLocalPaused();
             if (appliedPaused == previousPaused)
             {
-                LogInfo($"{deliveryName} was refused by the active game state: requestedPaused={requestedPaused}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"{deliveryName} was refused by the active game state: requestedPaused={requestedPaused}.");
                 return;
             }
 
@@ -726,7 +740,8 @@ namespace BugfixesAndQoL
             });
 
             string outcome = deliveryName == "direct unpause" ? "applied" : "executed";
-            LogInfo($"{deliveryName} {outcome}: previousPaused={previousPaused}, appliedPaused={appliedPaused}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"{deliveryName} {outcome}: previousPaused={previousPaused}, appliedPaused={appliedPaused}.");
         }
 
         private void RefreshOpenOptionsUi()

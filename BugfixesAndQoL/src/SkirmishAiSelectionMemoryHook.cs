@@ -178,11 +178,12 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                () =>
-                    $"Bugfixes and QoL AI selection memory hooks installed. memoryEnabled={IsMemoryActive()}, " +
-                    $"storePath={storePath}");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    () =>
+                        $"Bugfixes and QoL AI selection memory hooks installed. memoryEnabled={IsMemoryActive()}, " +
+                        $"storePath={storePath}");
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -537,12 +538,24 @@ namespace BugfixesAndQoL
             }
 
             bool humansUnchanged = VerifyHumanMembers(self, humans, "after adding new random opponents");
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:552", () =>
-                    $"Bugfixes and QoL created protected random opponents. lobby={GetLobbyKind(self)}, " +
-                    $"requested={requestedCount}, maximum={maximumAiCount}, removed={removedCount}, added={addedCount}, " +
-                    $"humans={humans.Count}, humansUnchanged={humansUnchanged}, " +
-                    $"candidates={candidates.Count}, builtIn={includeBuiltInLords}, local={includeLocalCustomLords}, " +
-                    $"workshop={includeWorkshopCustomLords}");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticSelf = @self;
+                var diagnosticRequestedCount = @requestedCount;
+                var diagnosticMaximumAiCount = @maximumAiCount;
+                var diagnosticRemovedCount = @removedCount;
+                var diagnosticAddedCount = @addedCount;
+                var diagnosticHumans = @humans;
+                var diagnosticHumansUnchanged = @humansUnchanged;
+                var diagnosticCandidates = @candidates;
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:552", () =>
+                        $"Bugfixes and QoL created protected random opponents. lobby={GetLobbyKind(diagnosticSelf)}, " +
+                        $"requested={diagnosticRequestedCount}, maximum={diagnosticMaximumAiCount}, removed={diagnosticRemovedCount}, added={diagnosticAddedCount}, " +
+                        $"humans={diagnosticHumans.Count}, humansUnchanged={diagnosticHumansUnchanged}, " +
+                        $"candidates={diagnosticCandidates.Count}, builtIn={includeBuiltInLords}, local={includeLocalCustomLords}, " +
+                        $"workshop={includeWorkshopCustomLords}");
+            }
             return true;
         }
 
@@ -1045,9 +1058,17 @@ namespace BugfixesAndQoL
 
             storedSelections[key] = encoded;
             SaveStore();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1080", () =>
-                    $"Bugfixes and QoL saved AI AIV/AIC selection: key={key}, hadExisting={hadExisting}, " +
-                    $"{BuildInfoSummary(info)}, encodedLength={encoded.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticKey = @key;
+                var diagnosticHadExisting = @hadExisting;
+                var diagnosticInfo = @info;
+                var diagnosticEncoded = @encoded;
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1080", () =>
+                        $"Bugfixes and QoL saved AI AIV/AIC selection: key={diagnosticKey}, hadExisting={diagnosticHadExisting}, " +
+                        $"{BuildInfoSummary(diagnosticInfo)}, encodedLength={diagnosticEncoded.Length}.");
+            }
         }
 
         private bool ApplyStoredSelectionsToNewAiSlots(
@@ -1130,9 +1151,18 @@ namespace BugfixesAndQoL
                         "to Vanilla's built-in AIV so the skirmish remains startable.");
                 }
                 applied = true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1175", () =>
-                        $"Bugfixes and QoL restored shared AI AIV/AIC selection: reason={reason}, key={key}, " +
-                        $"player={playerId}, loadedAivs={result.LoadedAivs}, {BuildInfoSummary(target)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticReason = @reason;
+                    var diagnosticKeyValue = @key;
+                    var diagnosticPlayerId = @playerId;
+                    var diagnosticResult = @result;
+                    var diagnosticTarget = @target;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1175", () =>
+                            $"Bugfixes and QoL restored shared AI AIV/AIC selection: reason={diagnosticReason}, key={diagnosticKeyValue}, " +
+                            $"player={diagnosticPlayerId}, loadedAivs={diagnosticResult.LoadedAivs}, {BuildInfoSummary(diagnosticTarget)}.");
+                }
             }
 
             return applied;
@@ -1254,7 +1284,8 @@ namespace BugfixesAndQoL
             storeUnreadable = false;
             if (!File.Exists(storePath))
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1296", () => $"Bugfixes and QoL shared AI AIV/AIC selection file not found: {storePath}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1296", () => $"Bugfixes and QoL shared AI AIV/AIC selection file not found: {storePath}");
                 return;
             }
 
@@ -1301,8 +1332,9 @@ namespace BugfixesAndQoL
                     Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1347", () => "Bugfixes and QoL migrated AI AIV/AIC selection memory to file references.");
                 }
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1352", () =>
-                        $"Bugfixes and QoL loaded {storedSelections.Count} shared AI AIV/AIC selections from {storePath}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1352", () =>
+                            $"Bugfixes and QoL loaded {storedSelections.Count} shared AI AIV/AIC selections from {storePath}.");
             }
             catch (Exception ex)
             {

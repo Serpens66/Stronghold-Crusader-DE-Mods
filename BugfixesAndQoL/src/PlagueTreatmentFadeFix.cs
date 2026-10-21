@@ -107,9 +107,10 @@ namespace BugfixesAndQoL
                 try
                 {
                     TreatmentResult result = AdvanceTreatedDiseasesToFade(nativeUnitId);
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs:110", $"Bugfixes and QoL plague-cloud removal applied: unit={nativeUnitId}, " +
-                        $"directTargetAdvancedTo1017={result.DirectTargetAdvanced}, " +
-                        $"nearbyAdvancedTo1017={result.NearbyAdvancedCount}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs:110", $"Bugfixes and QoL plague-cloud removal applied: unit={nativeUnitId}, " +
+                            $"directTargetAdvancedTo1017={result.DirectTargetAdvanced}, " +
+                            $"nearbyAdvancedTo1017={result.NearbyAdvancedCount}.");
                 }
                 catch (Exception ex)
                 {

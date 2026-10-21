@@ -306,7 +306,8 @@ namespace BugfixesAndQoL
             }
 
             result.world_size = worldSize;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MapOriginSortHook.cs:311", $"Recovered classic map size {worldSize} from section 1050: {path}");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MapOriginSortHook.cs:311", $"Recovered classic map size {worldSize} from section 1050: {path}");
             return result;
         }
 

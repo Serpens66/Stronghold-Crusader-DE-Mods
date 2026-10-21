@@ -10,7 +10,7 @@ using UnityEngine;
 namespace ExtendedData
 {
     [BepInDependency("000shcdese", "2.4.0")]
-    [BepInDependency("APIShared_Serp", "0.12.1")]
+    [BepInDependency("APIShared_Serp", "0.12.3")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
@@ -20,7 +20,7 @@ namespace ExtendedData
     {
         public const string PluginGuid = "ExtendedData_Serp";
         public const string PluginName = "Extended Data";
-        public const string PluginVersion = "1.0.15";
+        public const string PluginVersion = "1.0.16";
         public const bool ExtendedDataModSettingsOptOut = true;
         // Advertised before LibraryLoaded so APIShared can reject older competing dialog hooks.
         public const bool UsesApiSharedSaveLoadDialog = true;

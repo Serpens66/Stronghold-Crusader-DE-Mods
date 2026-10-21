@@ -323,13 +323,20 @@ namespace BugfixesAndQoL
             }
 
             if (terrainAvailable)
-                Shared.DebugLogHelper.LogInfo(log, () => "Rally terrain hook: " +
-                    $"RVA 0x{dispatchRva:X}, 14 bytes, continuation 0x{dispatchRva + 14:X}; " +
-                    "native capture/restore, all owners, no recruit tracking.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticDispatchRva = @dispatchRva;
+                    Shared.DebugLogHelper.LogInfo(log, () => "Rally terrain hook: " +
+                $"RVA 0x{diagnosticDispatchRva:X}, 14 bytes, continuation 0x{diagnosticDispatchRva + 14:X}; " +
+                "native capture/restore, all owners, no recruit tracking.");
+                }
+            }
 
-        }
+    }
 
-        internal bool IsTerrainAvailable => terrainAvailable;
+    internal bool IsTerrainAvailable => terrainAvailable;
 
         internal void SetTerrainEnabled(bool enabled)
         {

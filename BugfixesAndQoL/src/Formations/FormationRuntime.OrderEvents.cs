@@ -148,8 +148,11 @@ namespace BugfixesAndQoL.UnitCommands
             if (fallbackSummary.TechnicalErrors == 0)
             {
                 if (fallbackSummary.Succeeded != 0 || fallbackSummary.Failed != 0)
-                    LogDebugNoThrow($"FORMATION_FALLBACK_SUMMARY: operation={completed.Pending.Packet.OperationId}, " +
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebugNoThrow($"FORMATION_FALLBACK_SUMMARY: operation={completed.Pending.Packet.OperationId}, " +
                         $"succeeded={fallbackSummary.Succeeded}, rejected={fallbackSummary.Failed}.");
+                    }
                 return;
             }
             string common =

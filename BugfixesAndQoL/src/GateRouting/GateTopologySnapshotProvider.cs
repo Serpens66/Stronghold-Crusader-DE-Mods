@@ -117,7 +117,9 @@ namespace BugfixesAndQoL.GateRouting
         private Action<NativeGateAccessSnapshot> gateAccessConsumer;
         private readonly DeferredCaptureRefreshRequest captureRefresh = new DeferredCaptureRefreshRequest();
         private readonly Shared.DeferredSnapshotRefreshRequest captureEvents = new Shared.DeferredSnapshotRefreshRequest();
+#if SERP_DEVDIAG
         internal readonly CaptureTransitionDiagnostics CaptureDiagnostics = new CaptureTransitionDiagnostics();
+#endif
         private long accessPublicationGeneration;
         private int epochActive;
         private int epochNumber;
@@ -131,6 +133,14 @@ namespace BugfixesAndQoL.GateRouting
         private ulong lastAccessFingerprint;
         private ulong lastTopologySignature;
         private ulong lastTopologyFingerprint;
+        private long integrityRevision;
+        internal long SupportIntegrityRevision => Interlocked.Read(ref integrityRevision);
+        private int CountIntegrityError(ref int counter)
+        {
+            int value = Interlocked.Increment(ref counter);
+            Interlocked.Increment(ref integrityRevision);
+            return value;
+        }
         private int snapshotErrors;
         private long accessScans;
         private long accessChanges;
@@ -246,10 +256,12 @@ namespace BugfixesAndQoL.GateRouting
             pendingEpochReason = reason ?? "unspecified";
             Interlocked.Increment(ref epochNumber);
             ResetHotCounters();
-            captureRefresh.Reset();
+            captureRefresh.Begin(Volatile.Read(ref epochNumber));
             captureEvents.Reset();
             Interlocked.Exchange(ref accessPublicationGeneration, 0);
-            CaptureDiagnostics.Reset(epochNumber);
+#if SERP_DEVDIAG
+            try { CaptureDiagnostics.Reset(epochNumber); } catch { RecordSnapshotFailure(); }
+#endif
         }
 
         private int peakMissingRequiredMasks;
@@ -265,11 +277,14 @@ namespace BugfixesAndQoL.GateRouting
                 $"Gate mask coverage: epoch={epochNumber}, missingRequiredMasks={coverage.MissingRequiredGateMasks.Length}, " +
                 $"peakMissingRequiredMasks={peakMissingRequiredMasks}, gateIds=[{string.Join(",", coverage.MissingRequiredGateMasks)}], " +
                 $"coverage={(Read(ref topologyBuilds) == 0 ? "unavailable" : coverage.MissingRequiredGateMasks.Length == 0 ? "complete-for-tracked-gates" : "INCOMPLETE")}; technical integrity is separate.");
-            if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+            if (detailedDiagnostics) {
+                                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                             Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {epochNumber} ended ({reason ?? "unspecified"}): " +
                 $"accessScans={Read(ref accessScans)}, accessChanges={Read(ref accessChanges)}, " +
                 $"builds={Read(ref topologyBuilds)}, changes={Read(ref topologyChanges)}, " +
                 $"snapshotErrors={Volatile.Read(ref snapshotErrors)}.");
+                                     }
         }
 
         internal string DescribeState()
@@ -383,14 +398,17 @@ namespace BugfixesAndQoL.GateRouting
             {
                 InitializeDeferredEpochIfNeeded(now);
                 bool capturePost = captureEvents.Consume();
-                if (capturePost | captureRefresh.Consume())
+                if (capturePost | captureRefresh.Consume(Volatile.Read(ref epochNumber)))
                 {
                     Volatile.Write(ref accessRefreshRequired, 1);
                     Volatile.Write(ref nextAccessAt, 0);
                     Volatile.Write(ref nextSnapshotAt, 0);
                     if (capturePost)
-                        if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+                        if (detailedDiagnostics) {
+                                                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                         Shared.DebugLogHelper.LogInfo(log,
                             "Gate capture Post refresh deferred, epoch=" + Volatile.Read(ref epochNumber));
+                                                 }
                 }
                 RefreshGateAccessIfDue(now);
                 RefreshTopologyIfDue(now);
@@ -444,7 +462,7 @@ namespace BugfixesAndQoL.GateRouting
             {
                 // A tick-side freshness failure is fail-open. The bounded deferred
                 // full scan remains authoritative and will retry normally.
-                Interlocked.Increment(ref snapshotErrors);
+                CountIntegrityError(ref snapshotErrors);
             }
         }
 
@@ -467,7 +485,7 @@ namespace BugfixesAndQoL.GateRouting
                 (int)building->r_AliveState != aliveState;
         }
 
-        internal void RecordSnapshotFailure() => Interlocked.Increment(ref snapshotErrors);
+        internal void RecordSnapshotFailure() => CountIntegrityError(ref snapshotErrors);
 
         private void ResetHotCounters()
         {
@@ -504,11 +522,14 @@ namespace BugfixesAndQoL.GateRouting
             Volatile.Write(ref accessPolicyWasCleared, 0);
             Volatile.Write(ref routePolicyWasCleared, 0);
             Volatile.Write(ref accessRefreshRequired, 1);
-            if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+            if (detailedDiagnostics) {
+                                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                             Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {currentEpoch} started ({pendingEpochReason}). " +
                 "Access and topology safety scans run at most once per game second or immediately " +
                 "after a detected tracked-state change; " +
                 "the native Same-PCL filter is published only after a non-empty direction mask exists.");
+                                     }
         }
 
         private void RefreshGateAccessIfDue(long now)
@@ -548,11 +569,14 @@ namespace BugfixesAndQoL.GateRouting
                 Volatile.Write(ref accessPolicyWasCleared, 0);
                 Interlocked.Increment(ref accessChanges);
                 Volatile.Write(ref nextSnapshotAt, 0);
-                if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+                if (detailedDiagnostics) {
+                                             if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                 Shared.DebugLogHelper.LogInfo(log,
                     $"Gate access policy changed: fingerprint=0x{rebuilt.TopologyFingerprint:X16}, " +
                     $"tracked={rebuilt.TrackedRecords}, captured={rebuilt.CapturedRecords}, " +
                     $"uncaptured={rebuilt.UncapturedRecords}, blockedPairs={rebuilt.BlockedPlayerGatePairs}, " +
                     $"records=[{changes}].");
+                                         }
                 return;
             }
 
@@ -570,9 +594,16 @@ namespace BugfixesAndQoL.GateRouting
         internal void ObserveCaptureMismatch(NativeGateAccessSnapshot source,
             int buildingId, uint globalId, int owner, int captured)
         {
-            if (Volatile.Read(ref epochActive) != 0 &&
-                CaptureDiagnostics.Observe(source, buildingId, globalId, owner, captured))
-                captureRefresh.Request();
+            int epoch = Volatile.Read(ref epochNumber);
+            if (Volatile.Read(ref epochActive) == 0 ||
+                !CaptureSnapshotMismatch.RequiresRefresh(source, epoch,
+                    Interlocked.Read(ref accessPublicationGeneration), buildingId, globalId, owner, captured)) return;
+#if SERP_DEVDIAG
+            captureRefresh.RequestWithDiagnostics(epoch,
+                () => CaptureDiagnostics.Observe(source, buildingId, globalId, owner, captured), RecordSnapshotFailure);
+#else
+            captureRefresh.Request(epoch);
+#endif
         }
 
         private void PublishAccessSnapshot(NativeGateAccessSnapshot rebuilt)
@@ -581,7 +612,9 @@ namespace BugfixesAndQoL.GateRouting
                 epochNumber, Interlocked.Increment(ref accessPublicationGeneration));
             lastStableAccessSnapshot = published;
             accessSnapshot = published;
-            CaptureDiagnostics.Publish(published);
+#if SERP_DEVDIAG
+            try { CaptureDiagnostics.Publish(published); } catch { RecordSnapshotFailure(); }
+#endif
             gateAccessConsumer?.Invoke(published);
         }
 
@@ -633,7 +666,9 @@ namespace BugfixesAndQoL.GateRouting
                 {
                     lastTopologyFingerprint = rebuilt.Fingerprint;
                     Interlocked.Increment(ref topologyChanges);
-                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+                    if (detailedDiagnostics) {
+                                                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                     Shared.DebugLogHelper.LogInfo(log,
                         $"Gate/drawbridge topology changed: epoch={epochNumber}, " +
                         $"combinations={rebuilt.Combinations.Length}, " +
                         $"fingerprint=0x{rebuilt.Fingerprint:X16}, " +
@@ -641,15 +676,22 @@ namespace BugfixesAndQoL.GateRouting
                         $"maskedDirectedEdges={rebuilt.RoutePolicy.MaskedDirectedEdges}, " +
                         $"entities=[{FormatTopologyChanges(previous, rebuilt, 24)}], " +
                         $"{rebuilt.Rejections.Format()}.");
-                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+                                             }
+                    if (detailedDiagnostics) {
+                                                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                     Shared.DebugLogHelper.LogInfo(log,
                         $"Gate passage axes: {rebuilt.RoutePolicy.DirectionMaskDiagnostics}.");
+                                             }
                     if (detailedDiagnostics) LogTestCases(rebuilt);
                 }
 #endif
 
                 if (firstBuild && !string.IsNullOrEmpty(rebuilt.Detail))
-                    if (detailedDiagnostics) Shared.DebugLogHelper.LogInfo(log,
+                    if (detailedDiagnostics) {
+                                                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                     Shared.DebugLogHelper.LogInfo(log,
                         $"Initial gate/drawbridge topology detail: {rebuilt.Detail}");
+                                             }
             }
             catch (Exception ex)
             {
@@ -672,7 +714,8 @@ namespace BugfixesAndQoL.GateRouting
             foreach (GateBridgeInfo info in current.Combinations)
             {
                 if (info.GateId <= 0 || !seen.Add(info.GateId)) continue;
-                Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE test-setup: epoch=" + epochNumber +
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE test-setup: epoch=" + epochNumber +
                     ",gate=" + info.GateId + "/" + info.GateGlobal + ",entryExitPcl=" + info.EntryPcl + "/" + info.ExitPcl +
                     ",testCase=" + GateSearchEvidence.TopologyCase(info.EntryPcl, info.ExitPcl, bridges.Contains(info.GateId)) +
                     ",basis=published-topology-snapshot,actualQuery=not-proven,physicalGateState=not-inferred");

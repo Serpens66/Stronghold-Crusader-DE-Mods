@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.194.0</AssemblyVersion>
-    <FileVersion>1.0.194.0</FileVersion>
+    <AssemblyVersion>1.0.195.0</AssemblyVersion>
+    <FileVersion>1.0.195.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -387,6 +387,7 @@
     <Compile Include="src\GateRouting\ConnectedGateFootprint.cs" />
     <Compile Include="src\GateRouting\CursorPreviewCache.cs" />
     <Compile Include="src\GateRouting\DeferredGateDiagnosticErrors.cs" />
+    <Compile Include="src\GateRouting\IntegrityErrorFlushGate.cs" />
     <Compile Include="src\GateRouting\EnemyGatePathfindingPolicy.cs" />
     <Compile Include="src\GateRouting\EnemyGatePathfindingRuntime.cs" />
     <Compile Include="src\GateRouting\FunctionalGatePolicyAdapter.cs" />

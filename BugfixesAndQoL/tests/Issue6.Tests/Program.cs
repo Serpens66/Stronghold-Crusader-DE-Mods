@@ -109,7 +109,7 @@ namespace SHCDESE.EventAPI.Tribes {
  }
 }
 namespace Shared { public static class CrashBreadcrumbDiagnostics { public static void Record(string m,int outcome=0){} }
- public static class DebugLogHelper { public static void LogErrorLimited(object l,string p,string m){} } }
+ public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogErrorLimited(object l,string p,string m){} } }
 namespace BugfixesAndQoL.UnitCommands {
  static class UnitCommandPathAPI { public static bool FormationDispatchActive; }
  enum QueueCommandKind { Move }

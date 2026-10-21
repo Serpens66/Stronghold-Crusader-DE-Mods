@@ -34,7 +34,8 @@ namespace ExtraFeatures
                 APIShared.GameModes.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
                 blocksLocalStateChanges = snapshot.Kind == APIShared.GameModes.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
                 hasMapSnapshot = snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/MultiplayerFeatureGate.cs:37", $"Extra Features multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/MultiplayerFeatureGate.cs:37", $"Extra Features multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {

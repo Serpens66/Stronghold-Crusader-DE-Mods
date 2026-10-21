@@ -146,7 +146,8 @@ namespace BugfixesAndQoL
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingDeleting);
             networkInitialized = true;
-            LogInfo($"Chore packet registered eagerly: packetId={pausePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"Chore packet registered eagerly: packetId={pausePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void ClearOverrides(string reason)
@@ -203,7 +204,8 @@ namespace BugfixesAndQoL
                 return;
             if (!settings.EnableMod || !settings.EnableSingleBuildingPause)
             {
-                LogInfo($"single-building pause save data ignored because the feature is disabled: overrides={state.Entries.Length}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"single-building pause save data ignored because the feature is disabled: overrides={state.Entries.Length}.");
                 return;
             }
 
@@ -225,7 +227,8 @@ namespace BugfixesAndQoL
                 restored++;
             }
 
-            LogInfo($"single-building pause overrides restored from save: restored={restored}, rejected={rejected}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"single-building pause overrides restored from save: restored={restored}, rejected={rejected}.");
         }
 
         internal void SetSleepStateBridge(
@@ -325,7 +328,8 @@ namespace BugfixesAndQoL
             {
                 if (mapEditor && !ownedByControlledPlayer)
                 {
-                    LogInfo($"single-building pause editor action delegated to Vanilla: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, reason=selected-building-not-owned.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogInfo($"single-building pause editor action delegated to Vanilla: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, reason=selected-building-not-owned.");
                 }
                 buttonTrampoline(self, parameter);
                 return;
@@ -333,7 +337,8 @@ namespace BugfixesAndQoL
 
             if (mapEditor)
             {
-                LogInfo($"single-building pause editor action accepted: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, controlPressed={controlPressed}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"single-building pause editor action accepted: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, controlPressed={controlPressed}.");
             }
 
             if (!controlPressed)
@@ -537,7 +542,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogInfo($"single-building pause Chore queued: operationId={operationId}, action={action}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, synchronizeAfterReset={synchronizeAfterReset}, payloadBytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"single-building pause Chore queued: operationId={operationId}, action={action}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, synchronizeAfterReset={synchronizeAfterReset}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -595,11 +601,12 @@ namespace BugfixesAndQoL
                             ownerSnapshot,
                             buildingTypeSnapshot,
                             sleepingSnapshot));
-                    LogInfo(
-                        $"building-type sleep Chore executed: operationId={packet.OperationId}, " +
-                        $"buildingType={building->r_BuildingType}, playerId={packet.PlayerId}, " +
-                        $"targetSleeping={packet.TargetSleeping}, synchronizeAfterReset={packet.SynchronizeAfterReset}, " +
-                        $"removedOverrides={removedOverrides}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogInfo(
+                            $"building-type sleep Chore executed: operationId={packet.OperationId}, " +
+                            $"buildingType={building->r_BuildingType}, playerId={packet.PlayerId}, " +
+                            $"targetSleeping={packet.TargetSleeping}, synchronizeAfterReset={packet.SynchronizeAfterReset}, " +
+                            $"removedOverrides={removedOverrides}.");
                     return;
                 }
 
@@ -617,7 +624,8 @@ namespace BugfixesAndQoL
                     if (TryGetSelectedBuildingId() == buildingIdSnapshot)
                         UpdateSleepButtonVisibility(MainViewModel.Instance, selectedSleepingSnapshot);
                 });
-                LogInfo($"single-building pause Chore executed: operationId={packet.OperationId}, action={packet.Action}, buildingId={buildingId}, buildingGlobalId={packet.BuildingGlobalId}, targetSleeping={packet.TargetSleeping}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"single-building pause Chore executed: operationId={packet.OperationId}, action={packet.Action}, buildingId={buildingId}, buildingGlobalId={packet.BuildingGlobalId}, targetSleeping={packet.TargetSleeping}.");
             }
             catch (Exception ex)
             {

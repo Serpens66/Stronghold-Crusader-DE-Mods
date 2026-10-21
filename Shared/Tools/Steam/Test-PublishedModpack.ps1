@@ -37,7 +37,7 @@ try{
     }
 }finally{$zip.Dispose()}
 $apiCommit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d'
-$provenance=[pscustomobject]@{Pack='SerpsMods';PackGuid='SerpsMods_Serp';Version='1.0.28';Commit=$commit;ApiSharedCommit=$apiCommit;ApiSharedMainCommit=$apiCommit;
+$provenance=[pscustomobject]@{Pack='SerpsMods';PackGuid='SerpsMods_Serp';Version='1.0.28';Commit=$commit;ApiSharedCommit=$apiCommit;ApiSharedMainCommit=$apiCommit;Infrastructure=@(@{Guid='APIShared_Serp';Version='0.9.2';SourceCommit=$apiCommit;ReleaseTag='APIShared/v0.9.2';PackageSha256=('a'*64)});
     Map=@{File='SerpsMods.map';Sha256=$mapHash;Size=(Get-Item (Join-Path $remote 'SerpsMods.map')).Length};
     Workshop=@{File='SerpsMods-Workshop-v1.0.28.zip';Sha256=(Get-WorkshopFileHash $zipPath)}}
 Write-SteamWorkshopJson (Join-Path $remote 'SerpsMods.provenance.json') $provenance

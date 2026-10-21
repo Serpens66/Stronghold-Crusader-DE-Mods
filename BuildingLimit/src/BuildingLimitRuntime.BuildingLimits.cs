@@ -70,9 +70,17 @@ namespace BuildingLimit
             if (pendingPlacementLog && Shared.DebugLogHelper.IsDebugEnabled() &&
                 placementLogRate.TryReserve("blocked", 5, out long suppressed))
             {
-                Shared.DebugLogHelper.LogDebug(log, () =>
-                    $"Building placement blocked by limit: player={args.PlayerId}, mapper={args.Mappers}, limit={rule.Limit}, count={aliveCount}." +
-                    (suppressed == 0 ? string.Empty : $" [suppressed repeats={suppressed}]"));
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticArgs = @args;
+                    var diagnosticRule = @rule;
+                    var diagnosticAliveCount = @aliveCount;
+                    var diagnosticSuppressed = @suppressed;
+                    Shared.DebugLogHelper.LogDebug(log, () =>
+                        $"Building placement blocked by limit: player={diagnosticArgs.PlayerId}, mapper={diagnosticArgs.Mappers}, limit={diagnosticRule.Limit}, count={diagnosticAliveCount}." +
+                        (diagnosticSuppressed == 0 ? string.Empty : $" [suppressed repeats={diagnosticSuppressed}]"));
+                }
                 pendingPlacementLog = false;
                 lastPlacementPlayer = args.PlayerId;
                 lastPlacementMapper = args.Mappers;
@@ -213,7 +221,10 @@ namespace BuildingLimit
 
         private void ShowBuildingLimitMessage(eMappers building, string message)
         {
-            LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:213", "Building limit notification shown:", building, message);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:213", "Building limit notification shown:", building, message);
+            }
             DisplayLimitNotification(message);
         }
 
@@ -265,7 +276,10 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:265", "Could not cancel building limit message timer:", ex.Message);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:265", "Could not cancel building limit message timer:", ex.Message);
+                }
             }
 
             buildingLimitMessageTimerHandle = null;
@@ -281,7 +295,10 @@ namespace BuildingLimit
                 if (!BuildingLimitDefinitions.TryGetValue(entry.Key, out BuildingLimitDefinition definition) ||
                     definition.Mapper != entry.Key)
                 {
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:281", "Building limit mapper is not a supported limit key:", entry.Key);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:281", "Building limit mapper is not a supported limit key:", entry.Key);
+                    }
                     continue;
                 }
 
@@ -308,7 +325,9 @@ namespace BuildingLimit
                     if (Shared.DebugLogHelper.IsDebugEnabled())
                     {
                         string structures = string.Join(",", Array.ConvertAll(definition.Structures, structure => structure.ToString()));
-                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:308",
+                        {
+                            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:308",
                             "Active building limit:",
                             entry.Key,
                             "=",
@@ -317,11 +336,15 @@ namespace BuildingLimit
                             internalLimit,
                             "structures",
                             structures);
+                        }
                     }
                 }
             }
 
-            LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:321", "Applied active building limit rules:", activeBuildingLimitRules.Count);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:321", "Applied active building limit rules:", activeBuildingLimitRules.Count);
+            }
             ResetBuildingLimitTooltipCache();
         }
 

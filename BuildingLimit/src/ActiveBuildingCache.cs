@@ -47,7 +47,10 @@ namespace BuildingLimit
                     .Subscribe(OnBuildingDelete));
 
                 subscribed = true;
-                LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:50", "ActiveBuildingCache hooks subscribed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:50", "ActiveBuildingCache hooks subscribed.");
+                }
             }
             catch
             {
@@ -156,13 +159,16 @@ namespace BuildingLimit
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanActiveIds > 0 || humanCountKeys > 0)
             {
-                LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:159",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:159",
                     "ActiveBuildingCache ResyncAll:",
                     "raiseEvents", raiseEvents,
                     "scanned", scannedBuildings,
                     "alive", aliveBuildings,
                     "humanActiveIds", humanActiveIds,
                     "humanCountKeys", humanCountKeys);
+                }
             }
             LogAllCounts("ActiveBuildingCache ResyncAll count");
             RaiseEvents(events);
@@ -319,15 +325,16 @@ namespace BuildingLimit
                 {
                     if (ShouldLogPlayer(pair.Key.PlayerId))
                     {
-                        LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:351",
-                            "ActiveBuildingCache count changed:",
-                            "player", pair.Key.PlayerId,
-                            "type", pair.Key.BuildingType,
-                            "old", oldCount,
-                            "new", newCount,
-                            "delta", newCount - oldCount,
-                            "buildingId", eventArgs.BuildingId,
-                            "reason", eventArgs.Reason);
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:351",
+                                "ActiveBuildingCache count changed:",
+                                "player", pair.Key.PlayerId,
+                                "type", pair.Key.BuildingType,
+                                "old", oldCount,
+                                "new", newCount,
+                                "delta", newCount - oldCount,
+                                "buildingId", eventArgs.BuildingId,
+                                "reason", eventArgs.Reason);
                     }
                     return new ActiveBuildingTypeCountChangedEventArgs(pair.Key.PlayerId, pair.Key.BuildingType, oldCount, newCount, eventArgs.BuildingId, eventArgs.Reason);
                 }
@@ -378,7 +385,10 @@ namespace BuildingLimit
 
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanCountKeys > 0)
-                LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:410", "ActiveBuildingCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:410", "ActiveBuildingCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                }
         }
 
         private int GetHumanActiveBuildingIdCount()
@@ -413,21 +423,26 @@ namespace BuildingLimit
 
         private void LogAllCounts(string prefix)
         {
-            Shared.DebugLogHelper.LogDebugLimited(log, "BuildingLimit/src/ActiveBuildingCache.cs.Summary", () =>
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
             {
-                int keys = 0;
-                int total = 0;
-                lock (syncRoot)
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticPrefix = @prefix;
+                Shared.DebugLogHelper.LogDebugLimited(log, "BuildingLimit/src/ActiveBuildingCache.cs.Summary", () =>
                 {
-                    foreach (KeyValuePair<BuildingCountKey, int> pair in countsByOwnerAndType)
+                    int keys = 0;
+                    int total = 0;
+                    lock (syncRoot)
                     {
-                        if (!ShouldLogPlayer(pair.Key.PlayerId)) continue;
-                        keys++;
-                        total += pair.Value;
+                        foreach (KeyValuePair<BuildingCountKey, int> pair in countsByOwnerAndType)
+                        {
+                            if (!ShouldLogPlayer(pair.Key.PlayerId)) continue;
+                            keys++;
+                            total += pair.Value;
+                        }
                     }
-                }
-                return prefix + ": humanCountKeys=" + keys + ", aliveTotal=" + total + ".";
-            });
+                    return diagnosticPrefix + ": humanCountKeys=" + keys + ", aliveTotal=" + total + ".";
+                });
+            }
         }
 
         private static void AddBuildingEvent(ref List<ActiveBuildingChangedEventArgs> events, int buildingId, BuildingSnapshot oldSnapshot, BuildingSnapshot newSnapshot, ActiveBuildingChangeReason reason)
@@ -494,7 +509,10 @@ namespace BuildingLimit
                 countsByOwnerAndType.Clear();
             }
 
-            LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:537", "ActiveBuildingCache cleared.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:537", "ActiveBuildingCache cleared.");
+            }
         }
 
         private void LogDebug(string site, params object[] parts)

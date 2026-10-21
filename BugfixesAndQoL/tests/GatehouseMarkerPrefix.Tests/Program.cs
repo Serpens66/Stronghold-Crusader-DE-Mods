@@ -196,7 +196,7 @@ namespace BugfixesAndQoL
 namespace Shared
 {
     public static class DebugLogHelper
-    {
+    { public static bool DiagnosticsEnabled => true;
         public static string CurrentNativeSha256 = GatehouseTargetMarkerHeightPolicy.NativeSha256;
         public static List<string> Logs = new List<string>();
         public static bool IsCurrentNativeLibraryVersion() { return true; }

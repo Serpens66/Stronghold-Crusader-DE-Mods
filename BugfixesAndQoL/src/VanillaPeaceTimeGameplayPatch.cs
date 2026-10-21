@@ -136,19 +136,20 @@ namespace BugfixesAndQoL
                 "VanillaPeaceTimeGameplayPatchInstalled",
                 VanillaPeaceTimeNativeContract.PatchSites.Length,
                 VanillaPeaceTimeNativeContract.StartingTroopsHookLength);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_INSTALLED: " +
-                $"sha256={VanillaPeaceTimeNativeContract.ReferenceSha256}, " +
-                $"branchPatches={VanillaPeaceTimeNativeContract.PatchSites.Length}, " +
-                $"startingTroopsRva=0x{VanillaPeaceTimeNativeContract.StartingTroopsDispatcherRva:X}, " +
-                $"displacedBytes={startingTroopsHook.Hook.DisplacedByteCount}, " +
-                $"wildlifeRva=0x{VanillaPeaceTimeNativeContract.HostilityFunctionRva:X}, " +
-                $"wildlifeDisplacedBytes={wildlifeHook.Hook.DisplacedByteCount}, " +
-                $"wildlifeContinuationRva=0x{VanillaPeaceTimeNativeContract.HostilityFunctionRva + VanillaPeaceTimeNativeContract.WildlifeHookLength:X}, " +
-                $"unitStride=0x{VanillaPeaceTimeNativeContract.NativeUnitStride:X}, " +
-                $"unitTypeOffset=0x{VanillaPeaceTimeNativeContract.NativeUnitTypeOffset:X}, " +
-                $"unitPlayerOffset=0x{VanillaPeaceTimeNativeContract.NativeUnitPlayerOffset:X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_INSTALLED: " +
+                    $"sha256={VanillaPeaceTimeNativeContract.ReferenceSha256}, " +
+                    $"branchPatches={VanillaPeaceTimeNativeContract.PatchSites.Length}, " +
+                    $"startingTroopsRva=0x{VanillaPeaceTimeNativeContract.StartingTroopsDispatcherRva:X}, " +
+                    $"displacedBytes={startingTroopsHook.Hook.DisplacedByteCount}, " +
+                    $"wildlifeRva=0x{VanillaPeaceTimeNativeContract.HostilityFunctionRva:X}, " +
+                    $"wildlifeDisplacedBytes={wildlifeHook.Hook.DisplacedByteCount}, " +
+                    $"wildlifeContinuationRva=0x{VanillaPeaceTimeNativeContract.HostilityFunctionRva + VanillaPeaceTimeNativeContract.WildlifeHookLength:X}, " +
+                    $"unitStride=0x{VanillaPeaceTimeNativeContract.NativeUnitStride:X}, " +
+                    $"unitTypeOffset=0x{VanillaPeaceTimeNativeContract.NativeUnitTypeOffset:X}, " +
+                    $"unitPlayerOffset=0x{VanillaPeaceTimeNativeContract.NativeUnitPlayerOffset:X}.");
         }
     }
 }

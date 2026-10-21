@@ -252,9 +252,12 @@ namespace ExtraFeatures
             if (Volatile.Read(ref postStartupLogged) != 0)
                 return;
             if (Interlocked.Exchange(ref postStartupLogged, 1) == 0)
-                Shared.DebugLogHelper.LogDebug(log, "HEALER_TARGETS_POST_STARTUP: tick=" + tick +
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebug(log, "HEALER_TARGETS_POST_STARTUP: tick=" + tick +
                     ", civilians=" + ((Volatile.Read(ref enabledMask) & CivilianMask) != 0) +
                     ", siege=" + ((Volatile.Read(ref enabledMask) & SiegeMask) != 0));
+                }
         }
     }
 }

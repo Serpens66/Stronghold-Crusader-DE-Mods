@@ -89,8 +89,9 @@ namespace ExtraFeatures
             aiPercent = LordHealthMultiplierPolicy.NormalizePercent(settings.AILordHealthPercent);
             pendingPlayersMask = 0x1FE;
             mapActive = true;
-            Shared.DebugLogHelper.LogDebug(log,
-                $"Extra Features Lord health initialized: session={sessionId}, savedBasis={loadedSave}, humans={humanPercent}%, AI={aiPercent}%.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(log,
+                    $"Extra Features Lord health initialized: session={sessionId}, savedBasis={loadedSave}, humans={humanPercent}%, AI={aiPercent}%.");
             ApplyAvailableLords();
         }
 
@@ -215,8 +216,9 @@ namespace ExtraFeatures
             lord->r_CurrentHealthPercentage = healthPercent;
             lord->r_HealthBarBlocks = (uint)(healthPercent / 10);
             appliedGlobalIds[playerId] = lord->r_GlobalId;
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:220", $"Extra Features applied Lord health: player={playerId}, globalId={lord->r_GlobalId}, " +
-                $"multiplier={selectedPercent}%, health={oldCurrent}/{oldMaximum}->{newCurrent}/{newMaximum}, vanillaMax={basis.VanillaMaximum}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/LordHealthRuntime.cs:220", $"Extra Features applied Lord health: player={playerId}, globalId={lord->r_GlobalId}, " +
+                    $"multiplier={selectedPercent}%, health={oldCurrent}/{oldMaximum}->{newCurrent}/{newMaximum}, vanillaMax={basis.VanillaMaximum}.");
             return true;
         }
 

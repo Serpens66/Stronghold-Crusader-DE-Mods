@@ -3,13 +3,21 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.43",
+  "Version": "0.8.44",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.44",
+      "Changes": [
+        "Retain active mission settings, author rules and preset ownership when restarting to spawn a completed castle.",
+        "Resolve free-castle preview player identity after mission readiness; handle delayed multiplayer identity and restore the previous pause state on failed starts.",
+        "Avoid disabled preview, blueprint and placement log preparation and cache repeated failure hashes."
+      ]
+    },
     {
       "Version": "0.8.43",
       "Changes": ["Require the corrected APIShared restart metadata ownership."]

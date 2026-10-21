@@ -22,14 +22,12 @@ try{
             if($settings.Branch -eq 'develop'){$settings.Test=$true}
             $source=Resolve-ModpackSource $config.Root $settings.Branch
         }else{
-            if($settings.Branch -and $settings.Branch -cne 'main'){throw 'Uploads always use the latest published main release; /branch:develop is not supported.'}
-            $settings.Branch='main'
-            $source=Resolve-ModpackSource $config.Root 'main' -AllowGeneratedOutputs
+            $source=Get-PreparedModpackUploadSource $config.Root $settings.Test $settings.Branch
+            $settings.Branch=$source.Branch
         }
         $env:SHCDE_MODPACK_COORDINATOR=Get-ModpackCoordinator $config.Root
         $env:SHCDE_MODPACK_BRANCH=$source.Branch
-        $env:SHCDE_API_SHARED_PUBLISHED_092='1'
-        Write-Host ('Modpack-Branch: '+$source.Branch+' / '+$source.Commit+' / APIShared: published 0.9.2')
+        Write-Host ('Modpack-Branch: '+$source.Branch+' / '+$source.Commit+' / APIShared: validated main release')
         if([IO.Path]::GetFullPath($source.Root).TrimEnd('\','/') -ine $config.Root.TrimEnd('\','/')){
             $argsForChild=@('/branch:'+$source.Branch) + @('/nopause')
             $argsForChild+=switch($settings.Target){'Both'{'/both'} default{'/modpack'}}
@@ -41,7 +39,7 @@ try{
         }
     }
     $targets=if($settings.Target -eq 'Both'){@($config.APIShared,$config.SerpsMods)}else{@($config.($settings.Target))}
-    if($Action -eq 'Prepare' -or $settings.Target -in @('SerpsMods','Both')){
+    if($Action -eq 'Prepare'){
         $env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $config.Root
     }else{
         $preparedState=if($env:SHCDE_MODPACK_COORDINATOR){Get-ModpackStateRoot $config.Root $settings.Test}else{Join-Path $config.Root '.release-output/SteamWorkshop'}
@@ -62,14 +60,17 @@ try{
     if($Action -eq 'Prepare' -and $settings.Target -in @('SerpsMods','Both') -and -not(Get-WorkshopItemId $config $config.APIShared $settings.Test)){throw 'APIShared Workshop ID missing. Prepare and upload APIShared first. No release changes were made.'}
     $state=Get-WorkshopStateRoot $config $settings.Test;Assert-ApiWorkshopUnlinkedPath $state;[void][IO.Directory]::CreateDirectory($state)
     $lock=[IO.File]::Open((Join-Path $state 'workflow.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
-    if($Action -eq 'Prepare' -and (-not $settings.Validate -or $env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1')){Ensure-ApiMainBuild $config.Root}
-    if($Action -eq 'Upload' -and $settings.Target -in @('SerpsMods','Both')){
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Prepare-LatestModpackUpload.ps1') -TestMode ([int]$settings.Test)
-        if($LASTEXITCODE -ne 0){throw 'Preparing the latest published main release failed; no upload started.'}
+    if($Action -eq 'Prepare' -and -not $settings.Validate){Ensure-ApiMainBuild $config.Root}
+    if($Action -eq 'Upload'){
+        # Freeze the selected SDK and package across preparation and upload.
+        # A new latest release requires a separate preparation; never replace the proof here.
+        $firstSdk=$null
         foreach($target in $targets){
             $prepared=Assert-WorkshopPreparation $config $target $settings.Test
             $selected=Assert-ApiMainDeliveryIdentity $config.Root $prepared.MainSource
-            if($selected -cne $env:SHCDE_API_SHARED_MAIN_SELECTION){throw 'Both uploads must use the same pinned public SDK.'}
+            if($selected -cne $env:SHCDE_API_SHARED_MAIN_SELECTION){throw 'Both uploads must use the same pinned main source.'}
+            if($firstSdk){Assert-ModpackApiSharedIdentity $firstSdk $prepared.PublishedSdk}
+            $firstSdk=$prepared.PublishedSdk
         }
     }
     Invoke-WorkshopTargets $targets {param($target)
@@ -85,6 +86,11 @@ try{
         if($LASTEXITCODE -ne 0){throw "$($target.Key) failed with exit code $LASTEXITCODE; following targets were not started."}
         if($Action -eq 'Prepare' -and -not $settings.Validate -and $retentionReady){$null=Invoke-WorkshopOutputRetention $config $target $settings.Test $previousBackups $lock}
         Write-Host ($target.Key+' completed.')
+    }
+    if($Action -eq 'Prepare' -and $settings.Target -eq 'Both' -and -not $settings.Validate){
+        $apiProof=Assert-WorkshopPreparation $config $config.APIShared $settings.Test
+        $modpackProof=Assert-WorkshopPreparation $config $config.SerpsMods $settings.Test
+        Assert-ModpackApiSharedIdentity $apiProof.PublishedSdk $modpackProof.PublishedSdk
     }
 }catch{Write-Host $_.Exception.Message -ForegroundColor Red;$exitCode=1}finally{if($lock){$lock.Dispose()};$env:SHCDE_API_SHARED_MAIN_SELECTION=$previousMainSelection}
 }while($false)

@@ -148,12 +148,13 @@ namespace ExtraFeatures
 
                 try
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Extra Features apothecary plague-search hook installed disabled: " +
-                        $"startRva=0x{HookRva:X}, displaced={HookDisplacedBytes}, " +
-                        $"returnRva=0x{ReturnRva:X}, rejectRva=0x{RejectRva:X}, " +
-                        "incomingInteriorTargets=0.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Extra Features apothecary plague-search hook installed disabled: " +
+                            $"startRva=0x{HookRva:X}, displaced={HookDisplacedBytes}, " +
+                            $"returnRva=0x{ReturnRva:X}, rejectRva=0x{RejectRva:X}, " +
+                            "incomingInteriorTargets=0.");
                     Shared.CrashBreadcrumbDiagnostics.Record(
                         "ApothecaryPlagueSearchHookInstalled",
                         HookRva,
@@ -179,8 +180,9 @@ namespace ExtraFeatures
             Shared.CrashBreadcrumbDiagnostics.Record(
                 "ApothecaryPlagueSearchMaximum",
                 effectiveMaximum);
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/PlagueApothecarySearchRangePatch.cs:182", $"Extra Features apothecary plague-search maximum is now " +
-                $"{effectiveMaximum} ({(enabled ? "configured" : "Vanilla")}).");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/PlagueApothecarySearchRangePatch.cs:182", $"Extra Features apothecary plague-search maximum is now " +
+                    $"{effectiveMaximum} ({(enabled ? "configured" : "Vanilla")}).");
         }
 
         private void RollbackUnpublishedCandidate()

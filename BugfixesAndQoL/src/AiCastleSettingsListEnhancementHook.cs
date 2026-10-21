@@ -458,7 +458,8 @@ namespace BugfixesAndQoL
             {
                 Attach(self);
                 RefreshEnhancedLists();
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:461", $"Bugfixes and QoL refreshed AI castle/settings lists after {reason}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:461", $"Bugfixes and QoL refreshed AI castle/settings lists after {reason}.");
             }
             catch (Exception ex)
             {
@@ -704,7 +705,8 @@ namespace BugfixesAndQoL
                 AivAicPresetDefinition saved = presetStore.Save(
                     presetLordKey, name, GetAivInfo(activeView));
                 RefreshPresetRows(saved.Name);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:711", $"Bugfixes and QoL saved AIV/AIC preset '{saved.Name}' for {presetLordKey}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:711", $"Bugfixes and QoL saved AIV/AIC preset '{saved.Name}' for {presetLordKey}.");
             }
             catch (Exception ex)
             {
@@ -734,9 +736,10 @@ namespace BugfixesAndQoL
                 activeView.populateList(null, false);
                 AttachAndRefresh(activeView, $"preset '{selectedPreset.Name}' loaded");
                 selectionLoaded?.Invoke(info);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:743", $"Bugfixes and QoL loaded AIV/AIC preset '{selectedPreset.Name}' for {presetLordKey}: " +
-                    $"loadedAivs={result.LoadedAivs}, missingAivs={result.MissingAivs}, " +
-                    $"truncatedAivs={result.TruncatedAivs}, missingAic={result.MissingAic}, rotation={info.rotation}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:743", $"Bugfixes and QoL loaded AIV/AIC preset '{selectedPreset.Name}' for {presetLordKey}: " +
+                        $"loadedAivs={result.LoadedAivs}, missingAivs={result.MissingAivs}, " +
+                        $"truncatedAivs={result.TruncatedAivs}, missingAic={result.MissingAic}, rotation={info.rotation}.");
                 ClosePresetDialog();
             }
             catch (Exception ex)
@@ -805,7 +808,8 @@ namespace BugfixesAndQoL
                     PresetName = string.Empty;
                     SelectedPreset = null;
                     RefreshPresetRows(null);
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:816", $"Bugfixes and QoL deleted AIV/AIC preset '{name}' for {presetLordKey}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiCastleSettingsListEnhancementHook.cs:816", $"Bugfixes and QoL deleted AIV/AIC preset '{name}' for {presetLordKey}.");
                 }
             }
             catch (Exception ex)
