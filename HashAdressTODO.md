@@ -66,6 +66,9 @@ Diese Skripte prüfen den Datei-Hash der `Assembly-CSharp.dll` und brechen nach 
 
 ## Weitere Hash-Gates in APIShared
 
+- `APIShared/src/ScriptExtenderFixes/Popularity/PopularityDisplayRuntime.cs:22`: prüft weiter den Managed-Hash `BC8B6A39…`. Es gibt dort keinen IL-Vertrag. Der Hash sichert ab, welche Vanilla-GUI-Felder je `app_sub_mode` geschrieben werden (`PopularityPresentation.Apply`). Das Feature ist zusätzlich an den Native-Hash gebunden. Für Update-Festigkeit bräuchte es einen IL-Vertrag über die schreibende Vanilla-GUI-Methode.
+- Native Teile von APIShared-Audio (`Audio/NativeContract.cs`: `NativeHash`, `MeleeFrameHash`, feste RVAs): Der Managed-Teil ist auf den IL-Vertrag umgestellt, der native Teil bleibt hashgebunden.
+
 - `APIShared/src/ScriptExtenderFixes/ScriptExtenderFixesRuntime.cs:20`: `ManagedHash = "D98415…"` mit `Supports(...)` (`:141-143`). Betrifft eine andere Managed-Assembly als Assembly-CSharp; Zuordnung klären und auf IL-Vertrag prüfen.
 - Native APIShared-Dienste mit festen RVAs, etwa die Konstanten in `AssassinPathAPI` (`BuildingGridRva`, `TileFlagsRva` usw.) und `EnemyGatePathfindingNativeDefinition`. Die Werte sind zum Teil jetzt öffentlich (`GateRoutingNativeLayout`); dieselbe Cache- und RIP-Strategie wäre hier anwendbar.
 

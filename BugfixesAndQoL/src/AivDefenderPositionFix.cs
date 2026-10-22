@@ -47,8 +47,9 @@ namespace BugfixesAndQoL
             if (!referenceHashMatches)
                 throw new InvalidOperationException("The AIV defender-position fix requires the audited CrusaderDE.dll hash.");
 
-            int patternRva = Shared.NativePatternResolver.FindUniquePattern(
-                memory, AivDefenderPositionContextPattern, "AIV defender-position exclusion branch");
+            // The audited hash is required above, so the reference bytes are checked without a scan.
+            int patternRva = Shared.NativePatternResolver.ResolveUnique(
+                memory, AivDefenderPositionContextPattern, ReferencePatternRva, true, "AIV defender-position exclusion branch").Rva;
             int patchRva = checked(patternRva + DecisionHookOffset);
             if (patternRva != ReferencePatternRva || patchRva != ReferenceDecisionHookRva ||
                 patchRva < 0 || patchRva + OriginalDecision.Length > memory.Length ||

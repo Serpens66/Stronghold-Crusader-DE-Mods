@@ -113,8 +113,9 @@ namespace BugfixesAndQoL.UnitCommands
             string[] bytes = new string[expected.Length];
             for (int index = 0; index < expected.Length; index++)
                 bytes[index] = expected[index].ToString("X2");
-            int resolved = Shared.NativePatternResolver.FindUniquePattern(
-                memory, string.Join(" ", bytes), name);
+            // The reference build is pinned by its hash, so only an unknown build scans (once, then cached).
+            int resolved = BfqolNativeCache.Current.ResolveUnique(
+                memory, string.Join(" ", bytes), expectedRva, name).Rva;
             if (resolved != expectedRva)
             {
                 throw new InvalidOperationException(

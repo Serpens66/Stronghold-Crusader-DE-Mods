@@ -132,6 +132,13 @@ internal static class Program
                 Check(rejected,"every changed grouped/following byte rejected");
             }
         }
+        // Live, the Script Extender's wall-targeting context hook starts exactly at the proven continuation
+        // 0x8EA60 after the peace-time span; a foreign jump there is accepted, any other live change is not.
+        IntPtr foreign=Image(image);
+        Copy(foreign,0x8EA60,new byte[]{0xCC,0xCC,0xCC});
+        bool overlap=false;try {Roots.Add(new PermanentNativeSwitch(null,(ulong)foreign.ToInt64(),NativeSwitchCatalog.CreatePlans(image,(ulong)foreign.ToInt64(),false)));}catch(InvalidOperationException){overlap=true;}
+        Check(overlap,"non-jump live change at a continuation rejected");
+        Copy(arena,0x8EA60,new byte[]{0xFF,0x25,0,0,0,0});
         var installed=new PermanentNativeSwitch(null,b,plans);Roots.Add(installed);
         byte[][] before=plans.Select(p=>Read(arena,p.Rva,p.PhysicalLength)).ToArray();
         foreach(bool value in new[]{false,true,false,true})

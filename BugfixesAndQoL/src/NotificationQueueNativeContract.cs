@@ -58,39 +58,64 @@ namespace BugfixesAndQoL
             "8B 83 D4 00 00 00 48 8D 0D ? ? ? ? 89 83 50 09 00 00 " +
             "C6 05 ? ? ? ? 01 80 7B 0C 00 44 8B 43 08 8B 53 04";
 
-        public static NotificationQueueNativeResolution Validate(ReadOnlySpan<byte> memory)
+        // Reference RVAs in the audited FBCB9319 build; another build scans the unique patterns once.
+        private const int RunTickReferenceRva = 0x86680;
+        private const int RunTickNotificationCallReferenceRva = 0x86A91;
+        private const int UpdateReferenceRva = 0xFE570;
+        private const int CompletionTailReferenceRva = 0xFE5C9;
+        private const int FinalizeReferenceRva = 0x102A70;
+        private const int PromotionReferenceRva = 0x102AB5;
+        private const int StartReferenceRva = 0xFEE50;
+        private const int StartPendingFlagReferenceRva = 0xFEEB1;
+
+        // Resolves one code pattern: (memory, pattern, reference RVA, name) -> RVA. The production caller passes
+        // the BugfixesAndQoL native cache (reference RVA first, no scan with the audited build).
+        internal delegate int PatternResolver(ReadOnlySpan<byte> memory, string pattern, int referenceRva, string name);
+
+        public static NotificationQueueNativeResolution Validate(ReadOnlySpan<byte> memory) =>
+            Validate(memory, (image, pattern, referenceRva, name) => Shared.NativePatternResolver.FindUniquePattern(image, pattern, name));
+
+        internal static NotificationQueueNativeResolution Validate(ReadOnlySpan<byte> memory, PatternResolver resolve)
         {
-            int runTick = Shared.NativePatternResolver.FindUniquePattern(
+            int runTick = resolve(
                 memory,
                 RunTickProloguePattern,
+                RunTickReferenceRva,
                 "DLL_RunTick entry");
-            int runTickNotificationCall = Shared.NativePatternResolver.FindUniquePattern(
+            int runTickNotificationCall = resolve(
                 memory,
                 RunTickNotificationCallPattern,
+                RunTickNotificationCallReferenceRva,
                 "DLL_RunTick notification-update call");
-            int update = Shared.NativePatternResolver.FindUniquePattern(
+            int update = resolve(
                 memory,
                 UpdateProloguePattern,
+                UpdateReferenceRva,
                 "notification queue update entry");
-            int completionTail = Shared.NativePatternResolver.FindUniquePattern(
+            int completionTail = resolve(
                 memory,
                 CompletionTailPattern,
+                CompletionTailReferenceRva,
                 "notification completion tail");
-            int finalize = Shared.NativePatternResolver.FindUniquePattern(
+            int finalize = resolve(
                 memory,
                 FinalizeProloguePattern,
+                FinalizeReferenceRva,
                 "notification queue finalizer");
-            int promotion = Shared.NativePatternResolver.FindUniquePattern(
+            int promotion = resolve(
                 memory,
                 PromotionPattern,
+                PromotionReferenceRva,
                 "notification queue promotion");
-            int start = Shared.NativePatternResolver.FindUniquePattern(
+            int start = resolve(
                 memory,
                 StartProloguePattern,
+                StartReferenceRva,
                 "notification presentation entry");
-            int startPendingFlag = Shared.NativePatternResolver.FindUniquePattern(
+            int startPendingFlag = resolve(
                 memory,
                 StartPendingFlagPattern,
+                StartPendingFlagReferenceRva,
                 "notification presentation pending-flag set");
 
             if (runTickNotificationCall != runTick + RunTickCallSiteFromEntryOffset)

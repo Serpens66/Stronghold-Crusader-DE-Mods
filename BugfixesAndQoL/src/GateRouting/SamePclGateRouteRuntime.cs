@@ -333,8 +333,8 @@ namespace BugfixesAndQoL.GateRouting
             originalPclReachability = Marshal.GetDelegateForFunctionPointer<PclReachabilityDelegate>(
                 new IntPtr(unchecked((long)(libraryBase +
                     (ulong)GateRoutingNativeLayout.PclReachabilityRva))));
-            threadSlots = GateNativeSearchScopes.Allocate(DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride);
-            tacticalThreadSlots = GateNativeSearchScopes.Allocate(AiTacticalTargetAdapterEmitter.ThreadSlotCount * AiTacticalTargetAdapterEmitter.ThreadSlotStride);
+            threadSlots = GateNativeSearchScopes.Allocate(GateNativeSearchScopes.GenericSlotCount * ThreadSlotStride);
+            tacticalThreadSlots = GateNativeSearchScopes.Allocate(GateNativeSearchScopes.TacticalSlotCount * GateNativeSearchScopes.TacticalSlotStride);
         }
 
         private void InstallHooks()
@@ -730,12 +730,12 @@ namespace BugfixesAndQoL.GateRouting
             {
                 uint thread = GetCurrentThreadId();
                 byte* activeSlot = (byte*)threadSlots + ((thread &
-                    (DirectionFilterAdapterEmitter.ThreadSlotCount - 1)) * ThreadSlotStride);
+                    (GateNativeSearchScopes.GenericSlotCount - 1)) * ThreadSlotStride);
                 byte* tacticalSlot = (byte*)tacticalThreadSlots + ((thread &
-                    (AiTacticalTargetAdapterEmitter.ThreadSlotCount - 1)) *
-                    AiTacticalTargetAdapterEmitter.ThreadSlotStride);
-                if (Volatile.Read(ref *(int*)(activeSlot + DirectionFilterAdapterEmitter.SlotDepthOffset)) != 0 ||
-                    Volatile.Read(ref *(int*)(tacticalSlot + AiTacticalTargetAdapterEmitter.SlotDepthOffset)) != 0)
+                    (GateNativeSearchScopes.TacticalSlotCount - 1)) *
+                    GateNativeSearchScopes.TacticalSlotStride);
+                if (Volatile.Read(ref *(int*)(activeSlot + GateNativeSearchScopes.GenericSlotDepthOffset)) != 0 ||
+                    Volatile.Read(ref *(int*)(tacticalSlot + GateNativeSearchScopes.TacticalSlotDepthOffset)) != 0)
                 {
                     Interlocked.Increment(ref cursorValidationDeferrals);
                     return false;
@@ -1234,34 +1234,34 @@ namespace BugfixesAndQoL.GateRouting
             if (scope.Slot != null)
             {
                 long building = *(long*)(scope.Slot +
-                    AiTacticalTargetAdapterEmitter.SlotBuildingTouchedOffset);
+                    GateNativeSearchScopes.TacticalSlotBuildingTouchedOffset);
                 long unit = *(long*)(scope.Slot +
-                    AiTacticalTargetAdapterEmitter.SlotUnitTouchedOffset);
+                    GateNativeSearchScopes.TacticalSlotUnitTouchedOffset);
                 long fallback = *(long*)(scope.Slot +
-                    AiTacticalTargetAdapterEmitter.SlotFallbackTouchedOffset);
+                    GateNativeSearchScopes.TacticalSlotFallbackTouchedOffset);
                 if (building != 0)
                 {
                     Interlocked.Add(ref aiTacticalBuildingEdges, building);
                     CaptureTacticalEdgeSample(0, scope.Slot,
-                        AiTacticalTargetAdapterEmitter.SlotBuildingSourceOffset,
-                        AiTacticalTargetAdapterEmitter.SlotBuildingTargetOffset,
-                        AiTacticalTargetAdapterEmitter.SlotBuildingDirectionOffset);
+                        GateNativeSearchScopes.TacticalSlotBuildingSourceOffset,
+                        GateNativeSearchScopes.TacticalSlotBuildingTargetOffset,
+                        GateNativeSearchScopes.TacticalSlotBuildingDirectionOffset);
                 }
                 if (unit != 0)
                 {
                     Interlocked.Add(ref aiTacticalUnitEdges, unit);
                     CaptureTacticalEdgeSample(1, scope.Slot,
-                        AiTacticalTargetAdapterEmitter.SlotUnitSourceOffset,
-                        AiTacticalTargetAdapterEmitter.SlotUnitTargetOffset,
-                        AiTacticalTargetAdapterEmitter.SlotUnitDirectionOffset);
+                        GateNativeSearchScopes.TacticalSlotUnitSourceOffset,
+                        GateNativeSearchScopes.TacticalSlotUnitTargetOffset,
+                        GateNativeSearchScopes.TacticalSlotUnitDirectionOffset);
                 }
                 if (fallback != 0)
                 {
                     Interlocked.Add(ref aiTacticalFallbackEdges, fallback);
                     CaptureTacticalEdgeSample(2, scope.Slot,
-                        AiTacticalTargetAdapterEmitter.SlotFallbackSourceOffset,
-                        AiTacticalTargetAdapterEmitter.SlotFallbackTargetOffset,
-                        AiTacticalTargetAdapterEmitter.SlotFallbackDirectionOffset);
+                        GateNativeSearchScopes.TacticalSlotFallbackSourceOffset,
+                        GateNativeSearchScopes.TacticalSlotFallbackTargetOffset,
+                        GateNativeSearchScopes.TacticalSlotFallbackDirectionOffset);
                 }
                 GateNativeSearchScopes.LeaveTactical(scope.Slot);
             }

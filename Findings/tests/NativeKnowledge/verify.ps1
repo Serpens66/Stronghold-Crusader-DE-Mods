@@ -51,8 +51,8 @@ try {
         '--artifacts-path',(Join-Path $workNk 'cli'),'-v:minimal') (Join-Path $workNk 'cli-build.log')
     Invoke-CheckedNk 'dotnet' @((Join-Path $workNk 'cli\bin\NativeKnowledge.Tests\debug\NativeKnowledge.Tests.dll')) (Join-Path $workNk 'cli-tests.log')
     Invoke-CheckedNk $MSBuild @((Join-Path $PSScriptRoot 'NativeKnowledge.Framework.csproj'),'/t:Build','/p:Configuration=Release',
-        ('/p:OutputPath=' + (Join-Path $workNk 'framework\bin') + '\'),
-        ('/p:IntermediateOutputPath=' + (Join-Path $workNk 'framework\obj') + '\'),
+        ('/p:OutputPath=' + (Join-Path $workNk 'framework\bin') + '/'),
+        ('/p:IntermediateOutputPath=' + (Join-Path $workNk 'framework\obj') + '/'),
         ('/p:ExtenderDir=' + (Join-Path $GameDir 'BepInEx\plugins\000shcdese')),'/v:minimal','/nologo') (Join-Path $workNk 'framework-build.log')
     Invoke-CheckedNk (Join-Path $workNk 'framework\bin\NativeKnowledge.FrameworkCheck.exe') @() (Join-Path $workNk 'framework-tests.log')
     # Do not label results as current when parallel edits changed a captured input.

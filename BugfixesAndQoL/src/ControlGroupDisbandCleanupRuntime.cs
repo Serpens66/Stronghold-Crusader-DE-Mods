@@ -140,7 +140,8 @@ namespace BugfixesAndQoL
             int expectedRva,
             string label)
         {
-            int resolvedRva = Shared.NativePatternResolver.FindUniquePattern(memory, pattern, label);
+            // Known reference build: byte check at the audited RVA only; another build proves uniqueness by scan.
+            int resolvedRva = Shared.NativePatternResolver.ResolveUnique(memory, pattern, expectedRva, Shared.DebugLogHelper.IsCurrentNativeLibraryVersion(), label).Rva;
             if (resolvedRva != expectedRva)
                 throw new InvalidOperationException($"The {label} resolved to RVA 0x{resolvedRva:X}, not audited RVA 0x{expectedRva:X}.");
             return resolvedRva;

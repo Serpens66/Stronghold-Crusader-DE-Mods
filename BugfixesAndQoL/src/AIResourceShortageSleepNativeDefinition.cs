@@ -23,10 +23,13 @@ namespace BugfixesAndQoL
 
         internal static void Validate(ReadOnlySpan<byte> memory)
         {
-            int resolvedRva = Shared.NativePatternResolver.FindUniquePattern(
+            // Known reference build: byte check at the audited RVA only; another build proves uniqueness by scan.
+            int resolvedRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 FunctionPattern,
-                "AI resource-shortage sleep planner");
+                FunctionRva,
+                Shared.DebugLogHelper.IsCurrentNativeLibraryVersion(),
+                "AI resource-shortage sleep planner").Rva;
             if (resolvedRva != FunctionRva)
             {
                 throw new InvalidOperationException(

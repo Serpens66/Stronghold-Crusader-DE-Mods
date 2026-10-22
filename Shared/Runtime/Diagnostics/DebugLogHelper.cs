@@ -33,6 +33,12 @@ namespace Shared
                 if (fileHashes.TryGetValue(fullPath, out CachedFileHash cached) &&
                     cached.Length == length && cached.Written == written)
                     return cached.Hash;
+                // Across starts: an unchanged file (same path, size and write time) is not hashed again.
+                if (TryReadPersistentHash(fullPath, length, written, out string persisted))
+                {
+                    fileHashes[fullPath] = new CachedFileHash(length, written, persisted);
+                    return persisted;
+                }
             }
 
             string hash;
@@ -40,8 +46,71 @@ namespace Shared
             using (SHA256 sha256 = SHA256.Create())
                 hash = BitConverter.ToString(sha256.ComputeHash(stream)).Replace("-", string.Empty);
             lock (fileHashSync)
+            {
                 fileHashes[fullPath] = new CachedFileHash(length, written, hash);
+                WritePersistentHash(fullPath, length, written, hash);
+            }
             return hash;
+        }
+
+        // Shared by every mod that links this file; one line per path: path, length, write ticks, hash.
+        // Overridable for tests; null disables the persistent store (e.g. without a BepInEx cache path).
+        internal static string PersistentHashDirectory;
+        private static readonly string PersistentHashFile = "Serp.file-hashes.tsv";
+
+        private static string PersistentHashPath()
+        {
+            try
+            {
+                string directory = PersistentHashDirectory ?? BepInEx.Paths.CachePath;
+                return string.IsNullOrEmpty(directory) ? null : Path.Combine(directory, PersistentHashFile);
+            }
+            catch (Exception) { return null; }
+        }
+
+        private static bool TryReadPersistentHash(string fullPath, long length, DateTime written, out string hash)
+        {
+            hash = null;
+            try
+            {
+                string store = PersistentHashPath();
+                if (store == null || !File.Exists(store)) return false;
+                foreach (string line in File.ReadAllLines(store))
+                {
+                    string[] cells = line.Split('\t');
+                    if (cells.Length == 4 && string.Equals(cells[0], fullPath, StringComparison.OrdinalIgnoreCase) &&
+                        cells[1] == length.ToString(CultureInfo.InvariantCulture) &&
+                        cells[2] == written.Ticks.ToString(CultureInfo.InvariantCulture) &&
+                        cells[3].Length == 64)
+                    {
+                        hash = cells[3];
+                        return true;
+                    }
+                }
+            }
+            catch (Exception) { /* A damaged store only costs one hash. */ }
+            return false;
+        }
+
+        private static void WritePersistentHash(string fullPath, long length, DateTime written, string hash)
+        {
+            try
+            {
+                string store = PersistentHashPath();
+                if (store == null) return;
+                var lines = new List<string>();
+                if (File.Exists(store))
+                    foreach (string line in File.ReadAllLines(store))
+                        if (!line.StartsWith(fullPath + "\t", StringComparison.OrdinalIgnoreCase)) lines.Add(line);
+                lines.Add(string.Join("\t", fullPath, length.ToString(CultureInfo.InvariantCulture),
+                    written.Ticks.ToString(CultureInfo.InvariantCulture), hash));
+                Directory.CreateDirectory(Path.GetDirectoryName(store));
+                string temporary = store + "." + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture) + ".tmp";
+                File.WriteAllLines(temporary, lines);
+                if (File.Exists(store)) File.Replace(temporary, store, null);
+                else File.Move(temporary, store);
+            }
+            catch (Exception) { /* The store only saves time on the next start. */ }
         }
 
         private readonly struct CachedFileHash
@@ -291,6 +360,18 @@ namespace Shared
                 }
                 return false;
             }
+        }
+
+        /// <summary>SHA-256 of the installed CrusaderDE.dll (cached), or empty when it cannot be read.</summary>
+        public static string InstalledNativeSha256()
+        {
+            try
+            {
+                string path = Path.Combine(BepInEx.Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data",
+                    "Plugins", "x86_64", "CrusaderDE.dll");
+                return File.Exists(path) ? GetFileSha256(path) : string.Empty;
+            }
+            catch { return string.Empty; }
         }
 
         public static bool IsCurrentNativeLibraryVersion()

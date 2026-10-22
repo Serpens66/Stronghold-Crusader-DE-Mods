@@ -48,7 +48,8 @@ namespace BugfixesAndQoL
                 throw new ArgumentOutOfRangeException(nameof(libraryHandle));
 
             NotificationQueueNativeResolution nativeContract =
-                NotificationQueueNativeContract.Validate(nativeRegion.Span);
+                NotificationQueueNativeContract.Validate(nativeRegion.Span,
+                    (image, pattern, referenceRva, name) => BfqolNativeCache.Current.ResolveUnique(image, pattern, referenceRva, name, log).Rva);
 
             ulong messageManagerAddress = GameGlobalsManager.Instance.MessageManagerVA;
             if (messageManagerAddress == 0 || messageManagerAddress > long.MaxValue)

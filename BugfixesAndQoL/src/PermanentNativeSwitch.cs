@@ -60,8 +60,14 @@ namespace BugfixesAndQoL
             byte[] live = CodePatch.Read(target, plan.Original.Length);
             if (!live.SequenceEqual(plan.Original))
                 throw new InvalidOperationException("Native switch live span differs at RVA 0x" + plan.Rva.ToString("X"));
-            if (!CodePatch.Read(target + (uint)plan.PhysicalLength, plan.Following.Length).SequenceEqual(plan.Following))
-                throw new InvalidOperationException("Native switch following live instruction differs.");
+            // The instruction boundary was proven on the unmodified load image (CreatePlans). Live, another
+            // owner may already hook exactly that boundary; e.g. the Script Extender's wall-targeting context
+            // hook starts at 0x8EA60 right after the peace-time span. Our block returns to the boundary and
+            // so enters that hook unchanged. Any other difference means foreign code overlaps the boundary.
+            byte[] following = CodePatch.Read(target + (uint)plan.PhysicalLength, plan.Following.Length);
+            if (!following.SequenceEqual(plan.Following) && !StartsForeignJump(following))
+                throw new InvalidOperationException("Native switch following live instruction differs at RVA 0x" +
+                    (plan.Rva + plan.PhysicalLength).ToString("X") + ": " + BitConverter.ToString(following) + ".");
             IntPtr page = NativeMemoryManager.AllocateStub(target, 4096);
             if (page == IntPtr.Zero) throw new InvalidOperationException("Native switch near allocation failed.");
             ulong slot = unchecked((ulong)page.ToInt64()), guard = slot + 16, dormant = slot + 128, active = slot + 1536;
@@ -92,6 +98,10 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("Native switch backend displacement changed.");
             return patch;
         }
+
+        // Entry of a published detour or inline hook: jmp rel32 (E9) or jmp [rip+disp32] (FF 25).
+        private static bool StartsForeignJump(byte[] live) =>
+            live.Length >= 1 && live[0] == 0xE9 || live.Length >= 2 && live[0] == 0xFF && live[1] == 0x25;
 
         private static void Write(IntPtr address, byte[] bytes)
         {

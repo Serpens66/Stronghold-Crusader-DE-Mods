@@ -450,6 +450,8 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:455", $"Bugfixes and QoL settings reconciliation failed; already initialized features remain active: {ex}");
             }
+            // Results of a one-time native fallback (unknown game build) are reused on the next start.
+            BfqolNativeCache.Save();
             return true;
         }
 

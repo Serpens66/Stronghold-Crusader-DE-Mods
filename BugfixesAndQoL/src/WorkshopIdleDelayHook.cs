@@ -123,9 +123,8 @@ namespace BugfixesAndQoL
             // A match elsewhere cannot authorize fixed-layout register/continuation assumptions.
             if (resolved.Rva != rva)
                 throw new InvalidOperationException($"Workshop idle pattern moved from audited RVA 0x{rva:X}.");
-            int unique = Shared.NativePatternResolver.FindUniquePattern(memory, signature, "workshop idle " + rva);
-            if (unique != rva)
-                throw new InvalidOperationException("Workshop idle signature moved outside the audited control flow.");
+            // ResolveUnique above already confirmed the audited bytes; the reference hash gate of this
+            // feature pins the image, so a second whole-section uniqueness scan adds no evidence.
             WorkshopIdleDelayNative.ValidateInstructions(WorkshopIdleDelayNative.Decode(expected, imageBase + (uint)rva),
                 imageBase + (uint)exit, rva == WorkshopIdleDelayNative.TannerRva);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
