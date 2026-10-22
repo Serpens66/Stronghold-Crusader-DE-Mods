@@ -16,8 +16,10 @@ namespace BugfixesAndQoL
 {
     public sealed class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
     {
+        // EnableSpriteSheetMerge (Boolean, unreleased develop) was replaced by SpriteSheetMergeMode.
         protected override bool IsRetiredPresetProperty(string propertyName) =>
-            string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal);
+            string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableSpriteSheetMerge", StringComparison.Ordinal);
 
         public event Action<string> SettingChanged;
 
@@ -104,7 +106,7 @@ namespace BugfixesAndQoL
         private bool preserveDisplayResolution = true;
         private bool enableGatehouseTargetMarkerHeightFix = true;
         private bool enableVanillaPerformanceOptimizations = true;
-        private bool enableSpriteSheetMerge = true;
+        private SpriteSheetMergeMode spriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
         private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
         private const int HealthBarKeyMask = 0xffff;
@@ -469,8 +471,14 @@ namespace BugfixesAndQoL
         public string EnableGatehouseTargetMarkerHeightFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp");
         public string EnableVanillaPerformanceOptimizationsText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizations");
         public string EnableVanillaPerformanceOptimizationsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp");
-        public string EnableSpriteSheetMergeText => SerpLocalization.Get("BugfixesAndQoL.EnableSpriteSheetMerge");
-        public string EnableSpriteSheetMergeHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSpriteSheetMergeHelp");
+        public string SpriteSheetMergeModeText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeMode");
+        public string SpriteSheetMergeModeHelpText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeHelp");
+        public string[] SpriteSheetMergeModeOptions => new[]
+        {
+            SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeAutomatic"),
+            SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeOn"),
+            SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeOff")
+        };
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string PreventMoveOrderOnPlacementCancelText => SerpLocalization.Get("BugfixesAndQoL.PreventMoveOrderOnPlacementCancel");
@@ -866,10 +874,24 @@ namespace BugfixesAndQoL
 
         // Local V7 sprite-sheet merge; read once after Vanilla's sprite loading, so changes need a restart.
         [APIShared.ModSettings.PresetLocal]
-        public bool EnableSpriteSheetMerge
+        public SpriteSheetMergeMode SpriteSheetMergeMode
         {
-            get => enableSpriteSheetMerge;
-            set => SetSetting(ref enableSpriteSheetMerge, value, nameof(EnableSpriteSheetMerge));
+            get => spriteSheetMergeMode;
+            set
+            {
+                if (!SpriteSheetMergePolicy.IsDefinedMode(value)) return;
+                SpriteSheetMergeMode previous = spriteSheetMergeMode;
+                SetSetting(ref spriteSheetMergeMode, value, nameof(SpriteSheetMergeMode));
+                if (previous != spriteSheetMergeMode)
+                    OnPropertyChanged(nameof(SpriteSheetMergeModeIndex));
+            }
+        }
+
+        // The ComboBox index is intentionally transient; the classified enum remains the sole stored value.
+        public int SpriteSheetMergeModeIndex
+        {
+            get => (int)SpriteSheetMergeMode;
+            set => SpriteSheetMergeMode = (SpriteSheetMergeMode)value;
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1598,7 +1620,7 @@ namespace BugfixesAndQoL
             PreserveDisplayResolution = true;
             EnableGatehouseTargetMarkerHeightFix = true;
             EnableVanillaPerformanceOptimizations = true;
-            EnableSpriteSheetMerge = true;
+            SpriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
             EnableWorkshopUploadLordSelectionFix = true;
             EnableAllyGoodsAmountModifiers = true;
         }

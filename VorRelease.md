@@ -25,9 +25,9 @@ Schweregrade:
 | R2 | **Hoch** | Alle Spieler einer MP-Partie brauchen dieselbe APIShared-Version (Save-Readiness-Protokoll v2). | Release von APIShared und Modpack zeitgleich ankündigen, im Changelog deutlich vermerken. |
 | R3 | Mittel | MP-, Coop-, Restart- und Upgrade-Pfade sind neu bzw. stark umgebaut und noch nicht im Spiel getestet. | Testplan in §6 vor dem Merge abarbeiten. |
 | B1 | **Hoch** (Performance) | BugfixesAndQoL: Ohne MoatMove laufen noch vier Pfade mit „Bewegung durch eigenen Graben“ (u. a. Flutfüllungen über die ganze Karte). Laut Nutzerentscheidung soll das ohne MoatMove gar nicht laufen. | **Umgesetzt** (Gates und Verschiebung nach MoatMove, siehe §4.1 B1). Spieltest steht aus. |
-| B2 | Mittel | BugfixesAndQoL: Sprite-Sheet-Merge ist standardmäßig an und kostet etwa +1,6 GB Texturspeicher. | Neuer Modus „Automatisch“ (Default): Merge nur ab 8 GB VRAM (siehe §4.1 B2). |
+| B2 | Mittel | BugfixesAndQoL: Sprite-Sheet-Merge ist standardmäßig an und kostet etwa +1,6 GB Texturspeicher. | **Umgesetzt**: Modus Automatisch (Default, ab 8 GB VRAM)/An/Aus (siehe §4.1 B2). Spieltest steht aus. |
 | E1 | Mittel | ExtendedData: `ExtendedData.Core.csproj` hat AssemblyVersion 1.0.15, der Mod ist 1.0.16. | Version modweit angleichen. |
-| A1 | **Hoch** | APIShared: Ein werfender Setter bricht das Anwenden eines Preset-Snapshots mitten drin ab. Die Werte davor sind dann schon gesetzt, die danach nicht. Beim Verlassen einer Mission bleibt der Mod bei einem dauerhaft werfenden Setter für immer im Missionskontext. Laut Nutzer nicht beabsichtigt. | Pro Setting isolieren, Default-Fallback, begrenzter Retry (siehe §2 A1). |
+| A1 | **Hoch** | APIShared: Ein werfender Setter bricht das Anwenden eines Preset-Snapshots mitten drin ab. Die Werte davor sind dann schon gesetzt, die danach nicht. Beim Verlassen einer Mission bleibt der Mod bei einem dauerhaft werfenden Setter für immer im Missionskontext. Laut Nutzer nicht beabsichtigt. | **Umgesetzt** (pro Setting isoliert, Default-Fallback, höchstens 3 Aufräumversuche, siehe §2 A1). Build und Spieltest stehen aus. |
 
 Alles Weitere steht in den folgenden Abschnitten.
 
@@ -63,7 +63,34 @@ Alles Weitere steht in den folgenden Abschnitten.
 
 ## 2. APIShared (develop 0.12.5)
 
-### A1 – LobbyPresetController: Ein werfender Setter bricht den Snapshot halb angewendet ab (Hoch, laut Nutzer nicht beabsichtigt)
+### A1 – LobbyPresetController: Ein werfender Setter bricht den Snapshot halb angewendet ab (Hoch, laut Nutzer nicht beabsichtigt) – UMGESETZT
+
+*Umsetzungsstand 2026-10-22 (APIShared `dev/Serpens66`, Arbeitsstand, nicht committet):*
+
+- **Isolierte Anwendung.** `ApplyPreparedValues` (`src/ModSettings/Presets/LobbyPresetController.Snapshots.cs`) setzt jede reflektierte Property einzeln.
+  - Bei einer Exception wird einmal der Code-Default versucht. Scheitert auch der, gilt die Property als `Failed`.
+  - Commit der Auswahl, `OnSettingsSnapshotApplied` und die Publikation laufen immer.
+  - Fallbacks werden als Warning, endgültige Fehler als Error über `DebugLogHelper` bzw. RuntimeHealth gemeldet.
+  - Dynamische Provider und Backends sind unverändert (Komplettvalidierung).
+- **Ehrlicher Stand.**
+  - Ein Default-Fallback wird in den gespeicherten Snapshot übernommen.
+  - Ein veröffentlichtes Preset gilt dann als „geändert“ (`SetBasedOn(..., modified: true)` bzw. `missionPresetDirty`).
+  - Eine Property, die auch den Default ablehnt, behält im gespeicherten Snapshot den Wunschwert, damit der nächste Ladevorgang es erneut versucht.
+- **Begrenzte Wiederholung beim Aufräumen.**
+  - `ExitMissionPreset` und `RestorePersonalHostIfPending` werfen bei einer endgültig gescheiterten Property weiterhin die originale Setter-Exception. Das geschieht erst nach Anwendung der übrigen Werte und mit zurückgesetzter Auswahl, die Session behält den Kontext.
+  - Das gilt höchstens zweimal (`MaximumRestoreAttempts = 3`). Beim dritten Versuch wird der Kontext verlassen und ein Error nennt die betroffenen Properties.
+  - Callback- und Publikationsfehler bleiben ohne Begrenzung wiederholbar, wie bisher.
+- **Kompatibilität.** Nur interne Implementierung, keine öffentliche Signatur geändert. Gegenüber dem veröffentlichten 0.9.2 nähert sich das Verhalten wieder dem toleranten Default-Fallback an. Gegenüber dem unveröffentlichten develop werfen normale Ladepfade nicht mehr.
+- **Doku.** `docs/THIRD_PARTY_GUIDE.md` (Abschnitt „Applying and leaving a mission context“), `docs/API_CATALOG.md` und der 0.12.5-Changelog in `info.json` sind angepasst. Die bisherige Changelog-Formulierung „without suppressing setter failures“ ist ersetzt.
+- **Tests.**
+  - `tests/LobbyModSettingsPresetTests`: 95/95 PASS. Neu sind `RejectedValueFallsBackToItsDefaultWithoutBlockingOtherSettings`, `SetterRejectingEvenItsDefaultNoLongerBlocksTheSnapshot` und `PermanentSetterFailureLeavesTheMissionAfterBoundedRetries`. Die bestehenden Tests `SetterFailureRetainsMissionMetadataAndCleanupCanBeRetried` und `CallbackFailureAfterSelectionCommitKeepsMissionReachableForCleanup` bestehen unverändert.
+  - `_inspect/HostClientPresetTests` (kompiliert die geänderten Quellen): PASS.
+  - `tests/Core.Tests`: 304/304 PASS.
+  - `tools/Validation/Test-Documentation.ps1`: PASS.
+  - CRLF der geänderten Dateien: geprüft.
+- **Offen:** APIShared-`build.bat` (inkl. API-Kompatibilitäts-Baseline und Installer-Tests) und der Upgrade- bzw. Lobby-Test aus §6.
+
+*Ursprünglicher Befund und Vorschlag:*
 
 **Kontext (geprüft in `src/ModSettings/Presets/LobbyPresetController.Snapshots.cs`, `.Mission.cs`, `PresetLobbyModSettingsViewModel.cs:1082`, `MissionModSettingsSession.cs:196`, `Internal/LobbySettingsRestoreScope.cs`):**
 
@@ -213,7 +240,28 @@ Audit (Codeanalyse, `BugfixesAndQoL/src/UnitCommands`). Ohne Provider gilt `Unit
   - Einen statischen Vertragstest (wie `Testmods/MoatMove/tests/SplitContracts.cs`), der in BFQoL jede Nutzung von `FriendlyMoatRouteState` und `MoatTraversalPolicy.FriendlyOnly` außerhalb ausdrücklich freigegebener, gegateter Stellen meldet.
   - Danach die Spieltests aus §6 Punkt 6 (Angriffe von Einheiten mit Grab-Fähigkeit nahe eigener Gräber, Feindgraben füllen) mit und ohne MoatMove wiederholen und die Lags vergleichen.
 
-**B2 – Sprite-Sheet-Merge: Default abhängig vom VRAM (Mittel)**
+**B2 – Sprite-Sheet-Merge: Default abhängig vom VRAM (Mittel) – UMGESETZT, noch nicht im Spiel getestet**
+
+*Umsetzungsstand 2026-10-22 (Arbeitsstand, nicht committet):*
+
+- **Neue Einstellung.** `SpriteSheetMergeMode` (`[PresetLocal]`, Default `Automatic`) mit `Automatic`/`On`/`Off` ersetzt `EnableSpriteSheetMerge`.
+  - Das Enum und die Policy liegen in `BugfixesAndQoL/src/VanillaPerformance/SpriteSheetMergeMode.cs`. Der strikte MessagePack-Formatter akzeptiert nur 0–2.
+  - Die alte Boolean-Property ist in `IsRetiredPresetProperty` stillgelegt (sie war nie veröffentlicht).
+- **Entscheidung zur Laufzeit.** `SpriteSheetMergeOptimization.Decide` wertet `SystemInfo.graphicsMemorySize` erst nach dem Laden der Sprites aus:
+  - `Automatic` ab 8192 MB
+  - `On` ab 6144 MB (technische Mindestgrenze)
+  - `Off` nie
+  `EnableClientFeatures = false` gilt als `Off`. Defaults und Presets bleiben dadurch maschinenunabhängig. Die Entscheidung wird als `SPRITE_SHEET_MERGE_SELECTED` bzw. `…_OFF` (mit Modus und VRAM-Wert) geloggt. Sichtbar ist das nur mit Diagnostics, da Shared-`LogInfo` sonst unterdrückt wird (siehe S1). Technische Ablehnungen bleiben Warnings.
+- **UI.** Die CheckBox ist durch eine ComboBox ersetzt, mit gleichem Suchschlüssel `bugfixes.sprite-sheet-merge` und 60000-ms-Tooltip.
+- **Locales.** In allen 21 Sprachen wurden die Keys auf `SpriteSheetMergeMode*` umbenannt. Die Hilfe ist um die Modusbeschreibung ergänzt, dazu drei Optionsbeschriftungen. Die Übersetzungen der neuen Satzteile stammen von mir und sind nicht muttersprachlich geprüft.
+- **Changelog.** `BugfixesAndQoL/info.json` (1.0.195) ist ergänzt.
+- **Tests.**
+  - `ModOptions.Tests`: neu `SpriteSheetMergeModeTests`. Geprüft werden die Schwellen 8191/8192 bzw. 6143/6144, dass `Off` nie zusammenlegt, der Roundtrip und dass ungültige gespeicherte Werte (3, Boolean) abgelehnt werden. 8080 Checks, PASS.
+  - Bestanden: `Test-ModOptionsPerformance`, `Test-UnitCommandSplit` (Roslyn-Kompilierung von APIShared und BFQoL aus den Quellen gegen die echten Assemblies, XAML-Wurzeln), `Test-SharedBoundaries -ModDirectory BugfixesAndQoL` (inkl. Tooltip-Audit), `_inspect/HostClientPresetTests`, Locale-Key-Parität (21/21) und CRLF.
+- **Hinweis:** Eine MSBuild-Kompilierung von BFQoL ist derzeit nur nach einem APIShared-Build möglich. `Directory.Build.targets` lehnt das installierte APIShared-Paket ab, weil sich die APIShared-Quellen durch A1 geändert haben (gewollte Schutzprüfung).
+- **Offen:** Spieltest auf einer Karte mit weniger als 8 GB und einer mit mindestens 8 GB VRAM (Logzeile mit Diagnostics prüfen), Wechsel der Modi mit Neustart, Darstellung der ComboBox in den Modoptionen.
+
+*Ursprünglicher Befund und Vorschlag:*
 
 - Befund: `EnableSpriteSheetMerge = true` ist der Default. Die Optimierung legt 16384²-Seiten an, die Originale bleiben geladen (etwa +1,6 GB, Vanilla etwa 2,4 GB). Die harte Schwelle `SystemInfo.graphicsMemorySize ≥ 6144 MB` ist für 6–8-GB-Karten knapp. Positiv: rein clientseitig, fail-closed, Asset-Overrides ausgespart, kein überlappender Patch im Fixes-Mod oder Extender.
 - Nutzerwunsch: Das Standardverhalten soll davon abhängen, ob mindestens 8 GB VRAM vorhanden sind.

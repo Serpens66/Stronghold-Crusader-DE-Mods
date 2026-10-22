@@ -22,6 +22,7 @@
     <Compile Include="..\..\src\FeatureSaveStates.cs" />
     <Compile Include="..\..\src\TimerCountdownFeature.cs" />
     <Compile Include="..\..\src\TimerCountdownPolicy.cs" />
+    <Compile Include="..\..\src\VanillaPerformance\SpriteSheetMergeMode.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

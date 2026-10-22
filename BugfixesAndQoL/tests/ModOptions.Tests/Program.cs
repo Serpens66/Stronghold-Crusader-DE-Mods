@@ -305,9 +305,29 @@ namespace BugfixesAndQoL
             }
         }
 
+        // Automatic must not merge on 6-8 GB cards (~4 GB texture use with the merge), an explicit
+        // On keeps the technical 6 GB floor, Off never merges; stored values stay strict integers.
+        private static void SpriteSheetMergeModeTests()
+        {
+            Check(SpriteSheetMergePolicy.Refusal(SpriteSheetMergeMode.Automatic, 8191) != null, "automatic below 8 GB is refused");
+            Check(SpriteSheetMergePolicy.Refusal(SpriteSheetMergeMode.Automatic, 8192) == null, "automatic from 8 GB merges");
+            Check(SpriteSheetMergePolicy.Refusal(SpriteSheetMergeMode.On, 6143) != null, "on below 6 GB is refused");
+            Check(SpriteSheetMergePolicy.Refusal(SpriteSheetMergeMode.On, 6144) == null, "on from 6 GB merges");
+            Check(SpriteSheetMergePolicy.Refusal(SpriteSheetMergeMode.Off, 65536) != null, "off never merges");
+            foreach (SpriteSheetMergeMode mode in new[] { SpriteSheetMergeMode.Automatic, SpriteSheetMergeMode.On, SpriteSheetMergeMode.Off })
+                Check(MessagePackSerializer.Deserialize<SpriteSheetMergeMode>(MessagePackSerializer.Serialize(mode)) == mode, "mode roundtrip " + mode);
+            foreach (byte[] invalid in new[] { MessagePackSerializer.Serialize(3), MessagePackSerializer.Serialize(true) })
+            {
+                bool rejected = false;
+                try { MessagePackSerializer.Deserialize<SpriteSheetMergeMode>(invalid); }
+                catch (MessagePackSerializationException) { rejected = true; }
+                Check(rejected, "unknown stored mode is rejected");
+            }
+        }
+
         public static int Main()
         {
-            try { LedgerTests(); RuntimeTests(); CountdownTests(); FeatureSaveStateTests(); Console.WriteLine("PASS: " + checks + " mod-option/ledger/save/runtime checks (simulated publishers; no in-game FPS claim)."); return 0; }
+            try { SpriteSheetMergeModeTests(); LedgerTests(); RuntimeTests(); CountdownTests(); FeatureSaveStateTests(); Console.WriteLine("PASS: " + checks + " mod-option/ledger/save/runtime checks (simulated publishers; no in-game FPS claim)."); return 0; }
             catch (Exception error) { Console.Error.WriteLine(error); return 1; }
         }
     }

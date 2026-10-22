@@ -334,12 +334,16 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableVanillaPerformanceOptimizationsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.sprite-sheet-merge" shared:ModSettingsSearch.Title="{Binding EnableSpriteSheetMergeText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSpriteSheetMergeHelpText}"><CheckBox IsChecked="{Binding EnableSpriteSheetMerge, Mode=TwoWay}"
-                Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSpriteSheetMergeHelpText}"
-                Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableSpriteSheetMergeText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.sprite-sheet-merge" shared:ModSettingsSearch.Title="{Binding SpriteSheetMergeModeText}" shared:ModSettingsSearch.ToolTipText="{Binding SpriteSheetMergeModeHelpText}" Margin="0,0,14,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding SpriteSheetMergeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                   ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
+        <ComboBox Grid.Column="1" ItemsSource="{Binding SpriteSheetMergeModeOptions}" SelectedIndex="{Binding SpriteSheetMergeModeIndex, Mode=TwoWay}" Width="160"
+                  ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
+      </Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-fixes-interface" shared:ModSettingsSearch.SectionTitle="{Binding InterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding InterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>

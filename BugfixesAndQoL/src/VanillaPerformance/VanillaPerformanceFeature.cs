@@ -24,7 +24,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             // V7 reads the setting once, when Vanilla has finished loading its sprites (main menu);
             // later changes apply after a restart.
             SpriteSheetMergeOptimization.Arm(log,
-                () => settings.EnableClientFeatures && settings.EnableSpriteSheetMerge);
+                () => settings.EnableClientFeatures ? settings.SpriteSheetMergeMode : SpriteSheetMergeMode.Off);
         }
 
         private static void OnSettingChanged(string propertyName)

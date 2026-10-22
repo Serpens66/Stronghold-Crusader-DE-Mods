@@ -35,6 +35,7 @@
     <Compile Include="src\VanillaPerformance\RadarRebindOptimization.cs" />
     <Compile Include="src\VanillaPerformance\MeritDataLockOptimization.cs" />
     <Compile Include="src\VanillaPerformance\SpriteSheetMergeOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\SpriteSheetMergeMode.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />

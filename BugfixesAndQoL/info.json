@@ -25,6 +25,7 @@
         "Improve notification skipping, final-frame notification display and speech playback without leaving stale audio or UI state.",
         "Coordinate Custom Lord Coop starts through APIShared and retain consistent custom AI data on all peers.",
         "Improve preplaced AI building recovery, plague and healer target reservations, waterboy reservations, foreign troop player colours and selected-unit health handling.",
+        "Sprite-sheet merging offers Automatic (default: only with at least 8 GB video memory), On (from 6 GB) and Off; the choice is resolved on each machine at sprite loading.",
         "Add guarded Vanilla optimizations for merit-data locking, radar rebinding and sprite-sheet merging; reduce repeated assassin route searches and movement-marker work.",
         "Move native hook installation to the synchronous startup phase and share the native DLL fingerprint instead of repeating expensive work.",
         "Compile temporary gate, assassin movement, route acceptance and recovery-history diagnostics only in the dedicated diagnostic build.",

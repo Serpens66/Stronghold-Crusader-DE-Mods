@@ -29,8 +29,6 @@ namespace BugfixesAndQoL.VanillaPerformance
     internal static class SpriteSheetMergeOptimization
     {
         private const int Page = 16384, Slot = 8192, CutoffStages = 7, SheetsPerPage = 4;
-        // Vanilla needs about 2.4 GB of texture memory, the merge adds about 1.6 GB.
-        private const int MinimumGraphicsMemoryMb = 6144;
         private const string TeamColourShader = "Unlit/TeamColour", MaskProperty = "_TeamMask";
         private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
         // Sheets that usually follow each other in the sort order share a page (draw-call census).
@@ -43,7 +41,7 @@ namespace BugfixesAndQoL.VanillaPerformance
         };
         private static readonly Harmony harmony = new Harmony("BugfixesAndQoL_Serp.VanillaPerformance.SpriteSheetMerge");
         private static ManualLogSource log;
-        private static Func<bool> isEnabled;
+        private static Func<SpriteSheetMergeMode> selectedMode;
         private static int armed, decided, applied, loadCalls;
 
         private sealed class Sheet
@@ -79,11 +77,11 @@ namespace BugfixesAndQoL.VanillaPerformance
             }
         }
 
-        internal static void Arm(ManualLogSource logger, Func<bool> enabled)
+        internal static void Arm(ManualLogSource logger, Func<SpriteSheetMergeMode> mode)
         {
             if (Interlocked.Exchange(ref armed, 1) != 0) return;
             log = logger;
-            isEnabled = enabled;
+            selectedMode = mode;
             try
             {
                 MethodInfo load = typeof(spriteLoader).GetMethod(nameof(spriteLoader.loadSprites),
@@ -129,11 +127,17 @@ namespace BugfixesAndQoL.VanillaPerformance
 
         private static void Decide(spriteLoader loader)
         {
-            if (!isEnabled())
+            // The mode is resolved here, on this machine, so stored settings stay hardware independent.
+            SpriteSheetMergeMode mode = selectedMode();
+            int graphicsMemory = SystemInfo.graphicsMemorySize;
+            string modeRefusal = SpriteSheetMergePolicy.Refusal(mode, graphicsMemory);
+            if (modeRefusal != null)
             {
-                Shared.DebugLogHelper.LogInfo(log, "SPRITE_SHEET_MERGE_OFF: disabled in the settings; Vanilla sprites retained until restart.");
+                Shared.DebugLogHelper.LogInfo(log, "SPRITE_SHEET_MERGE_OFF: mode=" + mode + ", graphicsMemory=" + graphicsMemory +
+                    " MB; " + modeRefusal + "; Vanilla sprites retained until restart.");
                 return;
             }
+            Shared.DebugLogHelper.LogInfo(log, "SPRITE_SHEET_MERGE_SELECTED: mode=" + mode + ", graphicsMemory=" + graphicsMemory + " MB.");
             int loads = Volatile.Read(ref loadCalls);
             string refusal = loads != 1 ? "observed " + loads + " sprite loads instead of one" : DeviceRefusal();
             if (refusal != null)
@@ -184,8 +188,7 @@ namespace BugfixesAndQoL.VanillaPerformance
                 return "maximum texture size " + SystemInfo.maxTextureSize + " < " + Page;
             if ((SystemInfo.copyTextureSupport & CopyTextureSupport.Basic) == 0)
                 return "GPU texture copies are not supported";
-            if (SystemInfo.graphicsMemorySize < MinimumGraphicsMemoryMb)
-                return "graphics memory " + SystemInfo.graphicsMemorySize + " MB < " + MinimumGraphicsMemoryMb + " MB";
+            // The graphics-memory floor is part of SpriteSheetMergePolicy (checked in Decide).
             return null;
         }
 
