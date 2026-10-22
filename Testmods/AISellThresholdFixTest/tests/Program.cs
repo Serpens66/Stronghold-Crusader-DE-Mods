@@ -36,6 +36,7 @@ internal static class Program
     private static void Main(string[] args)
     {
         if (args.Length == 3 && args[0] == "--artifact") { ValidateArtifact(args[1], bool.Parse(args[2])); return; }
+        TestPublicationFailures();
         var native = File.ReadAllBytes(args[0]);
         Check(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(native)) == SellAssembly.NativeHash, "native identity");
         var image = VirtualAlloc(IntPtr.Zero, (UIntPtr)ImageSize, 0x3000, 0x40);
@@ -96,6 +97,66 @@ internal static class Program
         }
         finally { Marshal.FreeHGlobal(state); VirtualFree(image,UIntPtr.Zero,0x8000); }
         Console.WriteLine($"PASS: {checks} checks; original native exploit reproduced, actual native sale/decision/removal/recount executed, installed RedBird stubs executed, all 20 goods and 8 categories covered.");
+    }
+    private sealed class ThrowingHook : RedBird.Abstractions.Hooks.IHook
+    {
+        private readonly HookPublication publication;
+        internal ThrowingHook(HookPublication boundary) { publication = boundary; }
+        public string Name => "private failure boundary";
+        public ulong TargetAddress => 1;
+        public RedBird.Abstractions.Hooks.HookState State => default;
+        public bool IsInstalled => false;
+        public void Enable()
+        {
+            Check(publication.HasStarted, "root/publication latch precedes even a throwing backend");
+            throw new InvalidOperationException("injected backend failure");
+        }
+        public void Disable() => throw new Exception("Publication must never unpatch");
+        public void Dispose() => throw new Exception("Publication must never dispose a reachable candidate");
+    }
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference PublishWeakOwner(HookPublication publication)
+    {
+        var owner = new object(); var weak = new WeakReference(owner);
+        try { publication.Publish(owner, new[]{new ThrowingHook(publication)}, ()=>{}); }
+        catch(InvalidOperationException) { }
+        return weak;
+    }
+    private static void TestPublicationFailures()
+    {
+        var prepared = new HookPublication(); int rolledBack = 0;
+        prepared.RollbackUnpublished(()=>rolledBack++);
+        Check(rolledBack==1 && !prepared.HasStarted,"unpublished preparation can clean up");
+        var failed = new HookPublication(); var weak = PublishWeakOwner(failed);
+        failed.RollbackUnpublished(()=>rolledBack++);
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        Check(rolledBack==1 && failed.HasStarted && !failed.IsReady && weak.IsAlive,"throwing backend retains owner and forbids rollback before/after write uncertainty");
+        bool retried = false;
+        try { failed.Publish(new object(),Array.Empty<RedBird.Abstractions.Hooks.IHook>(),()=>retried=true); }
+        catch(InvalidOperationException) { }
+        Check(!retried,"failed publication cannot retry");
+        foreach(bool backendFailure in new[]{true,false})
+        {
+            using var target = new Code(a=>{for(int i=0;i<32;i++)a.nop();a.ret();});
+            using var hook = new X64InlineHook((ulong)target.Address.ToInt64(),14);
+            hook.Generate((a,original,back)=>{a.mov(eax,42);a.ret();});
+            var boundary = new HookPublication(); int cleanup = 0;
+            try
+            {
+                var sequence = backendFailure
+                    ? new RedBird.Abstractions.Hooks.IHook[]{hook,new ThrowingHook(boundary)}
+                    : new RedBird.Abstractions.Hooks.IHook[]{hook};
+                boundary.Publish(new object[]{target,hook},sequence,()=>throw new InvalidOperationException("injected post-write validation failure"));
+            }
+            catch(InvalidOperationException) { }
+            boundary.RollbackUnpublished(()=>cleanup++);
+            Check(cleanup==0 && !boundary.IsReady && hook.IsInstalled && Marshal.ReadByte(target.Address)==0xFF,
+                "partial/post-validation failure leaves written code and owner alive");
+            Check(Marshal.GetDelegateForFunctionPointer<Invoke>(target.Address)()==42,"reachable native code remains executable after publication failure");
+            // This private serial fixture has no running callers; test-only teardown
+            // below never touches any published game-process hook.
+        }
+        Console.WriteLine("PASS: production publication boundary: unpublished rollback, root-before-write, backend/partial/post-write failures, no retry, GC lifetime and actual reachable native code.");
     }
     private static void ValidateArtifact(string path, bool diagnostics)
     {

@@ -737,3 +737,74 @@ on the same object. EngineInterface.run holds it around preDLLCallActions,
 DLL_RunTick and play-state copying; no new native call races the simulation.
 The offline test checks this field against the real Assembly-CSharp metadata,
 not a publicized assembly, and exercises busy/unprotected/protected cases.
+
+## Modsettings activation dispatches (1.0.196)
+
+The current implementation replaces the former unconditional No Dogs / peace
+patch installation with `PermanentNativeSwitch` and `NativeSwitchCatalog`.
+Reference SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The complete feature audit is in baseline knowledge/MODSETTINGS_ACTIVATION.md;
+its full-function incoming-edge, switch-table, data-flow and Fixes checks apply.
+This paragraph supersedes the earlier description of the installation mechanism;
+the original active No Dogs and peace semantics remain the reference.
+
+No Dogs demand is `EnableMod && ShowMpAdvancedSettingsInSingleplayer`;
+peace demand is `EnableMod && EnablePeaceTimeGameplayFixes`. Client is independent.
+Each logical feature roots all prepared hooks before publication with demand=0.
+All groups and following instructions are byte-validated before the first Enable.
+A partial publication failure retains every rooted hook with demand=0; original
+paths remain valid. Published code, pointer slots and pages survive process exit;
+settings changes write only the one-byte native demand, never executable bytes.
+There is no native/managed hot-path transition or setting-driven teardown.
+
+The actual RedBird X64AssemblyPatch backend writes a six-byte RIP-indirect jump,
+rounded to complete instructions; the existing two entry spans remain 16/18 bytes.
+Near allocation and signed RIP reach, OverwrittenByteCount, target address,
+complete original/copy bytes and the first following instruction are checked.
+Info initialization logs contain start/end RVA, instruction lengths and following
+bytes. Reaudit all spans and incoming destinations on a DLL/backend update;
+a changed hash is rejected without a pattern fallback.
+
+| Group RVA | Physical bytes | Copied active bytes | First following instruction bytes |
+| --- | ---: | ---: | --- |
+| `0x105520` | 7 | 7 | `833D46A46E0300` |
+| `0x119050` | 16 | 16 | `33DB` |
+| `0x124BB4` | 6 | 6 | `48895C2460` |
+| `0x1256C3` | 6 | 6 | `48895C2460` |
+| `0x1259F3` | 6 | 6 | `8B0529055403` |
+| `0x156EAB` | 6 | 6 | `664239BC2B2C0A0000` |
+| `0x17F3E0` | 6 | 6 | `460FBF8C291E070000` |
+| `0x1867A0` | 18 | 18 | `4C03D9` |
+| `0x1868B2` | 6 | 6 | `6683E92D` |
+| `0x186976` | 6 | 6 | `B801000000` |
+| `0x18699A` | 6 | 6 | `83F863` |
+| `0x8A141` | 7 | 9 | `744E` |
+| `0x8D360` | 6 | 8 | `740F` |
+| `0x8D7BD` | 7 | 9 | `7409` |
+| `0x8E05E` | 7 | 7 | `448B44244C` |
+| `0x8E0D7` | 7 | 9 | `7409` |
+| `0x8E5F8` | 7 | 9 | `7409` |
+| `0x8EA59` | 7 | 7 | `4963C1` |
+| `0x8EC9E` | 7 | 7 | `4963C1` |
+| `0xABC88` | 6 | 8 | `741A` |
+| `0xC70BA` | 9 | 9 | `0F858A010000` |
+| `0xCA904` | 7 | 7 | `8B0D47B65903` |
+| `0xCDD81` | 6 | 6 | `458B8850390000` |
+| `0xCE2FD` | 7 | 9 | `7408` |
+| `0xFFD94` | 6 | 6 | `833DC3FB6E0300` |
+
+The dormant side relocates exactly the physical original instructions and jumps
+to the first following original instruction. The active side relocates the full
+audited group, applies the original 28 peace edits / No Dogs edit, and returns
+after that group; starting-troop and wildlife prefixes retain their old guards.
+The flag-neutral dispatcher saves RCX, reads demand with MOV/MOVZX/JRCXZ, restores
+RCX and tail-jumps. It preserves incoming flags, stack, other GPRs and XMM state.
+
+`Test-Modsettings.ps1 -RunNative` exercises the real installer in private executable
+PE copies. It compares the full No Dogs function for 322,560 inputs across original,
+old active, production off/on/off, validates every grouped/following byte, and
+checks register/flag preservation, branch/RIP relocation and exact continuations.
+Executable target bytes remain identical across settings changes. The existing
+VanillaPeaceTimeNativeTests retains active start-troop/wildlife/peace coverage.
+These offline tests do not replace live Mono, game UI or two-player acceptance.

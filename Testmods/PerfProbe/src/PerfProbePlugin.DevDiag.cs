@@ -25,9 +25,9 @@ namespace PerfProbe
             PerfProbeRuntime.SpikeLines = config.Bind("Spikes", "Enabled", true,
                 "Write immediate DEVDIAG spike lines for single slow simulation ticks, main-thread calls and frame gaps.").Value;
             PerfProbeRuntime.SetThresholds(
-                config.Bind("Spikes", "SimulationMs", 200, "Minimum EngineInterface.run duration for a spike line.").Value,
-                config.Bind("Spikes", "MainThreadMs", 200, "Minimum Director.Update / GUI-check duration for a spike line.").Value,
-                config.Bind("Spikes", "FrameGapMs", 200, "Minimum gap between two rendered frames for a spike line.").Value,
+                config.Bind("Spikes", "SimulationMs", 100, "Minimum EngineInterface.run duration for a spike line.").Value,
+                config.Bind("Spikes", "MainThreadMs", 100, "Minimum Director.Update / GUI-check duration for a spike line.").Value,
+                config.Bind("Spikes", "FrameGapMs", 100, "Minimum gap between two rendered frames for a spike line.").Value,
                 config.Bind("Spikes", "FreezeMs", 400, "Spike lines at or above this duration are marked freeze=true.").Value);
             PerfProbeExtras.BindConfig(config);
             PerfProbeThreadSampler.BindConfig(config);
@@ -107,20 +107,30 @@ namespace PerfProbe
             // Negative means "scan for terminator"; only explicit counts are aggregated.
             if (numElements > 0) Shared.DevDiag.Count("records/buffer(sum)", numElements);
             PerfProbeExtras.CountRecordTypes(sourceMap, numElements);
+            frameRecords += Math.Max(0, numElements);
             __state = 0; Shared.DevDiag.Start(ref __state);
         }
 
         // Immediate spike lines (single calls/gaps at or above these limits) with cross-thread
         // context: framesDuring=0 on a sim spike means the main thread rendered nothing meanwhile;
-        // simBusyMs on a main-thread spike is the overlap with a running EngineInterface.run.
+        // The active tick age at return is only a point-in-time observation, not total lock wait.
         // Configured in DiagBindConfig (BepInEx config); defaults apply if binding failed.
         internal static bool RenderSnapshots = true, SpikeLines = true;
-        private static long SimSpikeTicks = Stopwatch.Frequency / 5;      // 200 ms
-        private static long MainSpikeTicks = Stopwatch.Frequency / 5;     // 200 ms
-        private static long FrameSpikeTicks = Stopwatch.Frequency / 5;    // 200 ms
+        private static long SimSpikeTicks = Stopwatch.Frequency / 10;     // 100 ms
+        private static long MainSpikeTicks = Stopwatch.Frequency / 10;    // 100 ms
+        private static long FrameSpikeTicks = Stopwatch.Frequency / 10;   // 100 ms
         private static long FreezeTicks = Stopwatch.Frequency * 2 / 5;    // 400 ms
         private static long simRunStarted, simRunsCompleted;
         private static int framesRendered;
+        private static long lastSimElapsed, spikeSequence, frameDirectorTicks, frameGuiTicks, frameMapTicks, frameRecords;
+
+        internal static void ReportSpike(string name, long started, long ended, string detail)
+        {
+            long sequence = Interlocked.Increment(ref spikeSequence);
+            Shared.DevDiagRuntime.Spike(name, ended - started, detail + " event=" + sequence.ToString(CultureInfo.InvariantCulture) +
+                " startStamp=" + started.ToString(CultureInfo.InvariantCulture) + " endStamp=" + ended.ToString(CultureInfo.InvariantCulture));
+            PerfProbeThreadSampler.RequestSpike(sequence, name, started, ended);
+        }
 
         internal static void SetThresholds(int simMs, int mainMs, int frameMs, int freezeMs)
         {
@@ -148,11 +158,12 @@ namespace PerfProbe
             PerfProbeSimSampler.OnRunEnd();
             Interlocked.Increment(ref simRunsCompleted);
             long elapsed = now - __state;
+            Volatile.Write(ref lastSimElapsed, elapsed);
             if (simRunAllocAtStart >= 0) PerfProbeExtras.AddSimAlloc(PerfProbeExtras.ThreadAllocated() - simRunAllocAtStart);
             Shared.DevDiagRuntime.Add("sim:EngineInterface.run", 1, elapsed);
             if (!SpikeLines || elapsed < SimSpikeTicks) return;
             int frames = Volatile.Read(ref framesRendered) - simRunFramesAtStart;
-            Shared.DevDiagRuntime.Spike("sim:EngineInterface.run", elapsed,
+            ReportSpike("sim:EngineInterface.run", __state, now,
                 "framesDuring=" + frames.ToString(CultureInfo.InvariantCulture) + Freeze(elapsed));
         }
 
@@ -173,19 +184,29 @@ namespace PerfProbe
             long now = Stopwatch.GetTimestamp();
             long elapsed = now - state.Started;
             Shared.DevDiagRuntime.Add(name, 1, elapsed);
+            if (name == "main:Director.Update(total)") frameDirectorTicks += elapsed;
+            else frameGuiTicks += elapsed;
             if (!SpikeLines || elapsed < MainSpikeTicks) return;
             long simStart = Volatile.Read(ref simRunStarted);
             long simRuns = Interlocked.Read(ref simRunsCompleted) - state.SimRunsAtStart;
             double busyMs = simStart == 0 ? 0 : (now - Math.Max(simStart, state.Started)) * 1000.0 / Stopwatch.Frequency;
-            Shared.DevDiagRuntime.Spike(name, elapsed, string.Format(CultureInfo.InvariantCulture,
-                "simRunActiveAtEnd={0} simBusyMs={1:F1} simRunsCompletedDuring={2}", simStart != 0, busyMs, simRuns) +
+            ReportSpike(name, state.Started, now, string.Format(CultureInfo.InvariantCulture,
+                "simRunActiveAtEnd={0} activeSimAgeAtEndMs={1:F1} simRunsCompletedDuring={2} lastCompletedSimMs={3:F1}",
+                simStart != 0, busyMs, simRuns, Volatile.Read(ref lastSimElapsed) * 1000.0 / Stopwatch.Frequency) +
                 Freeze(elapsed));
         }
 
         private struct MainWatch { public long Started, SimRunsAtStart; }
 
         private static void EndDirectorUpdate(MainWatch __state) => EndMainSpike("main:Director.Update(total)", __state);
-        private static void EndProcessTestMap(long __state) => Shared.DevDiag.Stop(ref __state, "main:GameMap.processTestMap");
+        private static void EndProcessTestMap(long __state)
+        {
+            long ended = Stopwatch.GetTimestamp(), elapsed = ended - __state;
+            frameMapTicks += elapsed;
+            Shared.DevDiagRuntime.Add("main:GameMap.processTestMap", 1, elapsed);
+            if (SpikeLines && elapsed >= MainSpikeTicks)
+                ReportSpike("main:GameMap.processTestMap", __state, ended, "recordsInFrame=" + frameRecords);
+        }
         private static void EndRowManager(long __state) => Shared.DevDiag.Stop(ref __state, "main:GameMap.experimentalRowManager");
         private static void EndApplyRadarMap(long __state) => Shared.DevDiag.Stop(ref __state, "main:GameMap.ApplyRadarMap");
         private static void EndTileRefresh(long __state) => Shared.DevDiag.Stop(ref __state, "main:TilemapManager.endTileRefresh");
@@ -224,15 +245,19 @@ namespace PerfProbe
                     try { frameContext = PerfProbeExtras.FrameContext(); }
                     catch (Exception exception) { LogFrameExtrasError(exception); }
                     long simStart = Volatile.Read(ref simRunStarted);
-                    Shared.DevDiagRuntime.Spike("frame:interval", gap, string.Format(CultureInfo.InvariantCulture,
-                        "simRunActiveNow={0} simRunMsSoFar={1:F1} paused={2}", simStart != 0,
+                    ReportSpike("frame:interval", started, now, string.Format(CultureInfo.InvariantCulture,
+                        "simRunActiveNow={0} simRunMsSoFar={1:F1} paused={2} directorInclusiveMs={3:F1} guiInclusiveMs={4:F1} mapInclusiveMs={5:F1}", simStart != 0,
                         simStart == 0 ? 0 : (now - simStart) * 1000.0 / Stopwatch.Frequency,
-                        Director.instance != null && !Director.instance.SimRunning) + frameContext + Freeze(gap));
+                        Director.instance != null && !Director.instance.SimRunning,
+                        frameDirectorTicks * 1000.0 / Stopwatch.Frequency, frameGuiTicks * 1000.0 / Stopwatch.Frequency,
+                        frameMapTicks * 1000.0 / Stopwatch.Frequency) + frameContext + Freeze(gap));
                 }
             }
+            frameDirectorTicks = frameGuiTicks = frameMapTicks = frameRecords = 0;
             try { PerfProbeExtras.EndFrame(); }
             catch (Exception exception) { LogFrameExtrasError(exception); }
             lastFrameStamp = now;
+            PerfProbeExtras.DiagnosticHeartbeat(now);
             if (!RenderSnapshots) return;
             if (!recordersStarted) StartRecorders();
             try

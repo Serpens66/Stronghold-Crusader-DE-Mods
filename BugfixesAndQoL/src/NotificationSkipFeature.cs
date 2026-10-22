@@ -129,9 +129,7 @@ namespace BugfixesAndQoL
             out bool hasVideo)
         {
             hasAudio = false;
-            bool enabled = settings.EnableMod &&
-                settings.EnableClientFeatures &&
-                settings.EnableCompleteNotificationSkipOnClick;
+            bool enabled = Enabled;
             bool queueActive = Marshal.ReadInt32(
                 messageManager,
                 NotificationQueueNativeContract.IsQueueActiveOffset) != 0;
@@ -337,11 +335,11 @@ namespace BugfixesAndQoL
                 MainViewModel.Instance.OST_Message_Bar_Vis = false;
         }
 
+        private bool Enabled => settings.EnableClientFeatures && settings.EnableCompleteNotificationSkipOnClick;
+
         private bool IsActiveNotificationAudioLoad(string soundName)
         {
-            if (!settings.EnableMod ||
-                !settings.EnableClientFeatures ||
-                !settings.EnableCompleteNotificationSkipOnClick)
+            if (!Enabled)
             {
                 return false;
             }

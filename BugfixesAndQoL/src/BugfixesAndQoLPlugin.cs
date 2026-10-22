@@ -44,7 +44,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.195";
+        public const string PluginVersion = "1.0.196";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -106,7 +106,7 @@ namespace BugfixesAndQoL
                 Logger);
             if (skirmishGameOptionsCompatible)
             {
-                skirmishGameOptionsRuntime = new SkirmishGameOptionsRuntime(Logger);
+                skirmishGameOptionsRuntime = new SkirmishGameOptionsRuntime(Logger, Settings);
             }
             else
             {
@@ -385,7 +385,7 @@ namespace BugfixesAndQoL
                         context.ModuleHandle,
                         context.Region,
                         context.Memory,
-                        currentNative);
+                        currentNative, Settings);
                     skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(true);
                 }
                 catch (Exception ex)
@@ -403,7 +403,7 @@ namespace BugfixesAndQoL
                             context.ModuleHandle,
                             context.Region,
                             context.Memory,
-                            currentNative);
+                            currentNative, Settings);
                         skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(true);
                     }
                     catch (Exception ex)

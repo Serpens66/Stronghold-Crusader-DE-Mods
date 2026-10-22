@@ -81,6 +81,7 @@ namespace BugfixesAndQoL.UnitCommands
             CursorTilePairReachabilityDelegate pair = originalCursorTilePairReachability;
             originalCursorTilePairReachability = (manager, target, selected, cache) =>
             { pairOriginalEntries++; return lastCursorTilePairResult = pair(manager, target, selected, cache); };
+            DiagWrapCursorPairOriginal();
             CombatFinishResumeDelegate resume = originalCombatFinishResume;
             originalCombatFinishResume = (manager, unit) => { resumeOriginalEntries++; resume(manager, unit); };
             CursorMoveStagerDelegate stager = originalCursorMoveStager;
@@ -199,8 +200,11 @@ namespace BugfixesAndQoL.UnitCommands
                 try { return originalCursorTilePairReachability(pathManager, targetTileId, selectedUnitTileId, useCache); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("cursor-tile-pair-fallback", fallback); return 0; }
             }
-            finally { Shared.DevDiag.StopSpike(ref measured, "uc.cursorPair", 20000); }
+            finally { DiagFinishCursorPair(ref measured, targetTileId, selectedUnitTileId, useCache, pairOriginalEntries - entries); }
         }
+
+        partial void DiagFinishCursorPair(ref long measured, int targetTileId, int selectedTileId, byte useCache, long originalCalls);
+        partial void DiagWrapCursorPairOriginal();
 
         private void CombatFinishResumeBarrier(IntPtr unitManager, int unitId)
         {

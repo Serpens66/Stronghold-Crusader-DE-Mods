@@ -20,8 +20,8 @@ namespace BugfixesAndQoL.UnitCommands
         {
             try
             {
-                if (disposed || nativeManualProbe || !settings.EnableMod ||
-                    (!TraversalEnabled && !settings.EnableImprovedMoatFilling) || RequiredOnlyMode || weightedShadowBusy || pathManager == IntPtr.Zero ||
+                if (disposed || nativeManualProbe ||
+                    (!TraversalEnabled && !(settings.EnableMod && settings.EnableImprovedMoatFilling)) || RequiredOnlyMode || weightedShadowBusy || pathManager == IntPtr.Zero ||
                     pathManager != nativePathManager || nativeUnitManager == null)
                     return null;
 

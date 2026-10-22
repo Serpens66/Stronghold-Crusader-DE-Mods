@@ -1,9 +1,9 @@
 # Read-only analysis of DEVDIAG spike lines (PerfProbe + mods using Shared.DevDiag.StopSpike).
-# Evaluates only the last game start in the BepInEx log and attributes every freeze
+# Evaluates only the last game start in the BepInEx log and lists each lag
 # (simulation tick, main-thread call or frame gap >= FreezeMs) to the spikes inside it.
 param(
     [string]$LogPath = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\LogOutput.log',
-    [int]$FreezeMs = 400,
+    [int]$FreezeMs = 100,
     [int]$Top = 25
 )
 $ErrorActionPreference = 'Stop'
@@ -54,9 +54,10 @@ $overview | Sort-Object SumMs -Descending | Format-Table -AutoSize | Out-String 
 
 # Freezes: PerfProbe outer measurements at or above FreezeMs.
 $outerNames = @('sim:EngineInterface.run', 'frame:interval', 'main:Director.Update(total)', 'main:FatControler.NoesisGUIUpdateChecksInGame')
+$sampleLines = @($lines[$start..($lines.Length - 1)] | Where-Object { $_ -match 'DEVDIAG: spikeSample event=' })
 $tolerance = [TimeSpan]::FromMilliseconds(2)
 $freezes = @($spikes | Where-Object { $outerNames -contains $_.Name -and $_.Ms -ge $FreezeMs } | Sort-Object Start)
-Write-Host ("Freezes >= {0} ms: {1}" -f $FreezeMs, $freezes.Count)
+Write-Host ("Lag spans >= {0} ms: {1} (overlapping frame/GUI/engine spans are not separate stalls)" -f $FreezeMs, $freezes.Count)
 $shown = 0
 foreach ($freeze in $freezes) {
     if ($shown -ge $Top) { Write-Host ("... {0} more freezes not shown (-Top)." -f ($freezes.Count - $shown)); break }
@@ -66,12 +67,15 @@ foreach ($freeze in $freezes) {
     })
     Write-Host ''
     Write-Host ("{0:hh\:mm\:ss\.fff}-{1:hh\:mm\:ss\.fff}  {2}  {3:F1} ms  {4}" -f $freeze.Start, $freeze.End, $freeze.Name, $freeze.Ms, $freeze.Detail)
-    if ($inner.Count -eq 0) { Write-Host '    no mod spike inside (cause outside the measured mod paths)'; continue }
+    if ($freeze.Detail -match '\bevent=(\d+)\b') {
+        $eventPattern = 'spikeSample event=' + [regex]::Escape($Matches[1]) + ' '
+        foreach ($sample in $sampleLines) { if ($sample -match $eventPattern) { Write-Host ('    ' + $sample) } }
+    }
+    if ($inner.Count -eq 0) { Write-Host '    no measured inner spike; cause is not attributed'; continue }
     $groups = @($inner | Group-Object Name | ForEach-Object {
         [pscustomobject]@{ Name = $_.Name; Count = $_.Count; SumMs = ($_.Group | Measure-Object Ms -Sum).Sum; Sample = $_.Group[0].Detail }
     })
     foreach ($group in @($groups | Sort-Object SumMs -Descending)) {
-        $share = if ($freeze.Ms -gt 0) { 100.0 * $group.SumMs / $freeze.Ms } else { 0 }
-        Write-Host ("    {0,-36} n={1,3} sum={2,8:F1} ms ({3,5:F1}% of freeze)  e.g. {4}" -f $group.Name, $group.Count, $group.SumMs, $share, $group.Sample)
+        Write-Host ("    {0,-36} n={1,3} inclusiveSum={2,8:F1} ms (do not add nested spans)  e.g. {3}" -f $group.Name, $group.Count, $group.SumMs, $group.Sample)
     }
 }

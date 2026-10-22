@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.195.0</AssemblyVersion>
-    <FileVersion>1.0.195.0</FileVersion>
+    <AssemblyVersion>1.0.196.0</AssemblyVersion>
+    <FileVersion>1.0.196.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -408,4 +408,5 @@
   </ItemGroup>
 <ItemGroup><Compile Include="src\GateRouting\GateRoutingFeature.cs" /><Compile Include="src\GateRouting\GateDiagnosticConfiguration.cs" /></ItemGroup>
 <ItemGroup><Compile Include="src\Assassins\AssassinGatehouseDescentFeature.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\PermanentNativeSwitch.cs"/><Compile Include="src\NativeSwitchCatalog.cs"/></ItemGroup>
 </Project>

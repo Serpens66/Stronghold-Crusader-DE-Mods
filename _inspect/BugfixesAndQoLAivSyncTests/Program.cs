@@ -190,11 +190,11 @@ internal static class Program
 
     private static void RejectsStaleManifest()
     {
-        Assert(MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, true, 10, 10),
+        Assert(MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, false, true, 10, 10),
             "current lobby manifest was rejected");
-        Assert(!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, true, 20, 10),
+        Assert(!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, false, true, 20, 10),
             "manifest from an older lobby was accepted");
-        Assert(!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(false, 0, true, 10, 10),
+        Assert(!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(false, 0, false, true, 10, 10),
             "disabled feature retained a manifest");
     }
 

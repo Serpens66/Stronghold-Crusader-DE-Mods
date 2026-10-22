@@ -748,7 +748,7 @@ namespace BugfixesAndQoL
         // initialization, before Vanilla's AI upload loop; only already prepared in-memory state is read.
         private CoopAiStartContribution ProvideCoopAiStart(CoopAiStartRequest request)
         {
-            if (!initialized)
+            if (!initialized || !EnhancementsEnabled)
                 return null;
             // Multiplayer: the snapshot every peer took at Platform_Multiplayer.StartGame.
             Dictionary<int, CoopAiSlotPlan> snapshot = activeCoopStartPlans;
@@ -813,7 +813,7 @@ namespace BugfixesAndQoL
         private static CoopAiStartContribution PreviewMultiplayerCoopStart(FRONT_Multiplayer self)
         {
             Platform_Multiplayer platform = Platform_Multiplayer.Instance;
-            if (self.currentLobby?.isHost != true)
+            if (current?.EnhancementsEnabled != true || self.currentLobby?.isHost != true)
                 return null;
             bool synchronized = HostStartSynchronizesCandidates?.Invoke(platform) == true;
             var plans = new List<CoopAiSlotPlan>();
@@ -857,7 +857,7 @@ namespace BugfixesAndQoL
             MultiplayerAivManifest confirmedManifest)
         {
             activeCoopStartPlans = null;
-            if (coopTrailId <= 0 || lobby == null)
+            if (current?.EnhancementsEnabled != true || coopTrailId <= 0 || lobby == null)
                 return 0;
             var snapshot = new Dictionary<int, CoopAiSlotPlan>();
             foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)

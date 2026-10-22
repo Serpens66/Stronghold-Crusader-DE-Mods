@@ -208,7 +208,7 @@
             HorizontalAlignment="Left" VerticalAlignment="Top">
         <Grid x:Name="BugfixesAndQoLAivPresetButtonHost" Width="180" Height="34"
               HorizontalAlignment="Left" VerticalAlignment="Top"
-              Visibility="{Binding EnhancementVisibility}">
+              Visibility="{Binding SelectionEnhancementVisibility}">
           <Button Width="180" Height="34" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                   local:PropEx.TextCentre="{Binding PresetButtonText}"
                   local:PropEx.TextLeft="" local:PropEx.TextRight=""

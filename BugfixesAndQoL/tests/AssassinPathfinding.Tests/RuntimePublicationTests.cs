@@ -39,6 +39,8 @@ unsafe static class UnitAccess {
 }
 enum EnemyGateSearchKind { Builder }
 static class EnemyBridgeDiagnosticBridge { internal static object BeginSearch(string s,int p)=>null; internal static void EndSearch(object s,bool b,int r){} }
+// Mirrors the public AssassinPathAPI.BeginRouteOutput: one frame around the real compiled handoff.
+static class AssassinPathAPI { internal static AssassinRouteOutputFrame BeginRouteOutput(IntPtr c,int sx,int sy,int tx,int ty,int p,Func<bool> v,Func<byte[],int,int> pub,int cp=-1,int sd=-1,Action<string,string,string> r=null)=>new AssassinRouteOutputFrame(new AssassinRouteHandoff(c,sx,sy,tx,ty,p,v,pub,cp,sd,r)); }
 unsafe partial class UnitCommandPathRuntime {
  const int NativeUnitPathBufferOffset=0xB4FE78, NativeUnitPathBufferStride=1000, MaximumUnitCount=10000;
  const int PathManagerOutputBufferOffset=0x155F60, PathManagerOutputLengthOffset=0x155F68;

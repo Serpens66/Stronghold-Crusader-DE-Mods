@@ -182,15 +182,16 @@ namespace BugfixesAndQoL
         public ObservableCollection<AivAicPresetRow> PresetRows { get; } =
             new ObservableCollection<AivAicPresetRow>();
         public ObservableCollection<AicDropdownEntry> AicDropdownEntries => aicDropdownEntries;
-        public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility EnhancementVisibility => PresentationEnabled ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility SelectionEnhancementVisibility => HostEnhancementsEnabled ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PresetDialogVisibility =>
-            IsActive && presetDialogOpen ? Visibility.Visible : Visibility.Collapsed;
+            HostEnhancementsEnabled && presetDialogOpen ? Visibility.Visible : Visibility.Collapsed;
         public Visibility AivSearchPlaceholderVisibility =>
-            IsActive && !aivSearchHasFocus && string.IsNullOrEmpty(aivSearchText)
+            PresentationEnabled && !aivSearchHasFocus && string.IsNullOrEmpty(aivSearchText)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         public Visibility AicSearchPlaceholderVisibility =>
-            IsActive && !aicSearchHasFocus && string.IsNullOrEmpty(aicSearchText)
+            PresentationEnabled && !aicSearchHasFocus && string.IsNullOrEmpty(aicSearchText)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         public string NameHeaderText => SerpLocalization.Get("BugfixesAndQoL.CustomLordNameHeader");
@@ -291,35 +292,32 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool IsActive => settings.EnableMod && settings.EnableCustomLordListEnhancements;
+        private bool HostEnhancementsEnabled => settings.EnableMod && settings.EnableCustomLordListEnhancements;
+        private bool PresentationEnabled => settings.EnableClientFeatures && settings.EnableLordAndMapListEnhancements;
+        private bool IsActive => HostEnhancementsEnabled || PresentationEnabled;
 
         public void ApplySetting()
         {
             OnPropertyChanged(nameof(EnhancementVisibility));
-            if (!IsActive)
+            OnPropertyChanged(nameof(SelectionEnhancementVisibility));
+            OnPropertyChanged(nameof(AivSearchPlaceholderVisibility));
+            OnPropertyChanged(nameof(AicSearchPlaceholderVisibility));
+            if (!PresentationEnabled)
             {
                 ClearSortHeaderHelp();
                 Shared.AiSettingsHelpHover.ClearCurrentHelp();
-                ClosePresetDialog();
                 CloseAicDropdown();
             }
-            OnPropertyChanged(nameof(AivSearchPlaceholderVisibility));
-            OnPropertyChanged(nameof(AicSearchPlaceholderVisibility));
-            if (activeView == null || GetAivInfo(activeView) == null)
-                return;
-
-            if (IsActive)
-            {
-                AttachAndRefresh(activeView, "setting enabled");
-                UpdateDialogKeyboardState();
-                return;
-            }
-
-            FRONT_Multiplayer.MPAIVInfo inactiveInfo = GetAivInfo(activeView);
-            TrimSelection(inactiveInfo, activeMpMode ? 1 : 8, "feature disabled");
-            RestoreCanonicalLists(activeView, inactiveInfo);
+            if (!HostEnhancementsEnabled) ClosePresetDialog();
+            if (activeView == null || GetAivInfo(activeView) == null) return;
+            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
+            // A personal display change must never trim an allowed host candidate list.
+            if (!HostEnhancementsEnabled) TrimSelection(info, activeMpMode ? 1 : 8, "host feature disabled");
+            MpModeField.SetValue(activeView, HostEnhancementsEnabled ? false : activeMpMode);
+            RestoreCanonicalLists(activeView, info);
             activeView.populateList(null, false);
-            RestoreVanillaPresentation(activeView);
+            if (IsActive) AttachAndRefresh(activeView, "settings changed");
+            else RestoreVanillaPresentation(activeView);
             UpdateDialogKeyboardState();
         }
 
@@ -347,15 +345,16 @@ namespace BugfixesAndQoL
             ClosePresetDialog();
             CloseAicDropdown();
             activeMpMode = mpMode;
-            if (!IsActive)
+            if (!HostEnhancementsEnabled)
                 TrimSelection(aivInfo, mpMode ? 1 : 8, "Vanilla dialog limit");
             showTrampoline(thisPlayer, aivInfo, mpMode);
+            activeView = FRONT_Multiplayer_AISettings.Instance;
 
             if (!IsActive)
                 return;
 
             // This hook owns the increased capacity; optional status providers only observe it.
-            MpModeField.SetValue(FRONT_Multiplayer_AISettings.Instance, false);
+            MpModeField.SetValue(FRONT_Multiplayer_AISettings.Instance, HostEnhancementsEnabled ? false : activeMpMode);
 
             // Wait until Vanilla Init and every other Init hook have completely unwound before
             // replacing native Noesis list sources.
@@ -381,7 +380,7 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            MpModeField.SetValue(self, false);
+            MpModeField.SetValue(self, HostEnhancementsEnabled ? false : activeMpMode);
 
             // Preset changes use fixed indexes, so they must start from Vanilla's complete list.
             if (RequiresCanonicalLists(param))
@@ -402,7 +401,7 @@ namespace BugfixesAndQoL
 
         private void AddSelectedHook(FRONT_Multiplayer_AISettings self)
         {
-            if (!IsActive || !IsCustomAivMode(GetAivInfo(self)))
+            if (!HostEnhancementsEnabled || !IsCustomAivMode(GetAivInfo(self)))
             {
                 addSelectedTrampoline(self);
                 return;
@@ -439,7 +438,7 @@ namespace BugfixesAndQoL
         private void RemoveSelectedAiv(CustomisationFileManager.CustomAIV requested)
         {
             FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
-            if (!IsActive || requested == null || info?.aivs == null ||
+            if (!HostEnhancementsEnabled || requested == null || info?.aivs == null ||
                 !IsCustomAivMode(info, activeView))
                 return;
             int index = info.aivs.FindIndex(aiv =>
@@ -497,7 +496,7 @@ namespace BugfixesAndQoL
             // Search focus must not disable Ctrl/Shift input used by Vanilla multi-selection.
             aivListControl.SelectionMode = SelectionMode.Extended;
             ApplyAivFooterLayout();
-            ApplySelectionListMode(self, true);
+            ApplySelectionListMode(self, HostEnhancementsEnabled);
 
             if (!attachedViews.Add(self))
                 return;
@@ -541,7 +540,7 @@ namespace BugfixesAndQoL
 
         private void SortHeaderMouseEnter(object sender, MouseEventArgs e)
         {
-            if (!IsActive || activeView?.IsVisible != true)
+            if (!PresentationEnabled || activeView?.IsVisible != true)
                 return;
 
             GridViewColumnHeader header = sender as GridViewColumnHeader;
@@ -590,7 +589,7 @@ namespace BugfixesAndQoL
 
         private void HeaderClicked(object sender, RoutedEventArgs e)
         {
-            if (!IsActive)
+            if (!PresentationEnabled)
                 return;
 
             string tag = (sender as GridViewColumnHeader)?.Tag as string;
@@ -643,7 +642,7 @@ namespace BugfixesAndQoL
 
         private void OpenPresetDialog()
         {
-            if (!IsActive || activeView == null)
+            if (!HostEnhancementsEnabled || activeView == null)
                 return;
             CloseAicDropdown();
             FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
@@ -674,12 +673,12 @@ namespace BugfixesAndQoL
         private bool CanSavePreset()
         {
             string name = (presetName ?? string.Empty).Trim();
-            return presetDialogOpen && name.Length > 0 &&
+            return HostEnhancementsEnabled && presetDialogOpen && name.Length > 0 &&
                 name.Length <= AivAicPresetStore.MaximumPresetNameLength && GetAivInfo(activeView) != null;
         }
 
         private bool CanUseSelectedPreset() =>
-            presetDialogOpen && selectedPreset?.Definition != null;
+            HostEnhancementsEnabled && presetDialogOpen && selectedPreset?.Definition != null;
 
         private void SavePreset()
         {
@@ -700,6 +699,7 @@ namespace BugfixesAndQoL
 
         private void SavePresetConfirmed(string name)
         {
+            if (!HostEnhancementsEnabled) return;
             try
             {
                 AivAicPresetDefinition saved = presetStore.Save(
@@ -792,7 +792,7 @@ namespace BugfixesAndQoL
 
         private void ReopenPresetDialog()
         {
-            if (presetDialogOpen || !IsActive || activeView == null)
+            if (presetDialogOpen || !HostEnhancementsEnabled || activeView == null)
                 return;
             presetDialogOpen = true;
             OnPropertyChanged(nameof(PresetDialogVisibility));
@@ -801,6 +801,7 @@ namespace BugfixesAndQoL
 
         private void DeletePresetConfirmed(string name)
         {
+            if (!HostEnhancementsEnabled) return;
             try
             {
                 if (presetStore.Delete(presetLordKey, name))
@@ -848,7 +849,7 @@ namespace BugfixesAndQoL
 
         private int GetActiveAivLimit(FRONT_Multiplayer_AISettings view)
         {
-            if (IsActive)
+            if (HostEnhancementsEnabled)
                 return AivAicPresetStore.MaximumAivEntries;
             return view != null && MpModeField.GetValue(view) is bool mpMode && mpMode ? 1 : 8;
         }
@@ -870,6 +871,16 @@ namespace BugfixesAndQoL
                 aivListControl == null || aicListControl == null)
                 return;
 
+            if (!PresentationEnabled)
+            {
+                FRONT_Multiplayer.MPAIVInfo current = GetAivInfo(activeView);
+                RestoreCanonicalLists(activeView, current);
+                activeView.populateList(null, false);
+                RestoreVanillaPresentation(activeView);
+                ApplySelectionListMode(activeView, HostEnhancementsEnabled);
+                selectionList.Refresh(current, HostEnhancementsEnabled && IsCustomAivMode(current, activeView));
+                return;
+            }
             // Vanilla may reapply template dimensions after the XAML patch has run.
             ApplyAivFooterLayout();
 
@@ -918,7 +929,7 @@ namespace BugfixesAndQoL
             bool aicEnabled = aicListControl.IsEnabled;
             aicHeaderPanel.IsEnabled = aicEnabled;
             aicSearchPanel.IsEnabled = aicEnabled;
-            selectionList.Refresh(info, IsCustomAivMode(info, activeView));
+            selectionList.Refresh(info, HostEnhancementsEnabled && IsCustomAivMode(info, activeView));
         }
 
         private int CompareAivs(
@@ -1209,7 +1220,7 @@ namespace BugfixesAndQoL
 
         private void AicDropdownOpenSurfaceMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (!IsActive || aicDropdownPopup == null || aicDropdownPopup.IsOpen)
+            if (!PresentationEnabled || aicDropdownPopup == null || aicDropdownPopup.IsOpen)
                 return;
 
             aicDropdownSearchText = string.Empty;

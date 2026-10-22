@@ -61,9 +61,12 @@ namespace BugfixesAndQoL.UnitCommands
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingApproach, bridgeCompleted, false);
-                Shared.DevDiag.StopSpike(ref measured, "uc.attack.buildingApproach", 20000);
+                DiagFinishBuildingApproach(ref measured, tribeId, buildingId, requestedResults, sourceRegion, movementClass);
             }
         }
+
+        partial void DiagFinishBuildingApproach(ref long measured, int tribeId, int buildingId, int requestedResults, int sourceRegion, int movementClass);
+        partial void DiagWrapBuildingOriginals();
 
         internal void ObserveBuildingApproachBuilderWithMoat(
             IntPtr pathManager, int tribeId, int buildingId, int requestedResults,

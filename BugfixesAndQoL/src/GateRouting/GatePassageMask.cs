@@ -18,7 +18,7 @@ namespace BugfixesAndQoL.GateRouting
 
             // Validate both complete boundaries before changing any mask byte.
             // Invalid coordinates must not publish a partially protected passage.
-            int capacity = masks == null ? EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive : masks.Length;
+            int capacity = masks == null ? GateRoutingNativeLayout.MaximumTileIdExclusive : masks.Length;
             for (int coordinate = horizontalPassage ? minY : minX;
                 coordinate <= (horizontalPassage ? maxY : maxX); coordinate++)
             {
@@ -72,7 +72,7 @@ namespace BugfixesAndQoL.GateRouting
         {
             int from = tileId(fromX, fromY);
             int to = tileId(toX, toY);
-            int capacity = masks == null ? EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive : masks.Length;
+            int capacity = masks == null ? GateRoutingNativeLayout.MaximumTileIdExclusive : masks.Length;
             if (from < 0 || to < 0 || from >= capacity || to >= capacity)
                 return 0;
             // TEMP_GATE_ROUTE_ACCEPTANCE: record the identical six boundary directions without a mask.

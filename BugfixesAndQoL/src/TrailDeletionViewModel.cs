@@ -29,7 +29,7 @@ namespace BugfixesAndQoL
 
         public event PropertyChangedEventHandler PropertyChanged;
         public RelayCommand DeleteTrailCommand { get; }
-        private bool Enabled => settings.EnableMod && settings.ShowLoadSaveDialogControls;
+        private bool Enabled => settings.EnableClientFeatures && settings.ShowLoadSaveDialogControls;
         public Visibility DeleteTrailVisibility => Enabled ? Visibility.Visible : Visibility.Collapsed;
         public bool DeleteTrailEnabled => CanDelete();
         public string DeleteTrailText => SerpLocalization.Get("BugfixesAndQoL.DeleteTrail");
@@ -50,7 +50,7 @@ namespace BugfixesAndQoL
 
         private void SettingsChanged(object sender, PropertyChangedEventArgs args)
         {
-            if (args.PropertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
+            if (args.PropertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
                 args.PropertyName != nameof(BugfixesAndQoLViewModel.ShowLoadSaveDialogControls))
                 return;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeleteTrailVisibility)));

@@ -418,15 +418,14 @@ namespace BugfixesAndQoL
 
         private bool FeatureEnabled => settings.EnableMod && settings.EnableSurrenderAndStatistics;
 
-        private bool StatisticsTeamBadgesEnabled => settings.EnableMod && settings.EnableClientFeatures;
+        private bool StatisticsTeamBadgesEnabled => settings.EnableClientFeatures;
 
         private bool EliminatedPlayerSpectatorEnabled =>
             settings.EnableMod && settings.EnableEliminatedPlayersBecomeSpectators;
 
         private void OnPresentationSettingChanged(string propertyName)
         {
-            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableMod) ||
-                propertyName == nameof(BugfixesAndQoLViewModel.EnableClientFeatures) ||
+            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableClientFeatures) ||
                 propertyName == nameof(BugfixesAndQoLViewModel.StatisticsTeamBadgeMode)) PublishStatisticsBadgeMode();
         }
 

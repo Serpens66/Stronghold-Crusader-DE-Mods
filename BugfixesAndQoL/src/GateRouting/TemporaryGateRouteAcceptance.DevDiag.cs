@@ -217,7 +217,7 @@ namespace BugfixesAndQoL.GateRouting
             if (tribeGlobal == 0) MissingContext(player, "published-route", "unverified-tribe", tribe);
             int targetBuilding = 0;
             int targetTile = (uint)tx < 800 && (uint)ty < 800 ? GameTileManagerAPI.Instance.GetTileId(tx, ty) : -1;
-            if ((uint)targetTile < EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive)
+            if ((uint)targetTile < GateRoutingNativeLayout.MaximumTileIdExclusive)
                 targetBuilding = GameTileManagerAPI.Instance.GetTileBuildingId(targetTile);
             uint targetGlobal = BuildingGlobal(targetBuilding);
             int attackBuilding = 0; uint attackGlobal = 0;
@@ -331,8 +331,8 @@ namespace BugfixesAndQoL.GateRouting
             if (!(token is Route route)) return;
             route.Edges++; if (climb) route.Climb++;
             if (route.Player <= 0 || route.Player > 8 || direction < 0 || direction > 7 ||
-                (uint)from >= EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive ||
-                (uint)to >= EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive || route.Snapshot == null)
+                (uint)from >= GateRoutingNativeLayout.MaximumTileIdExclusive ||
+                (uint)to >= GateRoutingNativeLayout.MaximumTileIdExclusive || route.Snapshot == null)
             { route.Invalid = true; return; }
             byte[] mask = route.Player < route.Snapshot.DirectionMasks.Length ? route.Snapshot.DirectionMasks[route.Player] : null;
             if (route.Player >= route.Snapshot.DirectionMasks.Length || (mask != null && from >= mask.Length))

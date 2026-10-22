@@ -177,9 +177,11 @@ namespace BugfixesAndQoL
         public object MultiplayerAivSyncUi => multiplayerAivSyncRuntime;
         public object AssassinClimbButton => assassinClimbRuntime.ButtonViewModel;
 
+        private bool MissingMapRecoveryEnabled => settings.EnableClientFeatures && settings.EnableMissingMapSaveRecovery;
+
         public void InitializeNetwork()
         {
-            SavegameMissingMap.SavegameMissingMapFeature.Initialize(log, () => settings.EnableClientFeatures);
+            SavegameMissingMap.SavegameMissingMapFeature.Initialize(log, () => MissingMapRecoveryEnabled);
             TryInitializePersistentFeature(
                 "placement-cancel move suppression",
                 EnsurePlacementCancelMoveSuppressionFeature);

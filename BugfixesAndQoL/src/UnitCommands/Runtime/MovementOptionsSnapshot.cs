@@ -23,9 +23,9 @@ namespace BugfixesAndQoL.UnitCommands
         internal static MovementOptionsSnapshot Capture(IUnitCommandSettings settings)
         {
             UnitCommandTraversalProvider provider = UnitCommandPathAPI.Traversal;
-            bool traversal = settings.EnableMod && provider?.Enabled == true;
+            bool traversal = provider?.Enabled == true;
             return new MovementOptionsSnapshot(
-                settings.EnableMod && (settings.EnableImprovedManualUnitCommands || traversal),
+                (settings.EnableMod && settings.EnableImprovedManualUnitCommands) || traversal,
                 provider?.RequiredOnly == true ? RouteCalculationMode.RequiredOnly : RouteCalculationMode.Exact,
                 traversal);
         }

@@ -84,7 +84,7 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogDebug(log, "NOTIFICATION_LAST_FRAME_INSTALLED: permanent playback, text and MediaEnded hooks installed.");
         }
 
-        private bool Enabled => settings.EnableMod && settings.EnableClientFeatures && settings.EnableNotificationLastFrame;
+        private bool Enabled => settings.EnableClientFeatures && settings.EnableNotificationLastFrame;
 
         // Mission notifications may come from another thread. Close Noesis only on the presentation caller.
         internal void ResetMapState()

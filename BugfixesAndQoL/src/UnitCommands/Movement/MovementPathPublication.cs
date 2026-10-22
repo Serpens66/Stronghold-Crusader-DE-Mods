@@ -31,12 +31,12 @@ namespace BugfixesAndQoL.UnitCommands
 
             int result = 0;
             bool completed = false;
-            AssassinRouteHandoff assassinRoute;
+            AssassinRouteOutputFrame assassinRoute;
             try { assassinRoute = BeginAssassinRoutePublication(pathManager); }
             catch (Exception ex)
             {
                 TryLogDiagnosticFailure("assassin-route-capture", ex);
-                assassinRoute = new AssassinRouteHandoff(pathManager, 0, 0, 0, 0, 0, null, null);
+                assassinRoute = AssassinPathAPI.BeginRouteOutput(pathManager, 0, 0, 0, 0, 0, null, null);
             }
             try
             {
@@ -64,11 +64,11 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
-        private AssassinRouteHandoff BeginAssassinRoutePublication(IntPtr pathManager)
+        private AssassinRouteOutputFrame BeginAssassinRoutePublication(IntPtr pathManager)
         {
             // Even an unqualified nested builder must shadow the outer handoff.
             if (nativeManualProbe || pathManager != nativePathManager || nativeUnitManager == null)
-                return new AssassinRouteHandoff(pathManager, 0, 0, 0, 0, 0, null, null);
+                return AssassinPathAPI.BeginRouteOutput(pathManager, 0, 0, 0, 0, 0, null, null);
             byte* manager = (byte*)pathManager.ToPointer();
             byte* path = *(byte**)(manager + PathManagerOutputBufferOffset);
             long offset = path - (nativeUnitManager + NativeUnitPathBufferOffset);
@@ -79,7 +79,7 @@ namespace BugfixesAndQoL.UnitCommands
             int tx = *(int*)(manager + 16), ty = *(int*)(manager + 20);
             if (!UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN)
-                return new AssassinRouteHandoff(pathManager, sx, sy, tx, ty, 0, null, null);
+                return AssassinPathAPI.BeginRouteOutput(pathManager, sx, sy, tx, ty, 0, null, null);
             uint global = unit->r_GlobalId;
             int player = unit->r_ControllableForPlayerId;
             int controlPlayer = unit->r_ControllableForPlayerId;
@@ -213,7 +213,7 @@ namespace BugfixesAndQoL.UnitCommands
 
                 return true;
             };
-            return new AssassinRouteHandoff(pathManager, sx, sy, tx, ty, player, valid, (bytes, count) =>
+            return AssassinPathAPI.BeginRouteOutput(pathManager, sx, sy, tx, ty, player, valid, (bytes, count) =>
             {
                 // No callback or fallible conversion occurs between the final proof and these data writes.
                 byte* destination = (byte*)expectedPath;

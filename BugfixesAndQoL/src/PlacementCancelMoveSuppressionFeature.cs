@@ -109,7 +109,6 @@ namespace BugfixesAndQoL
             try
             {
                 forwardRightDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
-                    settings.EnableMod,
                     settings.EnableClientFeatures,
                     settings.PreventMoveOrderOnPlacementCancel,
                     controls.CurrentAction,

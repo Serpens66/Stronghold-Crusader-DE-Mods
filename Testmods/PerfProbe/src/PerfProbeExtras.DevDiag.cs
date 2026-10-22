@@ -231,10 +231,14 @@ namespace PerfProbe
         private static string[] engineNames = new string[0];
         private static long[] engineCalls = new long[0], engineTicks = new long[0], engineMax = new long[0],
             engineSimCalls = new long[0], engineSimTicks = new long[0];
+        private static long[] engineFrameTicks = new long[0];
+        private static bool[] engineLockMeasured = new bool[0];
+        private static bool engineDiagnosticError;
         private static int mainThreadId = -1;
 
         private static void InstallEngineCalls(Harmony harmony)
         {
+            mainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
             var targets = new List<MethodInfo>();
             foreach (MethodInfo method in typeof(EngineInterface).GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
@@ -245,42 +249,122 @@ namespace PerfProbe
             engineNames = new string[targets.Count];
             engineCalls = new long[targets.Count]; engineTicks = new long[targets.Count]; engineMax = new long[targets.Count];
             engineSimCalls = new long[targets.Count]; engineSimTicks = new long[targets.Count];
+            engineFrameTicks = new long[targets.Count]; engineLockMeasured = new bool[targets.Count];
             var prefix = new HarmonyMethod(typeof(PerfProbeExtras), nameof(EngineBegin));
             var postfix = new HarmonyMethod(typeof(PerfProbeExtras), nameof(EngineEnd));
+            var finalizer = new HarmonyMethod(typeof(PerfProbeExtras), nameof(EngineFailed));
             int patched = 0, failed = 0;
             for (int index = 0; index < targets.Count; index++)
             {
                 engineNames[index] = "EngineInterface." + targets[index].Name;
                 engineIds[targets[index]] = index;
-                try { harmony.Patch(targets[index], prefix: prefix, postfix: postfix); patched++; }
+                try
+                {
+                    bool measureLock = targets[index].Name == "GetMeritData" || targets[index].Name == "SetAchData";
+                    harmony.Patch(targets[index], prefix: prefix, postfix: postfix, finalizer: finalizer,
+                        transpiler: measureLock ? new HarmonyMethod(typeof(PerfProbeLockTiming), nameof(PerfProbeLockTiming.Transpile)) : null,
+                        ilmanipulator: null);
+                    engineLockMeasured[index] = measureLock;
+                    patched++;
+                }
                 catch (Exception exception)
                 {
                     failed++;
                     Shared.DebugLogHelper.LogWarning(log, "PERFPROBE engine call skipped " + engineNames[index] + ": " + exception.Message);
                 }
             }
-            Shared.DevDiag.Log(() => "PERFPROBE_ENGINECALLS: " + patched + " EngineInterface methods timed on the main thread, " + failed + " skipped.");
+            Shared.DevDiag.Log(() => "PERFPROBE_ENGINECALLS: " + patched + " EngineInterface methods timed on the main thread, " + failed +
+                " skipped; exact Monitor timing=" + string.Join(",", Enumerable.Range(0, targets.Count).Where(i => engineLockMeasured[i]).Select(i => engineNames[i])));
         }
 
-        private struct EngineState { public long Started; public bool SimActive; }
-
-        private static void EngineBegin(out EngineState __state)
+        private struct EngineState
         {
-            __state = new EngineState { Started = Stopwatch.GetTimestamp(), SimActive = PerfProbeRuntime.SimTickActive };
+            public long Started, RunsCompleted, Cpu;
+            public int Gc;
+            public bool SimActive, Completed;
+            public PerfProbeLockTiming.Snapshot Locks;
         }
 
-        private static void EngineEnd(MethodBase __originalMethod, EngineState __state)
+        private static void EngineBegin(MethodBase __originalMethod, out EngineState __state)
         {
-            // Only the main thread can stall rendering; other callers are ignored.
-            if (mainThreadId < 0 || System.Threading.Thread.CurrentThread.ManagedThreadId != mainThreadId) return;
-            long elapsed = Stopwatch.GetTimestamp() - __state.Started;
+            __state = default;
+            if (System.Threading.Thread.CurrentThread.ManagedThreadId != mainThreadId) return;
+            __state.Started = Stopwatch.GetTimestamp();
+            __state.SimActive = PerfProbeRuntime.SimTickActive;
+            __state.RunsCompleted = PerfProbeRuntime.SimRunsCompleted;
+            __state.Gc = GcTracking ? GC.CollectionCount(0) : -1;
+            __state.Locks = PerfProbeLockTiming.Capture();
+            __state.Cpu = engineIds.TryGetValue(__originalMethod, out int id) && engineLockMeasured[id]
+                ? PerfProbeLockTiming.ThreadCpuTime() : -1;
+        }
+
+        private static void EngineEnd(MethodBase __originalMethod, ref EngineState __state)
+        {
+            if (__state.Completed) return;
+            __state.Completed = true;
+            EngineComplete(__originalMethod, __state, null);
+        }
+
+        private static Exception EngineFailed(MethodBase __originalMethod, ref EngineState __state, Exception __exception)
+        {
+            if (__exception != null && !__state.Completed)
+            {
+                __state.Completed = true;
+                EngineComplete(__originalMethod, __state, __exception);
+            }
+            return __exception;
+        }
+
+        private static void EngineComplete(MethodBase method, EngineState state, Exception error)
+        {
+            // A diagnostic failure must not replace an original result or exception.
+            try { EngineCompleteCore(method, state, error); }
+            catch (Exception exception)
+            {
+                if (engineDiagnosticError) return;
+                engineDiagnosticError = true;
+                Shared.DebugLogHelper.LogWarning(log, "PERFPROBE engine detail unavailable: " + exception.GetType().Name);
+            }
+        }
+
+        private static void EngineCompleteCore(MethodBase __originalMethod, EngineState __state, Exception error)
+        {
+            if (__state.Started == 0) return;
+            long ended = Stopwatch.GetTimestamp(), elapsed = ended - __state.Started;
             if (__originalMethod == null || !engineIds.TryGetValue(__originalMethod, out int id)) return;
             engineCalls[id]++; engineTicks[id] += elapsed;
+            engineFrameTicks[id] += elapsed;
             if (elapsed > engineMax[id]) engineMax[id] = elapsed;
             if (__state.SimActive) { engineSimCalls[id]++; engineSimTicks[id] += elapsed; }
             if (PerfProbeRuntime.SpikeLines && elapsed >= PerfProbeRuntime.MainThreadSpikeTicks)
-                Shared.DevDiagRuntime.Spike("main:" + engineNames[id], elapsed, "simTickActiveAtStart=" + __state.SimActive +
-                    " simTickActiveAtEnd=" + PerfProbeRuntime.SimTickActive);
+            {
+                PerfProbeLockTiming.Snapshot after = PerfProbeLockTiming.Capture();
+                long cpu = __state.Cpu < 0 ? -1 : PerfProbeLockTiming.ThreadCpuTime();
+                string detail = string.Format(C,
+                    "simTickActiveAtStart={0} simTickActiveAtEnd={1} simRunsCompletedDuring={2} lockMeasured={3} " +
+                    "lockEntries={4} lockWaitMs={5:F3} lockScopeMs={6:F3} outsideLockMs={7:F3} threadCpuMs={8:F3} gcDuring={9} error={10} caller={11}",
+                    __state.SimActive, PerfProbeRuntime.SimTickActive, PerfProbeRuntime.SimRunsCompleted - __state.RunsCompleted,
+                    engineLockMeasured[id], after.Acquisitions - __state.Locks.Acquisitions,
+                    engineLockMeasured[id] ? Ms(after.Wait - __state.Locks.Wait) : -1,
+                    engineLockMeasured[id] ? Ms(after.Held - __state.Locks.Held) : -1,
+                    engineLockMeasured[id] ? Ms(Math.Max(0, elapsed - (after.Wait - __state.Locks.Wait) - (after.Held - __state.Locks.Held))) : -1,
+                    cpu < 0 ? -1 : (cpu - __state.Cpu) / 10000.0,
+                    __state.Gc < 0 ? -1 : GC.CollectionCount(0) - __state.Gc, error?.GetType().Name ?? "none", SlowCaller());
+                PerfProbeRuntime.ReportSpike("main:" + engineNames[id], __state.Started, ended, detail);
+            }
+        }
+
+        private static string SlowCaller()
+        {
+            var names = new List<string>(8);
+            foreach (StackFrame frame in new StackTrace(false).GetFrames() ?? new StackFrame[0])
+            {
+                MethodBase method = frame.GetMethod();
+                if (method?.DeclaringType == null || method.DeclaringType.Namespace == "PerfProbe") continue;
+                names.Add(method.DeclaringType.FullName + "." + method.Name);
+                if (names.Count == 8) break;
+            }
+            return string.Join("<-", names);
         }
 
         private static void LogEngineCalls(double windowSeconds)
@@ -482,8 +566,16 @@ namespace PerfProbe
             if (GcTracking && gcAtFrameStart >= 0)
             {
                 int gc = GC.CollectionCount(0) - gcAtFrameStart;
-                if (gc > 0) text.Append(" gcDuring=").Append(gc.ToString(C));
+                text.Append(" gcDuring=").Append(gc.ToString(C));
+                long used = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
+                text.Append(" monoUsedDeltaKB=").Append(((used - lastFrameMonoUsed) / 1024.0).ToString("F1", C));
+                text.Append(" allocSource=").Append(gcAlloc.Valid ? "frameRecorder" : "heapDelta-not-allocation");
+                if (gcAlloc.Valid) text.Append(" lastRecordedAllocKB=").Append((gcAlloc.LastValue / 1024.0).ToString("F1", C));
             }
+            if (EngineCalls)
+                text.Append(" engineFrameInclusive=").Append(string.Join(",", Enumerable.Range(0, engineFrameTicks.Length)
+                    .Where(i => engineFrameTicks[i] > 0).OrderByDescending(i => engineFrameTicks[i]).Take(5)
+                    .Select(i => engineNames[i] + ":" + Ms(engineFrameTicks[i]).ToString("F2", C))));
             if (UpdateSweep) text.Append(FrameTop());
             return text.ToString();
         }
@@ -532,6 +624,7 @@ namespace PerfProbe
                 }
             }
             if (UpdateSweep) ResetFrame();
+            Array.Clear(engineFrameTicks, 0, engineFrameTicks.Length);
         }
 
         private static void StartFrameRecorders()
@@ -548,6 +641,26 @@ namespace PerfProbe
         private static readonly List<KeyValuePair<string, ProfilerRecorder>> markerRecorders = new List<KeyValuePair<string, ProfilerRecorder>>();
         private static readonly List<KeyValuePair<string, ProfilerRecorder>> counterRecorders = new List<KeyValuePair<string, ProfilerRecorder>>();
         private static long lastSnapshotStamp;
+        private static long lastDiagnosticSummary;
+
+        // GC/engine summaries are essential to spike analysis even when Zoom snapshots are off.
+        internal static void DiagnosticHeartbeat(long now)
+        {
+            if (lastDiagnosticSummary == 0) { lastDiagnosticSummary = now; return; }
+            if (now - lastDiagnosticSummary < Stopwatch.Frequency * 5) return;
+            double seconds = (now - lastDiagnosticSummary) / (double)Stopwatch.Frequency;
+            lastDiagnosticSummary = now;
+            EmitDiagnosticSummary(seconds, now);
+        }
+
+        // Keep captured summary arguments out of the per-frame heartbeat: C# allocates a
+        // display class on method entry, even when an early return precedes the lambda.
+        private static void EmitDiagnosticSummary(double seconds, long now)
+        {
+            if (GcTracking) Guard("gc", LogGc);
+            if (EngineCalls) Guard("engineCalls", () => LogEngineCalls(seconds));
+            Shared.DevDiagRuntime.Add("probe.summary", 1, Stopwatch.GetTimestamp() - now);
+        }
 
         internal static void Snapshot()
         {
@@ -558,12 +671,10 @@ namespace PerfProbe
             if (EngineMarkers && !discoveryDone) Guard("discovery", DiscoverMarkers);
             if (EngineMarkers) Guard("markers", () => LogMarkers());
             if (BatchCensus) Guard("census", LogCensus);
-            if (GcTracking) Guard("gc", LogGc);
             if (RecordBreakdown) Guard("records", LogRecordTypes);
             if (RecordBreakdown && chimpsField != null) Guard("chimps", LogChimps);
             if (TextureInventory && !sheetOccupancyDone) Guard("sheets", LogSheetOccupancy);
             if (UpdateSweep) Guard("sweep", () => LogSweep(windowSeconds));
-            if (EngineCalls) Guard("engineCalls", () => LogEngineCalls(windowSeconds));
         }
 
         // Instantaneous counts at the snapshot frame: lerpChimps visits every entry each frame,
@@ -916,8 +1027,9 @@ namespace PerfProbe
             if (gc0Window < 0) { gc0Window = gc0; gc1Window = gc1; gc2Window = gc2; }
             string alloc = allocFrames == 0 ? "allocPerFrame=unavailable" : string.Format(C, "allocPerFrameAvgKB={0:0.0} allocPerFrameMaxKB={1:0.0}",
                 allocSum / (double)allocFrames / 1024.0, allocMax / 1024.0);
-            string message = string.Format(C, "gc gen0={0} gen1={1} gen2={2} heapMB={3:0.0} {4}", gc0 - gc0Window, gc1 - gc1Window, gc2 - gc2Window,
-                GC.GetTotalMemory(false) / 1048576.0, alloc);
+            string message = string.Format(C, "gc gen0={0} gen1={1} gen2={2} heapMB={3:0.0} {4} allocSource={5} threadAllocValid={6}",
+                gc0 - gc0Window, gc1 - gc1Window, gc2 - gc2Window,
+                GC.GetTotalMemory(false) / 1048576.0, alloc, gcAlloc.Valid ? "frameRecorder" : "heapGrowthLowerBound", ThreadAllocValid);
             gc0Window = gc0; gc1Window = gc1; gc2Window = gc2; allocSum = allocMax = allocFrames = 0;
             Shared.DevDiag.Log(() => message);
             if (!ThreadAllocValid) return;

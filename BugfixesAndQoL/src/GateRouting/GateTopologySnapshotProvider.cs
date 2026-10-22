@@ -1239,7 +1239,7 @@ namespace BugfixesAndQoL.GateRouting
                         bool created = masks == null;
                         if (masks == null)
                         {
-                            masks = new byte[EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive];
+                            masks = new byte[GateRoutingNativeLayout.MaximumTileIdExclusive];
                             for (int index = 0; index < masks.Length; index++) masks[index] = 0xFF;
                             directionMasks[player] = masks;
                         }

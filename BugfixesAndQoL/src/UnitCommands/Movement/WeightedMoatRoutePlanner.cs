@@ -535,9 +535,9 @@ namespace BugfixesAndQoL.UnitCommands
         {
             // These events describe the additional preference search, not Vanilla orders
             // or topological reachability queries already supplied by Script Extender.
-            APIShared.Pathfinding.RouteSearchEventRegistry.Invocation invocation = null;
+            APIShared.Pathfinding.RouteSearchOperation invocation = null;
             if (!reachability && !string.IsNullOrWhiteSpace(PublisherGuid) &&
-                APIShared.Pathfinding.RouteSearchEvents.Registry.HasObservers)
+                APIShared.Pathfinding.RouteSearchEvents.HasObservers)
             {
                 int edgeLimit = captureEncodedRoute || maximumExpanded != int.MaxValue
                     ? Math.Min(MaximumRouteEdges, maximumEdges) : int.MaxValue;
@@ -549,7 +549,7 @@ namespace BugfixesAndQoL.UnitCommands
                 var context = new APIShared.Pathfinding.RouteSearchContext(PublisherGuid, playerId,
                     startX, startY, requestedTargetX, requestedTargetY, terrain, edgeLimit,
                     long.MaxValue / ((long)MapWidth * MapWidth) / 8L);
-                invocation = APIShared.Pathfinding.RouteSearchEvents.Registry.Begin(context,
+                invocation = APIShared.Pathfinding.RouteSearchEvents.BeginSearch(context,
                     costProfile.GetEdgeFixedCost(false), costProfile.GetEdgeFixedCost(true));
                 if (invocation?.Pre.SkipOriginalFunction == true)
                 {

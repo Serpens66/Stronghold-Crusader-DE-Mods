@@ -22,7 +22,7 @@ namespace PerfProbe
     //   threadSample thread=<..> asm=<assembly:inclusive samples>   (sample counted once per assembly)
     //   threadSample thread=<..> incl=<top managed methods, inclusive>
     //   threadSample thread=<..> entry=<outermost method of each mod assembly, inclusive>
-    internal static class PerfProbeThreadSampler
+    internal static partial class PerfProbeThreadSampler
     {
         private const int MaxFrames = 40;
         private const uint ContextFull = 0x10000B;
@@ -47,6 +47,7 @@ namespace PerfProbe
             internal int Count, Dropped;
             internal ulong[] Frames;
             internal byte[] Depth;
+            internal PerfProbeSampleHistory History;
         }
 
         private static Lane main, sim;
@@ -92,7 +93,11 @@ namespace PerfProbe
             Shared.DevDiag.Log(() => string.Format(C, "threadSampler ready intervalUs={0} windowS={1} main={2} sim={3}", intervalUs, windowSeconds, sampleMain, sampleSim));
         }
 
-        private static Lane NewLane(string name) => new Lane { Name = name, Frames = new ulong[capacity * MaxFrames], Depth = new byte[capacity] };
+        private static Lane NewLane(string name) => new Lane
+        {
+            Name = name, Frames = new ulong[capacity * MaxFrames], Depth = new byte[capacity],
+            History = new PerfProbeSampleHistory(Math.Max(64, 8000000 / intervalUs), MaxFrames)
+        };
 
         // Called from the render callback (Unity main thread).
         internal static void NoteMainThread()
@@ -125,11 +130,14 @@ namespace PerfProbe
                     }
                     if (now - windowStart >= Stopwatch.Frequency * windowSeconds)
                     {
+                        long analysisStarted = Stopwatch.GetTimestamp();
                         double seconds = (now - windowStart) / (double)Stopwatch.Frequency;
                         Publish(main, seconds);
                         Publish(sim, seconds);
+                        ReportSamplerWork("window", analysisStarted);
                         windowStart = now;
                     }
+                    DrainSpikeRequests();
                     next += interval;
                     if (next < now) next = now;
                     while (Stopwatch.GetTimestamp() < next) Thread.SpinWait(20);
@@ -160,6 +168,7 @@ namespace PerfProbe
             if (lane.Count >= capacity) { lane.Dropped++; return; }
             int offset = lane.Count * MaxFrames;
             int depth = 0;
+            long sampledAt = Stopwatch.GetTimestamp();
             if (SuspendThread(lane.Handle) == uint.MaxValue) return;
             try
             {
@@ -197,7 +206,11 @@ namespace PerfProbe
                 }
             }
             finally { ResumeThread(lane.Handle); }
-            if (depth > 0) { lane.Depth[lane.Count] = (byte)depth; lane.Count++; }
+            if (depth > 0)
+            {
+                lane.History.Add(sampledAt, lane.Frames, offset, depth);
+                lane.Depth[lane.Count] = (byte)depth; lane.Count++;
+            }
         }
 
         private static bool SafeRead(ulong address, IntPtr buffer, out ulong value)

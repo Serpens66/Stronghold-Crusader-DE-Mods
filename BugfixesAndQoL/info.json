@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.195",
+  "Version": "1.0.196",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,15 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.196",
+      "Changes": [
+        "Separate Host gameplay options from Client and local presentation settings; keep yellow team colours, statistics, notifications, health bars and dialogs independent of the Host switch.",
+        "Split local list search/sorting from extended AI castle selection, add explicit options for random opponents, missing-map recovery, multiplayer startup-state cleanup and peace-time gameplay fixes.",
+        "Make native No Dogs and peace-time extensions logically switchable without changing executable code after installation; preserve original paths when disabled.",
+        "Keep shared gate and moat traversal services available to independent providers while this mod's own Host features are disabled."
+      ]
+    },
     {
       "Version": "1.0.195",
       "Changes": [

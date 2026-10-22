@@ -52,6 +52,10 @@ internal static class Program {
   Check(sfx.requestBinkPlayState==0,"video without text must keep Vanilla end behavior");
   Setup();settings.EnableNotificationLastFrame=false;Start();OnScreenText.Instance.Flush();hud.EndEvent();
   Check(sfx.requestBinkPlayState==3 && hud.RefRadarME.Opacity==0,"disabled feature preserves Vanilla hidden speech wait");
+  Setup();settings.EnableMod=false;Hold();
+  Check(hud.RefRadarME.Paused && hud.RefRadarME.Opacity==1,"Host off must not stop the personal retained frame");
+  settings.EnableClientFeatures=false;PresentationEvents.Gui();
+  Check(hud.RefRadarME.Source==null && sfx.requestBinkPlayState==0,"Client off clears its owned retained frame");
   Setup();Hold();settings.EnableNotificationLastFrame=false;PresentationEvents.Gui();
   Check(sfx.requestBinkPlayState==0 && audio.isSpeechPlaying(1),"disable closes picture without stopping speech");
 

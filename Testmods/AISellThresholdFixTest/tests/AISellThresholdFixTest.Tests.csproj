@@ -11,5 +11,6 @@
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)/Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
     <Compile Include="../src/SellAssembly.cs" Link="Production/SellAssembly.cs" />
+    <Compile Include="../src/HookPublication.cs" Link="Production/HookPublication.cs" />
   </ItemGroup>
 </Project>

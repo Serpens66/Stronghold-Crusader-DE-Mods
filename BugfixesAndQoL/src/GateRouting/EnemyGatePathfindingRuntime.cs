@@ -153,40 +153,40 @@ namespace BugfixesAndQoL.GateRouting
 
             Shared.NativeResolution pclGraphCompareResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                EnemyGatePathfindingNativeDefinition.PclGraphCapturedByComparePattern,
-                EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva -
-                    EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern,
+                GateRoutingNativeLayout.PclGraphCapturedByComparePattern,
+                GateRoutingNativeLayout.PclGraphCapturedByFilterRva -
+                    GateRoutingNativeLayout.PclGraphCapturedByCompareOffsetInPattern,
                 referenceHashMatches: true,
                 "PCL-graph hostile-gate captured-player comparison",
                 log);
             Shared.NativeResolution builderPrecheckCompareResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
-                EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByComparePattern,
-                EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva -
-                    EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern,
+                GateRoutingNativeLayout.BuilderPrecheckCapturedByComparePattern,
+                GateRoutingNativeLayout.BuilderPrecheckCapturedByFilterRva -
+                    GateRoutingNativeLayout.BuilderPrecheckCapturedByCompareOffsetInPattern,
                 referenceHashMatches: true,
                 "builder-precheck hostile-gate captured-player comparison",
                 log);
             int pclGraphFilterRva = pclGraphCompareResolution.Rva +
-                EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern;
+                GateRoutingNativeLayout.PclGraphCapturedByCompareOffsetInPattern;
             int builderPrecheckFilterRva = builderPrecheckCompareResolution.Rva +
-                EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern;
-            if (pclGraphFilterRva != EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva ||
+                GateRoutingNativeLayout.BuilderPrecheckCapturedByCompareOffsetInPattern;
+            if (pclGraphFilterRva != GateRoutingNativeLayout.PclGraphCapturedByFilterRva ||
                 builderPrecheckFilterRva !=
-                    EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva)
+                    GateRoutingNativeLayout.BuilderPrecheckCapturedByFilterRva)
                 throw new InvalidOperationException("native gate signatures resolved outside their audited RVAs");
 
             libraryBase = unchecked((ulong)context.ModuleHandle.ToInt64());
-            EnemyGatePathfindingNativeDefinition.ValidateNativeHookContracts(memory);
+            GateRoutingNativeLayout.ValidateComparisonSites(memory);
             ProbeExactHookLength(
                 libraryBase,
                 pclGraphFilterRva,
-                EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength,
+                GateRoutingNativeLayout.PclGraphCapturedByFilterHookLength,
                 "PCL-graph captured-player filter");
             ProbeExactHookLength(
                 libraryBase,
                 builderPrecheckFilterRva,
-                EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength,
+                GateRoutingNativeLayout.BuilderPrecheckCapturedByFilterHookLength,
                 "builder-precheck captured-player filter");
             topologyProvider = new GateTopologySnapshotProvider(log, detailedDiagnostics, deferredErrors);
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
@@ -230,14 +230,14 @@ namespace BugfixesAndQoL.GateRouting
                 "capturerAdapter=post-cleanup-test, " +
                 $"pclGraphCapturerFilter=0x{pclGraphFilterRva:X} " +
                 $"({pclGraphCompareResolution.Method}+0x" +
-                $"{EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern:X}), " +
-                $"pclGraphDisplaced={EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength}, " +
+                $"{GateRoutingNativeLayout.PclGraphCapturedByCompareOffsetInPattern:X}), " +
+                $"pclGraphDisplaced={GateRoutingNativeLayout.PclGraphCapturedByFilterHookLength}, " +
                 $"builderPrecheckCapturerFilter=0x{builderPrecheckFilterRva:X} " +
                 $"({builderPrecheckCompareResolution.Method}+0x" +
-                $"{EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern:X}), " +
-                $"builderPrecheckDisplaced={EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength}, " +
+                $"{GateRoutingNativeLayout.BuilderPrecheckCapturedByCompareOffsetInPattern:X}), " +
+                $"builderPrecheckDisplaced={GateRoutingNativeLayout.BuilderPrecheckCapturedByFilterHookLength}, " +
                 $"redBird={redBirdVersion}, " +
-                $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
+                $"dllSha256={GateRoutingNativeLayout.ReferenceSha256}. " +
                 "Managed cursor searches, the whole PCL detour and every global " +
                 "Direction-Grid write were removed.");
                                      }
@@ -533,7 +533,7 @@ namespace BugfixesAndQoL.GateRouting
                 originalZeroKnown = true;
                 byte* captureBase = (byte*)(builderPrecheck ? registers->R13 : registers->RAX);
                 ushort nativeCapturedByPlayerId = *(ushort*)(captureBase + registers->RDX +
-                    EnemyGatePathfindingNativeDefinition.CapturedByPlayerTableDisplacement);
+                    GateRoutingNativeLayout.CapturedByPlayerTableDisplacement);
 
                 int queryPlayerId = builderPrecheck
                     ? unchecked((int)(uint)registers->RBP)
@@ -551,17 +551,17 @@ namespace BugfixesAndQoL.GateRouting
                 }
 
                 int recordBuildingId = *(int*)(record +
-                    EnemyGatePathfindingNativeDefinition.RecordBuildingIdOffset);
+                    GateRoutingNativeLayout.RecordBuildingIdOffset);
                 int ownerPlayerId = *(int*)(record +
-                    EnemyGatePathfindingNativeDefinition.RecordOwnerPlayerIdOffset);
+                    GateRoutingNativeLayout.RecordOwnerPlayerIdOffset);
                 uint subjectGlobalId = *(uint*)(record +
-                    EnemyGatePathfindingNativeDefinition.RecordSubjectGlobalIdOffset);
+                    GateRoutingNativeLayout.RecordSubjectGlobalIdOffset);
                 int firstPcl = *(int*)(record +
-                    EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset);
+                    GateRoutingNativeLayout.RecordFirstPclOffset);
                 int secondPcl = *(int*)(record +
-                    EnemyGatePathfindingNativeDefinition.RecordSecondPclOffset);
+                    GateRoutingNativeLayout.RecordSecondPclOffset);
                 int thirdPcl = *(int*)(record +
-                    EnemyGatePathfindingNativeDefinition.RecordThirdPclOffset);
+                    GateRoutingNativeLayout.RecordThirdPclOffset);
                 if (buildingId != recordBuildingId)
                 {
                     RecordDecision(builderPrecheck,

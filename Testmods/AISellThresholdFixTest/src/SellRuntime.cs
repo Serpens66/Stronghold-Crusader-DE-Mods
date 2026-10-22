@@ -21,7 +21,8 @@ namespace AISellThresholdFixTest
         private readonly ulong image;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook>[] handles = new HookHandle<X64InlineHook>[2];
-        private bool published, tickLogged;
+        private readonly HookPublication publication = new HookPublication();
+        private bool tickLogged;
 
         internal SellRuntime(ManualLogSource logger, CrusaderLibraryLoadContext context)
         {
@@ -59,7 +60,7 @@ namespace AISellThresholdFixTest
                     SellAssembly.Assemble(assembler, image + 0x20000000);
                 }
                 transaction = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                    new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+                    new HookTransactionOptions { InstallOnCommit = false, FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
                 for (int i = 0; i < handles.Length; i++)
                 {
                     int index = i; handles[i] = new HookHandle<X64InlineHook>();
@@ -69,23 +70,22 @@ namespace AISellThresholdFixTest
                 }
                 var result = transaction.Commit();
                 if (!result.IsCompleteSuccess) throw new InvalidOperationException("Incomplete sell hook transaction.");
+                // Commit only prepares and attaches handles. Inspect the real backend
+                // before any write; roots and the no-rollback latch precede Enable.
                 for (int i = 0; i < handles.Length; i++)
                 {
                     var hook = handles[i].Hook;
-                    if (!handles[i].Success || !hook.IsInstalled || hook.DisplacedByteCount != 15 ||
+                    if (!handles[i].Success || hook.IsInstalled || hook.DisplacedByteCount != 15 ||
                         hook.TargetAddress != image + (uint)SellAssembly.Sites[i] || hook.StubAddress == IntPtr.Zero)
-                        throw new InvalidOperationException("Committed hook contract differs.");
-                    var patch = new ReadOnlySpan<byte>((void*)hook.TargetAddress, 15);
-                    if (patch[0] != 0xFF || patch[1] != 0x25 || BitConverter.ToInt32(patch.Slice(2, 4).ToArray(), 0) != 0 ||
-                        BitConverter.ToInt64(patch.Slice(6, 8).ToArray(), 0) != hook.StubAddress.ToInt64() || patch[14] != 0x90)
-                        throw new InvalidOperationException("Committed jump/pointer/padding differs.");
+                        throw new InvalidOperationException("Prepared hook contract differs.");
                 }
+                publication.Publish(this, result.Installed, ValidateInstalled);
             }
             catch { RollbackUnpublished(); throw; }
         }
         internal void Publish()
         {
-            published = true;
+            if (!publication.IsReady) throw new InvalidOperationException("Sell hooks did not pass publication validation.");
             Volatile.Write(ref *(int*)state, 1);
             Shared.DebugLogHelper.LogInfo(log,
                 "hook confirmed: AISellThresholdFixTest active; decision RVA=0x3F1F3..0x3F202, sale RVA=0x29723..0x29732; spans=15/15; reserve>=0, sale<=stock.");
@@ -104,9 +104,24 @@ namespace AISellThresholdFixTest
         partial void DiagTick(int tick);
         private void RollbackUnpublished()
         {
-            if (published) throw new InvalidOperationException("Published hooks cannot be rolled back.");
-            transaction?.Dispose(); transaction = null;
-            Marshal.FreeHGlobal(state);
+            publication.RollbackUnpublished(() =>
+            {
+                transaction?.Dispose(); transaction = null;
+                Marshal.FreeHGlobal(state);
+            });
+        }
+        private void ValidateInstalled()
+        {
+            for (int i = 0; i < handles.Length; i++)
+            {
+                var hook = handles[i].Hook;
+                if (!hook.IsInstalled || hook.DisplacedByteCount != 15 || hook.TargetAddress != image + (uint)SellAssembly.Sites[i])
+                    throw new InvalidOperationException("Installed hook contract differs.");
+                var patch = new ReadOnlySpan<byte>((void*)hook.TargetAddress, 15);
+                if (patch[0] != 0xFF || patch[1] != 0x25 || BitConverter.ToInt32(patch.Slice(2, 4).ToArray(), 0) != 0 ||
+                    BitConverter.ToInt64(patch.Slice(6, 8).ToArray(), 0) != hook.StubAddress.ToInt64() || patch[14] != 0x90)
+                    throw new InvalidOperationException("Installed jump/pointer/padding differs.");
+            }
         }
         private void ValidateLive(int rva, string hex)
         {

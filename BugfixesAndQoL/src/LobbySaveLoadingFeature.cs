@@ -81,7 +81,7 @@ namespace BugfixesAndQoL
 
         private static bool ResolveSoloLoad(bool vanilla, FRONT_Multiplayer self)
         {
-            if (vanilla || soloFailure || !settings.EnableMod || !settings.EnableSoloMultiplayerSaveLoading ||
+            if (vanilla || soloFailure || !settings.EnableClientFeatures || !settings.EnableSoloMultiplayerSaveLoading ||
                 !LobbySaveLoadingPolicy.IsNormalMultiplayer(FRONT_Multiplayer.skirmishGame,
                     FRONT_Multiplayer.coopGame, FRONT_Multiplayer.customCoopGame))
                 return vanilla;
@@ -123,7 +123,7 @@ namespace BugfixesAndQoL
         {
             setupOriginal(self); // Includes other managed hooks; Vanilla executes exactly once.
             if (visibilityFailure || !LobbySaveLoadingPolicy.ShouldRestoreVisibility(
-                settings.EnableMod && settings.FixSkirmishLoadButtonVisibility,
+                settings.EnableClientFeatures && settings.FixSkirmishLoadButtonVisibility,
                 FRONT_Multiplayer.skirmishGame, FRONT_Multiplayer.coopGame)) return;
             try
             {

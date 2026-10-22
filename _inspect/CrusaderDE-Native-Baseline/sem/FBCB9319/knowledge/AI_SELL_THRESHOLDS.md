@@ -22,7 +22,7 @@ Sale executor 0x29700 rejects negative quantities only. Price helper 0xCEB90
 computes `(price / 5) * requestedQuantity`. Before subtracting goods, 0x2974D,
 0x29758 and 0x2975F credit player sale statistics, gold and income respectively.
 0xB7D80 removes only existing eligible physical storage goods (or uses its separate
-editor/direct-account branch), using storage mapping 0xBFD30 and total recount
+native-mode-6/direct-account branch), using storage mapping 0xBFD30 and total recount
 0xC1CE0. Exhausted/no storage does not undo gold. 0xCB050's presentation branch
 does not repair accounting. The defect affects all eight sell-threshold categories.
 
@@ -59,3 +59,15 @@ database manifest rather than an old guessed database path. Execution/build reco
 are under .work/a/aisell/001. No game process or multiplayer result is claimed by
 the private fixture; save loading, map replacement, editor and real peers still
 require game acceptance.
+
+Review follow-up, 2026-10-22: the original standalone constructor's post-commit
+rollback was unsafe if executable writes had already happened. The corrected
+owner prepares with InstallOnCommit=false, roots the full candidate before the
+first activation attempt and never rolls back/frees state after that boundary,
+including partial activation or post-write validation failure. Production-boundary
+fixtures cover pre-write cleanup, throwing and partial backends, post-write
+validation, no retry, GC retention and executable private native code after failure.
+Both test variants now pass 12,746 checks. Review/build evidence:
+.work/a/aisell-review/001. This is a failure-path lifetime correction; the two native
+reserve/quantity generators are unchanged. A raw mode value 6 alone was not an
+audited basis for labeling that alternate removal path as the general editor path.

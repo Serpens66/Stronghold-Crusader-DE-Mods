@@ -219,7 +219,8 @@ namespace BugfixesAndQoL
                 "Vanilla preset strip is enabled for local Skirmish hosts");
 
             string runtime = File.ReadAllText(Path.Combine(project, @"src\SkirmishGameOptionsRuntime.cs"));
-            check(runtime.Contains("viewModel.Show_MPPeacetime = peaceTimeNativeAvailable;") &&
+            // The built-DLL settings suite separately executes PeaceAvailable for both Host states.
+            check(runtime.Contains("viewModel.Show_MPPeacetime = PeaceAvailable;") &&
                   !runtime.Contains("ExtraFeatures") &&
                   runtime.Contains("working.peacetime = committedBeforeApply.peacetime;") &&
                   runtime.Contains("committed.advanced_options = 0;") &&
@@ -268,13 +269,9 @@ namespace BugfixesAndQoL
                 @"src\VanillaPeaceTimeGameplayPatch.cs"));
             check(!runtime.Contains("DebugLogHelper.LogInfo(") &&
                   !access.Contains("DebugLogHelper.LogInfo(") &&
-                  !noDogsPatch.Contains("DebugLogHelper.LogInfo(") &&
-                  !peaceTimePatch.Contains("DebugLogHelper.LogInfo(") &&
                   runtime.Contains("DebugLogHelper.LogDebug(") &&
-                  access.Contains("DebugLogHelper.LogDebugLimited(") &&
-                  noDogsPatch.Contains("DebugLogHelper.LogDebug(") &&
-                  peaceTimePatch.Contains("DebugLogHelper.LogDebug("),
-                "successful initialization and routine Skirmish actions are debug-only");
+                  access.Contains("DebugLogHelper.LogDebugLimited("),
+                "routine Skirmish UI actions are debug-only; native ownership is logged by the permanent switch installer");
             check(runtime.Contains("DebugLogHelper.LogWarningLimited(") &&
                   runtime.Contains("SKIRMISH_GAME_OPTIONS_NO_DOGS_DISABLED") &&
                   runtime.Contains("SKIRMISH_GAME_OPTIONS_PEACE_TIME_DISABLED") &&

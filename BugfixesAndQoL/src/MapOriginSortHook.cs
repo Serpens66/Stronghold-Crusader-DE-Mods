@@ -193,8 +193,8 @@ namespace BugfixesAndQoL
         }
 
         private bool IsActive => LobbyMapSelectionPolicy.IsFeatureEnabled(
-            settings.EnableMod,
-            settings.EnableCustomLordListEnhancements);
+            settings.EnableClientFeatures,
+            settings.EnableLordAndMapListEnhancements);
 
         private void StandaloneHeaderHook(
             FRONT_StandaloneMission self,

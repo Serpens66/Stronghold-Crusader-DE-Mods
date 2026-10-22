@@ -162,6 +162,14 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding ShowLoadSaveDialogControlsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-workshop-upload-lord-selection-fix" shared:ModSettingsSearch.Title="{Binding EnableWorkshopUploadLordSelectionFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableWorkshopUploadLordSelectionFixHelpText}"><CheckBox IsChecked="{Binding EnableWorkshopUploadLordSelectionFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableWorkshopUploadLordSelectionFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableWorkshopUploadLordSelectionFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-lord-and-map-list-enhancements" shared:ModSettingsSearch.Title="{Binding EnableLordAndMapListEnhancementsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableLordAndMapListEnhancementsHelpText}"><CheckBox IsChecked="{Binding EnableLordAndMapListEnhancements, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLordAndMapListEnhancementsHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableLordAndMapListEnhancementsText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-missing-map-save-recovery" shared:ModSettingsSearch.Title="{Binding EnableMissingMapSaveRecoveryText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMissingMapSaveRecoveryHelpText}"><CheckBox IsChecked="{Binding EnableMissingMapSaveRecovery, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMissingMapSaveRecoveryHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableMissingMapSaveRecoveryText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.solo-multiplayer-save-loading" shared:ModSettingsSearch.Title="{Binding EnableSoloMultiplayerSaveLoadingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSoloMultiplayerSaveLoadingHelpText}">
         <CheckBox IsChecked="{Binding EnableSoloMultiplayerSaveLoading, Mode=TwoWay}" Content="{Binding EnableSoloMultiplayerSaveLoadingText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSoloMultiplayerSaveLoadingHelpText}"/>
       </Grid>
@@ -334,12 +342,16 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableVanillaPerformanceOptimizationsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.sprite-sheet-merge" shared:ModSettingsSearch.Title="{Binding EnableSpriteSheetMergeText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSpriteSheetMergeHelpText}"><CheckBox IsChecked="{Binding EnableSpriteSheetMerge, Mode=TwoWay}"
-                Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSpriteSheetMergeHelpText}"
-                Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableSpriteSheetMergeText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.sprite-sheet-merge" shared:ModSettingsSearch.Title="{Binding SpriteSheetMergeModeText}" shared:ModSettingsSearch.ToolTipText="{Binding SpriteSheetMergeModeHelpText}" Margin="0,0,14,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding SpriteSheetMergeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                   ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
+        <ComboBox Grid.Column="1" ItemsSource="{Binding SpriteSheetMergeModeOptions}" SelectedIndex="{Binding SpriteSheetMergeModeIndex, Mode=TwoWay}" Width="160"
+                  ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
+      </Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-fixes-interface" shared:ModSettingsSearch.SectionTitle="{Binding InterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding InterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
@@ -423,6 +435,7 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableCustomLordListEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-random-opponent-selection-enhancements" shared:ModSettingsSearch.Title="{Binding EnableRandomOpponentSelectionEnhancementsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableRandomOpponentSelectionEnhancementsHelpText}"><CheckBox IsChecked="{Binding EnableRandomOpponentSelectionEnhancements, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableRandomOpponentSelectionEnhancementsHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableRandomOpponentSelectionEnhancementsText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-trail-customization-buttons" shared:ModSettingsSearch.Title="{Binding EnableTrailCustomizationButtonsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTrailCustomizationButtonsHelpText}"><CheckBox IsChecked="{Binding EnableTrailCustomizationButtons, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTrailCustomizationButtonsHelpText}"
@@ -522,12 +535,6 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-workshop-upload-lord-selection-fix" shared:ModSettingsSearch.Title="{Binding EnableWorkshopUploadLordSelectionFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableWorkshopUploadLordSelectionFixHelpText}"><CheckBox IsChecked="{Binding EnableWorkshopUploadLordSelectionFix, Mode=TwoWay}"
-                Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableWorkshopUploadLordSelectionFixHelpText}"
-                Margin="0,0,14,8">
-        <TextBlock Text="{Binding EnableWorkshopUploadLordSelectionFixText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.ai-quarry-pile-towards-keep" shared:ModSettingsSearch.Title="{Binding EnableAIQuarryPileTowardsKeepText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAIQuarryPileTowardsKeepHelpText}"><CheckBox IsChecked="{Binding EnableAIQuarryPileTowardsKeep, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAIQuarryPileTowardsKeepHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableAIQuarryPileTowardsKeepText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.host-qol-troop-movement" shared:ModSettingsSearch.SectionTitle="{Binding TroopMovementTitleText}">
@@ -574,6 +581,7 @@
               Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAbruptHostMigrationFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-multiplayer-startup-state-fix" shared:ModSettingsSearch.Title="{Binding EnableMultiplayerStartupStateFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMultiplayerStartupStateFixHelpText}"><CheckBox IsChecked="{Binding EnableMultiplayerStartupStateFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerStartupStateFixHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableMultiplayerStartupStateFixText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-connection-recovery-save" shared:ModSettingsSearch.Title="{Binding EnableConnectionRecoverySaveText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableConnectionRecoverySaveHelpText}"><CheckBox IsChecked="{Binding EnableConnectionRecoverySave, Mode=TwoWay}"
               Foreground="White"
               ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableConnectionRecoverySaveHelpText}"
@@ -610,6 +618,7 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableTanneryAnimationFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-peace-time-gameplay-fixes" shared:ModSettingsSearch.Title="{Binding EnablePeaceTimeGameplayFixesText}" shared:ModSettingsSearch.ToolTipText="{Binding EnablePeaceTimeGameplayFixesHelpText}"><CheckBox IsChecked="{Binding EnablePeaceTimeGameplayFixes, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePeaceTimeGameplayFixesHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnablePeaceTimeGameplayFixesText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-corrupt-lord-data-spawn-fix" shared:ModSettingsSearch.Title="{Binding EnableCorruptLordDataSpawnFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCorruptLordDataSpawnFixHelpText}"><CheckBox IsChecked="{Binding EnableCorruptLordDataSpawnFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCorruptLordDataSpawnFixHelpText}"

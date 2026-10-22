@@ -107,7 +107,7 @@ namespace BugfixesAndQoL.UnitCommands
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     // Published hooks remain process-owned permanently.
                     OwnsHooks = true,
-                    Backend = HookInstallPhase.Backend(APIShared.AssassinPathAPI.Backend)
+                    Backend = HookInstallPhase.Backend(CommandDetourBackend)
                 });
         }
 
@@ -157,7 +157,7 @@ namespace BugfixesAndQoL.UnitCommands
                 Callback = rootedUnitStandingOnCompletedMoat,
                 IntermediaryFactory = MoatModeFlagIntermediaryFactory.Instance
             };
-            var candidate = APIShared.AssassinPathAPI.Backend.CreateDetour(in request)
+            var candidate = CommandDetourBackend.CreateDetour(in request)
                 as NativeDetour<UnitStandingOnCompletedMoatDelegate>;
             if (candidate == null)
                 throw new InvalidOperationException("The installed moat-mode backend is not NativeX64.");

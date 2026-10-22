@@ -24,6 +24,11 @@ namespace BugfixesAndQoL
         public event Action<string> SettingChanged;
 
         private bool enableMod = true;
+        private bool enableLordAndMapListEnhancements = true;
+        private bool enableMissingMapSaveRecovery = true;
+        private bool enableRandomOpponentSelectionEnhancements = true;
+        private bool enableMultiplayerStartupStateFix = true;
+        private bool enablePeaceTimeGameplayFixes = true;
         private bool allowFullAiMultiplayerLobby = true;
         private bool showMpAdvancedSettingsInSingleplayer = true;
         private bool rememberAiAivSettings = true;
@@ -229,6 +234,51 @@ namespace BugfixesAndQoL
             });
             HealthBarHotkeyInputCommand = new ParameterRelayCommand(CaptureHealthBarHotkey);
             steamInviteBlacklist.Changed += OnSteamInviteBlacklistChanged;
+        }
+
+        public string EnableLordAndMapListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancements");
+        public string EnableLordAndMapListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancementsHelp");
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableLordAndMapListEnhancements
+        {
+            get => enableLordAndMapListEnhancements;
+            set => SetSetting(ref enableLordAndMapListEnhancements, value, nameof(EnableLordAndMapListEnhancements));
+        }
+
+        public string EnableMissingMapSaveRecoveryText => SerpLocalization.Get("BugfixesAndQoL.EnableMissingMapSaveRecovery");
+        public string EnableMissingMapSaveRecoveryHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMissingMapSaveRecoveryHelp");
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableMissingMapSaveRecovery
+        {
+            get => enableMissingMapSaveRecovery;
+            set => SetSetting(ref enableMissingMapSaveRecovery, value, nameof(EnableMissingMapSaveRecovery));
+        }
+
+        public string EnableRandomOpponentSelectionEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableRandomOpponentSelectionEnhancements");
+        public string EnableRandomOpponentSelectionEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableRandomOpponentSelectionEnhancementsHelp");
+        [SyncHostOnly]
+        public bool EnableRandomOpponentSelectionEnhancements
+        {
+            get => enableRandomOpponentSelectionEnhancements;
+            set => SetSetting(ref enableRandomOpponentSelectionEnhancements, value, nameof(EnableRandomOpponentSelectionEnhancements));
+        }
+
+        public string EnableMultiplayerStartupStateFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMultiplayerStartupStateFix");
+        public string EnableMultiplayerStartupStateFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMultiplayerStartupStateFixHelp");
+        [SyncHostOnly]
+        public bool EnableMultiplayerStartupStateFix
+        {
+            get => enableMultiplayerStartupStateFix;
+            set => SetSetting(ref enableMultiplayerStartupStateFix, value, nameof(EnableMultiplayerStartupStateFix));
+        }
+
+        public string EnablePeaceTimeGameplayFixesText => SerpLocalization.Get("BugfixesAndQoL.EnablePeaceTimeGameplayFixes");
+        public string EnablePeaceTimeGameplayFixesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePeaceTimeGameplayFixesHelp");
+        [SyncHostOnly]
+        public bool EnablePeaceTimeGameplayFixes
+        {
+            get => enablePeaceTimeGameplayFixes;
+            set => SetSetting(ref enablePeaceTimeGameplayFixes, value, nameof(EnablePeaceTimeGameplayFixes));
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
@@ -1514,6 +1564,9 @@ namespace BugfixesAndQoL
             if (CanEditHostSettings)
             {
                 EnableMod = true;
+                EnableRandomOpponentSelectionEnhancements = true;
+                EnableMultiplayerStartupStateFix = true;
+                EnablePeaceTimeGameplayFixes = true;
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
@@ -1587,6 +1640,8 @@ namespace BugfixesAndQoL
 
             // Every participant resets only their own per-player preferences.
             EnableClientFeatures = true;
+            EnableLordAndMapListEnhancements = true;
+            EnableMissingMapSaveRecovery = true;
             AllowMinimapWhilePlacingBuilding = true;
             PreventMoveOrderOnPlacementCancel = true;
             AllowCameraMovementWithModifiers = true;

@@ -6,6 +6,9 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
+#if !SERP_DEVDIAG
+using MeritReadState = System.Boolean;
+#endif
 
 namespace BugfixesAndQoL.VanillaPerformance
 {
@@ -15,7 +18,7 @@ namespace BugfixesAndQoL.VanillaPerformance
     // change slowly. While another thread holds the lock, a copy of the last Vanilla result younger
     // than MaxAge is returned; otherwise Vanilla runs unchanged. Callers may modify the returned array
     // (HUD_MeritPanel does), so every result is a fresh clone. The cache is dropped on map unload.
-    internal static class MeritDataLockOptimization
+    internal static partial class MeritDataLockOptimization
     {
         private static readonly long MaxAgeTicks = Stopwatch.Frequency * 3;
         private static readonly Harmony harmony = new Harmony("BugfixesAndQoL_Serp.VanillaPerformance.Merit");
@@ -56,21 +59,46 @@ namespace BugfixesAndQoL.VanillaPerformance
             if (!active) Invalidate();
         }
 
-        private static bool BeforeGetMeritData(ref int[,] __result, out bool __state)
+        static partial void DiagBegin(ref MeritReadState state);
+        static partial void DiagDecision(ref MeritReadState state, string reason, long cacheAge);
+        static partial void DiagEnd(ref MeritReadState state);
+
+        private static bool BeforeGetMeritData(ref int[,] __result, out MeritReadState __state)
         {
-            __state = false;
-            if (Volatile.Read(ref enabled) == 0) return true;
+            __state = default;
+            DiagBegin(ref __state);
+            if (Volatile.Read(ref enabled) == 0)
+            {
+                DiagDecision(ref __state, "disabled", -1);
+                return true;
+            }
             int[,] cached = Volatile.Read(ref cache);
-            if (cached == null || Stopwatch.GetTimestamp() - Volatile.Read(ref cacheStamp) > MaxAgeTicks) return true;
+            if (cached == null)
+            {
+                DiagDecision(ref __state, "cache-missing", -1);
+                return true;
+            }
+            long age = Stopwatch.GetTimestamp() - Volatile.Read(ref cacheStamp);
+            if (age > MaxAgeTicks)
+            {
+                DiagDecision(ref __state, "cache-expired", age);
+                return true;
+            }
             // Free or owned by this thread (reentrant): Vanilla takes the lock itself. A race in which the
             // simulation acquires it right after this check only waits as Vanilla would.
             if (Monitor.TryEnter(threadLock))
             {
                 Monitor.Exit(threadLock);
+                DiagDecision(ref __state, "lock-free-at-probe", age);
                 return true;
             }
             __result = (int[,])cached.Clone();
+#if SERP_DEVDIAG
+            __state.Served = true;
+#else
             __state = true;
+#endif
+            DiagDecision(ref __state, "cache-served-lock-busy", age);
             if (Interlocked.Increment(ref served) == 1)
                 Shared.DebugLogHelper.LogInfo(log,
                     "VANILLA_PERF_MERIT_CONFIRMED: served cached merit data while the simulation held the engine lock.");
@@ -78,12 +106,20 @@ namespace BugfixesAndQoL.VanillaPerformance
         }
 
         // Only fresh Vanilla results refresh the cache; served clones keep the original age.
-        private static void AfterGetMeritData(int[,] __result, bool __state)
+        private static void AfterGetMeritData(int[,] __result, MeritReadState __state)
         {
-            if (__state || __result == null || Volatile.Read(ref enabled) == 0) return;
-            int[,] copy = (int[,])__result.Clone();
-            Volatile.Write(ref cacheStamp, Stopwatch.GetTimestamp());
-            Volatile.Write(ref cache, copy);
+#if SERP_DEVDIAG
+            try
+            {
+#endif
+                if (__state || __result == null || Volatile.Read(ref enabled) == 0) return;
+                int[,] copy = (int[,])__result.Clone();
+                Volatile.Write(ref cacheStamp, Stopwatch.GetTimestamp());
+                Volatile.Write(ref cache, copy);
+#if SERP_DEVDIAG
+            }
+            finally { DiagEnd(ref __state); }
+#endif
         }
 
         private static void Invalidate() => Volatile.Write(ref cache, null);

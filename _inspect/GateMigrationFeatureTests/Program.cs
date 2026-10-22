@@ -9,6 +9,8 @@ class Program {
  bool fixOff=Array.IndexOf(args,"--own-fix-off")>=0;
  BepInEx.Configuration.ConfigFile.Fail=Array.IndexOf(args,"--config-save-fails")>=0;
  var vm=new BugfixesAndQoLViewModel();
+ bool foreignBoot=Array.IndexOf(args,"--foreign-host-off")>=0;
+ if(foreignBoot){vm.EnableMod=false;vm.EnableEnemyGatePathfindingFix=false;GateAccessRules.TryRegister("boot.foreign","needed",q=>GateAccessDecision.Deny,out _);}
  if(fixOff)vm.EnableEnemyGatePathfindingFix=false;
  GateRoutingFeature.Configure(new BepInEx.Logging.ManualLogSource(),new BepInEx.Configuration.ConfigFile(),vm);
  // Normal builds do not read any development diagnostic configuration. The dedicated
@@ -20,6 +22,14 @@ class Program {
 #endif
  Check(Shared.DebugLogHelper.Errors==(BepInEx.Configuration.ConfigFile.Fail?diagnosticConfigErrors:0),"config errors are contained and reported");
  GateRoutingFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext(),true);
+ if(foreignBoot)
+ {
+  Check(EnemyGatePathfindingRuntime.Created==1,"foreign provider warms up while own Host is off");
+  Shared.GameplaySessionLifecycle.Start.Fire(new Shared.Session());
+  Check(GateRoutingFeature.IsActive,"foreign map service starts independently of own Host");
+  Check(GateRoutingFeature.IsBlocked(1,1,42,1,0,false),"foreign deny reaches snapshot with H=false");
+  Console.WriteLine("PASS: "+checks+" foreign-at-startup H=false checks.");return;
+ }
  if(fixOff)
  {
   // Fix off and no foreign rules: no native hooks at library load; enabling later installs lazily.
@@ -52,7 +62,10 @@ class Program {
  Check(GateRoutingFeature.IsBlocked(1,1,42,1,0,false),"invalidation changes own access");
  vm.EnableEnemyGatePathfindingFix=false;vm.Changed(nameof(vm.EnableEnemyGatePathfindingFix));
  Check(GateRoutingFeature.IsActive,"explicit consumer still served with own rule off");
- vm.EnableMod=false;vm.Changed(nameof(vm.EnableMod));Check(!GateRoutingFeature.IsActive,"whole mod off is authoritative");
+ vm.EnableMod=false;vm.Changed(nameof(vm.EnableMod));Check(GateRoutingFeature.IsActive,"foreign rule remains served while own Host switch is off");
+ Check(GateRoutingFeature.IsBlocked(1,1,42,1,0,false),"foreign deny remains authoritative with H=false");
+ decision=GateAccessDecision.Unchanged;GateAccessRules.Invalidate("foreign.mod","gate");SHCDESE.API.GameTimeManagerAPI.Instance.Tick();
+ Check(!GateRoutingFeature.IsBlocked(1,1,42,1,0,false),"dormant foreign rule preserves Vanilla with own host off");
  vm.EnableMod=true;vm.Changed(nameof(vm.EnableMod));
  Shared.MissionEvents.Ended.Fire(0);Check(!GateRoutingFeature.IsActive,"map end inactive");
  Shared.GameplaySessionLifecycle.Start.Fire(new Shared.Session());Check(GateRoutingFeature.IsActive&&EnemyGatePathfindingRuntime.Created==1,"map reload no repatch");

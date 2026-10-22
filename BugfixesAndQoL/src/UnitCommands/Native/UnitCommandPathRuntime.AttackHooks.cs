@@ -138,6 +138,7 @@ namespace BugfixesAndQoL.UnitCommands
                 originalBuildingApproachBuilder = pendingBuildingApproach.Original;
                 originalBuildingCandidateConsumer = pendingBuildingConsumer.Original;
                 originalRegionPairReachability = pendingRegionPair.Original;
+                DiagWrapBuildingOriginals();
                 ValidatePublishedCommandHooks(pendingTransaction);
 
                 if (!commitResult.IsCompleteSuccess || !pendingUnitFlood.Committed ||

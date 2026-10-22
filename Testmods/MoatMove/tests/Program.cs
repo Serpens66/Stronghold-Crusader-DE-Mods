@@ -256,6 +256,10 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
         "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>()
         .Single(n => n.Identifier.Text == "AssassinTransitionKind") + "}"),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinRouteHandoff.cs"))),
+    // The production BeginRouteOutput entry over the real handoff; the rest of AssassinPathAPI needs native hooks.
+    CSharpSyntaxTree.ParseText("using System; namespace APIShared { public static partial class AssassinPathAPI {" +
+        CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinPathAPI.cs")))
+            .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "BeginRouteOutput") + "} }"),
     referenceTree,
     comparisonTree,
     comparisonPlannerTree,

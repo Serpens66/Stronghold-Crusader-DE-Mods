@@ -21,14 +21,16 @@ foreach ($file in $files) {
     if ($file.Extension -eq '.cs' -and $file.FullName -notmatch '[\\/]tests[\\/]') {
         if ($content -match 'System\.Text\.Json|Newtonsoft|JsonUtility|JavaScriptSerializer|DataContractJsonSerializer|System\.Web\.Extensions') { throw 'Forbidden runtime JSON.' }
         if ($content -match '\b(?:OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine|InvokeRepeating)\s*\(') { throw 'Forbidden plugin lifecycle/scheduling.' }
-        if ($content -match '\.(?:Enable|Disable|Apply|Undo|Unpatch|UnpatchAll)\s*\(|CodePatch\.Write|VirtualProtect|FlushInstructionCache|VirtualFree') { throw 'Unexpected runtime executable mutation.' }
+        if ($content -match '\.(?:Disable|Apply|Undo|Unpatch|UnpatchAll)\s*\(|CodePatch\.Write|VirtualProtect|FlushInstructionCache|VirtualFree') { throw 'Unexpected runtime executable mutation.' }
+        if ($file.Name -ne 'HookPublication.cs' -and $content -match '\.Enable\s*\(') { throw 'Activation must use the tested publication boundary.' }
     }
 }
 # Additional guardrail because the shared published-hook scanner deliberately excludes testmods.
-# Dispose is allowed only in the private initialization rollback guarded by published.
+# Bounded source guardrails only; the production publication boundary is executed
+# below with before-write, partial-write, post-validation and GC failure fixtures.
 $runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\SellRuntime.cs'))
 if (@([regex]::Matches($runtime,'transaction\?\.Dispose\(\)')).Count -ne 1 -or
-    $runtime -notmatch 'if \(published\) throw new InvalidOperationException\("Published hooks cannot be rolled back\."\);\s*transaction\?\.Dispose\(\)') { throw 'Initialization-only rollback contract changed.' }
+    $runtime -notmatch 'publication\.RollbackUnpublished\(' -or $runtime -notmatch 'InstallOnCommit = false') { throw 'Initialization-only preparation/rollback contract changed.' }
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-SharedBoundaries.ps1') -Workspace $workspace -ModDirectory 'Testmods\AISellThresholdFixTest' -IndependentRuntime -ConsumerOnly
 if (-not $?) { throw 'Scoped runtime preflight failed.' }
 $metadata = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'info.json') | ConvertFrom-Json

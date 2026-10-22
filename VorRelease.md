@@ -12,9 +12,38 @@ Seit den letzten Commits noch nicht committet, alles geprüft:
   - `BugfixesAndQoL/tests/Issue6.Tests` (nur noch Patrol) und neu `StartConditions/tests/StartSettings.Tests`
   - ExtendedData-Kartencache-Grenze samt Test und Changelog
   - Umstellung der `errorlevel`-Prüfungen in 49 `build.bat` sowie der Interaktiv-Fix in `Shared/Tools/Validation/Test-BuildDrivers.ps1` (Stdin ohne UTF-8-BOM, sonst beendete die BOM unter PowerShell 5.1 die Pause)
+  - BFQoL nutzt statt `APIShared.Internal.{DebugLogHelper, UnityMainThreadDispatch, GameBuildingFootprint, NativePatternResolver, NativePatternSearchScope, NativeResolution, MissionEvents}` die quellverlinkten `Shared.*`-Gegenstücke (62 Stellen in 14 Dateien unter `BugfixesAndQoL/src/Formations` und `src/UnitCommands`). **Noch nicht kompiliert und nicht getestet:** Der Build wurde zurückgestellt, weil andere Chats parallel an BFQoL arbeiten. Vor dem Release-Build `Test-UnitCommandSplit`, die BFQoL-Tests und die MoatMove-Suite laufen lassen.
   - diese Datei
   - Nicht von mir und unverändert: die nicht getrackten `ModsettingsFix.md` und `Testmods/AISellThresholdFixTest/`.
-- **APIShared:** zusammengefasster 0.12.5-Changelog in `info.json` und die `errorlevel`-Umstellung in `build.bat`.
+- **APIShared:**
+  - zusammengefasster 0.12.5-Changelog in `info.json` und die `errorlevel`-Umstellung in `build.bat`
+  - Review-Fixes, die APISharedTests (Workshop, ModSettingsSearch, UnitHud, Recruitment) sind mit 36/36 grün:
+    - ModSettings-Suche: Nicht auflösbare Markup-Erweiterungen (`{StaticResource …}`, `{TemplateBinding …}`, `{x:Static …}`) erscheinen nicht mehr als Titel bzw. Tooltip. Mit `{}` maskierter Text wird korrekt gelesen. Dazu ein neuer Test in `ModSettingsSearchCatalogTests`.
+    - Workshop: Ändert sich die Steam-Abo-Liste während der Initialisierung, wird bis zu dreimal neu gelesen, statt die Workshop-Startbehandlung für die ganze Sitzung abzuschalten (`WorkshopRuntime.InitialSubscriptions`).
+    - Unit-HUD-Rekrutierung: Die Hover-Handler der Varianten-Buttons werden nur einmal pro Button-Instanz angehängt.
+  - Neue öffentliche Provider-APIs für 0.12.5. Sie ersetzen die Friend-Interna, die BFQoL noch nutzt; die Public-API-Baseline enthält nur Zusätze (+43 Zeilen). Core.Tests 302/302, APISharedTests 370/370 (1 übersprungen), Doku-Linkprüfung PASS:
+    - `RouteSearchEvents.BeginSearch` / `HasObservers`, `RouteSearchOperation` und ein öffentlicher, validierender `RouteSearchContext`-Konstruktor
+    - `AssassinPathAPI.BeginRouteOutput` mit `AssassinRouteOutputFrame` (Complete/Leave)
+    - `EnemyBridgeDiagnosticBridge.PublishTopologyOwner` (jetzt öffentlich)
+    - `GateRoutingNativeLayout`: Adressen, Längen, Patterns und Record-Offsets als Laufzeit-Properties sowie `ValidateComparisonSites`/`ValidateMovementSites`
+    - Katalog, `GATE_ROUTING.md`, `ARCHITECTURE.md` und der 0.12.5-Changelog sind ergänzt, ebenso für die drei Review-Fixes.
+  - **BFQoL ist auf die öffentlichen APIs umgestellt** (Mod-Repo, nicht committet):
+    - Routensuche über `BeginSearch` (`WeightedMoatRoutePlanner.cs`). Die Anfangskosten (8 bis etwa 5·10¹⁰) liegen sicher unter der Grenze von etwa 1,8·10¹², sodass die neue Kostenprüfung nie greift.
+    - Assassinen-Ausgabe über `BeginRouteOutput` (`MovementPathPublication.cs`)
+    - `GateRoutingNativeLayout` statt `EnemyGatePathfindingNativeDefinition` in 6 GateRouting-Dateien. Bei `libraryBase + RVA` ist jetzt ein `(ulong)`-Cast nötig, weil die Werte keine Konstanten mehr sind (`SamePclGateRouteRuntime.cs`).
+    - ein eigenes `CommandDetourBackend` mit denselben Optionen statt `AssassinPathAPI.Backend` (`NativeDetourContracts.cs`, `UnitCommandPathRuntime.NativeContracts.cs`)
+    - eine DEVDIAG-Kopie des Callback-Emitters (`src/GateRouting/DiagnosticCallbackAdapterEmitter.DevDiag.cs`)
+    - Fixtures ergänzt: `GateRouting.Tests.csproj`, `AssassinPathfinding.Tests` (zwei Fixtures), MoatMove `tests/Program.cs` und der aktiv genutzte Harness `_inspect/TemporaryGateAcceptanceRuntimeTests/Fixture.cs`
+  - **Geprüft:**
+    - Compile-Check von BFQoL Release und DEVDIAG gegen das Arbeitsstand-APIShared erfolgreich
+    - Cecil-Scan beider DLLs: keine Bindung an APIShared-Interna mehr; der offizielle Test `ScannedFriendConsumersBindOnlyPinnedInternals` besteht.
+    - grün: GateRouting.Tests, AssassinPathfinding.Tests (16253 Assertions), MoatMove-Suite, `Test-RuntimePreflight`
+  - **Rot durch fremde, uncommittete Arbeit, nicht durch diese Umstellung:**
+    - `Test-SharedBoundaries`: LF in `BugfixesAndQoL/tests/Modsettings.Tests/Modsettings.Tests.csproj`
+    - `Test-UnitCommandSplit`: `Shared.DevDiagRuntime` fehlt in `UnitCommandPathRuntime.Spikes.DevDiag.cs`.
+    - Gate-Acceptance-Harness und FriendlyMoatMovement.Tests: Ihre Fixtures kennen das neue `partial void DiagFinishBuildingApproach` (BuildingCandidates/Spikes) nicht.
+    - Nach deren Korrektur alle vier erneut laufen lassen.
+  - Ein BFQoL-Build per `build.bat` braucht ein APIShared-SDK mit den neuen APIs, also APIShared committen oder den Arbeitsstand als SDK wählen.
 
 ## 2. Bauen und installieren (Spiel vorher schließen)
 
@@ -56,5 +85,13 @@ Bisher ist keiner durchgeführt. Vorrangig 1–4.
 
 - Der Fix für Saves mit fehlender Karte in BFQoL (`SavegameMissingMap`) ist noch an den Hash von `Assembly-CSharp.dll` gebunden. Nach einem Spielupdate deaktiviert er sich mit einem Error. Eine Umstellung auf Codeprüfung wie bei der Weizen-Korrektur wäre eine eigene Native-Analyse.
 - Feste Daten-RVAs in BFQoL (z. B. `ChorePatrolModeRva`, FormationSpeech) sind hashgebunden und müssen nach einem Spielupdate neu auditiert werden.
-- BFQoL nutzt `APIShared.Internal.*` per InternalsVisibleTo und ist daher bei internen APIShared-Änderungen release-gekoppelt.
-- Nicht vollständig geprüft wurden: die APIShared-Bereiche Workshop/Search, Recruitment, TroopActionHud und GateRoutingNativeHooks (nur Stichproben) sowie der Inhalt reiner DEVDIAG-Diagnose.
+- **InternalsVisibleTo-Kopplung BFQoL → APIShared:**
+  - Entschieden ist, dass Verbraucher nur öffentliche APIShared-APIs nutzen. Die Ersatz-APIs stehen in 0.12.5 bereit, und BFQoL ist umgestellt (§1).
+  - Ein neues BFQoL bindet keine APIShared-Interna mehr. Den Release-Build vor der Veröffentlichung noch einmal scannen (`APISHARED_CONSUMER_SCAN`).
+  - Grant und Pin-Datei `FriendInternals.BugfixesAndQoL.txt` bleiben, solange ältere BFQoL-Versionen unterstützt werden. Weil Breaking Changes derzeit erlaubt sind, können sie nach dem nächsten BFQoL-Release bewusst entfernt werden.
+  - Die festen Werte in `GateRoutingNativeLayout` sind Properties: Ein neues BFQoL übernimmt nach einem Spielupdate korrigierte Adressen schon mit einem APIShared-Update.
+- Der APIShared-Review von Workshop (alle Dateien), ModSettings-Suche, Recruitment, TroopActionHud und GateRoutingNativeHooks/CapturerComparisonAdapterEmitter ist abgeschlossen. Die Fixes stehen in §1. Ohne Handlungsbedarf bleiben einige Randbeobachtungen:
+  - Im Workshop wird beim Abbruch die Cancel-Datei doppelt geschrieben (harmlos).
+  - Ist der Unity-Dispatcher nicht verfügbar, bleibt ein Upload als aktiv markiert, bis das Spiel neu startet.
+  - Die Suche faltet Groß-/Kleinschreibung mit der aktuellen Kultur.
+- Nicht geprüft wurde der Inhalt reiner DEVDIAG-Diagnose.

@@ -67,7 +67,7 @@ namespace BugfixesAndQoL
 
         private void ButtonClickedHook(FRONT_EditorSetup self, string command)
         {
-            if (!settings.EnableMod || !settings.EnableWorkshopUploadLordSelectionFix)
+            if (!settings.EnableClientFeatures || !settings.EnableWorkshopUploadLordSelectionFix)
             {
                 policy.CancelPending();
                 buttonOriginal(self, command);

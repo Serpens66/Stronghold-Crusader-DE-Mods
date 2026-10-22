@@ -160,7 +160,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool IsActive => settings.EnableMod && settings.EnableCustomLordListEnhancements;
+        private bool IsActive => settings.EnableClientFeatures && settings.EnableLordAndMapListEnhancements;
 
         public void ApplySetting()
         {

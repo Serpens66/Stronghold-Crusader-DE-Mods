@@ -1,5 +1,7 @@
 # BugfixesAndQoL: Modsettings korrigieren
 
+> Umsetzung vom 22.10.2026: implementiert als 1.0.196; technische Prüfungen und Grenzen siehe Abschnitt 6. Die Entwurfs-/Auditangaben unten sind historische Ausgangsbefunde.
+
 Stand: 22.10.2026. Entwurf und erneut geprüfte Bestandsaufnahme; die beschriebenen Runtime-Fixes sind noch nicht implementiert.
 
 ## 1. Ziel und verbindliches Verhalten
@@ -106,17 +108,24 @@ Außerdem installiert [BugfixesAndQoLPlugin](BugfixesAndQoL/src/BugfixesAndQoLPl
 
 Die Umsetzung der nativen Abschaltbarkeit ist ein eigener fachlicher Arbeitsschritt: permanente, einmal installierte bedingte Stubs/Detours statt Laufzeit-Rückpatchen. Bei deaktivierter eigener Erweiterung den vollständigen ursprünglichen Pfad ausführen; reguläre Vanilla-MP-Regeln und legitim von einer fremden aktiven Funktion benötigte Verarbeitung erhalten. Nicht einfach das gesamte Friedenszeitflag oder die Vanilla-Spielregel abschalten.
 
-Hier liegt **noch kein fertig auditierter neuer Maschinenkode-Vertrag** vor. Der vorhandene Friedenszeit-Audit deckt die bestehende Timer-/Gameplaykette ab; die neue logische Verzweigung und insbesondere der vollständige „Keine Hunde“-Kontext benötigen vor Implementierung einen frischen featurebezogenen Audit samt echten Spannen, eingehenden Sprüngen und deaktivierter Originalsemantik. Der Aktivierungsfehler ist durch die Quellen bestätigt; ein sicherer Ersatz darf nicht allein aus den bisherigen zwei Patchbytes abgeleitet werden.
+Der nachfolgende Audit hat die offenen nativen Grundlagen geklärt; Nachweise stehen im [Auditbericht](.work/a/modsettings/001/AuditReport.md). Die 31 bestehenden Eingriffsstellen lassen sich auf 25 getrennte Umschaltbereiche abbilden. Für die beiden Einstiegshooks bleiben die geprüften 16-/18-Byte-Spannen bestehen. Die übrigen 23 Bereiche können einen sechs Byte langen indirekten Sprung mit vollständiger Instruktionsverdrängung von sechs bis neun Bytes verwenden. Ein pauschaler 14-Byte-Inlinehook an den bisherigen Zwei-Byte-Stellen wäre ungeeignet.
+
+Empfohlene Umsetzung: permanente native Verzweigung mit einem gemeinsam veröffentlichten Aktivierungsbyte pro eigener Funktion. Der inaktive Zweig führt die vollständig verdrängten Originalinstruktionen aus; der aktive Zweig die bisherigen Produktionsersetzungen einschließlich ihrer ursprünglichen Kontrollziele. RCX, Stack und eingehende Flags müssen bis zum jeweiligen Original-/Aktivblock erhalten bleiben. RIP-relative Datenziele und interne Sprungziele werden beim Umlegen vollständig berücksichtigt. Den indirekten Zeigerslot in nachgewiesener Reichweite reservieren; sämtliche vergrößerten physischen Spannen gegen aktuelle Bytes, eingehende direkte Sprünge und bekannte Tabellenziele prüfen. Vor Veröffentlichung alle Ressourcen vorbereiten und Gates auf aus setzen. Bereits veröffentlichte Eingriffe bleiben auch bei einem späteren Teilfehler verwurzelt und logisch aus; keine Rückpatch-/Dispose-Schleife als Fehlerbehandlung.
+
+Für „Keine Hunde“ ist der vollständige Kontext nun bestätigt: Mapper `MAPPER_DOG_CAGE` (`0x138`), Modus-0-Bypass vor dem Eingriff, anschließende Modus-99-Ausnahme und die tatsächliche NoDogs-Spielregel. Ein bedingter Ersatz im Bereich `FFD94–FFD99` erhält bei aus den Originalpfad und bei an die bisherige Entfernung der Modus-99-Ausnahme. Die vollständige native Mapperfunktion wurde mit 322.560 Eingaben in vier Varianten ausgeführt; der Prototyp liefert aus dieselben Ergebnisse wie Vanilla und an dieselben wie der bestehende Patch. NoDogs-Setup, aktive Spielregel und gespeicherte Daten werden dabei nicht gelöscht oder umgeschrieben.
+
+Dies ist ein abgeschlossener Grundlagen-/Machbarkeitsaudit mit isolierten Maschinenkode-Tests. Der fertige integrierte Runtime-Vertrag, dessen Installation und echte Spiel-/MP-Abnahme entstehen erst bei der anschließenden Implementierung. Insbesondere darf ein bestandenes Prototyptestprogramm nicht als schon behobenes Modsettings-Verhalten ausgegeben werden.
 
 ### 2.6 Gemeinsame Dienste und fremde Featurebesitzer
 
 Die erste Analyse muss außerdem zwischen eigener optionaler Wirkung und dem Betrieb gemeinsamer Infrastruktur unterscheiden:
 
 - [TrailCustomizationFeature](BugfixesAndQoL/src/TrailCustomizationFeature.cs) verwendet bereits `(H && eigeneOption) || fremderProviderAktiv`. Ein weiterhin sichtbarer Customize-Button von ExtendedData ist deshalb nicht automatisch ein Bug. Die fremde Funktion folgt ihren eigenen Settings.
-- [GateRoutingFeature](BugfixesAndQoL/src/GateRouting/GateRoutingFeature.cs) erlaubt Fremdregistrierungen trotz ausgeschalteter eigener Toroption, sperrt aber bisher den Gesamtdienst mit `H`. Der Betriebsbedarf muss aus eigener aktiver Torregel **oder** tatsächlich benötigten Fremdbeiträgen stammen. `H` darf nur die eigene Regel abschalten. Alle Start-/Tick-/Refresh-/Fehlerpfade konsistent berücksichtigen.
-- [MovementOptionsSnapshot.Capture](BugfixesAndQoL/src/UnitCommands/Runtime/MovementOptionsSnapshot.cs) koppelt fremde Traversal-Anbieter bisher ebenfalls an `H`. Eigene manuelle Erweiterung und fremden Traversal-Bedarf trennen; jede vom Fremdanbieter benötigte gemeinsame Befehlsverarbeitung nach dessen validierter Freigabe betreiben. Keine neue BugfixesAndQoL-Option für MoatMove erfinden.
-- Bereits bestehende [Movement-Cadence-Anbieter](BugfixesAndQoL/src/TroopMovementFix3Runtime.cs) zeigen dieses Muster: eigene Synchronisierung/Terrainkorrektur abschaltbar, fremder Callbackbedarf getrennt. Dieses Verhalten erhalten.
-- Bei Coop-Importen müssen notwendige Verarbeitung und Validierung einer tatsächlich angeforderten fremden Startfunktion erhalten bleiben. Das betrifft auch die vorgeschaltete Custom-Coop-Validierung in `HostStartGameHook`, die schon vor `IsFeatureActive()` läuft. Keine pauschale Freigabe nur wegen `coopGame`; stattdessen den tatsächlichen Start-/Providerbedarf feststellen und Vorschau sowie Ausführung darauf abstimmen. Sicherheitsprüfungen nicht ersatzlos streichen.
+- [GateRoutingFeature](BugfixesAndQoL/src/GateRouting/GateRoutingFeature.cs) erlaubt Fremdregistrierungen trotz ausgeschalteter eigener Toroption, sperrt aber bisher den Gesamtdienst mit `H`. Eigene Regel: `H && EnableEnemyGatePathfindingFix`. Gemeinsamer Bedarf: eigene Regel oder `GateAccessRules.HasRegistrations`, zusätzlich gültige Karte und technische Voraussetzungen. Dies gilt auch für Warmup, späteren Lazy-Start, Tick und Refresh. Der öffentliche Registryvertrag ist prozesslang und besitzt kein Aktiv-Prädikat; registrierte inaktive Regeln liefern `Unchanged`. Deshalb keine neue Aktivierungs-API oder Annahme „keine aktuelle Wirkung = keine Registrierung“ einführen. Im geprüften Workspace gibt es aktuell keinen produktiven fremden Registrierer; der öffentliche Fremdanbietervertrag bleibt trotzdem verbindlich.
+- [MovementOptionsSnapshot.Capture](BugfixesAndQoL/src/UnitCommands/Runtime/MovementOptionsSnapshot.cs) koppelt den realen MoatMove-Traversal-Anbieter bisher ebenfalls an `H`. Ziel: Traversal nach `provider.Enabled`, eigene manuelle Befehle nach `H && eigeneOption`, gemeinsame Verarbeitung nach deren Oder-Verknüpfung. Der Quelllinktest reproduziert vier Fälle, in denen ein aktiver fremder Anbieter durch `H=false` gesperrt wird. Zusätzlich [WeightedMoatPublication](BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatPublication.cs) und [CanDigMoat](BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.DiggerSelection.cs) korrigieren: `H` darf dort nur eigene Graben-/Leiterfunktionen begrenzen, nicht den schon freigegebenen Traversalbedarf. Die übrigen eigenen Leiter-/Graben-/Manual-Gates bleiben hostgebunden. Keine neue BugfixesAndQoL-Option für MoatMove erfinden.
+- **Präzisierung zum ursprünglichen Entwurf:** [Movement-Cadence](BugfixesAndQoL/src/TroopMovementFix3Runtime.cs) ist im aktuellen Quellstand ein interner Dienst; der einzige FastRecruit-Registrierer ist die modinterne Bridge. Ein öffentlicher oder tatsächlich fremder Cadenceanbieter ist nicht belegt. Eine dauerhaft vorhandene Registrierung darf die technische Infrastruktur erhalten, aktiviert aber weder eigene Synchronisierung noch Terrain-/Rallykorrektur ohne deren Gates. Hier ist kein zusätzlicher Fremdanbieterfix erforderlich.
+- **Coop:** [ProvideCoopAiStart und BeginCoopStart](BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs) können eigene Pläne ohne die Host-/Lordlistenfreigabe vorbereiten beziehungsweise liefern. Beide eigenen Beitragswege und die eigene Vorschau an dieselbe Hostfreigabe binden; ohne sie keinen BugfixesAndQoL-Plan liefern und keine eigene erweiterte Auswahl übertragen. Registrierung, neutrale Protokollannahme und notwendiges Leeren eines alten Transfers dürfen bestehen bleiben. Die vorgeschaltete Custom-Coop-Validierung in `HostStartGameHook`/`StartGameHook` ebenfalls an den tatsächlich übernommenen eigenen Startbeitrag binden.
+- ExtendedData registriert unabhängig den Provider `ExtendedData.CoopPackage` beim gemeinsamen `CoopAiStartImportService`. Dieser APIShared-Dienst bleibt aktiv; er kombiniert Pläne, prüft bestätigte Kandidaten und bricht widersprüchliche Beiträge ab. Ein vollständiger, auf allen Peers vorhandener Paketplan benötigt keine künstliche Aktivierung des BugfixesAndQoL-Hosts. Benötigt eine davon abweichende erweiterte Lobbyauswahl dessen ausgeschaltete Übertragung, muss eine konkrete Validierung den Start ablehnen; weder still Kandidaten kürzen noch Hostfunktionen implizit wieder einschalten. Konflikt-, Slot-, Lordtyp-, Doppelimport- und Versuchslaufzeitprüfungen des gemeinsamen Dienstes erhalten.
 
 Für Gleichwertigkeitstests alle fremden Settings und Registrierungen konstant halten und ihre Wirkungen getrennt zählen. Die beiden BugfixesAndQoL-Hauptschalter dürfen keine fremden Optionen ersetzen. Vor Änderungen veröffentlichter Anbieterwege deren Vertrag und Verbraucher prüfen; keine stillschweigende Änderung einer öffentlichen API einführen.
 
@@ -309,7 +318,7 @@ Vor Runtimeänderungen die vorgeschriebene JSON-/Lifecycle-Inventur und den lang
 - **Recovery und Dateien:** Neue Missing-Map-Rettung wird durch `C` und Einzeloption gestoppt. Schon geretteter Zustand bleibt speicherbar, Label/Identität erhalten, fehlende Karte bleibt für Neustart ungeeignet. Keine Löschung oder Originalkartenüberschreibung durch abgeschaltete Schutzoberfläche.
 - **MP-Startbereinigung:** Staler Snapshot mit gesetztem `mpkick`, noch nicht laufende Simulation und anschließender frischer Zustand; neue Option aus belässt Vanilla, an verwirft nur den alten Zustand. Migration und Recovery-Save unabhängig davon einzeln prüfen.
 - **Skirmish/native Optionen:** Setupfreigabe und neue Friedenszeitoption unabhängig kombinieren. Eigene Erweiterung aus entspricht unveränderten Originalpfaden für alle betroffenen Spielmodi. An-Fälle für Friedenszeit, Ablauf, Tiere, Starttruppen und „Keine Hunde“ erhalten. Native Maschinenverträge, Flags/Register, Verzweigungen und vollständige deaktivierte Pfade testen; Spieltests mit/ohne Fixes ergänzen. Vorhandene Setupdaten nicht durch das Ausschalten der Mod löschen.
-- **Fremdanbieter:** ExtendedData-Customize, Fremd-Torregeln, MoatMove/Traversal und Cadenceanbieter jeweils an/aus bei konstanten BugfixesAndQoL-Settings. Eigene Regeln aus, notwendiger fremder Dienst weiterhin wirksam. Ohne echten Bedarf keine versteckte eigene Wirkung.
+- **Fremdanbieter:** ExtendedData-Customize/-Cooppakete, Fremd-Torregeln und MoatMove/Traversal jeweils an/aus bei konstanten BugfixesAndQoL-Settings. Eigene Regeln aus, notwendiger fremder Dienst weiterhin wirksam. Den internen Cadencedienst mit seinen tatsächlichen eigenen Besitzern prüfen. Ohne aktiven Beitrag keine versteckte eigene Wirkung.
 - **Startgebundene Performancefunktion:** Sprite-Zusammenführung wird beim Laden aufgelöst. Gleichwertigkeit nach Neustart prüfen und Neustarthinweis auch beim Client-Hauptschalter verständlich machen; keine vermeintlich sofortige Entflechtung geladener Atlanten zusagen.
 
 Die bisherigen [Gelb- und Statistiktests](BugfixesAndQoL/tests/Program.cs) schreiben teilweise die falsche Host-Abhängigkeit fest. Diese Erwartungen durch Gegenbeispiele für `H=false, C=true, O=true` ersetzen. [LobbySaveLoading.Tests](BugfixesAndQoL/tests/LobbySaveLoading.Tests/Program.cs) verwendet ein Settingsdouble ohne `EnableClientFeatures`; es muss die reale neue Entscheidungsgrenze abbilden. Vorhandene Sicherheitsabdeckung erhalten, nicht nur störende Quelltextprüfungen entfernen.
@@ -324,8 +333,8 @@ Die tatsächlich installierte Gelb-Policy wurde isoliert über Reflection mit al
 
 | Bezug am 22.10.2026 | Identität / Nachweis |
 | --- | --- |
-| Mod-Repository | Branch `develop`, HEAD `f55021711a9c62793adc18087301e43cdd3b8914`, mit parallelen uncommitteten Änderungen; kein eingefrorener Buildstand |
-| Installierte Mod | Assemblyversion `1.0.195.0`; SHA-256 `1C1CC8FEAF00F60239992B0703FB07CD04DE33842CCE68E01690E16E136219B9` |
+| Mod-Repository, frühere Beobachtung beim Entwurf | Branch `develop`, HEAD `f55021711a9c62793adc18087301e43cdd3b8914`, mit parallelen uncommitteten Änderungen; kein eingefrorener Buildstand |
+| Installierte Mod, frühere Beobachtung beim Entwurf | Assemblyversion `1.0.195.0`; SHA-256 `1C1CC8FEAF00F60239992B0703FB07CD04DE33842CCE68E01690E16E136219B9` |
 | Installierte Managed-Spielassembly | SHA-256 `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`; Start-/Monitorpfad mit ilspycmd gelesen |
 | Installierte native DLL | SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`; identisch mit CURRENT |
 | Geprüfte Quelle `BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs` | SHA-256 `97919F037DBBF5079C71E3D9CBDFB82A3B987C7DB44F17CBB7CC0624CB4C4DDB` |
@@ -333,6 +342,58 @@ Die tatsächlich installierte Gelb-Policy wurde isoliert über Reflection mit al
 
 Der Native-Hash wurde gegen [CURRENT.json](_inspect/CrusaderDE-Native-Baseline/CURRENT.json) verifiziert. Für die vorsichtige Beibehaltung der Gerberei-/Flaggenzuständigkeit wurden die vollständigen vorhandenen Audits [TANNER_ALPHA](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/TANNER_ALPHA.md) und [KEEP_FLAG_ROTATION](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md) mit den aktuellen Modquellen abgeglichen: Gebäudeupdate liest/schreibt Transparenz, restauriert Vanilla-Eingaben und reicht das Ergebnis an drei Renderer weiter; Flaggenkorrektur arbeitet an den vom Keep-Spawn erzeugten stationären Projektilkoordinaten. Eine abweichende lokale Simulation/Persistenz ist dadurch nicht als sicher nachgewiesen.
 
-Für die zusätzliche Skirmishlücke wurde [VANILLA_PEACE_TIME](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md) vollständig gelesen: Timerinitialisierung, Countdown/Ablauf, 36 Flagreferenzen, modeabhängige Gameplaykonsumenten, Starttruppen und korrigierter Tierkontaktpfad. Dieser bestehende Audit belegt die Reichweite der aktuellen Erweiterung; er ersetzt keinen Audit neu geplanter Abschaltstubs. Die neue „Keine Hunde“-Ersatzstrategie ist ausdrücklich noch nicht vollständig nativ auditiert.
+Für die zusätzliche Skirmishlücke wurde [VANILLA_PEACE_TIME](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md) vollständig gelesen und die aktuellen Eingriffe gegen die kanonische DLL geprüft: Timerinitialisierung, Countdown/Ablauf, 36 Flagreferenzen, modeabhängige Gameplaykonsumenten, Starttruppen und korrigierter Tierkontaktpfad. Der ergänzende Audit schließt nun auch den vollständigen „Keine Hunde“-Kontext, Setup-/Persistenzfluss, eingehende Sprünge, disjunkte Funktionsbereiche, neue minimale Dispatchspannen und die Instruktionsrelokalisierung ein. Die gesicherten nativen Erkenntnisse stehen zusätzlich in [MODSETTINGS_ACTIVATION](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MODSETTINGS_ACTIVATION.md).
 
-Keine Spiel-/MP-Läufe, keine neuen Runtime-Builds und keine Installation im Rahmen dieser Datei. Die neuen Propertynamen und Gruppierungen sind Empfehlungen dieses Entwurfs. Vor Umsetzung die Quellen erneut prüfen; gleichzeitig laufende Arbeit kann Arbeitsbaum und installierte DLL ändern. Historische Hashes und Beobachtungen sind keine zukünftigen Buildvoraussetzungen.
+Der [ausführliche Auditbericht](.work/a/modsettings/001/AuditReport.md) enthält Prüfbefehle, Ergebnisse, Providerzuständigkeiten, Quellenidentitäten und Grenzen. Bestanden sind die bestehenden Friedenszeit-Nativtests (499.401 Assertions), der zusätzliche Native-/Provider-Audit (646.156 Prüfungen; Zielverletzungen ausdrücklich separat ausgewiesen), die relevanten nativen Demand-/Registrytests, Presetpersistenz und Host-/Clientrechte, 18 AIV-Protokollfälle in einer dokumentiert an die aktuelle Signatur angepassten isolierten Fixture sowie Runtime-/Shared-Preflights. Die bestehenden falschen Host-Erwartungen bleiben bis zur Implementierung echte bekannte Lücken; diese Tests behaupten keine bereits korrigierte Runtime.
+
+Zwei erste Gesamtsuitenstarts konnten ihren Quellbaum aus dem isolierten Ausgabepfad nicht finden; das ist kein Produktnachweis. Der alte AIV-Harness besitzt außerdem drei veraltete Aufrufe ohne `customCoopGame`-Argument. Im Audit wurden passende Fälle gezielt ausgeführt beziehungsweise ausschließlich in der isolierten AIV-Fixture angepasst; ursprüngliche Tests und Produktquellen bleiben erhalten. Einzelheiten und offene Abnahmefälle stehen im Bericht.
+
+Keine Spiel-/MP-Läufe, keine neuen Runtime-Mod-Builds und keine Installation durch diesen Auftrag; gebaut wurden ausschließlich isolierte Testprogramme. Der Grundlagenaudit ist abgeschlossen, die empfohlenen fünf neuen Optionen bleiben sinnvoll. Es gibt daraus keine notwendige Produktentscheidung des Nutzers. Offen bleiben die Implementierung und deren Abnahme aus Abschnitt 4.2, insbesondere echte Zwei-Spieler-MP-, Darstellungs-, Recovery- und Neustartläufe.
+
+Während der Prüfung wurde der Workspace parallel weiterentwickelt. Die abschließende Quelleninventur vergleicht 510 Eingaben und nennt zwischenzeitlich geänderte Dateien ausdrücklich; die oben konkret beanstandeten Aktivierungsentscheidungen sind unverändert. Der Abschlussstand und sämtliche Hashes stehen im Auditbericht. Vor Umsetzung erneut prüfen; historische Hashes und Beobachtungen sind keine zukünftigen Buildvoraussetzungen.
+
+## 6. Implementierung und Abschlussprüfung (22.10.2026)
+
+Die fünf empfohlenen Optionen sind mit Default `true` im bestehenden Preset-/Syncsystem
+registriert: drei Hostoptionen (`EnableRandomOpponentSelectionEnhancements`,
+`EnableMultiplayerStartupStateFix`, `EnablePeaceTimeGameplayFixes`) sowie zwei
+lokale Optionen (`EnableLordAndMapListEnhancements`, `EnableMissingMapSaveRecovery`).
+Reset, XAML, Suchzuordnung und alle 21 Locales sind ergänzt. Workshop steht unter
+Client und ist für einen normalen MP-Client persönlich bearbeitbar.
+
+Alle zehn nachgewiesenen Client-/Lokal-Kopplungen sind von H getrennt, einschließlich
+Listenern, Eingabe-Paarung und Cleanup. Die lokale Listenoption steuert Such-/Sortier-/
+Merkhilfen und den sichtbaren Einzelklick „zufälliger eigener Lord“ (weiter über
+Vanillas Host-/Kapazitätsprüfung). Die neue Host-Zufallsoption steuert die zusätzliche
+gefilterte Gegnerbelegung und Quellenfilter in SkirmishAiSelectionMemoryHook.
+Die AI-Einstellungslisten behalten Host-Kapazität und Preset-Aktionen auch bei C aus;
+C allein schaltet nur persönliche Darstellung frei. C-Wechsel kürzen keine erlaubte
+Host-Kandidatenliste. Paketregistrierungen und fremde ExtendedData-Beiträge bleiben
+neutral, eigene Coop-Startbeiträge beachten dagegen ihre Host-Unteroption.
+
+Fehlende-Karten-Recovery beginnt nur mit C und der neuen Einzeloption. Bereits gerettete
+Identitäten bleiben sicher speicherbar; schon eingeblendete Originalkarten behalten
+den Schreibschutz auch nach C aus. Dieser Schutz beendet eine bereits begonnene
+Operation sicher und aktiviert keine neue optionale Oberfläche.
+
+No Dogs und Friedenszeit verwenden permanent installierte native Original-/Aktivpfade
+mit atomarem Datenbyte statt Rückpatchen. Hash, vollständige Gruppen, tatsächliche
+Überschreibspannen und Folgeinstruktionen werden vor Veröffentlichung validiert.
+Bei fehlgeschlagener Teilinstallation bleibt der Bedarf aus; veröffentlichter Code
+bleibt verwurzelt. Details und aktualisierte 25-Gruppen-Tabelle stehen in
+[UpdateToNewDLL.md](BugfixesAndQoL/UpdateToNewDLL.md#modsettings-activation-dispatches-10196).
+Setupdialog und Friedenszeit haben voneinander unabhängige Optionen; vorhandene
+Setupdaten werden beim Abschalten nicht gelöscht. Fremde Tor-/Moat-Traversal-Beiträge
+bleiben bei H aus bedienbar, eigene Regeln bleiben ausgeschaltet.
+
+Die neuen dauerhaften Regressionstests prüfen Entscheidungen aus der gebauten Mod-DLL
+und installieren die echten nativen Dispatches ausschließlich in privaten Testabbildern.
+Die Kategorienmatrix enthält explizite Gegenbeispiele für H aus/C an und H an/C aus.
+Die vorhandenen Sicherheits-, Protokoll- und Presettests bleiben erhalten; alte falsche
+Host-Erwartungen und veraltete Harness-Signaturen wurden korrigiert.
+
+Nachweise, endgültige Prüfergebnisse, Buildidentität und verbleibende Abnahmefälle:
+[Implementierungsbericht](.work/a/modsettingsfix/001/ImplementationReport.md).
+Reale Zwei-Spieler-MP-, Mono-/Noesis-Darstellung, Recovery-Saves und Sprite-Neustarts
+wurden durch diesen Auftrag nicht im Spiel ausgeführt; deren Abnahme bleibt offen.
+Es sind keine Produktentscheidungen offen. Kein Commit und keine Veröffentlichung.

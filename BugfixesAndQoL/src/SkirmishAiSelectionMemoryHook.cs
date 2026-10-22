@@ -188,8 +188,10 @@ namespace BugfixesAndQoL
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        private bool RandomEnhancementsEnabled => settings.EnableMod && settings.EnableRandomOpponentSelectionEnhancements;
+
         public Noesis.Visibility RandomLordFiltersVisibility =>
-            settings.EnableMod ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
+            RandomEnhancementsEnabled ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
 
         public string BuiltInLordFilterHelp =>
             SerpLocalization.Get("BugfixesAndQoL.RandomLordBuiltInHelp");
@@ -290,7 +292,7 @@ namespace BugfixesAndQoL
 
         private void ShowSkirmishRandomAiSetterHook(MainViewModel self, bool value)
         {
-            if (!value && settings.EnableMod && IsEditableHostLobby(self))
+            if (!value && RandomEnhancementsEnabled && IsEditableHostLobby(self))
                 value = true;
 
             showSkirmishRandomAiSetterTrampoline(self, value);
@@ -299,7 +301,7 @@ namespace BugfixesAndQoL
         private void UpdateRandomAiButtonsHook(FRONT_Multiplayer self)
         {
             multiplayerUpdateRandomAiButtonsTrampoline(self);
-            if (!settings.EnableMod || self?.currentLobby == null)
+            if (!RandomEnhancementsEnabled || self?.currentLobby == null)
                 return;
 
             int maximumAiCount = 0;
@@ -322,7 +324,7 @@ namespace BugfixesAndQoL
             if (!IsEditableHostLobby(viewModel))
                 return;
 
-            if (settings.EnableMod)
+            if (RandomEnhancementsEnabled)
                 viewModel.Show_SkirmishRandomAI = true;
 
             MultiplayerUpdateRandomAiButtonsMethod.Invoke(viewModel.FRONTMultiplayer, null);
@@ -393,7 +395,7 @@ namespace BugfixesAndQoL
             bool memoryActiveBefore = IsMemoryActive();
             Dictionary<int, string> before = memoryActiveBefore ? CaptureAiSlotKeys(self) : null;
             bool protectedRandomCommand =
-                settings.EnableMod && RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out _);
+                RandomEnhancementsEnabled && RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out _);
 
             bool handled = false;
             try
@@ -442,7 +444,7 @@ namespace BugfixesAndQoL
         private bool TryCreateFilteredRandomAi(FRONT_Multiplayer self, string param)
         {
             if (!RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out int requestedCount) ||
-                !settings.EnableMod)
+                !RandomEnhancementsEnabled)
                 return false;
 
             if (self?.currentLobby == null)

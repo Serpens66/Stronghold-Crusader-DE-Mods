@@ -26,7 +26,7 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="src/SellPlugin.cs" /><Compile Include="src/SellRuntime.cs" /><Compile Include="src/SellAssembly.cs" /><Compile Include="Properties/AssemblyInfo.cs" />
+    <Compile Include="src/SellPlugin.cs" /><Compile Include="src/SellRuntime.cs" /><Compile Include="src/SellAssembly.cs" /><Compile Include="src/HookPublication.cs" /><Compile Include="Properties/AssemblyInfo.cs" />
     <Compile Include="../../Shared/Runtime/Diagnostics/DebugLogHelper.cs"><Link>Shared/DebugLogHelper.cs</Link></Compile>
     <Compile Include="../../Shared/Runtime/Diagnostics/DevDiag.cs"><Link>Shared/DevDiag.cs</Link></Compile>
   </ItemGroup>

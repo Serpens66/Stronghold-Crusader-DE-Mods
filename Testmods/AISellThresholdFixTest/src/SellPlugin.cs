@@ -15,6 +15,7 @@ namespace AISellThresholdFixTest
         private static ManualLogSource log;
         private static SellRuntime runtime;
         private static bool registered;
+        private static bool initializationAttempted;
         private void Awake()
         {
             if (registered) return;
@@ -25,14 +26,18 @@ namespace AISellThresholdFixTest
         }
         private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
-            if (runtime != null) return;
+            if (initializationAttempted) return;
+            initializationAttempted = true;
             try
             {
                 // The static publisher and static runtime survive Unity's early plugin cleanup.
                 var candidate = new SellRuntime(log, context);
                 runtime = candidate;
-                GameTimeManagerAPI.Instance.OnTick += OnTick;
                 candidate.Publish();
+                // Support subscriptions must not prevent native activation or claim
+                // that an already active feature became inactive if registration fails.
+                try { GameTimeManagerAPI.Instance.OnTick += OnTick; }
+                catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI sell fixes active; support tick unavailable: " + ex); }
             }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "Both AI sell fixes inactive: " + ex); }
         }

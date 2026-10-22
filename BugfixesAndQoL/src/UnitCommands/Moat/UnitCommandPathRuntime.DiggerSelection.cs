@@ -28,7 +28,7 @@ namespace BugfixesAndQoL.UnitCommands
         // Mirrors the per-unit switch in Vanilla's DigMoatTileId (command 6) handler.
         // There is no generic capability field in that command path.
         internal bool CanDigMoat(GameUnit* unit) =>
-            settings.EnableMod && (ExtensionsEnabled || settings.EnableImprovedMoatFilling || settings.EnableLadderAttackPathfindingFix) && unit != null && CanDigMoat(unit->r_UnitChimp);
+            (ExtensionsEnabled || (settings.EnableMod && (settings.EnableImprovedMoatFilling || settings.EnableLadderAttackPathfindingFix))) && unit != null && CanDigMoat(unit->r_UnitChimp);
 
         internal static bool CanDigMoat(eChimps type)
         {

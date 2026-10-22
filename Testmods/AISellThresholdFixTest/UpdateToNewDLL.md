@@ -28,7 +28,7 @@ Only the first qualifying good is offered per sale phase.
 0x2974D/0x29758/0x2975F credit that amount BEFORE 0xB7D80 removes physical goods.
 0xB7D80 selects storage types via 0xBFD30/table 0x2E76D0, consumes eligible alive
 owned storage, and recounts totals through 0xC1CE0. Empty/exhausted storage never
-reverses the prior credit. It has separate editor/direct-account branches; the
+reverses the prior credit. It has separate native-mode-6/direct-account branches; the
 sale guard operates before these alternatives. 0xCB050 may emit sale presentation
 through 0xB5690; it does not reverse or cap the transaction.
 
@@ -84,10 +84,14 @@ AIBuildDiagnoseTest's sale entry 29700..29709 do not overlap. The latter's curre
 31-byte entry fingerprint ends before 29723. Neither external source tree changes.
 An unknown live owner of either new span disables this complete optional feature.
 
-All stubs prepare inactive, commit together, and validate their live FF25 pointer,
-padding and displacement before publication. Only an unpublished initialization
-candidate can roll back. Published code and delegates remain rooted until process
-exit. No settings or map transitions mutate executable memory. No JSON parser,
+All stubs prepare inactive with InstallOnCommit=false. Commit attaches all prepared
+handles without writing code; prepared displacement and addresses are checked.
+HookPublication roots the full owner BEFORE the first Enable, then validates live
+FF25 pointers, padding and displacement. From the first activation attempt onward,
+even a partial/throwing write or failed post-write validation forbids rollback and
+state release. Such candidates stay permanently rooted and logically inactive.
+Only candidates that never began publication may roll back. No settings or map
+transitions mutate executable memory. No JSON parser,
 publicized game assembly, APIShared or other workspace runtime dependency exists.
 
 ## Verification and update checklist

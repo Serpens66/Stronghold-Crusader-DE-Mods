@@ -260,6 +260,8 @@ pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" BugfixesAndQoL.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Modsettings.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" -ApiSharedDir "%API_SHARED_DIR%" -ExtenderDir "%EXTENDER_DIR%" -RunNative
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 echo [%date% %time%] Copy package files

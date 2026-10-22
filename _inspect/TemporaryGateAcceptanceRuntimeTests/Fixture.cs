@@ -75,7 +75,7 @@ namespace SHCDESE.API {
         public bool TryGetBuildingById(int id,out GameBuilding* building) { building=id==579&&Additional!=null&&Additional->r_GlobalId!=0?Additional:id==BuildingId?Building:null;return building!=null; }
     }
 }
-namespace BugfixesAndQoL.GateRouting { internal static class EnemyGatePathfindingNativeDefinition { internal const uint MaximumTileIdExclusive = 320800; } }
+namespace BugfixesAndQoL.GateRouting { internal static class GateRoutingNativeLayout { internal static int MaximumTileIdExclusive => 320800; } }
 namespace BugfixesAndQoL.GateRouting {
     internal sealed class GateOrderEvidence { }
     internal sealed class MacemenCommandDiagnostics {

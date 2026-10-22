@@ -218,7 +218,7 @@ namespace BugfixesAndQoL.GateRouting
             {
                 if (!allocate) return;
                 storage = Marshal.AllocHGlobal(checked(
-                    EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive * 8));
+                    GateRoutingNativeLayout.MaximumTileIdExclusive * 8));
             }
             internal void Fill(RouteTilePolicySnapshot source)
             {
@@ -228,7 +228,7 @@ namespace BugfixesAndQoL.GateRouting
                     byte[] mask = source?.DirectionMasks != null &&
                         player < source.DirectionMasks.Length ? source.DirectionMasks[player] : null;
                     if (mask == null || mask.Length !=
-                        EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive) continue;
+                        GateRoutingNativeLayout.MaximumTileIdExclusive) continue;
                     IntPtr target = IntPtr.Add(storage, checked((player - 1) * mask.Length));
                     Marshal.Copy(mask, 0, target, mask.Length);
                     PlayerMasks[player] = target;
@@ -325,14 +325,14 @@ namespace BugfixesAndQoL.GateRouting
             maskPool = new NativeMaskSnapshot[NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)
                 maskPool[index] = new NativeMaskSnapshot(true);
-            EnemyGatePathfindingNativeDefinition.ValidateSamePclNativeFilterContracts(
+            GateRoutingNativeLayout.ValidateMovementSites(
                 memory, existingHookOwner);
             originalDirectTileSearch = Marshal.GetDelegateForFunctionPointer<DirectTileSearchDelegate>(
                 new IntPtr(unchecked((long)(libraryBase +
-                    EnemyGatePathfindingNativeDefinition.DirectTileSearchRva))));
+                    (ulong)GateRoutingNativeLayout.DirectTileSearchRva))));
             originalPclReachability = Marshal.GetDelegateForFunctionPointer<PclReachabilityDelegate>(
                 new IntPtr(unchecked((long)(libraryBase +
-                    EnemyGatePathfindingNativeDefinition.PclReachabilityRva))));
+                    (ulong)GateRoutingNativeLayout.PclReachabilityRva))));
             threadSlots = GateNativeSearchScopes.Allocate(DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride);
             tacticalThreadSlots = GateNativeSearchScopes.Allocate(AiTacticalTargetAdapterEmitter.ThreadSlotCount * AiTacticalTargetAdapterEmitter.ThreadSlotStride);
         }
@@ -482,7 +482,7 @@ namespace BugfixesAndQoL.GateRouting
         int IEnemyGatePathPolicy.ResolveCursorPlayer(int tribeId)
         {
             int nativePlayer = *(int*)(libraryBase +
-                EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+                (ulong)GateRoutingNativeLayout.ActivePlayerIdRva);
             return ValidateExplicitPlayer(nativePlayer, tribePlayers.Resolve(tribeId), "shared-cursor");
         }
 
@@ -667,20 +667,20 @@ namespace BugfixesAndQoL.GateRouting
                     else Interlocked.Increment(ref cursorDifferentPclEligible);
                     NativeMaskSnapshot snapshot = currentMasks;
                     int tileBefore = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileIdRva);
                     int targetX = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileXRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileXRva);
                     int targetY = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileYRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileYRva);
                     int tileAfter = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileIdRva);
                     bool valid = player > 0 && player <= 8 && unitId > 0 &&
                         snapshot.Fingerprint != 0 &&
                         snapshot.PlayerMasks[player] != IntPtr.Zero &&
                         tileBefore == tileAfter && targetX >= 0 && targetX < 800 &&
                         targetY >= 0 && targetY < 800 && tileAfter >= 0 &&
-                        tileAfter < EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive &&
-                        *(int*)(libraryBase + EnemyGatePathfindingNativeDefinition.TileRowStartRva +
+                        tileAfter < GateRoutingNativeLayout.MaximumTileIdExclusive &&
+                        *(int*)(libraryBase + (ulong)GateRoutingNativeLayout.TileRowStartRva +
                             unchecked((ulong)(targetY * 12))) + targetX == tileAfter;
                     if (valid)
                     {
@@ -759,8 +759,8 @@ namespace BugfixesAndQoL.GateRouting
                 if (startX < 0 || startY < 0 || startX >= 800 || startY >= 800 ||
                     targetX < 0 || targetX >= 800 || targetY < 0 || targetY >= 800 ||
                     targetTile < 0 ||
-                    targetTile >= EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive ||
-                    *(int*)(libraryBase + EnemyGatePathfindingNativeDefinition.TileRowStartRva +
+                    targetTile >= GateRoutingNativeLayout.MaximumTileIdExclusive ||
+                    *(int*)(libraryBase + (ulong)GateRoutingNativeLayout.TileRowStartRva +
                         unchecked((ulong)(targetY * 12))) + targetX != targetTile) return false;
 
                 CursorPreviewCache.Key key = new CursorPreviewCache.Key(player, unitId,
@@ -778,7 +778,7 @@ namespace BugfixesAndQoL.GateRouting
                 int filteredResult = 0;
                 long touched = 0;
                 IntPtr manager = new IntPtr(unchecked((long)(libraryBase +
-                    EnemyGatePathfindingNativeDefinition.NativePathManagerRva)));
+                    (ulong)GateRoutingNativeLayout.NativePathManagerRva)));
                 QueryScope referenceScope = Enter(player, true);
                 if (referenceScope.Slot == null ||
                     !ReferenceEquals(referenceScope.Snapshot, snapshot))
@@ -790,7 +790,7 @@ namespace BugfixesAndQoL.GateRouting
                 {
                     referenceResult = originalDirectTileSearch(manager,
                         startX, startY, targetX, targetY,
-                        EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit);
+                        GateRoutingNativeLayout.DirectCursorSearchNodeLimit);
                 }
                 catch
                 {
@@ -819,7 +819,7 @@ namespace BugfixesAndQoL.GateRouting
                     {
                         filteredResult = originalDirectTileSearch(manager,
                             startX, startY, targetX, targetY,
-                            EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit);
+                            GateRoutingNativeLayout.DirectCursorSearchNodeLimit);
                     }
                     catch
                     {
@@ -1058,8 +1058,8 @@ namespace BugfixesAndQoL.GateRouting
             if (tribeManager != IntPtr.Zero && snapshotPlayer > 0 && snapshotPlayer <= 8)
             {
                 nativePlayer = *(int*)((byte*)tribeManager +
-                    tribe * EnemyGatePathfindingNativeDefinition.NativeTribeRecordStride +
-                    EnemyGatePathfindingNativeDefinition.NativeTribePlayerIdOffset);
+                    tribe * GateRoutingNativeLayout.NativeTribeRecordStride +
+                    GateRoutingNativeLayout.NativeTribePlayerIdOffset);
                 if (nativePlayer > 0 && nativePlayer <= 8)
                 {
                     if (nativePlayer == snapshotPlayer) player = nativePlayer;
@@ -1085,7 +1085,7 @@ namespace BugfixesAndQoL.GateRouting
         {
             if (!GateRoutingFeature.IsActive) { return originalDirectTileSearch(manager,x,y,argument4,argument5,argument6); }
             int player = *(int*)(libraryBase +
-                EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+                (ulong)GateRoutingNativeLayout.ActivePlayerIdRva);
             CaptureScopeSample(QueryKind.DirectCursor, player, player, -1, player);
             Interlocked.Increment(ref directCursorQueries);
             QueryScope scope = Enter(player); int result = 0; bool completed = false;

@@ -930,7 +930,7 @@ namespace BugfixesAndQoL
                     featureSource.Contains("badgeMode == statisticsTeamBadgeMode"),
                 "statistics team badges select Vanilla or Easy Read visuals and cache the chosen mode");
             Check(featureSource.Contains(
-                        "private bool StatisticsTeamBadgesEnabled => settings.EnableMod && settings.EnableClientFeatures;") &&
+                        "private bool StatisticsTeamBadgesEnabled => settings.EnableClientFeatures;") &&
                     featureSource.Contains("!StatisticsTeamBadgesEnabled") &&
                     featureSource.Contains("badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff"),
                 "statistics team badges use the independent client gate and support Off mode");
@@ -1622,27 +1622,25 @@ namespace BugfixesAndQoL
         private static void TestPlacementCancelMoveSuppressionPolicy()
         {
             Check(!PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 5, false),
+                    true, true, 5, false),
                 "DE right-click placement cancellation is not forwarded to the engine");
             Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 0, false) &&
+                    true, true, 0, false) &&
                   PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 3, false),
+                    true, true, 3, false),
                 "ordinary and non-building right-clicks retain Vanilla forwarding");
             Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 5, true),
+                    true, true, 5, true),
                 "SH1 controls retain Vanilla placement-cancel forwarding");
             Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    false, true, true, 5, false) &&
+                    false, true, 5, false) &&
                   PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, false, true, 5, false) &&
-                  PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, false, 5, false),
-                "disabled mod, client features, or local option retain Vanilla forwarding");
+                    true, false, 5, false),
+                "disabled Client features or local option retain Vanilla forwarding");
 
             bool suppressRightUp = false;
             bool placementDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
-                true, true, true, 5, false, ref suppressRightUp);
+                true, true, 5, false, ref suppressRightUp);
             bool placementUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
                 ref suppressRightUp);
             bool followingUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
@@ -1652,7 +1650,7 @@ namespace BugfixesAndQoL
 
             suppressRightUp = true;
             bool ordinaryDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
-                true, true, true, 0, false, ref suppressRightUp);
+                true, true, 0, false, ref suppressRightUp);
             bool ordinaryUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
                 ref suppressRightUp);
             Check(ordinaryDown && ordinaryUp && !suppressRightUp,
@@ -1660,7 +1658,7 @@ namespace BugfixesAndQoL
 
             suppressRightUp = false;
             bool disabledDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
-                true, true, false, 5, false, ref suppressRightUp);
+                true, false, 5, false, ref suppressRightUp);
             Check(disabledDown &&
                   PlacementCancelRightClickPolicy.CompleteRightClickGesture(ref suppressRightUp),
                 "disabled placement suppression forwards the complete right-click gesture");
@@ -2727,7 +2725,7 @@ namespace BugfixesAndQoL
             Check(hookSource.Contains("FindRequiredMethod(\"UpdateUploadAIVList\")") &&
                     hookSource.Contains("FindRequiredMethod(\"UpdateUploadLordList\")") &&
                     hookSource.Contains("selectedLordTypeField.SetValue(self, restoredLordType);") &&
-                    hookSource.Contains("if (!settings.EnableMod || !settings.EnableWorkshopUploadLordSelectionFix)") &&
+                    hookSource.Contains("if (!settings.EnableClientFeatures || !settings.EnableWorkshopUploadLordSelectionFix)") &&
                     policySource.Contains("internal const int MinimumLordType = 2;") &&
                     policySource.Contains("requestedRefresh == currentMode") &&
                     hookSource.Contains("if (isDoUpload && FRONT_EditorSetup.canCloseWorkshop)") &&
@@ -3354,11 +3352,10 @@ namespace BugfixesAndQoL
         private static void TestBriefingNoStartingGoldFix()
         {
             Check(
-                BriefingNoStartingGoldFixPolicy.IsEnabled(true, true, true) &&
-                !BriefingNoStartingGoldFixPolicy.IsEnabled(false, true, true) &&
-                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, false, true) &&
-                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, true, false),
-                "briefing No Starting Gold correction follows all three gates");
+                BriefingNoStartingGoldFixPolicy.IsEnabled(true, true) &&
+                !BriefingNoStartingGoldFixPolicy.IsEnabled(false, true) &&
+                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, false),
+                "briefing No Starting Gold correction follows the independent Client and option gates");
             Check(
                 BriefingNoStartingGoldFixPolicy.Apply(2000, 0, true, true, true) == 0 &&
                 BriefingNoStartingGoldFixPolicy.Apply(2000, 2000, false, true, true) == 2000 &&
@@ -3383,7 +3380,7 @@ namespace BugfixesAndQoL
                 "briefing No Starting Gold setting is default-on, per-player, and searchable in the UI");
             Check(
                 registration.Contains("BriefingGoldAdjustmentStage.VanillaCorrection") &&
-                registration.Contains("settings.EnableMod") &&
+                !registration.Contains("settings.EnableMod") &&
                 registration.Contains("settings.EnableClientFeatures") &&
                 runtime.Contains("static BriefingNoStartingGoldFixRegistration") &&
                 !runtime.Contains("processBriefingNoStartingGoldFixRegistration?.Dispose"),
@@ -3403,11 +3400,10 @@ namespace BugfixesAndQoL
         private static void TestLobbyYellowContrast()
         {
             Check(
-                LobbyYellowContrastPolicy.IsEnabled(true, true, true) &&
-                !LobbyYellowContrastPolicy.IsEnabled(false, true, true) &&
-                !LobbyYellowContrastPolicy.IsEnabled(true, false, true) &&
-                !LobbyYellowContrastPolicy.IsEnabled(true, true, false),
-                "high-contrast lobby yellow follows mod, client-feature, and local setting gates");
+                LobbyYellowContrastPolicy.IsEnabled(true, true) &&
+                !LobbyYellowContrastPolicy.IsEnabled(false, true) &&
+                !LobbyYellowContrastPolicy.IsEnabled(true, false),
+                "high-contrast lobby yellow follows only Client and local setting gates");
             Check(
                 LobbyYellowContrastPolicy.ClassifyResourceState(
                     true, true, false, false) == LobbyYellowResourceState.Baseline &&
@@ -4377,7 +4373,7 @@ namespace BugfixesAndQoL
                     !troopPatch.Contains("AttributeName=\"{clr-namespace:"),
                 "XAML SetAttribute operations use the audited Script Extender patch contract");
             Check(moatWork.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
-                    // Dig work (mode 1) is routed only by an active traversal provider (MoatMove), which requires EnableMod.
+                    // Dig work (mode 1) is routed only by an active traversal provider (MoatMove), whose own activation is independent of this mod's Host switch.
                     moatWork.Contains("relationshipMode == 1 && !TraversalEnabled") &&
                     moatWork.Contains("if (!ExtensionsEnabled)") &&
                     !moatWork.Contains("RegisterImprovedMoatFillingProvider"),

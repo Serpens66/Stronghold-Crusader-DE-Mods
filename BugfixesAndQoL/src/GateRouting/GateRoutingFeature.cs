@@ -79,7 +79,7 @@ namespace BugfixesAndQoL.GateRouting
             // User decision 2026-10-20: a longer game start is preferred over map-start lags.
             // Only when gate routing can be wanted (same rule as RefreshCore, without the map): with the
             // fix off and no foreign rules the hooks stay uninstalled; later enabling uses the lazy path.
-            if(settings!=null&&settings.EnableMod&&(settings.EnableEnemyGatePathfindingFix||GateAccessRules.HasRegistrations))
+            if(settings!=null&&((settings.EnableMod&&settings.EnableEnemyGatePathfindingFix)||GateAccessRules.HasRegistrations))
                 lock(StateGate) EnsureRuntime();
             GameTimeManagerAPI.Instance.OnTick+=Tick;
             Refresh();
@@ -112,7 +112,7 @@ namespace BugfixesAndQoL.GateRouting
             if(settings==null)return;
             bool nextOwn=settings.EnableMod&&settings.EnableEnemyGatePathfindingFix;
             long nextVersion=GateAccessRules.Version;
-            bool wanted=map&&settings.EnableMod&&(nextOwn||GateAccessRules.HasRegistrations)&&context!=null;
+            bool wanted=map&&(nextOwn||GateAccessRules.HasRegistrations)&&context!=null;
             if(active&&(!wanted||nextOwn!=ownRule||nextVersion!=rulesVersion)) {active=false;runtime.EndMap("Gate setting/rule/map transition");if(ruleErrorCount!=0)Shared.DebugLogHelper.LogError(log,"Gate contribution failures: count="+ruleErrorCount+",causes="+ruleErrors.Count);active=false;}
             ownRule=nextOwn;rulesVersion=nextVersion;
             if(!wanted||active)return;

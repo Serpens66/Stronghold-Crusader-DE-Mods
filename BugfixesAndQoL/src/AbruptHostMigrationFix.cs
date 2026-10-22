@@ -146,11 +146,13 @@ namespace BugfixesAndQoL
             recoveryTargets.Clear();
         }
 
+        private bool StartupStateFixEnabled => settings.EnableMod && settings.EnableMultiplayerStartupStateFix;
+
         private void StartMultiplayerGameHook(Director self)
         {
             try
             {
-                if (settings.EnableMod && self != null && !self.SimRunning &&
+                if (StartupStateFixEnabled && self != null && !self.SimRunning &&
                     GameData.Instance?.lastGameState != null)
                 {
                     GameData.Instance.lastGameState = null;

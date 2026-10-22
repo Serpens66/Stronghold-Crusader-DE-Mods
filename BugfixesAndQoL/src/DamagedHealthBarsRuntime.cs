@@ -300,15 +300,15 @@ namespace BugfixesAndQoL
             }
         }
 
+        private bool FeatureEnabled => settings.EnableClientFeatures && settings.EnableDamagedHealthBars;
+
         private void OnSettingChanged(string propertyName)
         {
-            if (propertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
-                propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
+            if (propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
                 propertyName != nameof(BugfixesAndQoLViewModel.EnableDamagedHealthBars) &&
                 propertyName != nameof(BugfixesAndQoLViewModel.HealthBarHotkey))
                 return;
-            if (settings.EnableMod && settings.EnableClientFeatures &&
-                settings.EnableDamagedHealthBars &&
+            if (FeatureEnabled &&
                 settings.HealthBarHotkeyKeyCode != KeyCode.None)
                 return;
             if (Volatile.Read(ref installed) == 0 || activeFlag == IntPtr.Zero)
@@ -341,8 +341,7 @@ namespace BugfixesAndQoL
                 if (alt != settings.HealthBarHotkeyAlt ||
                     control != settings.HealthBarHotkeyControl ||
                     shift != settings.HealthBarHotkeyShift ||
-                    !settings.EnableMod || !settings.EnableClientFeatures ||
-                    !settings.EnableDamagedHealthBars)
+                    !FeatureEnabled)
                     return;
                 if (Volatile.Read(ref installed) == 0)
                     return;

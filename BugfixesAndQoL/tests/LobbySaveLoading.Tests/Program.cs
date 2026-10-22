@@ -182,7 +182,7 @@ namespace BugfixesAndQoL
 {
     internal sealed class BugfixesAndQoLViewModel
     {
-        public bool EnableMod = true, EnableSoloMultiplayerSaveLoading = true, FixSkirmishLoadButtonVisibility = true;
+        public bool EnableMod = true, EnableClientFeatures = true, EnableSoloMultiplayerSaveLoading = true, FixSkirmishLoadButtonVisibility = true;
     }
 }
 namespace Shared

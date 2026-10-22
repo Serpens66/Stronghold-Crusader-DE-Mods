@@ -217,9 +217,11 @@ namespace BugfixesAndQoL
 
         public bool DeleteSaveEnabled => CanDeleteSelectedSave();
 
-        private bool FeatureEnabled => settings.EnableMod;
+        private bool FeatureEnabled => settings.EnableClientFeatures && settings.ShowLoadSaveDialogControls;
 
-        private bool DialogControlsEnabled => FeatureEnabled && settings.ShowLoadSaveDialogControls;
+        private bool preserveOriginalMapProtection;
+        private bool OriginalMapProtectionEnabled => FeatureEnabled || preserveOriginalMapProtection;
+        private bool DialogControlsEnabled => FeatureEnabled;
 
         private bool ShouldShowBuiltIns => DialogControlsEnabled && settings.ShowVanillaMapsInEditor;
 
@@ -234,7 +236,12 @@ namespace BugfixesAndQoL
             if (editorMapRequester)
                 editorMapPopulateDepth++;
             if (exposeBuiltIns)
+            {
+                // Once this process exposed original maps, a later Client toggle must not
+                // permit an already opened original to be overwritten by an outstanding save.
+                preserveOriginalMapProtection = true;
                 loadEditorMapPopulateDepth++;
+            }
 
             try
             {
@@ -333,7 +340,7 @@ namespace BugfixesAndQoL
                     path,
                     System.IO.Path.Combine(Application.streamingAssetsPath, "Maps"),
                     ConfigSettings.GetUserMapsPath(),
-                    FeatureEnabled,
+                    OriginalMapProtectionEnabled,
                     mapSave);
                 if (!string.Equals(safePath, path, StringComparison.OrdinalIgnoreCase))
                 {
@@ -510,7 +517,7 @@ namespace BugfixesAndQoL
 
         private void SettingsPropertyChanged(object sender, PropertyChangedEventArgs args)
         {
-            if (args.PropertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
+            if (args.PropertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
                 args.PropertyName != nameof(BugfixesAndQoLViewModel.ShowLoadSaveDialogControls) &&
                 args.PropertyName != nameof(BugfixesAndQoLViewModel.ShowVanillaMapsInEditor))
             {

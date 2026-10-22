@@ -49,7 +49,7 @@ internal static partial class Program
         }
         var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs"));
         string boundary = string.Join("\n", api.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Where(m => m.Identifier.Text is "TryStageWeightedRoute" or "TryGetCurrentWeightedRequest")
+            .Where(m => m.Identifier.Text is "TryStageWeightedRoute" or "TryGetCurrentWeightedRequest" or "BeginRouteOutput")
             .Select(m => ActiveDiagnosticFixtureCode(m)));
         string fixture = File.ReadAllText(Path.Combine(root, "_inspect/AssassinPerf/ProductionFixture.cs.txt"))
             .Replace("RUNTIME_MEMBERS", body).Replace("PUBLICATION_MEMBERS", publishing).Replace("API_BOUNDARY", boundary);

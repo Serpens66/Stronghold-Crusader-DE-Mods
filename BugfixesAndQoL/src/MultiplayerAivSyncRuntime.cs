@@ -160,7 +160,7 @@ namespace BugfixesAndQoL
 
         private void HostStartGameHook(Platform_Multiplayer self)
         {
-            if (FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame &&
+            if (IsFeatureActive() && FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame &&
                 self?.activeLobby?.isHost == true)
             {
                 try
@@ -550,7 +550,7 @@ namespace BugfixesAndQoL
         {
             try
             {
-                if (coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
+                if (IsFeatureActive() && coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
                     ValidateCustomCoopLobby(self?.activeLobby, null, false);
                 MultiplayerAivManifest manifest = ResolveManifestForStart(coopTrailId);
                 int preparedSlots = CoopCustomLordSelectionFeature.BeginCoopStart(
@@ -874,9 +874,7 @@ namespace BugfixesAndQoL
             };
 
         private bool IsFeatureActive() =>
-            settings.EnableMod &&
-            (settings.EnableCustomLordListEnhancements ||
-             FRONT_Multiplayer.coopGame);
+            settings.EnableMod && settings.EnableCustomLordListEnhancements;
 
         private static bool IsEligibleLobby(Platform_Multiplayer platform) =>
             platform?.activeLobby != null &&

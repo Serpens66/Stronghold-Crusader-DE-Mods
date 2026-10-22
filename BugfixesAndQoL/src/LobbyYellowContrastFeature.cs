@@ -167,7 +167,6 @@ namespace BugfixesAndQoL
         }
 
         private bool IsActive => LobbyYellowContrastPolicy.IsEnabled(
-            settings.EnableMod,
             settings.EnableClientFeatures,
             settings.ImproveYellowLobbyContrast);
 
