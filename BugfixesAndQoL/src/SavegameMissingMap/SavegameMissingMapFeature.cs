@@ -46,7 +46,8 @@ namespace BugfixesAndQoL.SavegameMissingMap
 
         private static void Install()
         {
-            RuntimeStartup.ValidateGameAssembly(Paths.ManagedPath);
+            // The code contract of the loaded methods is the gate (members, IL preflight and a compiled copy),
+            // not a hash of Assembly-CSharp.dll, so an update that keeps these methods keeps the fix.
             SavegameFix.ValidateMembers();
             SavegameFix.RunHookPlan(SavegameFix.HookTargets, SavegameFix.HookTransforms, () => { }, (method, transform) =>
             {

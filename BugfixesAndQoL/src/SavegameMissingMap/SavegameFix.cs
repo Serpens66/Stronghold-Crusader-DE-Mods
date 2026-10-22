@@ -68,6 +68,16 @@ namespace BugfixesAndQoL.SavegameMissingMap
             m.Name == "RestartSkirmishGame" && m.ReturnType.FullName == "System.Void" && m.Parameters.Count == 1 &&
             m.Parameters[0].ParameterType.FullName == "CrusaderDE.HUD_IngameMenu/RestartSkirmishMapInfo";
 
+        // JIT-compiles the transformed copy so invalid IL fails the preflight before any hook is published.
+        private static void CompileCopy(DynamicMethodDefinition copy)
+        {
+            MethodInfo generated = copy.Generate();
+            Type[] signature = generated.GetParameters().Select(p => p.ParameterType)
+                .Concat(new[] { generated.ReturnType }).ToArray();
+            Delegate compiled = generated.CreateDelegate(System.Linq.Expressions.Expression.GetDelegateType(signature));
+            RuntimeHelpers.PrepareDelegate(compiled);
+        }
+
         internal static void RunHookPlan(MethodInfo[] methods, ILContext.Manipulator[] transforms,
             Action beforePublish, Action<MethodInfo, ILContext.Manipulator> publish)
         {
@@ -77,7 +87,10 @@ namespace BugfixesAndQoL.SavegameMissingMap
                 try
                 {
                     using (var copy = new DynamicMethodDefinition(methods[i]))
-                    using (var il = new ILContext(copy.Definition)) il.Invoke(transforms[i]);
+                    {
+                        using (var il = new ILContext(copy.Definition)) il.Invoke(transforms[i]);
+                        CompileCopy(copy);
+                    }
                 }
                 catch (Exception ex) { throw HookFailure("preflight", methods[i], ex); }
             }

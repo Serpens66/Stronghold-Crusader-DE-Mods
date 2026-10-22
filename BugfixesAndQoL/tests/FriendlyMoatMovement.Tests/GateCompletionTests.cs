@@ -10,7 +10,7 @@ internal static class GateCompletionTests
         string directory = Path.Combine(root, "BugfixesAndQoL/src/UnitCommands");
         var selected = new Dictionary<string, string[]> {
             ["Attack/UnitCommandPathRuntime.ApproachFlood.cs"] = new[] { "ObserveAttackApproachFloodBuilder" },
-            ["Attack/UnitCommandPathRuntime.BuildingCandidates.cs"] = new[] { "ObserveBuildingApproachBuilder", "ObserveBuildingCandidateConsumer" },
+            ["Attack/UnitCommandPathRuntime.BuildingCandidates.cs"] = new[] { "ObserveBuildingApproachBuilder", "ObserveBuildingCandidateConsumer", "DiagFinishBuildingApproach" },
             ["Moat/DirectMoatCommandScopes.cs"] = new[] { "StageDirectCursorMoveWithOwnerRoute" },
             ["Integration/EnemyGatePolicyIntegration.cs"] = new[] { "BeginEnemyGateSearch", "EndEnemyGateSearch" }
         };
@@ -51,7 +51,7 @@ class Policy : IEnemyGatePathPolicy {
   if(ThrowOnExit) throw new InvalidOperationException("observer failure");
  }
 }
-public class Fixture {
+public partial class Fixture {
  int calls, errors; Action body; static int checks;
  static void Check(bool value) { checks++;if(!value)throw new Exception("gate wrapper assertion "+checks); }
  void Core() { calls++;body?.Invoke(); }

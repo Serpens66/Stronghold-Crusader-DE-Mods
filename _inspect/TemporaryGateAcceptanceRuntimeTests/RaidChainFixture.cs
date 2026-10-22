@@ -22,7 +22,7 @@ internal unsafe sealed class RaidChainFixture
     private string freshness="nativeSearchObserved";
     private int sourcePcl=1;
     private bool registered;
-    private sealed class BuildingQuery
+    private sealed partial class BuildingQuery
     {
         internal enum EnemyGateSearchKind { BuildingApproach }
         internal interface IEnemyGatePathPolicy {

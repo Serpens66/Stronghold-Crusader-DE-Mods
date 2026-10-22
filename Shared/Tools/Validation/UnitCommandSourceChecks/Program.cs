@@ -113,7 +113,10 @@ foreach (var relative in orderedProjects)
             .Where(p => !Path.GetRelativePath(folder, p).Split(Path.DirectorySeparatorChar).Any(s => s == "bin" || s == "obj"))).Distinct().ToArray();
     var removedSources = xml.Descendants().Where(e => e.Name.LocalName == "Compile" && e.Attribute("Remove") != null)
         .Select(e => Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Remove")))).ToHashSet(StringComparer.OrdinalIgnoreCase);
-    sources = sources.Where(p => !removedSources.Contains(p)).ToArray();
+    // This compiler preflight checks the normal build. Mirror Directory.Build.targets'
+    // diagnostic source exclusion; diagnostic builds are compiled by the actual driver.
+    sources = sources.Where(p => !removedSources.Contains(p) &&
+        !p.EndsWith(".DevDiag.cs", StringComparison.OrdinalIgnoreCase)).ToArray();
     var trees = sources.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), parse, p)).ToList();
     if (coreProject && xml.Descendants().Any(e => e.Name.LocalName == "ImplicitUsings" && e.Value == "enable"))
         trees.Add(CSharpSyntaxTree.ParseText("global using System; global using System.Collections.Generic; global using System.IO; global using System.Linq; global using System.Net.Http; global using System.Threading; global using System.Threading.Tasks;", parse, "ImplicitUsings.g.cs"));

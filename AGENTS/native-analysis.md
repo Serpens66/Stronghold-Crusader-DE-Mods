@@ -66,6 +66,13 @@
 - Eine passende Funktionssignatur beweist keine Struktur-, Tabellen- oder Feldoffsets. Ohne belastbaren semantischen Fallback den Grund in `UpdateToNewDLL.md` festhalten und nur das abhängige Feature hashgebunden lassen.
 - Scheitern RVA-Prüfung, Fallback oder nachgelagerte Semantikprüfung: Error-Log mit Zeitstempel (Feature, Ziel, Grund); nur dieses Feature fail-closed deaktivieren bzw. die Hooktransaktion vollständig zurückrollen. Vanilla und unabhängige Funktionen bleiben aktiv; modweiter Abbruch nur, wenn der Mod ausschließlich aus diesem Feature besteht.
 - Erfolgreiche Auflösungen mit Methode (`reference-rva` oder Pattern-Fallback) und tatsächlichem RVA auf Info-Level loggen.
+- **Prüfkosten (Zielverfahren für Hash- und Adressprüfung):** Adressprüfungen kosten nur dann Startzeit, wenn sie bei jedem Start scannen.
+  - **Bekannter Native-Hash:** keine Scans, nur Bytevergleich der Referenzbytes an den Referenz-RVAs. Eine Eindeutigkeitsprüfung per Vollscan ist hier nicht nötig, der Hash pinnt das auditierte Image.
+  - **Unbekannter Hash:** einmalig den auf passende Sektionen begrenzten Pattern- bzw. RIP-Fallback ausführen. Das Ergebnis persistent unter `BepInEx/cache` speichern, mit dem vollständigen Native-SHA-256 und der Modversion als Schlüssel. Spätere Starts validieren einen Cachetreffer wie eine Referenz: Code per Bytevergleich, Datenadressen durch erneutes Dekodieren der Anker-Instruktion. Ein fehlender, beschädigter oder widersprechender Cache führt nur zu einem Neuscan, nie zu einem Fehler.
+  - **Datei-Hash:** höchstens einmal pro Prozess berechnen und zwischen den Features teilen. Persistent über Pfad, Größe und Änderungszeit cachen, damit ein unverändertes Spiel nicht neu gehasht wird.
+  - **Datenadressen:** soweit möglich aus RIP-relativen Operanden validierter Code-Anker ableiten; das Ziel muss in einer Datensektion des Moduls liegen. Strukturfeld-Offsets und Ziele ohne belastbaren Anker bleiben hashgebunden, mit Begründung in `UpdateToNewDLL.md`.
+  - **Gates:** pro Feature oder Teilfeature, nie pauschal für einen größeren Verbund, damit ein vorhandener Fallback erreichbar bleibt.
+  - **Managed-Code:** den IL-Vertrag an den geladenen Methoden prüfen (Signatur, Muster, Probe-Transformation), statt die Assembly-Datei zu hashen. Die Modulidentität (MVID) nur prüfen, wenn Bytes von der Platte analysiert werden.
 - Feldoffsets nie allein aus einem Displacement übernehmen: zuerst Managerbasis, Slot-Adressformel, 0-/1-basierte IDs und Headerabstand zum Extender-Strukturzeiger bestimmen. Die Field-Map mit mehreren bekannten Feldern und plausiblen Laufzeitwerten validieren und im Initialisierungslog ausgeben.
 
 ## Diagnose- und Zustandsregeln

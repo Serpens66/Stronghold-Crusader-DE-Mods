@@ -41,7 +41,7 @@ standaloneMethods += "\n" + string.Join("\n", standaloneDiag.GetRoot().Descendan
     .Where(m => m.Identifier.ValueText is "DiagBeginAlternateConsumer" or "DiagEndAlternateConsumer").Select(m => Render(m).Replace("partial void", "void")));
 var sharedBuildings=Parse(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.BuildingCandidates.cs")));
 standaloneMethods += string.Join("\n",sharedBuildings.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-    .Where(m=>m.Identifier.ValueText is "ObserveBuildingApproachBuilder" or "ObserveBuildingCandidateConsumer").Select(m=>Render(m)));
+    .Where(m=>m.Identifier.ValueText is "ObserveBuildingApproachBuilder" or "ObserveBuildingCandidateConsumer" or "DiagFinishBuildingApproach").Select(m=>Render(m)));
 string fixture = File.ReadAllText(Path.Combine(root, "_inspect/TemporaryGateAcceptanceRuntimeTests/Fixture.cs"))
     .Replace("/* ACTUAL_WEIGHTED_PRODUCER */", producer).Replace("/* ACTUAL_SEARCH_WRAPPER */", searchWrapper)
     .Replace("/* ACTUAL_CORRELATION_METHODS */", correlationMethods).Replace("/* ACTUAL_CORRELATION_FRAMES */", correlationFrames)
@@ -57,7 +57,7 @@ string retryTypes = string.Join("\n", raid.DescendantNodes().OfType<TypeDeclarat
     .Where(t => t.Identifier.ValueText is "RaidGroupKey" or "RaidRetry" or "BuildingTarget").Select(t => Render(t)));
 trees.Add(Parse(File.ReadAllText(Path.Combine(root, "_inspect/TemporaryGateAcceptanceRuntimeTests/RaidChainFixture.cs"))
     .Replace("/* ACTUAL_RETRY */", retry).Replace("/* ACTUAL_RETRY_TYPES */", retryTypes)
-    .Replace("/* ACTUAL_BUILDING_WRAPPER */", Extract("Attack/UnitCommandPathRuntime.BuildingCandidates.cs", "ObserveBuildingApproachBuilder")
+    .Replace("/* ACTUAL_BUILDING_WRAPPER */", Extract("Attack/UnitCommandPathRuntime.BuildingCandidates.cs", "ObserveBuildingApproachBuilder", "DiagFinishBuildingApproach")
         + Extract("Integration/EnemyGatePolicyIntegration.cs", "BeginEnemyGateSearch", "EndEnemyGateSearch", "ResolveEnemyGateBuildingPlayer")), path: "RaidChainFixture.cs"));
 string Extract(string path, params string[] names) => string.Join("\n", Parse(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands",path)))
     .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m=>names.Contains(m.Identifier.ValueText)).Select(m=>Render(m)));

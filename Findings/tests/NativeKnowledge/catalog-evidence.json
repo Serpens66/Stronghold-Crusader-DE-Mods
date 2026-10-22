@@ -1,0 +1,3638 @@
+{
+  "capturedAt": "2026-10-22",
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "analysis": {
+    "generation": "sem/FBCB9319/analysis/g1E2FBFF53E33",
+    "digest": "1E2FBFF53E3373D515E29BD27020DC7E75C7883847B276B84917F494388AE81C",
+    "profileSchemaVersion": 1,
+    "sourceSnapshot": {
+      "status": "current",
+      "changes": [],
+      "meaning": "Captured integration inventory; mod edits do not invalidate Vanilla machine facts."
+    }
+  },
+  "baselineIdentities": {
+    "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+    "managedHash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
+    "oldNativeHash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
+    "scriptExtenderCommit": "10628df85cd432184742a50a1dee3969a66cf89e",
+    "scriptExtenderTree": "a612b537010c88e2837bb8895c9657e730365423"
+  },
+  "sourceCommit": "4014ca67c96974a5e6d697665baf5351cbfebde6",
+  "fields": [
+    {
+      "owner": "GameBuilding",
+      "offset": 236,
+      "raw": "Int16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "aliases": [],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/DRAWBRIDGES.md",
+          "sha256": "DEA5F7A3388368102BCD3056A5CD931B60FF6519254A98E0EBD248E007471DAE",
+          "first": 16,
+          "last": 35,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "RigidBuildingHeight",
+      "confidence": "Confirmed",
+      "verified": false,
+      "description": "Common rigid building-height reference written by allocator and consumed by rendering/unit placement. Not the mutable tile height; complete scalar signedness remains withheld.",
+      "id": "nkf-000001",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 268,
+      "raw": "Int16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "aliases": [
+        "GameBuilding.r_CurrentHealth",
+        "r_CurrentHealth"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md",
+          "sha256": "138CF3A231372D0EC132839DE1B8DEAC6804E72E2AA6785D71DC572FB3F920B3",
+          "first": 5,
+          "last": 13,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 95,
+          "last": 95,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "CurrentHealthRaw",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Current HP is consumed as a signed word by the building render paths; not a universal alive predicate.",
+      "id": "nkf-000002",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 270,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "aliases": [
+        "GameBuilding.r_MaxHealth",
+        "r_MaxHealth"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md",
+          "sha256": "138CF3A231372D0EC132839DE1B8DEAC6804E72E2AA6785D71DC572FB3F920B3",
+          "first": 5,
+          "last": 13,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 96,
+          "last": 96,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "MaximumHealthRaw",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Maximum HP is consumed as an unsigned word. Raw view deliberately does not inherit signedness from an interop display name.",
+      "id": "nkf-000003",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 680,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 812,
+      "aliases": [
+        "GameBuilding.N0000178A",
+        "N0000178A"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md",
+          "sha256": "CFD031DF36644C48AB3BB7963AF5A7AA548843000FBF119646C6EEC94F03554B",
+          "first": 20,
+          "last": 27,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 219,
+          "last": 219,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "SharedBuildingLinkWord",
+      "confidence": "Probable",
+      "verified": true,
+      "description": "Nonzero dword links compound building parts for accessibility propagation; siege-only interpretation is too narrow. Source/header historical names can refer to neighboring storage.",
+      "id": "nkf-000005",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 684,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 812,
+      "name": "r_UsedInSiegeAttemptId",
+      "confidence": "Candidate",
+      "description": "Source-named field mentioned by a current Knowledge document; native meaning/access not automatically established.",
+      "aliases": [
+        "GameBuilding.r_UsedInSiegeAttemptId",
+        "r_UsedInSiegeAttemptId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 220,
+          "last": 220,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md",
+          "sha256": "22EF5A167FC0D88B0ECA047F333FD55C7ED7552019C3DBC6CB0210C534A0A7BD",
+          "first": 893,
+          "last": 893,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md",
+          "sha256": "22EF5A167FC0D88B0ECA047F333FD55C7ED7552019C3DBC6CB0210C534A0A7BD",
+          "first": 920,
+          "last": 920,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000006",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 1292,
+      "raw": "Int32",
+      "count": 1,
+      "stride": 4,
+      "size": 22588,
+      "aliases": [
+        "GamePlayerResources.r_TotalGoodsGold",
+        "r_TotalGoodsGold"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/DEFEAT_LOOT.md",
+          "sha256": "2D523B235DA6F1B611868E71EE291B22800953BC32B5A1400EAE224F8BB5E875",
+          "first": 3,
+          "last": 9,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 343,
+          "last": 343,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "GoldRaw",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Signed gold balance; defeat rewards, purchases, sales and tax settlement have independent writers. A raw read does not imply a completed transaction.",
+      "id": "nkf-000007",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 8696,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 22588,
+      "aliases": [
+        "GamePlayerResources.r_LordUnitId",
+        "r_LordUnitId"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/PLAYER_DEFEAT.md",
+          "sha256": "2E806DA13409417995D3FF32F57A3A5D10C640C7E76784E4F676A5995E03A14C",
+          "first": 15,
+          "last": 23,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 1753,
+          "last": 1753,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "LordUnitGameId",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "One-based Lord unit game ID. Validate current global identity/life separately; save loading supplies baseline state, not a new defeat transition.",
+      "id": "nkf-000008",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 8720,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 22588,
+      "aliases": [
+        "GamePlayerResources.r_IsPaused",
+        "r_IsPaused"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/PLAYER_DEFEAT.md",
+          "sha256": "2E806DA13409417995D3FF32F57A3A5D10C640C7E76784E4F676A5995E03A14C",
+          "first": 15,
+          "last": 23,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 1759,
+          "last": 1759,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "PlayerPauseWord",
+      "confidence": "Probable",
+      "verified": false,
+      "description": "Upstream r_IsPaused in the defeat audit; exact pause semantics and width are not independently established here.",
+      "id": "nkf-000009",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 8772,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 22588,
+      "aliases": [
+        "GamePlayerResources.r_WinLossState",
+        "r_WinLossState"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/PLAYER_DEFEAT.md",
+          "sha256": "2E806DA13409417995D3FF32F57A3A5D10C640C7E76784E4F676A5995E03A14C",
+          "first": 15,
+          "last": 23,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 1772,
+          "last": 1772,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "WinLossStateRaw",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Raw win/loss state periodically written via 0xCDE60 -> 0x1D160; save restore is a separate writer. No state-number interpretation is imposed.",
+      "id": "nkf-000010",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 13756,
+      "raw": "UInt16",
+      "count": 100,
+      "stride": 2,
+      "size": 22588,
+      "aliases": [
+        "GamePlayerResources.r_BuildingIds",
+        "r_BuildingIds"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/RAID_RETARGET.md",
+          "sha256": "4B56E8D37F874A07D6EA2F6B3075268F268655FC76EA41AA8E2FE0E921CA0DE6",
+          "first": 13,
+          "last": 16,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 3028,
+          "last": 3028,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "RaidCandidateBuildingIds",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Bounded 100-element candidate storage relative to the public player-resource pointer. Elements are building game IDs; only the current count is meaningful. Native origin is +0x5C ahead.",
+      "id": "nkf-000011",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 13956,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 22588,
+      "aliases": [
+        "GamePlayerResources.r_TrackedBuildingCount",
+        "r_TrackedBuildingCount"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/RAID_RETARGET.md",
+          "sha256": "4B56E8D37F874A07D6EA2F6B3075268F268655FC76EA41AA8E2FE0E921CA0DE6",
+          "first": 13,
+          "last": 16,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 3029,
+          "last": 3029,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "RaidCandidateBuildingCount",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Current candidate count at public-pointer+0x3684, not native-origin+0x3628. The raw reader does not clamp the observed count or infer valid entries.",
+      "id": "nkf-000012",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 14576,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 22588,
+      "name": "r_AILastStandPhase",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GamePlayerResources.r_AILastStandPhase",
+        "r_AILastStandPhase"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 3167,
+          "last": 3167,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000013",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 48,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "LeaderUnitGameId",
+      "confidence": "Confirmed",
+      "description": "One-based unit game ID. Native address uses the manager's reserved-zero record; public span lookup uses gameId-1 exactly once.",
+      "aliases": [
+        "GameTribe.r_LeaderUnitId",
+        "r_LeaderUnitId",
+        "GameTribe.r_LeaderUnitId",
+        "r_LeaderUnitId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 31,
+          "last": 31,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md",
+          "sha256": "C35912CFA990572601EF75EAB8153072E3D0049682312CCF60EBAD248259371A",
+          "first": 63,
+          "last": 63,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md",
+          "sha256": "C35912CFA990572601EF75EAB8153072E3D0049682312CCF60EBAD248259371A",
+          "first": 59,
+          "last": 72,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 31,
+          "last": 31,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "verified": true,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000014",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1570,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "aliases": [],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/RAID_RETARGET.md",
+          "sha256": "4B56E8D37F874A07D6EA2F6B3075268F268655FC76EA41AA8E2FE0E921CA0DE6",
+          "first": 7,
+          "last": 18,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "StoredTargetBuildingGameId",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Stored one-based building ID; command 9 and other writers update it. A changed/still-stored target is not proof that a fresh melee search executed.",
+      "id": "nkf-000015",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1574,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "aliases": [],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/RAID_RETARGET.md",
+          "sha256": "4B56E8D37F874A07D6EA2F6B3075268F268655FC76EA41AA8E2FE0E921CA0DE6",
+          "first": 7,
+          "last": 18,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        }
+      ],
+      "related": [
+        "nkf-000018",
+        "nkf-000017"
+      ],
+      "extraMeanings": [],
+      "name": "StoredTargetBuildingGlobalId",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Global identity paired with the stored target building game ID; not a second pair at +0x64C/+0x650 (those are manager-relative).",
+      "id": "nkf-000016",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1576,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord10",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk10"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000016",
+        "nkf-000018"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000017",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1576,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId10",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId10",
+        "r_LastRangedAttackerGlobalId10"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 443,
+          "last": 443,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000016",
+        "nkf-000017",
+        "nkf-000019"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000018",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1578,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord10",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId10"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000018"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000019",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1580,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord1",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk1"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000021"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000020",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1580,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId1",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId1",
+        "r_LastRangedAttackerGlobalId1"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 444,
+          "last": 444,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000020",
+        "nkf-000022"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000021",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1582,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord1",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId1"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000021"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000022",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1584,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord2",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk2"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000024"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000023",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1584,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId2",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId2",
+        "r_LastRangedAttackerGlobalId2"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 445,
+          "last": 445,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000023",
+        "nkf-000025"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000024",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1586,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord2",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId2"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000024"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000025",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1588,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord3",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk3"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000027"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000026",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1588,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId3",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId3",
+        "r_LastRangedAttackerGlobalId3"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 446,
+          "last": 446,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000026",
+        "nkf-000028"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000027",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1590,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord3",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId3"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000027"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000028",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1592,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord4",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk4"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000030"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000029",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1592,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId4",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId4",
+        "r_LastRangedAttackerGlobalId4"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 447,
+          "last": 447,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000029",
+        "nkf-000031"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000030",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1594,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord4",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId4"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000030"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000031",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1596,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord5",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk5"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000033"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000032",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1596,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId5",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId5",
+        "r_LastRangedAttackerGlobalId5"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 448,
+          "last": 448,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000032",
+        "nkf-000034"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000033",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1598,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord5",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId5"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000033"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000034",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1600,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord6",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk6"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000036"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000035",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1600,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId6",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId6",
+        "r_LastRangedAttackerGlobalId6"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 449,
+          "last": 449,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000035",
+        "nkf-000037"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000036",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1602,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord6",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId6"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000036"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000037",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1604,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord7",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk7"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000039"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000038",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1604,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId7",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId7",
+        "r_LastRangedAttackerGlobalId7"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 450,
+          "last": 450,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000038",
+        "nkf-000040"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000039",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1606,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord7",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId7"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000039"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000040",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1608,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord8",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk8"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000042"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000041",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1608,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId8",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId8",
+        "r_LastRangedAttackerGlobalId8"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 451,
+          "last": 451,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000041",
+        "nkf-000043"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000042",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1610,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord8",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId8"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000042"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000043",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1612,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerLowWord9",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.unk9"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000045"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000044",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1612,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1672,
+      "name": "r_LastRangedAttackerGlobalId9",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameTribe.r_LastRangedAttackerGlobalId9",
+        "r_LastRangedAttackerGlobalId9"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+          "sha256": "B51B10DD9794C8AE53F904BF30C78F81F0E7289292E6F207201A1FDBBACE1127",
+          "first": 452,
+          "last": 452,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [
+        "nkf-000044",
+        "nkf-000046"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000045",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameTribe",
+      "offset": 1614,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1672,
+      "name": "FormerUpperWord9",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical 2.14.2 halfword declaration, replaced in source by a four-byte field. No independent semantic/read validation and no alias conversion.",
+      "aliases": [
+        "2.14.2:GameTribe.r_LastRangedAttackerGlobalId9"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 27,
+          "last": 46,
+          "summary": "Historical halfword layout; related to, not identical with, the new UInt32 field."
+        }
+      ],
+      "related": [
+        "nkf-000045"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000046",
+      "recordId": "nkr-000003"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 52,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1168,
+      "aliases": [
+        "GameUnit.r_HealthBarBlocks",
+        "r_HealthBarBlocks"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md",
+          "sha256": "138CF3A231372D0EC132839DE1B8DEAC6804E72E2AA6785D71DC572FB3F920B3",
+          "first": 13,
+          "last": 17,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 30,
+          "last": 30,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "CachedHealthBarBlocks",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Cached bar-block count used by rendering; damage/healing paths refresh it. Not a replacement for HP storage.",
+      "id": "nkf-000047",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 136,
+      "raw": "Int16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "LifeStateRaw",
+      "confidence": "Confirmed",
+      "description": "Raw signed AliveState encoding; not alone proof of combat life, slot identity or ownership.",
+      "aliases": [
+        "GameUnit.r_AliveState",
+        "r_AliveState",
+        "GameUnit.r_AliveState",
+        "r_AliveState"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 55,
+          "last": 55,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md",
+          "sha256": "33AD033DAA57D0BF183DDDEF1081161CF80CCAF543C6C0B63360C2C8931F7BA9",
+          "first": 9,
+          "last": 9,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+          "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95",
+          "first": 10,
+          "last": 21,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 55,
+          "last": 55,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "verified": true,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000048",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 146,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "ControllingPlayerWord",
+      "confidence": "Confirmed",
+      "description": "Complete 16-bit controlling-player word. Native MOVSX consumers reinterpret through signed Int16; this reader returns raw unsigned bits.",
+      "aliases": [
+        "GameUnit.r_ControllableForPlayerId",
+        "r_ControllableForPlayerId",
+        "GameUnit.r_ControllableForPlayerId",
+        "r_ControllableForPlayerId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 60,
+          "last": 60,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md",
+          "sha256": "C35912CFA990572601EF75EAB8153072E3D0049682312CCF60EBAD248259371A",
+          "first": 313,
+          "last": 313,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/FIREMAN_TARGETING.md",
+          "sha256": "8B5F6928C7F27C091063D8867F49A205FC52E3A12FA286F326023555E10F9B7B",
+          "first": 29,
+          "last": 29,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+          "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95",
+          "first": 61,
+          "last": 61,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md",
+          "sha256": "62BC8A4FA8207AD74BC2FB541A7FDA54A0368E243FEF8DE600FE203DBB0AD899",
+          "first": 55,
+          "last": 55,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+          "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95",
+          "first": 53,
+          "last": 64,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 60,
+          "last": 60,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "verified": true,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000051",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 182,
+      "raw": "Int16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "aliases": [],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md",
+          "sha256": "0FCFAC985AB423EA17197AB0D83A6CDAB3117BA7B6BFAEE1DD84F42D058F1275",
+          "first": 27,
+          "last": 38,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "StandingBaseHeightRaw",
+      "confidence": "Confirmed",
+      "verified": false,
+      "description": "Standing-height input at native slot+0x712; actual standing height combines correction and special movement/surface branches. Signedness/complete storage access remains withheld.",
+      "id": "nkf-000052",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 184,
+      "raw": "Int16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "aliases": [],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md",
+          "sha256": "0FCFAC985AB423EA17197AB0D83A6CDAB3117BA7B6BFAEE1DD84F42D058F1275",
+          "first": 27,
+          "last": 38,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "StandingHeightCorrection",
+      "confidence": "Confirmed",
+      "verified": false,
+      "description": "Signed vertical correction at native slot+0x714. Do not substitute a tile height for the complete standing-plane calculation.",
+      "id": "nkf-000053",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 668,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "aliases": [
+        "GameUnit.r_IsKilledByProjectile",
+        "r_IsKilledByProjectile"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+          "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95",
+          "first": 7,
+          "last": 21,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 209,
+          "last": 209,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [
+        "nkf-000091"
+      ],
+      "extraMeanings": [
+        {
+          "name": "ProjectileDeathOnly",
+          "confidence": "Rejected",
+          "description": "Melee writer 0x199110 also sets this marker. The upstream name cannot establish projectile causation.",
+          "evidence": [
+            {
+              "kind": "NativeAudit",
+              "source": "baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+              "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95",
+              "first": 49,
+              "last": 58,
+              "summary": "Melee counter-evidence to the projectile-only interpretation."
+            }
+          ]
+        }
+      ],
+      "name": "DeathMarker",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Low 16-bit death marker, set for melee as well as projectile death. AliveState can remain IsAlive. Adjacent +0x29E is separate storage.",
+      "id": "nkf-000054",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 672,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "aliases": [
+        "GameUnit.r_SelectionAllowed",
+        "r_SelectionAllowed"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+          "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95",
+          "first": 7,
+          "last": 18,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 211,
+          "last": 211,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "CaptureEligibilityWord",
+      "confidence": "Probable",
+      "verified": true,
+      "description": "Nonzero word gates gatehouse capture and healer-list inclusion. Broader classification and all writers are not established; it is not a life predicate.",
+      "id": "nkf-000055",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 700,
+      "raw": "Int16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "aliases": [],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 45,
+          "last": 51,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "AiStateRaw",
+      "confidence": "Confirmed",
+      "verified": false,
+      "description": "Raw type-dependent AI state. Maceman death interpretation is scoped; no universal state enum or complete field-width proof is inferred from selected writes.",
+      "id": "nkf-000056",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 716,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "r_CanAutoEngageInMelee",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameUnit.r_CanAutoEngageInMelee",
+        "r_CanAutoEngageInMelee"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 229,
+          "last": 229,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000057",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 828,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1168,
+      "name": "r_AttackingUnitGlobalId",
+      "confidence": "Candidate",
+      "description": "Upstream 2.14.3 interpretation, not an independently closed Vanilla semantic/access audit. See the source supplement, not just the older generated types.",
+      "aliases": [
+        "GameUnit.r_AttackingUnitGlobalId",
+        "r_AttackingUnitGlobalId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 272,
+          "last": 272,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+          "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8",
+          "first": 15,
+          "last": 50,
+          "summary": "Explicit source-only supplement; new four-byte Tribe slots are not aliases of their old upper halves."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000058",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 964,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1168,
+      "aliases": [
+        "GameUnit.r_CurrentHealth",
+        "r_CurrentHealth"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md",
+          "sha256": "138CF3A231372D0EC132839DE1B8DEAC6804E72E2AA6785D71DC572FB3F920B3",
+          "first": 5,
+          "last": 17,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 323,
+          "last": 323,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "CurrentHealthRaw",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Current unsigned HP storage; damage/healing update cached percentage/bar separately. Positive HP is not a universal life/identity predicate.",
+      "id": "nkf-000059",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 968,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1168,
+      "aliases": [
+        "GameUnit.r_MaxHealth",
+        "r_MaxHealth"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md",
+          "sha256": "138CF3A231372D0EC132839DE1B8DEAC6804E72E2AA6785D71DC572FB3F920B3",
+          "first": 5,
+          "last": 17,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        },
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 324,
+          "last": 324,
+          "summary": "Current declaration captured separately from native semantics."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "MaximumHealthRaw",
+      "confidence": "Confirmed",
+      "verified": true,
+      "description": "Maximum unsigned HP; initialization 0x19A240 sets current/max from type. No write or recomputed bar is provided.",
+      "id": "nkf-000060",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 1068,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "N000001FE",
+      "confidence": "Candidate",
+      "description": "Source-named field mentioned by a current Knowledge document; native meaning/access not automatically established.",
+      "aliases": [
+        "GameUnit.N000001FE",
+        "N000001FE"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 360,
+          "last": 360,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/ENEMY_GATE_ASSASSINS.md",
+          "sha256": "0444ED9B736455369C89A5A8CFEDE9F11822D2D69A8B4F2CA1933426D48A8849",
+          "first": 59,
+          "last": 59,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000061",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 1104,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "aliases": [],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md",
+          "sha256": "2E553C38723A65C671E6D2BCAC7CE8E4CFB1BDB70F646520899A5CA4890C1608",
+          "first": 5,
+          "last": 10,
+          "summary": "Feature audit establishes only the scoped description; gameplay acceptance is independent."
+        }
+      ],
+      "related": [],
+      "extraMeanings": [],
+      "name": "HealerTargetUnitId",
+      "confidence": "Probable",
+      "verified": false,
+      "description": "Healer updater's one-based target unit ID; target global identity/injury/range checks remain separate. Other unit-type uses need their own audit.",
+      "id": "nkf-000062",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnitManager",
+      "offset": 36,
+      "raw": "UInt32",
+      "count": 9,
+      "stride": 4,
+      "size": 0,
+      "name": "r_SelectedChimpsCount",
+      "confidence": "Candidate",
+      "description": "Source-named field mentioned by a current Knowledge document; native meaning/access not automatically established.",
+      "aliases": [
+        "GameUnitManager.r_SelectedChimpsCount",
+        "r_SelectedChimpsCount"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnitManager.cs",
+          "sha256": "AD40F1D9A3B7EBC4A3118B7EEB8D13927294B2C8A18D33B848034104F4A5C8BC",
+          "first": 36,
+          "last": 36,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/SURRENDER_SELECTION.md",
+          "sha256": "80C73D2BD397BDCE5448B20DCD9506A3DCF009393E67160BC8B8EEC548FF704E",
+          "first": 11,
+          "last": 11,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000063",
+      "recordId": "nkr-000005"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 702,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OnFireCounter",
+      "confidence": "Probable",
+      "description": "Nonzero fire counter read by selector 0xB8F40; extinguishing 0xC3C80 clears it. Struct origin is native slot+0x5C.",
+      "aliases": [
+        "GameBuilding.r_OnFireTicks",
+        "r_OnFireTicks"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 227,
+          "last": 227,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/FIREMAN_TARGETING.md",
+          "sha256": "8B5F6928C7F27C091063D8867F49A205FC52E3A12FA286F326023555E10F9B7B",
+          "first": 9,
+          "last": 23,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000064",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 768,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostProfileMask",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostStateFlags",
+        "r_OutpostStateFlags"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 254,
+          "last": 254,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000065",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 770,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostActiveTribeId",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostActiveTribeId",
+        "r_OutpostActiveTribeId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 255,
+          "last": 255,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000066",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 772,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 812,
+      "name": "OutpostActiveTribeGlobalId",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostActiveTribeGlobalId",
+        "r_OutpostActiveTribeGlobalId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 256,
+          "last": 256,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000067",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 776,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostProductionCounter",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostTickCounter",
+        "r_OutpostTickCounter"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 257,
+          "last": 257,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000068",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 778,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostTargetGroupSize",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostTargetGroupSize",
+        "r_OutpostTargetGroupSize"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 258,
+          "last": 258,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000069",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 780,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostActiveProfile",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.N00001849",
+        "N00001849"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 259,
+          "last": 259,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000070",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 782,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostSizeSetting",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostSize",
+        "r_OutpostSize"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 260,
+          "last": 260,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000071",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 784,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostProductionDelay",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostDelay",
+        "r_OutpostDelay"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 261,
+          "last": 261,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000072",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 786,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostCatapultFlag",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.N00001797_2",
+        "N00001797_2"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 262,
+          "last": 262,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000073",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 790,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 812,
+      "name": "OutpostGroupAcceleration",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.N00001797_3",
+        "N00001797_3"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 265,
+          "last": 265,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000075",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 792,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 812,
+      "name": "OutpostSpawnAcceleration",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.N00001798",
+        "N00001798"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 266,
+          "last": 266,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000076",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GamePlayerResources",
+      "offset": 1132,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 22588,
+      "name": "PendingIncomingGoodsTable",
+      "confidence": "Probable",
+      "description": "Base of twenty incoming-goods totals. No array type/extent is granted from the first source declaration alone.",
+      "aliases": [
+        "GamePlayerResources.r_incomingNull",
+        "r_incomingNull"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+          "sha256": "FA6B7B12789C088C8120FC4756CCC3A579494F5A220DE6EEAB1C3CD39A49D9DF",
+          "first": 303,
+          "last": 303,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/DEFEAT_LOOT.md",
+          "sha256": "2D523B235DA6F1B611868E71EE291B22800953BC32B5A1400EAE224F8BB5E875",
+          "first": 5,
+          "last": 9,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000077",
+      "recordId": "nkr-000002"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 138,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "r_UnitChimp",
+      "confidence": "Candidate",
+      "description": "Source-named field mentioned by a current Knowledge document; native meaning/access not automatically established.",
+      "aliases": [
+        "GameUnit.r_UnitChimp",
+        "r_UnitChimp"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 56,
+          "last": 56,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/ENEMY_GATE_ASSASSINS.md",
+          "sha256": "0444ED9B736455369C89A5A8CFEDE9F11822D2D69A8B4F2CA1933426D48A8849",
+          "first": 17,
+          "last": 17,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md",
+          "sha256": "138CF3A231372D0EC132839DE1B8DEAC6804E72E2AA6785D71DC572FB3F920B3",
+          "first": 17,
+          "last": 17,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md",
+          "sha256": "4A17F3D4D1F638710118B4E6BD0F3ED2A17866B41E519FB7B865F81345C06473",
+          "first": 68,
+          "last": 68,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000078",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 172,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "RecruitmentRallyField",
+      "confidence": "Probable",
+      "description": "Outpost production clears this recruitment-rally field. Do not infer a universal command context.",
+      "aliases": [
+        "GameUnit.N0000011E",
+        "N0000011E"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 68,
+          "last": 68,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 16,
+          "last": 31,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000079",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 178,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "HealerWorldPositionX",
+      "confidence": "Probable",
+      "description": "World coordinate consumed by healer selection, not automatically a tile coordinate.",
+      "aliases": [
+        "GameUnit.r_CurrentWorldPositionX",
+        "r_CurrentWorldPositionX"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 71,
+          "last": 71,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md",
+          "sha256": "2E553C38723A65C671E6D2BCAC7CE8E4CFB1BDB70F646520899A5CA4890C1608",
+          "first": 5,
+          "last": 10,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000080",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 180,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "HealerWorldPositionY",
+      "confidence": "Probable",
+      "description": "World coordinate consumed by healer selection, not automatically a tile coordinate.",
+      "aliases": [
+        "GameUnit.r_CurrentWorldPositionY",
+        "r_CurrentWorldPositionY"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 72,
+          "last": 72,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md",
+          "sha256": "2E553C38723A65C671E6D2BCAC7CE8E4CFB1BDB70F646520899A5CA4890C1608",
+          "first": 5,
+          "last": 10,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000081",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 762,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "WorkerWorkMode",
+      "confidence": "Probable",
+      "description": "Native manager-relative +0x956 minus record origin 0x65C. Entertainment can reuse AI state 1; this is a separate work-mode gate.",
+      "aliases": [
+        "GameUnit.r_WorkModeFlags",
+        "r_WorkModeFlags"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 243,
+          "last": 243,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md",
+          "sha256": "62BC8A4FA8207AD74BC2FB541A7FDA54A0368E243FEF8DE600FE203DBB0AD899",
+          "first": 20,
+          "last": 34,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000082",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 820,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "WorkerWorkshopId",
+      "confidence": "Probable",
+      "description": "Native manager-relative +0x990 minus record origin 0x65C; ID alone cannot establish current workshop identity.",
+      "aliases": [
+        "GameUnit.r_LinkedProductionBuildingId",
+        "r_LinkedProductionBuildingId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 268,
+          "last": 268,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md",
+          "sha256": "62BC8A4FA8207AD74BC2FB541A7FDA54A0368E243FEF8DE600FE203DBB0AD899",
+          "first": 20,
+          "last": 34,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000083",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 868,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1168,
+      "name": "WorkerWorkshopGlobalId",
+      "confidence": "Probable",
+      "description": "Native manager-relative +0x9C0 minus record origin 0x65C; paired workshop global identity.",
+      "aliases": [
+        "GameUnit.r_LinkedProductionBuildingGlobalId",
+        "r_LinkedProductionBuildingGlobalId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 288,
+          "last": 288,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md",
+          "sha256": "62BC8A4FA8207AD74BC2FB541A7FDA54A0368E243FEF8DE600FE203DBB0AD899",
+          "first": 20,
+          "last": 34,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000084",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 892,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "WorkerAnimationVariant",
+      "confidence": "Probable",
+      "description": "Native manager-relative +0x9D8 minus record origin 0x65C. r_TicksSinceRestPulse is reused by this worker path; do not assume universal rest timing.",
+      "aliases": [
+        "GameUnit.r_TicksSinceRestPulse",
+        "r_TicksSinceRestPulse"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 297,
+          "last": 297,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md",
+          "sha256": "62BC8A4FA8207AD74BC2FB541A7FDA54A0368E243FEF8DE600FE203DBB0AD899",
+          "first": 20,
+          "last": 34,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000085",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 922,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "FiremanTargetBuildingId",
+      "confidence": "Probable",
+      "description": "Fireman states 3/4 validate and consume target building ID with paired global identity; other unit contexts are not inferred.",
+      "aliases": [
+        "GameUnit.r_AI_ContextTargetUnitId",
+        "r_AI_ContextTargetUnitId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 310,
+          "last": 310,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/FIREMAN_TARGETING.md",
+          "sha256": "8B5F6928C7F27C091063D8867F49A205FC52E3A12FA286F326023555E10F9B7B",
+          "first": 15,
+          "last": 23,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000086",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 924,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1168,
+      "name": "FiremanTargetBuildingGlobalId",
+      "confidence": "Probable",
+      "description": "Global identity paired with the fireman's target; field meaning is scoped to this updater.",
+      "aliases": [
+        "GameUnit.r_AI_ContextTargetUnitGlobalId",
+        "r_AI_ContextTargetUnitGlobalId"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 311,
+          "last": 311,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/FIREMAN_TARGETING.md",
+          "sha256": "8B5F6928C7F27C091063D8867F49A205FC52E3A12FA286F326023555E10F9B7B",
+          "first": 15,
+          "last": 23,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000087",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 1062,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "OutpostAiTribeRole",
+      "confidence": "Probable",
+      "description": "Outpost writes the AI tribe role; compatibility with every special unit type is not established.",
+      "aliases": [
+        "GameUnit.r_AITribeRole",
+        "r_AITribeRole"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 357,
+          "last": 357,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 16,
+          "last": 31,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000088",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 674,
+      "raw": "UInt8",
+      "count": 1,
+      "stride": 1,
+      "size": 812,
+      "name": "r_GateState",
+      "confidence": "Candidate",
+      "description": "Source-named field mentioned by a current Knowledge document; native meaning/access not automatically established.",
+      "aliases": [
+        "GameBuilding.r_GateState",
+        "r_GateState"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 214,
+          "last": 214,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "KnowledgeReference",
+          "source": "baseline/sem/FBCB9319/knowledge/ENEMY_GATE_ASSASSINS.md",
+          "sha256": "0444ED9B736455369C89A5A8CFEDE9F11822D2D69A8B4F2CA1933426D48A8849",
+          "first": 59,
+          "last": 59,
+          "summary": "Mention only. Read the full feature audit; this reference does not promote field confidence."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000089",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameBuilding",
+      "offset": 788,
+      "raw": "UInt8",
+      "count": 1,
+      "stride": 1,
+      "size": 812,
+      "name": "OutpostVicinityInitialized",
+      "confidence": "Probable",
+      "description": "Outpost-specific field; native allocator/ABB90 update flow is documented. Source scalar typing alone is not a complete read-access audit.",
+      "aliases": [
+        "GameBuilding.r_OutpostNearbyUnitsInitialized",
+        "r_OutpostNearbyUnitsInitialized"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+          "sha256": "2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4",
+          "first": 263,
+          "last": 263,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/OUTPOSTS.md",
+          "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A",
+          "first": 12,
+          "last": 20,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000090",
+      "recordId": "nkr-000001"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 668,
+      "raw": "UInt32",
+      "count": 1,
+      "stride": 4,
+      "size": 1168,
+      "name": "FormerCombinedDeathAndAdjacentWord",
+      "confidence": "Candidate",
+      "verified": false,
+      "description": "Historical N0000019A combined the death low word and unrelated adjacent high word. Not an alias of the current death marker and never automatically narrowed.",
+      "aliases": [
+        "historical:GameUnit.N0000019A",
+        "N0000019A"
+      ],
+      "evidence": [
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+          "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95",
+          "first": 49,
+          "last": 58,
+          "summary": "Historical combined storage; native combat checks use only the low 16 bits."
+        }
+      ],
+      "related": [
+        "nkf-000054"
+      ],
+      "extraMeanings": [],
+      "id": "nkf-000091",
+      "recordId": "nkr-000004"
+    },
+    {
+      "owner": "GameUnit",
+      "offset": 674,
+      "raw": "UInt16",
+      "count": 1,
+      "stride": 2,
+      "size": 1168,
+      "name": "NearestEnemyDistanceRaw",
+      "confidence": "Probable",
+      "description": "Distance producers use distinct metrics and signed 16-bit comparisons despite public UInt16 storage; no universal distance meaning or range policy is imposed.",
+      "aliases": [
+        "GameUnit.r_WorldDistanceToNearestEnemy",
+        "r_WorldDistanceToNearestEnemy"
+      ],
+      "evidence": [
+        {
+          "kind": "ExtenderSource",
+          "source": "extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+          "sha256": "2ECFBD78D4FA63DD1D4F4DD07C535F14C629B52510DE3E585C678B91900DE3C8",
+          "first": 212,
+          "last": 212,
+          "summary": "Captured source layout/name only; not independent native semantic or read validation."
+        },
+        {
+          "kind": "NativeAudit",
+          "source": "baseline/sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md",
+          "sha256": "33AD033DAA57D0BF183DDDEF1081161CF80CCAF543C6C0B63360C2C8931F7BA9",
+          "first": 7,
+          "last": 11,
+          "summary": "Scoped offset relationship; read access remains withheld pending complete scalar/extent validation."
+        }
+      ],
+      "verified": false,
+      "related": [],
+      "extraMeanings": [],
+      "id": "nkf-000092",
+      "recordId": "nkr-000004"
+    }
+  ],
+  "documents": [
+    {
+      "source": "sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md",
+      "sha256": "CFD031DF36644C48AB3BB7963AF5A7AA548843000FBF119646C6EEC94F03554B"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/AI_RESOURCE_RESERVE.md",
+      "sha256": "9C0EFE79FA408CA33ABCA571E2D52201D498C19B38A8E8F86F47A970A494A7A4"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/AI_SELL_THRESHOLDS.md",
+      "sha256": "7AC2D13A105E01291804A970C8ED92C0182C46C77B6BDB352ED88098798C907B"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/AI_WOODCUTTER_BUILD.md",
+      "sha256": "AF7762BAE917B814B191203AA493949B911F18FEF83CFF7DAA27DDDF777FAD29"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/AIV_BUILD_RANGE.md",
+      "sha256": "1104C24B27A04F690B10522071698359FEB237B7AA889BEC2992DE582A6E52B5"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md",
+      "sha256": "22EF5A167FC0D88B0ECA047F333FD55C7ED7552019C3DBC6CB0210C534A0A7BD"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ASSASSIN_ATTACK_CONTROL_TEST.md",
+      "sha256": "5F9A51D135FC0A7F04F56AE91036214F15E806D22BA28BB3E03943F689E99D8E"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md",
+      "sha256": "F5BA43253BE4F03572774E6CD2E12DE0B10915EF8FE4EFEB6599D70C41253D35"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ASSASSIN_RECONSTRUCTION_REPAIR.md",
+      "sha256": "E56BD15A89811586E9311B4AF9B815C8B947E52D7E3FE5A445DA119841FABADE"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md",
+      "sha256": "8D60DE14719FE260AFC49374D1F33F1A29418A53416C19442008C9FC15BA3DC5"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md",
+      "sha256": "2E553C38723A65C671E6D2BCAC7CE8E4CFB1BDB70F646520899A5CA4890C1608"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/BUILDING_REPAIR.md",
+      "sha256": "49B7AA1F42BF0735956C9CD8F90581EA9698D4683328AD6F5D90E96114948B09"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/BUILDING_SLEEP_SELECTION.md",
+      "sha256": "6E5290A4DD4C546436DD3C856D919B3712B1FEFB63C455B7375329232F887370"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/CHORE_SYSTEM.md",
+      "sha256": "11ACB9F7D9CA2A13F8C5C7D34E417F51FE11849DD3A0A82A653988B1481B648A"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/COOP_TRAIL_CUSTOMIZE_PRESENTATION.md",
+      "sha256": "41CB51BDDF992554628CF4B247AF815117E9C7FC4C6F11580EA642DAD04B5DB5"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/CRENELATED_WALLS.md",
+      "sha256": "6E0B0044F63D50A6A9038D9498F72A6291AFB7916E71D708B4CC0973CC18BC69"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/DEFEAT_LOOT.md",
+      "sha256": "2D523B235DA6F1B611868E71EE291B22800953BC32B5A1400EAE224F8BB5E875"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/DRAWBRIDGE_AI_DECISIONS.md",
+      "sha256": "B02869F533CFA1BE07E66FDD78E878D3529174B10A1CE6EEB46E1D568239386D"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/DRAWBRIDGE_DESTRUCTION.md",
+      "sha256": "08F1A2B4FE8F7F9F641229B5A73885638D5F52EA994BB4D43C7760C0F6E41A1E"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/DRAWBRIDGES.md",
+      "sha256": "DEA5F7A3388368102BCD3056A5CD931B60FF6519254A98E0EBD248E007471DAE"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md",
+      "sha256": "525A0FF3C93244B7E2C42BE20F578A8A1B27377F6886F55827A544F3AB1963CB"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_BRIDGE_COUNT_INPUTS.md",
+      "sha256": "AFC33612B2205E1B99209C930B7D9794B3C2C780EA95E754DFA9D1B4008B186E"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_BRIDGE_ENTRY_CAPTURE.md",
+      "sha256": "3975DC2B5C3C5DD3284035A9481A185B5DE8E8BA6D6DB64A57E5073B539D7F17"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_BRIDGE_GENERAL_DIAGNOSIS.md",
+      "sha256": "66AEECF58AF5BC500B501C6389EE5D356745176E674D0850FD3B33D1A8A7C04E"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_BRIDGE_PAIR_INPUTS.md",
+      "sha256": "DF5D48015140D2BBA7D4C78E8AB8E13146235B1F6608935AEC45A09924AC878A"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_GATE_ASSASSINS.md",
+      "sha256": "0444ED9B736455369C89A5A8CFEDE9F11822D2D69A8B4F2CA1933426D48A8849"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md",
+      "sha256": "C35912CFA990572601EF75EAB8153072E3D0049682312CCF60EBAD248259371A"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_GATE_CAPTURE_ADAPTERS.md",
+      "sha256": "DFF5B1987E9495E9BCDF18AB3D48786EBA797DC1C1D8AE1BD4C07E636BFD49AA"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_GATE_DRAWBRIDGE_POLICY.md",
+      "sha256": "2AF399DB8C1485CF0F098605E8D66518B1948CA6AAC304AEB5F9B4F8FB952347"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/ENEMY_GATE_VANILLA_EVIDENCE.md",
+      "sha256": "47197CAF15B0EEDF464AE8B0ACBF86EBDFA3F1B25C2C1798F3A4FE30F8832301"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/EXTRAFEATURES_SESSION_CALLBACKS.md",
+      "sha256": "475CA3FE3703913D5E6D88A8240DBA05614BC46CF50BB8F85CACF9038C3828A2"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/FARM_BUILD_PREVIEW.md",
+      "sha256": "6BAE83214D6E11664FCBB6EB9B25D57D326B2C0D03FD213A7DAB057E02F49FDF"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/FIREMAN_TARGETING.md",
+      "sha256": "8B5F6928C7F27C091063D8867F49A205FC52E3A12FA286F326023555E10F9B7B"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/FIXES_COMPATIBILITY.md",
+      "sha256": "05A766DE8FD8BFDB6388D6200A4B35802020F4316B17A4F04A89CC7F314584F2"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/FIXES_WHEAT_STARTUP.md",
+      "sha256": "85B0E0DA69EF769B57ADB1469FDB2341C17E5696191089500B1F2D332572ED78"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/FOREIGN_TROOP_PLAYER_COLORS.md",
+      "sha256": "2439DC51FADB9BD9848B1C36A5DD72A996A5F1A915C9858FBD7E697265246044"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/FORMATION_MOVEMENT_PERMISSION.md",
+      "sha256": "ED7F87EBF8116D683E8A8DE1C4F1B86113608F6CC3AAB51A37081E6190B107A2"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/GATE_BRIDGE_AUTOMATION.md",
+      "sha256": "CE96674335B6C76B44E1D9BDD5E8D5677068928BF465324566D18D95C4AC3848"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/GATE_ROUTING_MIGRATION.md",
+      "sha256": "730A5DF90E3C4A94D189764C84CA47B218DE08C2FC733BC5A8FB69A6511B8154"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+      "sha256": "FB721038721AAF620F498BC377C2A3852F09DCABC081094F0179D48F5F860C95"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/GATEHOUSE_TARGET_MARKER_HEIGHT.md",
+      "sha256": "25D014FF75509E84BE5DD8663831C5C89DD2CB363E7108D34C5B6A996E60CC7A"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md",
+      "sha256": "138CF3A231372D0EC132839DE1B8DEAC6804E72E2AA6785D71DC572FB3F920B3"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/HUD_PRESENTATION.md",
+      "sha256": "CD5F3627BE35616C39C9E983767AF0A5A513B30ACEDA4972D7655BD653568F98"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/KEEP_CAMPGROUND_GROUND.md",
+      "sha256": "9CDC36E683CE70B5629C147F04CAA027EDAC907EE997E27E21504F58E2DFC72B"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md",
+      "sha256": "B5E5043D7D27AFDE4E0038E8E1A4E460FF2B42F8F9F2F75BF0222F4667CE1DC7"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/LOBBY_SAVE_LOADING.md",
+      "sha256": "C5DFD7C9B30B83FBD5E252F3644A510CCAFA8DE8EC074122E650A71C97BC5ABF"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/LORD_SLOT_REMAP.md",
+      "sha256": "CBA6D932DC496AD3B49E536718DA8115EB27ED3F25514C5B9B7DFC39CD17F3E0"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/MARKET_PRICE_QUERIES.md",
+      "sha256": "AAACA22AB18FDDC336961BE9B66C5D7C7EE2CB9A3836E91689DF2CD17F51FF94"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md",
+      "sha256": "E2045E35540B8F408CB97698D099DF3E57AC24D9FD618D512E8CEB9DBADCD4AB"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/MODSETTINGS_ACTIVATION.md",
+      "sha256": "648F4A0546B0384151657988532BBF3633049BC68DCAE860BEFD3FFF9DDE23F6"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/MOVE_COMMAND_RELEASE.md",
+      "sha256": "0F97D3D3A695C727860AD0D660A1D03E1AF09A55FA44F8F592957A8260FA4B56"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md",
+      "sha256": "15A0BAC2F312BCB452C0C469E19F40B442D3FC2D98D9962E5F5568055E627364"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/OUTPOSTS.md",
+      "sha256": "72564C7AAB6D4C5AC4C7C223EE35D7A0563F466DAB0D6EFD0AED8EDC89960E9A"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/PATHFINDING_TABLE_REPLACEMENTS.md",
+      "sha256": "7B009B7E004096D720A4E3FA26D1B875AFDF13A8DCD17D251B0EEADE15E10283"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md",
+      "sha256": "0FCFAC985AB423EA17197AB0D83A6CDAB3117BA7B6BFAEE1DD84F42D058F1275"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/PLAGUE_POPULARITY.md",
+      "sha256": "41DDEDE644CF4CC6A5D64CD2D0AAE4EDCC4EAB2F2B989440F742E88568EB9E33"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/PLAYER_DEFEAT.md",
+      "sha256": "2E806DA13409417995D3FF32F57A3A5D10C640C7E76784E4F676A5995E03A14C"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/POPULARITY_PARAMETERS.md",
+      "sha256": "9E17E3731DB79A2B0ADFCC01EC1D4C33B74B826863E3136F325187D61D06CCF5"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/PREBUILT_WORKSHOP_BOTH.md",
+      "sha256": "CD92F53358B730378F02788CB760CE874F310AD88F708B2BC85FDDAB7E250D15"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/RAID_RETARGET.md",
+      "sha256": "4B56E8D37F874A07D6EA2F6B3075268F268655FC76EA41AA8E2FE0E921CA0DE6"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/RALLY_TERRAIN_SLOWDOWN.md",
+      "sha256": "D014499E14A390ECD3D1D80BED6EAE497D8B58B5752F6F919720A6CC95A5C1B9"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/RECRUIT_TRANSFORMATION.md",
+      "sha256": "C83E3FA2D3885ADDCCC4D4090DB041AB6E507FCF4B3CFA43BA99C6E4E4DF8226"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md",
+      "sha256": "B727A682A72EE717760254CA37A373DA8FF894EACF0653DF1A5960E24005F9F4"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md",
+      "sha256": "0EB50076B2CC3500CF77A4C9C50D0D2F7F16E483CC162F1013F181ACA76D3A43"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SE210_RANGE_HOOKS.md",
+      "sha256": "CBB162D8D97CB0C55C06741DB378F123B7309FABDA37D324DC7A3C66C020F539"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SE_2_11_SPEECH_PATH.md",
+      "sha256": "1F982845D86E69B4034134EBC644D78C2DFDD41CF09CD2CC4C59C8CB64A2A0EC"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md",
+      "sha256": "33AD033DAA57D0BF183DDDEF1081161CF80CCAF543C6C0B63360C2C8931F7BA9"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md",
+      "sha256": "B093C8FB6F6E2793C4283D5C4FF4EB0E0E5495E899267FAAFAC62613B7B4E7A8"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md",
+      "sha256": "DFFE320A9D94A2E8FA683E063DF6688BF69486D43A250826C250DBBE8FC9B7E1"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SITUATIONAL_UNIT_AUDIO.md",
+      "sha256": "43428DEF330A25D8ED9A61183558E9CFBFD519DACA379860721D8A7CEEA6BEAA"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SPECTATOR_BUILD_PLACEMENT.md",
+      "sha256": "8BA1F882407E14365DF0F8E79A7DB9536AFA49A343C1DC62EE765A9C4F508050"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SPECTATOR_REPORTS.md",
+      "sha256": "6E1568746CB39AB292936FFAFDD380ECCDDF01F876441721F9E07832129412F4"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SPECTATOR_TEST_TOOLS.md",
+      "sha256": "D3E769B5C57EF01E5B17C68FF8477570C6FEDDF43A39A5CAAAC59D01DED687D9"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/SURRENDER_SELECTION.md",
+      "sha256": "80C73D2BD397BDCE5448B20DCD9506A3DCF009393E67160BC8B8EEC548FF704E"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/TANNER_ALPHA.md",
+      "sha256": "CB82F39959624F03B600199C2143A15FBF32C0BDE87762776BCB11830FAB23AA"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/TEMP_GATE_ROUTE_ACCEPTANCE.md",
+      "sha256": "D9C1A30AE0EBD472F0F5BE64F231DA9C1417F0A19DF80DBDE90BDFAE100A14F4"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/TRAIL_CUSTOM_AIC_EXPORT.md",
+      "sha256": "BEFDC3356A2C60BD87400883F564B10090552B14937FC8BBC1F2A35AD9DFC4BA"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/TRAIL_IMPORT_DELETION.md",
+      "sha256": "27877C7B10A33ABD39E9C066E367777451CDBF0B591E9F87A194B9244C1754E0"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/UNIT_COMMAND_CURSOR_BOUNDARY.md",
+      "sha256": "FAEB33DD6D6D2336B5A573EC03E54650987CBB1D8E79A8EE0FEAFB5D89688F48"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/UNIT_COMMAND_PROBE_SCRATCH.md",
+      "sha256": "738B8C07338AF204895A61F29F3FA4C610308A704C44B837E80C8FEB5D980F60"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/UU_IMGUI_SHUTDOWN.md",
+      "sha256": "1FFD8A0467DA6E14667DE50528C9974BC97FF1D525BDB57B5BFB7537BE871CB6"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md",
+      "sha256": "4A17F3D4D1F638710118B4E6BD0F3ED2A17866B41E519FB7B865F81345C06473"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/WORKER_PAUSES.md",
+      "sha256": "CDDD08F13246AE1407F5BEA92688492772E6A8340A808CF47493DA51DF4097F5"
+    },
+    {
+      "source": "sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md",
+      "sha256": "62BC8A4FA8207AD74BC2FB541A7FDA54A0368E243FEF8DE600FE203DBB0AD899"
+    }
+  ]
+}

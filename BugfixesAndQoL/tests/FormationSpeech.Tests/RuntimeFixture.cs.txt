@@ -37,6 +37,7 @@ namespace APIShared.Internal {
 namespace Shared { public static class DebugLogHelper {
  public static int Errors;
  public static bool DiagnosticsEnabled => false;
+ public static void LogInfo(object log,string message) {}
  public static void LogErrorLimited(object log,string key,string message) { Errors++; }
  public static void LogWarningLimited(object log,string key,string message) {}
 } }

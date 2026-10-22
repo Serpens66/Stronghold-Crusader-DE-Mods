@@ -1,6 +1,4 @@
 using System;
-using System.IO;
-using System.Security.Cryptography;
 using System.Threading;
 
 namespace BugfixesAndQoL.SavegameMissingMap
@@ -35,23 +33,6 @@ namespace BugfixesAndQoL.SavegameMissingMap
                     Report(error, ex);
                 }
             });
-        }
-
-        internal static string ValidateGameAssembly(string managedPath)
-        {
-            // Unity loads Assembly-CSharp from bytes, so Assembly.Location may be empty.
-            if (string.IsNullOrWhiteSpace(managedPath) || !Path.IsPathRooted(managedPath))
-                throw new InvalidOperationException("BepInEx ManagedPath is missing or not absolute.");
-            string path = Path.Combine(managedPath, "Assembly-CSharp.dll");
-            if (!File.Exists(path)) throw new FileNotFoundException("Installed game assembly missing: " + path, path);
-            using (var sha = SHA256.Create())
-            using (var input = File.OpenRead(path))
-            {
-                string hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "");
-                if (hash != "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789")
-                    throw new InvalidOperationException("Unsupported game assembly at " + path + "; SHA256=" + hash);
-            }
-            return path;
         }
     }
 }

@@ -35,29 +35,6 @@ namespace BugfixesAndQoL.SavegameMissingMap
             SavegameMissingMapFeature.InitializeUnlessLegacy(false, () => installs++, message => skipLogs++);
             Require(installs == 1 && skipLogs == 1, "Feature without legacy plugin was skipped.");
             Console.WriteLine("PASS: legacy testplugin skips installation even with a failing logger; absence permits initialization.");
-            string managed = Path.Combine(game, "Stronghold Crusader Definitive Edition_Data", "Managed");
-            var memoryAssembly = Assembly.Load(File.ReadAllBytes(Path.Combine(managed, "Assembly-CSharp.dll")));
-            Require(string.IsNullOrEmpty(memoryAssembly.Location), "Regression fixture must have an empty assembly location.");
-            Require(File.Exists(RuntimeStartup.ValidateGameAssembly(managed)), "Installed assembly validation failed with a byte-loaded game assembly.");
-            string scratch = TestWorkDirectory.New("SavegameMissingMapFixTes");
-            Directory.CreateDirectory(scratch);
-            try
-            {
-                bool missing = false;
-                try { RuntimeStartup.ValidateGameAssembly(scratch); }
-                catch (FileNotFoundException ex) { missing = ex.FileName == Path.Combine(scratch, "Assembly-CSharp.dll"); }
-                Require(missing, "Missing assembly was not rejected with its path.");
-                File.WriteAllBytes(Path.Combine(scratch, "Assembly-CSharp.dll"), new byte[] { 1, 2, 3 });
-                bool mismatch = false;
-                try { RuntimeStartup.ValidateGameAssembly(scratch); }
-                catch (InvalidOperationException ex) { mismatch = ex.Message.Contains("SHA256=") && ex.Message.Contains(scratch); }
-                Require(mismatch, "Mismatched assembly hash was not rejected with diagnostics.");
-            }
-            finally
-            {
-                File.Delete(Path.Combine(scratch, "Assembly-CSharp.dll"));
-                Directory.Delete(scratch);
-            }
             foreach (bool immediate in new[] { false, true })
             foreach (int failureAt in new[] { -1, 0, 1, 2, 3, 4 })
             {

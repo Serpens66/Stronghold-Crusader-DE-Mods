@@ -101,7 +101,7 @@ namespace BugfixesAndQoL.GateRouting {
 }
 namespace BugfixesAndQoL.GateRouting {
     internal static class GateRoutingFeature { internal static bool IsActive=true; }
-    internal class ActualStandaloneBuildings {
+    internal partial class ActualStandaloneBuildings {
         private enum QueryKind {BuildingApproach,AlternateBuildingApproach}
         private struct QueryScope { }
         private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions,integrityRevision;

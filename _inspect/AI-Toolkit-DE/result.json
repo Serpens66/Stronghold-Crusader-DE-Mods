@@ -1,0 +1,71 @@
+{
+  "observedUtc": "2026-10-22T19:18:10.117Z",
+  "repo": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Fremde Mods\\AI-Toolkit",
+  "scope": "Upstream functions, local file schema and serialization only; no GUI or game launch",
+  "aiv": {
+    "files": 134,
+    "exactJson": 126,
+    "exactEditor": 126,
+    "emptySteps": 3764,
+    "pausedSteps": 212,
+    "unknownFrameTypes": [
+      160
+    ],
+    "unknownMarkerTypes": [],
+    "failures": [
+      {
+        "file": "CustomLords\\Pestdoktor\\Plague Doctor1 1st Castle (Neutral).aivjson",
+        "error": "Step 79: invalid item or positions."
+      },
+      {
+        "file": "CustomLords\\Pestdoktor\\Plague Doctor1 2nd Castle (Neutral).aivjson",
+        "error": "Step 83: invalid item or positions."
+      },
+      {
+        "file": "CustomLords\\Pestdoktor\\Plague Doctor1 4th Castle (Neutral).aivjson",
+        "error": "Step 143: invalid item or positions."
+      },
+      {
+        "file": "CustomLords\\Pestdoktor\\Plague Doctor2 1st Castle (Negative).aivjson",
+        "error": "Step 79: invalid item or positions."
+      },
+      {
+        "file": "CustomLords\\Pestdoktor\\Plague Doctor2 2nd Castle (Negative).aivjson",
+        "error": "Step 83: invalid item or positions."
+      },
+      {
+        "file": "CustomLords\\Pestdoktor\\Plague Doctor2 3rd Castle (Negative).aivjson",
+        "error": "Step 893: invalid item or positions."
+      },
+      {
+        "file": "CustomLords\\Pestdoktor\\Plague Doctor2 4th Castle (Negative).aivjson",
+        "error": "Step 143: invalid item or positions."
+      },
+      {
+        "file": "CustomLords\\testlord_serp\\_LegacyMediaSource\\zMediafiles.aivjson",
+        "error": "Unexpected token 'P', \"PK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      }
+    ],
+    "differences": []
+  },
+  "character": {
+    "localLordFiles": 40,
+    "example": "ExtendedLords\\Wolf\\Wolf.lordjson",
+    "inputTopLevel": [
+      "lord"
+    ],
+    "outputTopLevel": [
+      "lord",
+      "startTroops",
+      "aic"
+    ],
+    "originalFarmArray": true,
+    "normalizedFarmArray": false,
+    "originalBuildRate": 3,
+    "injectedUcpBuildInterval": 0,
+    "originalTaxMin": 3,
+    "injectedUcpTaxMin": 0,
+    "directLordKeyOverlap": [],
+    "directAicKeyOverlap": []
+  }
+}

@@ -3,19 +3,23 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.196",
+  "Version": "1.0.197",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.5"
+      "MinimumVersion": "0.12.6"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.197",
+      "Changes": ["Add a default-enabled Host option under Fixes? to prevent AI sales without stock through negative sell thresholds, using shared native reserve and quantity safety for every goods category."]
+    },
     {
       "Version": "1.0.196",
       "Changes": [
