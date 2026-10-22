@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START AIVParser
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -39,7 +39,7 @@ set "PROJECT_DIR=%~dp0"
 set "PARSER_EXE=%PROJECT_DIR%AIVParser.Cli\bin\Release\net10.0\AIVParser.exe"
 
 where dotnet >nul 2>nul
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Das .NET SDK wurde nicht gefunden.
   echo Installiere das .NET 10 SDK und starte build.bat danach erneut.
   echo.
@@ -52,7 +52,7 @@ echo Baue AIVParser in der Release-Konfiguration...
 echo.
 echo [%date% %time%] Compile projects
 dotnet build "AIVParser.sln" -c Release
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   popd
   echo.
   echo Build fehlgeschlagen.

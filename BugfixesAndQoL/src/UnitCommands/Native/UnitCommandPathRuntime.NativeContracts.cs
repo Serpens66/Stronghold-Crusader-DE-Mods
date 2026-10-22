@@ -25,10 +25,10 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
-        internal APIShared.Internal.NativeResolution Resolve(
+        internal Shared.NativeResolution Resolve(
             ReadOnlySpan<byte> memory, string pattern, int expectedRva, string label)
         {
-            APIShared.Internal.NativeResolution resolution = APIShared.Internal.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 pattern,
                 expectedRva,
@@ -81,7 +81,7 @@ namespace BugfixesAndQoL.UnitCommands
             if (expectedBytes.Length != 5 || expectedBytes[0] != 0xE8)
                 throw new InvalidOperationException($"The validated {label} is not a near CALL.");
 
-            int targetRva = APIShared.Internal.NativePatternResolver.ResolveRelativeTarget(
+            int targetRva = Shared.NativePatternResolver.ResolveRelativeTarget(
                 memory, callRva + 1, callRva + 5);
             if (targetRva != expectedTargetRva)
             {

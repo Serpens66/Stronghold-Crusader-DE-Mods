@@ -198,7 +198,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             long bestDistanceSquared = long.MaxValue;
             uint gridSize = building->r_OccupyTileGridSize;
-            if (gridSize == 0 || gridSize > APIShared.Internal.GameBuildingFootprint.MaximumGridSize)
+            if (gridSize == 0 || gridSize > Shared.GameBuildingFootprint.MaximumGridSize)
                 return false;
             int tileCount = checked((int)(gridSize * gridSize));
             uint* occupiedTileIds = &building->r_OccupiedTileIdsArrayBegin;
@@ -267,7 +267,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             int candidateTileId = (int)rawTileId;
             if (GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId ||
-                !APIShared.Internal.GameBuildingFootprint.ContainsTileId(building, candidateTileId))
+                !Shared.GameBuildingFootprint.ContainsTileId(building, candidateTileId))
                 return false;
             UnmanagedVector2<ushort> candidatePosition =
                 GameTileManagerAPI.Instance.GetTileVectorFromId(candidateTileId);

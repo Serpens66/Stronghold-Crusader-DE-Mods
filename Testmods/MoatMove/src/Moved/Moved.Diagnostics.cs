@@ -29,7 +29,7 @@ namespace MoatMove
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
 #if SERP_DEVDIAG
-        internal string DescribeRejectedQueueWaypoint(MoveCommandScope command)
+        internal override string DescribeRejectedQueueWaypointTraversal(MoveCommandScope command)
         {
             int alive = 0;
             int diggers = 0;

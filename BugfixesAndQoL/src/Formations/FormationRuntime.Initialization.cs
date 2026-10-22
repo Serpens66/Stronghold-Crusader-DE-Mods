@@ -128,7 +128,7 @@ namespace BugfixesAndQoL.UnitCommands
                 initialized = true;
                 InitializeSpeech();
 
-                APIShared.Internal.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogInfo(
                     log,
                     "BugfixesAndQoL Formation active: synchronized Chore packet, mouse gesture hooks, " +
                     $"mainThread={mainThreadId}, " +

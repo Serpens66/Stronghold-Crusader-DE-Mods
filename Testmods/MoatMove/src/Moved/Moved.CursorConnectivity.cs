@@ -16,6 +16,10 @@ namespace MoatMove
         internal readonly Dictionary<int, SelectedCursorUnitSnapshot> cursorSources = new Dictionary<int, SelectedCursorUnitSnapshot>();
         internal readonly Dictionary<int, int> cursorSourceCounts = new Dictionary<int, int>();
         internal long cursorQueries,cursorQueryTicks,cursorTopologyTicks;
+        // Read by BugfixesAndQoL's DEVDIAG cursor performance summary.
+        internal override long CursorQueryCount => cursorQueries;
+        internal override long CursorQueryTicks => cursorQueryTicks;
+        internal override long CursorTopologyTicks => cursorTopologyTicks;
 
         internal void UpdateCursorBoundary(CursorTopology topology, int player, int tile)
         {

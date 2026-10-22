@@ -278,7 +278,7 @@ namespace BugfixesAndQoL.UnitCommands
                     ? "queue-waypoint-skipped"
                     : "movehere-continuation-rejected";
             string skipProbe = returnValue == 0
-                ? DescribeRejectedQueueWaypoint(command)
+                ? Traversal?.DescribeRejectedQueueWaypointTraversal(command) ?? "traversal-unavailable"
                 : "not-required";
             LogCommandDiagnostic(
                 $"stage={stage} commandSeq={command.Sequence} tribe={command.TribeId} " +

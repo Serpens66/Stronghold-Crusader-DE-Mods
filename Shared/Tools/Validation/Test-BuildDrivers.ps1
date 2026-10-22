@@ -78,8 +78,14 @@ try {
         $startInfo.RedirectStandardError = $true
         $process = [Diagnostics.Process]::new()
         $process.StartInfo = $startInfo
+        # Windows PowerShell 5.1 (.NET Framework) creates the redirected stdin writer with
+        # Console.InputEncoding and flushes its preamble at once. A UTF-8 BOM would reach the
+        # fixture as input and end its pause before the acknowledgement this test sends.
+        $previousInputEncoding = [Console]::InputEncoding
         try {
-            $null = $process.Start()
+            [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
+            try { $null = $process.Start() }
+            finally { [Console]::InputEncoding = $previousInputEncoding }
             $first = $process.StandardOutput.ReadLine()
             if ($first -notmatch 'START ') { throw 'Interactive fixture does not show its start immediately.' }
             do { $line = $process.StandardOutput.ReadLine() } while ($null -ne $line -and $line -notmatch 'END: exit code')

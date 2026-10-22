@@ -51,6 +51,22 @@ internal static class TrailMakerEmbeddedMapTests
             Check(Directory.GetFiles(invalidCache).Length == 0, "Failed validation published a map or leaked its temporary file.");
             File.WriteAllBytes(trail, new byte[] { 1, 2 });
             Reject(() => TrailMakerEmbeddedMap.Prepare(trail, invalidCache, Read));
+
+            // Bounded cache: the newest Maker Load and the most recently used others remain.
+            string bounded = Path.Combine(root, "bounded");
+            var paths = new List<string>();
+            for (byte mapByte = 50; mapByte < 55; mapByte++)
+            {
+                File.WriteAllBytes(trail, Container("Map " + mapByte, mapByte));
+                paths.Add(TrailMakerEmbeddedMap.Prepare(trail, bounded, Read, 2, long.MaxValue).Path);
+                File.SetLastWriteTimeUtc(paths[^1], DateTime.UtcNow.AddMinutes(paths.Count));
+            }
+            Check(Directory.GetFiles(bounded).Length == 2 && File.Exists(paths[4]) && File.Exists(paths[3]),
+                "The entry limit removed the current map or kept older entries.");
+            File.WriteAllBytes(trail, Container("Map 60", 60));
+            var single = TrailMakerEmbeddedMap.Prepare(trail, bounded, Read, 16, 1);
+            Check(Directory.GetFiles(bounded).Length == 1 && File.Exists(single.Path),
+                "The byte limit must keep only the current map when everything else exceeds it.");
         }
         finally { if (TestWorkDirectory.IsOwned(root)) Directory.Delete(root, true); }
     }

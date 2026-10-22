@@ -27,6 +27,7 @@
         "Avoid disabled synchronization and settings-log preparation and cache repeated failure hashes.",
         "Coop Trail packages exported with this version use mission schema 5 and need ExtendedData 1.0.16 or newer on every player's game.",
         "Check packaged Coop starts with APIShared's Coop start preview: contradicting AI selections and unsynchronized castle lists block at the start button with a message instead of aborting the start; a host selection that differs only after the first castle uses the synchronized list.",
+        "Limit the Trail Maker embedded-map cache to the 16 most recently used maps and 256 MB; the map of the current Maker Load is always kept.",
         "Require APIShared 0.12.5 or newer."
       ]
     },

@@ -79,5 +79,12 @@ namespace BugfixesAndQoL.UnitCommands
         internal abstract int[] ResolveMovementCandidates(MoatCandidateField precise, IList<int> starts,
             IList<int> targets, MoatSearchEdge edge, MoatSearchEdge terminal, out int expanded);
         internal abstract bool TryChooseFastFormation(IntPtr manager, int x, int y, out int tile);
+
+        // Diagnostic readouts for the dedicated DEVDIAG build. Always declared, with neutral defaults, so a
+        // diagnostic BugfixesAndQoL and an ordinary provider (or the reverse) stay binary compatible.
+        internal virtual long CursorQueryCount => 0;
+        internal virtual long CursorQueryTicks => 0;
+        internal virtual long CursorTopologyTicks => 0;
+        internal virtual string DescribeRejectedQueueWaypointTraversal(MoveCommandScope command) => "provider-diagnostics-unavailable";
     }
 }

@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START ExtendedData
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -79,7 +79,7 @@ set "EXTENDER_DIR="
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
@@ -121,36 +121,36 @@ echo.
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1" -GameDir "%GAME_DIR%" -SkipRuntimeSourcePreflight
-if errorlevel 1 goto forbidden_source_popd
+if not "%ERRORLEVEL%"=="0" goto forbidden_source_popd
 echo [%date% %time%] Run tests
 dotnet run --project ExtendedData.Tests -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtendedData.Upload.Tests\ExtendedData.Upload.Tests.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%ExtendedData.Upload.Tests\bin\Debug\ExtendedData.Upload.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtendedData.JsonUpload.Tests\ExtendedData.JsonUpload.Tests.csproj /p:Configuration=Debug
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%ExtendedData.JsonUpload.Tests\bin\Debug\ExtendedData.JsonUpload.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 
 rem Recreate the exact package so removed assets cannot survive an update.
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
-if errorlevel 1 goto package_failed_popd
+if not "%ERRORLEVEL%"=="0" goto package_failed_popd
 
 echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtendedData.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
-if errorlevel 1 goto package_failed
+if not "%ERRORLEVEL%"=="0" goto package_failed
 echo [%date% %time%] Copy package files
 xcopy "%PROJECT_DIR%Examples" "%LOCAL_PLUGIN_DIR%\Examples\" /E /I /Q /Y
-if errorlevel 1 goto package_failed
+if not "%ERRORLEVEL%"=="0" goto package_failed
 
 for %%F in (ExtendedData.dll ExtendedData.Core.dll info.json) do (
   if not exist "%LOCAL_PLUGIN_DIR%\%%F" (
@@ -164,27 +164,28 @@ if not exist "%LOCAL_PLUGIN_DIR%\Locales\en-US.txt" goto package_failed
 echo Installiere geprueftes Paket...
 if "%NO_INSTALL%"=="1" goto prepared_no_install
 if exist "%STAGED_GAME_PLUGIN_DIR%\" rmdir /S /Q "%STAGED_GAME_PLUGIN_DIR%"
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%STAGED_GAME_PLUGIN_DIR%\" /E /I /Q /Y
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 rem Carry player-created lobby settings into the staged replacement package.
 if exist "%GAME_PLUGIN_DIR%\LobbyModSettings\" (
 echo [%date% %time%] Copy package files
   xcopy "%GAME_PLUGIN_DIR%\LobbyModSettings" "%STAGED_GAME_PLUGIN_DIR%\LobbyModSettings\" /E /I /Q /Y
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
 )
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 if exist "%LEGACY_TRAIL_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_TRAIL_PLUGIN_DIR%"
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 if exist "%LEGACY_LORD_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_LORD_PLUGIN_DIR%"
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName ExtendedData
-if errorlevel 1 goto package_failed
+if not "%ERRORLEVEL%"=="0" goto package_failed
 echo.
 echo Build, Tests und Installation erfolgreich.
 exit /b 0

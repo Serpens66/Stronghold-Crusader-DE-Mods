@@ -10,7 +10,7 @@ exit /b %ERRORLEVEL%
 :selected
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 call "%~dp0..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 set "NO_INSTALL=0"
 set "NO_PAUSE=0"
 for %%A in (%*) do (

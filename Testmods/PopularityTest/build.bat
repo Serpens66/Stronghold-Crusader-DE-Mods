@@ -22,7 +22,7 @@ for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 set "ORIGINAL_DIRECTORY=%CD%"
 cd /d "%~dp0"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 call :main
 set "RESULT=%ERRORLEVEL%"
 cd /d "%ORIGINAL_DIRECTORY%"

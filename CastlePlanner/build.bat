@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START CastlePlanner
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -67,7 +67,7 @@ if /I "%~1"=="/nopause" set "NO_PAUSE=1"
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
@@ -126,14 +126,14 @@ echo.
 
 pushd "%PROJECT_DIR%"
 dotnet restore AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%" -m:1 -p:BuildInParallel=false
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   set "BUILD_EXIT_CODE=1"
   popd
   goto build_failed
 )
 echo [%date% %time%] Compile projects
 dotnet build AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%" -c Release --no-restore -m:1 -p:BuildInParallel=false
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   set "BUILD_EXIT_CODE=1"
   popd
   goto build_failed
@@ -148,7 +148,7 @@ if not "%ERRORLEVEL%"=="0" (
 
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp"
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   popd
   goto build_failed
 )
@@ -158,6 +158,7 @@ set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 if "%BUILD_EXIT_CODE%"=="0" (
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp" -ValidateOnly
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 set "BUILD_EXIT_CODE=1"
 )
 popd
@@ -186,14 +187,17 @@ if "%NO_INSTALL%"=="1" goto prepared_no_install
 
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "!GAME_PLUGIN_DIR!"
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
 
   rem Overlay managed files so Script Extender Msgpack settings survive rebuilds.
 echo [%date% %time%] Copy package files
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CastlePlanner
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert; vorhandene Laufzeitdaten wurden beibehalten.
 ) else (

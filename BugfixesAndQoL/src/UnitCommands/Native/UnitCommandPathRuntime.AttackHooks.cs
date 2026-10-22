@@ -32,7 +32,7 @@ namespace BugfixesAndQoL.UnitCommands
             RedBirdDetour<BuildingCursorReachabilityDelegate> pendingBuildingCursor = null;
             try
             {
-                APIShared.Internal.NativeResolution buildingCursorResolution = Resolve(
+                Shared.NativeResolution buildingCursorResolution = Resolve(
                     memory, BuildingCursorReachabilityPattern, BuildingCursorReachabilityRva,
                     "building cursor approach reachability helper");
                 ValidateExactBytes(
@@ -64,7 +64,7 @@ namespace BugfixesAndQoL.UnitCommands
                         $"The building cursor hook was not installed atomically: {commitResult}.");
                 buildingCursorReachabilityDetour = pendingBuildingCursor;
                 buildingCursorHookTransaction = pendingTransaction;
-                APIShared.Internal.DebugLogHelper.LogDebug(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement building cursor reachability installed: " +
                     $"helper=0x{buildingCursorResolution.Rva:X}, " +
@@ -96,19 +96,19 @@ namespace BugfixesAndQoL.UnitCommands
             RedBirdDetour<RegionPairReachabilityDelegate> pendingRegionPair = null;
             try
             {
-                APIShared.Internal.NativeResolution unitFloodResolution = Resolve(
+                Shared.NativeResolution unitFloodResolution = Resolve(
                     memory, AttackApproachFloodBuilderPattern, AttackApproachFloodBuilderRva,
                     "unit attack-approach flood builder");
-                APIShared.Internal.NativeResolution buildingApproachResolution = Resolve(
+                Shared.NativeResolution buildingApproachResolution = Resolve(
                     memory, BuildingApproachBuilderPattern, BuildingApproachBuilderRva,
                     "building attack-approach builder");
-                APIShared.Internal.NativeResolution buildingConsumerResolution = Resolve(
+                Shared.NativeResolution buildingConsumerResolution = Resolve(
                     memory, BuildingCandidateConsumerPattern, BuildingCandidateConsumerRva,
                     "building attack candidate consumer");
-                APIShared.Internal.NativeResolution regionPairResolution = Resolve(
+                Shared.NativeResolution regionPairResolution = Resolve(
                     memory, RegionPairReachabilityPattern, RegionPairReachabilityRva,
                     "attack-approach region-pair reachability helper");
-                APIShared.Internal.NativeResolution directFillApproachResolution = Resolve(
+                Shared.NativeResolution directFillApproachResolution = Resolve(
                     memory, DirectFillApproachPattern, DirectFillApproachRva,
                     "direct FillMoat approach search");
 
@@ -153,7 +153,7 @@ namespace BugfixesAndQoL.UnitCommands
                 buildingCandidateConsumerDetour = pendingBuildingConsumer;
                 regionPairReachabilityDetour = pendingRegionPair;
                 attackApproachHookTransaction = pendingTransaction;
-                APIShared.Internal.DebugLogHelper.LogDebug(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement attack-approach hooks installed: " +
                     $"unitFlood=0x{unitFloodResolution.Rva:X}, " +
@@ -260,7 +260,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal static void ValidateAttackApproachCalls(ReadOnlySpan<byte> memory)
         {
-            int tribeManagerTarget = APIShared.Internal.NativePatternResolver.ResolveRelativeTarget(
+            int tribeManagerTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
                 memory, AttackApproachFloodBuilderRva + 0x1D, AttackApproachFloodBuilderRva + 0x21);
             if (tribeManagerTarget != NativeTribeManagerRva)
             {

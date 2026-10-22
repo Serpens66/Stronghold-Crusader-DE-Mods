@@ -93,7 +93,7 @@ namespace BugfixesAndQoL.UnitCommands
             // Fail-open must reach Vanilla even if a presentation or logger also fails.
             try { ClearPreview(); } catch { }
             try { menuViewModel.CloseMenu(); } catch { }
-            try { APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
+            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Activation.cs:88", $"FORMATION_DISABLED: contract={contract}; Vanilla remains active; {exception}");

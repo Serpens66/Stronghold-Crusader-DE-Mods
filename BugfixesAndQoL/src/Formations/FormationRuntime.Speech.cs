@@ -27,7 +27,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N000000C4)).ToInt32() != 0x388)
                     throw new InvalidOperationException("Engineer speech exclusion field layout changed.");
                 speechNative = new FormationSpeechNative(libraryContext.ModuleHandle, libraryContext.Memory,
-                    message => APIShared.Internal.DebugLogHelper.LogInfo(log, message));
+                    message => Shared.DebugLogHelper.LogInfo(log, message));
                 markerRenderer.NativeFrameCompleted = OnSpeechNativeFrame;
             }
             catch (Exception exception) { DisableSpeech(exception); }

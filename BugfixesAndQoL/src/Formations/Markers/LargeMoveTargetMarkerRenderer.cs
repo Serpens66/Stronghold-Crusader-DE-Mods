@@ -167,13 +167,13 @@ namespace BugfixesAndQoL
                     "Large Move marker overflow requires the validated FBCB9319 native layout.");
 
             ReadOnlySpan<byte> memory = context.Memory;
-            APIShared.Internal.NativeResolution reset = APIShared.Internal.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution reset = Shared.NativePatternResolver.ResolveUnique(
                 memory, ResetDrawListPattern, ResetDrawListRva, true,
                 "Vanilla overlay draw-list reset", null);
-            APIShared.Internal.NativeResolution traversal = APIShared.Internal.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution traversal = Shared.NativePatternResolver.ResolveUnique(
                 memory, VisibleTileTraversalPattern, VisibleTileHookRva - 7, true,
                 "visible-tile overlay traversal", null);
-            APIShared.Internal.NativeResolution builder = APIShared.Internal.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution builder = Shared.NativePatternResolver.ResolveUnique(
                 memory, SpriteBuilderPattern, SpriteBuilderRva, true,
                 "native sprite builder", null);
             if (reset.Rva != ResetDrawListRva || traversal.Rva + 7 != VisibleTileHookRva ||
@@ -236,7 +236,7 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("Large Move marker visible-tile hook was not installed.");
                 visibleTileHook = visible;
 
-                APIShared.Internal.DebugLogHelper.LogDebug(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Large Move marker renderer ready: " +
                     $"reset=0x{ResetDrawListRva:X}/span{ResetDrawListLength}, " +

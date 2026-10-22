@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START StartupPerformanceDiagnostic
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -51,7 +51,7 @@ for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build and installation aborted: Stronghold Crusader Definitive Edition is still running.
   exit /b 1
 )
@@ -64,7 +64,7 @@ if not exist "%PROJECT_DIR%..\..\shcde-script-extender\deps\Assembly-CSharp-publ
 
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -Command "$codeFiles = Get-ChildItem -LiteralPath '%PROJECT_DIR%src','%PROJECT_DIR%patcher' -Recurse -File -Include *.cs; $projectFiles = Get-ChildItem -LiteralPath '%PROJECT_DIR%' -File | Where-Object { $_.Extension -eq '.csproj' }; $runtimeFiles = @($codeFiles) + @($projectFiles); if ($runtimeFiles | Select-String -Pattern 'System\.Text\.Json|Newtonsoft|JavaScriptSerializer|System\.Web\.Extensions|DataContractJsonSerializer|JsonUtility') { exit 1 }; if ($codeFiles | Select-String -Pattern '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\(') { exit 1 }; $pluginSource = Get-Content -LiteralPath '%PROJECT_DIR%src\StartupPerformanceDiagnosticPlugin.cs' -Raw; if ($pluginSource -match 'MainViewModel\.instance|FrontendMenus\.loadingStill|\bvoid\s+Update\s*\(') { exit 1 }; exit 0"
-if errorlevel 1 goto preflight_failed
+if not "%ERRORLEVEL%"=="0" goto preflight_failed
 
 if exist "%LOCAL_PATCHER_DIR%\" rmdir /S /Q "%LOCAL_PATCHER_DIR%"
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
@@ -73,13 +73,13 @@ if exist "%PROJECT_DIR%tests\bin\" rmdir /S /Q "%PROJECT_DIR%tests\bin"
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" StartupPerformanceDiagnostic.Patcher.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" StartupPerformanceDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" tests\StartupPerformanceDiagnostic.Tests.csproj /p:Configuration=Debug
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\StartupPerformanceDiagnostic.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto tests_failed_popd
@@ -96,11 +96,11 @@ if "%NO_INSTALL%"=="1" goto built_without_install
 if not exist "%GAME_DIR%\BepInEx\patchers\" mkdir "%GAME_DIR%\BepInEx\patchers"
 echo [%date% %time%] Copy package files
 copy /Y "%LOCAL_PATCHER_DIR%\%PATCHER_NAME%" "%GAME_PATCHER%" >nul
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 
 echo Startup Performance Diagnostic built, tested, and installed successfully.
 exit /b 0

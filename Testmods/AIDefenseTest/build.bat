@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START AIDefenseTest
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -35,7 +35,7 @@ exit /b 1
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -58,7 +58,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
@@ -139,6 +139,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
     for /D %%D in ("!GAME_PLUGIN_DIR!\*") do (
       if /I not "%%~nxD"=="LobbyModSettings" (
         rmdir /S /Q "%%~fD"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )
@@ -146,6 +147,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
       if exist "%%~fF" (
         if not exist "%%~fF\" (
           del /F /Q "%%~fF"
+          if not errorlevel 0 cmd /c exit 1
           if errorlevel 1 goto copy_failed
         )
       )
@@ -153,18 +155,21 @@ if "%BUILD_EXIT_CODE%"=="0" (
   )
 echo [%date% %time%] Copy package files
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
   if exist "!OLD_GAME_PLUGIN_DIR!\" (
     rem Remove legacy packaged files but retain any player-created lobby settings.
     for /D %%D in ("!OLD_GAME_PLUGIN_DIR!\*") do (
       if /I not "%%~nxD"=="LobbyModSettings" (
         rmdir /S /Q "%%~fD"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )
     for %%F in ("!OLD_GAME_PLUGIN_DIR!\*") do (
       if exist "%%~fF" if not exist "%%~fF\" (
         del /F /Q "%%~fF"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )

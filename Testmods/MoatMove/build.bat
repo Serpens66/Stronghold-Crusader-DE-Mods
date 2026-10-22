@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START MoatMove
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -35,10 +35,10 @@ exit /b 1
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
@@ -50,14 +50,14 @@ rem Release automation can explicitly use the validated workspace package.
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
-if errorlevel 1 goto failed
+if not "%ERRORLEVEL%"=="0" goto failed
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 }"
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Game is running. Build and installation aborted.
   goto failed
 )
@@ -65,7 +65,7 @@ if not exist "%MSBUILD%" goto failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1"
-if errorlevel 1 goto failed
+if not "%ERRORLEVEL%"=="0" goto failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto failed
 rem A branch build copy has no built APIShared next to it; the regression needs the selected package.
 set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
@@ -74,11 +74,11 @@ dotnet run --project "%PROJECT_DIR%tests\MoatMove.Tests.csproj" -- "%PROJECT_DIR
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
-if errorlevel 1 goto failed
+if not "%ERRORLEVEL%"=="0" goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Install-Package.ps1" -GameDir "%GAME_DIR%"
-if errorlevel 1 goto failed
+if not "%ERRORLEVEL%"=="0" goto failed
 echo MoatMove built and installed successfully.
 exit /b 0
 :built_without_install

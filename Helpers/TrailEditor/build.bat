@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START TrailEditor
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -47,13 +47,13 @@ if not defined TrailEditorAivDecoderSourceRoot set "TrailEditorAivDecoderSourceR
 if not defined TrailEditorAicDecoderSourceRoot set "TrailEditorAicDecoderSourceRoot=%TrailEditorDependencyRoot%\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder"
 
 where dotnet >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
     echo [%date% %time%] FEHLER: dotnet wurde nicht gefunden. Installiere das .NET 10 SDK und stelle sicher, dass dotnet ueber PATH erreichbar ist.
     goto :configurationFailed
 )
 
 dotnet --list-sdks | %SystemRoot%\System32\findstr.exe /B /C:"10." >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
     echo [%date% %time%] FEHLER: Das .NET 10 SDK wurde nicht gefunden.
     echo [%date% %time%] Eine Runtime allein reicht zum Bauen nicht aus.
     goto :configurationFailed
@@ -100,7 +100,7 @@ pushd "%PROJECT_DIR%" || exit /b 1
 echo [%date% %time%] Baue TrailEditor im Release-Modus ...
 echo [%date% %time%] Compile projects
 dotnet build "%SOLUTION%" -c Release
-if errorlevel 1 goto :failed
+if not "%ERRORLEVEL%"=="0" goto :failed
 
 echo [%date% %time%] Fuehre TrailEditor-Tests aus ...
 echo [%date% %time%] Run tests

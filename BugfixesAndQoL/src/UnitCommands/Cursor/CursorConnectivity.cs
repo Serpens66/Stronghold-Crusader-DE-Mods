@@ -119,6 +119,11 @@ namespace BugfixesAndQoL.UnitCommands
 #if SERP_DEVDIAG
             if (disposed)
                 return;
+            // The friendly-moat cursor counters live in the MoatMove provider; without it they stay zero.
+            UnitCommandTraversalProvider provider = Traversal;
+            long cursorQueries = provider?.CursorQueryCount ?? 0;
+            long cursorQueryTicks = provider?.CursorQueryTicks ?? 0;
+            long cursorTopologyTicks = provider?.CursorTopologyTicks ?? 0;
             if (cursorQueries == cursorLastLogQueries)
                 return;
 

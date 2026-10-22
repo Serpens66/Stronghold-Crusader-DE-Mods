@@ -37,13 +37,13 @@ namespace BugfixesAndQoL.UnitCommands
                         "A shared E2610/E7C40 reachability hook is unavailable.");
                 }
 
-                APIShared.Internal.NativeResolution findResolution = Resolve(
+                Shared.NativeResolution findResolution = Resolve(
                     memory, FindMoatWorkTargetPattern, FindMoatWorkTargetRva,
                     "shared moat work-target selector");
-                APIShared.Internal.NativeResolution resolveResolution = Resolve(
+                Shared.NativeResolution resolveResolution = Resolve(
                     memory, ResolveMoatWorkTilePattern, ResolveMoatWorkTileRva,
                     "shared moat work-tile resolver");
-                APIShared.Internal.NativeResolution fillApproachResolution = Resolve(
+                Shared.NativeResolution fillApproachResolution = Resolve(
                     memory, HasFillMoatApproachPattern, HasFillMoatApproachRva,
                     "fill-moat neighbouring approach check");
 
@@ -78,7 +78,7 @@ namespace BugfixesAndQoL.UnitCommands
 
                 findMoatWorkTargetDetour = pendingFind;
                 resolveMoatWorkTileDetour = pendingResolve;
-                APIShared.Internal.DebugLogHelper.LogDebug(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement moat-work target selection installed: " +
                     $"selector=0x{findResolution.Rva:X}, resolver=0x{resolveResolution.Rva:X}, " +

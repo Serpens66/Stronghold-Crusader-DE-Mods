@@ -116,7 +116,7 @@ namespace BugfixesAndQoL.UnitCommands
             originalCommonGroupMove = commonGroupMoveDetour.Original;
             originalUnstack = nativeUnstackDetour.Original;
             originalFreePlace = freePlaceDetour.Original;
-            APIShared.Internal.DebugLogHelper.LogDebug(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 "Bugfixes and QoL friendly-moat-movement placement hooks installed: commonGroup=0x118E00 formationSlot=0xE1D30 assassinGroundSlot=0xE0970 unstack=0x181890 freePlace=0xF03C0; native Unit event retained, terrain unchanged.");
         }
 

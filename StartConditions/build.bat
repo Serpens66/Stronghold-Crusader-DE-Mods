@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START StartConditions
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -67,7 +67,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
@@ -126,8 +126,8 @@ echo Verwende APIShared Referenz:
 echo !API_SHARED_DIR!
 echo.
 
-echo [%date% %time%] Issue 6 preset and infinite-patrol regressions
-dotnet run --project "%PROJECT_DIR%..\BugfixesAndQoL\tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.." --settings-only
+echo [%date% %time%] Issue 6 preset regressions
+dotnet run --project "%PROJECT_DIR%tests\StartSettings.Tests\StartSettings.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" exit /b 1
 
 echo [%date% %time%] AI start-troop save and restore regressions
@@ -164,6 +164,7 @@ if "%NO_INSTALL%"=="1" goto prepared_no_install
     for /D %%D in ("!GAME_PLUGIN_DIR!\*") do (
       if /I not "%%~nxD"=="LobbyModSettings" (
         rmdir /S /Q "%%~fD"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )
@@ -171,6 +172,7 @@ if "%NO_INSTALL%"=="1" goto prepared_no_install
       if exist "%%~fF" (
         if not exist "%%~fF\" (
           del /F /Q "%%~fF"
+          if not errorlevel 0 cmd /c exit 1
           if errorlevel 1 goto copy_failed
         )
       )
@@ -178,6 +180,7 @@ if "%NO_INSTALL%"=="1" goto prepared_no_install
   )
 echo [%date% %time%] Copy package files
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
   if not exist "!GAME_PLUGIN_DIR!\StartConditions.dll" (
     echo Installierte StartConditions.dll wurde nach xcopy nicht gefunden:
@@ -189,18 +192,21 @@ echo [%date% %time%] Copy package files
     for /D %%D in ("!OLD_GAME_PLUGIN_DIR!\*") do (
       if /I not "%%~nxD"=="LobbyModSettings" (
         rmdir /S /Q "%%~fD"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )
     for %%F in ("!OLD_GAME_PLUGIN_DIR!\*") do (
       if exist "%%~fF" if not exist "%%~fF\" (
         del /F /Q "%%~fF"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )
   )
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName StartConditions
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
 ) else (

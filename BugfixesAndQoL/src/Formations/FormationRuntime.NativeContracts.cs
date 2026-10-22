@@ -113,7 +113,7 @@ namespace BugfixesAndQoL.UnitCommands
             string[] bytes = new string[expected.Length];
             for (int index = 0; index < expected.Length; index++)
                 bytes[index] = expected[index].ToString("X2");
-            int resolved = APIShared.Internal.NativePatternResolver.FindUniquePattern(
+            int resolved = Shared.NativePatternResolver.FindUniquePattern(
                 memory, string.Join(" ", bytes), name);
             if (resolved != expectedRva)
             {

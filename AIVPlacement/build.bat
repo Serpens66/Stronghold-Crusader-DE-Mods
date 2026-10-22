@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START AIVPlacement
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -38,7 +38,7 @@ setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
 
 where dotnet >nul 2>nul
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Das .NET SDK wurde nicht gefunden.
   echo Installiere das .NET 10 SDK und starte build.bat danach erneut.
   exit /b 1
@@ -49,7 +49,7 @@ pushd "%PROJECT_DIR%"
 echo Baue AIVPlacement in der Release-Konfiguration...
 echo [%date% %time%] Compile projects
 dotnet build "AIVPlacement.sln" -c Release -m:1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   popd
   echo.
   echo Build fehlgeschlagen.

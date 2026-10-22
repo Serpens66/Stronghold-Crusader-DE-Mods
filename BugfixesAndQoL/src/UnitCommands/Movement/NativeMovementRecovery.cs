@@ -178,7 +178,7 @@ namespace BugfixesAndQoL.UnitCommands
             string[] parts = bytes.Split(' '); var expected = new byte[parts.Length];
             for (int i = 0; i < parts.Length; i++) expected[i] = Convert.ToByte(parts[i], 16);
             ValidateExactBytes(memory, rva, expected, "connectivity observer entry");
-            if (APIShared.Internal.NativePatternResolver.FindUniquePattern(memory, bytes, "connectivity observer") != rva)
+            if (Shared.NativePatternResolver.FindUniquePattern(memory, bytes, "connectivity observer") != rva)
                 throw new InvalidOperationException("Connectivity observer does not match its validated function entry.");
             RedBirdDetour<T> detour = AddDetour(
                 transaction, libraryBase + unchecked((uint)rva), callback);

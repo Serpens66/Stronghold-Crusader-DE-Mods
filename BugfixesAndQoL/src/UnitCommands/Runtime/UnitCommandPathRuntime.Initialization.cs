@@ -46,65 +46,65 @@ namespace BugfixesAndQoL.UnitCommands
                     "The friendly moat movement feature requires the validated CrusaderDE.dll layout.");
             }
 
-            APIShared.Internal.NativeResolution floodResolution = Resolve(
+            Shared.NativeResolution floodResolution = Resolve(
                 memory, TribeFloodFillMembershipPattern, TribeFloodFillMembershipRva,
                 "Tribe flood-fill membership helper");
-            APIShared.Internal.NativeResolution groupMoatResolution = Resolve(
+            Shared.NativeResolution groupMoatResolution = Resolve(
                 memory, FirstGroupUnitOnCompletedMoatPattern, FirstGroupUnitOnCompletedMoatRva,
                 "first active group unit standing on completed moat helper");
-            APIShared.Internal.NativeResolution groupUnitResolution = Resolve(
+            Shared.NativeResolution groupUnitResolution = Resolve(
                 memory, GetGroupUnitIdPattern, GetGroupUnitIdRva,
                 "group unit iterator");
-            APIShared.Internal.NativeResolution groupMovementModeResolution = Resolve(
+            Shared.NativeResolution groupMovementModeResolution = Resolve(
                 memory, GetTribeMovementModePattern, GetTribeMovementModeRva,
                 "ordinary-movement group route-mode helper");
-            APIShared.Internal.NativeResolution planResolution = Resolve(
+            Shared.NativeResolution planResolution = Resolve(
                 memory, CentralMovementPlanPattern, CentralMovementPlanRva,
                 "central ordinary-movement planner");
-            APIShared.Internal.NativeResolution combatFinishResumeResolution = Resolve(
+            Shared.NativeResolution combatFinishResumeResolution = Resolve(
                 memory, CombatFinishResumePattern, CombatFinishResumeRva,
                 "combat-finish movement-resume helper");
-            APIShared.Internal.NativeResolution postCombatRepathResolution = Resolve(
+            Shared.NativeResolution postCombatRepathResolution = Resolve(
                 memory, PostCombatRepathPattern, PostCombatRepathRva,
                 "post-combat saved-target repath helper");
-            APIShared.Internal.NativeResolution cursorMoveStagerResolution = Resolve(
+            Shared.NativeResolution cursorMoveStagerResolution = Resolve(
                 memory, CursorMoveStagerPattern, CursorMoveStagerRva,
                 "direct cursor move-command stager");
-            APIShared.Internal.NativeResolution nativeSpecialStructureResolution = Resolve(
+            Shared.NativeResolution nativeSpecialStructureResolution = Resolve(
                 memory, NativeSpecialStructurePredicatePattern,
                 NativeSpecialStructurePredicateRva,
                 "DAFD0/E1640 special-structure predicate");
-            APIShared.Internal.NativeResolution modeResolution = Resolve(
+            Shared.NativeResolution modeResolution = Resolve(
                 memory, UnitStandingOnCompletedMoatPattern, UnitStandingOnCompletedMoatRva,
                 "unit-standing-on-completed-moat helper");
-            APIShared.Internal.NativeResolution regionResolution = Resolve(
+            Shared.NativeResolution regionResolution = Resolve(
                 memory, RegionReachabilityPattern, RegionReachabilityRva,
                 "moat-aware region reachability");
-            APIShared.Internal.NativeResolution builderResolution = Resolve(
+            Shared.NativeResolution builderResolution = Resolve(
                 memory, PathBuilderPattern, PathBuilderRva,
                 "central tile path builder");
-            APIShared.Internal.NativeResolution moatLookupResolution = Resolve(
+            Shared.NativeResolution moatLookupResolution = Resolve(
                 memory, GetMoatIdAtTilePattern, GetMoatIdAtTileRva,
                 "moat ID lookup by tile");
-            APIShared.Internal.NativeResolution cursorResolution = Resolve(
+            Shared.NativeResolution cursorResolution = Resolve(
                 memory, CursorReachabilityFunctionPattern, CursorReachabilityRva,
                 "ordinary-movement cursor reachability function");
-            APIShared.Internal.NativeResolution selectionCanDigResolution = Resolve(
+            Shared.NativeResolution selectionCanDigResolution = Resolve(
                 memory, SelectionCanDigMoatPattern, SelectionCanDigMoatRva,
                 "Vanilla selection-can-dig-moat helper");
             Resolve(
                 memory, SelectionCanDigMoatCallPattern, SelectionCanDigMoatCallRva - 0x0C,
                 "DigMoat cursor selection call context");
-            APIShared.Internal.NativeResolution cursorTilePairResolution = Resolve(
+            Shared.NativeResolution cursorTilePairResolution = Resolve(
                 memory, CursorTilePairReachabilityPattern, CursorTilePairReachabilityRva,
                 "cursor tile-pair reachability helper");
-            APIShared.Internal.NativeResolution representativeUnitResolution = Resolve(
+            Shared.NativeResolution representativeUnitResolution = Resolve(
                 memory, GetRepresentativeSelectedUnitPattern, GetRepresentativeSelectedUnitRva,
                 "representative selected-unit helper");
-            APIShared.Internal.NativeResolution cursorRegionResolution = Resolve(
+            Shared.NativeResolution cursorRegionResolution = Resolve(
                 memory, CursorRegionPrecheckPattern, CursorRegionPrecheckRva,
                 "ordinary-movement cursor region precheck");
-            APIShared.Internal.NativeResolution cursorGateResolution = Resolve(
+            Shared.NativeResolution cursorGateResolution = Resolve(
                 memory, CursorCurrentTileFlagGatePattern, CursorCurrentTileFlagGateRva,
                 "ordinary-movement current-tile cursor gate");
             Resolve(memory, AttackUnitPairGatePattern, AttackUnitPairGateJumpRva - 0x0E,
@@ -587,14 +587,14 @@ namespace BugfixesAndQoL.UnitCommands
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(DispatchMoveEvent);
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(DispatchUnitMoveEvent);
                 tribeTargetSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(DispatchTargetEvent);
-                mapLoadSubscription = APIShared.Internal.MissionEvents.Loading.Subscribe(_ => ResetMapState());
+                mapLoadSubscription = Shared.MissionEvents.Loading.Subscribe(_ => ResetMapState());
                 // SaveLifecycle: ResetOnly - every save load also raises map unload.
-                mapStartSubscription = APIShared.Internal.MissionEvents.NativeStart.Subscribe(_ => ResetMapState());
-                mapUnloadSubscription = APIShared.Internal.MissionEvents.Ended.Subscribe(_ => ResetMapState());
+                mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(_ => ResetMapState());
+                mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetMapState());
                 GameTimeManagerAPI.Instance.OnTick += ObserveTrackedAttackStates;
                 attackTickSubscribed = true;
 
-                APIShared.Internal.DebugLogHelper.LogDebug(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Unit command shared hooks installed: " +
                     $"cursorGate=0x{cursorGateResolution.Rva:X}/jump=0x{CursorCurrentTileFlagGateJumpRva:X}(vanilla), " +

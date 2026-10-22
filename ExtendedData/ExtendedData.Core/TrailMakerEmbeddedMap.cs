@@ -8,10 +8,18 @@ namespace ExtendedData.Core
 {
     internal static class TrailMakerEmbeddedMap
     {
+        // Only the latest Maker Load is referenced by the lobby; a few older maps remain for quickly
+        // reopening recent Trails. Least recently used entries beyond these limits are removed.
+        internal const int MaximumCacheEntries = 16;
+        internal const long MaximumCacheBytes = 256L * 1024 * 1024;
+
         // Called only for an explicit Maker Load. Content-addressed files stay alive while
         // the lobby/restart info refers to them; importing another Trail cannot replace them.
         internal static T Prepare<T>(string trailPath, string cacheRoot, Func<string, string, T> readMap)
-            where T : class
+            where T : class => Prepare(trailPath, cacheRoot, readMap, MaximumCacheEntries, MaximumCacheBytes);
+
+        internal static T Prepare<T>(string trailPath, string cacheRoot, Func<string, string, T> readMap,
+            int maximumEntries, long maximumBytes) where T : class
         {
             if (readMap == null) throw new ArgumentNullException(nameof(readMap));
             byte[] trail;
@@ -36,6 +44,8 @@ namespace ExtendedData.Core
             {
                 if (!File.ReadAllBytes(target).SequenceEqual(map))
                     throw new InvalidDataException("The embedded-map cache entry has different content.");
+                // Reuse marks the entry as recently used for the size limit.
+                File.SetLastWriteTimeUtc(target, DateTime.UtcNow);
             }
             else
             {
@@ -59,7 +69,40 @@ namespace ExtendedData.Core
                     if (created && File.Exists(staged)) File.Delete(staged);
                 }
             }
-            return readMap(target, label) ?? throw new InvalidDataException("The cached Trail map could not be read.");
+            T result = readMap(target, label) ?? throw new InvalidDataException("The cached Trail map could not be read.");
+            Prune(cacheRoot, target, maximumEntries, maximumBytes);
+            return result;
+        }
+
+        // Keeps the entry just prepared and the most recently used others within both limits. Files the
+        // game still holds open are skipped; a failed cleanup never affects the Maker Load.
+        private static void Prune(string cacheRoot, string keep, int maximumEntries, long maximumBytes)
+        {
+            try
+            {
+                string current = Path.GetFullPath(keep);
+                // The current entry always counts first, then the others from newest to oldest use.
+                FileInfo[] entries = new DirectoryInfo(cacheRoot).GetFiles("*.map")
+                    .OrderByDescending(file => string.Equals(file.FullName, current, StringComparison.OrdinalIgnoreCase))
+                    .ThenByDescending(file => file.LastWriteTimeUtc).ToArray();
+                int count = 0;
+                long bytes = 0;
+                foreach (FileInfo entry in entries)
+                {
+                    bool isCurrent = string.Equals(entry.FullName, current, StringComparison.OrdinalIgnoreCase);
+                    if (isCurrent || count < maximumEntries && bytes + entry.Length <= maximumBytes)
+                    {
+                        count++;
+                        bytes += entry.Length;
+                        continue;
+                    }
+                    try { entry.Delete(); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 }

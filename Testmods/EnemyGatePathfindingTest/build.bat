@@ -18,7 +18,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START EnemyGatePathfindingTest
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -35,7 +35,7 @@ exit /b 1
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/EnemyGatePathfindingTest"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -51,9 +51,9 @@ set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
 echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0..\.." -PackageDirectory "%API_SHARED_DIR%"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
@@ -63,7 +63,7 @@ for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 rem Never replace plugin files while the game has loaded them.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build and installation aborted: Stronghold Crusader Definitive Edition is still running.
   echo The local package and installed mod were not changed.
   exit /b 1
@@ -71,7 +71,7 @@ if errorlevel 1 (
 
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify.ps1"
-if errorlevel 1 goto build_failed
+if not "%ERRORLEVEL%"=="0" goto build_failed
 
 if not exist "%MSBUILD%" goto build_failed
 if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
@@ -82,19 +82,19 @@ rem Editor lifecycle is a hard runtime dependency. Validate it before replacing
 rem either the local package or the installed test mod.
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -Command "$p='%API_SHARED_DIR%\APIShared.dll'; $m='%API_SHARED_DIR%\info.json'; if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or -not (Test-Path -LiteralPath $m -PathType Leaf)) { exit 2 }; try { $v=[Version]((Get-Content -Raw -LiteralPath $m | ConvertFrom-Json).Version) } catch { exit 3 }; if ($v -lt [Version]'0.3.6') { exit 4 }; Write-Host ('Using APIShared ' + $v + ' from ' + $p); exit 0"
-if errorlevel 1 goto api_shared_failed
+if not "%ERRORLEVEL%"=="0" goto api_shared_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" EnemyGatePathfindingTest.PolicyTests.csproj /p:Configuration=Debug
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\EnemyGatePathfindingTest.PolicyTests.exe"
 if not "%ERRORLEVEL%"=="0" goto test_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" EnemyGatePathfindingTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 echo [%date% %time%] Copy package files
@@ -106,18 +106,20 @@ if "%NO_INSTALL%"=="1" goto built_without_install
 if exist "%GAME_PLUGIN_DIR%\" (
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
     rmdir /S /Q "%%~fD"
+    if not errorlevel 0 cmd /c exit 1
     if errorlevel 1 goto copy_failed
   )
   for %%F in ("%GAME_PLUGIN_DIR%\*") do (
     if exist "%%~fF" if not exist "%%~fF\" (
       del /F /Q "%%~fF"
+      if not errorlevel 0 cmd /c exit 1
       if errorlevel 1 goto copy_failed
     )
   )
 )
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 
 echo Enemy Gate Pathfinding Test policy tests passed, mod built and installed successfully.
 exit /b 0
