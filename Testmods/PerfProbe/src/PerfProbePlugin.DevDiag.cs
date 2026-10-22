@@ -23,7 +23,7 @@ namespace PerfProbe
             PerfProbeRuntime.RenderSnapshots = config.Bind("Zoom", "RenderSnapshots", true,
                 "Write the 5 s render/zoom snapshot lines (original purpose of PerfProbe).").Value;
             PerfProbeRuntime.SpikeLines = config.Bind("Spikes", "Enabled", true,
-                "Write immediate DEVDIAG spike lines for single slow simulation ticks, main-thread calls and frame gaps.").Value;
+                "Write immediate DEVDIAG spike lines for slow run calls, main-thread calls and frame gaps.").Value;
             PerfProbeRuntime.SetThresholds(
                 config.Bind("Spikes", "SimulationMs", 100, "Minimum EngineInterface.run duration for a spike line.").Value,
                 config.Bind("Spikes", "MainThreadMs", 100, "Minimum Director.Update / GUI-check duration for a spike line.").Value,
@@ -70,7 +70,7 @@ namespace PerfProbe
             Patch(typeof(TilemapManager), nameof(TilemapManager.endTileRefresh), new[] { typeof(bool) }, nameof(EndTileRefresh));
             Patch(typeof(FatControler), nameof(FatControler.NoesisGUIUpdateChecksInGame), Type.EmptyTypes, nameof(EndGuiChecks), nameof(BeginMainSpikeWatch));
             // Runs on Director's simulation thread; DevDiag aggregation is thread-safe.
-            Patch(typeof(EngineInterface), nameof(EngineInterface.run), new[] { typeof(bool) }, nameof(EndEngineRun), nameof(BeginEngineRun));
+            InstallRunTiming();
             PerfProbeExtras.Install(log, harmony);
             PerfProbeSimSampler.Install();
             PerfProbeThreadSampler.Install();
@@ -83,6 +83,27 @@ namespace PerfProbe
                 "spikeLines={1} simMs={2} mainMs={3} frameGapMs={4} freezeMs={5}.", RenderSnapshots, SpikeLines,
                 SimSpikeTicks * 1000 / Stopwatch.Frequency, MainSpikeTicks * 1000 / Stopwatch.Frequency,
                 FrameSpikeTicks * 1000 / Stopwatch.Frequency, FreezeTicks * 1000 / Stopwatch.Frequency));
+        }
+
+        private static void InstallRunTiming()
+        {
+            MethodInfo target = AccessTools.Method(typeof(EngineInterface), nameof(EngineInterface.run), new[] { typeof(bool) });
+            var prefix = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(BeginEngineRun));
+            var postfix = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(EndEngineRun));
+            var finalizer = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(FailedEngineRun));
+            try
+            {
+                harmony.Patch(target, prefix: prefix, postfix: postfix, finalizer: finalizer,
+                    transpiler: new HarmonyMethod(typeof(PerfProbeRunTiming), nameof(PerfProbeRunTiming.SafeTranspile)), ilmanipulator: null);
+            }
+            catch (Exception exception)
+            {
+                // SafeTranspile leaves outer timing intact on an anchor mismatch. A Harmony
+                // installation error here means the complete run probe is unavailable.
+                Shared.DebugLogHelper.LogWarning(log, "PERFPROBE_RUN_PHASES unavailable: " + exception.Message);
+                // Harmony may retain a failed patch registration. Do not mutate published
+                // hooks or retry against an uncertain chain in this process.
+            }
         }
 
         private static void Patch(Type type, string name, Type[] signature, string postfix, string prefix = nameof(Begin))
@@ -120,6 +141,8 @@ namespace PerfProbe
         private static long MainSpikeTicks = Stopwatch.Frequency / 10;    // 100 ms
         private static long FrameSpikeTicks = Stopwatch.Frequency / 10;   // 100 ms
         private static long FreezeTicks = Stopwatch.Frequency * 2 / 5;    // 400 ms
+        internal static string ThresholdConfiguration => "simMs=" + (SimSpikeTicks * 1000 / Stopwatch.Frequency) +
+            " mainMs=" + (MainSpikeTicks * 1000 / Stopwatch.Frequency) + " frameMs=" + (FrameSpikeTicks * 1000 / Stopwatch.Frequency);
         private static long simRunStarted, simRunsCompleted;
         private static int framesRendered;
         private static long lastSimElapsed, spikeSequence, frameDirectorTicks, frameGuiTicks, frameMapTicks, frameRecords;
@@ -142,33 +165,50 @@ namespace PerfProbe
 
         private static string Freeze(long elapsed) => elapsed >= FreezeTicks ? " freeze=true" : "";
 
-        private static void BeginEngineRun(out long __state)
+        private struct RunWatch
         {
-            simRunFramesAtStart = Volatile.Read(ref framesRendered);
-            simRunAllocAtStart = PerfProbeExtras.ThreadAllocated();
-            __state = Stopwatch.GetTimestamp();
-            Volatile.Write(ref simRunStarted, __state);
-            PerfProbeSimSampler.OnRunBegin(__state);
+            internal long Started, Allocated;
+            internal int Frames;
+            internal bool Completed;
+            internal PerfProbeRunTiming.State Parent;
         }
-
-        private static void EndEngineRun(long __state)
+        private static void BeginEngineRun(bool __0, out RunWatch __state)
         {
+            __state = new RunWatch { Started = Stopwatch.GetTimestamp(), Frames = Volatile.Read(ref framesRendered),
+                Allocated = PerfProbeExtras.ThreadAllocated(), Parent = PerfProbeRunTiming.Begin(__0) };
+            Volatile.Write(ref simRunStarted, __state.Started);
+            PerfProbeSimSampler.OnRunBegin(__state.Started);
+        }
+        private static void EndEngineRun(ref RunWatch __state) => CompleteEngineRun(ref __state, null);
+        private static Exception FailedEngineRun(ref RunWatch __state, Exception __exception)
+        {
+            if (__exception != null) CompleteEngineRun(ref __state, __exception);
+            return __exception;
+        }
+        private static void CompleteEngineRun(ref RunWatch state, Exception error)
+        {
+            if (state.Completed || state.Started == 0) return;
+            state.Completed = true;
             long now = Stopwatch.GetTimestamp();
-            Volatile.Write(ref simRunStarted, 0);
-            PerfProbeSimSampler.OnRunEnd();
+            PerfProbeRunTiming.State phases = PerfProbeRunTiming.Complete(state.Parent);
+            Volatile.Write(ref simRunStarted, state.Parent.Active ? state.Parent.Started : 0);
+            if (state.Parent.Active) PerfProbeSimSampler.OnRunBegin(state.Parent.Started);
+            else PerfProbeSimSampler.OnRunEnd();
             Interlocked.Increment(ref simRunsCompleted);
-            long elapsed = now - __state;
+            long elapsed = now - state.Started;
             Volatile.Write(ref lastSimElapsed, elapsed);
-            if (simRunAllocAtStart >= 0) PerfProbeExtras.AddSimAlloc(PerfProbeExtras.ThreadAllocated() - simRunAllocAtStart);
+            try
+            {
+            if (state.Allocated >= 0) PerfProbeExtras.AddSimAlloc(PerfProbeExtras.ThreadAllocated() - state.Allocated);
             Shared.DevDiagRuntime.Add("sim:EngineInterface.run", 1, elapsed);
             if (!SpikeLines || elapsed < SimSpikeTicks) return;
-            int frames = Volatile.Read(ref framesRendered) - simRunFramesAtStart;
-            ReportSpike("sim:EngineInterface.run", __state, now,
-                "framesDuring=" + frames.ToString(CultureInfo.InvariantCulture) + Freeze(elapsed));
+            int frames = Volatile.Read(ref framesRendered) - state.Frames;
+            ReportSpike("sim:EngineInterface.run", state.Started, now,
+                "framesDuring=" + frames.ToString(CultureInfo.InvariantCulture) + " " + PerfProbeRunTiming.Detail(phases) +
+                " error=" + (error?.GetType().Name ?? "none") + Freeze(elapsed));
+            }
+            catch (Exception) { /* Telemetry must not replace the original result/exception. */ }
         }
-
-        [ThreadStatic] private static int simRunFramesAtStart;
-        [ThreadStatic] private static long simRunAllocAtStart;
 
         private static void BeginMainSpikeWatch(out MainWatch __state)
         {
@@ -191,7 +231,7 @@ namespace PerfProbe
             long simRuns = Interlocked.Read(ref simRunsCompleted) - state.SimRunsAtStart;
             double busyMs = simStart == 0 ? 0 : (now - Math.Max(simStart, state.Started)) * 1000.0 / Stopwatch.Frequency;
             ReportSpike(name, state.Started, now, string.Format(CultureInfo.InvariantCulture,
-                "simRunActiveAtEnd={0} activeSimAgeAtEndMs={1:F1} simRunsCompletedDuring={2} lastCompletedSimMs={3:F1}",
+                "simRunActiveAtEnd={0} activeRunAgeAtEndMs={1:F1} runCallsCompletedDuring={2} lastCompletedRunMs={3:F1}",
                 simStart != 0, busyMs, simRuns, Volatile.Read(ref lastSimElapsed) * 1000.0 / Stopwatch.Frequency) +
                 Freeze(elapsed));
         }
@@ -212,7 +252,7 @@ namespace PerfProbe
         private static void EndTileRefresh(long __state) => Shared.DevDiag.Stop(ref __state, "main:TilemapManager.endTileRefresh");
         private static void EndGuiChecks(MainWatch __state) => EndMainSpike("main:FatControler.NoesisGUIUpdateChecksInGame", __state);
 
-        // True while EngineInterface.run (and thus EngineInterface.threadLock) is held by the sim thread.
+        // An active run call may be acquiring a buffer or waiting; it is not proof of lock ownership.
         internal static bool SimTickActive => Volatile.Read(ref simRunStarted) != 0;
         internal static long MainThreadSpikeTicks => MainSpikeTicks;
         internal static long SimRunsCompleted => Interlocked.Read(ref simRunsCompleted);
@@ -226,6 +266,7 @@ namespace PerfProbe
 
         private static void OnBeforeRender()
         {
+            PerfProbeContext.FirstFrame();
             PerfProbeThreadSampler.NoteMainThread();
             int frame = Time.frameCount;
             if (frame == lastFrame) return;

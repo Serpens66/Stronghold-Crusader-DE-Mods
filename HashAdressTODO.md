@@ -8,7 +8,28 @@ Diese Liste enthält Stellen, die nach einem Spiel- oder Extender-Update noch Ha
 
 Die Liste ist eine Momentaufnahme vom 2026-10-22 (Native-Hash `FBCB9319…31E2`, Managed `Assembly-CSharp` `BC8B6A39…D789`), erstellt aus einer Codesuche. Vor einer Umstellung jedes Feature erneut prüfen und den Vanilla-Audit nach `AGENTS/native-analysis.md` abschließen.
 
-Bereits umgestellt bzw. in Arbeit (nicht mehr hier): SavegameMissingMap, ExtendedShiftCommandQueue (Chore-Staging-Globals), Formation/FormationSpeech, APIShared-Audio und -PopularityDisplay sowie die Startscans aus Formation, FormationSpeech und NotificationQueue.
+Bereits umgestellt (nicht mehr hier):
+- SavegameMissingMap und der Managed-Teil von APIShared-Audio
+- die Startscans von Formation, NotificationQueue und den neun Stellen aus dem früheren Abschnitt „Startscans“
+
+Die Details stehen in `BugfixesAndQoL/UpdateToNewDLL.md`, Abschnitt „Update fallback, startup checks and remaining hash bindings“.
+
+## Voraussetzung: gemeinsame Befehls-Runtime (BugfixesAndQoL)
+
+`UnitCommandPathRuntime` verlangt den Referenz-Hash. Es bindet etwa 40 feste Detour-Prefixe (`src/UnitCommands/Native/NativeDetourContracts.cs`, `nativeDetourPrefixes`) und rund 100 native Konstanten (`src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs`).
+
+Davon hängen ab:
+- ExtendedShiftCommandQueue
+- Formation einschließlich FormationSpeech
+- der Großteil der Befehlsfeatures
+
+Solange diese Runtime keinen Fallback hat, bringt eine Umstellung dieser Features nach einem Spielupdate nichts.
+
+Für ChoreQueue und Formation/Speech ist der Audit schon erledigt: Anker mit Zweitbelegen für die Chore-Staging-Globals, Manager, Strides und Speech-Call-Ziele stehen in `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md`. Noch ohne Anker sind `TribeUnitCountOffset 0x5C` und `MovementTargetAvailability 0x3A11EA4`.
+
+Reihenfolge:
+1. Die Befehls-Runtime auf Resolver und Cache umstellen.
+2. Danach ChoreQueue und Formation/Speech nach diesem Audit.
 
 ## Native Daten-RVAs ohne Fallback (BugfixesAndQoL)
 
@@ -42,18 +63,9 @@ Diese Ziele werden per Pattern gefunden, das Ergebnis muss aber der Referenz-RVA
 - Weitere Stellen mit `ResolveUnique(...)` und anschließendem Gleichheitsvergleich mit der Konstante. Suche nach `!= .*Rva` bzw. `resolved.Rva != `.
 - Die Code-Ziele von UnitCommandPathRuntime (`NativeDetourContracts.cs`, Prefix-Tabelle `nativeDetourPrefixes`, ~40 Einträge): Bei unbekanntem Hash wird jeder Detour abgelehnt (`Unaudited command detour entry`). Prefix-Prüfung und Pattern-Fallback pro Eintrag ergänzen.
 
-## Startscans, die bei bekanntem Hash unnötig sind
+## Startscans in anderen Mods
 
-Diese Stellen scannen bei jedem Start die ganze Executable-Sektion (~70 ms je Vollscan). Auf den Referenzweg umstellen (`Shared.NativePatternResolver.ResolveUnique`):
-- AivDefenderPosition
-- AiDefensePatrol
-- AIResourceShortageSleep
-- AiWallTargeting
-- ControlGroupDisband
-- HealerAttack
-- LordControlGroup
-- WorkshopIdleDelay
-- NativeMovementRecovery
+In BugfixesAndQoL ist das erledigt. In anderen Mods noch nach `FindUniquePattern(` ohne vorherigen Referenz-Bytevergleich suchen.
 
 ## Managed-Hash-Gates in Prüfskripten
 

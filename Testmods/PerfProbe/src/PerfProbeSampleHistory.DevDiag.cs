@@ -40,5 +40,17 @@ namespace PerfProbe
             }
             return matched;
         }
+
+        // Only the sampler calls this; batches are owned by a published analysis job.
+        internal void CopyTo(PerfProbeSampleBatch batch, long started, long ended)
+        {
+            batch.Reset(); batch.Oldest = Oldest;
+            for (int i = 0; i < count; i++)
+            {
+                int index = (next - count + i + stamps.Length) % stamps.Length;
+                if (stamps[index] <= started || stamps[index] > ended) continue;
+                batch.Add(frames, index * frameLimit, depths[index], stamps[index]);
+            }
+        }
     }
 }

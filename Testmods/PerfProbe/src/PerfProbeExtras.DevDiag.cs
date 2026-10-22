@@ -232,6 +232,10 @@ namespace PerfProbe
         private static long[] engineCalls = new long[0], engineTicks = new long[0], engineMax = new long[0],
             engineSimCalls = new long[0], engineSimTicks = new long[0];
         private static long[] engineFrameTicks = new long[0];
+        private static long[] engineFrameCalls = new long[0];
+        private static long[] engineFrameWait = new long[0], engineFrameHeld = new long[0];
+        private static PerfProbeLockTiming.Snapshot frameLocksStarted;
+        private static bool frameLocksReady;
         private static bool[] engineLockMeasured = new bool[0];
         private static bool engineDiagnosticError;
         private static int mainThreadId = -1;
@@ -250,6 +254,8 @@ namespace PerfProbe
             engineCalls = new long[targets.Count]; engineTicks = new long[targets.Count]; engineMax = new long[targets.Count];
             engineSimCalls = new long[targets.Count]; engineSimTicks = new long[targets.Count];
             engineFrameTicks = new long[targets.Count]; engineLockMeasured = new bool[targets.Count];
+            engineFrameCalls = new long[targets.Count];
+            engineFrameWait = new long[targets.Count]; engineFrameHeld = new long[targets.Count];
             var prefix = new HarmonyMethod(typeof(PerfProbeExtras), nameof(EngineBegin));
             var postfix = new HarmonyMethod(typeof(PerfProbeExtras), nameof(EngineEnd));
             var finalizer = new HarmonyMethod(typeof(PerfProbeExtras), nameof(EngineFailed));
@@ -262,7 +268,7 @@ namespace PerfProbe
                 {
                     bool measureLock = targets[index].Name == "GetMeritData" || targets[index].Name == "SetAchData";
                     harmony.Patch(targets[index], prefix: prefix, postfix: postfix, finalizer: finalizer,
-                        transpiler: measureLock ? new HarmonyMethod(typeof(PerfProbeLockTiming), nameof(PerfProbeLockTiming.Transpile)) : null,
+                        transpiler: measureLock ? new HarmonyMethod(typeof(PerfProbeLockTiming), nameof(PerfProbeLockTiming.SafeTranspile)) : null,
                         ilmanipulator: null);
                     engineLockMeasured[index] = measureLock;
                     patched++;
@@ -279,7 +285,7 @@ namespace PerfProbe
 
         private struct EngineState
         {
-            public long Started, RunsCompleted, Cpu;
+            public long Started, RunsCompleted, Cpu, NativeStarted, NativeCompleted, NoBuffer;
             public int Gc;
             public bool SimActive, Completed;
             public PerfProbeLockTiming.Snapshot Locks;
@@ -292,9 +298,12 @@ namespace PerfProbe
             __state.Started = Stopwatch.GetTimestamp();
             __state.SimActive = PerfProbeRuntime.SimTickActive;
             __state.RunsCompleted = PerfProbeRuntime.SimRunsCompleted;
+            __state.NativeStarted = System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsStarted);
+            __state.NativeCompleted = System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsCompleted);
+            __state.NoBuffer = System.Threading.Interlocked.Read(ref PerfProbeRunTiming.BuffersUnavailable);
             __state.Gc = GcTracking ? GC.CollectionCount(0) : -1;
             __state.Locks = PerfProbeLockTiming.Capture();
-            __state.Cpu = engineIds.TryGetValue(__originalMethod, out int id) && engineLockMeasured[id]
+            __state.Cpu = engineIds.TryGetValue(__originalMethod, out int id) && (engineLockMeasured[id] && PerfProbeLockTiming.IsInstrumented(engineNames[id]))
                 ? PerfProbeLockTiming.ThreadCpuTime() : -1;
         }
 
@@ -332,24 +341,40 @@ namespace PerfProbe
             if (__state.Started == 0) return;
             long ended = Stopwatch.GetTimestamp(), elapsed = ended - __state.Started;
             if (__originalMethod == null || !engineIds.TryGetValue(__originalMethod, out int id)) return;
+            if (__originalMethod.Name == "LoadSaveFile")
+            {
+                Shared.DevDiag.Log(() => "loadSpan method=LoadSaveFile startStamp=" + __state.Started + " endStamp=" + ended +
+                    " complete=" + (error == null) + " phase=managed-engine-wrapper-not-mission-readiness");
+                PerfProbeContext.Publish("save-wrapper-return");
+            }
             engineCalls[id]++; engineTicks[id] += elapsed;
             engineFrameTicks[id] += elapsed;
+            engineFrameCalls[id]++;
+            PerfProbeLockTiming.Snapshot after = PerfProbeLockTiming.Capture();
+            if ((engineLockMeasured[id] && PerfProbeLockTiming.IsInstrumented(engineNames[id])))
+            {
+                engineFrameWait[id] += after.Wait - __state.Locks.Wait;
+                engineFrameHeld[id] += after.Held - __state.Locks.Held;
+            }
             if (elapsed > engineMax[id]) engineMax[id] = elapsed;
             if (__state.SimActive) { engineSimCalls[id]++; engineSimTicks[id] += elapsed; }
             if (PerfProbeRuntime.SpikeLines && elapsed >= PerfProbeRuntime.MainThreadSpikeTicks)
             {
-                PerfProbeLockTiming.Snapshot after = PerfProbeLockTiming.Capture();
                 long cpu = __state.Cpu < 0 ? -1 : PerfProbeLockTiming.ThreadCpuTime();
                 string detail = string.Format(C,
-                    "simTickActiveAtStart={0} simTickActiveAtEnd={1} simRunsCompletedDuring={2} lockMeasured={3} " +
+                    "runCallActiveAtStart={0} runCallActiveAtEnd={1} runCallsCompletedDuring={2} lockMeasured={3} " +
                     "lockEntries={4} lockWaitMs={5:F3} lockScopeMs={6:F3} outsideLockMs={7:F3} threadCpuMs={8:F3} gcDuring={9} error={10} caller={11}",
                     __state.SimActive, PerfProbeRuntime.SimTickActive, PerfProbeRuntime.SimRunsCompleted - __state.RunsCompleted,
-                    engineLockMeasured[id], after.Acquisitions - __state.Locks.Acquisitions,
-                    engineLockMeasured[id] ? Ms(after.Wait - __state.Locks.Wait) : -1,
-                    engineLockMeasured[id] ? Ms(after.Held - __state.Locks.Held) : -1,
-                    engineLockMeasured[id] ? Ms(Math.Max(0, elapsed - (after.Wait - __state.Locks.Wait) - (after.Held - __state.Locks.Held))) : -1,
+                    (engineLockMeasured[id] && PerfProbeLockTiming.IsInstrumented(engineNames[id])), after.Acquisitions - __state.Locks.Acquisitions,
+                    (engineLockMeasured[id] && PerfProbeLockTiming.IsInstrumented(engineNames[id])) ? Ms(after.Wait - __state.Locks.Wait) : -1,
+                    (engineLockMeasured[id] && PerfProbeLockTiming.IsInstrumented(engineNames[id])) ? Ms(after.Held - __state.Locks.Held) : -1,
+                    (engineLockMeasured[id] && PerfProbeLockTiming.IsInstrumented(engineNames[id])) ? Ms(Math.Max(0, elapsed - (after.Wait - __state.Locks.Wait) - (after.Held - __state.Locks.Held))) : -1,
                     cpu < 0 ? -1 : (cpu - __state.Cpu) / 10000.0,
-                    __state.Gc < 0 ? -1 : GC.CollectionCount(0) - __state.Gc, error?.GetType().Name ?? "none", SlowCaller());
+                    __state.Gc < 0 ? -1 : GC.CollectionCount(0) - __state.Gc, error?.GetType().Name ?? "none", SlowCaller()) +
+                    " nativeCallsStartedDuring=" + (System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsStarted) - __state.NativeStarted) +
+                    " nativeCallsCompletedDuring=" + (System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsCompleted) - __state.NativeCompleted) +
+                    " noBufferCallsDuring=" + (System.Threading.Interlocked.Read(ref PerfProbeRunTiming.BuffersUnavailable) - __state.NoBuffer) +
+                    " runPhasesMeasured=" + PerfProbeRunTiming.Instrumented;
                 PerfProbeRuntime.ReportSpike("main:" + engineNames[id], __state.Started, ended, detail);
             }
         }
@@ -573,9 +598,19 @@ namespace PerfProbe
                 if (gcAlloc.Valid) text.Append(" lastRecordedAllocKB=").Append((gcAlloc.LastValue / 1024.0).ToString("F1", C));
             }
             if (EngineCalls)
+            {
                 text.Append(" engineFrameInclusive=").Append(string.Join(",", Enumerable.Range(0, engineFrameTicks.Length)
                     .Where(i => engineFrameTicks[i] > 0).OrderByDescending(i => engineFrameTicks[i]).Take(5)
-                    .Select(i => engineNames[i] + ":" + Ms(engineFrameTicks[i]).ToString("F2", C))));
+                    .Select(i => engineNames[i] + ":" + Ms(engineFrameTicks[i]).ToString("F2", C) + ":calls=" + engineFrameCalls[i])));
+                bool known = frameLocksReady && (PerfProbeLockTiming.IsInstrumented("EngineInterface.GetMeritData") ||
+                    PerfProbeLockTiming.IsInstrumented("EngineInterface.SetAchData"));
+                text.Append(" engineFrameLockMeasured=").Append(known);
+                // Read the monotonic accumulator once; summing inclusive wrapper deltas
+                // would count a recursively called instrumented wrapper twice.
+                text.Append(" engineFrameLockWaitMs=").Append((known ? Ms(PerfProbeLockTiming.Capture().Wait - frameLocksStarted.Wait) : -1).ToString("F3", C));
+                text.Append(" engineFrameLocks=").Append(string.Join(",", Enumerable.Range(0, engineFrameWait.Length)
+                    .Where(i => engineFrameWait[i] > 0).Select(i => engineNames[i] + ":wait=" + Ms(engineFrameWait[i]).ToString("F3", C) + ":held=" + Ms(engineFrameHeld[i]).ToString("F3", C))));
+            }
             if (UpdateSweep) text.Append(FrameTop());
             return text.ToString();
         }
@@ -583,6 +618,7 @@ namespace PerfProbe
         // Called after FrameContext; closes the finished frame and opens the next one.
         internal static void EndFrame()
         {
+            frameLocksStarted = PerfProbeLockTiming.Capture(); frameLocksReady = true;
             if (!frameRecordersStarted) StartFrameRecorders();
             if (mainThreadId < 0) mainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
             if (GcTracking && ThreadAllocValid)
@@ -625,6 +661,9 @@ namespace PerfProbe
             }
             if (UpdateSweep) ResetFrame();
             Array.Clear(engineFrameTicks, 0, engineFrameTicks.Length);
+            Array.Clear(engineFrameCalls, 0, engineFrameCalls.Length);
+            Array.Clear(engineFrameWait, 0, engineFrameWait.Length);
+            Array.Clear(engineFrameHeld, 0, engineFrameHeld.Length);
         }
 
         private static void StartFrameRecorders()
@@ -657,6 +696,12 @@ namespace PerfProbe
         // display class on method entry, even when an early return precedes the lambda.
         private static void EmitDiagnosticSummary(double seconds, long now)
         {
+            Shared.DevDiag.Log(() => "runCounters callsStarted=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.CallsStarted) +
+                " callsCompleted=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.CallsCompleted) +
+                " noBuffer=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.BuffersUnavailable) +
+                " nativeCallsStarted=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsStarted) +
+                " nativeCallsCompleted=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsCompleted) +
+                " runPhasesMeasured=" + PerfProbeRunTiming.Instrumented);
             if (GcTracking) Guard("gc", LogGc);
             if (EngineCalls) Guard("engineCalls", () => LogEngineCalls(seconds));
             Shared.DevDiagRuntime.Add("probe.summary", 1, Stopwatch.GetTimestamp() - now);
@@ -1038,7 +1083,7 @@ namespace PerfProbe
             long simTicks = System.Threading.Interlocked.Exchange(ref simAllocTicks, 0);
             long simMax = System.Threading.Interlocked.Exchange(ref simAllocMax, 0);
             string threads = string.Format(C,
-                "allocThreads mainPerFrameAvgKB={0:0.0} mainPerFrameMaxKB={1:0.0} mainFrames={2} simPerTickAvgKB={3:0.0} simPerTickMaxKB={4:0.0} simTicks={5} simTotalKB={6:0}",
+                "allocThreads mainPerFrameAvgKB={0:0.0} mainPerFrameMaxKB={1:0.0} mainFrames={2} simPerRunCallAvgKB={3:0.0} simPerRunCallMaxKB={4:0.0} simRunCalls={5} simTotalKB={6:0}",
                 mainAllocFrames == 0 ? 0 : mainAllocSum / (double)mainAllocFrames / 1024.0, mainAllocMax / 1024.0, mainAllocFrames,
                 simTicks == 0 ? 0 : simBytes / (double)simTicks / 1024.0, simMax / 1024.0, simTicks, simBytes / 1024.0);
             mainAllocSum = mainAllocMax = mainAllocFrames = 0;

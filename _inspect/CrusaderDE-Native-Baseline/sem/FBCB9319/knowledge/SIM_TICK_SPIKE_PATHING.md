@@ -12,3 +12,21 @@ Evidence: PerfProbe DEVDIAG stack sampler (`Testmods/PerfProbe/src/PerfProbeSimS
 - The cost of such a tick is therefore one AI group order: one route search per unit, each potentially up to the search budget. The renderer frame loop is not involved: it accounts for 3 of 390 samples (`0x86680` > `0x41D60`). Rendering continues during such a tick (`framesDuring` 86–91). The main thread only blocks if it waits for `EngineInterface.threadLock`.
 - Timing is driven by AI scheduling, not by zoom or load. Earlier runs on another save showed these ticks every ~25 s. In the automated runs it occurred once, about 4 s after unpausing.
 - Uncertain: the exact AI military routine around `0x3C36B`/`0x3D70B` (sampled addresses are fragment starts), the number of units per order, and whether individual searches exhaust their budget.
+
+## Managed measurement boundary clarified, 2026-10-22
+
+Installed `Assembly-CSharp.dll` SHA-256
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789` was inspected
+using its actual method IL. `EngineInterface.run(bool)` calls
+`MemoryBuffers.getFreeBuffer(true)` before entering `threadLock`; a missing buffer
+returns zero without calling `DLL_RunTick`. Thus completed managed run calls are
+not a native-call count or proof of advanced simulation ticks. The bool argument
+must be retained as context rather than interpreted as evidence of advancement.
+
+The single Monitor scope contains `preDLLCallActions`, native argument preparation,
+`DLL_RunTick`, deserialization, `CopyPlayStateStruct`, and `returnBuffer`, then releases
+the monitor in a finally block. `GetMeritData` and `SetAchData` use the same static
+lock. Managed Monitor waiting, pre-native work, the inclusive native call (including
+SE/mod callbacks), and post-native publication must be measured separately. This
+clarifies managed observation boundaries; it does not add a native address or
+attribute every future native-time spike to the AI movement path observed above.

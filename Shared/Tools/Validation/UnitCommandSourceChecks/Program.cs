@@ -96,6 +96,8 @@ foreach (var relative in orderedProjects)
         return value;
     }
     var defines = xml.Descendants().Where(e => e.Name.LocalName == "DefineConstants").SelectMany(e => e.Value.Split(';')).Where(s => !s.Contains('$') && s.Length > 0);
+    bool diagnosticsEnabled = args.Contains("--diagnostic");
+    if (diagnosticsEnabled) defines = defines.Append("SERP_DEVDIAG");
     var parse = new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: defines);
     var sources = xml.Descendants().Where(e => e.Name.LocalName == "Compile" && e.Attribute("Include") != null).SelectMany(e => {
         string path = Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Include")));
@@ -113,10 +115,11 @@ foreach (var relative in orderedProjects)
             .Where(p => !Path.GetRelativePath(folder, p).Split(Path.DirectorySeparatorChar).Any(s => s == "bin" || s == "obj"))).Distinct().ToArray();
     var removedSources = xml.Descendants().Where(e => e.Name.LocalName == "Compile" && e.Attribute("Remove") != null)
         .Select(e => Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Remove")))).ToHashSet(StringComparer.OrdinalIgnoreCase);
-    // This compiler preflight checks the normal build. Mirror Directory.Build.targets'
-    // diagnostic source exclusion; diagnostic builds are compiled by the actual driver.
+    // Mirror Directory.Build.targets without invoking a mod build or emitting a DLL.
+    if (diagnosticsEnabled && Directory.Exists(Path.Combine(folder, "src")))
+        sources = sources.Concat(Directory.GetFiles(Path.Combine(folder, "src"), "*.DevDiag.cs", SearchOption.AllDirectories)).Distinct().ToArray();
     sources = sources.Where(p => !removedSources.Contains(p) &&
-        !p.EndsWith(".DevDiag.cs", StringComparison.OrdinalIgnoreCase)).ToArray();
+        (diagnosticsEnabled || !p.EndsWith(".DevDiag.cs", StringComparison.OrdinalIgnoreCase))).ToArray();
     var trees = sources.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), parse, p)).ToList();
     if (coreProject && xml.Descendants().Any(e => e.Name.LocalName == "ImplicitUsings" && e.Value == "enable"))
         trees.Add(CSharpSyntaxTree.ParseText("global using System; global using System.Collections.Generic; global using System.IO; global using System.Linq; global using System.Net.Http; global using System.Threading; global using System.Threading.Tasks;", parse, "ImplicitUsings.g.cs"));

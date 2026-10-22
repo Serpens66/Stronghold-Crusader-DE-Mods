@@ -29,14 +29,19 @@ namespace PerfProbe
         private const int ContextSize = 1232, OffFlags = 0x30, OffRsp = 0x98, OffRbp = 0xA0, OffRip = 0xF8;
         private static readonly CultureInfo C = CultureInfo.InvariantCulture;
         // Assemblies that are not mods; their methods appear in incl/self but not in entry.
-        private static readonly string[] HostAssemblies = { "mscorlib", "System", "UnityEngine", "Assembly-CSharp", "Noesis", "SHCDESE", "R3", "0Harmony", "BepInEx", "Mono.", "netstandard", "RedBird", "Microsoft." };
+        private static readonly string[] HostAssemblies = { "mscorlib", "System", "UnityEngine", "Unity.RenderPipelines.", "Assembly-CSharp", "Noesis", "SHCDESE", "R3", "0Harmony", "BepInEx", "Mono.", "netstandard", "RedBird", "Microsoft." };
 
         private static bool enabled, sampleMain = true, sampleSim = true;
         internal static bool IsEnabled => enabled;
-        private static int intervalUs = 1000, windowSeconds = 10;
+        internal static string Configuration => "enabled:" + enabled + ",intervalUs:" + intervalUs + ",windowS:" + windowSeconds + ",main:" + sampleMain + ",sim:" + sampleSim;
+        private static int intervalUs = 1000, windowSeconds = 2;
         private static int mainThreadId;
         private static ulong gameBase, gameEnd;
-        private static Thread worker;
+        private static Thread worker, analysisWorker;
+        private static readonly AutoResetEvent analysisReady = new AutoResetEvent(false);
+        private static PerfProbeAnalysisJob[] analysisJobs;
+        private static long jobSequence, suspendedTicks, maxSuspendedTicks;
+        private static int windowDrops;
 
         private sealed class Lane
         {
@@ -44,9 +49,8 @@ namespace PerfProbe
             internal int ThreadId;
             internal IntPtr Handle;
             internal ulong StackBase;
-            internal int Count, Dropped;
             internal ulong[] Frames;
-            internal byte[] Depth;
+
             internal PerfProbeSampleHistory History;
         }
 
@@ -60,7 +64,7 @@ namespace PerfProbe
             enabled = config.Bind("Sampler", "Enabled", false,
                 "Sampling profiler: attribute main/simulation thread time to managed methods and mod assemblies (adds some overhead).").Value;
             intervalUs = Math.Max(200, config.Bind("Sampler", "IntervalUs", 1000, "Sampling interval per thread in microseconds.").Value);
-            windowSeconds = Math.Max(2, config.Bind("Sampler", "WindowSeconds", 10, "Aggregation window in seconds.").Value);
+            windowSeconds = Math.Max(2, config.Bind("Sampler", "WindowSeconds", 2, "Aggregation window in seconds.").Value);
             sampleMain = config.Bind("Sampler", "MainThread", true, "Sample the Unity main thread.").Value;
             sampleSim = config.Bind("Sampler", "SimThread", true, "Sample the simulation thread while EngineInterface.run is active.").Value;
             // Awake runs on the Unity main thread: sampling starts here so plugin startup is covered too.
@@ -89,14 +93,18 @@ namespace PerfProbe
             main = NewLane("main");
             sim = NewLane("sim");
             worker = new Thread(Loop) { IsBackground = true, Name = "PerfProbe.ThreadSampler", Priority = ThreadPriority.Highest };
+            analysisJobs = new[] { new PerfProbeAnalysisJob(false, capacity, MaxFrames), new PerfProbeAnalysisJob(false, capacity, MaxFrames),
+                new PerfProbeAnalysisJob(true, Math.Max(capacity, 8000000 / intervalUs), MaxFrames), new PerfProbeAnalysisJob(true, Math.Max(capacity, 8000000 / intervalUs), MaxFrames) };
+            analysisWorker = new Thread(AnalysisLoop) { IsBackground = true, Name = "PerfProbe.Analysis", Priority = ThreadPriority.BelowNormal };
+            analysisWorker.Start();
             worker.Start();
             Shared.DevDiag.Log(() => string.Format(C, "threadSampler ready intervalUs={0} windowS={1} main={2} sim={3}", intervalUs, windowSeconds, sampleMain, sampleSim));
         }
 
         private static Lane NewLane(string name) => new Lane
         {
-            Name = name, Frames = new ulong[capacity * MaxFrames], Depth = new byte[capacity],
-            History = new PerfProbeSampleHistory(Math.Max(64, 8000000 / intervalUs), MaxFrames)
+            Name = name, Frames = new ulong[MaxFrames],
+            History = new PerfProbeSampleHistory(Math.Max(capacity, 8000000 / intervalUs), MaxFrames)
         };
 
         // Called from the render callback (Unity main thread).
@@ -111,6 +119,7 @@ namespace PerfProbe
             IntPtr context = new IntPtr((raw.ToInt64() + 15) & ~15L);
             IntPtr scratch = Marshal.AllocHGlobal(16);
             long windowStart = Stopwatch.GetTimestamp();
+            captureStarted = windowStart; samplerCpu = PerfProbeLockTiming.ThreadCpuTime();
             long interval = Math.Max(1, Stopwatch.Frequency * intervalUs / 1000000);
             long next = windowStart;
             while (true)
@@ -121,20 +130,9 @@ namespace PerfProbe
                     int simId = PerfProbeSimSampler.SimThreadId;
                     if (sampleSim && simId != 0 && PerfProbeSimSampler.RunStart != 0) SampleLane(sim, simId, context, scratch);
                     long now = Stopwatch.GetTimestamp();
-                    // Modules load during startup (CrusaderDE.dll, extender natives): refresh outside suspensions.
-                    if (now - imagesRefreshed >= Stopwatch.Frequency)
-                    {
-                        imagesRefreshed = now;
-                        ResolveGameImage();
-                        RefreshImages();
-                    }
                     if (now - windowStart >= Stopwatch.Frequency * windowSeconds)
                     {
-                        long analysisStarted = Stopwatch.GetTimestamp();
-                        double seconds = (now - windowStart) / (double)Stopwatch.Frequency;
-                        Publish(main, seconds);
-                        Publish(sim, seconds);
-                        ReportSamplerWork("window", analysisStarted);
+                        QueueWindow(windowStart, now);
                         windowStart = now;
                     }
                     DrainSpikeRequests();
@@ -160,16 +158,16 @@ namespace PerfProbe
                 if (lane.Handle == IntPtr.Zero || lane.StackBase == 0)
                 {
                     Shared.DevDiag.Log(() => "threadSampler lane " + lane.Name + " unavailable (OpenThread/TEB)");
-                    lane.ThreadId = -1;
+                    // Retain the attempted ID: retry only if the OS thread changes.
                     return;
                 }
             }
-            if (lane.ThreadId < 0 || lane.Handle == IntPtr.Zero) return;
-            if (lane.Count >= capacity) { lane.Dropped++; return; }
-            int offset = lane.Count * MaxFrames;
+            if (lane.ThreadId < 0 || lane.Handle == IntPtr.Zero || lane.StackBase == 0) return;
+            int offset = 0;
             int depth = 0;
             long sampledAt = Stopwatch.GetTimestamp();
             if (SuspendThread(lane.Handle) == uint.MaxValue) return;
+            long suspendedAt = Stopwatch.GetTimestamp();
             try
             {
                 Marshal.WriteInt32(context, OffFlags, unchecked((int)ContextFull));
@@ -205,11 +203,15 @@ namespace PerfProbe
                     heuristic = true;
                 }
             }
-            finally { ResumeThread(lane.Handle); }
+            finally
+            {
+                ResumeThread(lane.Handle);
+                long duration = Stopwatch.GetTimestamp() - suspendedAt;
+                suspendedTicks += duration; if (duration > maxSuspendedTicks) maxSuspendedTicks = duration;
+            }
             if (depth > 0)
             {
                 lane.History.Add(sampledAt, lane.Frames, offset, depth);
-                lane.Depth[lane.Count] = (byte)depth; lane.Count++;
             }
         }
 
@@ -230,11 +232,10 @@ namespace PerfProbe
             internal string[] Names;
         }
 
-        private static ImageTable images = new ImageTable { Starts = new ulong[0], Ends = new ulong[0], Pdata = new ulong[0], PdataCount = new int[0], Names = new string[0] };
+        private static volatile ImageTable images = new ImageTable { Starts = new ulong[0], Ends = new ulong[0], Pdata = new ulong[0], PdataCount = new int[0], Names = new string[0] };
 
-        private static int FindImage(ulong address)
+        private static int FindImage(ulong address, ImageTable table)
         {
-            ImageTable table = images;
             for (int i = 0; i < table.Starts.Length; i++) if (address >= table.Starts[i] && address < table.Ends[i]) return i;
             return -1;
         }
@@ -244,7 +245,7 @@ namespace PerfProbe
         {
             imageBase = 0;
             ImageTable table = images;
-            int image = FindImage(address);
+            int image = FindImage(address, table);
             if (image < 0 || table.PdataCount[image] <= 0) return IntPtr.Zero;
             imageBase = table.Starts[image];
             uint rva = (uint)(address - imageBase);
@@ -308,8 +309,9 @@ namespace PerfProbe
                 IntPtr entry = FindFunctionEntry(ip, out _);
                 return entry != IntPtr.Zero ? "CDE:0x" + ((uint)Marshal.ReadInt32(entry)).ToString("X", C) : "CDE:~0x" + (ip - gameBase).ToString("X", C);
             }
-            int image = FindImage(ip);
-            if (image >= 0) return images.Names[image];
+            ImageTable table = images;
+            int image = FindImage(ip, table);
+            if (image >= 0) return table.Names[image];
             string name = MonoNames.Resolve(ip, out assembly);
             // Hook stubs/trampolines: 64-byte bucket, resolved offline against the logged stub addresses.
             return name ?? "dyn@0x" + (ip & ~0x3FUL).ToString("X", C);
@@ -322,10 +324,8 @@ namespace PerfProbe
             return true;
         }
 
-        private static void Publish(Lane lane, double seconds)
+        private static void Publish(PerfProbeSampleBatch lane, double seconds, long start, long end)
         {
-            if (lane.Count == 0 && lane.Dropped == 0) return;
-            RefreshImages();
             var self = new Dictionary<string, int>();
             var incl = new Dictionary<string, int>();
             var asm = new Dictionary<string, int>();
@@ -381,7 +381,11 @@ namespace PerfProbe
             int count = lane.Count, dropped = lane.Dropped;
             string Top(Dictionary<string, int> map, int n) => string.Join(" | ", map.OrderByDescending(kv => kv.Value).Take(n)
                 .Select(kv => kv.Key + "=" + kv.Value.ToString(C) + "(" + (kv.Value * 100.0 / Math.Max(1, count)).ToString("0.0", C) + "%)"));
-            string head = string.Format(C, "threadSample thread={0} windowS={1:0.0} samples={2} dropped={3}", lane.Name, seconds, count, dropped);
+            long previous = start, maxGap = 0;
+            for (int i = 0; i < count; i++) { maxGap = Math.Max(maxGap, lane.Stamps[i] - previous); previous = lane.Stamps[i]; }
+            maxGap = Math.Max(maxGap, end - previous);
+            string head = string.Format(C, "threadSample thread={0} windowS={1:0.0} samples={2} dropped={3} osThread={4} startStamp={5} endStamp={6} maxSampleGapMs={7:F3} simOnlyWhileRunActive={8}",
+                lane.Name, seconds, count, dropped, lane.OsThreadId, start, end, maxGap * 1000.0 / Stopwatch.Frequency, lane.Name == "sim");
             string selfText = Top(self, 15), asmText = Top(asm, 12), inclText = Top(incl, 25), entryText = Top(entry, 25);
             Shared.DevDiag.Log(() => head + " self: " + selfText);
             Shared.DevDiag.Log(() => head + " asm: " + asmText);
@@ -392,7 +396,7 @@ namespace PerfProbe
             if (guard.Count > 0) Shared.DevDiag.Log(() => head + " guard: " + guardText);
             string orphanText = Top(orphan, 30);
             if (orphan.Count > 0) Shared.DevDiag.Log(() => head + " nomod: " + orphanText);
-            lane.Count = 0; lane.Dropped = 0;
+            // The consumer owns this immutable batch until the job is released.
         }
 
         private static void Bump(Dictionary<string, int> map, string key) => map[key] = map.TryGetValue(key, out int value) ? value + 1 : 1;

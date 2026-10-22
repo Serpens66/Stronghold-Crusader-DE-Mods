@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Move-stager data anchors](./sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md): code anchors with second evidence for Chore staging globals, tribe/unit/path/sound/dialogue managers, strides and speech call targets; confirmed-static, derivation blocked until the shared command runtime gets an update fallback.
+
 - [AI negative sell thresholds](./sem/FBCB9319/knowledge/AI_SELL_THRESHOLDS.md): phantom-credit cause, all eight categories, native decision/transaction guards and original-function execution evidence; in-game acceptance pending.
 
 - [Coop Trail Customize presentation](./sem/FBCB9319/knowledge/COOP_TRAIL_CUSTOMIZE_PRESENTATION.md): managed team-shield/radar refresh, setup metadata and input-callback suppression; static/member checks and pending visual acceptance.

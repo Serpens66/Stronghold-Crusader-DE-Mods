@@ -30,6 +30,7 @@ public static class EngineInterface
 }
 namespace Shared
 {
+    internal static class DevDiag { internal static void Count(string name) { } }
     internal static class DebugLogHelper
     {
         internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string message) { }

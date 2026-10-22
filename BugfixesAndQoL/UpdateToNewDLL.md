@@ -826,3 +826,52 @@ No overlap with BFQoL's stone-reserve site 0x3F156..0x3F16A, Fixes' wheat-catego
 site or native price hooks. Disable the standalone AISellThresholdFixTest plugin
 before the next game start; retain sources/evidence rather than deleting it.
 
+## Update fallback, startup checks and remaining hash bindings (2026-10-22)
+
+Procedure: [AGENTS/native-analysis.md](../AGENTS/native-analysis.md), section „Prüfkosten“.
+- **Known native hash:** reference bytes only.
+- **Unknown hash:** one section-limited pattern fallback whose result is cached in `BepInEx/cache/BugfixesAndQoL_Serp.native-cache.tsv`. The cache key is the native SHA-256 plus the mod version.
+- The shared cache is `src/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
+- The CrusaderDE.dll hash itself is cached across starts by path, size and write time (`Serp.file-hashes.tsv`).
+
+**Notification queue (`src/NotificationQueueNativeContract.cs`)**
+
+The eight patterns previously had no reference RVA and were scanned on every start. The references below come from the installed FBCB9319 DLL; each pattern matched exactly once, and the fixed distances in the contract hold:
+
+| Pattern | Reference RVA |
+|---|---|
+| DLL_RunTick entry | `0x86680` |
+| DLL_RunTick notification call | `0x86A91` (= entry + 0x411) |
+| Queue update entry | `0xFE570` |
+| Completion tail | `0xFE5C9` (= update + 0x59) |
+| Queue finalizer | `0x102A70` |
+| Queue promotion | `0x102AB5` |
+| Presentation entry | `0xFEE50` |
+| Presentation pending-flag set | `0xFEEB1` (= entry + 0x61) |
+
+Another build scans the unique patterns once and caches them. All call-target and distance checks of the contract still run.
+
+**Reference-first uniqueness checks**
+
+Formation selectors (`ValidateUniqueEntry`), AI defense patrol, AI resource-shortage sleep, AIV defender position, AI wall targeting, control-group disband, healer attack, Lord control group and the connectivity observer used to rescan the executable sections to prove uniqueness, although their result must equal the reference RVA.
+
+They now confirm the reference bytes when the hash matches and scan only for another build, so the behavior on an unknown build is unchanged. The second uniqueness scan of the workshop idle delay was removed; that feature is gated by the reference hash.
+
+**SavegameMissingMap (managed)**
+
+The SHA-256 gate of `Assembly-CSharp.dll` was removed. The fix is gated by the IL contract of the loaded methods:
+- member checks;
+- the `RunHookPlan` preflight of every transform;
+- a JIT-compiled copy of each transformed method.
+
+An update that keeps these methods keeps the fix; any IL change fails closed with `FIX_DISABLED`.
+
+**Peace time / native switches (`src/PermanentNativeSwitch.cs`)**
+
+Instruction boundaries are proven on the unmodified load image. Live, a foreign hook may already start at the boundary after a span; for example, the Script Extender's wall-targeting context hook starts at `0x8EA60` right after the peace-time span `0x8EA59..0x8EA5F`. Only `jmp rel32` or `jmp [rip+disp32]` is accepted there; any other live change fails closed.
+
+**Still hash-bound: ExtendedShiftCommandQueue, Formation and FormationSpeech**
+
+These features depend on the shared command runtime `UnitCommandPathRuntime`. It requires the reference hash and binds about 40 fixed detour prefixes (`src/UnitCommands/Native/NativeDetourContracts.cs`) and about 100 native constants. Deriving their own data addresses cannot keep them working after an update until that runtime gets the same fallback.
+
+The audited anchors, with a second evidence for the Chore staging globals, managers, strides and speech call targets, are recorded in [MOVE_STAGER_DATA_ANCHORS.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md). Formation's `TribeUnitCountOffset 0x5C` and `MovementTargetAvailability 0x3A11EA4` have no confirmed anchor yet.

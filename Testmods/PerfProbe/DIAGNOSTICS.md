@@ -1,5 +1,77 @@
 # Diagnose kurzer Lags ab 100 ms
 
+## Erweiterung für den reduzierten Vergleichslauf (22.10.2026)
+
+Diese Ausbaustufe ist ausschließlich als Quelländerung geprüft: **kein Mod-Build
+und keine Installation**. Die folgenden älteren Abschnitte beschreiben die erste
+Ausbaustufe; für Zähler und neue Ausgaben gelten diese Präzisierungen:
+
+- `runCounters` trennt begonnene/beendete `run`-Aufrufe, fehlende freie Puffer
+  sowie betretene/beendete `DLL_RunTick`-Aufrufe. Auch ein nativer Aufruf beweist
+  keinen fortgeschrittenen Spieltick. `skipArgument` bleibt unverändert sichtbar.
+  Alte `simRunsCompletedDuring`-Werte bedeuten Aufrufzahlen, keine Spielticks.
+- `run` misst Pufferbeschaffung, Monitor-Warten, Vorarbeit unter der Sperre,
+  native inklusive Zeit und anschließende Deserialisierung/Kopie/Publikation.
+  `nativeInclusiveMs` enthält Extender-/Mod-Callbacks und den kleinen Aufwand
+  der Messgrenzen. `nativeThreadCpuMs` ist CPU des aufrufenden Threads, keine
+  Gesamtsystem-CPU. Der pufferlose Pfad ruft keine CPU-Zeit-API auf.
+- `engineFrameLockWaitMs` liest den Monitor-Akkumulator zwischen Rendergrenzen,
+  damit verschachtelte Wrapper keine doppelte Summe verursachen. Die größten
+  Engine-Aufrufe enthalten auch ihre Anzahl; mehrere Abfragen unter 100 ms
+  können damit einen langen Frame erklären. Einzelne Wrapperzeiten sind inklusiv.
+- `lockHistory` wertet höchstens acht Sekunden aus. Bis zu acht instrumentierte
+  Besitzerthreads erhalten begrenzte Historien. Die acht längsten überlappenden
+  Scopes enthalten Methode, Managed-Thread-ID, Sperrenanfang/-ende, Dauer und
+  den Hinweis auf betretene native Aufrufe. `unattributedMs`/`unattributedOwner`
+  bleiben unbekannt: abgeschlossene instrumentierte Scopes decken weder gerade
+  offene noch fremde Sperrenbelegungen vollständig ab. Native-Beteiligung ist
+  keine gemessene native Dauer. Verdrängte/verlorene Einträge werden ausgewiesen.
+- Rohstacks gehen in vorab reservierte Übergabepuffer. Der Sampler wartet nicht
+  auf Symbolauflösung; diese und die Sampler-Logformatierung laufen auf
+  `PerfProbe.Analysis`. Es gibt zwei reguläre und zwei Spike-Puffer, höchstens
+  16 wartende Spike-Anfragen und zwölf angenommene Spike-Analysen je fünf Sekunden.
+  Eine Analyse umfasst gegebenenfalls beide Threads. Während einer Suspendierung
+  führt der Aufnahmeweg weder Symbolauflösung noch Allokation oder Logging aus.
+- `samplerCapture` meldet CPU, gesamte/maximale Suspendierungsdauer und verworfene
+  Fenster/Anfragen. Seine monotonen Accounting-Grenzen können bei Überlast mehrere
+  Fenster umfassen; `sampleStartStamp`/`sampleEndStamp` benennen das tatsächlich
+  übergebene Samplefenster. `samplerAnalysis` meldet eigene Wall-/CPU-Zeit und
+  GC-Zählerdifferenz. GC-Zähler sind keine gemessene GC-Pausendauer. Leere Fenster,
+  OS-Thread-ID, größte Samplelücke und abgeschnittene Historien bleiben sichtbar.
+- `runContext`, `runPlugin` und `patchOwners` erfassen wirksame Diagnoseoptionen,
+  Plugin-GUIDs/Versionen/MVIDs sowie Harmony-Besitzer für die relevanten Methoden.
+  `loadSpan` beschreibt nur den verwalteten Lade-Wrapper, keine Missionsbereitschaft.
+  PerfProbe bekommt keine Abhängigkeit von BFQoL oder APIShared.
+- BFQoL aggregiert Torhaus-Callbacks, direkte/vollständige Cache-Entscheidungen,
+  tatsächlich aufgerufene Routensuchen, Footprint-, Zugbrücken-, Außenansatz-
+  Trace- und Erreichbarkeitszeiten. `bfqol.gatehouse.run` erscheint erst ab 100 ms
+  und enthält Start-/Endstempel sowie die teuersten vier erfassten Torhäuser.
+  Höchstens 256 Identitäten pro Scope werden verfolgt; `gateOverflow` markiert
+  fehlende Identitäten. Die Summe aller Abfragen bleibt erhalten. Verschachtelte
+  Runs erhalten getrennte Sammler; ihre inklusiven Zeitspannen nicht addieren.
+  `gatehouseWindow` enthält Fünf-Sekunden-Summen und effektive Aktivierungszustände.
+  Keine zusätzliche Spielabfrage, Routensuche oder Änderung der Cachepolitik.
+- Merit-Entscheidungen erhalten Summenzähler; langsame Wrapper zusätzlich monotone
+  Grenzen. Die Offline-Auswertung verbindet überlappende Spans, trennt Ladephasen
+  und markiert Messbelege sowie Grenzen der Zuordnung. Alte Logs bleiben lesbar.
+
+Prüfnachweise dieser Änderung liegen unter `.work/t/perf-v2/001`: normale und
+Diagnose-Quellprüfung gegen echte Spielreferenzen ohne Mod-DLL-Ausgabe, getrennte
+MSBuild-Quelllistenauswertung, Lifecycle-/JSON-/Abhängigkeits- und CRLF-Prüfungen.
+Die In-Memory-Tests führen den produktiven IL-Transpiler aus (pufferlos, nativ,
+Skip, Reentranz, Exception/Finally) und prüfen 10.000 nebenläufige Übergaben.
+Torhaus- und Merit-Produktionsquellen werden mit/ohne Diagnose ausgeführt;
+Torhausentscheidungen, Routenzahlen und Kachelabfragen stimmen überein.
+`tests/Test-SpikeAnalysis.ps1` prüft den tatsächlichen Offline-Parser einschließlich
+Ladephasen, kumulierten Frame-Wartezeiten, verschachtelten und unvollständigen Daten.
+
+Spätere manuelle Abnahme: 100 ms, 1000 µs und zwei Sekunden; gleicher Spielstand,
+Zoom und Spielgeschwindigkeit. Mindestens ein Lauf ohne BFQoL und ein Lauf mit
+BFQoL samt nötigen Abhängigkeiten. Spielstarts und Modauswahl übernimmt der Nutzer.
+Erst deren Logs bestätigen Patchreihenfolge, Messaufwand und tatsächliche Ursache.
+
+## Erste Ausbaustufe (historischer Stand)
+
 Quelländerung vom 22.10.2026; BFQoL wird für diese Erweiterung noch nicht
 gebaut oder installiert. PerfProbe wird separat geprüft und gebaut; sein
 jeweiliger Buildnachweis beschreibt das erzeugte Paket. Die bisherigen
