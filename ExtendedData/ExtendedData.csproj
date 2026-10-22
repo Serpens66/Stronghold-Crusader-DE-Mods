@@ -72,6 +72,7 @@
     <Compile Include="src\ExtendedDataPlugin.cs" />
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\ExtendedDataSettingsViewModel.cs" />
+    <Compile Include="src\ExtendedDataFeatureActivation.cs" />
     <Compile Include="src\TrailModSelectionItem.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopAiStart.cs" />
@@ -94,6 +95,7 @@
     <Compile Include="src\BugfixesAndQoLTrailCustomizationBridge.cs" />
     <Compile Include="src\MissionPresetLifecycleState.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
+    <Compile Include="src\TrailModCompatibilityInfo.cs" />
     <Compile Include="src\TrailSettingsSourceState.cs" />
     <Compile Include="src\CoopSettingsDraftState.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />

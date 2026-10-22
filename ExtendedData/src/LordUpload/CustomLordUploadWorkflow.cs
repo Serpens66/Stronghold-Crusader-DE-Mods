@@ -19,22 +19,28 @@ namespace ExtendedData
         private readonly ICustomLordUploadStager stager;
         private readonly ICustomLordUploadConfirmation confirmation;
         private readonly CustomLordRuntimeRules rules;
+        private readonly Func<bool> enabled;
+        private long activationGeneration;
+        private readonly Dictionary<string, long> pendingConfirmations = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        internal void InvalidatePending() => Interlocked.Increment(ref activationGeneration);
 
         internal CustomLordUploadWorkflow(
             ManualLogSource log,
             ICustomLordUploadStager stager,
             ICustomLordUploadConfirmation confirmation,
-            CustomLordRuntimeRules rules)
+            CustomLordRuntimeRules rules, Func<bool> enabled = null)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.stager = stager ?? throw new ArgumentNullException(nameof(stager));
             this.confirmation = confirmation ?? throw new ArgumentNullException(nameof(confirmation));
             this.rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            this.enabled = enabled ?? (() => true);
         }
 
-        internal void Handle(CustomLordUploadRequest request, Action<CustomLordUploadRequest> callOriginal)
+        internal void Handle(CustomLordUploadRequest request, Action<CustomLordUploadRequest> callOriginal,
+            Func<bool> isCurrentAttempt = null)
         {
-            if (!IsCustomLordUpload(request.Tags))
+            if (!enabled() || !IsCustomLordUpload(request.Tags))
             {
                 callOriginal(request);
                 return;
@@ -59,7 +65,7 @@ namespace ExtendedData
                 IReadOnlyList<CustomLordUploadIssue> issues = InspectUpload(request.MapTitle);
                 if (issues.Count > 0)
                 {
-                    ShowConfirmation(uploadKey, issues, request, callOriginal);
+                    ShowConfirmation(uploadKey, issues, request, callOriginal, isCurrentAttempt);
                     return;
                 }
 
@@ -111,7 +117,8 @@ namespace ExtendedData
             string uploadKey,
             IReadOnlyList<CustomLordUploadIssue> issues,
             CustomLordUploadRequest request,
-            Action<CustomLordUploadRequest> callOriginal)
+            Action<CustomLordUploadRequest> callOriginal,
+            Func<bool> isCurrentAttempt)
         {
             foreach (CustomLordUploadIssue issue in issues)
             {
@@ -123,17 +130,38 @@ namespace ExtendedData
                     issue.Format() + detail);
             }
 
+            Action<bool>? finish = null;
             try
             {
-                confirmation.Show(
-                    issues,
-                    () => ContinueUpload(uploadKey, false, request, callOriginal),
-                    () => CancelUpload(request));
+                long generation = Interlocked.Read(ref activationGeneration);
+                long operation = Interlocked.Increment(ref nextUploadOperationId);
+                lock (ApprovalLock) pendingConfirmations[uploadKey] = operation;
+                int completed = 0;
+                finish = accepted =>
+                {
+                    if (Interlocked.Exchange(ref completed, 1) != 0) return;
+                    bool current;
+                    lock (ApprovalLock)
+                    {
+                        current = pendingConfirmations.TryGetValue(uploadKey, out long pending) && pending == operation;
+                        if (current) pendingConfirmations.Remove(uploadKey);
+                    }
+                    if (!accepted || !current || !enabled() || generation != Interlocked.Read(ref activationGeneration) ||
+                        isCurrentAttempt?.Invoke() == false)
+                    {
+                        CancelUpload(request);
+                        return;
+                    }
+                    ContinueUpload(uploadKey, false, request, callOriginal);
+                };
+                confirmation.Show(issues, () => finish(true), () => finish(false));
             }
             catch (Exception exception)
             {
                 Error("Could not display Custom Lord upload warnings for [" + request.MapTitle + "]: " + exception);
-                CancelUpload(request);
+                // A confirmation service may throw after invoking a terminal action.
+                if (finish != null) finish(false);
+                else CancelUpload(request);
             }
         }
 

@@ -451,3 +451,5 @@ BugfixesAndQoL.EnableMultiplayerStartupStateFix=Discard stale multiplayer state 
 BugfixesAndQoL.EnableMultiplayerStartupStateFixHelp=Clears a previous multiplayer snapshot before a new game starts, while simulation is stopped. Independent of host migration and recovery saves.
 BugfixesAndQoL.EnablePeaceTimeGameplayFixes=Apply peace time correctly in all modes
 BugfixesAndQoL.EnablePeaceTimeGameplayFixesHelp=Extends peace-time gameplay, countdown, starting-troop and wildlife rules beyond Vanilla multiplayer, using a fixed simulation duration. Off follows the complete Vanilla paths without deleting saved rules.
+BugfixesAndQoL.EnableAiSellThresholdFix=Limit AI sales to available stock
+BugfixesAndQoL.EnableAiSellThresholdFixHelp=Prevents AI lords from selling goods they do not own and receiving gold through negative sell thresholds. Limits effective reserves and sale quantities for all goods categories. Set by the host.

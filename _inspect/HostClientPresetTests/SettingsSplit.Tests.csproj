@@ -1,0 +1,23 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Reuse the real preset controller and its existing game/Noesis boundary doubles.
+       A separate entry point keeps parallel changes to the main suite untouched. -->
+  <Import Project="HostClientPresetTests.csproj"/>
+  <PropertyGroup>
+    <AssemblyName>SettingsSplitPresetTests</AssemblyName>
+    <StartupObject>SettingsSplitPresetTests</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ExtendedData.Core"><HintPath>..\..\ExtendedData\BepInEx\plugins\ExtendedData_Serp\ExtendedData.Core.dll</HintPath></Reference>
+    <Reference Include="netstandard"/>
+    <Compile Include="SettingsSplitPresetTests.cs"/>
+    <Compile Include="..\..\Shared\Tools\Paths\TestWorkDirectory.cs"/>
+    <Compile Include="..\..\ExtendedData\src\ExtendedDataSettingsViewModel.cs"/>
+    <Compile Include="..\..\ExtendedData\src\ExtendedDataFeatureActivation.cs"/>
+    <Compile Include="..\..\ExtendedData\src\TrailModSelectionItem.cs"/>
+    <Compile Include="..\..\ExtendedData\src\TrailModCompatibilityInfo.cs"/>
+    <Compile Include="..\..\Spectator\src\SpectatorViewModel.cs"/>
+    <Compile Include="..\..\Spectator\src\SpectatorFeatureActivation.cs"/>
+    <Compile Include="..\..\Spectator\src\ToolsText.cs"/>
+    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.BepInEx\NoesisUtil\RelayCommand.cs"/>
+  </ItemGroup>
+</Project>

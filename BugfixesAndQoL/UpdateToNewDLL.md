@@ -808,3 +808,21 @@ checks register/flag preservation, branch/RIP relocation and exact continuations
 Executable target bytes remain identical across settings changes. The existing
 VanillaPeaceTimeNativeTests retains active start-troop/wildlife/peace coverage.
 These offline tests do not replace live Mono, game UI or two-player acceptance.
+## AI sell threshold safety (1.0.197)
+
+BFQoL owns no executable bytes for this fix. Its default-enabled, synchronized Host
+option `EnableAiSellThresholdFix` requests both safety flags from APIShared
+`AiMarketSellPolicies`, registration `BugfixesAndQoL_Serp/ai-sell-threshold-safety`.
+Effective activation is EnableMod && EnableAiSellThresholdFix on every peer.
+The static registration survives startup cleanup and card/save changes; only its
+logical activation changes. No Dispose/unpatch path and no per-sale managed callback.
+
+APIShared 0.12.6 or newer is required. The SDK owns hash/backend/layout validation,
+both 15-byte spans (0x3F1F3 and 0x29723), final stock recheck and cancellation via
+0x2978B. Its UpdateToNewDLL.md section "AI market sell policies" is authoritative.
+Reference native SHA-256 remains
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No overlap with BFQoL's stone-reserve site 0x3F156..0x3F16A, Fixes' wheat-category
+site or native price hooks. Disable the standalone AISellThresholdFixTest plugin
+before the next game start; retain sources/evidence rather than deleting it.
+

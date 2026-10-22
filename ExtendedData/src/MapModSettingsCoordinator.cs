@@ -69,7 +69,8 @@ namespace ExtendedData
         private bool pendingMapSaveDecision;
         private bool pendingMapSaveIncludesSettings;
         private bool pendingMapSaveHadEntry;
-        private bool enabled;
+        private ExtendedDataFeatureActivation activation;
+        private bool enabled => activation.MissionModSettings;
         private bool mapContextActive;
         private bool mapMissionActive;
         private bool launchInProgress;
@@ -84,12 +85,12 @@ namespace ExtendedData
 
         internal MapModSettingsCoordinator(
             ManualLogSource log,
-            bool enabled,
+            ExtendedDataFeatureActivation activation,
             TrailMissionSettingsCoordinator settingsCoordinator,
             EditorModSettingsSaveOptionsViewModel editorSaveOptions)
         {
             this.log = log;
-            this.enabled = enabled;
+            this.activation = activation;
             this.settingsCoordinator = settingsCoordinator ?? throw new ArgumentNullException(nameof(settingsCoordinator));
             this.editorSaveOptions = editorSaveOptions ?? throw new ArgumentNullException(nameof(editorSaveOptions));
         }
@@ -132,7 +133,7 @@ namespace ExtendedData
             {
                 Opened = context =>
                 {
-                    if (enabled && context.RequesterType == Enums.RequesterTypes.SaveEditorMap)
+                    if (activation.EditorFiles && context.RequesterType == Enums.RequesterTypes.SaveEditorMap)
                     {
                         bool existing = GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveEntryName, ignoreCase: true) != null;
                         context.State = existing;
@@ -145,10 +146,10 @@ namespace ExtendedData
                     // not a read-only gate: every contribution must get its veto first.
                     bool multiplayerSave = context.RequesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
                         context.RequesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame;
-                    if (enabled && multiplayerSave && MultiplayerSaveLaunchPreparing != null &&
+                    if (activation.LordDataIntegration && multiplayerSave && MultiplayerSaveLaunchPreparing != null &&
                         !MultiplayerSaveLaunchPreparing(MainViewModel.viewModelLoaded ? MainViewModel.Instance.FRONTMultiplayer : null, context.Header))
                         throw new InvalidOperationException("Lord-data save preparation is not ready.");
-                    if (enabled && context.RequesterType == Enums.RequesterTypes.SaveEditorMap)
+                    if (activation.EditorFiles && context.RequesterType == Enums.RequesterTypes.SaveEditorMap)
                         ArmMapEditorSave(IOPath.Combine(ConfigSettings.GetUserMapsPath(), context.FileName + ".map"),
                             editorSaveOptions.IncludeMapModSettings, context.State is bool existing && existing);
                 },
@@ -188,19 +189,20 @@ namespace ExtendedData
             DebugLogHelper.LogDebug(log, "Map mod-settings coordinator initialized.");
         }
 
-        internal void SetEnabled(bool value)
+        internal void SetActivation(ExtendedDataFeatureActivation value)
         {
-            enabled = value;
-            if (!value)
+            bool changed = activation.MissionModSettings != value.MissionModSettings;
+            activation = value;
+            if (!changed) return;
+            if (!value.MissionModSettings)
                 ExitMapContext(broadcast: IsHostLobby(), "feature disabled");
             FRONT_Multiplayer lobby = GetReadyLobby();
-            if (lobby != null)
-                OnLobbyOpened(lobby);
+            if (lobby != null) OnLobbyOpened(lobby);
         }
 
         public void Dispose()
         {
-            enabled = false;
+            activation = ExtendedDataFeatureActivation.Disabled;
             ClearMapEditorSaveDecision();
             settingsCoordinator.LobbyOpened -= OnLobbyOpened;
             foreach (ListView mapList in observedMapLists.Keys)
@@ -290,7 +292,7 @@ namespace ExtendedData
             bool mapSave)
         {
             pendingMapSavePayload = null;
-            if (!enabled || !mapSave || !pendingMapSaveDecision)
+            if (!activation.EditorFiles || !mapSave || !pendingMapSaveDecision)
             {
                 saveOriginal(self, path, mapName, lockMap, tempLockOnly, mapSave);
                 return;
@@ -357,7 +359,7 @@ namespace ExtendedData
 
         private byte[] SaveMapSettings(SaveContext context)
         {
-            if (!enabled || !pendingMapSaveDecision || !pendingMapSaveIncludesSettings ||
+            if (!activation.EditorFiles || !pendingMapSaveDecision || !pendingMapSaveIncludesSettings ||
                 context == null || !context.IsMapEditorSave || context.IsSaveFile ||
                 pendingMapSavePayload == null)
             {

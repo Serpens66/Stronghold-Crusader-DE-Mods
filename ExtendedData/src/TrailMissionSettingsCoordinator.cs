@@ -28,30 +28,8 @@ using IOPath = System.IO.Path;
 
 namespace ExtendedData
 {
-    internal sealed class TrailModCompatibilityInfo
-    {
-        public TrailModCompatibilityInfo(
-            string modId,
-            string displayName,
-            PropertyInfo[] properties,
-            string incompatibilityReason, object endpoint = null)
-        {
-            ModId = modId; Endpoint = endpoint;
-            DisplayName = displayName;
-            Properties = properties ?? Array.Empty<PropertyInfo>();
-            IncompatibilityReason = incompatibilityReason;
-        }
-
-        public object Endpoint { get; }
-        public string ModId { get; }
-        public string DisplayName { get; }
-        public PropertyInfo[] Properties { get; }
-        public string IncompatibilityReason { get; }
-        public bool IsCompatible => string.IsNullOrEmpty(IncompatibilityReason);
-    }
-
     /// <summary>Owns the process-wide Custom Trail settings and customization integration.</summary>
-        internal sealed class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
+    internal sealed class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
         {
             private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
             private const int CoopCustomizeProtocolVersion = 2;
@@ -184,7 +162,11 @@ namespace ExtendedData
             private bool launchedThroughCustomize;
             private ModSettingsDefinition mapSourceDocument;
             private string workingSourceContextId = string.Empty;
-            private bool enabled;
+            private ExtendedDataFeatureActivation activation;
+            private bool enabled => activation.MissionModSettings;
+            private bool EditorEnabled => activation.EditorFiles;
+            private bool CoopEnabled => activation.CoopPackages;
+            private bool UploadEnabled => activation.WorkshopUploads;
             private bool externalButtonOwner;
             private readonly List<Button> injectedCoopButtons = new List<Button>();
             private readonly Dictionary<UserControl, TextBlock> coopTrailTitleBlocks =
@@ -296,14 +278,14 @@ namespace ExtendedData
 
             public TrailMissionSettingsCoordinator(
                 ManualLogSource log,
-                bool enabled,
+                ExtendedDataFeatureActivation activation,
                 Func<string, string, TrailSettingMode> getPropertyMode,
                 Action<ModSettingsDefinition, bool> applyEditorModes,
                 Action<string, ModSettingsDefinition> applyEditorModesForMod,
                 EditorModSettingsSaveOptionsViewModel editorSaveOptions)
             {
                 this.log = log;
-                this.enabled = enabled;
+                this.activation = activation;
                 this.getPropertyMode = getPropertyMode ?? ((_, __) => TrailSettingMode.ModDefault);
                 this.applyEditorModes = applyEditorModes;
                 this.applyEditorModesForMod = applyEditorModesForMod;
@@ -311,22 +293,28 @@ namespace ExtendedData
                 customizationBridge = new BugfixesAndQoLTrailCustomizationBridge(log);
             }
 
-            public void SetEnabled(bool value)
+            internal void SetActivation(ExtendedDataFeatureActivation value)
             {
-                enabled = value;
-                foreach (Button button in injectedCoopButtons)
-                    button.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-                if (coopTrailExportCheckbox != null)
-                    coopTrailExportCheckbox.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-                if (!value)
+                ExtendedDataFeatureActivation previous = activation;
+                activation = value;
+                if (previous.MissionModSettings != value.MissionModSettings)
+                    foreach (Button button in injectedCoopButtons)
+                        button.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+                if (previous.EditorFiles != value.EditorFiles && coopTrailExportCheckbox != null)
+                    coopTrailExportCheckbox.Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed;
+                if (previous.WorkshopUploads && !UploadEnabled)
                 {
                     uploadOptions.Close();
-                    SetCoopPackagePresentation(null, 0);
+                    customLordUploadWorkflow?.InvalidatePending();
+                }
+                if (previous.CoopPackages && !CoopEnabled) SetCoopPackagePresentation(null, 0);
+                if (previous.MissionModSettings && !enabled)
+                {
                     if (MainViewModel.viewModelLoaded && MainViewModel.Instance != null)
                         MainViewModel.Instance.Show_TrailCustomisationButtons = false;
-                    ExitContext(force: true);
+                    if (!trailMakerAuthoringActive) ExitContext(force: true);
                 }
-                if (externalButtonOwner)
+                if (previous.MissionModSettings != value.MissionModSettings && externalButtonOwner)
                     customizationBridge.Refresh();
             }
 
@@ -343,7 +331,7 @@ namespace ExtendedData
                     log,
                     new CustomLordUploadStager(),
                     new CustomLordUploadConfirmation(),
-                    lordRules);
+                    lordRules, () => UploadEnabled);
                 DebugLogHelper.LogDebug(
                     log,
                     "Custom Lord preflight rules: Script Extender=" + lordRules.ExtenderIdentity +
@@ -459,7 +447,7 @@ namespace ExtendedData
 
             public void Dispose()
             {
-                enabled = false;
+                activation = ExtendedDataFeatureActivation.Disabled;
                 ModSettingsWorkingSourceRegistry.Unregister(this);
                 SetCoopPackagePresentation(null, 0);
                 // The list also contains subscriptions. Release those, but retain every
@@ -905,7 +893,14 @@ namespace ExtendedData
             {
                 if (MissionRestart.IsInProgress) return true;
                 if (!enabled)
-                    return true;
+                {
+                    if (!trailMakerAuthoringActive || !trailContext) return true;
+                    // An editor draft is editable metadata; it must not become active game rules
+                    // when the host has disabled mission-setting application.
+                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                        SerpLocalization.Get("ExtendedData.MissionSettingsRequired"));
+                    return false;
+                }
                 if (missionPresetLifecycle.PendingLaunch == MissionPresetLaunchKind.TrailMakerTest)
                     return true;
                 try
@@ -950,7 +945,7 @@ namespace ExtendedData
                 string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
                     return;
@@ -1018,7 +1013,7 @@ namespace ExtendedData
                 try
                 {
                     // Keep the just-saved mission editable even if Vanilla rebuilt the UI.
-                    ApplyDocument(document, editable: true);
+                    if (enabled) ApplyDocument(document, editable: true);
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         var info = new FileInfo(sidecar);
@@ -1045,7 +1040,7 @@ namespace ExtendedData
 
             private void ManageTrailButtonHook(FRONT_ManageTrail self, string command)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     manageTrailButtonOriginal(self, command);
                     return;
@@ -1123,11 +1118,18 @@ namespace ExtendedData
 
             private void EditorSetupButtonHook(FRONT_EditorSetup self, string command)
             {
+                if (!UploadEnabled)
+                {
+                    uploadOptions.Close();
+                    editorSetupButtonOriginal(self, command);
+                    return;
+                }
+
                 FileRow selectedRow = (self.FindName("UploadList") as ListView)?.SelectedItem as FileRow;
                 bool doUpload = string.Equals(command, "DoUpload", StringComparison.Ordinal);
                 bool isTrail = selectedRow?.trail != null;
                 bool isCustomLord = selectedRow?.lord != null;
-                if (doUpload && ((enabled && isTrail) || isCustomLord))
+                if (doUpload && ((UploadEnabled && isTrail) || isCustomLord))
                 {
                     string uploadRoot = ConfigSettings.GetWorkshopUploadContentPath();
                     string itemName = isTrail ? selectedRow.trail.Name : selectedRow.lord.lordName;
@@ -1156,14 +1158,14 @@ namespace ExtendedData
                         return;
                     }
 
-                    ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeExtendedData);
+                    PendingUploadDecision attempt = ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeExtendedData);
                     try
                     {
                         editorSetupButtonOriginal(self, command);
                     }
                     catch
                     {
-                        ClearUploadDecision(uploadRoot, itemName);
+                        ClearUploadDecision(attempt);
                         throw;
                     }
                     return;
@@ -1173,12 +1175,12 @@ namespace ExtendedData
 
                 if (string.Equals(command, "UploadTrail", StringComparison.Ordinal))
                 {
-                    if (enabled)
+                    if (UploadEnabled)
                         TryFileOperation("add Coop Trails to Vanilla's Workshop upload list", () => AddCoopWorkshopRows(self));
                 }
                 else if (string.Equals(command, "Upload", StringComparison.Ordinal))
                 {
-                    if (selectedRow?.trail != null && enabled)
+                    if (selectedRow?.trail != null && UploadEnabled)
                         uploadOptions.Open(WorkshopUploadOptionKind.Trail);
                     else if (selectedRow?.lord != null)
                         uploadOptions.Open(WorkshopUploadOptionKind.CustomLord);
@@ -1203,9 +1205,22 @@ namespace ExtendedData
                 Action successAction,
                 Action failAction)
             {
+                if (!UploadEnabled)
+                {
+                    uploadWorkshopMapOriginal(instance, nameMap, mapTitle, description, tags,
+                        publicMap, previewImage, successAction, failAction);
+                    return;
+                }
+
                 PendingUploadDecision decision = GetUploadDecision(nameMap, mapTitle);
-                Action terminalSuccess = WrapTerminalCallback(nameMap, mapTitle, successAction);
-                Action terminalFailure = WrapTerminalCallback(nameMap, mapTitle, failAction);
+                Action terminalSuccess = WrapTerminalCallback(decision, successAction);
+                Action terminalFailure = WrapTerminalCallback(decision, failAction);
+                if (decision != null && !decision.IncludeExtendedData)
+                {
+                    uploadWorkshopMapOriginal(instance, nameMap, mapTitle, description, tags,
+                        publicMap, previewImage, terminalSuccess, terminalFailure);
+                    return;
+                }
                 CustomLordJsonUploadMode lordMode = CustomLordJsonUploadPolicy.Classify(tags);
                 if (lordMode == CustomLordJsonUploadMode.CustomLord)
                 {
@@ -1230,7 +1245,8 @@ namespace ExtendedData
                             request.PublicMap,
                             request.PreviewImage,
                             request.SuccessAction,
-                            request.FailAction));
+                            request.FailAction),
+                        () => IsCurrentUploadDecision(decision));
                     return;
                 }
 
@@ -1324,10 +1340,10 @@ namespace ExtendedData
                 }
             }
 
-            private void ArmUploadDecision(string root, string itemName, bool includeExtendedData)
+            private PendingUploadDecision ArmUploadDecision(string root, string itemName, bool includeExtendedData)
             {
                 lock (uploadDecisionLock)
-                    pendingUploadDecision = new PendingUploadDecision(root, itemName, includeExtendedData);
+                    return pendingUploadDecision = new PendingUploadDecision(root, itemName, includeExtendedData);
             }
 
             private PendingUploadDecision GetUploadDecision(string root, string itemName)
@@ -1340,22 +1356,26 @@ namespace ExtendedData
                 }
             }
 
-            private Action WrapTerminalCallback(string root, string itemName, Action callback)
+            private Action WrapTerminalCallback(PendingUploadDecision decision, Action callback)
             {
                 return () =>
                 {
-                    ClearUploadDecision(root, itemName);
+                    lock (uploadDecisionLock)
+                        if (ReferenceEquals(pendingUploadDecision, decision)) pendingUploadDecision = null;
                     callback?.Invoke();
                 };
             }
 
-            private void ClearUploadDecision(string root, string itemName)
+            private void ClearUploadDecision(PendingUploadDecision attempt)
             {
                 lock (uploadDecisionLock)
-                {
-                    if (pendingUploadDecision?.Matches(root, itemName) == true)
-                        pendingUploadDecision = null;
-                }
+                    if (ReferenceEquals(pendingUploadDecision, attempt)) pendingUploadDecision = null;
+            }
+
+            private bool IsCurrentUploadDecision(PendingUploadDecision attempt)
+            {
+                lock (uploadDecisionLock)
+                    return ReferenceEquals(pendingUploadDecision, attempt);
             }
 
             private static bool TryResolveExtendedLordJsonSource(
@@ -1412,7 +1432,7 @@ namespace ExtendedData
             private void ManageTrailInitHook(FRONT_ManageTrail self, bool preserveSelection)
             {
                 manageTrailInitOriginal(self, preserveSelection);
-                if (!enabled)
+                if (!EditorEnabled)
                     return;
                 EnsureTrailMakerCoopCheckbox(self);
                 EnableImportForCoopPackages(self);
@@ -1654,7 +1674,7 @@ namespace ExtendedData
             private void BackupHook(FRONT_ManageTrail self, string source, string destination)
             {
                 backupOriginal(self, source, destination);
-                if (!enabled)
+                if (!EditorEnabled)
                     return;
                 TryFileOperation("back up Trail sidecars", () =>
                     ReportSkippedSidecars("ExtendedData.BackupSidecarsIncomplete",
@@ -1665,7 +1685,7 @@ namespace ExtendedData
 
             private void ImportHook(FRONT_ManageTrail self, string customFolderName)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     importOriginal(self, customFolderName);
                     return;
@@ -1710,7 +1730,7 @@ namespace ExtendedData
 
             private void ExportHook(FRONT_ManageTrail self, string destination)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     exportOriginal(self, destination);
                     return;
@@ -1947,7 +1967,7 @@ namespace ExtendedData
             private void ClearMakerHook(FRONT_ManageTrail self)
             {
                 clearMakerOriginal(self);
-                if (!enabled)
+                if (!EditorEnabled)
                     return;
                 TryFileOperation("clear Trail sidecars", () =>
                 {
@@ -1986,13 +2006,14 @@ namespace ExtendedData
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Center,
                     IsChecked = IsMakerCoopEnabled(),
-                    Visibility = enabled ? Visibility.Visible : Visibility.Collapsed,
+                    Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed,
                 };
                 ToolTipService.SetShowDuration(checkbox, 60000);
                 checkbox.Click += (_, __) =>
                 {
                     try
                     {
+                        if (!EditorEnabled) { checkbox.IsChecked = IsMakerCoopEnabled(); return; }
                         SetMakerCoopEnabled(checkbox.IsChecked == true);
                     }
                     catch (Exception exception)
@@ -2163,13 +2184,13 @@ namespace ExtendedData
                     else
                         ExtendedDataLaunchOriginApi.Clear();
                 }
-                if (!enabled)
+                if (!enabled && !activation.LordDataIntegration)
                 {
                     if (!TryPrepareRestartSettings()) return;
                     startCustomTrailOriginal(self, trailName, missionId, difficulty);
                     return;
                 }
-                if (!preserveContextForLaunch && !MissionRestart.IsInProgress)
+                if (enabled && !preserveContextForLaunch && !MissionRestart.IsInProgress)
                 {
                     launchedThroughCustomize = false;
                     try
@@ -2195,7 +2216,7 @@ namespace ExtendedData
                         ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                     }
                 }
-                else if (workingContextEditable && !MissionRestart.IsInProgress)
+                else if (enabled && workingContextEditable && !MissionRestart.IsInProgress)
                 {
                     // Customize is an editable draft. The launched mission receives the
                     // materialized result as a read-only working snapshot.
@@ -2276,7 +2297,7 @@ namespace ExtendedData
                 // Origin tracking is shared infrastructure for the other gameplay mods and must
                 // remain active even when ExtendedData's own visible features are disabled.
                 bool preserve = enabled && preserveContextForLaunch;
-                if (enabled && trailMaker && !pendingTrailMakerLoad &&
+                if (EditorEnabled && trailMaker && !pendingTrailMakerLoad &&
                     trailMakerAuthoringActive && trailContext)
                 {
                     CaptureTrailMakerWorkingDocument("lobby rebuild");
@@ -2313,11 +2334,15 @@ namespace ExtendedData
                 {
                     CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId);
                 }
-                if (!enabled)
+                if (!enabled && !(EditorEnabled && trailMaker))
+                {
+                    ObserveCoopLobby(self);
+                    LobbyOpened?.Invoke(self);
                     return;
+                }
                 if (preserve)
                     preserveContextForLaunch = false;
-                if (trailMaker)
+                if (trailMaker && EditorEnabled)
                 {
                     if (IsConfirmedTrailMakerLobby(self))
                         ActivateTrailMakerLobby(restartInfo);
@@ -2347,7 +2372,7 @@ namespace ExtendedData
                 // populateMapList selects by object identity. Expose the loaded document's map
                 // for this authoring context only, including when normal user maps are filtered.
                 // Do not install it into the user's global map catalog or change their filters.
-                if (enabled && embeddedMakerMapHeader != null && (pendingTrailMakerLoad || trailMakerAuthoringActive))
+                if (EditorEnabled && embeddedMakerMapHeader != null && (pendingTrailMakerLoad || trailMakerAuthoringActive))
                 {
                     maps = maps == null ? new List<FileHeader>() : new List<FileHeader>(maps);
                     if (!maps.Contains(embeddedMakerMapHeader)) maps.Insert(0, embeddedMakerMapHeader);
@@ -2365,7 +2390,7 @@ namespace ExtendedData
                     ExtendedDataLaunchOriginApi.MarkRestartPending();
                 }
                 BroadcastBuiltInCustomizeOrigin(self);
-                if (!enabled)
+                if (!enabled && !activation.LordDataIntegration && !CoopEnabled)
                 {
                     startSkirmishGameOriginal(self, customTrailRestartInfo);
                     return;
@@ -2378,7 +2403,7 @@ namespace ExtendedData
                         if (!PrepareTrailMakerTestLaunch())
                             return;
                     }
-                    if (enabled && self?.singlePlayerCoop == true && self.currentLobby?.coopTrailGame == true)
+                    if (CoopEnabled && self?.singlePlayerCoop == true && self.currentLobby?.coopTrailGame == true)
                     {
                         Func<FRONT_Multiplayer, bool> prepare = SinglePlayerCoopStarting;
                         if (prepare != null && !prepare(self))
@@ -2460,7 +2485,7 @@ namespace ExtendedData
                             return;
                         }
                     }
-                    if (HasCustomizeDraft && workingContextEditable && !MissionRestart.IsInProgress)
+                    if (enabled && HasCustomizeDraft && workingContextEditable && !MissionRestart.IsInProgress)
                         FreezeWorkingDraft();
                     if (!TryPrepareRestartSettings()) return;
                     startInvoked = true;
@@ -2514,7 +2539,7 @@ namespace ExtendedData
             private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
             {
                 int page = FrontendMenus.CurrentSelectedTrail - 21;
-                if (enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                if (CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                     page >= 0 && page < 4 && missionId > 0)
                 {
                     int available = CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, page);
@@ -2540,7 +2565,7 @@ namespace ExtendedData
             private void RefreshCoopMissionSymbols()
             {
                 int page = FrontendMenus.CurrentSelectedTrail - 21;
-                if (!enabled || string.IsNullOrWhiteSpace(coopPackageDisplayName) || page < 0 || page >= 4 ||
+                if (!CoopEnabled || string.IsNullOrWhiteSpace(coopPackageDisplayName) || page < 0 || page >= 4 ||
                     !MainViewModel.viewModelLoaded)
                     return;
                 int available = CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, page);
@@ -2554,12 +2579,12 @@ namespace ExtendedData
                     string.Equals(command, "Coop2", StringComparison.Ordinal) ? 1 :
                     string.Equals(command, "Coop3", StringComparison.Ordinal) ? 2 :
                     string.Equals(command, "Coop4", StringComparison.Ordinal) ? 3 : -1;
-                if (enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) && coopPage >= 0 &&
+                if (CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) && coopPage >= 0 &&
                     CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, coopPage) == 0)
                     return;
                 bool preserveTrailMakerMapEditor = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
                     MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
-                if (!enabled)
+                if (!enabled && !CoopEnabled && !EditorEnabled)
                 {
                     frontendButtonOriginal(self, command);
                     bool disabledContextChange =
@@ -2573,7 +2598,7 @@ namespace ExtendedData
                         ExtendedDataLaunchOriginApi.Clear();
                     return;
                 }
-                if (!externalButtonOwner &&
+                if (enabled && !externalButtonOwner &&
                     string.Equals(command, "Customize", StringComparison.Ordinal) &&
                     FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                 {
@@ -2589,7 +2614,7 @@ namespace ExtendedData
                     }
                     return;
                 }
-                if (preserveTrailMakerMapEditor)
+                if (EditorEnabled && preserveTrailMakerMapEditor)
                 {
                     CaptureTrailMakerWorkingDocument("Map Editor transition");
                     missionPresetLifecycle.AwaitTrailMakerReturn();
@@ -2929,11 +2954,11 @@ namespace ExtendedData
                     coopTrailTitleBlocks[page] = title;
                 }
 
-                bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                bool packageOccupiesTrail = CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                     coopPackageMissionCount > zeroBasedTrail * 10;
                 title.Text = packageOccupiesTrail
                     ? coopPackageDisplayName
-                    : enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName)
+                    : CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName)
                         ? SerpLocalization.Get("ExtendedData.NoCustomCoopMissions")
                         : vanillaCoopTrailTitles[zeroBasedTrail];
                 UpdateCoopMissionProgress(page, title, zeroBasedTrail);
@@ -3020,9 +3045,9 @@ namespace ExtendedData
                     string vanillaTitle = vanillaCoopTrailTitles[zeroBasedTrail];
                     if (string.IsNullOrEmpty(vanillaTitle))
                         continue;
-                    bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                    bool packageOccupiesTrail = CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                         coopPackageMissionCount > zeroBasedTrail * 10;
-                    bool packageSelected = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName);
+                    bool packageSelected = CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName);
                     PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName :
                         packageSelected ? SerpLocalization.Get("ExtendedData.NoCustomCoopMissions") : vanillaTitle);
                     button.IsEnabled = (!packageSelected || packageOccupiesTrail) &&
@@ -3315,7 +3340,7 @@ namespace ExtendedData
                     }
 
                     FRONT_Multiplayer self = MainViewModel.Instance.FRONTMultiplayer;
-                    if (!enabled || self?.currentLobby == null || self.currentLobby.isHost ||
+                    if ((!enabled && !(packet.Launch && CoopEnabled)) || self?.currentLobby == null || self.currentLobby.isHost ||
                         self.singlePlayerCoop || !self.currentLobby.coopTrailGame)
                     {
                         Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3084", "Ignored Coop Trail transition outside an active client Coop lobby.");

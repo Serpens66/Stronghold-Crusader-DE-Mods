@@ -9,11 +9,6 @@ using System.Windows.Input;
 
 namespace Spectator
 {
-    public sealed class ToolsText
-    {
-        public string this[string key] => SerpLocalization.Get("Tools." + key);
-    }
-
     public sealed class TestToolsViewModel : INotifyPropertyChanged
     {
         private readonly Action<string> execute;

@@ -105,4 +105,6 @@ Tools.StatisticsSetting=Laufende Zuschauerstatistik
 Tools.StatisticsSettingHelp=Zuschauern das Öffnen und Aktualisieren der Partiestatistik erlauben.
 Tools.DefeatSetting=Nach dem Ausscheiden weiter zusehen
 Tools.DefeatSettingHelp=Ausgeschiedene menschliche Spieler als Vanilla-Zuschauer in der Partie behalten. Im Multiplayer wird der Wechsel durch den Host synchronisiert.
-Tools.ClientNotice=Die lokale Aktivierung steuert die Leiste und lokalen Testwerkzeuge. Im echten Multiplayer sind Testeingriffe nicht verfügbar.
+Tools.ClientNotice=Die lokale Aktivierung steuert persönliche Funktionen und Testwerkzeuge. Hostfreigaben steuern Zuschauerperspektiven und Statistiken.
+Tools.TestToolsSetting=Lokale Testwerkzeuge
+Tools.TestToolsSettingHelp=Erlaubt die Testwerkzeuge im Einzelspieler und Karteneditor. Diese Werkzeuge verändern Spielzustände und sind im echten Multiplayer gesperrt. Zuschauerfreigaben werden vom Host festgelegt.

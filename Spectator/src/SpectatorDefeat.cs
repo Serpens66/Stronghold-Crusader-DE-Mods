@@ -40,7 +40,7 @@ namespace Spectator
         private static SpectatorDefeat instance;
         private readonly Harmony hooks = new Harmony("Spectator_Serp.Defeat");
         // Host state is independent of the local toolbar activation setting.
-        private bool EliminatedPlayerSpectatorEnabled => settings.EnableMod && settings.EnableEliminatedPlayersBecomeSpectators;
+        private bool EliminatedPlayerSpectatorEnabled => settings.Activation.Defeat;
         internal SpectatorDefeat(ManualLogSource log, SpectatorViewModel settings) { this.log = log; this.settings = settings; }
         internal void Initialize()
         {

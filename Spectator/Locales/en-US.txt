@@ -105,4 +105,6 @@ Tools.StatisticsSetting=Live spectator statistics
 Tools.StatisticsSettingHelp=Allow spectators to open and refresh match statistics.
 Tools.DefeatSetting=Continue watching after elimination
 Tools.DefeatSettingHelp=Keep defeated human players in the match as Vanilla spectators. Multiplayer activation is synchronized by the host.
-Tools.ClientNotice=The local activation controls the toolbar and local test tools. Test mutations are unavailable in real multiplayer.
+Tools.ClientNotice=Local activation controls personal features and test tools. Host permissions control spectator perspectives and statistics.
+Tools.TestToolsSetting=Local test tools
+Tools.TestToolsSettingHelp=Enables test tools in single player and the map editor. These tools change game state and are disabled in real multiplayer. The host controls spectator permissions.

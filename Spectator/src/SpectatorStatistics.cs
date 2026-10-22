@@ -37,7 +37,7 @@ namespace Spectator
         private bool ready;
         private long session;
         internal bool Active => statisticsPreviewActive;
-        internal bool Available => ready && !preview.VanillaEnded && session > 0 && settings.EnableClientFeatures && settings.EnableMod && settings.EnableStatistics &&
+        internal bool Available => ready && !preview.VanillaEnded && session > 0 && settings.Activation.Statistics &&
             MainViewModel.viewModelLoaded && GameData.Instance?.lastGameState != null && GameData.Instance.lastGameState.spectatorMode != 0 &&
             !GameModeHelper.IsMapEditor() && (GameModeHelper.IsRealMultiplayer() || GameModeHelper.IsSingleplayerSkirmishMode());
         internal SpectatorStatistics(ManualLogSource log, SpectatorViewModel settings) { this.log = log; this.settings = settings; }

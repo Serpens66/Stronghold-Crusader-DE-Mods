@@ -8,16 +8,22 @@ namespace Spectator
     public sealed class SpectatorViewModel : PresetLobbyModSettingsViewModel
     {
         private bool enableClientFeatures = true, enableMod = true, enableSpectatorPerspective = true, enableStatistics = true,
-            enableEliminatedPlayersBecomeSpectators = true;
+            enableEliminatedPlayersBecomeSpectators = true, enableTestTools = true;
         public ToolsText Text { get; } = new ToolsText();
         public RelayCommand ResetToDefaultCommand { get; }
         public event Action SettingsChanged;
 
-        public SpectatorViewModel() { ResetToDefaultCommand = new RelayCommand(ResetDefaults); }
+        public SpectatorViewModel() { RefreshActivation(); ResetToDefaultCommand = new RelayCommand(ResetDefaults); }
         protected override string ResolveSettingsUiText(string key, string fallback) => SerpLocalization.Get(key);
 
         [PresetLocal]
         public bool EnableClientFeatures { get => enableClientFeatures; set => Set(ref enableClientFeatures, value, nameof(EnableClientFeatures)); }
+        [PresetLocal]
+        public bool EnableTestTools { get => enableTestTools; set => Set(ref enableTestTools, value, nameof(EnableTestTools)); }
+        internal SpectatorFeatureActivation Activation { get; private set; }
+        private void RefreshActivation() => Activation = new SpectatorFeatureActivation(EnableMod,
+            EnableClientFeatures, EnableSpectatorPerspective, EnableStatistics,
+            EnableEliminatedPlayersBecomeSpectators, EnableTestTools);
         [SyncHostOnly]
         public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly]
@@ -29,15 +35,16 @@ namespace Spectator
 
         private void Set(ref bool field, bool value, string name)
         {
-            if (field == value) return;
+            if (!CanMutateSetting(name) || field == value) return;
             field = value;
+            RefreshActivation();
             OnPropertyChanged(name);
             SettingsChanged?.Invoke();
         }
         private void ResetDefaults()
         {
             if (!CanResetSettings) return;
-            if (CanEditClientSettings) EnableClientFeatures = true;
+            if (CanEditClientSettings) { EnableClientFeatures = true; EnableTestTools = true; }
             if (CanEditHostSettings) { EnableMod = true; EnableSpectatorPerspective = true; EnableStatistics = true; EnableEliminatedPlayersBecomeSpectators = true; }
         }
     }

@@ -30,6 +30,7 @@ namespace ExtendedData
             Run("completion callback tracking", TestCompletionCallbackTracking);
             Run("staging failure aborts upload", TestStagingFailureAbortsUpload);
             Run("explicit Vanilla upload bypasses extras", TestVanillaOnlyWorkflow);
+            Run("activation and delayed upload decisions", TestActivationAndDelayedDecisions);
             Run("staging reset removes stale extras", TestStagingReset);
             Run("valid metadata and version", TestValidPreflight);
             Run("message IDs", TestMessageIds);
@@ -772,6 +773,59 @@ namespace ExtendedData
             }
         }
 
+        private static void TestActivationAndDelayedDecisions()
+        {
+            WithSource(source =>
+            {
+                WriteVanillaBase(source);
+                var stager = new FakeStager(source);
+                var confirmation = new FakeConfirmation();
+                bool enabled = false;
+                var workflow = new CustomLordUploadWorkflow(new ManualLogSource("ActivationTests"),
+                    stager, confirmation, CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6"), () => enabled);
+                int originals = 0, failures = 0;
+                workflow.Handle(CreateRequest(new[] { "Custom Lord" }, () => { }, () => failures++), request => { originals++; request.SuccessAction?.Invoke(); });
+                Assert(originals == 1 && stager.StageCount == 0 && confirmation.ShowCount == 0,
+                    "disabled workflow must pass directly to its original without inspecting the package");
+                enabled = true;
+                workflow.Handle(CreateRequest(new[] { "Custom Lord" }, () => { }, () => failures++), request => { originals++; request.SuccessAction?.Invoke(); });
+                Assert(confirmation.ShowCount == 1 && stager.StageCount == 0, "missing metadata should defer staging");
+                Action oldYes = confirmation.CaptureConfirm();
+                enabled = false;
+                workflow.InvalidatePending();
+                enabled = true;
+                oldYes(); oldYes();
+                Assert(originals == 1 && failures == 1 && stager.StageCount == 0,
+                    "an off/on cycle must invalidate the old confirmation exactly once");
+                workflow.Handle(CreateRequest(new[] { "Custom Lord" }, () => { }, () => failures++), request => { originals++; request.SuccessAction?.Invoke(); });
+                Action staleYes = confirmation.CaptureConfirm();
+                workflow.Handle(CreateRequest(new[] { "Custom Lord" }, () => { }, () => failures++), request => { originals++; request.SuccessAction?.Invoke(); });
+                staleYes();
+                Assert(originals == 1 && failures == 2 && stager.StageCount == 0,
+                    "an older attempt may not stage or replace a newer confirmation");
+                confirmation.Confirm(); confirmation.Confirm();
+                Assert(originals == 2 && stager.StageCount == 1, "only the current accepted attempt starts once");
+
+                bool currentAttempt = true;
+                workflow.Handle(CreateRequest(new[] { "Custom Lord" }, () => { }, () => failures++),
+                    request => { originals++; request.SuccessAction?.Invoke(); }, () => currentAttempt);
+                currentAttempt = false;
+                confirmation.Confirm();
+                Assert(originals == 2 && failures == 3 && stager.StageCount == 1,
+                    "changing the editor upload attempt invalidates its deferred confirmation before staging");
+
+                WriteText(Path.Combine(source, "info.json"), ValidInfo);
+                WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
+                CustomLordUploadRequest handed = null;
+                int successes = 0;
+                workflow.Handle(CreateRequest(new[] { "Custom Lord" }, () => successes++, () => failures++), request => handed = request);
+                Assert(handed != null, "valid package should be handed to the transport");
+                enabled = false; workflow.InvalidatePending();
+                handed.SuccessAction(); handed.SuccessAction(); handed.FailAction();
+                Assert(successes == 1 && failures == 3, "disabling must not lose or duplicate an already handed-off completion");
+            });
+        }
+
         private static CustomLordUploadWorkflow CreateWorkflow(
             ICustomLordUploadStager stager,
             ICustomLordUploadConfirmation confirmation)
@@ -947,6 +1001,7 @@ namespace ExtendedData
                 cancel = cancelAction;
             }
 
+            internal Action CaptureConfirm() => confirm ?? throw new InvalidOperationException("No pending confirmation");
             internal void Confirm() => confirm?.Invoke();
             internal void Cancel() => cancel?.Invoke();
         }

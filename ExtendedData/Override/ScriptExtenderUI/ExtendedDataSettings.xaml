@@ -144,6 +144,8 @@
       </TextBlock>
       <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,16,0,6"/>
       <StackPanel IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+      <CheckBox IsChecked="{Binding EnableEditorFileIntegration, Mode=TwoWay}" Content="{Binding EditorFileIntegrationText}" ToolTip="{Binding EditorFileIntegrationHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>
+      <CheckBox IsChecked="{Binding EnableWorkshopUploads, Mode=TwoWay}" Content="{Binding WorkshopUploadsText}" ToolTip="{Binding WorkshopUploadsHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>
       <StackPanel shared:ModSettingsSearch.SectionKey="custom-trail.section.compatible-mods" shared:ModSettingsSearch.SectionTitle="{Binding SupportedTrailSettingsTitle}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding SupportedTrailSettingsTitle}"
                  Foreground="#FFF2D48A"
@@ -214,6 +216,11 @@
       </StackPanel>
       <Separator Background="#444466" Margin="0,12"/>
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+      <CheckBox IsChecked="{Binding EnableMissionModSettings, Mode=TwoWay}" Content="{Binding MissionModSettingsText}" ToolTip="{Binding MissionModSettingsHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>
+      <CheckBox IsChecked="{Binding EnableCoopPackages, Mode=TwoWay}" Content="{Binding CoopPackagesText}" ToolTip="{Binding CoopPackagesHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>
+      <CheckBox IsChecked="{Binding EnableLordDataIntegration, Mode=TwoWay}" Content="{Binding LordDataIntegrationText}" ToolTip="{Binding LordDataIntegrationHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>
+      </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="custom-trail.section.coop-package" shared:ModSettingsSearch.SectionTitle="{Binding CoopPackageText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding CoopPackageText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="custom-trail.coop-package" shared:ModSettingsSearch.Title="{Binding CoopPackageText}" shared:ModSettingsSearch.ToolTipText="{Binding CoopPackageHelpText}">

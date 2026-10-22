@@ -95,6 +95,7 @@ namespace BugfixesAndQoL
         private static GatehouseLivingCapture.CaptureRuntime processGatehouseLivingCaptureRuntime;
         private static bool gatehouseLivingCaptureInitializationAttempted;
         private static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime;
+        private static APIShared.Economy.AiMarketSellRegistration processAiSellThresholdPolicy;
         private static bool aiRaidRetargetInitializationAttempted;
         private static bool workshopIdleTickSubscribed, workshopIdleTickLogged;
         private static NativeTannerFade processNativeTannerFade;
@@ -495,6 +496,15 @@ namespace BugfixesAndQoL
                 processAiRaidRetargetFixRuntime = new AiRaidRetargetFixRuntime(log);
                 processAiRaidRetargetFixRuntime.Initialize(context, settings.EnableMod && settings.EnableAiRaidRetargetFix);
             });
+            TryInitializePersistentFeature("AI sell threshold safety", () =>
+            {
+                if (processAiSellThresholdPolicy == null && !APIShared.Economy.AiMarketSellPolicies.TryRegister(
+                    BugfixesAndQoLPlugin.PluginGuid, "ai-sell-threshold-safety",
+                    APIShared.Economy.AiMarketSellSafety.NonNegativeReserve | APIShared.Economy.AiMarketSellSafety.LimitQuantityToStock,
+                    out processAiSellThresholdPolicy, out string reason))
+                    throw new InvalidOperationException(reason);
+                ApplyAiSellThresholdFix();
+            });
             TryInitializeFeature(
                 "Extended Shift command queue",
                 () => InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated));
@@ -545,8 +555,14 @@ namespace BugfixesAndQoL
             GateRouting.AssassinGatehouseDescentFeature.Refresh();
         }
 
+        // The synchronized host value is applied on every peer, including editor missions.
+        // APIShared owns the permanent hooks; disabling only withdraws our own request.
+        private void ApplyAiSellThresholdFix() => processAiSellThresholdPolicy?.SetEnabled(
+            settings.EnableMod && settings.EnableAiSellThresholdFix);
+
         public void ApplySettings()
         {
+            TryApplyFeature("AI sell threshold safety", ApplyAiSellThresholdFix);
             TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);

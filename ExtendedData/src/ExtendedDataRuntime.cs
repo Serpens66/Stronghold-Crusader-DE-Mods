@@ -217,7 +217,7 @@ namespace ExtendedData
         private string lastCompatibilityLogSignature = string.Empty;
         private string lastBlockedChatReason = string.Empty;
         private DateTime lastBlockedChatAtUtc;
-        private bool enabled;
+        private ExtendedDataFeatureActivation activation;
 
         public ExtendedDataRuntime(
             ManualLogSource log,
@@ -227,14 +227,14 @@ namespace ExtendedData
             this.log = log;
             this.customTrailsRoot = customTrailsRoot;
             this.settings = settings;
-            enabled = settings.IsRuntimeEnabled;
+            activation = settings.FeatureActivation;
         }
 
         public void Initialize()
         {
             ExtendedDataLaunchOriginApi.Initialize(log);
             ExtendedDataModDataApi.InitializeSource();
-            editorSaveOptions.SetEnabled(enabled);
+            editorSaveOptions.SetEnabled(activation.EditorFiles);
             GameXAMLManagerAPI.Instance.RegisterBinding(
                 "ExtendedDataMapEditorSaveOptionsHost",
                 editorSaveOptions);
@@ -243,7 +243,7 @@ namespace ExtendedData
                 editorSaveOptions);
             missionSettingsCoordinator = new TrailMissionSettingsCoordinator(
                 log,
-                enabled,
+                activation,
                 settings.GetTrailPropertyMode,
                 settings.ApplyTrailSettingModes,
                 settings.ApplyTrailSettingModesForMod,
@@ -258,7 +258,7 @@ namespace ExtendedData
                 missionSettingsCoordinator.WasLaunchedThroughCustomize);
             mapSettingsCoordinator = new MapModSettingsCoordinator(
                 log,
-                enabled,
+                activation,
                 missionSettingsCoordinator,
                 editorSaveOptions);
             mapSettingsCoordinator.Initialize();
@@ -354,32 +354,22 @@ namespace ExtendedData
             }
         }
 
-        public void SetEnabled(bool value)
+        internal void SetActivation(ExtendedDataFeatureActivation value)
         {
-            if (enabled == value)
-                return;
-
-            enabled = value;
-            editorSaveOptions.SetEnabled(value);
-            missionSettingsCoordinator?.SetEnabled(value);
-            mapSettingsCoordinator?.SetEnabled(value);
-            selected = null;
-            lordDataCoordinator?.SetEmbeddedTrailSlots(null);
-            missingMods = Array.Empty<string>();
-            if (!value)
+            ExtendedDataFeatureActivation previous = activation;
+            activation = value;
+            if (previous.EditorFiles != value.EditorFiles)
+                editorSaveOptions.SetEnabled(value.EditorFiles);
+            missionSettingsCoordinator?.SetActivation(value);
+            mapSettingsCoordinator?.SetActivation(value);
+            lordDataCoordinator?.SetActivation(value);
+            if (previous.CoopPackages != value.CoopPackages)
             {
-                RestoreVanillaMissions();
-                SetLocalPackageError(
-                    ExtendedDataSettingsViewModel.DisabledStatus,
-                    SerpLocalization.Get("ExtendedData.ErrorModDisabled"));
-            }
-            else
-            {
+                selected = null;
+                lordDataCoordinator?.SetEmbeddedTrailSlots(null);
+                missingMods = Array.Empty<string>();
                 OnActiveCoopPackageChanged();
             }
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogInfo("Mod " + (value ? "enabled" : "disabled") + "; runtime hooks now " +
-                    (value ? "apply Custom Trail and Coop replacements." : "pass through to Vanilla."));
         }
 
         private int compatibilityMeasurements;
@@ -420,11 +410,11 @@ namespace ExtendedData
 
         public void Dispose()
         {
-            enabled = false;
+            activation = ExtendedDataFeatureActivation.Disabled;
             ExtendedDataModDataApi.UnregisterSource();
             editorSaveOptions.SetEnabled(false);
-            mapSettingsCoordinator?.SetEnabled(false);
-            missionSettingsCoordinator?.SetEnabled(false);
+            mapSettingsCoordinator?.SetActivation(activation);
+            missionSettingsCoordinator?.SetActivation(activation);
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -455,7 +445,7 @@ namespace ExtendedData
         {
             initTrampoline(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
-            if (!enabled)
+            if (!activation.CoopPackages)
             {
                 resolved.Clear();
                 vanillaMissions.Clear();
@@ -495,7 +485,7 @@ namespace ExtendedData
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             missionSettingsCoordinator.ObserveCoopLobby(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
-            if (!enabled)
+            if (!activation.CoopPackages)
                 return;
             resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
             if (selected == null)
@@ -544,16 +534,16 @@ namespace ExtendedData
             }
             if (IsLaunchCommand(command) && !missionSettingsCoordinator.TryPrepareRestartSettings())
                 return;
-            if (enabled && IsLaunchCommand(command) && CurrentSlotOutsidePackage(self))
+            if (activation.CoopPackages && IsLaunchCommand(command) && CurrentSlotOutsidePackage(self))
             {
                 BlockLaunch(command, CustomCoopTrailEndNotice(self));
                 return;
             }
-            if (enabled && selected != null && IsLaunchCommand(command) && CurrentSlotRequiresPackage(self))
+            if (activation.CoopPackages && selected != null && IsLaunchCommand(command) && CurrentSlotRequiresPackage(self))
                 RefreshSelectedLordRequirementStatus(self);
             if (IsStartCommand(command))
-                lordDataCoordinator?.LogStartAttempt(command, enabled, self);
-            if (enabled && IsStartCommand(command) && self?.currentLobby != null &&
+                lordDataCoordinator?.LogStartAttempt(command, activation.CoopPackages, self);
+            if (activation.LordDataIntegration && IsStartCommand(command) && self?.currentLobby != null &&
                 self.currentLobby.isHost && !self.singlePlayerCoop &&
                 !FRONT_Multiplayer.skirmishGame &&
                 (selected?.Loaded.LordRequirements != null ||
@@ -591,13 +581,19 @@ namespace ExtendedData
                     return;
                 }
             }
-            if (enabled && string.Equals(command, "TMTest", StringComparison.Ordinal) &&
+            if (string.Equals(command, "TMTest", StringComparison.Ordinal) &&
                 !missionSettingsCoordinator.PrepareTrailMakerTestLaunch())
             {
                 return;
             }
-            if (enabled && IsLaunchCommand(command) && CurrentSlotRequiresPackage(self))
+            if (activation.CoopPackages && IsLaunchCommand(command) && CurrentSlotRequiresPackage(self))
             {
+                string featureError = SelectedFeatureDependencyError();
+                if (featureError != null)
+                {
+                    BlockLaunch(command, featureError);
+                    return;
+                }
                 if (!IsLocalPackageReady())
                 {
                     BlockLaunch(command, GetLocalBlockReason());
@@ -636,7 +632,7 @@ namespace ExtendedData
                     }
                 }
             }
-            if (enabled && selected != null && IsLaunchCommand(command))
+            if (activation.CoopPackages && selected != null && IsLaunchCommand(command))
             {
                 try
                 {
@@ -705,7 +701,7 @@ namespace ExtendedData
         private void UpdateHostInfoHook(FRONT_Multiplayer self, bool delayed)
         {
             updateHostInfoTrampoline(self, delayed);
-            if (enabled && !delayed)
+            if (activation.CoopPackages && !delayed)
             {
                 if (selected != null && CurrentSlotRequiresPackage(self))
                     RefreshSelectedLordRequirementStatus(self);
@@ -744,7 +740,7 @@ namespace ExtendedData
             try
             {
                 RefreshPackageCatalog();
-                if (GameNetworkAPI.IsLocalHost())
+                if (activation.CoopPackages && GameNetworkAPI.IsLocalHost())
                 {
                     if (packageCatalog.Packages.TryGetValue(settings.ActiveCoopPackageId, out CoopTrailPackage hostPackage))
                     {
@@ -769,7 +765,7 @@ namespace ExtendedData
 
         private void OnCoopSetupOpened()
         {
-            if (!enabled || selected == null)
+            if (!activation.CoopPackages || selected == null)
                 return;
             try
             {
@@ -791,7 +787,7 @@ namespace ExtendedData
 
         private void OnCoopPackageRemoteStatusChanged()
         {
-            if (GameNetworkAPI.IsLocalHost() || !enabled)
+            if (GameNetworkAPI.IsLocalHost() || !activation.CoopPackages)
                 return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
@@ -819,7 +815,7 @@ namespace ExtendedData
             selected = null;
             lordDataCoordinator?.SetEmbeddedTrailSlots(null);
 
-            if (!enabled)
+            if (!activation.CoopPackages)
             {
                 SetLocalPackageError(ExtendedDataSettingsViewModel.DisabledStatus, SerpLocalization.Get("ExtendedData.ErrorModDisabled"));
                 return;
@@ -977,7 +973,7 @@ namespace ExtendedData
         private void UpdateCustomLordNamesHook(FRONT_Multiplayer self)
         {
             updateCustomLordNamesTrampoline(self);
-            if (!enabled || selected == null || self?.currentLobby == null)
+            if (!activation.CoopPackages || selected == null || self?.currentLobby == null)
                 return;
             bool refresh = false;
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
@@ -1002,7 +998,7 @@ namespace ExtendedData
         private string CombinedNameHook(Platform_Multiplayer.MPLobbyMember member)
         {
             FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
-            if (!enabled || selected == null || self?.currentLobby?.members == null ||
+            if (!activation.CoopPackages || selected == null || self?.currentLobby?.members == null ||
                 !self.currentLobby.coopTrailGame || !self.currentLobby.members.Contains(member))
                 return combinedNameTrampoline(member);
 
@@ -1042,7 +1038,7 @@ namespace ExtendedData
             ?? throw new MissingMethodException(rowType.FullName, "Update");
 
         private bool IsSelectedCustomCoopPreview(FRONT_Multiplayer parent) =>
-            enabled && selected != null && parent?.currentLobby?.coopTrailGame == true &&
+            activation.CoopPackages && selected != null && parent?.currentLobby?.coopTrailGame == true &&
             selected.Loaded.TrailNumber == parent.currentLobby.coopTrailID + 1 &&
             selected.Loaded.MissionNumber == parent.currentLobby.coopSelectedMission;
 
@@ -1266,6 +1262,15 @@ namespace ExtendedData
             return true;
         }
 
+        private string SelectedFeatureDependencyError()
+        {
+            if (!activation.MissionModSettings && selected?.Loaded.Definition.ModSettings?.Mods?.Count > 0)
+                return SerpLocalization.Get("ExtendedData.MissionSettingsRequired");
+            if (!activation.LordDataIntegration && selected?.Loaded.LordRequirements != null)
+                return SerpLocalization.Get("ExtendedData.LordIntegrationRequired");
+            return null;
+        }
+
         private static void ApplyMultiplayerSetup(
             EngineInterface.MultiplayerSetupData target,
             MultiplayerSetupSettings source)
@@ -1333,7 +1338,7 @@ namespace ExtendedData
         }
 
         private bool HasActiveCoopPackage() =>
-            enabled && !string.IsNullOrEmpty(settings.ActiveCoopPackageId);
+            activation.CoopPackages && !string.IsNullOrEmpty(settings.ActiveCoopPackageId);
 
         private bool CurrentSlotOutsidePackage(FRONT_Multiplayer self) =>
             HasActiveCoopPackage() && self?.currentLobby?.coopTrailGame == true &&
@@ -1682,7 +1687,7 @@ namespace ExtendedData
 
         private void ActivateSelectedMissionSettings(bool editable, string source, bool starting)
         {
-            if (selected == null)
+            if (!activation.MissionModSettings || selected == null)
                 return;
             missingMods = missionSettingsCoordinator.PrepareCoopSettings(
                 selected.Loaded.Definition.ModSettings,
@@ -1730,7 +1735,7 @@ namespace ExtendedData
                 ShowBlockedMessage(CustomCoopTrailEndNotice(lobby));
                 return false;
             }
-            if (!enabled || lobby?.currentLobby == null || !lobby.singlePlayerCoop ||
+            if (!activation.CoopPackages || lobby?.currentLobby == null || !lobby.singlePlayerCoop ||
                 !lobby.currentLobby.coopTrailGame || !CurrentSlotRequiresPackage(lobby))
             {
                 return true;
@@ -1774,6 +1779,8 @@ namespace ExtendedData
                 }
 
                 selected = new MissionAssetResolver().Resolve(loaded);
+                string featureError = SelectedFeatureDependencyError();
+                if (featureError != null) throw new InvalidOperationException(featureError);
                 RefreshSelectedLordRequirementStatus(lobby);
                 if (!PrepareSelectedLordRequirements(out string lordReason, captureLocalReplacements: true))
                     throw new InvalidDataException(lordReason);
@@ -1812,12 +1819,19 @@ namespace ExtendedData
 
         private void OnCoopLaunchReceived(int trailId, int missionId)
         {
-            if (!enabled || !resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out ResolvedMission mission))
+            if (!activation.CoopPackages || !resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out ResolvedMission mission))
             {
                 LogError($"Ignored authenticated Coop Trail launch for unavailable Trail{trailId + 1}/{missionId:00}.");
                 return;
             }
             selected = mission;
+            string featureError = SelectedFeatureDependencyError();
+            if (featureError != null)
+            {
+                LogError("Ignored authenticated Coop Trail launch: " + featureError);
+                ShowBlockedMessage(featureError);
+                return;
+            }
             RefreshSelectedLordRequirementStatus(GetExistingMainViewModel()?.FRONTMultiplayer);
             if (!IsLocalPackageReady())
             {

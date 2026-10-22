@@ -66,9 +66,9 @@ namespace Spectator
         private static bool IsToolsSession()
         {
             // Avoid touching mode services before the managed game view exists.
-            if (settings?.EnableClientFeatures != true || !IsCurrentSession(CurrentSessionId) ||
+            if (settings?.Activation.TestTools != true || !IsCurrentSession(CurrentSessionId) ||
                 !MainViewModel.viewModelLoaded || GameData.Instance?.lastGameState == null) return false;
-            return ToolSessionPolicy.CanMutate(settings?.EnableClientFeatures == true,
+            return ToolSessionPolicy.CanMutate(settings?.Activation.TestTools == true,
                 IsCurrentSession(CurrentSessionId), MainViewModel.viewModelLoaded,
                 GameData.Instance?.lastGameState != null, GameModeHelper.IsRealMultiplayer(),
                 Director.instance != null, Director.instance != null && Director.instance.MultiplayerGame);

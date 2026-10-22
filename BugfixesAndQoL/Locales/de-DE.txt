@@ -451,3 +451,5 @@ BugfixesAndQoL.EnableMultiplayerStartupStateFix=Veralteten Mehrspielerzustand vo
 BugfixesAndQoL.EnableMultiplayerStartupStateFixHelp=Verwirft vor einem neuen Spiel den vorherigen Mehrspieler-Snapshot, solange die Simulation noch steht. Unabhängig von Hostmigration und Recovery-Spielstand.
 BugfixesAndQoL.EnablePeaceTimeGameplayFixes=Friedenszeit in allen Spielmodi korrekt anwenden
 BugfixesAndQoL.EnablePeaceTimeGameplayFixesHelp=Erweitert Friedenszeitregeln, Countdown, Starttruppen- und Tierkontaktprüfungen über Vanillas Mehrspielerpfade hinaus und verwendet eine feste Simulationsdauer. Aus führt die vollständigen Vanilla-Pfade aus und löscht keine gespeicherten Regeln.
+BugfixesAndQoL.EnableAiSellThresholdFix=KI-Verkäufe auf vorhandene Waren begrenzen
+BugfixesAndQoL.EnableAiSellThresholdFixHelp=Verhindert, dass KI-Lords durch negative Verkaufsschwellen Waren ohne Bestand verkaufen und dafür Gold erhalten. Begrenzte Verkaufsschwellen und Verkaufsmengen gelten für alle Warenkategorien. Vom Host festgelegt.

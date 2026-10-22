@@ -15,8 +15,10 @@ try {
         $property = $settings.Properties | Where-Object Name -eq $name
         if (-not ($property.CustomAttributes.AttributeType.Name -contains 'SyncHostOnlyAttribute')) { throw "Host role lost: $name" }
     }
-    $client = $settings.Properties | Where-Object Name -eq 'EnableClientFeatures'
-    if (-not ($client.CustomAttributes.AttributeType.Name -contains 'PresetLocalAttribute')) { throw 'Local tools must remain local settings.' }
+    foreach ($name in @('EnableClientFeatures','EnableTestTools')) {
+        $client = $settings.Properties | Where-Object Name -eq $name
+        if (-not ($client.CustomAttributes.AttributeType.Name -contains 'PresetLocalAttribute')) { throw "Local tools must remain local settings: $name" }
+    }
     $base = $api.MainModule.GetType('APIShared.ModSettings.PresetLobbyModSettingsViewModel')
     $items = @('ModeOptions','PropertyName','ScopeText','SelectedModeIndex','Title','Description','DisplayName','Name')
     foreach ($view in @(@('Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Spectator.TestToolsViewModel'),@('Override/ScriptExtenderUI/SpectatorSettings.xaml','Spectator.SpectatorViewModel'))) {

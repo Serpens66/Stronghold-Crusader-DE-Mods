@@ -117,6 +117,7 @@ internal static class Program
                 Console.WriteLine("PASS: preview identity availability, final mapping and conflict classification.");
                 return 0;
             }
+            if (args != null && args.Length == 1 && args[0] == "ai-sell-threshold") { AiSellThresholdPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "settings-opacity")
             {
                 TestSettingsOpacity();

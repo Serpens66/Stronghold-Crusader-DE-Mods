@@ -44,7 +44,7 @@ namespace ExtendedData
         private CoopAiStartContribution ProvideCoopAiStart(CoopAiStartRequest request)
         {
             ResolvedMission mission = selected;
-            if (!enabled || mission == null || !HasActiveCoopPackage() ||
+            if (!activation.CoopPackages || mission == null || !HasActiveCoopPackage() ||
                 request.CoopTrail != mission.Loaded.TrailNumber ||
                 request.CoopMission + 1 != mission.Loaded.MissionNumber)
                 return null;

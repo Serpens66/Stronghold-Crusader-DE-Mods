@@ -30,9 +30,10 @@ namespace Spectator
                 }));
         }
 
-        private static bool IsToolbarSession() => settings.EnableClientFeatures && IsCurrentSession(CurrentSessionId) &&
+        private static bool IsToolbarSession() => IsCurrentSession(CurrentSessionId) &&
             MainViewModel.viewModelLoaded && GameData.Instance?.lastGameState != null &&
-            (IsToolsSession() || SpectatorPerspectiveRuntime.IsActiveSpectator() || Statistics?.Available == true);
+            SpectatorFeatureActivation.HasToolbar(IsToolsSession(),
+                SpectatorPerspectiveRuntime.IsActiveSpectator(), Statistics?.Available == true);
 
         private static bool IsSelectableView(int player) => player >= 1 && player <= 8 &&
             (SpectatorPerspectiveRuntime.IsActiveSpectator()

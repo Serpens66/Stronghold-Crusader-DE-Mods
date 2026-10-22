@@ -27,6 +27,8 @@ namespace ExtendedData
 
         private bool enableClientFeatures = true;
         private bool enableMod = true;
+        private bool enableMissionModSettings = true, enableCoopPackages = true,
+            enableLordDataIntegration = true, enableEditorFileIntegration = true, enableWorkshopUploads = true;
         private string activeCoopPackageId = string.Empty;
         private string activeCoopPackageFingerprint = string.Empty;
         private int activeCoopPackageMissionCount;
@@ -85,7 +87,7 @@ namespace ExtendedData
                 });
         }
 
-        public event Action<bool> RuntimeActivationChanged;
+        internal event Action<ExtendedDataFeatureActivation> FeatureActivationChanged;
         public event Action ActiveCoopPackageChanged;
         public event Action<string> LordDataSnapshotChanged;
         public event Action<string> LordPackageManifestChanged;
@@ -115,8 +117,41 @@ namespace ExtendedData
             ? Visibility.Collapsed
             : Visibility.Visible;
         public ICommand OpenCompatibilityGuideCommand { get; }
-        public bool CanEditCoopPackage => CanEditHostSettings && EnableMod;
-        public bool IsRuntimeEnabled => EnableClientFeatures && EnableMod;
+        public bool CanEditCoopPackage => CanEditHostSettings && EnableMod && EnableCoopPackages;
+        internal ExtendedDataFeatureActivation FeatureActivation => new ExtendedDataFeatureActivation(
+            EnableMod, EnableClientFeatures, EnableMissionModSettings, EnableCoopPackages,
+            EnableLordDataIntegration, EnableEditorFileIntegration, EnableWorkshopUploads);
+
+        [SyncHostOnly]
+        public bool EnableMissionModSettings { get => enableMissionModSettings; set => SetFeature(ref enableMissionModSettings, value, nameof(EnableMissionModSettings)); }
+        [SyncHostOnly]
+        public bool EnableCoopPackages { get => enableCoopPackages; set => SetFeature(ref enableCoopPackages, value, nameof(EnableCoopPackages)); }
+        [SyncHostOnly]
+        public bool EnableLordDataIntegration { get => enableLordDataIntegration; set => SetFeature(ref enableLordDataIntegration, value, nameof(EnableLordDataIntegration)); }
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableEditorFileIntegration { get => enableEditorFileIntegration; set => SetFeature(ref enableEditorFileIntegration, value, nameof(EnableEditorFileIntegration)); }
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableWorkshopUploads { get => enableWorkshopUploads; set => SetFeature(ref enableWorkshopUploads, value, nameof(EnableWorkshopUploads)); }
+
+        public string MissionModSettingsText => SerpLocalization.Get("ExtendedData.MissionModSettings");
+        public string MissionModSettingsHelpText => SerpLocalization.Get("ExtendedData.MissionModSettingsHelp");
+        public string CoopPackagesText => SerpLocalization.Get("ExtendedData.CoopPackages");
+        public string CoopPackagesHelpText => SerpLocalization.Get("ExtendedData.CoopPackagesHelp");
+        public string LordDataIntegrationText => SerpLocalization.Get("ExtendedData.LordDataIntegration");
+        public string LordDataIntegrationHelpText => SerpLocalization.Get("ExtendedData.LordDataIntegrationHelp");
+        public string EditorFileIntegrationText => SerpLocalization.Get("ExtendedData.EditorFileIntegration");
+        public string EditorFileIntegrationHelpText => SerpLocalization.Get("ExtendedData.EditorFileIntegrationHelp");
+        public string WorkshopUploadsText => SerpLocalization.Get("ExtendedData.WorkshopUploads");
+        public string WorkshopUploadsHelpText => SerpLocalization.Get("ExtendedData.WorkshopUploadsHelp");
+
+        private void SetFeature(ref bool field, bool value, string name)
+        {
+            if (!CanMutateSetting(name) || field == value) return;
+            field = value;
+            OnPropertyChanged(name);
+            OnPropertyChanged(nameof(CanEditCoopPackage));
+            FeatureActivationChanged?.Invoke(FeatureActivation);
+        }
         public ComboBoxItem[] CoopPackageOptions => coopPackageOptions;
 
         public string CoopPackageStatusText
@@ -150,8 +185,7 @@ namespace ExtendedData
                     return;
                 enableClientFeatures = value;
                 OnPropertyChanged(nameof(EnableClientFeatures));
-                OnPropertyChanged(nameof(IsRuntimeEnabled));
-                RuntimeActivationChanged?.Invoke(IsRuntimeEnabled);
+                FeatureActivationChanged?.Invoke(FeatureActivation);
             }
         }
 
@@ -166,8 +200,7 @@ namespace ExtendedData
                 enableMod = value;
                 OnPropertyChanged(nameof(EnableMod));
                 OnPropertyChanged(nameof(CanEditCoopPackage));
-                OnPropertyChanged(nameof(IsRuntimeEnabled));
-                RuntimeActivationChanged?.Invoke(IsRuntimeEnabled);
+                FeatureActivationChanged?.Invoke(FeatureActivation);
             }
         }
 

@@ -102,7 +102,7 @@ namespace Spectator
             SpectatorRuntime.PostPresentation(() => {
                 if (System.Threading.Interlocked.Read(ref announcedSessionId) != session) return;
                 if (preparedSessionId != session) PrepareSession(session);
-                sessionEnabled = settings.EnableClientFeatures && settings.EnableMod && settings.EnableSpectatorPerspective;
+                sessionEnabled = settings.Activation.Perspective;
                 mapReady = true;
                 loadedFromSave = notification.Context.IsSave;
                 initializationPending = true;

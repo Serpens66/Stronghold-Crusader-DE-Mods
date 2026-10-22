@@ -25,6 +25,8 @@ namespace ExtendedData
 
         private readonly ManualLogSource log;
         private readonly ExtendedDataSettingsViewModel settings;
+        private ExtendedDataFeatureActivation activation;
+        private bool sessionStarted;
         private readonly FixesLordPreferencesBridge fixes = new FixesLordPreferencesBridge();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private LordDataSnapshot active;
@@ -59,10 +61,42 @@ namespace ExtendedData
         {
             this.log = log;
             this.settings = settings;
+            activation = settings.FeatureActivation;
+        }
+
+        internal void SetActivation(ExtendedDataFeatureActivation value)
+        {
+            bool changed = activation.LordDataIntegration != value.LordDataIntegration;
+            activation = value;
+            if (!changed) return;
+            // A committed save/session still owns its values and serialization until it ends.
+            if (sessionStarted || activeFromSave) return;
+            ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(value.LordDataIntegration);
+            if (!value.LordDataIntegration)
+            {
+                fixes.Restore();
+                active = null;
+                pendingTrail = null;
+                packageManifest = null;
+                pendingTrailMediaNames.Clear();
+                localLordPaths.Clear();
+                ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
+                settings.LordDataStatus = "NONE";
+                settings.LordPackageStatus = string.Empty;
+                if (GameNetworkAPI.IsLocalHost())
+                {
+                    settings.LordDataSnapshot = string.Empty;
+                    settings.LordPackageManifest = string.Empty;
+                }
+                return;
+            }
+            OnLobbyOpened(ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer);
         }
 
         internal void Initialize()
         {
+            ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(activation.LordDataIntegration);
+
             settings.LordDataSnapshotChanged += OnSnapshotChanged;
             settings.LordPackageManifestChanged += OnPackageManifestChanged;
             settings.LordDataLobbyChanged += OnLobbyChanged;
@@ -75,6 +109,8 @@ namespace ExtendedData
                 throw new InvalidOperationException("Lord-data save identifier is already registered.");
             subscriptions.Add(MissionEvents.Initialization.Subscribe(notification =>
             {
+                if (!activation.LordDataIntegration && !activeFromSave) return;
+                ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(true);
                 if (pendingTrail != null)
                 {
                     fixes.Restore();
@@ -135,7 +171,8 @@ namespace ExtendedData
             }));
             subscriptions.Add(MissionEvents.Started.Subscribe(notification =>
             {
-                if (notification.Context.Mode.IsRealMultiplayer || trailApplied)
+                sessionStarted = true;
+                if (!activation.LordDataIntegration || notification.Context.Mode.IsRealMultiplayer || trailApplied)
                     return;
                 bool customGame = notification.Context.Mode.Kind == GameModeKind.CustomGame ||
                     notification.Context.Mode.IsSingleplayerSkirmish;
@@ -147,6 +184,9 @@ namespace ExtendedData
             }));
             subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>
             {
+                sessionStarted = false;
+                activeFromSave = false;
+                ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(activation.LordDataIntegration);
                 bool hadLordSession = active != null || lobbyId.HasValue;
                 fixes.Restore();
                 ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
@@ -167,6 +207,8 @@ namespace ExtendedData
         private void PublishSinglePlayerLordSelection(bool selectedRosterRequired,
             bool selectedTrail)
         {
+            if (!activation.LordDataIntegration) return;
+
             var selected = ExtendedDataRuntime.GetExistingMainViewModel()?
                 .HUDIngameMenu?.restartSkirmishMapInfo?.aivs;
             var paths = new Dictionary<int, string>();
@@ -271,6 +313,11 @@ namespace ExtendedData
                 reason = string.Empty;
                 return true;
             }
+            if (!activation.LordDataIntegration)
+            {
+                reason = SerpLocalization.Get("ExtendedData.LordIntegrationRequired");
+                return false;
+            }
             if (!TryInspectTrail(requirements, infos, out Dictionary<int, string> names, out reason))
                 return false;
             var slots = requirements.Slots.Where(slot => embeddedTrailSlots.Contains(slot.PlayerId))
@@ -331,6 +378,7 @@ namespace ExtendedData
 
         internal void RemapTrailMedia(IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos)
         {
+            if (!activation.LordDataIntegration && !activeFromSave && !trailApplied) return;
             if (pendingTrail == null || infos == null) return;
             foreach (KeyValuePair<int, string> item in pendingTrailMediaNames)
                 if (embeddedTrailSlots.Contains(item.Key) &&
@@ -391,6 +439,7 @@ namespace ExtendedData
 
         private void OnLobbyOpened(FRONT_Multiplayer lobby, string source)
         {
+            if (!activation.LordDataIntegration) return;
             if (IsHostLobby(lobby))
             {
                 RefreshPackageManifest(lobby, source);
@@ -417,6 +466,8 @@ namespace ExtendedData
 
         internal bool RefreshHost(FRONT_Multiplayer lobby, string source)
         {
+            if (!activation.LordDataIntegration) return false;
+
             if (!IsHostLobby(lobby))
             {
                 LogHostGateSkip(lobby, source);
@@ -499,6 +550,8 @@ namespace ExtendedData
 
         internal bool RefreshPackageManifest(FRONT_Multiplayer lobby, string source)
         {
+            if (!activation.LordDataIntegration) return false;
+
             if (!IsHostLobby(lobby))
                 return false;
             try
@@ -598,10 +651,13 @@ namespace ExtendedData
 
         private void OnPackageManifestChanged(string wire)
         {
+            if (!activation.LordDataIntegration || string.IsNullOrEmpty(wire)) return;
+
             if (GameNetworkAPI.IsLocalHost())
                 return;
             UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
+                if (!activation.LordDataIntegration) return;
                 if (!string.Equals(settings.LordPackageManifest, wire, StringComparison.Ordinal))
                     return;
                 try
@@ -733,6 +789,8 @@ namespace ExtendedData
 
         internal bool PrepareSave(FRONT_Multiplayer lobby, FileHeader header)
         {
+            if (!activation.LordDataIntegration) return true;
+
             try
             {
                 if (header == null || string.IsNullOrWhiteSpace(header.filePath))
@@ -1062,6 +1120,8 @@ namespace ExtendedData
 
         internal bool TryUseLocalValues(FRONT_Multiplayer lobby)
         {
+            if (!activation.LordDataIntegration) return false;
+
             if (!IsHostLobby(lobby) || packageManifest == null || packageManifest.UseLocalValues ||
                 hostPreferencesUnavailable || !AreLocalPackagesReady(lobby, true, out _))
                 return false;
@@ -1215,6 +1275,8 @@ namespace ExtendedData
 
         private void OnSnapshotChanged(string wireJson)
         {
+            if (!activation.LordDataIntegration || string.IsNullOrEmpty(wireJson)) return;
+
             if (packageManifest?.UseLocalValues == true)
                 return;
             if (GameNetworkAPI.IsLocalHost())
@@ -1239,6 +1301,7 @@ namespace ExtendedData
             }
             UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
+                if (!activation.LordDataIntegration) return;
                 if (packageManifest?.UseLocalValues == true ||
                     !string.Equals(settings.LordDataSnapshot, wireJson, StringComparison.Ordinal))
                     return;
@@ -1452,6 +1515,7 @@ namespace ExtendedData
         {
             bool queued = UnityMainThreadDispatch.TryEnqueue(() =>
             {
+                if (!activation.LordDataIntegration) return;
                 try
                 {
                     FRONT_Multiplayer lobby = ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer;
@@ -1520,12 +1584,12 @@ namespace ExtendedData
                 return;
             lastMapTransitionDiagnostic = signature;
             string message = "Lord-data map transition: realMultiplayer=" + realMultiplayer +
-                ",runtimeEnabled=" + settings.IsRuntimeEnabled + "," +
+                ",runtimeEnabled=" + activation.LordDataIntegration + "," +
                 DescribeAcknowledgements(lobbyHumanSlots);
-            if (realMultiplayer && settings.IsRuntimeEnabled && NeedsLordStartGate &&
+            if (realMultiplayer && activation.LordDataIntegration && NeedsLordStartGate &&
                 active == null && packageManifest?.UseLocalValues != true)
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/LordDataSyncCoordinator.cs:1479", message + ",problem=no acknowledged host snapshot at map initialization.");
-            else if (realMultiplayer && settings.IsRuntimeEnabled && NeedsLordStartGate &&
+            else if (realMultiplayer && activation.LordDataIntegration && NeedsLordStartGate &&
                 packageManifest?.UseLocalValues != true && !AllKnownPlayersAcknowledged())
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/LordDataSyncCoordinator.cs:1482", message + ",problem=one or more known player acknowledgements are missing or stale.");
             else

@@ -34,6 +34,7 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiStoneReserveFix = true;
+        private bool enableAiSellThresholdFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableEnemyGatePathfindingFix = true;
@@ -342,6 +343,8 @@ namespace BugfixesAndQoL
             }
         }
         public string EnableAiStoneReserveFixText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFix);
+        public string EnableAiSellThresholdFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFix");
+        public string EnableAiSellThresholdFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFixHelp");
         public string EnableAiStoneReserveFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFixHelp);
         public string EnableEnemyGatePathfindingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFix");
         public string EnableEnemyGatePathfindingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp");
@@ -1063,6 +1066,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiSellThresholdFix
+        {
+            get => enableAiSellThresholdFix;
+            set => SetSetting(ref enableAiSellThresholdFix, value, nameof(EnableAiSellThresholdFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableEnemyGatePathfindingFix
         {
             get => enableEnemyGatePathfindingFix;
@@ -1570,6 +1580,7 @@ namespace BugfixesAndQoL
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
+                EnableAiSellThresholdFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableEnemyGatePathfindingFix = true;

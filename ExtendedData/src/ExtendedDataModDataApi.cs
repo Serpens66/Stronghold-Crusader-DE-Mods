@@ -15,6 +15,8 @@ namespace ExtendedData
         private static IReadOnlyDictionary<int, string> verifiedLocalLordPaths;
         private static IReadOnlyCollection<int> unresolvedLocalLordSlots;
         private static bool localSelectionActive;
+        private static bool selectedLordIntegrationEnabled = true;
+        internal static void SetSelectedLordIntegrationEnabled(bool value) => selectedLordIntegrationEnabled = value;
 
         public static int ApiVersion => 1;
         public static bool SupportsSinglePlayerSelections => true;
@@ -81,6 +83,10 @@ namespace ExtendedData
 
         private static APIShared.ModData.ModDataReadResult ReadConfirmedLordNamespace(int playerId, string modGuid)
         {
+            if (!selectedLordIntegrationEnabled)
+                return SharedFailure(APIShared.ModData.ModDataReadStatus.HostDataUnavailable, modGuid,
+                    string.Empty, "Selected Lord integration is disabled.");
+
             if (string.IsNullOrWhiteSpace(modGuid) || playerId < 1 || playerId > GamePlayerManagerAPI.MAX_PLAYERS)
                 return SharedFailure(APIShared.ModData.ModDataReadStatus.InvalidRequest, modGuid, string.Empty, "A mod GUID and player ID from 1 to 8 are required.");
             if (verifiedLocalLordPaths != null &&

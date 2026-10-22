@@ -72,7 +72,7 @@ namespace ExtendedData
 
                 runtime = runtimeCandidate;
                 ScheduleDeferredCompatibilityRefresh();
-                Settings.RuntimeActivationChanged += runtime.SetEnabled;
+                Settings.FeatureActivationChanged += runtime.SetActivation;
                 Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
                 {
                     runtime?.RefreshModCompatibility();
