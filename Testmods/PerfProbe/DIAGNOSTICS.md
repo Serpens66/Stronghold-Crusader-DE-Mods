@@ -1,5 +1,41 @@
 # Diagnose kurzer Lags ab 100 ms
 
+## Torhaus-Geometrie und fehlende PerfProbe-Messung (23.10.2026)
+
+Der Lauf vom 22.10., 23:59 bis 23.10., 00:05 verwendete
+`test_stresstest3.sav`. PerfProbe war durch einen späteren normalen Build
+inaktiv; sieben `bfqol.gatehouse.run`-Spans von 101,7 bis 200,9 ms belegen
+lange verwaltete Aufrufe, aber keine gemessenen Frame-Lags oder Sperrenursache.
+In zwei Spans lagen die Torhaus-Callbacks bei 75,7/66,6 ms, darin die Sammlung
+bei 65,4/59,4 ms. Ein 200,9-ms-Span enthielt nur 8,5 ms Torhaus-Callbacks.
+Die Ursache der restlichen Zeit ist damit offen; inklusive Werte nicht addieren.
+
+BFQoL hält nun maximal 256 reine Geometrien pro Thread, nach Ursprung X/Y und
+Größe. Die unveränderlichen Koordinatenfolgen entstehen durch den bisherigen
+APIShared-Helfer. Live-Belegung, Gebäudegültigkeit, Zugbrücken, PCL und bestehende
+Ergebniscaches bleiben aktuell und unverändert. Leere Snapshot-Sammlungen werden
+geteilt. `geometryCountersVersion=2` unterscheidet `footprintCalls` (tatsächliche
+Geometrieerzeugungen), `geometryCacheHits` und `footprintScans`. `candidates` zählt
+bereitgestellte Kandidaten pro Scan; `collectionTileProbes` zählt die tatsächlich
+ausgeführten bestehenden Koordinatenproben einschließlich Außenansatzsuche.
+Diese Zähler existieren ausschließlich im Diagnosebuild.
+
+Der Vergleich gegen den vorherigen Git-Stand führt dieselben produktiven Abfragen
+mit/ohne Diagnose aus. Entscheidungen, Routenzahlen, Kachelabfragen, Reihenfolge
+und Signaturen stimmen überein, auch bei Zustandsänderungen im selben Tick und
+Reentranz. Im isolierten CLR-Test mit 20 Kandidaten sinken die Allokationen der
+aufgewärmten produktiven Abfrage von 1416 auf 256 Byte pro Aufruf. Der reine
+Geometrie-Cachetreffer allokiert nichts. Das ist kein gemessener Ingame-FPS-Gewinn.
+Nachweise: `.work/t/gate-geom/001`.
+
+Die Offline-Auswertung meldet PerfProbe als `active`, `inactive` oder `missing`
+(Aktivität unbestätigt). Leere Samplezeilen gelten nicht als nutzbare Stacks.
+`long-run-call` kennzeichnet lange Aufrufe; nur ein entsprechendes PerfProbe-
+Frameintervall ab der Grenze erhält `recorded-frame-gap`. Ladephasen bleiben
+gesondert gekennzeichnet. Vor manuellen Vergleichen PerfProbe zuletzt mit
+`/devdiag` installieren und im neuen Log Aktivität, `PERFPROBE_READY` und
+nutzbare Samples prüfen; ein späterer normaler Build kann die Diagnose ersetzen.
+
 ## Erweiterung für den reduzierten Vergleichslauf (22.10.2026)
 
 Diese Ausbaustufe ist ausschließlich als Quelländerung geprüft: **kein Mod-Build

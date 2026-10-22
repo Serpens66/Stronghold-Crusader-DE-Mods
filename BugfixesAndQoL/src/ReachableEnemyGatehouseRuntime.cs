@@ -220,7 +220,7 @@ namespace BugfixesAndQoL
             if (!TryCollectSynchronizedDrawbridges(
                     gatehouseBuilding,
                     tileApi,
-                    out List<SynchronizedDrawbridgeSnapshot> drawbridges,
+                    out IReadOnlyList<SynchronizedDrawbridgeSnapshot> drawbridges,
                     out int synchronizedGroupSignature))
             {
                 return false;
@@ -274,7 +274,7 @@ namespace BugfixesAndQoL
         private static bool TryCollectSynchronizedDrawbridges(
             GameBuilding* gatehouseBuilding,
             GameTileManagerAPI tileApi,
-            out List<SynchronizedDrawbridgeSnapshot> drawbridges,
+            out IReadOnlyList<SynchronizedDrawbridgeSnapshot> drawbridges,
             out int signature)
         {
 #if SERP_DEVDIAG
@@ -282,28 +282,26 @@ namespace BugfixesAndQoL
             try
             {
 #endif
-            drawbridges = new List<SynchronizedDrawbridgeSnapshot>(
-                SynchronizedGatehouseReachabilityPolicy.MaximumSynchronizedDrawbridges);
+            drawbridges = Array.Empty<SynchronizedDrawbridgeSnapshot>();
             signature = 17;
             if (gatehouseBuilding == null || gatehouseBuilding->r_OccupyTileGridSize == 0 ||
                 gatehouseBuilding->r_OccupyTileGridSize > MaximumSaneFootprintSize)
                 return false;
 
-#if SERP_DEVDIAG
-            long footprintStarted = GatehouseDiagnosticRuntime.Start();
-#endif
-            List<VanillaFootprintCandidate> candidates =
-                SynchronizedGatehouseReachabilityPolicy.BuildOrderedFootprintCandidates(
+            IReadOnlyList<VanillaFootprintCandidate> candidates =
+                GatehouseFootprintGeometryCache.Get(
                     gatehouseBuilding->r_TilePositionXBegin,
                     gatehouseBuilding->r_TilePositionYBegin,
                     (int)gatehouseBuilding->r_OccupyTileGridSize);
 #if SERP_DEVDIAG
-            GatehouseDiagnosticRuntime.Current.FootprintCalls++;
-            GatehouseDiagnosticRuntime.Current.FootprintTicks += System.Diagnostics.Stopwatch.GetTimestamp() - footprintStarted;
+            GatehouseDiagnosticRuntime.Current.FootprintScans++;
             GatehouseDiagnosticRuntime.Current.Candidates += candidates.Count;
 #endif
             int GetBuildingIdAt(int x, int y)
             {
+#if SERP_DEVDIAG
+                GatehouseDiagnosticRuntime.Current.CollectionTileProbes++;
+#endif
                 if (!tileApi.IsTileInsideMapBounds(x, y))
                     return 0;
                 int tileId = tileApi.GetTileId(x, y);
@@ -318,6 +316,15 @@ namespace BugfixesAndQoL
                     candidates,
                     GetBuildingIdAt,
                     IsEligibleDrawbridge);
+
+            if (selectedIds.Count == 0)
+            {
+                signature = SynchronizedGatehouseReachabilityPolicy.ComputeDrawbridgeSignature(drawbridges);
+                return true;
+            }
+            var collected = new List<SynchronizedDrawbridgeSnapshot>(
+                SynchronizedGatehouseReachabilityPolicy.MaximumSynchronizedDrawbridges);
+            drawbridges = collected;
 
             for (int selectedIndex = 0; selectedIndex < selectedIds.Count; selectedIndex++)
             {
@@ -380,7 +387,7 @@ namespace BugfixesAndQoL
                 if (!foundContact || snapshot.Approaches.Count == 0)
                     return false;
 
-                drawbridges.Add(snapshot);
+                collected.Add(snapshot);
 #if SERP_DEVDIAG
                 GatehouseDiagnosticRuntime.Current.Bridges++;
                 GatehouseDiagnosticRuntime.Current.Approaches += snapshot.Approaches.Count;

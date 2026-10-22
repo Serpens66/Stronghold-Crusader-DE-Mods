@@ -15,6 +15,7 @@ namespace BugfixesAndQoL
         internal long Queries, CallbackTicks, RouteCalls, RouteTicks, FootprintCalls, FootprintTicks, CollectTicks, ExteriorTicks;
         internal long DirectHits, DirectMisses, FullHits, FullMisses, Candidates, Bridges, Approaches, Overflow;
         internal long TraceCalls, TraceTicks;
+        internal long FootprintCacheHits, FootprintScans, CollectionTileProbes;
         internal int LastTick = -1, Player, Source, Entry, Exit, Mode;
         private readonly Dictionary<int, Gate> gates = new Dictionary<int, Gate>(256);
         internal void Reset()
@@ -22,6 +23,7 @@ namespace BugfixesAndQoL
             Queries = CallbackTicks = RouteCalls = RouteTicks = FootprintCalls = FootprintTicks = CollectTicks = ExteriorTicks = 0;
             DirectHits = DirectMisses = FullHits = FullMisses = Candidates = Bridges = Approaches = Overflow = 0;
             TraceCalls = TraceTicks = 0;
+            FootprintCacheHits = FootprintScans = CollectionTileProbes = 0;
             LastTick = -1; Player = Source = Entry = Exit = Mode = 0; gates.Clear();
         }
         internal void Query(int building, int unit, long elapsed)
@@ -51,7 +53,9 @@ namespace BugfixesAndQoL
                 "drawbridgeCollectInclusiveMs={11:F3} bridges={12} approaches={13} exteriorInclusiveMs={14:F3} gateOverflow={15} topGates={16}",
                 Queries, Ms(CallbackTicks), DirectHits, DirectMisses, FullHits, FullMisses, RouteCalls, Ms(RouteTicks),
                 FootprintCalls, Ms(FootprintTicks), Candidates, Ms(CollectTicks), Bridges, Approaches, Ms(ExteriorTicks), Overflow, string.Join(",", rows)) +
-                " exteriorTraceCalls=" + TraceCalls + " exteriorTraceInclusiveMs=" + Ms(TraceTicks).ToString("F3", CultureInfo.InvariantCulture);
+                " exteriorTraceCalls=" + TraceCalls + " exteriorTraceInclusiveMs=" + Ms(TraceTicks).ToString("F3", CultureInfo.InvariantCulture) +
+                " geometryCacheHits=" + FootprintCacheHits + " footprintScans=" + FootprintScans +
+                " collectionTileProbes=" + CollectionTileProbes + " geometryCountersVersion=2";
         }
     }
 
@@ -126,6 +130,8 @@ namespace BugfixesAndQoL
                 window.FootprintCalls += value.FootprintCalls; window.FootprintTicks += value.FootprintTicks;
                 window.CollectTicks += value.CollectTicks; window.ExteriorTicks += value.ExteriorTicks;
                 window.TraceCalls += value.TraceCalls; window.TraceTicks += value.TraceTicks;
+                window.FootprintCacheHits += value.FootprintCacheHits; window.FootprintScans += value.FootprintScans;
+                window.CollectionTileProbes += value.CollectionTileProbes;
                 window.DirectHits += value.DirectHits; window.DirectMisses += value.DirectMisses;
                 window.FullHits += value.FullHits; window.FullMisses += value.FullMisses;
                 window.Candidates += value.Candidates; window.Bridges += value.Bridges; window.Approaches += value.Approaches;

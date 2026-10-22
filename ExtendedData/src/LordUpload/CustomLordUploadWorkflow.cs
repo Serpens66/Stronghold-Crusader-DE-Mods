@@ -135,7 +135,10 @@ namespace ExtendedData
             {
                 long generation = Interlocked.Read(ref activationGeneration);
                 long operation = Interlocked.Increment(ref nextUploadOperationId);
-                lock (ApprovalLock) pendingConfirmations[uploadKey] = operation;
+                // Each attempt stages into its own folder, so the pending decision belongs to the Lord map:
+                // a newer attempt for the same map supersedes an older, still open confirmation.
+                string pendingKey = request.MapTitle ?? string.Empty;
+                lock (ApprovalLock) pendingConfirmations[pendingKey] = operation;
                 int completed = 0;
                 finish = accepted =>
                 {
@@ -143,8 +146,8 @@ namespace ExtendedData
                     bool current;
                     lock (ApprovalLock)
                     {
-                        current = pendingConfirmations.TryGetValue(uploadKey, out long pending) && pending == operation;
-                        if (current) pendingConfirmations.Remove(uploadKey);
+                        current = pendingConfirmations.TryGetValue(pendingKey, out long pending) && pending == operation;
+                        if (current) pendingConfirmations.Remove(pendingKey);
                     }
                     if (!accepted || !current || !enabled() || generation != Interlocked.Read(ref activationGeneration) ||
                         isCurrentAttempt?.Invoke() == false)

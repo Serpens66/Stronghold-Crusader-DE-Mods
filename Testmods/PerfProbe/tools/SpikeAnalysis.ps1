@@ -5,6 +5,17 @@ function Get-PerfProbeAnalysis {
     $lastStart=0
     for($i=0;$i -lt $Lines.Count;$i++){if($Lines[$i] -match '^\[Message:\s+BepInEx\] BepInEx .* - Stronghold Crusader Definitive Edition'){$lastStart=$i}}
     $current=@($Lines|Select-Object -Skip $lastStart)
+    $probe=@($current|Where-Object{$_ -match '^\[[^:]+:\s*Perf ?Probe\]'} )
+    $probeState='missing'
+    foreach($line in $probe){
+        if($line -match 'measurements inactive \(no DEVDIAG build\)'){$probeState='inactive'}
+        elseif($line -match 'measurements active \(DEVDIAG build\)|PERFPROBE_READY|DEVDIAG: runContext|DEVDIAG: threadSample'){$probeState='active'}
+    }
+    $warnings=@()
+    if($probeState -eq 'inactive'){$warnings+='PerfProbe is inactive (normal build); run spans do not prove frame lags or lock ownership.'}
+    elseif($probeState -eq 'missing'){$warnings+='PerfProbe activity is unverified/missing; absence of frame/sampling data is not absence of lags.'}
+    $hasSamples=@($probe|Where-Object{$_ -match '\b(?:threadSample|spikeSample)\b' -and $_ -match '\bsamples=([1-9][0-9]*)\b'}).Count -gt 0
+    if($probeState -eq 'active' -and -not $hasSamples){$warnings+='PerfProbe is active, but no thread samples are present; stack attribution is unavailable.'}
     $frequency=0.0; $estimated=$false
     foreach($line in $current){if($line -match '\bstopwatchFrequency=(\d+)'){$frequency=[double]$Matches[1];break}}
     if($frequency -eq 0){foreach($line in $current){
@@ -37,7 +48,7 @@ function Get-PerfProbeAnalysis {
     foreach($root in $roots){
         $group=if($groups.Count){$groups[$groups.Count-1]}else{$null}
         if($null -eq $group -or $root.StartMs -ge $group.EndMs-0.001){
-            $group=[pscustomobject]@{StartMs=$root.StartMs;EndMs=$root.EndMs;Phase='gameplay-or-unknown';Members=@();Samples=@();LockHistory=@();Analysis=@();Evidence=@();Hints=@()}
+            $group=[pscustomobject]@{StartMs=$root.StartMs;EndMs=$root.EndMs;Phase='gameplay-or-unknown';Kind='long-call';FrameLagRecorded=$false;Members=@();Samples=@();LockHistory=@();Analysis=@();Evidence=@();Hints=@()}
             $groups.Add($group)
         }else{$group.EndMs=[Math]::Max($group.EndMs,$root.EndMs)}
     }
@@ -50,6 +61,9 @@ function Get-PerfProbeAnalysis {
     $firstLoad=if($loads.Count){($loads|Measure-Object StartMs -Minimum).Minimum}else{$null}
     foreach($group in $groups){
         $group.Members=@($spikes|Where-Object{$_.StartMs -lt $group.EndMs -and $_.EndMs -gt $group.StartMs})
+        $group.FrameLagRecorded=@($group.Members|Where-Object{$_.Name -eq 'frame:interval' -and $_.Ms -ge $ThresholdMs -and $_.Source -match '^Perf ?Probe$'}).Count -gt 0
+        if($group.FrameLagRecorded){$group.Kind='recorded-frame-gap'}
+        elseif(@($group.Members|Where-Object{$_.Name -in @('sim:EngineInterface.run','bfqol.gatehouse.run') -and $_.Ms -ge $ThresholdMs}).Count){$group.Kind='long-run-call'}
         if(@($loads|Where-Object{$_.StartMs -lt $group.EndMs -and $_.EndMs -gt $group.StartMs}).Count){$group.Phase='load-wrapper-overlap'}
         elseif($null -ne $firstLoad -and $group.EndMs -le $firstLoad){$group.Phase='startup-before-first-save-load'}
         foreach($member in $group.Members){
@@ -79,6 +93,6 @@ function Get-PerfProbeAnalysis {
         }
         $group.Evidence=@($group.Evidence|Select-Object -Unique);$group.Hints=@($group.Hints|Select-Object -Unique)
     }
-    [pscustomobject]@{LastStartLine=$lastStart+1;ClockFrequency=$frequency;FrequencyEstimated=$estimated;Spikes=@($spikes.ToArray());Groups=@($groups.ToArray());
+    [pscustomobject]@{LastStartLine=$lastStart+1;ClockFrequency=$frequency;FrequencyEstimated=$estimated;PerfProbeState=$probeState;HasSamples=$hasSamples;Warnings=$warnings;Spikes=@($spikes.ToArray());Groups=@($groups.ToArray());
         Context=@($current|Where-Object{$_ -match 'DEVDIAG: (runContext|runPlugin|patchOwners|loadSpan|gatehouseWindow|runCounters|samplerCapture)'})}
 }

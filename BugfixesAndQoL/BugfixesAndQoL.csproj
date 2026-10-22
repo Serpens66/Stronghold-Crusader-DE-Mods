@@ -288,6 +288,7 @@
     <Compile Include="src\QuarryKeepCenterPolicy.cs" />
     <Compile Include="src\QuarryPileTargetSelectionPolicy.cs" />
     <Compile Include="src\ReachableEnemyGatehouseRuntime.cs" />
+    <Compile Include="src\GatehouseFootprintGeometryCache.cs" />
     <Compile Include="src\SynchronizedGatehouseReachabilityPolicy.cs" />
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />

@@ -98,8 +98,12 @@ if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 rem /checks:notifications selects the relevant behavior suite for a notification-only change.
 rem Common source, dependency and runtime safety checks remain mandatory.
 set "NOTIFICATION_CHECKS=0"
+set "GATEHOUSE_CHECKS=0"
 for %%A in (%*) do if /I "%%~A"=="/checks:notifications" set "NOTIFICATION_CHECKS=1"
+for %%A in (%*) do if /I "%%~A"=="/checks:gatehouse" set "GATEHOUSE_CHECKS=1"
+if "%NOTIFICATION_CHECKS%%GATEHOUSE_CHECKS%"=="11" goto build_failed
 pushd "%PROJECT_DIR%"
+if "%GATEHOUSE_CHECKS%"=="1" goto gatehouse_checks
 if "%NOTIFICATION_CHECKS%"=="1" goto notification_checks
 echo [%date% %time%] Lobby save loading and visibility contracts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-LobbySaveLoading.ps1" -RunTests
@@ -250,6 +254,16 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe" --notifications
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+goto checks_completed
+
+:gatehouse_checks
+echo [%date% %time%] Gatehouse geometry, live topology and diagnostic behavior checks
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1" -Diagnostic
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 
 :checks_completed

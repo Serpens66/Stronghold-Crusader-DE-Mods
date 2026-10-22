@@ -27,6 +27,8 @@ Assert ($r.Groups[0].LockHistory.Count -eq 1 -and $r.Groups[0].Analysis.Count -e
 Assert ($r.Groups[0].Evidence.Count -eq 2 -and $r.Groups[0].Hints.Count -ge 2) 'Measured waits, legacy run semantics or incomplete coverage lost.'
 Assert ($r.Groups[2].Phase -eq 'load-wrapper-overlap') 'Save-load event treated as ordinary gameplay.'
 Assert (($r.Groups[0].EndMs-$r.Groups[0].StartMs) -eq 120) 'Nested inclusive times were added.'
+Assert ($r.PerfProbeState -eq 'active' -and $r.Groups[0].FrameLagRecorded -and $r.Groups[0].Kind -eq 'recorded-frame-gap') 'Recorded frame gap was not distinguished from a run call.'
+Assert (-not $r.HasSamples -and $r.Warnings.Count -gt 0) 'Empty sample records must not claim usable stack samples.'
 $r=Get-PerfProbeAnalysis -Lines ($lines+@(
     '[Message:Perf Probe] [12:00:00.120] DEVDIAG: loadSpan method=LoadSaveFile startStamp=1100 endStamp=1110 complete=True',
     '[Message:Perf Probe] [12:00:00.125] DEVDIAG: samplerCapture startStamp=1000 endStamp=1120 windowDrops=2 spikeRequestsSuppressed=3'
@@ -39,4 +41,17 @@ $legacy=@'
 '@ -split '\r?\n'
 $r=Get-PerfProbeAnalysis -Lines $legacy
 Assert ($r.Groups.Count -eq 2 -and $r.Groups[1].StartMs -gt $r.Groups[0].EndMs) 'Legacy midnight rollover/order failed.'
+$incomplete=@'
+[Info   :Perf Probe] [23:59:28.331] Perf Probe 0.1.0 loaded; measurements inactive (no DEVDIAG build).
+[Message:Bugfixes and QoL] [00:01:00.120] DEVDIAG spike: bfqol.gatehouse.run ms=120 start=00:01:00.000 end=00:01:00.120 thread=15 queries=0
+'@ -split '\r?\n'
+$r=Get-PerfProbeAnalysis -Lines $incomplete
+Assert ($r.PerfProbeState -eq 'inactive' -and $r.Warnings.Count -gt 0 -and -not $r.HasSamples) 'Inactive diagnostic build was not reported.'
+Assert ($r.Groups.Count -eq 1 -and $r.Groups[0].Kind -eq 'long-run-call' -and -not $r.Groups[0].FrameLagRecorded) 'Whole run was falsely classified as a recorded frame lag.'
+$r=Get-PerfProbeAnalysis -Lines @($incomplete[1])
+Assert ($r.PerfProbeState -eq 'missing' -and $r.Warnings.Count -gt 0) 'Missing profiler must remain unknown, not silently active.'
+$r=Get-PerfProbeAnalysis -Lines @('[Message:Perf Probe] [00:00:00.000] DEVDIAG: PERFPROBE_READY: installed')
+Assert ($r.PerfProbeState -eq 'active' -and -not $r.HasSamples -and $r.Warnings.Count -gt 0) 'READY without samples was mistaken for full attribution coverage.'
+$r=Get-PerfProbeAnalysis -Lines @('[Message:Perf Probe] [00:00:00.000] DEVDIAG: threadSample thread=main samples=12 self: CDE=12')
+Assert ($r.PerfProbeState -eq 'active' -and $r.HasSamples) 'Usable legacy samples were not detected.'
 'PASS: actual parser: latest start, overlap/adjacency, cumulative subthreshold calls, BFQoL correlation, source-scoped events, coverage, loading and legacy midnight.'
