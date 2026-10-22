@@ -104,15 +104,6 @@ namespace BugfixesAndQoL.UnitCommands
         internal bool IsImprovedMoatFillingEnabled() =>
             settings.EnableMod && settings.EnableImprovedMoatFilling;
 
-        internal bool TryCreatePendingDigMoatTarget(
-            MoatWorkSelectionScope scope,
-            int moatId,
-            out PendingDigMoatTarget pending)
-        {
-            pending = TraversalEnabled ? Traversal.CreatePendingDigMoatTarget(scope, moatId) : null;
-            return pending != null;
-        }
-
         internal bool TryCreateMoatWorkSelectionScope(
             IntPtr tileManager,
             int playerId,

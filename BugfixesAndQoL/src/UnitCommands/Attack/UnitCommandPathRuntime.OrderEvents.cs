@@ -210,7 +210,9 @@ namespace BugfixesAndQoL.UnitCommands
                             args.TargetValue1,
                             args.TargetValue2,
                             MovementOptionsSnapshot.Capture(settings));
-                        if (!activeAttackCommand.Options.RequiredOnly)
+                        // Candidates feed only the friendly-moat attack scopes (MoatMove).
+                        if (activeAttackCommand.Options.TraversalEnabled &&
+                            !activeAttackCommand.Options.RequiredOnly)
                         {
                             CaptureAttackCommandCandidates(activeAttackCommand);
                             LogAttackCommandCandidates(activeAttackCommand, "pre");

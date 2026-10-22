@@ -129,10 +129,6 @@ namespace BugfixesAndQoL.UnitCommands
         internal const int UnitAdditionalMovementSubstepsOffset = 0x3CE;
         internal const int MaximumTribeCount = 4500;
         internal const int MaximumUnitCount = 10000;
-        internal static readonly int[] EndpointNeighbourX = { -1, 1, 0, 0, -1, 1, -1, 1 };
-        internal static readonly int[] EndpointNeighbourY = { 0, 0, -1, 1, -1, -1, 1, 1 };
-        internal static readonly byte[] EndpointSourceEdgeMasks =
-            { 0x04, 0x40, 0x10, 0x01, 0x08, 0x20, 0x02, 0x80 };
 
         internal const int MoatRecordArrayOffset = 0x1F3EE30;
         internal const int MoatRecordCountOffset = 0x2038E30;
@@ -144,21 +140,14 @@ namespace BugfixesAndQoL.UnitCommands
         internal const int MaximumRegionId = ushort.MaxValue;
         internal const int MaximumFloodFillStamp = 0x7D00;
         internal const int MapWidth = 800;
-        internal const int MapCellCount = MapWidth * MapWidth;
         // Tile-indexed native arrays contain 0x4E520 entries. MapCellCount is only
         // the rectangular coordinate-cell count used by the managed BFS buffers.
         internal const int NativeTileCount = 0x4E520;
-        internal const int RouteStateShift = 20;
-        internal const int RouteCellMask = (1 << RouteStateShift) - 1;
-        internal const int GroundRouteState = 0;
-        internal const int FriendlyMoatRouteState = 1;
-        internal const int EnemyMoatRouteState = 2;
         internal const uint CompletedMoatTileFlag = 0x40000000;
         internal const uint AlternativeTerrainDelayTileFlag = 0x00200000;
         internal const uint OrdinaryWalkableTileFlag = 0x00008000;
         internal const uint CursorSpecialStructureTileFlagMask = 0x10000300;
         internal const uint BuildingContextBlockingTileFlagMask = 0x0F000000;
-        internal const int PathManagerRouteVariantOffset = 0x80;
         internal const int PathManagerFloodGenerationOffset = 0x04;
         internal const int PathManagerFloodDepthOffset = 0x155F38;
         internal const int PathManagerFloodQueueHeadOffset = 0x155F3C;
@@ -358,7 +347,6 @@ namespace BugfixesAndQoL.UnitCommands
         [ThreadStatic]
         internal static AttackApproachDiagnosticScope activeAttackApproachDiagnostic;
         [ThreadStatic] internal static int attackQualificationTimingDepth;
-        [ThreadStatic] internal static int requiredPublicationTimingDepth;
         [ThreadStatic]
         internal static BuildingApproachPerformanceScope activeBuildingApproachPerformance;
         [ThreadStatic]
@@ -438,23 +426,8 @@ namespace BugfixesAndQoL.UnitCommands
         internal IDisposable mapStartSubscription;
         internal IDisposable mapUnloadSubscription;
         internal bool attackTickSubscribed;
-
-        internal int[] visitedWithoutMoat;
-        internal int[] visitedWithMoat;
-        internal int[] visitedWithEnemyMoat;
-        internal int[] distanceWithoutMoat;
-        internal int[] distanceWithMoat;
-        internal int[] distanceWithEnemyMoat;
-        internal int[] queue;
-        internal int[] observedRouteRegions;
-        internal int[] reachedGroundRegions;
-        internal int[] reachedFriendlyMoatRegions;
-        internal int[] reachedEnemyMoatRegions;
-        internal int gridGeneration;
         internal int mapEpoch;
         internal int cacheMapEpoch = -1;
-        internal bool cacheIncludesEnemyRoutes;
-        internal int cachedReachabilityExpandedNodes;
         internal int fallbackContractRejections;
         internal int cacheStartX = -1;
         internal int cacheStartY = -1;
@@ -505,17 +478,7 @@ namespace BugfixesAndQoL.UnitCommands
         internal int attackCommandSequence;
         internal bool callbackFailureReported;
         internal bool weightedShadowBusy;
-        internal bool targetedRouteProbeBusy;
         internal bool disposed;
-
-        // Scratch data only: command snapshots and native rollback buffers retain their ownership.
-        internal readonly Stack<BuildingFallbackWorkBuffers> buildingFallbackWorkBuffers =
-            new Stack<BuildingFallbackWorkBuffers>();
-        internal readonly Stack<MoatCandidateField> buildingCandidateFields = new Stack<MoatCandidateField>();
-
-        internal int reachabilityQueueHead, reachabilityQueueTail;
-        internal object reachabilityOwner;
-        internal int reachabilityTick;
 
     }
 }

@@ -1,0 +1,381 @@
+# Vor-Release-Prüfung develop → main
+
+Momentaufnahme vom 2026-10-22 (am selben Tag nach Rückmeldung des Nutzers zu B1, B2 und A1 ergänzt). Geprüft wurden:
+
+- Mod-Repo, Branch `dev/Serpens66` (= develop, HEAD `ab291bbfb`): 47 Commits vor `origin/main` (Merge-Basis `a23aa1b32`).
+- APIShared, Branch `dev/Serpens66` (= `origin/develop`): 106 Commits vor `main`. `main` steht auf 0.9.2, develop auf 0.12.5.
+- Umfang (Nutzervorgabe): die Mods des Steam-Modpacks laut `Shared/Tools/Steam/WorkshopConfiguration.ps1`, also BugfixesAndQoL, BuildingCosts, BuildingLimit, ExtraFeatures, RandomEvents, CastlePlanner, StartConditions, UnitCosts, UnitLimit und ExtendedData, außerdem SerpsModsHost, die quellverlinkten `Shared/`-Dateien und APIShared.
+
+Vorgehen: Diffs gegen `main`. Generierte Dateien (dll/pdb, Build-Ausgaben) und reine Diagnose-/Formatänderungen sind herausgefiltert, der Rest wurde gelesen. Jeder Befund wurde im umgebenden Code gegengeprüft, wo nötig auch gegen die echte `Assembly-CSharp.dll`, gegen `origin/main` und gegen den lokalen Fixes-Klon. Am Code wurde nichts geändert.
+
+Schweregrade:
+
+- **Hoch:** blockiert den Release oder kann Spielstände bzw. MP-Partien sichtbar beschädigen.
+- **Mittel:** echtes Risiko oder unbeabsichtigte Verhaltensänderung, vor dem Release klären.
+- **Niedrig:** Schönheitsfehler, Lognoise oder nur in Randfällen relevant.
+- **Info:** kein Fehler, nur ein Hinweis für Test oder Changelog.
+
+---
+
+## 0. Kurzfassung
+
+| # | Schwere | Thema | Empfehlung |
+|---|---|---|---|
+| R1 | **Hoch** | Das Modpack verlangt APIShared ≥ 0.12.3. Veröffentlicht ist aber nur 0.9.2 (`main`). | Zuerst APIShared develop → main mergen, testen und 0.12.5 veröffentlichen, danach das Modpack. |
+| R2 | **Hoch** | Alle Spieler einer MP-Partie brauchen dieselbe APIShared-Version (Save-Readiness-Protokoll v2). | Release von APIShared und Modpack zeitgleich ankündigen, im Changelog deutlich vermerken. |
+| R3 | Mittel | MP-, Coop-, Restart- und Upgrade-Pfade sind neu bzw. stark umgebaut und noch nicht im Spiel getestet. | Testplan in §6 vor dem Merge abarbeiten. |
+| B1 | **Hoch** (Performance) | BugfixesAndQoL: Ohne MoatMove laufen noch vier Pfade mit „Bewegung durch eigenen Graben“ (u. a. Flutfüllungen über die ganze Karte). Laut Nutzerentscheidung soll das ohne MoatMove gar nicht laufen. | **Umgesetzt** (Gates und Verschiebung nach MoatMove, siehe §4.1 B1). Spieltest steht aus. |
+| B2 | Mittel | BugfixesAndQoL: Sprite-Sheet-Merge ist standardmäßig an und kostet etwa +1,6 GB Texturspeicher. | Neuer Modus „Automatisch“ (Default): Merge nur ab 8 GB VRAM (siehe §4.1 B2). |
+| E1 | Mittel | ExtendedData: `ExtendedData.Core.csproj` hat AssemblyVersion 1.0.15, der Mod ist 1.0.16. | Version modweit angleichen. |
+| A1 | **Hoch** | APIShared: Ein werfender Setter bricht das Anwenden eines Preset-Snapshots mitten drin ab. Die Werte davor sind dann schon gesetzt, die danach nicht. Beim Verlassen einer Mission bleibt der Mod bei einem dauerhaft werfenden Setter für immer im Missionskontext. Laut Nutzer nicht beabsichtigt. | Pro Setting isolieren, Default-Fallback, begrenzter Retry (siehe §2 A1). |
+
+Alles Weitere steht in den folgenden Abschnitten.
+
+---
+
+## 1. Release-Reihenfolge und Abhängigkeiten
+
+### R1 – APIShared muss vor dem Modpack veröffentlicht werden (Hoch)
+
+- Befund: Der Modpack-Release nutzt den **veröffentlichten APIShared-main-Release** (ApiSharedSdkPolicy). Auf `main` liegt 0.9.2, die Tags reichen nur bis `APIShared/v0.9.2`. Die Mods verlangen aber:
+  - BugfixesAndQoL, ExtendedData und SerpsModsHost: `MinimumVersion 0.12.3`
+  - ExtraFeatures: `MinimumVersion 0.12.0`
+
+  Dazu kommen APIs, die es nur auf develop gibt, z. B. `HostSettingsOpacity` (seit 0.12.1).
+- Folge: Wird das Modpack zuerst veröffentlicht, lädt der Extender die Mods nicht oder nur mit Abhängigkeitsfehler. Der Build mit SDK-Policy schlägt ebenfalls fehl.
+- Fix:
+  1. APIShared develop → main mergen.
+  2. Tag `APIShared/v0.12.5` setzen, GitHub-Release und Workshop-Update.
+  3. Erst danach den Modpack-Build gegen das veröffentlichte SDK laufen lassen und veröffentlichen.
+
+### R2 – Gleiche APIShared-Version für alle MP-Teilnehmer (Hoch, Kommunikation)
+
+- Befund: Der SavegameLoadCoordinator verwendet Readiness-Protokoll v2 mit 60 s Timeout. Peers mit älterem APIShared beantworten das nicht, das Laden blockiert bzw. läuft in den Timeout.
+- Fix: Kein Codefix nötig. In Workshop-Beschreibung und Changelog deutlich schreiben, dass alle Spieler APIShared und Modpack aktualisieren müssen. Optional: In der Lobby einen klaren Hinweis zeigen, wenn ein Peer eine ältere Protokollversion meldet.
+
+### R3 – Übrige Release-Hinweise (Info)
+
+- Die getrackten Build-Ausgaben `*/BepInEx/plugins/*/info.json` sind teils veraltet: ExtraFeatures 1.0.114, RandomEvents 1.0.52, SerpsModsHost 1.0.28 mit APIShared-Minimum 0.9.2. Der Build überschreibt sie. Nach dem Release-Build prüfen, dass die committeten Ausgaben zur Quelle passen.
+- Quellversionen sind konsistent (PluginVersion, info.json, AssemblyInfo): BFQoL 1.0.195, BuildingCosts 1.0.115, BuildingLimit 1.0.33, CastlePlanner 0.8.44, ExtendedData 1.0.16 (Ausnahme siehe E1), ExtraFeatures 1.0.116, RandomEvents 1.0.53, SerpsModsHost/serps-modpack 1.0.30, StartConditions 1.0.33, UnitCosts 1.0.37, UnitLimit 1.0.107.
+- RandomEvents deklariert APIShared-Minimum 0.7.0 (Niedrig). Prüfen, ob die quellverlinkten `Shared/`-Dateien inzwischen neuere APIShared-APIs nutzen. Falls ja, das Minimum anheben. `Test-DependencyMetadata` war PASS, deckt das aber eventuell nicht ab.
+
+---
+
+## 2. APIShared (develop 0.12.5)
+
+### A1 – LobbyPresetController: Ein werfender Setter bricht den Snapshot halb angewendet ab (Hoch, laut Nutzer nicht beabsichtigt)
+
+**Kontext (geprüft in `src/ModSettings/Presets/LobbyPresetController.Snapshots.cs`, `.Mission.cs`, `PresetLobbyModSettingsViewModel.cs:1082`, `MissionModSettingsSession.cs:196`, `Internal/LobbySettingsRestoreScope.cs`):**
+
+- `main`: `ApplySnapshot` setzte jede Property einzeln über `TryApplyProperty`. Bei einer Exception wurde eine Warning geloggt und der Default-Wert versucht, danach ging es mit der nächsten Property weiter.
+- develop: `ApplySnapshot` und das Laden veröffentlichter Presets laufen über `ApplyPreparedValues`. Dort steht `entry.Key.SetValue(...)` ohne try/catch, in einer Schleife innerhalb von `LobbySettingsRestoreScope.Execute`. Der Code-Kommentar nennt den Grund: „a retryable cleanup cannot be silently converted into a partial success“. Gemeint ist die Missions-Bereinigung. `ExitMissionPreset` soll bei einem Fehler werfen, damit `PresetLobbyModSettingsViewModel.System_ExitMissionPreset` den Missionskontext behält und `MissionModSettingsSession.ExitCore` es später erneut versucht. Diese Absicht ist für die Bereinigung sinnvoll, wurde aber auf **alle** Anwendungspfade ausgedehnt.
+- Das Anfangsladen (`LobbyPresetController.Persistence.cs:34`) nutzt dagegen weiterhin das tolerante `TryApplyProperty`. Damit ist das Verhalten uneinheitlich.
+
+**Folgen:**
+
+1. **Halb angewendeter Zustand:** Wirft die k-te Property, sind die Properties 1…k-1 schon gesetzt, die übrigen nicht. `commit()` (Preset-Auswahl), `OnSettingsSnapshotApplied()`, `PublishSettingsSnapshot` und `WriteCombinedPayload` laufen nicht mehr. Der Rollback stellt nur den Auswahlindex wieder her, nicht die Werte. Die UI zeigt dann gemischte Werte, die weder dem alten noch dem neuen Preset entsprechen und auch nicht gespeichert oder an Clients gesendet werden.
+2. **Missionskontext hängt fest:** Wirft ein Setter dauerhaft (z. B. Validierung eines alten Werts, Fremdmod-Fehler), scheitert `ExitMissionPreset` bei jedem Versuch. Der Mod bleibt dauerhaft im Missionskontext mit Missions- bzw. Trail-Werten. Jede weitere Missionsbereinigung wirft eine `AggregateException`, persönliche Host-Werte kommen nie zurück.
+3. **Preset laden blockiert:** Ein einzelner fehlerhafter Setter verhindert, dass ein ganzes Preset übernommen wird (auch im Host-Lobby-Sync).
+
+**Lösungsvorschlag:**
+
+1. **Pro Setting isolieren, nicht abbrechen.** In `ApplyPreparedValues` jede Property einzeln setzen:
+   - Bei einer Exception den Default dieser Property versuchen.
+   - Scheitert auch der Default, die Property als `Failed` merken und mit den übrigen weitermachen.
+   - Danach `commit()` und `OnSettingsSnapshotApplied()` immer ausführen, damit Auswahl und Werte zusammenpassen.
+   - Rückgabe: ein Ergebnis (`Applied`, `FellBackToDefault[]`, `Failed[]`).
+2. **Ehrliche Persistenz und Sync.** Nach dem Anwenden den tatsächlich gesetzten Stand per `CaptureCurrentSettings()` speichern und veröffentlichen, nicht den gewünschten Snapshot. Bei einem Default-Fallback das Preset als „geändert“ markieren (`SetBasedOn(..., modified: true)`), damit die UI nicht „unverändertes Preset“ anzeigt.
+3. **Bereinigung bleibt wiederholbar, aber begrenzt.** `ExitMissionPreset` und `RestorePersonalHostIfPending` werfen nur noch, wenn `Failed` nicht leer ist, und zwar **nachdem** alle übrigen Werte und die Auswahl zurückgesetzt sind. Die Retry-Zählung pro Property begrenzen (z. B. 3 Versuche oder bis zum nächsten Lobby- bzw. Missionswechsel). Danach die Bereinigung als abgeschlossen behandeln, mit `RuntimeHealth`-Fehler (`MOD_FAILURE`, Mod und Property genannt). So bleibt kein Mod ewig im Missionskontext.
+4. **Melden statt still schlucken.** Default-Fallback als Warning (einmal pro Mod und Property, mit Zeitstempel). Endgültiges Scheitern über RuntimeHealth. Damit bleibt der Vertrag „keine stille Teil-Erfolgsmeldung“ erhalten: Das Ergebnis meldet den Teil-Erfolg ausdrücklich.
+5. **Einheitlich.** Anfangsladen, Preset-Laden, Snapshot-Anwendung und Missions-Exit nutzen denselben Pfad. Das alte `TryApplyProperty` geht darin auf.
+6. **Tests** (`_inspect/HostClientPresetTests`, Pflicht laut `AGENTS/modsettings-ui.md`, mit erhöhten Rechten ausführen):
+   - Setter wirft beim Preset-Laden → übrige Werte und Auswahl gesetzt, Property auf Default, Warning.
+   - Setter wirft auch beim Default → Ergebnis `Failed`, übrige Werte gesetzt, gespeicherter Stand entspricht der UI.
+   - Missions-Exit mit dauerhaft werfendem Setter → begrenzte Retries, danach ist der Kontext verlassen und RuntimeHealth meldet den Fehler.
+   - Missions-Exit mit einmalig werfendem Setter → zweiter Versuch erfolgreich, keine bleibende Abweichung.
+   - Client (keine Host-Properties) und dynamischer Provider/Backend (Komplettvalidierung bleibt unverändert).
+
+### A2 – Personal Storage zieht nach `Documents/SHCDE/APIShared` um (Mittel, Testbedarf)
+
+- Befund: Die Personal-Storage-Migration verschiebt Presets und `.msgpack`-Daten in einen neuen Ordner.
+- Fix: Upgrade-Test von einer echten 0.9.2-Installation mit vorhandenen Presets (siehe §6). Prüfen, ob alte Dateien erhalten bleiben und ob ein zweiter Start nicht erneut migriert. Den neuen Speicherort im Changelog nennen.
+
+### A3 – CoopAiStartImport: Plan-Konflikt bricht den Coop-Start ab (Mittel)
+
+- Befund: Melden BugfixesAndQoL (Custom-Lord-Auswahl) und ExtendedData für denselben Spieler widersprüchliche Import-Pläne, wirft der Coop-Start eine Exception.
+- Risiko: Mit beiden Mods aus dem Modpack und gepackten Coop-Missionen mit Custom-AIC lässt sich die Mission nicht starten.
+- Fix: MP-Test (§6). Bei Konflikt lieber eine deterministische Priorität oder eine klare UI-Meldung statt einer Exception. ExtendedData prüft BFQoL nur per GUID-Präsenz (`CoopAiStartBlockReason`), dort ebenfalls auf echte Aktivierung prüfen.
+
+### A4 – LobbyStateCapability: strengere localPlayerId (Mittel, Testbedarf)
+
+- Befund: `localPlayerId` gilt nur noch, wenn `GameNetworkAPI.GetPlayerIdForSteamId` übereinstimmt.
+- Fix: MP-Test mit Lobby-Beitritt, Slotwechsel und Kartenstart, Host und Client.
+
+### A5 – HostLobbySettingsPublisher / PerPlayerLobbyBroadcastGuard (Mittel, Testbedarf)
+
+- Befund: Hook auf das private `GameXAMLManagerAPI.BroadcastSettingChange`. Senden wird verschoben, bis Lobby-ID und TransportReady vorliegen, und ist während einer Partie ausgesetzt.
+- Fix: MP-Test mit Hoständerungen vor dem Beitritt, nach dem Beitritt, nach einem Slotwechsel und nach der Rückkehr in die Lobby.
+
+### A6 – MissionLifecycle Restart (Niedrig)
+
+- Befund: Der restartSkirmish-Hook ruft `Restart()` auf. Bei einer Editor-Session oder einem fremden Thread wirft das innerhalb des Vanilla-Pfads. Ein Yes in der Bestätigung ohne aktive Session tut nichts und erzeugt nur einen Report.
+- Fix: Im Hook vor `Restart()` mit `Try…` prüfen und bei nicht unterstütztem Kontext Vanilla durchlassen statt zu werfen.
+
+### A7 – FixesWheatStartup.VerifyBinaries pinnt viele Hashes (Niedrig)
+
+- Befund: Gepinnt sind BepInEx core, Assembly-CSharp, UnityEngine.CoreModule, RedBird, Iced, MonoMod und BepInEx.Preloader. Nach jedem Spiel- oder Extender-Update schreibt jeder Start mit installiertem Fixes einen Error „REFUSED/UNCONFIRMED“. Das Verhalten ist fail-closed und damit korrekt, erzeugt aber Lognoise und Supportanfragen. Der Bootstrap-HookRuntime pinnt den BepInEx-Hash (nur Warning).
+- Fix: Diesen Fall als Warning statt Error und einmal pro Hash-Kombination loggen, mit klarer Aussage („Fixes-Weizen-Startkorrektur inaktiv, Spiel unverändert“).
+
+### A8 – Changelog 0.10.0–0.12.5 (Niedrig)
+
+- Befund: Diese Versionen wurden nie öffentlich veröffentlicht. Die 0.12.4-Einträge nennen Features, die schon im 0.12.3-Commit vorhanden waren.
+- Fix: Für den Release optional zu einem gut lesbaren 0.12.5-Eintrag zusammenfassen (historische Einträge darunter erhalten) oder die Zuordnung korrigieren.
+
+### A9 – Sonstiges (Niedrig/Info)
+
+- `InternalsVisibleTo("MoatMove")` wurde entfernt. Das betrifft nur den Testmod (nicht im Modpack), sollte dort aber geprüft werden.
+- `ModSettingsStartLog` loggt bei jedem Missionsstart alle Settings aller Mods als Info. Das Volumen ist vertretbar, kurz bestätigen.
+- `GameplayModActivationGate.IsFeatureAllowed` cacht nur nach `featureId`, nicht nach `modGuid`. Das ist korrekt, solange jede Assembly eine GUID hat, sollte aber kommentiert werden.
+- **Geschützte Arbeitskopie `.work/a/api/001`** (61 geänderte Dateien, Basis `93a67c6`, Stand 17.10.): Die Inhalte scheinen in develop umgesetzt zu sein (NativeHookPublicationState neuer, Pfade nach `Shared/Tools/Paths`), das ist aber **nicht verifiziert**. Vor dem Merge mit develop abgleichen, dann den Schutzvermerk in `.work/INDEX.json` aktualisieren.
+- Nur stichprobenartig gelesen: Workshop/Search, Recruitment, TroopActionHud, GateRoutingNativeHooks (siehe §7).
+
+---
+
+## 3. Shared (quellverlinkt)
+
+### S1 – `DebugLogHelper.LogInfo` ohne Diagnostics komplett unterdrückt (Niedrig)
+
+- Befund: Ohne `DiagnosticsEnabled` schreiben Mods keine READY- oder Lifecycle-Marker mehr ins Release-Log. APIShared loggt Info dagegen immer. Das widerspricht der Logmarker-Empfehlung in `AGENTS/runtime-lifecycle.md` und erschwert Support mit Nutzerlogs.
+- Fix: Absicht klären. Falls gewollt, die AGENTS-Doku anpassen. Sonst eine schmale Ausnahme für einmalige Statusmarker (z. B. `LogStatus`) einführen.
+
+### S2 – RuntimeHealthLedger: Warnungen als „MOD_FAILURE“ (Niedrig)
+
+- Befund: Shared taggt Warnungen als `MOD_FAILURE`, APIShared unterscheidet `MOD_WARNING`. Außerdem postet Shared Fehler aus fremden Threads über `SynchronizationContext`, während APIShared sofort schreibt.
+- Fix: Tag an APIShared angleichen (`MOD_WARNING`). Das Thread-Verhalten dokumentieren oder vereinheitlichen.
+
+---
+
+## 4. Mods
+
+### 4.1 BugfixesAndQoL (1.0.195)
+
+**B1 – „Bewegung durch eigenen Graben“ läuft ohne MoatMove noch teilweise (Hoch, Performance) – UMGESETZT, noch nicht im Spiel getestet**
+
+*Umsetzungsstand 2026-10-22 (Arbeitsstand, nicht committet):*
+
+- **Phase A (Gates).** Ohne MoatMove (`TraversalEnabled == false`) laufen an den Hooks nur noch Vanilla und die eigenständigen BFQoL-Fixes. Betroffen sind:
+  - Einheiten-Angriffsflut, Gebäude-Builder und Gebäude-Consumer: nur noch Vanilla plus Leiter-Fix (`RunBuildingCandidateConsumerWithVanillaLadderFix` neu).
+  - Attack-Scopes und Kandidatenerfassung (`OrderEvents`) sowie direktes Grabenfüllen.
+  - Der E2610-Diagnose-String läuft nur noch unter `SERP_DEVDIAG`.
+  - Fill-Präfix: ohne MoatMove `MoatTraversalPolicy.GroundOnly` (Nutzerentscheidung). Die volle Fill-„Improvement“-Route entfällt dort, weil sie Grabenkanten verlangt.
+- **Phase B (Verschiebung).** An jeder Gate-Stelle wurde der Traversal-Teil als `…Traversal`-Methode herausgeschnitten, 18 Einstiegspunkte insgesamt. Sie sind jetzt abstrakt in `UnitCommandTraversalProvider` (`BugfixesAndQoL/src/UnitCommands/Movement/TraversalProvider.cs`) deklariert und werden von BFQoL nur über `Traversal.…` aufgerufen.
+  - Alle Member, die danach nur noch von dort erreichbar waren, wurden semantisch ermittelt (Roslyn, transitive Hülle) und nach `Testmods/MoatMove/src/Moved/` verschoben: 130 Member (Methoden, Felder, Konstanten, drei Typen), rund 4 300 Zeilen aus 32 BFQoL-Dateien.
+  - Die Umschreibung von `this`-Zugriffen auf `runtime.` erfolgte per Semantikmodell, nicht per Textsuche.
+  - 11 reine Weiterleitungen aus `TraversalDispatch.cs` entfallen. Der verschobene Code ruft direkt die Provider-Implementierung.
+  - Darunter: Graben-Flutfüllung (`ReachabilityMap`), Pflichtrouten-Suche, Angriffs- und Gebäude-Fallbacks samt Scopes und Veröffentlichung, Mode-/Builder-/Gruppen-Traversal, Cursor-Topologie, Platzierung und Unstacking über eigene Gräber, direktes Füllen, Fallback-Pfadpublikation und -Audit.
+  - `APIShared.Internal.GameBuildingFootprint` wurde durch die identische quellverlinkte `Shared.GameBuildingFootprint` ersetzt (APIShared gibt MoatMove keine Internals mehr frei). `Shared/Runtime/Diagnostics/DevDiag.cs` ist in MoatMove verlinkt.
+  - `Testmods/MoatMove/tests/Test-Preflight.ps1` löst jetzt Wildcard-Compile-Einträge auf.
+- **Bewusst in BFQoL geblieben:**
+  - die nativen Hooks und Fehlerbarrieren (Hook-Besitz, keine überlappenden Hooks)
+  - Zustands- und Datentypen, die auch die BFQoL-Hooks nutzen (`PlanScope`, `MoveCommandScope`, Scopes, Delegates) als Schnittstelle zum Provider
+  - der gewichtete Planer bzw. die Publikation, die das Feindgraben-Füllen braucht
+  - „Verbesserte manuelle Einheitenbefehle“ für Einheiten, die schon im Graben stehen (native Vanilla-Proben)
+- **Schon vorher tot:** Neun Member waren bereits auf HEAD ohne Aufrufer und blieben unangetastet: `IsMoveFormationTargetAvailable`, `LogBuilderDecision`, `LogCursorOwnerBlockDecision`, `LogPositiveCursorDecision`, `MoatRecordReservationOffset`, `MoatReservationStep`, `ObserveRuntimeCadenceShadow`, `TryReadMoatRecord`, `loggedFormationExecuteMoveTypes`. Sie sind ein Kandidat für eine separate Bereinigung.
+- **Hooks nach APIShared (geprüft, nicht empfohlen):** Das widerspricht `AGENTS/apishared.md` („Native Algorithmen, Hooks … gehören nicht allein wegen eines gemeinsamen Addons nach APIShared“). Es kehrte außerdem die Entscheidung aus `f491e4360` und `_inspect/APISharedOwnership/COMMAND_OWNERSHIP_AUDIT.md` um und erzwänge eine dauerhaft kompatible öffentliche API für rund 18 Erweiterungspunkte samt Zustandstypen, also faktisch die Rückverlagerung der Engine. Sinnvoll erst, wenn MoatMove ohne BFQoL laufen soll.
+- **Prüfungen:** siehe §5 „B1-Prüfungen“.
+
+Nutzerentscheidung vom 2026-10-22: MoatMove und der zugehörige Code sind noch nicht effizient genug und wurden deshalb ausgelagert. Ohne den Testmod MoatMove darf **kein** Code zum Thema „Bewegung durch eigenen Graben“ laufen, weil er Lags verursacht. Der Umzug der Graben-Arbeitszielwahl (Commit `321e513ce`) ist damit gewollt. Ein Changelog-Eintrag genügt („Gräber-Fallback durch eigene Gräben vorerst entfernt“).
+
+Audit (Codeanalyse, `BugfixesAndQoL/src/UnitCommands`). Ohne Provider gilt `UnitCommandPathAPI.Traversal == null` und damit `TraversalEnabled == false`. `RouteCalculationMode` ist dann `Exact` (nicht `RequiredOnly`).
+
+*Korrekt an MoatMove gekoppelt:*
+
+- `TryFindRequiredFriendlyCompletedMoatRouteForPlan` (`Movement/UnitCommandPathRuntime.RequiredRoutes.cs:46`): ohne Traversal nur `TryQualifyNativeMoatStart`, also native Probe für Einheiten, die bereits im eigenen Graben stehen. Das ist das vorgesehene Vanilla-Verhalten aus „Verbesserte manuelle Einheitenbefehle“. Darüber laufen auch `TryQualifyMoveCommandFloodBypass`, `…ToEndpoint` und `TryRecoverBeforeBuilder`.
+- `ProbeCursorConnectivity` (`Cursor/CursorConnectivity.cs:255`), Cursor-Gruppenauswahl (`Cursor/UnitCommandPathRuntime.Selection.cs:38`), Graben-Arbeitsrouten (`Moat/UnitCommandPathRuntime.WorkTargetReachability.cs:58–70`), Graben-Arbeitszielwahl `relationshipMode == 1`, alle Weiterleitungen in `Movement/TraversalDispatch.cs`, `CreatePlacementSearch` (`Moat/MoatPlacement.cs:203`).
+
+*Ohne MoatMove noch aktiv (zu gaten):*
+
+1. **Angriff auf Einheiten:** `ObserveScopedRegionPairReachabilityCore` → `EvaluateAttackUnitRegionFallback` (`Attack/UnitCommandPathRuntime.RegionFallback.cs:151`) → `TryFindFriendlyCompletedMoatRouteToAttackApproach` (`RequiredRoutes.cs:426`) → `EnsureReachabilityMap` + `GetCachedRouteSummaryForTarget`. Das ist eine Flutfüllung über die ganze Karte mit Zuständen für eigene Gräber, bis zu 8× pro Region-Paar. Erfolg ist nur möglich mit `ReachedWithMoat && FriendlyMoatTiles > 0`. Ohne MoatMove ist das reine Arbeit ohne Nutzen. Dazu legt `ApproachFlood.cs:79` im Exact-Modus für **jeden** Angriffsbefehl einen Diagnose-Scope samt `EnsureAttackCommandCandidates` und `CaptureAttackApproachState` an.
+2. **Angriff auf Gebäude:** `EvaluateAttackBuildingRegionFallback` (`RegionFallback.cs:196/341`) und `TryApplyBuildingConsumerFallback` (`Attack/UnitCommandPathRuntime.BuildingCandidates.cs:298`, `BuildingFallback.cs:28`) suchen mit `BuildingCandidateEdge(... MoatTraversalPolicy.FriendlyOnly ...)` Anlaufwege durch eigene Gräber.
+3. **Feindgraben direkt füllen:** `TryAllowDirectFillRegionPair` (`Moat/DirectMoatCommandScopes.cs:247`) ruft je Start-Region `EnsureReachabilityMap` auf. Erlaubt wird nur bei `ReachedWithMoat && !ReachedWithoutMoat && FriendlyMoatTiles > 0`, also nur mit einem Weg durch den eigenen Graben.
+4. **Gewichtete Fill-Routen (Shadow):** `TryCaptureBuilderWeightedScope` (`Movement/WeightedMoatPublication.cs:24/94`) erlaubt `fill-moat-work` ausdrücklich ohne Traversal (Feature „Feindliches Grabenfüllen verbessern“). Der Planer sucht dabei mit `FriendlyOnly` (`WeightedMoatRoutePlanner.cs:397/415/468/523/719`), Fill-Routen dürfen also eigene Gräber queren. Hier ist zu prüfen, ob für das Grabenfüllen ein Modus ohne eigene Gräber reicht (`GroundOnly` plus feindliche Kontaktkante).
+5. **Nebenbefund Hot Path:** `ObserveScopedRegionPairReachabilityCore` (`RegionFallback.cs` ca. Z. 112) baut bei **jedem** nativen E2610-Aufruf während eines Bewegungsbefehls einen `$"E2610-observed:…"`-String und fügt ihn in ein HashSet ein, auch ohne Diagnose. Das ist eine Allokation pro Region-Paar-Abfrage → nur unter `SERP_DEVDIAG` bzw. `DetailedDiagnosticsEnabled`.
+
+*Fix-Vorschlag (zentral statt Einzelpflaster):*
+
+- **a) Flutfüllung:** In `EnsureReachabilityMap` und `VisitNeighbour` ohne `TraversalEnabled` niemals in den Zustand `FriendlyMoatRouteState` wechseln. Ein Start im eigenen Graben bleibt dem nativen Pfad (`TryQualifyNativeMoatStart`) überlassen. Damit endet jede Flut ohne MoatMove am Grabenrand.
+- **b) Frühes Aussteigen:** Die Fallbacks 1–3 vor jeglicher Erfassung oder Flut mit `if (!TraversalEnabled) return Reject("traversal-unavailable")` verlassen. Ihr einziges Erfolgskriterium braucht eigene Gräber.
+- **c) Angriffs-Scopes:** Im Exact-Modus nur anlegen, wenn `TraversalEnabled` oder DEVDIAG aktiv ist.
+- **d) Fill-Shadow:** ohne Traversal eine Policy ohne eigene Gräber verwenden, oder nur nach kurzer Rücksprache, falls das Grabenfüllen sonst schlechter wird.
+- **e) Punkt 5:** in DEVDIAG verschieben.
+- **f) Absicherung:**
+  - In DEVDIAG einen Zähler für „Friendly-Moat-Expansionen“ ergänzen und im Lauf ohne MoatMove auf 0 prüfen.
+  - Einen statischen Vertragstest (wie `Testmods/MoatMove/tests/SplitContracts.cs`), der in BFQoL jede Nutzung von `FriendlyMoatRouteState` und `MoatTraversalPolicy.FriendlyOnly` außerhalb ausdrücklich freigegebener, gegateter Stellen meldet.
+  - Danach die Spieltests aus §6 Punkt 6 (Angriffe von Einheiten mit Grab-Fähigkeit nahe eigener Gräber, Feindgraben füllen) mit und ohne MoatMove wiederholen und die Lags vergleichen.
+
+**B2 – Sprite-Sheet-Merge: Default abhängig vom VRAM (Mittel)**
+
+- Befund: `EnableSpriteSheetMerge = true` ist der Default. Die Optimierung legt 16384²-Seiten an, die Originale bleiben geladen (etwa +1,6 GB, Vanilla etwa 2,4 GB). Die harte Schwelle `SystemInfo.graphicsMemorySize ≥ 6144 MB` ist für 6–8-GB-Karten knapp. Positiv: rein clientseitig, fail-closed, Asset-Overrides ausgespart, kein überlappender Patch im Fixes-Mod oder Extender.
+- Nutzerwunsch: Das Standardverhalten soll davon abhängen, ob mindestens 8 GB VRAM vorhanden sind.
+- **Warum nicht einfach den Default im ViewModel berechnen:** Die Defaults werden in `BugfixesAndQoLViewModel` (ca. Z. 1595 ff.) als feste Werte gesetzt und vom Presetsystem als Default-Snapshot, für „Zurücksetzen“ und in Preset-Dateien verwendet. Ein dort aus `SystemInfo` berechneter Wert würde Defaults und Preset-Exporte maschinenabhängig machen. Außerdem würde er die Desktop-Tests ohne Unity (`_inspect/HostClientPresetTests`) brechen. Und er würde beim ersten Speichern in die lokale `.msgpack` übernommen, eine spätere Grafikkarte würde ihn also nicht mehr ändern.
+- **Vorschlag:**
+  - Die bool-Einstellung durch eine Auswahl `SpriteSheetMergeMode` ersetzen: `Automatisch` (Default), `An`, `Aus`. Weiterhin `[PresetLocal]`.
+  - Neuer Property-Name (z. B. `SpriteSheetMergeMode`). Die alte bool-Property gab es nur auf develop, sie war nie veröffentlicht. Deshalb ist laut AGENTS keine Rückwärtskompatibilität nötig, nur ein Retired-Eintrag, damit alte Testerdateien nicht stören.
+  - Entschieden wird erst in `SpriteSheetMergeOptimization.Decide` (Unity-Hauptthread, nach dem Laden der Sprites):
+    - `Automatisch` → Merge nur bei `SystemInfo.graphicsMemorySize ≥ 8192`.
+    - `An` → Merge, solange die technischen Prüfungen (`maxTextureSize`, `CopyTexture`) und die harte Mindestgrenze 6144 MB erfüllt sind.
+    - `Aus` → nie.
+  - Ins Log kommt einmal, welcher Modus und welcher erkannte VRAM-Wert zur Entscheidung führten (`SPRITE_SHEET_MERGE_AUTO: graphicsMemory=… MB → on/off`).
+  - Tooltip und Locales (alle Sprachen) anpassen: „Automatisch: ab 8 GB Grafikspeicher“.
+- Hinweis: `SystemInfo.graphicsMemorySize` meldet bei integrierten GPUs teils Shared Memory. Optional `Automatisch` zusätzlich auf `SystemInfo.graphicsDeviceType`/dedizierte GPU beschränken, oder im Tooltip darauf hinweisen.
+- Test: je ein Lauf mit Automatisch auf einer Karte < 8 GB und einer ≥ 8 GB (Log-Entscheidung prüfen), Wechsel An/Aus mit Neustart, `HostClientPresetTests` wegen der geänderten Property (Pflicht laut `AGENTS/modsettings-ui.md`).
+
+**B3 – Neue Default-an-Features mit Spielauswirkung (Info/Testbedarf)**
+
+- `EnableSoloMultiplayerSaveLoading`: ILHook auf `FRONT_Multiplayer.Update`, damit ein allein bereiter Host einen MP-Save laden kann. Das Vanilla-Remapping bleibt erhalten. Der IL-Vertrag wird streng geprüft und ist sonst fail-closed. → Test: Solo-Host lädt einen MP-Save, danach ein normaler MP-Save mit zwei Spielern.
+- `FixSkirmishLoadButtonVisibility`: macht den Laden-Button im Skirmish-Setup sichtbar. → Test, dass er im Coop verborgen bleibt.
+- `EnableVanillaPerformanceOptimizations` (Radar-Rebind, MeritData-Lock-Cache): nur UI. `GetMeritData` hat außer dem Spectator-UI und Vanilla-Panels keine Mod-Konsumenten. Ok.
+
+**B4 – Neue Save-Records (Info/Testbedarf)**
+
+- `SessionSaveRecordSlot` mit `BugfixesAndQoL-SingleBuildingPause`, `BugfixesAndQoL-TroopMovementSync` und neu der Seuchen-Popularitäts-Ledger. Schreibt bei fehlendem Zustand bewusst MessagePack-nil, damit ältere Einträge nicht wiederauferstehen. Logisch geprüft: ok.
+- Test: Speichern und Laden (SP und MP) mit pausiertem Einzelgebäude und laufendem synchronisiertem Truppenmarsch. Zusätzlich: Ein mit der neuen Version erstellter Save wird mit 1.0.192 geladen (unbekannte Handler dürfen nicht stören).
+
+**B5 – SavegameMissingMap: Hash-Pin auf Assembly-CSharp (Niedrig)**
+
+- Befund: `RuntimeStartup.ValidateGameAssembly` pinnt `BC8B6A39…D789`. Das passt aktuell zur installierten DLL (geprüft). Nach jedem Spielupdate deaktiviert sich der Fix mit einem Error.
+- Weitere Kleinigkeiten:
+  - Die Statusmeldung „WAITING: installed APIShared 0.9.2“ ist veraltet (APIShared ist jetzt 0.12.5).
+  - Der Hash wird selbst berechnet statt über `Shared.DebugLogHelper.GetFileSha256`.
+  - Die Soft-`BepInDependency` auf `SavegameMissingMapFixTest_Serp` dient nur der Erkennung des Legacy-Testmods. Das ist in Ordnung, der frühere Verdacht auf Testreste ist damit ausgeräumt.
+- Fix: Meldungstext korrigieren. Optional ein Warning statt Error beim Hash-Mismatch, mit klarer Aussage („nach Spielupdate inaktiv“).
+
+**B6 – Assassinen-Pfadfindung: Kantenpruning und `FindAnyWeightedRoute` (Mittel, Testbedarf)**
+
+- Logisch geprüft und korrekt. Pfadfindung wirkt aber auf alle Peers, deshalb ist der Testbedarf für MP und Determinismus hoch (Assassinen über Mauern, Torhäuser, Zugbrücken, mit Fixes-Mod).
+
+**B7 – Gate-Routing auf Simulationsticks umgestellt (Info)**
+
+- Tor-Policies und Topologie werden jetzt im Sim-Tick aktualisiert statt im Render-Frame bzw. nach Wall-Clock, im Editor weiter im Render-Frame. Das ist eine Determinismus-Verbesserung. Hooks werden jetzt beim Start installiert (Nutzerentscheidung vom 2026-10-20).
+- Test: Tor erobern und im MP sofort durchlaufen lassen.
+
+**B8 – NotificationLastFrame / NotificationSpeechPlayback umgebaut (Mittel, Testbedarf)**
+
+- Neu: der Hook `OnScreenText.addOSTEntry` sowie eine Kopplung an `OST_Message_Bar_Vis`. Kanal-1-Sprache läuft über einen gemeinsamen Owner, der jetzt **jede** akzeptierte Kanal-1-Sprache zählt.
+- Prüfpunkte:
+  - `OnAddText` ruft `Finish()` und damit Noesis-`MediaElement.Stop/Close` direkt auf. Das ist korrekt, solange `addOSTEntry` nur auf dem Unity-Hauptthread läuft. Der Kommentar in `ResetMapState` deutet an, dass Missionsmeldungen aus anderen Threads kommen können. → Thread im Test loggen (DEVDIAG) bzw. bestätigen.
+  - `folder.StartsWith("_SE_")` wirft bei `folder == null`. Das wird gefangen und geloggt, dann fehlt aber die Sprachausgabe. → Null-Check ergänzen (Niedrig).
+- Test: Minimap-Video mit Sprache, Briefing schließen und wieder öffnen, schnell aufeinanderfolgende Meldungen, Linksklick zum Ausblenden, Karte wechseln.
+
+**B9 – Weitere geprüfte Änderungen ohne Befund (Info)**
+
+- Native Detour-Barrieren für alle zentralen Movement-Hooks (Vanilla läuft genau einmal), korrekt.
+- `HookInstallPhase` ohne Thread-Suspension im LibraryLoaded-Fenster, korrekt, aber an den Hauptthread gebunden.
+- Die Zeitmessungen `DetailedDiagnosticsEnabled ? Stopwatch… : 0` (54 Stellen) speisen nur Diagnose. Alle Suchbudgets sind knotenbasiert, nicht zeitbasiert. Geprüft.
+- `QuarryPileRelocation`-Timeout jetzt in Ticks.
+- SiegeAmmoRestock-, Plague- und Waterboy-Zustand pro Karte statt pro Prozess (behebt MP-Divergenz).
+- `ReachableEnemyGatehouseRuntime`-Cache pro Tick.
+- Atomares Schreiben in `SkirmishAiSelectionMemoryHook` plus Backup unlesbarer Stores.
+- Spectator nutzt jetzt `eGameTypeModes`.
+
+**B10 – Kleinere Punkte (Niedrig)**
+
+- BFQoL nutzt `APIShared.Internal.*` per InternalsVisibleTo. Das ist vorbestehend, macht BFQoL aber bei jeder internen APIShared-Änderung release-gekoppelt.
+- Neue feste Daten-RVAs (z. B. `ChorePatrolModeRva = 0x86C1338`, FormationSpeech) sind hashgebunden. Nach einem Spielupdate erneut auditieren.
+
+### 4.2 ExtendedData (1.0.16)
+
+- **E1 (Mittel):** `ExtendedData.Core/ExtendedData.Core.csproj` hat Assembly- und FileVersion 1.0.15, der Mod ist 1.0.16. Das verstößt gegen die modweit atomare Versionierung. → Auf 1.0.16 setzen (oder die Core-Assembly bewusst getrennt versionieren und das dokumentieren).
+- **E2 (Niedrig):** `README.md` wurde auf develop geändert. Bestätigen, dass das autorisiert war.
+- **E3 (Mittel, Testbedarf):** Der XAML-Patch `HUD_LoadSaveRequester` setzt beim ExtendedData-Host und beim APIShared-Host jeweils `Margin 45,360`. Das ist nur korrekt, wenn beide nie gleichzeitig sichtbar sind. → Ingame testen (Laden mit beiden Mods aktiv).
+- **E4 (Niedrig):** Der Cache `BepInEx/cache/ExtendedData/TrailMaker` (TrailMakerEmbeddedMap) wächst unbegrenzt. → Größen- oder Altersgrenze einführen bzw. beim Start alte Einträge entfernen.
+- **E5 (Info):** Coop-Pakete im Schema 5 sind nur ab 1.0.16 lesbar. Zusammen mit R2 kommunizieren.
+- Siehe auch A3 (Coop-Plan-Konflikt mit BFQoL).
+
+### 4.3 ExtraFeatures (1.0.116)
+
+- Fear-Factor jetzt als native Stubs. Verifiziert: neutral entspricht `baseDamage`, korrekt.
+- **X1 (Niedrig/Mittel):** Die Hooks ElevatedMoat und AIDefenseRepair werden jetzt immer beim Start installiert, auch wenn das Feature aus ist. Das kostet Startzeit und erhöht die Kompatibilitätsfläche. Laut Nutzerentscheidung ist eine längere Startzeit akzeptabel. → Startzeit messen und im Test mit dem Fixes-Mod prüfen.
+- **X2 (Niedrig):** Die Guard-Fenster sind jetzt in Ticks (80) und laufen während einer Pause nicht ab. Das ist wahrscheinlich gewollt, kurz bestätigen.
+- MarketPriceOverrides über OwnedValueOverrides: logisch ok.
+
+### 4.4 CastlePlanner (0.8.44)
+
+- **C1 (Mittel, Testbedarf):** Der Commit-Restart läuft über `APIShared.MissionRestart.Run(CommitRestartCore)` inklusive `startGameTrampoline`. → MP-Test Castle-Preview → Commit → Restart, Host und Client.
+- **C2 (Niedrig):** `FreeCastleIdentityReadiness` hat einen Timeout von 30 s. Bei langsamen Peers prüfen, ob das reicht und ob die Fehlermeldung verständlich ist.
+- **C3 (Niedrig):** `Prepare-ThinPackage.ps1` kennt die GUID `CastlePlanner_Serp_dev`. Prüfen, dass kein Dev-Paket ins Release gelangt.
+- **C4 (Info):** Viele Wortlaut-Tests wurden entfernt. Das ist im Sinne der Vertragsregel, aber die Abdeckung der Kernpfade sollte erhalten bleiben.
+
+### 4.5 UnitCosts (1.0.37) / UnitLimit (1.0.107)
+
+- Direkte Zugriffe auf `MainViewModel.lastTroopBuildChimp/lastTroopsAmountToMake` gegen die echte Assembly-CSharp geprüft: public, ok.
+- OwnedValueOverrides und RecruitmentAvailability über APIShared: logisch ok.
+- Kein Befund. MP-Rekrutierung mit beiden Mods testen.
+
+### 4.6 StartConditions (1.0.33)
+
+- Fehlende Einträge werden jetzt zu -1/0 statt zum aktuellen Wert (Fix Issue 6): ok.
+- **SC1 (Niedrig):** `build.bat` führt `BugfixesAndQoL/tests/Issue6.Tests` und einen `_inspect`-Test aus. Das ist eine modübergreifende Build-Abhängigkeit. → Test nach StartConditions verschieben oder optional machen.
+
+### 4.7 BuildingCosts (1.0.115) / BuildingLimit (1.0.33) / RandomEvents (1.0.53)
+
+- Nur Log-Guards und kleine Optimierungen, kein Befund. RandomEvents-Minimum siehe R3.
+
+### 4.8 SerpsModsHost (1.0.30)
+
+- **H1 (Niedrig, vorbestehend):** Die Beschreibung in `info.json` listet ExtendedData nicht unter „Included mods“. → Ergänzen.
+
+---
+
+## 5. Tooling und Doku
+
+- **T1 (Niedrig):** `Shared/Tools/Validation/Test-IngameTooltips.ps1` schlägt standalone fehl (Exit 1). Ursache: `param([string]$Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')))`, und in PowerShell 5.1 ist `$PSScriptRoot` im Param-Default leer. Innerhalb von `Test-SharedBoundaries` läuft es durch (PASS). → Default im Body setzen (`if (-not $Workspace) { … }`).
+- **T2 (Niedrig):** `AGENTS/build-release.md` beschreibt `STEAM_MOD_XX`-Einträge im Kopf von `CreateSteamModPack.bat`. Die gibt es nicht mehr, die Mods stehen in `WorkshopConfiguration.ps1`. → Doku aktualisieren.
+- **T3 (Info):** `Test-SharedBoundaries` meldet „SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj“. → Inventar bereinigen.
+- **T4 (Info):** `Test-DevDiagnostics` meldet ein Item (`Shared/Runtime/Native/TemporaryPackedRouteInspection.cs`, unter `#if SERP_DEVDIAG`). Für Release-Builds unkritisch. Vor dem finalen Release entscheiden, ob es bleibt.
+
+Prüfergebnisse dieses Laufs: `Test-SharedBoundaries` PASS, `Test-DependencyMetadata` PASS (51 Manifeste), `Test-PermanentNativeRuntimePatches` PASS, alle info.json valides JSON, Changelogs vorhanden. Gebaut wurde nicht.
+
+**B1-Prüfungen (2026-10-22, Arbeitsstand nach Umsetzung, nur MSBuild-Kompilierung, kein `build.bat`, nicht installiert):**
+
+| Prüfung | BFQoL | MoatMove |
+|---|---|---|
+| Kompilierung | PASS | PASS |
+| `Test-UnitCommandSplit` (echte `Assembly-CSharp.dll`, CRLF, JSON/Lifecycle, keine Hook-Mutationen) | PASS | PASS |
+| `Test-SharedBoundaries -ModDirectory` | PASS | PASS |
+| `Test-PermanentNativeRuntimePatches -ModDirectory` | PASS | PASS |
+| `tests/Test-Preflight.ps1` | – | PASS (jetzt mit Wildcard-Auflösung) |
+| `ImprovedMoatFilling.Tests` | PASS | – |
+| `AssassinPathfinding.Tests` | PASS | – |
+| `FriendlyMoatMovement.Tests` (inkl. `SplitContracts`) | PASS | – |
+| `git diff --check` | sauber | sauber |
+
+- **MoatMove-Testsuite** (`dotnet run --project tests/MoatMove.Tests.csproj`): FAIL in `ValidateDetailedDiagnostics`. Die Prüfung verlangt `static readonly bool DetailedDiagnosticsEnabled = false`, BFQoL hat dort aber schon auf HEAD (Commit 995) `const bool` hinter `#if SERP_DEVDIAG`. Der Fehler bestand also schon vor B1. Die Suite liest die Quellen noch als historische `FriendlyMoatMovementRuntime`-Kopie und muss für den neuen Schnitt (`src/Moved`) überarbeitet werden. Separater Wartungspunkt für den Testmod.
+- **Offen:** regulärer `build.bat`-Lauf beider Mods und Spieltests mit und ohne MoatMove (§6 Punkt 6): Angriffe von Einheiten mit Grab-Fähigkeit nahe eigener Gräber, Gebäudeangriffe, Feindgraben füllen, Bewegung aus dem eigenen Graben. Dazu der Lag-Vergleich ohne MoatMove gegenüber dem bisherigen Stand.
+- **Verhaltensänderung ohne MoatMove (Changelog):**
+  - Gräber-Fallbacks durch eigene Gräber entfallen.
+  - Angriffsziele von Gräber-Einheiten werden nicht mehr gegen feindliche Gräber gefiltert, das macht jetzt Vanilla.
+  - Fill-Routen queren keine eigenen Gräber mehr.
+
+---
+
+## 6. Testplan vor dem Merge (empfohlen)
+
+1. **Upgrade:** saubere 0.9.2/Modpack-main-Installation mit vorhandenen Presets, AI-Auswahl-Store und Saves → auf APIShared 0.12.5 und das neue Modpack aktualisieren → Presets da, Migration nach `Documents/SHCDE/APIShared` einmalig, alte Saves laden (A2, B4).
+2. **MP-Lobby (Host und Client):** Beitritt, Slotwechsel, Hoständerungen vor und nach dem Beitritt, Preset laden, Kartenstart (A1, A4, A5).
+3. **MP-Save/Load:** mit beiden Peers auf gleicher Version; zusätzlich ein Peer mit alter APIShared-Version, damit Timeout und Meldung geprüft sind (R2). Solo-Host lädt einen MP-Save (B3).
+4. **Coop:** gepackte Coop-Mission mit Custom-AIC, BFQoL und ExtendedData aktiv (A3, E5).
+5. **Restart:** Skirmish-Restart SP und MP. CastlePlanner Preview → Commit → Restart im MP (A6, C1).
+6. **Gameplay-Determinismus MP:** Assassinen über Tore, Mauern und Zugbrücken; Tor erobern; Gräber mit und ohne eigene Moats (B1, B6, B7). Die Partie mehrere Minuten laufen lassen und auf Desync achten.
+7. **Client-Optik:** Sprite-Merge auf einer 8-GB-Karte, VRAM beobachten; Minimap-Videos und Meldungen (B2, B8).
+8. **Kompatibilität:** alles einmal zusammen mit dem Fixes-Mod und dem aktuellen Script Extender; Startzeit messen (X1).
+9. **Karteneditor:** Start, Gate-Routing im Render-Frame-Pfad, Save im Editor (kein Save-Record, siehe `SessionSaveRecordSlot`).
+
+---
+
+## 7. Grenzen dieser Prüfung
+
+- Kein Build und kein Ingame- oder MP-Test. Alle Laufzeitaussagen beruhen auf Codeanalyse.
+- APIShared-Bereiche Workshop/Search, Recruitment, TroopActionHud und GateRoutingNativeHooks wurden nur stichprobenartig gelesen.
+- Locales und CRLF wurden nicht vollständig über alle Dateien geprüft (nur über die Validierungsskripte).
+- Reine Diagnoseänderungen (`#if SERP_DEVDIAG`, `[Conditional("SERP_DEVDIAG")]`) wurden nur auf Release-Neutralität geprüft, nicht inhaltlich.

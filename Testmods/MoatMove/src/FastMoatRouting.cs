@@ -54,7 +54,7 @@ namespace MoatMove
             if (!state.Maps.TryGetValue(key.Player, out FastTraversalCache map))
             {
                 int player = key.Player;
-                runtime.EnsureCursorTopology(player, false);
+                EnsureCursorTopology(player, false);
                 map = new FastTraversalCache(MapWidth, MapWidth,
                     (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
                         FastLiveEdge(player, a, b, direction, ground, out wet, out structure));
@@ -114,7 +114,7 @@ namespace MoatMove
             state.Access = access; state.AccessKnown = true;
             foreach (var pair in state.Maps)
             {
-                runtime.EnsureCursorTopology(pair.Key, false);
+                EnsureCursorTopology(pair.Key, false);
                 if (changed) pair.Value.MarkAll();
                 IReadOnlyCollection<int> nodes = pair.Value.Refresh();
                 if (nodes.Count != 0)
@@ -277,7 +277,7 @@ namespace MoatMove
                 plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY, plan.PlayerId,
                     runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false);
             if (!ground && plan.QualifiedRoute == null && plan.MoatWorkMovement &&
-                runtime.TryBuildTerminalFillRoute(plan, unit, sx, sy, out found, out WeightedMoatEncodedRoute terminal))
+                TryBuildTerminalFillRoute(plan, unit, sx, sy, out found, out WeightedMoatEncodedRoute terminal))
             { plan.QualifiedTerminalRoute = terminal; plan.QualifiedTerminalSummary = found; }
             summary = FastSummary(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, ground, found);
             return !ground && (plan.QualifiedRoute != null || plan.QualifiedTerminalRoute.IsValid) && found.MoatEdges > 0;

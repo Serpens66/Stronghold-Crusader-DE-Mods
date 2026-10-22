@@ -89,13 +89,6 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
-        internal PlacementSearchState CreatePlacementState(CursorRegionGraph graph, int player, int x, int y)
-        {
-            int anchor = CursorNode(player, GameTileManagerAPI.Instance.GetTileId(x, y));
-            return new PlacementSearchState { Graph = graph, Revision = graph.Revision, Anchor = anchor,
-                FromAnchor = graph.StartForwardSearch(anchor), Search = CreatePlacementSearch(player, x, y) };
-        }
-
         internal void InstallPlacementAdapters(
             HookTransaction transaction, ReadOnlySpan<byte> memory, ulong libraryBase)
         {
@@ -197,25 +190,6 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
-        internal MoatPlacementSearch CreatePlacementSearch(int player, int x, int y)
-        {
-            return new MoatPlacementSearch(MapWidth, MapWidth, y * MapWidth + x,
-                (from, to) => PlacementEdge(player, from, to));
-        }
-
-        internal bool PlacementEdge(int player, int from, int to)
-        {
-            int x = from % MapWidth, y = from / MapWidth, nx = to % MapWidth, ny = to / MapWidth;
-            int a = GameTileManagerAPI.Instance.GetTileId(x, y), b = GameTileManagerAPI.Instance.GetTileId(nx, ny);
-            if (!IsValidTileId(a) || !IsValidTileId(b) || movementTargetAvailability[to] == 0 ||
-                CursorNode(player, a) < 0 || CursorNode(player, b) < 0) return false;
-            for (int d = 0; d < 8; d++)
-                if (x + WeightedMoatRoutePlanner.DirectionX[d] == nx && y + WeightedMoatRoutePlanner.DirectionY[d] == ny)
-                    return weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, a, nx, ny, b, d,
-                        false, false, MoatTraversalPolicy.FriendlyOnly, out _, out _);
-            return false;
-        }
-
         internal bool PlacementAvailable(int player, int unitId, int cell)
         {
             if (movementTargetAvailability[cell] == 0) return false;
@@ -243,8 +217,7 @@ namespace BugfixesAndQoL.UnitCommands
         {
             if (ProbeNativeManualPath(unitId, x, y)) return true;
             if (!TraversalEnabled || !CanDigMoat(unit)) return false;
-            var probe = new PlanScope(unitId, x, y) { VanillaFailureProven = true, ExactRouteEndpoints = true };
-            return TryFindRequiredFriendlyCompletedMoatRouteForPlan(probe, true, false, out _);
+            return Traversal.CanReachPlacementThroughFriendlyMoatTraversal(unitId, x, y);
         }
 
         internal void PreparePlacement(UnitMoveFrame frame)
@@ -290,24 +263,9 @@ namespace BugfixesAndQoL.UnitCommands
                 ApplyPlacement(frame, batch, unit, player, batch.NativeSearch, nativeChosen);
                 return;
             }
-            int start = GameTileManagerAPI.Instance.GetTileId(sx, sy);
-            CursorTopology topology = EnsureCursorTopology(player);
-            int source = CursorNode(player, start);
-            if (source < 0) return;
-            if (batch.Revision != placementRevision) { batch.Searches.Clear(); batch.Revision = placementRevision; }
-            if (!batch.Searches.TryGetValue(player, out PlacementSearchState state) || !state.Matches(topology.Graph))
-                batch.Searches[player] = state = CreatePlacementState(topology.Graph, player, batch.X, batch.Y);
-            MoatPlacementSearch search = state.Search;
-            weightedMoatRoutePlanner.BeginReachabilityProbe();
-            try
-            {
-                if (!search.TryReserve(args.UnitId, source,
-                    cell => !batch.Reserved.Contains(cell) && PlacementAvailable(player, args.UnitId, cell),
-                    cell => state.CanReach(source, CursorNode(player,
-                        GameTileManagerAPI.Instance.GetTileId(cell % MapWidth, cell / MapWidth))), out int chosen)) return;
-                ApplyPlacement(frame, batch, unit, player, search, chosen);
-            }
-            finally { weightedMoatRoutePlanner.EndReachabilityProbe(); }
+            // Non-native batches are created only with the friendly-moat provider (MoatMove).
+            if (TraversalEnabled)
+                Traversal.PrepareFriendlyMoatPlacementTraversal(frame, batch, unit, player, sx, sy);
         }
 
         internal void ApplyPlacement(UnitMoveFrame frame, PlacementBatch batch, GameUnit* unit,
@@ -401,20 +359,8 @@ namespace BugfixesAndQoL.UnitCommands
                         idlePlacementTick = CaptureCurrentGameTick(); idlePlacementEpoch = mapEpoch;
                         idlePlacementRevision = placementRevision;
                     }
-                    if (TraversalEnabled && manager == (IntPtr)nativeUnitManager &&
-                        (nativeExecutingUnitId != null && *nativeExecutingUnitId == id) &&
-                        APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null &&
-                        APIShared.UnitAccess.IsReallyAlive(unit) && CanDigMoat(unit) &&
-                        GamePlayerManagerAPI.Instance.IsPlayerIdValid(unit->r_ControllableForPlayerId))
-                    {
-                        int tile = unchecked((int)unit->r_CurrentPositionTileId);
-                        if (IsValidTileId(tile) && IsCompletedMoatTile(tile) &&
-                            IsFriendlyCompletedMoatForWeightedShadow(unit->r_ControllableForPlayerId, tile) &&
-                            IsOccupiedByOtherLivingUnit(tile, id))
-                            unstackUnit = new PlacementUnit { Id = id, Global = unit->r_GlobalId,
-                                Player = unit->r_ControllableForPlayerId, X = unit->r_CurrentTilePositionX,
-                                Y = unit->r_CurrentTilePositionY, Epoch = mapEpoch, Tick = CaptureCurrentGameTick() };
-                    }
+                    if (TraversalEnabled)
+                        unstackUnit = Traversal.CreateFriendlyMoatUnstackUnitTraversal(manager, id);
                 }
                 catch (Exception ex) { unstackUnit = null; TryLogDiagnosticFailure("unstack-context", ex); }
                 if (unstackUnit != null) unstackCalls++;
@@ -433,39 +379,8 @@ namespace BugfixesAndQoL.UnitCommands
             if (scope == null || scope.FreeSearchConsumed || manager != nativePathManager || ignoredUnit != -1 ||
                 x != scope.X || y != scope.Y || !PlacementIdentity(scope, out GameUnit* unit))
             { originalFreePlace(manager, ignoredUnit, x, y); return; }
-            scope.FreeSearchConsumed = true;
-            byte* output = (byte*)manager;
-            *(int*)(output + 0x44) = 0; *(int*)(output + 0x48) = 0; *(int*)(output + 0x4C) = 0;
-            try
-            {
-                CursorTopology topology = EnsureCursorTopology(scope.Player);
-                int source = CursorNode(scope.Player, GameTileManagerAPI.Instance.GetTileId(x, y));
-                if (source < 0) return;
-                long key = ((long)scope.Player << 32) | (uint)(y * MapWidth + x);
-                if (!idleSearches.TryGetValue(key, out var state) || !state.Matches(topology.Graph))
-                    idleSearches[key] = state = CreatePlacementState(topology.Graph, scope.Player, x, y);
-                var search = state.Search;
-                scope.Search = search;
-                weightedMoatRoutePlanner.BeginReachabilityProbe();
-                try
-                {
-                    if (!search.TryReserve(scope.Id, source,
-                        cell => cell != y * MapWidth + x && !idleReservedCells.Contains(cell) && PlacementAvailable(scope.Player, scope.Id, cell),
-                        cell => state.CanReach(source, CursorNode(scope.Player,
-                            GameTileManagerAPI.Instance.GetTileId(cell % MapWidth, cell / MapWidth))), out int chosen)) return;
-                    scope.Cell = chosen;
-                    if (!PlacementIdentity(scope, out unit) || !PlacementAvailable(scope.Player, scope.Id, chosen))
-                    { search.Release(scope.Id, chosen); return; }
-                    idleReservedCells.Add(chosen);
-                    // Only the documented output triple. Native 181890 owns the move
-                    // call, collision test and state transition; no synthetic orders.
-                    *(int*)(output + 0x44) = chosen % MapWidth;
-                    *(int*)(output + 0x48) = chosen / MapWidth;
-                    *(int*)(output + 0x4C) = GameTileManagerAPI.Instance.GetTileId(chosen % MapWidth, chosen / MapWidth);
-                }
-                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); }
-            }
-            catch (Exception ex) { TryLogDiagnosticFailure("unstack-placement", ex); }
+            // An unstack scope exists only with the friendly-moat provider (MoatMove).
+            Traversal.FindUnstackPlaceTraversal(scope, manager, x, y);
         }
     }
 }

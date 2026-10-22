@@ -150,7 +150,7 @@ namespace MoatMove
                 if (!TryGetFastMember(member, tribe->r_PlayerIdOwner, out GameUnit* unit) || !runtime.CanDigMoat(unit)) continue;
                 GetNativeMovementStart(unit, out int sx, out int sy);
                 if ((uint)sx >= MapWidth || (uint)sy >= MapWidth ||
-                    !runtime.IsSamePositiveGroundRegion(GameTileManagerAPI.Instance.GetTileId(sx, sy), target)) needsSearch = true;
+                    !IsSamePositiveGroundRegion(GameTileManagerAPI.Instance.GetTileId(sx, sy), target)) needsSearch = true;
             }
             if (!ordinary || !needsSearch)
                 return false;

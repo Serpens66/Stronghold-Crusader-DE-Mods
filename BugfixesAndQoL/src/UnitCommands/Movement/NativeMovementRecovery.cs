@@ -300,15 +300,6 @@ namespace BugfixesAndQoL.UnitCommands
             finally { weightedMoatRoutePlanner.EndReachabilityProbe(); }
         }
 
-        internal void ObserveNativeModeEntry(UnitMoveFrame frame, int id)
-        {
-            nativeModeEntries++;
-            if (frame == null || frame.Args.UnitId != id) return;
-            frame.NativeModeReached = true;
-            if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
-                frame.PrePortalRegion = *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset));
-        }
-
         internal void RestoreFailedRecovery(UnitMoveFrame frame, long result)
         {
             if (result > 0 || !frame.RecoveryApplied || frame.Plan == null ||

@@ -1,11 +1,53 @@
 using System;
 using System.Collections.Generic;
+using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
 using static BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime;
 namespace BugfixesAndQoL.UnitCommands
 {
     internal abstract unsafe class UnitCommandTraversalProvider
     {
+        // Friendly-moat movement (MoatMove). BugfixesAndQoL owns the native hooks and calls these
+        // only while TraversalEnabled; without the provider every hook keeps the Vanilla result.
+        internal abstract void AttackApproachFloodTraversal(
+            IntPtr pathManager, int tribeId, int targetContext, uint targetX, uint targetY,
+            int requestedResults, int sourceRegion, int movementClass);
+        internal abstract void BuildingApproachBuilderTraversal(
+            IntPtr pathManager, int tribeId, int buildingId, int requestedResults,
+            int sourceRegion, int movementClass);
+        internal abstract void BuildingCandidateConsumerTraversal(
+            IntPtr tribeManager, int tribeId, int builderVariant);
+        internal abstract int ResolveAttackScopeRegionPairTraversal(AttackApproachDiagnosticScope scope,
+            int movementClass, int sourceRegion, int targetRegion, int routeKind, int vanillaResult);
+        internal abstract bool ProbeCursorConnectivityTraversal(int player, int start, int target, out RouteProbeSummary summary);
+        internal abstract bool TryQualifySelectedGroupCursorRouteTraversal(
+            AttackCursorPairScope template, int[] ids, string token,
+            ref AttackCursorPairScope boundScope, out CursorGroupRouteSummary group);
+        internal abstract DirectFillCommandScope CreateDirectFillCommandScopeTraversal(TribeIssueOrderWithTargetEventArgs args);
+        internal abstract bool TryAllowDirectFillRegionPairTraversal(
+            DirectFillCommandScope scope, int candidateRegion, int startRegion);
+        internal abstract void LogDirectFillCommandTraversal(DirectFillCommandScope scope, TribeIssueOrderWithTargetEventArgs args);
+        internal abstract bool CanReachPlacementThroughFriendlyMoatTraversal(int unitId, int x, int y);
+        internal abstract void PrepareFriendlyMoatPlacementTraversal(UnitMoveFrame frame, PlacementBatch batch,
+            GameUnit* unit, int player, int sx, int sy);
+        internal abstract PlacementUnit CreateFriendlyMoatUnstackUnitTraversal(IntPtr manager, int id);
+        internal abstract void FindUnstackPlaceTraversal(PlacementUnit scope, IntPtr manager, int x, int y);
+        internal abstract bool TryGetMoatWorkRouteTraversal(
+            MoatWorkSelectionScope scope, int targetX, int targetY,
+            out RouteProbeSummary summary);
+        internal abstract int BuildPathWithCompletedMoatRouteVariantTraversal(
+            IntPtr pathManager, int movementClass, int movementProfile,
+            PlanScope resolvedPlan, bool planResolved, bool reconstruction);
+        internal abstract int SelectOwnerSafeGroupMoatModeTraversal(
+            IntPtr tribeManager, int tribeId, int vanillaResult, MoveCommandScope command);
+        internal abstract bool TryFindRequiredFriendlyRouteTraversal(
+            PlanScope plan,
+            bool exactTarget,
+            bool allowReservedTarget,
+            out RouteProbeSummary summary,
+            bool evaluateMissing);
+        internal abstract int ResolveScopedCompletedMoatModeTraversal(
+            IntPtr unitManager, int unitId, int vanillaResult, UnitMoveFrame moveFrame);
         // Optional work policy. The command owner always tries the complete native selector first.
         internal virtual int FindDigWorkTarget(IntPtr tiles, int player, int unit, int vanillaResult) => vanillaResult;
         internal virtual bool TryAllowDigWorkRegion(MoatWorkSelectionScope scope, int region) => false;

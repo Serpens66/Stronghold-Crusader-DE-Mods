@@ -9,7 +9,7 @@ namespace MoatMove
 {
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        private long fastVanillaBypasses;
+        private long fastVanillaBypasses, fastSearches;
         private IFastRouteField fastCandidateField;
         private MoatSearchEdge fastCandidateEdge;
         private bool fastCandidateBusy;

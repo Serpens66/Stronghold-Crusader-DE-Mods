@@ -86,10 +86,12 @@ namespace BugfixesAndQoL.UnitCommands
                 prefixLimits[i] = new MoatSearchLimit(limits[i].Ground, limits[i].Moat,
                     limits[i].Maximum - 2 * limits[i].Moat);
             }
+            // Without MoatMove the prefix never crosses a friendly moat (user decision 2026-10-22).
             bool found = weightedMoatRoutePlanner.TryBuildImprovement(shadow.PlayerId,
                 shadow.StartX, shadow.StartY, px, py, shadow.CostProfile, false, prefixLimits,
                 out WeightedMoatRouteSummary prefixSummary, out WeightedMoatEncodedRoute prefix,
-                requireMoat: false, maximumEdges: WeightedMoatRoutePlanner.MaximumRouteEdges - 2);
+                requireMoat: false, maximumEdges: WeightedMoatRoutePlanner.MaximumRouteEdges - 2,
+                policy: TraversalEnabled ? MoatTraversalPolicy.FriendlyOnly : MoatTraversalPolicy.GroundOnly);
             shadow.AccumulatedSearchMilliseconds += prefixSummary.SearchMilliseconds;
             bool emptyPrefix = prefix.DirectionCount == 0 && prefix.Bytes != null && shadow.StartX == px && shadow.StartY == py;
             if (!found || (!prefix.IsValid && !emptyPrefix) || prefix.DirectionCount + 2 > WeightedMoatRoutePlanner.MaximumRouteEdges) return false;

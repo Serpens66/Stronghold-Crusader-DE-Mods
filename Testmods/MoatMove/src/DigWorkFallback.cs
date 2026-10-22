@@ -30,7 +30,7 @@ namespace MoatMove
             {
                 try
                 {
-                    if (runtime.TryCreatePendingDigMoatTarget(scope, result, out PendingDigMoatTarget pending))
+                    if (TryCreatePendingDigMoatTarget(scope, result, out PendingDigMoatTarget pending))
                         pendingDigMoatTarget = pending;
                 }
                 catch (Exception ex) { runtime.TryLogDiagnosticFailure("dig-moat-provider-handoff", ex); }
@@ -54,19 +54,19 @@ namespace MoatMove
         {
             if (!IsCurrentDigWork(scope) || region <= 0 || region > MaximumRegionId) return false;
             var state = (DigWorkState)scope.TraversalWorkState;
-            runtime.EnsureMoatWorkReachability(scope);
+            EnsureMoatWorkReachability(scope);
             if (state.Generation != scope.ReachabilityGeneration)
             {
                 state.Regions.Clear();
                 state.Generation = scope.ReachabilityGeneration;
             }
             if (state.Regions.TryGetValue(region, out bool cached)) return cached;
-            int before = runtime.cachedReachabilityExpandedNodes;
+            int before = cachedReachabilityExpandedNodes;
             // A failed native query is the reason for the extension. Find a positive
             // moat witness; do not exhaust a second ground search to prove its absence.
-            runtime.AdvanceReachabilityMap(targetRegion: region);
-            scope.SearchExpandedNodes += runtime.cachedReachabilityExpandedNodes - before;
-            bool allowed = runtime.reachedFriendlyMoatRegions[region] == runtime.gridGeneration;
+            AdvanceReachabilityMap(targetRegion: region);
+            scope.SearchExpandedNodes += cachedReachabilityExpandedNodes - before;
+            bool allowed = reachedFriendlyMoatRegions[region] == gridGeneration;
             state.Regions[region] = allowed;
             return allowed;
         }
@@ -78,19 +78,19 @@ namespace MoatMove
             if (!IsCurrentDigWork(scope) || (uint)x >= MapWidth || (uint)y >= MapWidth) return false;
             int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
             if (!IsValidTileId(tile)) return false;
-            runtime.EnsureMoatWorkReachability(scope);
+            EnsureMoatWorkReachability(scope);
             int cell = y * MapWidth + x;
             if (scope.EndpointRoutes.TryGetValue(cell, out summary))
             { scope.EndpointCacheHits++; return summary.RouteFound; }
-            int before = runtime.cachedReachabilityExpandedNodes;
-            runtime.AdvanceReachabilityMap(targetCell: cell, requireMoat: true);
-            scope.SearchExpandedNodes += runtime.cachedReachabilityExpandedNodes - before;
+            int before = cachedReachabilityExpandedNodes;
+            AdvanceReachabilityMap(targetCell: cell, requireMoat: true);
+            scope.SearchExpandedNodes += cachedReachabilityExpandedNodes - before;
             summary = runtime.cachedRouteSummary;
             summary.TargetRegion = runtime.pathRegionGrid[tile];
             summary.AttackProbeEvaluated = true;
-            summary.RouteFound = summary.ReachedWithMoat = runtime.visitedWithMoat[cell] == runtime.gridGeneration;
+            summary.RouteFound = summary.ReachedWithMoat = visitedWithMoat[cell] == gridGeneration;
             summary.ReachedWithoutMoat = false;
-            summary.RouteDistance = summary.RouteFound ? runtime.distanceWithMoat[cell] : int.MaxValue;
+            summary.RouteDistance = summary.RouteFound ? distanceWithMoat[cell] : int.MaxValue;
             scope.EndpointRoutes[cell] = summary;
             return summary.RouteFound;
         }

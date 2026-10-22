@@ -36,45 +36,7 @@ namespace BugfixesAndQoL.UnitCommands
             if (ManualCommandsEnabled && TryQualifyNativeSelection(template, ids, token, out boundScope, out group) && group.AllowFallback)
                 return true;
             if (!TraversalEnabled) return group.SelectedUnits > 0;
-            group = default; group.SelectionSignature = token;
-            EnsureCursorTopology(template.PlayerId, false);
-            cursorSources.Clear(); cursorSourceCounts.Clear();
-            foreach (int id in ids)
-            {
-                if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
-                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId) continue;
-                group.SelectedUnits++;
-                bool canDig = CanDigMoat(unit);
-                if (canDig) group.DiggerUnits++;
-                int x = unit->r_CurrentTilePositionX, y = unit->r_CurrentTilePositionY;
-                if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
-                int tile = GameTileManagerAPI.Instance.GetTileId(x, y), node = CursorNode(template.PlayerId, tile);
-                if (node < 0) continue;
-                int key = node * 2 + (canDig ? 1 : 0);
-                if (cursorSources.ContainsKey(key)) { cursorSourceCounts[key]++; continue; }
-                cursorSources.Add(key, new SelectedCursorUnitSnapshot(id, x, y, tile, canDig));
-                cursorSourceCounts[key] = 1;
-            }
-            AttackCursorPairScope probe = null;
-            foreach (var entry in cursorSources)
-            {
-                var member = entry.Value;
-                if (probe == null) probe = CreateCursorScopeForSnapshot(template, member);
-                else probe.SetSource(member);
-                if (!TryQualifyCursorScope(probe, out _, out _, out RouteProbeSummary summary)) continue;
-                if (!member.CanDig && !summary.ReachedWithoutMoat) continue;
-                group.ObservedRoute.MergeObservations(summary);
-                group.LegallyReachableUnits += cursorSourceCounts[entry.Key];
-                if (summary.ReachedWithMoat && !summary.ReachedWithoutMoat) group.FriendlyMoatSeparatedUnits += cursorSourceCounts[entry.Key];
-                if (boundScope != null) continue;
-                boundScope = CreateCursorScopeForSnapshot(template, member);
-                group.RepresentativeUnitId = member.UnitId; group.RepresentativeStartX = member.StartX;
-                group.RepresentativeStartY = member.StartY; group.RepresentativeStartTileId = member.StartTileId;
-                group.RepresentativeCanDig = member.CanDig;
-            }
-            group.AllowFallback = boundScope != null;
-            if (boundScope != null) { boundScope.GroupCursorAuthorized = true; boundScope.GroupSelectionSignature = token; }
-            return group.SelectedUnits > 0;
+            return Traversal.TryQualifySelectedGroupCursorRouteTraversal(template, ids, token, ref boundScope, out group);
         }
 
         internal static AttackCursorPairScope CreateCursorScopeForSnapshot(
@@ -105,59 +67,6 @@ namespace BugfixesAndQoL.UnitCommands
         internal bool TryCaptureSelectedGroup(
             int playerId, out int[] selectedUnitIds, out string signature)
         { return CaptureCursorSelection(playerId, out selectedUnitIds, out signature); }
-
-        internal bool TryProbeDirectCursorRoute(
-            AttackCursorPairScope scope,
-            out bool normalReachable,
-            out bool friendlyMoatSeparated,
-            out RouteProbeSummary summary)
-        {
-            normalReachable = false; friendlyMoatSeparated = false; summary = default;
-            if (scope == null || (uint)scope.TargetX >= MapWidth || (uint)scope.TargetY >= MapWidth ||
-                !IsValidTileId(scope.TargetTileId) || movementTargetAvailability[scope.TargetY * MapWidth + scope.TargetX] == 0 ||
-                (tileFlags[scope.TargetTileId] & MovementBlockedLowTileFlagMask) != 0)
-            { RecordCursorDecision("invalid-move-target", scope); return false; }
-            if (!ProbeCursorConnectivity(scope.PlayerId, scope.StartTileId, scope.TargetTileId, out summary)) return false;
-            normalReachable = summary.ReachedWithoutMoat;
-            friendlyMoatSeparated = summary.ReachedWithMoat && !normalReachable;
-            return true;
-        }
-
-        internal bool TryProbeUnitApproachCursorRoute(
-            AttackCursorPairScope scope,
-            out bool normalReachable,
-            out bool friendlyMoatSeparated,
-            out RouteProbeSummary summary)
-        {
-            normalReachable = false; friendlyMoatSeparated = false; summary = default;
-            if (scope == null || !CursorScopeMatchesTargetTile(scope, scope.TargetTileId))
-            { RecordCursorDecision("invalid-attack-target", scope); return false; }
-            // 8C5F0 passes the actual target unit tile to E2CA0. Reachability is not
-            // a melee approach search; weapon and command eligibility stay native.
-            if (!ProbeCursorConnectivity(scope.PlayerId, scope.StartTileId, scope.TargetTileId, out summary)) return false;
-            normalReachable = summary.ReachedWithoutMoat;
-            friendlyMoatSeparated = summary.ReachedWithMoat;
-            return true;
-        }
-
-        internal bool TryQualifyCursorScope(
-            AttackCursorPairScope scope,
-            out int approachX,
-            out int approachY,
-            out RouteProbeSummary summary)
-        {
-            approachX = -1; approachY = -1; summary = default;
-            if (!ExtensionsEnabled || scope == null) return false;
-            bool normal, friendly;
-            if (scope.FallbackKind == CursorPairFallbackKind.DirectTile)
-            {
-                approachX = scope.TargetX; approachY = scope.TargetY;
-                return TryProbeDirectCursorRoute(scope, out normal, out friendly, out summary) && (normal || friendly);
-            }
-            if (scope.FallbackKind == CursorPairFallbackKind.UnitApproach)
-                return TryProbeUnitApproachCursorRoute(scope, out normal, out friendly, out summary) && (normal || friendly);
-            return TryProbeBuildingApproachCursorRoute(scope, out normal, out friendly, out approachX, out approachY, out summary) && (normal || friendly);
-        }
 
         internal bool CursorScopeMatchesTargetTile(AttackCursorPairScope scope, int targetTileId)
         {

@@ -364,6 +364,13 @@ namespace BugfixesAndQoL.UnitCommands
                 WeightedMoatRouteSummary candidate = default;
                 WeightedMoatEncodedRoute route = default;
                 if (reuse) { candidate=qualified.Summary;route=qualified.Route;shadow.CandidateFound=true; }
+                // A complete improvement must contain moat edges, i.e. cross a friendly moat:
+                // MoatMove only. Without it just the ground prefix of a fill contact is tried.
+                else if (!TraversalEnabled)
+                {
+                    shadow.CandidateFound = false;
+                    candidate = WeightedMoatRouteSummary.Failed("friendly-moat-provider-unavailable", 0);
+                }
                 else shadow.CandidateFound = weightedMoatRoutePlanner.TryBuildImprovement(shadow.PlayerId,
                     shadow.StartX, shadow.StartY, shadow.TargetX, shadow.TargetY, shadow.CostProfile,
                     shadow.AllowReservedTarget, limits, out candidate, out route);

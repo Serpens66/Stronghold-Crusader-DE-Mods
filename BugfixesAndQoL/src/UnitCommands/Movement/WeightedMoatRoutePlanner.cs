@@ -517,10 +517,11 @@ namespace BugfixesAndQoL.UnitCommands
         internal bool TryBuildImprovement(int playerId, int startX, int startY, int endX, int endY,
             WeightedMovementCostProfile profile, bool reservedTarget, MoatSearchLimit[] limits,
             out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route,
-            bool requireMoat = true, int maximumEdges = MaximumRouteEdges)
+            bool requireMoat = true, int maximumEdges = MaximumRouteEdges,
+            MoatTraversalPolicy policy = MoatTraversalPolicy.FriendlyOnly)
         {
             return TryBuildCore(playerId, startX, startY, endX, endY, profile, reservedTarget, true,
-                MoatTraversalPolicy.FriendlyOnly, out summary, out route, limits, true,
+                policy, out summary, out route, limits, true,
                 requireMoat: requireMoat, maximumEdges: maximumEdges);
         }
 
