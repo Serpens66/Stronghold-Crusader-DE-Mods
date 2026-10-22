@@ -55,3 +55,21 @@ Assert ($r.PerfProbeState -eq 'active' -and -not $r.HasSamples -and $r.Warnings.
 $r=Get-PerfProbeAnalysis -Lines @('[Message:Perf Probe] [00:00:00.000] DEVDIAG: threadSample thread=main samples=12 self: CDE=12')
 Assert ($r.PerfProbeState -eq 'active' -and $r.HasSamples) 'Usable legacy samples were not detected.'
 'PASS: actual parser: latest start, overlap/adjacency, cumulative subthreshold calls, BFQoL correlation, source-scoped events, coverage, loading and legacy midnight.'
+$stubLines=@(
+ '[Message:RedBird] [12:00:00.000] ["filter"] compiled stub at 0x1000, size: 80 bytes (target: 0x2000)',
+ '[Message:Perf Probe] [12:00:00.000] DEVDIAG: runContext schema=2 stopwatchFrequency=1000 nativeUnknownIp=exact',
+ '[Message:Perf Probe] [12:00:00.120] DEVDIAG spike: frame:interval ms=120 start=12:00:00.000 end=12:00:00.120 thread=1 event=1 startStamp=1000 endStamp=1120',
+ '[Message:Perf Probe] [12:00:00.125] DEVDIAG: spikeSample event=1 thread=main samples=9 self: dyn@0x104F=5,dyn@0x1050=4',
+ '[Message:Perf Probe] [12:00:00.125] DEVDIAG: samplerCapture startStamp=1000 endStamp=1120 cadenceMode=sleep-degraded missedIntervals=8'
+)
+$r=Get-PerfProbeAnalysis -Lines $stubLines
+Assert ($r.Groups[0].NativeStubSamples.Count -eq 2) 'Exact unknown instruction addresses lost.'
+Assert ($r.Groups[0].NativeStubSamples[0].Resolution -eq 'exact-range' -and $r.Groups[0].NativeStubSamples[0].Stub -eq 'filter') 'Last byte of exact logged stub was not attributed.'
+Assert ($r.Groups[0].NativeStubSamples[1].Resolution -eq 'unknown-or-ambiguous') 'First byte outside stub was falsely attributed.'
+Assert (($r.Groups[0].Hints -join ';') -match 'degraded') 'Sleeping fallback sampling coverage warning missing.'
+$legacyStub=@($stubLines|Where-Object {$_ -notmatch 'nativeUnknownIp=exact'})
+$r=Get-PerfProbeAnalysis -Lines $legacyStub
+Assert ($r.Groups[0].NativeStubSamples[0].Resolution -eq 'unknown-or-ambiguous') 'Legacy 64-byte bucket crossing stub end must remain ambiguous.'
+$r=Get-PerfProbeAnalysis -Lines ($stubLines+@('[Message:RedBird] [12:00:00.000] ["overlap"] compiled stub at 0x1040, size: 32 bytes (target: 0x3000)'))
+Assert ($r.Groups[0].NativeStubSamples[0].Resolution -eq 'unknown-or-ambiguous') 'Overlapping stub ranges were resolved without evidence.'
+'PASS: exact native stub boundaries, legacy ambiguity, overlapping ranges and degraded sampling cadence.'

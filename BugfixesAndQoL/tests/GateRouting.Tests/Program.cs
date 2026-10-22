@@ -61,6 +61,7 @@ namespace BugfixesAndQoL.GateRouting
                 DirectionAdapterTileRegistersMatchNativeDataFlow();
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
+                DirectionAdapterExecutionTests.Run();
                 BaselinePlayerScopesUseNativeArguments();
                 BuildingSearchContextsSeparateVanillaAndMovement();
                 DirectCursorCallsiteContractIsExact();

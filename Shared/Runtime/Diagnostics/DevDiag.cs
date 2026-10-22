@@ -3,6 +3,7 @@ using System.Diagnostics;
 using BepInEx.Logging;
 #if SERP_DEVDIAG
 using System.Globalization;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 #endif
@@ -21,6 +22,20 @@ namespace Shared
     // Names should be string literals: the slot lookup compares references first.
     internal static class DevDiag
     {
+        [Conditional("SERP_DEVDIAG")]
+        internal static void BeginBatch()
+        {
+#if SERP_DEVDIAG
+            DevDiagRuntime.BeginBatch();
+#endif
+        }
+        [Conditional("SERP_DEVDIAG")]
+        internal static void EndBatch()
+        {
+#if SERP_DEVDIAG
+            DevDiagRuntime.EndBatch();
+#endif
+        }
         // Writes aggregated "DEVDIAG perf:" lines to this logger every few seconds.
         [Conditional("SERP_DEVDIAG")]
         internal static void Attach(ManualLogSource log)
@@ -121,6 +136,36 @@ namespace Shared
         private static long nextFlush;
         private static long windowStart;
         private static ManualLogSource logger;
+        private static long rejectedAdds;
+        [ThreadStatic] private static Dictionary<string, int> localSlots;
+        [ThreadStatic] private static long[] batchCalls, batchTicks, batchMax;
+        [ThreadStatic] private static int batchDepth, pendingCount;
+        [ThreadStatic] private static PendingSpike[] pending;
+        private struct PendingSpike { internal string Name, Detail; internal long Elapsed; internal DateTime End; internal int Thread; }
+        internal static void BeginBatch()
+        {
+            if (batchCalls == null)
+            {
+                batchCalls = new long[Capacity]; batchTicks = new long[Capacity]; batchMax = new long[Capacity];
+                pending = new PendingSpike[SpikeLinesPerWindow];
+            }
+            batchDepth++;
+        }
+        internal static void EndBatch()
+        {
+            if (batchDepth == 0 || --batchDepth != 0) return;
+            for (int i = 0; i < Capacity; i++)
+            {
+                if (batchCalls[i] != 0 || batchTicks[i] != 0) Merge(i, batchCalls[i], batchTicks[i], batchMax[i]);
+                batchCalls[i] = batchTicks[i] = batchMax[i] = 0;
+            }
+            for (int i = 0; i < pendingCount; i++)
+            {
+                var item = pending[i]; pending[i] = default;
+                WriteSpike(item.Name, item.Elapsed, item.Detail, item.End, item.Thread);
+            }
+            pendingCount = 0; MaybeFlush();
+        }
 
         internal static void Attach(ManualLogSource log)
         {
@@ -136,16 +181,32 @@ namespace Shared
 
         internal static void Add(string name, long amount, long elapsed)
         {
-            int slot = Slot(name);
-            if (slot < 0) return;
+            if (name == null) return;
+            if (localSlots == null) localSlots = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (!localSlots.TryGetValue(name, out int slot))
+            { slot = Slot(name); if (slot >= 0 && localSlots.Count < Capacity) localSlots[name] = slot; }
+            if (slot < 0) { Interlocked.Increment(ref rejectedAdds); if (batchDepth == 0) MaybeFlush(); return; }
+            if (batchDepth != 0)
+            {
+                batchCalls[slot] += amount; batchTicks[slot] += elapsed;
+                if (elapsed > batchMax[slot]) batchMax[slot] = elapsed;
+                return;
+            }
+            Merge(slot, amount, elapsed, elapsed); MaybeFlush();
+        }
+        private static void Merge(int slot, long amount, long elapsed, long max)
+        {
             Interlocked.Add(ref Calls[slot], amount);
             if (elapsed > 0)
             {
                 Interlocked.Add(ref Ticks[slot], elapsed);
                 long observed;
-                while (elapsed > (observed = Volatile.Read(ref MaxTicks[slot])) &&
-                    Interlocked.CompareExchange(ref MaxTicks[slot], elapsed, observed) != observed) { }
+                while (max > (observed = Volatile.Read(ref MaxTicks[slot])) &&
+                    Interlocked.CompareExchange(ref MaxTicks[slot], max, observed) != observed) { }
             }
+        }
+        private static void MaybeFlush()
+        {
             long now = Stopwatch.GetTimestamp();
             long due = Volatile.Read(ref nextFlush);
             if (due != 0 && now >= due &&
@@ -165,12 +226,22 @@ namespace Shared
                 Add("spikes.suppressed", 1, 0);
                 return;
             }
-            DateTime end = DateTime.Now;
+            if (batchDepth != 0)
+            {
+                if (pendingCount < pending.Length) pending[pendingCount++] = new PendingSpike
+                { Name = name, Elapsed = elapsed, Detail = detail, End = DateTime.Now, Thread = Thread.CurrentThread.ManagedThreadId };
+                else Add("spikes.suppressed", 1, 0);
+                return;
+            }
+            WriteSpike(name, elapsed, detail, DateTime.Now, Thread.CurrentThread.ManagedThreadId);
+        }
+        private static void WriteSpike(string name, long elapsed, string detail, DateTime end, int thread)
+        {
             DateTime start = end.AddTicks(-(long)(elapsed * (double)TimeSpan.TicksPerSecond / Stopwatch.Frequency));
             CultureInfo c = CultureInfo.InvariantCulture;
             Write("DEVDIAG spike: " + name + " ms=" + (elapsed * 1000.0 / Stopwatch.Frequency).ToString("F1", c) +
                 " start=" + start.ToString("HH:mm:ss.fff", c) + " end=" + end.ToString("HH:mm:ss.fff", c) +
-                " thread=" + Thread.CurrentThread.ManagedThreadId.ToString(c) +
+                " thread=" + thread.ToString(c) +
                 (string.IsNullOrEmpty(detail) ? "" : " " + detail));
         }
 
@@ -206,6 +277,7 @@ namespace Shared
             int count = Volatile.Read(ref used);
             var line = new StringBuilder(64 + count * 64);
             line.Append("DEVDIAG perf: window=").Append(seconds.ToString("F1", CultureInfo.InvariantCulture)).Append('s');
+            line.Append(" rejectedCounterAdds=").Append(Interlocked.Exchange(ref rejectedAdds, 0));
             for (int index = 0; index < count; index++)
             {
                 long calls = Interlocked.Exchange(ref Calls[index], 0);

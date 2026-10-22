@@ -107,6 +107,7 @@ namespace BugfixesAndQoL
         internal struct Scope { internal long Start; internal bool Completed; internal int Depth; }
         internal static void Begin(out Scope __state)
         {
+            Shared.DevDiag.BeginBatch();
             __state = new Scope { Start = Stopwatch.GetTimestamp(), Depth = depth };
             depth++; if (depth < 8) Current.Reset();
         }
@@ -117,7 +118,7 @@ namespace BugfixesAndQoL
         {
             if (scope.Completed || scope.Start == 0) return;
             scope.Completed = true;
-            if (depth >= 8) { depth = scope.Depth; Current.Overflow++; return; }
+            if (depth >= 8) { depth = scope.Depth; Current.Overflow++; Shared.DevDiag.EndBatch(); return; }
             try
             {
                 long ended = Stopwatch.GetTimestamp(); var value = Current;
@@ -144,7 +145,7 @@ namespace BugfixesAndQoL
                 }
             }
             catch (Exception) { /* Diagnostic errors cannot replace the original result/exception. */ }
-            finally { depth = scope.Depth; }
+            finally { depth = scope.Depth; Shared.DevDiag.EndBatch(); }
         }
         // Keep the logging closure outside Finish: no display class on every run call.
         private static void LogWindow(long started, long ended, GatehouseDiagnosticTotals totals)

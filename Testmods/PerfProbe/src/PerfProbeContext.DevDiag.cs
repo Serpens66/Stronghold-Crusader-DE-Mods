@@ -20,7 +20,7 @@ namespace PerfProbe
         {
             try
             {
-                Shared.DevDiag.Log(() => "runContext schema=2 reason=" + reason + " stamp=" + Stopwatch.GetTimestamp() +
+                Shared.DevDiag.Log(() => "runContext schema=2 nativeUnknownIp=exact reason=" + reason + " stamp=" + Stopwatch.GetTimestamp() +
                     " stopwatchFrequency=" + Stopwatch.Frequency + " gameMvid=" + typeof(EngineInterface).Module.ModuleVersionId +
                     " perfProbeMvid=" + typeof(PerfProbeContext).Module.ModuleVersionId +
                     " sampler=" + PerfProbeThreadSampler.Configuration + " " + PerfProbeRuntime.ThresholdConfiguration +
@@ -35,7 +35,7 @@ namespace PerfProbe
                     Shared.DevDiag.Log(() => "runPlugin guid=" + info.Metadata.GUID + " version=" + info.Metadata.Version +
                         " mvid=" + (ReferenceEquals(info.Instance, null) ? "unavailable" : info.Instance.GetType().Module.ModuleVersionId.ToString()));
                 }
-                foreach (string name in new[] { "run", "GetMeritData", "SetAchData", "LoadSaveFile" })
+                foreach (string name in new[] { "run", "GetMeritData", "SetAchData", "SaveSaveGame", "LoadSaveFile" })
                 {
                     MethodInfo method = AccessTools.Method(typeof(EngineInterface), name);
                     var patches = method == null ? null : Harmony.GetPatchInfo(method);

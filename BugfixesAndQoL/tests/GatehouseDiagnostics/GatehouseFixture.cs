@@ -65,7 +65,7 @@ namespace SHCDESE.API
 namespace Shared
 {
     public static class DebugLogHelper { public static void LogWarningLimited(BepInEx.Logging.ManualLogSource log,string key,string text) { } }
-    public static class DevDiag { public static string LastLog; public static void Log(Func<string> text) { LastLog=text(); } }
+    public static class DevDiag { public static void BeginBatch() { } public static void EndBatch() { } public static string LastLog; public static void Log(Func<string> text) { LastLog=text(); } }
     public static class DevDiagRuntime { public static string LastSpike;public static void Spike(string name,long ticks,string detail){LastSpike=detail;} }
 }
 namespace BugfixesAndQoL
@@ -155,6 +155,9 @@ namespace BugfixesAndQoL
             long bytes=GC.GetAllocatedBytesForCurrentThread()-before;
             Check(args.ShouldClose==false&&paths.Calls==0&&tiles.Reads==count*20,"Allocation measurement changed decisions or live reads");
             AllocationReport="ALLOCATED_BYTES_PER_QUERY="+(bytes/(double)count).ToString("F2",System.Globalization.CultureInfo.InvariantCulture);
+#if GEOMETRY_OPTIMIZED
+            Check(bytes==0,"Warmed no-drawbridge queries must allocate zero bytes: "+AllocationReport);
+#endif
         }
         private static void TestLiveChanges(SHCDESE.Interop.GameUnit* units,SHCDESE.Interop.GameBuilding* buildings,
             SHCDESE.Interop.PathConnectionRecord* gate,List<string> digest)

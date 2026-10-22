@@ -33,6 +33,8 @@ namespace PerfProbe
         internal long Sequence, Start, End, Id, SamplerCpu, SuspendedTicks, MaxSuspendedTicks, AccountingStart, AccountingEnd;
         internal string Name;
         internal int WindowDrops, RequestDrops;
+        internal long CadenceWaits, CadenceLate, CadenceMaxLate, CadenceMissed;
+        internal string CadenceMode;
         internal PerfProbeAnalysisJob(bool spike, int capacity, int frames)
         { Spike = spike; Main = new PerfProbeSampleBatch(capacity, frames) { Name = "main" }; Sim = new PerfProbeSampleBatch(capacity, frames) { Name = "sim" }; }
         internal bool TryClaim() => Interlocked.CompareExchange(ref state, 1, 0) == 0;

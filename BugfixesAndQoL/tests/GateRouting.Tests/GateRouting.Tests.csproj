@@ -71,6 +71,9 @@
     <Compile Include="..\..\src\DemandGatedContextHook.cs"><Link>DemandGatedContextHook.cs</Link></Compile>
     <Compile Include="DemandGatedContextHookTests.cs" />
     <Compile Include="LargeGateFootprintTests.cs" />
+    <Compile Include="DirectionAdapterExecutionTests.cs" />
+    <!-- Optional immutable pre-change emitter supplied from a test evidence directory. -->
+    <Compile Include="$(DirectionBaselineSource)" Condition="'$(DirectionBaselineSource)' != ''" />
     <Compile Include="Program.cs" /><Compile Include="GateDiagnosticConfigurationTests.cs" /><Compile Include="..\..\src\GateRouting\GateDiagnosticConfiguration.cs" /><Compile Include="CompactDiagnosticTests.cs" /><Compile Include="TemporaryGateAcceptanceTests.cs" /><Compile Include="..\..\src\GateRouting\TemporaryGateAcceptanceAggregate.DevDiag.cs" /><Compile Include="..\..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
     <Compile Include="GateRoutePolicyTests.cs" />
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>

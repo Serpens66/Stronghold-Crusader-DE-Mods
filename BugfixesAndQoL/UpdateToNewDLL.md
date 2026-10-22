@@ -1,5 +1,20 @@
 # Native update contract: Bugfixes and QoL damaged health bars
 
+## Engine presentation bridge (2026-10-23)
+
+The private VanillaPerformance bridge uses managed `EngineInterface.run` and
+`SaveSaveGame` IL, the existing `threadLock`, and public managed/PInvoke methods.
+No new native hook, address, structure layout or APIShared signature. Validate
+both wrapper signatures, unique Monitor/finally scopes, gate field identity,
+buffer/native/publication order and the save call before activation. Unknown
+anchors retain the incoming IL and disable this optimization. Other transpilers,
+including PerfProbe, retain labels and exception blocks. Recheck these contracts
+and the production Harmony fixtures after a game update.
+
+The underlying GetMeritData/SetAchValues/save behavior was audited against
+native hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+see [ENGINE_PRESENTATION_BRIDGE.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ENGINE_PRESENTATION_BRIDGE.md).
+
 ## AI keep-range probe allocation (2026-10-05)
 
 The 18:51 startup failed before the actual EEF90 hook: the copied-entry probe

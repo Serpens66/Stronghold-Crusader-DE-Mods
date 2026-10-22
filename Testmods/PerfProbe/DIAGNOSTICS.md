@@ -1,5 +1,41 @@
 # Diagnose kurzer Lags ab 100 ms
 
+## Entlastete Messung (Quellstand 23.10.2026)
+
+Noch kein Mod-Build und keine Installation dieser Überarbeitung. Der Sampler
+wartet mit normaler Threadpriorität auf einen privaten hochauflösenden
+Windows-Wartetimer. Absolute monotone Zeitpunkte verhindern nachgeholte
+Samplingserien: verpasste Intervalle werden gezählt und übersprungen.
+Fehlt der Timer oder schlägt das Warten fehl, meldet der schlafende Ersatzpfad
+`cadenceMode=sleep-degraded`. Keine Änderung der globalen Timerauflösung.
+Der ältere Sim-Sampler benutzt dieselbe sichere Capture-/Analyse-Pipeline.
+Bei abgeschaltetem regulärem Sampler erfasst dieser Ersatz nur Sim-Aufrufe
+ab 80 ms; `longRunOnly=true` kennzeichnet diese eingeschränkte Abdeckung.
+
+`samplerCapture` ergänzt `cadenceWaits`, `missedIntervals`, `meanWakeLateUs`
+und `maxWakeLateUs`. Tatsächliche Sample-Abstände, Suspendierungszeit,
+Sampling-/Analyse-CPU, Überläufe und GC-Zähler bleiben sichtbar. Die Vorgaben
+bleiben 100 ms, 1000 µs und zwei Sekunden. Der isolierte Timer-Test fordert
+mindestens 80 % weniger Warte-CPU als aktives Warten; dies garantiert keine
+Samplingabdeckung im Spiel.
+
+Unbekannte IPs erscheinen exakt als `dyn@0x...`
+(`runContext nativeUnknownIp=exact`). Die Offline-Auswertung ordnet sie nur
+eindeutigen, im selben Start protokollierten RedBird-Stubbereichen zu. Alte
+64-Byte-Buckets müssen vollständig im Bereich liegen. Überlappende oder
+fehlende Bereiche bleiben `unknown-or-ambiguous`. Stubs enthalten auch
+verdrängte Vanilla-Instruktionen; dies beweist keine reinen Modkosten.
+
+BFQoL sammelt häufige Shared-DevDiag-Zähler in threadlokalen Run-Batches.
+Zusammenführung und Spike-Ausgabe erfolgen nach dem Scope-Ende; Überlast
+bleibt sichtbar. Im aufgewärmten Torhauspfad ohne Zugbrücke entfallen
+ID-Liste und eingefangene Delegates. Verhaltenstests fordern null Byte pro
+Abfrage sowie identische Live-Abfragen, Routensuchen und Signaturen.
+Die funktionale Merit-/Achievement-Brücke existiert in beiden Buildarten;
+ihre Diagnosefelder und Messungen ausschließlich mit `SERP_DEVDIAG`.
+Siehe [VanillaOptimization.md](../../VanillaOptimization.md) und
+[Engine-Audit](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ENGINE_PRESENTATION_BRIDGE.md).
+
 ## Torhaus-Geometrie und fehlende PerfProbe-Messung (23.10.2026)
 
 Der Lauf vom 22.10., 23:59 bis 23.10., 00:05 verwendete
@@ -179,10 +215,11 @@ ausgeführt. Prefix/Postfix/Finalizer ändern keine Rückgaben oder Exceptions.
 
 ## Ergänzung in BugfixesAndQoL
 
-`ui.merit.cache-wrapper` dokumentiert ab 100 ms die echte Prefix-Entscheidung:
-deaktiviert, Cache fehlt/abgelaufen, Sperre bei der vorhandenen Probe frei,
-oder Cache wegen belegter Sperre verwendet. Dazu Cachealter, Ergebnisweg
-und GC-Zähler. Keine zusätzliche Lockprobe und keine geänderte Cachegrenze.
+`ui.merit.cache-wrapper` dokumentiert ab 100 ms die echte Entscheidung:
+deaktiviert, Snapshot fehlt, Sperre bis nach Original gehalten,
+Simulationsaktualisierung oder Snapshot bei belegter Sperre geliefert.
+`stale-served-refresh-requested` kennzeichnet ein Alter über drei Sekunden.
+Start-/Endstempel, Cachealter und GC-Zähler ergänzen die Korrelation.
 
 `uc.vanilla.cursorPair`, `uc.vanilla.buildingApproach` und
 `uc.vanilla.buildingConsumer` trennen den Aufruf des bereits vorhandenen
@@ -201,13 +238,18 @@ prüft die tatsächlichen Monitor-/Historienhelfer in einer isolierten
 In-Memory-Testassembly: Contention, Reentranz, Exceptions, Freigabe,
 IL-Metadaten, Ablehnung veränderter Scopes, Ringpuffer und Intervallfilter.
 Die Fixture kompiliert weder PerfProbe noch BFQoL als Mod und installiert nichts.
-`pwsh -NoProfile -File BugfixesAndQoL/tests/MeritDiagnostics/Test-MeritDiagnostics.ps1`
+`powershell.exe -NoProfile -File BugfixesAndQoL/tests/MeritDiagnostics/Test-MeritDiagnostics.ps1`
 prüft die produktiven Cachezweige separat mit und ohne `-Diagnostic`:
 deaktiviert, fehlend, abgelaufen, freie/belegte Sperre, Klonisolation und
-unverändertes Cachealter. Ohne Diagnose ist der Harmony-Zustand weiterhin
-ein `bool`; Diagnosezustand und Partial-Implementierungen entfallen.
-Die reine MSBuild-Projektauswertung bestätigt beide neuen BFQoL-Dateien
-nur bei `SerpDevDiagnostics=true` und keinen `SERP_DEVDIAG`-Define im
-normalen Build. Sie führt keine Buildtargets aus.
+unverändertes Cachealter, konkurrierende Tupel, Save-Fehler, Sitzungswechsel,
+echte Harmony-Finalizer und die Kombination mit PerfProbe-Transpilern.
+Sie erzeugt nur eine isolierte Test-EXE. Der funktionale Harmony-Zustand
+existiert in beiden Varianten; seine Diagnosefelder entfallen normal.
+Projektauswertung und In-Memory-Compilerprüfung kontrollieren normale und
+Diagnosequellen ohne Mod-Ausgabe.
+`tests/EnginePresentation.Tests/ActualGameIlAudit.csproj` prüft zusätzlich
+die produktive Transformation an den echten installierten IL-Körpern von
+`run` und `SaveSaveGame` sowie die Merit-/Achievement-Sperrenanker. Seine
+Test-EXE liest Methodenmetadaten und führt keinen Spielcode aus.
 Quell-/Syntaxprüfungen ersetzen nicht den späteren DevDiag-Build und den
 Ingame-Nachweis der Harmony-Patchreihenfolge mit allen installierten Mods.

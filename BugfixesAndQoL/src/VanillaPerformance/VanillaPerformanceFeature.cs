@@ -18,6 +18,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             if (Interlocked.Exchange(ref installed, 1) != 0) return;
             settings = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             RadarRebindOptimization.Install(log);
+            EnginePresentationBridge.Install(log);
             MeritDataLockOptimization.Install(log);
             settings.SettingChanged += OnSettingChanged;
             RefreshEnabled();
@@ -38,6 +39,7 @@ namespace BugfixesAndQoL.VanillaPerformance
         {
             bool enabled = settings.EnableClientFeatures && settings.EnableVanillaPerformanceOptimizations;
             RadarRebindOptimization.SetEnabled(enabled);
+            EnginePresentationBridge.SetEnabled(enabled);
             MeritDataLockOptimization.SetEnabled(enabled);
         }
     }

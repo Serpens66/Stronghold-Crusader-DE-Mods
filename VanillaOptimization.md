@@ -69,6 +69,26 @@ Alle Eingriffe sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode
 - **Lösung:** Ist der Lock belegt, bekommt der Aufrufer eine Kopie des höchstens 3 s alten letzten Ergebnisses; sonst läuft Vanilla. Die Werte (Rang und Bündnisstatus je Spieler) werden nur gelesen und ändern sich langsam.
 - **Wirkung:** keine Main-Thread-Freezes mehr während langer Sim-Ticks.
 
+**BFQoL-Überarbeitung, Quellstand 23.10.2026 (noch kein Mod-Build/Spieltest):**
+Ein erfolgreicher `TryEnter` wird bis zum Finalizer gehalten. Bei belegter
+Sperre wird eine unabhängige Kopie des letzten Ergebnisses derselben Sitzung
+geliefert, auch jenseits von drei Sekunden. Drei Sekunden sind eine
+diagnostizierte Altersgrenze; nur der Erstbezug ohne Snapshot bleibt synchron.
+Bedarf wird im bestehenden `run`-Sperrbereich nach erfolgreicher nativer
+Verarbeitung vor der Pufferveröffentlichung bedient; weitere benötigte
+Aktualisierungen sind auf einen Versuch je Sekunde begrenzt. Laden,
+Missionsende und Deaktivierung invalidieren die Sitzungszuordnung.
+
+Der ebenfalls blockierende Main-Thread-Schreiber `SetAchData` verwendet bei
+belegter Sperre ein vollständiges, sitzungsgebundenes Food/Wood/Weapons-Tupel.
+Neuere Tupel ersetzen ältere. Übertragung erfolgt bei freier Sperre oder im
+nächsten tatsächlich betretenen `run` vor `DLL_RunTick`; vor nativem Speichern
+wird zwingend übertragen. Fremde Threads und Aufrufe außerhalb einer Sitzung
+bleiben synchron. Integerargumente und native Konvertierung bleiben erhalten.
+Beide Änderungen folgen BFQoLs bestehender Client-Option für Vanilla-
+Performanceoptimierungen; keine neue öffentliche API oder native Hookstelle.
+Die Managed-IL-Anker werden vor Aktivierung geprüft.
+
 ### V9 – Script-Extender-Event ohne Allokation (`InterpolateEventReuse`)
 
 - **Problem:** Der Extender (2.14.3) erzeugt vor `GameMap.interpChimp` für jede Einheit und jeden Frame ein neues `UnitUnityVisualInterpolateEventArgs`. Das sind ~450 000 Objekte bzw. 10–14 MB pro Sekunde, die größte Allokationsquelle im Spiel.

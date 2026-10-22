@@ -33,7 +33,15 @@ namespace PerfProbe
 
         private static bool enabled, sampleMain = true, sampleSim = true;
         internal static bool IsEnabled => enabled;
-        internal static string Configuration => "enabled:" + enabled + ",intervalUs:" + intervalUs + ",windowS:" + windowSeconds + ",main:" + sampleMain + ",sim:" + sampleSim;
+        private static bool longRunOnly;
+        private static PerfProbeCadence cadence;
+        internal static void InstallLongRunSampler()
+        {
+            if (worker != null) return;
+            enabled = true; sampleMain = false; sampleSim = true; longRunOnly = true;
+            Install();
+        }
+        internal static string Configuration => "enabled:" + enabled + ",intervalUs:" + intervalUs + ",windowS:" + windowSeconds + ",main:" + sampleMain + ",sim:" + sampleSim + ",longRunOnly:" + longRunOnly;
         private static int intervalUs = 1000, windowSeconds = 2;
         private static int mainThreadId;
         private static ulong gameBase, gameEnd;
@@ -92,7 +100,7 @@ namespace PerfProbe
             capacity = windowSeconds * 1000000 / intervalUs + 64;
             main = NewLane("main");
             sim = NewLane("sim");
-            worker = new Thread(Loop) { IsBackground = true, Name = "PerfProbe.ThreadSampler", Priority = ThreadPriority.Highest };
+            worker = new Thread(Loop) { IsBackground = true, Name = "PerfProbe.ThreadSampler", Priority = ThreadPriority.Normal };
             analysisJobs = new[] { new PerfProbeAnalysisJob(false, capacity, MaxFrames), new PerfProbeAnalysisJob(false, capacity, MaxFrames),
                 new PerfProbeAnalysisJob(true, Math.Max(capacity, 8000000 / intervalUs), MaxFrames), new PerfProbeAnalysisJob(true, Math.Max(capacity, 8000000 / intervalUs), MaxFrames) };
             analysisWorker = new Thread(AnalysisLoop) { IsBackground = true, Name = "PerfProbe.Analysis", Priority = ThreadPriority.BelowNormal };
@@ -121,14 +129,19 @@ namespace PerfProbe
             long windowStart = Stopwatch.GetTimestamp();
             captureStarted = windowStart; samplerCpu = PerfProbeLockTiming.ThreadCpuTime();
             long interval = Math.Max(1, Stopwatch.Frequency * intervalUs / 1000000);
-            long next = windowStart;
+            cadence = new PerfProbeCadence(interval);
+            string initialMode = cadence.Mode;
+            Shared.DevDiag.Log(() => "samplerCadence mode=" + initialMode + " intervalUs=" + intervalUs + " longRunOnly=" + longRunOnly);
             while (true)
             {
                 try
                 {
                     if (sampleMain && mainThreadId != 0) SampleLane(main, mainThreadId, context, scratch);
                     int simId = PerfProbeSimSampler.SimThreadId;
-                    if (sampleSim && simId != 0 && PerfProbeSimSampler.RunStart != 0) SampleLane(sim, simId, context, scratch);
+                    long simStarted = PerfProbeSimSampler.RunStart;
+                    if (sampleSim && simId != 0 && simStarted != 0 &&
+                        (!longRunOnly || Stopwatch.GetTimestamp() - simStarted >= Stopwatch.Frequency * 80 / 1000))
+                        SampleLane(sim, simId, context, scratch);
                     long now = Stopwatch.GetTimestamp();
                     if (now - windowStart >= Stopwatch.Frequency * windowSeconds)
                     {
@@ -136,12 +149,11 @@ namespace PerfProbe
                         windowStart = now;
                     }
                     DrainSpikeRequests();
-                    next += interval;
-                    if (next < now) next = now;
-                    while (Stopwatch.GetTimestamp() < next) Thread.SpinWait(20);
+                    cadence.Wait();
                 }
                 catch (Exception exception)
                 {
+                    cadence.Dispose(); Marshal.FreeHGlobal(scratch); Marshal.FreeHGlobal(raw);
                     Shared.DevDiag.Log(() => "threadSampler stopped: " + exception.GetType().Name + " " + exception.Message);
                     return;
                 }
@@ -152,6 +164,7 @@ namespace PerfProbe
         {
             if (lane.ThreadId != threadId)
             {
+                if (lane.Handle != IntPtr.Zero) CloseThreadHandle(lane.Handle);
                 lane.ThreadId = threadId;
                 lane.Handle = OpenThread(0x0002 | 0x0008 | 0x0040, false, (uint)threadId);
                 lane.StackBase = ReadStackBase(lane.Handle, scratch);
@@ -313,8 +326,8 @@ namespace PerfProbe
             int image = FindImage(ip, table);
             if (image >= 0) return table.Names[image];
             string name = MonoNames.Resolve(ip, out assembly);
-            // Hook stubs/trampolines: 64-byte bucket, resolved offline against the logged stub addresses.
-            return name ?? "dyn@0x" + (ip & ~0x3FUL).ToString("X", C);
+            // Exact IP: rounding could merge two adjacent stubs or cross a logged range.
+            return name ?? "dyn@0x" + ip.ToString("X", C);
         }
 
         private static bool IsMod(string assembly)
@@ -488,6 +501,7 @@ namespace PerfProbe
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string name);
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi)] private static extern IntPtr GetProcAddress(IntPtr module, string name);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr OpenThread(uint access, bool inherit, uint threadId);
+        [DllImport("kernel32.dll", EntryPoint = "CloseHandle")] private static extern bool CloseThreadHandle(IntPtr thread);
         [DllImport("kernel32.dll")] private static extern uint SuspendThread(IntPtr thread);
         [DllImport("kernel32.dll")] private static extern uint ResumeThread(IntPtr thread);
         [DllImport("kernel32.dll")] private static extern bool GetThreadContext(IntPtr thread, IntPtr context);

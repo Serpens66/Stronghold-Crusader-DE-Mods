@@ -19,6 +19,7 @@ foreach($group in $result.Groups|Select-Object -First $Top){
     foreach($member in $group.Members){Write-Output ('    {0} inclusiveMs={1:F1} line={2} {3}' -f $member.Name,$member.Ms,$member.Line,$member.Detail)}
     foreach($evidence in $group.Evidence){Write-Output "    EVIDENCE: $evidence"}
     foreach($hint in $group.Hints){Write-Output "    LIMIT: $hint"}
+    foreach($stub in $group.NativeStubSamples){Write-Output "    STUB record=$($stub.Record) samples=$($stub.Samples) ip=$($stub.IP) resolution=$($stub.Resolution) name=$($stub.Stub) target=$($stub.Target) (includes displaced original instructions)"}
     foreach($detail in @($group.LockHistory)+@($group.Samples)+@($group.Analysis)){Write-Output "    $detail"}
 }
 if($result.Groups.Count -gt $Top){Write-Output "Further events: $($result.Groups.Count-$Top) (-Top)."}

@@ -191,6 +191,7 @@ namespace BugfixesAndQoL
                 return false;
 
 #if SERP_DEVDIAG
+            var diagnostics = GatehouseDiagnosticRuntime.Current;
             GatehouseDiagnosticRuntime.Context(tick, playerId, sourcePcl, entryPcl, exitPcl, mode);
 #endif
             PathConnectionQueryMode queryMode = (PathConnectionQueryMode)mode;
@@ -202,14 +203,14 @@ namespace BugfixesAndQoL
             if (!directReachabilityCache.TryGetValue(directKey, out bool directlyReachable))
             {
 #if SERP_DEVDIAG
-                GatehouseDiagnosticRuntime.Current.DirectMisses++;
+                diagnostics.DirectMisses++;
 #endif
                 directlyReachable = FindRoute(pathingApi, playerId, sourcePcl, entryPcl, queryMode) != 0 ||
                     FindRoute(pathingApi, playerId, sourcePcl, exitPcl, queryMode) != 0;
                 directReachabilityCache[directKey] = directlyReachable;
             }
 #if SERP_DEVDIAG
-            else GatehouseDiagnosticRuntime.Current.DirectHits++;
+            else diagnostics.DirectHits++;
 #endif
             if (directlyReachable)
             {
@@ -236,12 +237,12 @@ namespace BugfixesAndQoL
             if (reachabilityCache.TryGetValue(key, out reachable))
             {
 #if SERP_DEVDIAG
-                GatehouseDiagnosticRuntime.Current.FullHits++;
+                diagnostics.FullHits++;
 #endif
                 return true;
             }
 #if SERP_DEVDIAG
-            GatehouseDiagnosticRuntime.Current.FullMisses++;
+            diagnostics.FullMisses++;
 #endif
 
             // Entry and exit are known to be unreachable here (checked above).
@@ -253,17 +254,10 @@ namespace BugfixesAndQoL
                 try
                 {
 #endif
-                reachable = SynchronizedGatehouseReachabilityPolicy.CanReachAnyExteriorApproach(
-                    drawbridges,
-                    component => FindRoute(
-                        pathingApi,
-                        playerId,
-                        sourcePcl,
-                        component,
-                        queryMode) != 0);
+                reachable = CanReachDrawbridge(drawbridges, pathingApi, playerId, sourcePcl, queryMode);
 #if SERP_DEVDIAG
                 }
-                finally { GatehouseDiagnosticRuntime.Current.ExteriorTicks += System.Diagnostics.Stopwatch.GetTimestamp() - exteriorStarted; }
+                finally { diagnostics.ExteriorTicks += System.Diagnostics.Stopwatch.GetTimestamp() - exteriorStarted; }
 #endif
             }
 
@@ -278,6 +272,7 @@ namespace BugfixesAndQoL
             out int signature)
         {
 #if SERP_DEVDIAG
+            var diagnostics = GatehouseDiagnosticRuntime.Current;
             long collectStarted = GatehouseDiagnosticRuntime.Start();
             try
             {
@@ -294,41 +289,70 @@ namespace BugfixesAndQoL
                     gatehouseBuilding->r_TilePositionYBegin,
                     (int)gatehouseBuilding->r_OccupyTileGridSize);
 #if SERP_DEVDIAG
-            GatehouseDiagnosticRuntime.Current.FootprintScans++;
-            GatehouseDiagnosticRuntime.Current.Candidates += candidates.Count;
+            diagnostics.FootprintScans++;
+            diagnostics.Candidates += candidates.Count;
 #endif
-            int GetBuildingIdAt(int x, int y)
+            // Same first-distinct selection as APIShared, with two value slots instead
+            // of per-query closures and a List. Live reads and their order stay unchanged.
+            int first = 0, second = 0;
+            for (int i = 0; i < candidates.Count; i++)
             {
+                var c = candidates[i];
+                int id = CollectionBuildingId(tileApi, c.X, c.Y
 #if SERP_DEVDIAG
-                GatehouseDiagnosticRuntime.Current.CollectionTileProbes++;
+                    , diagnostics
 #endif
-                if (!tileApi.IsTileInsideMapBounds(x, y))
-                    return 0;
-                int tileId = tileApi.GetTileId(x, y);
-                return tileApi.IsValidTileId(tileId) ? tileApi.GetTileBuildingId(tileId) : 0;
+                    );
+                if (id <= 0 || id == first || id == second || !TryGetLiveDrawbridge(id, out _)) continue;
+                if (first == 0) first = id; else { second = id; break; }
             }
-
-            bool IsEligibleDrawbridge(int buildingId) =>
-                TryGetLiveDrawbridge(buildingId, out _);
-
-            List<int> selectedIds =
-                SynchronizedGatehouseReachabilityPolicy.CollectFirstDistinctBuildingIds(
-                    candidates,
-                    GetBuildingIdAt,
-                    IsEligibleDrawbridge);
-
-            if (selectedIds.Count == 0)
+            if (first == 0)
             {
                 signature = SynchronizedGatehouseReachabilityPolicy.ComputeDrawbridgeSignature(drawbridges);
                 return true;
             }
+            return CollectSelectedDrawbridges(candidates, tileApi, first, second, out drawbridges, out signature);
+#if SERP_DEVDIAG
+            }
+            finally { diagnostics.CollectTicks += System.Diagnostics.Stopwatch.GetTimestamp() - collectStarted; }
+#endif
+        }
+
+        private static int CollectionBuildingId(GameTileManagerAPI tileApi, int x, int y
+#if SERP_DEVDIAG
+            , GatehouseDiagnosticTotals diagnostics
+#endif
+            )
+        {
+#if SERP_DEVDIAG
+            diagnostics.CollectionTileProbes++;
+#endif
+            if (!tileApi.IsTileInsideMapBounds(x, y)) return 0;
+            int tile = tileApi.GetTileId(x, y);
+            return tileApi.IsValidTileId(tile) ? tileApi.GetTileBuildingId(tile) : 0;
+        }
+
+        // Closure state is allocated only after a bridge has actually been found.
+        private static bool CollectSelectedDrawbridges(IReadOnlyList<VanillaFootprintCandidate> candidates,
+            GameTileManagerAPI tileApi, int first, int second,
+            out IReadOnlyList<SynchronizedDrawbridgeSnapshot> drawbridges, out int signature)
+        {
+            signature = 17;
+#if SERP_DEVDIAG
+            var diagnostics = GatehouseDiagnosticRuntime.Current;
+#endif
+            int GetBuildingIdAt(int x, int y) => CollectionBuildingId(tileApi, x, y
+#if SERP_DEVDIAG
+                , diagnostics
+#endif
+                );
             var collected = new List<SynchronizedDrawbridgeSnapshot>(
                 SynchronizedGatehouseReachabilityPolicy.MaximumSynchronizedDrawbridges);
             drawbridges = collected;
 
-            for (int selectedIndex = 0; selectedIndex < selectedIds.Count; selectedIndex++)
+            for (int selectedIndex = 0; selectedIndex < (second == 0 ? 1 : 2); selectedIndex++)
             {
-                int buildingId = selectedIds[selectedIndex];
+                int buildingId = selectedIndex == 0 ? first : second;
                 if (!TryGetLiveDrawbridge(buildingId, out GameBuilding* drawbridge) ||
                     drawbridge == null || drawbridge->r_GlobalId == 0)
                     return false;
@@ -371,8 +395,8 @@ namespace BugfixesAndQoL
                     }
                     finally
                     {
-                        GatehouseDiagnosticRuntime.Current.TraceCalls++;
-                        GatehouseDiagnosticRuntime.Current.TraceTicks += System.Diagnostics.Stopwatch.GetTimestamp() - traceStarted;
+                        diagnostics.TraceCalls++;
+                        diagnostics.TraceTicks += System.Diagnostics.Stopwatch.GetTimestamp() - traceStarted;
                     }
 #endif
                     if (!traced)
@@ -389,18 +413,24 @@ namespace BugfixesAndQoL
 
                 collected.Add(snapshot);
 #if SERP_DEVDIAG
-                GatehouseDiagnosticRuntime.Current.Bridges++;
-                GatehouseDiagnosticRuntime.Current.Approaches += snapshot.Approaches.Count;
+                diagnostics.Bridges++;
+                diagnostics.Approaches += snapshot.Approaches.Count;
 #endif
             }
 
             signature = SynchronizedGatehouseReachabilityPolicy.ComputeDrawbridgeSignature(
                 drawbridges);
             return true;
-#if SERP_DEVDIAG
-            }
-            finally { GatehouseDiagnosticRuntime.Current.CollectTicks += System.Diagnostics.Stopwatch.GetTimestamp() - collectStarted; }
-#endif
+        }
+
+        private static bool CanReachDrawbridge(IReadOnlyList<SynchronizedDrawbridgeSnapshot> bridges,
+            GamePathingManagerAPI pathing, int player, int source, PathConnectionQueryMode mode)
+        {
+            if (bridges.Count > SynchronizedGatehouseReachabilityPolicy.MaximumSynchronizedDrawbridges) return false;
+            for (int b = 0; b < bridges.Count; b++)
+                for (int a = 0; a < bridges[b].Approaches.Count; a++)
+                    if (FindRoute(pathing, player, source, bridges[b].Approaches[a].ExteriorPcl, mode) != 0) return true;
+            return false;
         }
 
         private static int FindRoute(
@@ -411,6 +441,7 @@ namespace BugfixesAndQoL
             PathConnectionQueryMode queryMode)
         {
 #if SERP_DEVDIAG
+            var diagnostics = GatehouseDiagnosticRuntime.Current;
             long routeStarted = GatehouseDiagnosticRuntime.Start();
             try
             {
@@ -426,7 +457,7 @@ namespace BugfixesAndQoL
             }
             finally
             {
-                if (sourcePcl != destinationPcl) { GatehouseDiagnosticRuntime.Current.RouteCalls++; GatehouseDiagnosticRuntime.Current.RouteTicks += System.Diagnostics.Stopwatch.GetTimestamp() - routeStarted; }
+                if (sourcePcl != destinationPcl) { diagnostics.RouteCalls++; diagnostics.RouteTicks += System.Diagnostics.Stopwatch.GetTimestamp() - routeStarted; }
             }
 #endif
         }

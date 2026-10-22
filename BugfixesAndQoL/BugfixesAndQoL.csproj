@@ -35,6 +35,9 @@
     <Compile Include="src\VanillaPerformance\VanillaPerformanceFeature.cs" />
     <Compile Include="src\VanillaPerformance\RadarRebindOptimization.cs" />
     <Compile Include="src\VanillaPerformance\MeritDataLockOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\EnginePresentationBridge.cs" />
+    <Compile Include="src\VanillaPerformance\EnginePresentationBridge.IL.cs" />
+    <Compile Include="src\VanillaPerformance\AchievementDataOptimization.cs" />
     <Compile Include="src\VanillaPerformance\SpriteSheetMergeOptimization.cs" />
     <Compile Include="src\VanillaPerformance\SpriteSheetMergeMode.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />

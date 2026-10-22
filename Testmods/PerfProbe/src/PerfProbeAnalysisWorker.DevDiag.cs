@@ -32,6 +32,9 @@ namespace PerfProbe
             suspendedTicks = maxSuspendedTicks = 0;
             job.WindowDrops = windowDrops; windowDrops = 0;
             job.RequestDrops = Interlocked.Exchange(ref suppressedSpikes, 0);
+            job.CadenceMode = cadence.Mode; job.CadenceWaits = cadence.Waits;
+            job.CadenceLate = cadence.LateTicks; job.CadenceMaxLate = cadence.MaxLateTicks;
+            job.CadenceMissed = cadence.Missed; cadence.ResetStats();
             job.Publish(); analysisReady.Set();
         }
         private static void AnalysisLoop()
@@ -72,7 +75,11 @@ namespace PerfProbe
                                 " cpuMs=" + (next.SamplerCpu < 0 ? "unavailable" : (next.SamplerCpu / 10000.0).ToString("F3", C)) +
                                 " suspendedMs=" + (next.SuspendedTicks * 1000.0 / Stopwatch.Frequency).ToString("F3", C) +
                                 " maxSuspendedMs=" + (next.MaxSuspendedTicks * 1000.0 / Stopwatch.Frequency).ToString("F3", C) +
-                                " windowDrops=" + next.WindowDrops + " spikeRequestsSuppressed=" + next.RequestDrops);
+                                " windowDrops=" + next.WindowDrops + " spikeRequestsSuppressed=" + next.RequestDrops +
+                                " cadenceMode=" + next.CadenceMode + " cadenceWaits=" + next.CadenceWaits +
+                                " missedIntervals=" + next.CadenceMissed +
+                                " meanWakeLateUs=" + (next.CadenceLate * 1000000.0 / Stopwatch.Frequency / Math.Max(1, next.CadenceWaits)).ToString("F1", C) +
+                                " maxWakeLateUs=" + (next.CadenceMaxLate * 1000000.0 / Stopwatch.Frequency).ToString("F1", C));
                         }
                         long end = Stopwatch.GetTimestamp(), cpuEnd = PerfProbeLockTiming.ThreadCpuTime();
                         Shared.DevDiag.Log(() => "samplerAnalysis kind=" + (next.Spike ? "spike" : "window") +

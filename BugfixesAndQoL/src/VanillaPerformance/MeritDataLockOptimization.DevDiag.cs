@@ -5,15 +5,6 @@ using System.Threading;
 
 namespace BugfixesAndQoL.VanillaPerformance
 {
-    internal struct MeritReadState
-    {
-        internal bool Served;
-        internal long Started, CacheAge;
-        internal int Gc;
-        internal string Decision;
-        public static implicit operator bool(MeritReadState state) => state.Served;
-    }
-
     internal static partial class MeritDataLockOptimization
     {
         static partial void DiagBegin(ref MeritReadState state)
@@ -26,25 +17,26 @@ namespace BugfixesAndQoL.VanillaPerformance
         static partial void DiagDecision(ref MeritReadState state, string reason, long cacheAge)
         {
             state.Decision = reason; state.CacheAge = cacheAge;
-            // Literals avoid a new counter-name allocation for each UI lookup.
-            switch (reason)
-            {
-                case "disabled": Shared.DevDiag.Count("ui.merit.disabled"); break;
-                case "cache-missing": Shared.DevDiag.Count("ui.merit.missing"); break;
-                case "cache-expired": Shared.DevDiag.Count("ui.merit.expired"); break;
-                case "lock-free-at-probe": Shared.DevDiag.Count("ui.merit.freeAtProbe"); break;
-                case "cache-served-lock-busy": Shared.DevDiag.Count("ui.merit.servedBusy"); break;
-            }
         }
 
         static partial void DiagEnd(ref MeritReadState state)
         {
             if (state.Started == 0) return;
             long ended = Stopwatch.GetTimestamp(), elapsed = ended - state.Started;
+            // Literals avoid a new counter-name allocation for each UI lookup.
+            // Count after our extra Monitor ownership has been released.
+            switch (state.Decision)
+            {
+                case "disabled": Shared.DevDiag.Count("ui.merit.disabled"); break;
+                case "cache-missing": Shared.DevDiag.Count("ui.merit.missing"); break;
+                case "stale-served-refresh-requested": Shared.DevDiag.Count("ui.merit.staleServed"); break;
+                case "simulation-refresh": Shared.DevDiag.Count("ui.merit.refreshAttempt"); break;
+                case "lock-held-through-original": Shared.DevDiag.Count("ui.merit.lockHeld"); break;
+                case "cache-served-lock-busy": Shared.DevDiag.Count("ui.merit.servedBusy"); break;
+            }
             Shared.DevDiagRuntime.Add("ui.merit.cache-wrapper", 1, elapsed);
             if (elapsed < Stopwatch.Frequency / 10) return;
-            // No extra lock probe or cache policy change for diagnostics. A free-at-probe
-            // decision can race with simulation acquisition; PerfProbe measures the later Enter.
+            // GC counts describe collections, never a measured GC pause duration.
             string detail = string.Format(CultureInfo.InvariantCulture,
                     "decision={0} servedCache={1} cacheAgeAtStartMs={2:F1} maxAgeMs={3:F1} enabledAtEnd={4} failedAtEnd={5} gcDuring={6} startStamp={7} endStamp={8}",
                 state.Decision ?? "unknown", state.Served,

@@ -5,6 +5,15 @@ function Get-PerfProbeAnalysis {
     $lastStart=0
     for($i=0;$i -lt $Lines.Count;$i++){if($Lines[$i] -match '^\[Message:\s+BepInEx\] BepInEx .* - Stronghold Crusader Definitive Edition'){$lastStart=$i}}
     $current=@($Lines|Select-Object -Skip $lastStart)
+    $exactNativeIp=@($current|Where-Object {$_ -match 'runContext .*nativeUnknownIp=exact'}).Count -gt 0
+    $stubRanges=@(foreach($line in $current){
+        if($line -match '\["(?<name>[^"]+)"\] compiled stub at 0x(?<address>[0-9A-Fa-f]+), size: (?<size>\d+) bytes \(target: (?<target>0x[0-9A-Fa-f]+)\)'){
+            $address=[Convert]::ToUInt64($Matches['address'],16);$size=[uint64]$Matches['size']
+            if($size -gt 0 -and $address -le [uint64]::MaxValue-$size){
+                [pscustomobject]@{Start=$address;End=$address+$size;Name=$Matches['name'];Target=$Matches['target']}
+            }
+        }
+    })
     $probe=@($current|Where-Object{$_ -match '^\[[^:]+:\s*Perf ?Probe\]'} )
     $probeState='missing'
     foreach($line in $probe){
@@ -48,7 +57,7 @@ function Get-PerfProbeAnalysis {
     foreach($root in $roots){
         $group=if($groups.Count){$groups[$groups.Count-1]}else{$null}
         if($null -eq $group -or $root.StartMs -ge $group.EndMs-0.001){
-            $group=[pscustomobject]@{StartMs=$root.StartMs;EndMs=$root.EndMs;Phase='gameplay-or-unknown';Kind='long-call';FrameLagRecorded=$false;Members=@();Samples=@();LockHistory=@();Analysis=@();Evidence=@();Hints=@()}
+            $group=[pscustomobject]@{StartMs=$root.StartMs;EndMs=$root.EndMs;Phase='gameplay-or-unknown';Kind='long-call';FrameLagRecorded=$false;Members=@();Samples=@();LockHistory=@();Analysis=@();NativeStubSamples=@();Evidence=@();Hints=@()}
             $groups.Add($group)
         }else{$group.EndMs=[Math]::Max($group.EndMs,$root.EndMs)}
     }
@@ -88,7 +97,19 @@ function Get-PerfProbeAnalysis {
                 if($a -lt $group.EndMs -and $b -gt $group.StartMs){
                     $group.Analysis+=$line
                     if($line -match 'windowDrops=[1-9]|spikeRequestsSuppressed=[1-9]'){$group.Hints+='diagnostic overload dropped windows/requests; attribution is incomplete'}
+                    if($line -match 'cadenceMode=sleep-degraded'){$group.Hints+='sampling uses degraded sleeping cadence; inspect actual sample gaps'}
                 }
+            }
+        }
+        foreach($sample in $group.Samples|Where-Object {$_ -match ' self:'}){
+            $record=if($sample -match 'spikeSample event=(\d+).*?thread=(\w+)'){$Matches[1]+'/'+$Matches[2]}else{'unknown'}
+            foreach($match in [regex]::Matches($sample,'dyn@0x(?<ip>[0-9A-Fa-f]+)=(?<count>\d+)')){
+                $ip=[Convert]::ToUInt64($match.Groups['ip'].Value,16)
+                $width=if($exactNativeIp){[uint64]1}else{[uint64]64}
+                $owners=@($stubRanges|Where-Object {$ip -ge $_.Start -and $ip -lt $_.End -and $_.End-$ip -ge $width})
+                $resolution=if($owners.Count -eq 1){if($exactNativeIp){'exact-range'}else{'legacy-bucket-contained'}}else{'unknown-or-ambiguous'}
+                $group.NativeStubSamples+=[pscustomobject]@{Record=$record;IP=('0x{0:X}' -f $ip);Samples=[int]$match.Groups['count'].Value;Resolution=$resolution;
+                    Stub=$(if($owners.Count -eq 1){$owners[0].Name}else{'unknown'});Target=$(if($owners.Count -eq 1){$owners[0].Target}else{'unknown'})}
             }
         }
         $group.Evidence=@($group.Evidence|Select-Object -Unique);$group.Hints=@($group.Hints|Select-Object -Unique)
