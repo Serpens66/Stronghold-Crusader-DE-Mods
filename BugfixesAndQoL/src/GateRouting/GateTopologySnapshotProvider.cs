@@ -273,13 +273,13 @@ namespace BugfixesAndQoL.GateRouting
             captureRefresh.Reset();
             captureEvents.Reset();
             RouteTilePolicySnapshot coverage = snapshot.RoutePolicy;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled) Shared.DebugLogHelper.LogInfo(log,
+            if (Shared.DebugLogHelper.DiagnosticsEnabled) Shared.DebugLogHelper.LogDebug(log,
                 $"Gate mask coverage: epoch={epochNumber}, missingRequiredMasks={coverage.MissingRequiredGateMasks.Length}, " +
                 $"peakMissingRequiredMasks={peakMissingRequiredMasks}, gateIds=[{string.Join(",", coverage.MissingRequiredGateMasks)}], " +
                 $"coverage={(Read(ref topologyBuilds) == 0 ? "unavailable" : coverage.MissingRequiredGateMasks.Length == 0 ? "complete-for-tracked-gates" : "INCOMPLETE")}; technical integrity is separate.");
             if (detailedDiagnostics) {
                                          if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                             Shared.DebugLogHelper.LogInfo(log,
+                                             Shared.DebugLogHelper.LogDebug(log,
                 $"Gate topology epoch {epochNumber} ended ({reason ?? "unspecified"}): " +
                 $"accessScans={Read(ref accessScans)}, accessChanges={Read(ref accessChanges)}, " +
                 $"builds={Read(ref topologyBuilds)}, changes={Read(ref topologyChanges)}, " +
@@ -406,7 +406,7 @@ namespace BugfixesAndQoL.GateRouting
                     if (capturePost)
                         if (detailedDiagnostics) {
                                                      if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                                         Shared.DebugLogHelper.LogInfo(log,
+                                                         Shared.DebugLogHelper.LogDebug(log,
                             "Gate capture Post refresh deferred, epoch=" + Volatile.Read(ref epochNumber));
                                                  }
                 }
@@ -524,7 +524,7 @@ namespace BugfixesAndQoL.GateRouting
             Volatile.Write(ref accessRefreshRequired, 1);
             if (detailedDiagnostics) {
                                          if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                             Shared.DebugLogHelper.LogInfo(log,
+                                             Shared.DebugLogHelper.LogDebug(log,
                 $"Gate topology epoch {currentEpoch} started ({pendingEpochReason}). " +
                 "Access and topology safety scans run at most once per game second or immediately " +
                 "after a detected tracked-state change; " +
@@ -571,7 +571,7 @@ namespace BugfixesAndQoL.GateRouting
                 Volatile.Write(ref nextSnapshotAt, 0);
                 if (detailedDiagnostics) {
                                              if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                                 Shared.DebugLogHelper.LogInfo(log,
+                                                 Shared.DebugLogHelper.LogDebug(log,
                     $"Gate access policy changed: fingerprint=0x{rebuilt.TopologyFingerprint:X16}, " +
                     $"tracked={rebuilt.TrackedRecords}, captured={rebuilt.CapturedRecords}, " +
                     $"uncaptured={rebuilt.UncapturedRecords}, blockedPairs={rebuilt.BlockedPlayerGatePairs}, " +
@@ -668,7 +668,7 @@ namespace BugfixesAndQoL.GateRouting
                     Interlocked.Increment(ref topologyChanges);
                     if (detailedDiagnostics) {
                                                  if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                                     Shared.DebugLogHelper.LogInfo(log,
+                                                     Shared.DebugLogHelper.LogDebug(log,
                         $"Gate/drawbridge topology changed: epoch={epochNumber}, " +
                         $"combinations={rebuilt.Combinations.Length}, " +
                         $"fingerprint=0x{rebuilt.Fingerprint:X16}, " +
@@ -679,7 +679,7 @@ namespace BugfixesAndQoL.GateRouting
                                              }
                     if (detailedDiagnostics) {
                                                  if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                                     Shared.DebugLogHelper.LogInfo(log,
+                                                     Shared.DebugLogHelper.LogDebug(log,
                         $"Gate passage axes: {rebuilt.RoutePolicy.DirectionMaskDiagnostics}.");
                                              }
                     if (detailedDiagnostics) LogTestCases(rebuilt);
@@ -689,7 +689,7 @@ namespace BugfixesAndQoL.GateRouting
                 if (firstBuild && !string.IsNullOrEmpty(rebuilt.Detail))
                     if (detailedDiagnostics) {
                                                  if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                                     Shared.DebugLogHelper.LogInfo(log,
+                                                     Shared.DebugLogHelper.LogDebug(log,
                         $"Initial gate/drawbridge topology detail: {rebuilt.Detail}");
                                              }
             }
@@ -715,7 +715,7 @@ namespace BugfixesAndQoL.GateRouting
             {
                 if (info.GateId <= 0 || !seen.Add(info.GateId)) continue;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE test-setup: epoch=" + epochNumber +
+                        Shared.DebugLogHelper.LogDebug(log, "TEMP_GATE_ROUTE_ACCEPTANCE test-setup: epoch=" + epochNumber +
                     ",gate=" + info.GateId + "/" + info.GateGlobal + ",entryExitPcl=" + info.EntryPcl + "/" + info.ExitPcl +
                     ",testCase=" + GateSearchEvidence.TopologyCase(info.EntryPcl, info.ExitPcl, bridges.Contains(info.GateId)) +
                     ",basis=published-topology-snapshot,actualQuery=not-proven,physicalGateState=not-inferred");

@@ -10,9 +10,12 @@ namespace Shared
     internal static class CoopAiStartPlanFactory
     {
         // Returns null for a fully Vanilla selection. candidateLimit < 0 takes every known candidate; extra
-        // candidates continue the list. Invalid or changed data throws InvalidOperationException.
+        // candidates continue the list. confirmedCandidates < 0 confirms every candidate; a smaller value marks
+        // the rest as assumed (see CoopAiSlotPlan.ConfirmedCandidateCount). Invalid or changed data throws
+        // InvalidOperationException.
         internal static CoopAiSlotPlan Create(FRONT_Multiplayer.MPAIVInfo info, int playerId, int lordType,
-            int candidateLimit, IReadOnlyList<short[]> extraCandidates, bool candidateListComplete)
+            int candidateLimit, IReadOnlyList<short[]> extraCandidates, bool candidateListComplete,
+            int confirmedCandidates = -1)
         {
             if (info == null)
                 throw new InvalidOperationException($"Coop AI slot {playerId} changed during start.");
@@ -48,7 +51,8 @@ namespace Shared
             }
             return new CoopAiSlotPlan(playerId, lordType, ToSource(castle), candidates,
                 info.builtInLord ? (EngineInterface.AILordConfigTransferData?)null : info.lordConfig.lordData,
-                candidateListComplete);
+                candidateListComplete, candidates == null || confirmedCandidates < 0
+                    ? -1 : Math.Min(confirmedCandidates, candidates.Count));
         }
 
         // True when both describe the same Lord, AIC and castles. compareAllCandidates=false compares only

@@ -66,7 +66,7 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 
 ## Steam-Modpack „Serps Mods“
 
-- `CreateSteamModPack.bat` ist der kanonische Einstieg. Ein neuer kompatibler Mod wird ausschließlich über den nächsten freien `STEAM_MOD_XX`-Eintrag im Kopfbereich aufgenommen.
+- `CreateSteamModPack.bat` ist der kanonische Einstieg. Ein neuer kompatibler Mod wird ausschließlich über die Liste `Mods` in `Shared/Tools/Steam/WorkshopConfiguration.ps1` aufgenommen.
 - Host-GUID `SerpsMods_Serp`, veröffentlichte Child-GUIDs und alle ausgelieferten relativen Pfade sind unveränderlich: nicht umbenennen, wiederverwenden oder stillschweigend entfernen.
 - Einmal ausgelieferte Pfade bleiben in jedem späteren Paket typgültig vorhanden: entfernte DLLs als gültige minimale No-op-Assembly mit gleichem Dateinamen und gleicher Plugin-GUID; JSON/XAML/strukturierte Dateien als formatspezifisch gültige neutrale Tombstones (keine leeren oder ungültigen Dateien).
 - Stillgelegte Mods bleiben in `serps-modpack.json` mit `State: Retired` und erwarteten Tombstone-Hashes. Echte Pfadentfernung erst nach erfolgreichem Update-/Löschtest des verwendeten Extenders.

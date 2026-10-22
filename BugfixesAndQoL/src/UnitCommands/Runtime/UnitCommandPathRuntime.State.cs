@@ -468,8 +468,6 @@ namespace BugfixesAndQoL.UnitCommands
         internal readonly HashSet<string> loggedDiggerDecisions =
             new HashSet<string>(StringComparer.Ordinal);
 
-        internal readonly HashSet<int> loggedFormationExecuteMoveTypes = new HashSet<int>();
-
         internal readonly Dictionary<int, string> lastWeightedPublicationDecisionByUnit =
             new Dictionary<int, string>();
 #endif

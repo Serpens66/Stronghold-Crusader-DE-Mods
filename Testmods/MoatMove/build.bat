@@ -45,6 +45,12 @@ set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBu
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
+set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+rem Release automation can explicitly use the validated workspace package.
+if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
+rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
+call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
+if errorlevel 1 goto failed
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -60,11 +66,14 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1"
 if errorlevel 1 goto failed
+if not exist "%API_SHARED_DIR%\APIShared.dll" goto failed
+rem A branch build copy has no built APIShared next to it; the regression needs the selected package.
+set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
 echo [%date% %time%] Run tests
 dotnet run --project "%PROJECT_DIR%tests\MoatMove.Tests.csproj" -- "%PROJECT_DIR%..\.."
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile projects
-"%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
+"%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
 if errorlevel 1 goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 echo [%date% %time%] PowerShell checks / build step

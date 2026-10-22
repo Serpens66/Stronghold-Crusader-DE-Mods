@@ -1,6 +1,8 @@
 [CmdletBinding()]
-param([string]$Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')), [string[]]$ModDirectories)
+param([string]$Workspace, [string[]]$ModDirectories)
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 leaves $PSScriptRoot empty inside parameter defaults.
+if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
 $checked = 0; $disabled = 0; $failures = [Collections.Generic.List[string]]::new()
 function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
     $values = @{}

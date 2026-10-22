@@ -111,7 +111,6 @@ namespace BugfixesAndQoL
                     !string.Equals(currentPath, requestedPath, StringComparison.OrdinalIgnoreCase))
                     throw new IOException("The confirmed Trail source is no longer available or safe.");
                 TrailDeletionPolicy.Delete(row.Text1, requestedPath, false, ConfigSettings.GetUserCustomTrailsPath());
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogInfo(log, $"Bugfixes and QoL permanently deleted local Trail [{requestedPath}]; no backup created.");
                 rows.Remove(row);
                 list.SelectedItem = null;

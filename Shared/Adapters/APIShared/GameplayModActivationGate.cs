@@ -40,6 +40,8 @@ namespace Shared
         /// </summary>
         internal static bool IsFeatureAllowed(string modGuid, GameplayFeatureId featureId)
         {
+            // Keyed by featureId only: this source is linked per assembly and every assembly passes its own
+            // single modGuid, so one cache never mixes decisions of different mods.
             int index = (int)featureId;
             int generation = System.Threading.Volatile.Read(ref featureGeneration);
             if (index >= 0 && index < FeatureCacheSize)

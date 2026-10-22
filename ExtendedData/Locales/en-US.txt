@@ -96,6 +96,7 @@ ExtendedData.ImportSidecarsIncomplete=The Trail missions were imported, but thes
 ExtendedData.BackupSidecarsIncomplete=The backup contains the Trail missions, but not these companion files: {Files}. See the BepInEx log (LogOutput.log) for details.
 ExtendedData.ErrorCustomizedCandidatesUnsynchronized=AI player {Player} uses several castles of a changed Lord selection. Without Bugfixes and QoL's AIV synchronization the other players only receive the first castle. Select a single castle or install Bugfixes and QoL.
 ExtendedData.ErrorCoopAiImportUnavailable=The custom AI data of this Coop mission cannot be applied because the required APIShared Coop AI start import is unavailable. Update APIShared.
+ExtendedData.ErrorCoopAiPlansConflict=The custom AI data of this Coop mission contradicts another mod's Coop AI selection: {Reason} Change the Lord selection of that AI player.
 ExtendedData.ExportFailed=The normal Trail was not exported because the Coop package could not be created.
 ExtendedData.MapModSettingsErrorTitle=Map mod settings unavailable
 ExtendedData.MapModSettingsUnavailable=The selected Map contains no valid embedded mod settings.

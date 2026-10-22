@@ -33,12 +33,12 @@ namespace BugfixesAndQoL.GateRouting
             {
                 map = true; runtime.ResetCounters(); Refresh();
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogInfo(log, "Assassin gatehouse descent ready: owner=EnableAssassinGatehouseClimbFix; gatePolicyIndependent=True; enabled=" + Enabled);
+                    Shared.DebugLogHelper.LogDebug(log, "Assassin gatehouse descent ready: owner=EnableAssassinGatehouseClimbFix; gatePolicyIndependent=True; enabled=" + Enabled);
             }));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ =>
             {
                 bool wasMap = map; map = false; Refresh();
-                if (wasMap) Shared.DebugLogHelper.LogInfo(log, runtime.Summary);
+                if (wasMap) Shared.DebugLogHelper.LogDebug(log, runtime.Summary);
             }));
             Refresh();
         }

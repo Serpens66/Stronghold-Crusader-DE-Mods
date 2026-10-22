@@ -173,7 +173,6 @@ namespace BugfixesAndQoL.VanillaPerformance
                     "SPRITE_SHEET_MERGE_LIVE_RENDERERS_FAILED: " + exception);
             }
             double ms = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogInfo(log, string.Format(Invariant,
                     "SPRITE_SHEET_MERGE_APPLIED: pages={0} sheets={1} sprites={2} skippedAssetModFiles={3} liveRenderers={4} " +
                     "buildMs={5:0} textureMemoryMB={6:0}->{7:0}; {8}",

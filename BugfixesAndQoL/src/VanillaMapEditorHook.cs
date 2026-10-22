@@ -596,7 +596,6 @@ namespace BugfixesAndQoL
                 RemoveMissingSaveRows(requester);
                 RefreshRequesterList(requester);
                 SelectNextAvailableSave(requester, deletedIndex);
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"Bugfixes and QoL permanently deleted user save [{safePath}].");
@@ -781,7 +780,6 @@ namespace BugfixesAndQoL
 
                 ClearDeletedSelection(requester, mapName);
                 RefreshRequesterList(requester);
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"Bugfixes and QoL permanently deleted user map [{safePath}].");

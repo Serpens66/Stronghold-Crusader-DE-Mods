@@ -35,7 +35,6 @@ namespace BugfixesAndQoL
                 RefreshActivation();
                 try
                 {
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
                         Shared.DebugLogHelper.LogInfo(persistentLog,
                             "ARABIAN_IDLE_VOLUME_REGISTERED: percent=" + settings.ArabianIdleSoundVolumePercent +
                             "; enabled=" + registration.Enabled + "; context=" + SoundEvents.ContextDiagnostic);
@@ -76,7 +75,6 @@ namespace BugfixesAndQoL
             if (Volatile.Read(ref confirmed) == 0 && Interlocked.Exchange(ref confirmed, 1) == 0)
                 try
                 {
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
                         Shared.DebugLogHelper.LogInfo(persistentLog,
                             "ARABIAN_IDLE_VOLUME_APPLIED: permanent callback after startup; percent=" + percent +
                             "; source=" + args.Context.SourceKey + "; request changed, audibility not confirmed.");

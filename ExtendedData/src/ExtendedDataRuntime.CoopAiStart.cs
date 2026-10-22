@@ -7,10 +7,11 @@ namespace ExtendedData
 {
     // Standalone Coop AI start for packaged missions. Vanilla's Coop start uploads only default castles and
     // drops custom AICs; APIShared owns that upload and imports the plans supplied here. BugfixesAndQoL, when
-    // installed, supplies plans from the same shared factory, so equal selections merge in APIShared.
+    // installed, supplies plans from the same shared factory, so equal selections merge in APIShared; its
+    // synchronized complete candidate list wins over a packaged list confirmed only through candidate zero.
     internal sealed partial class ExtendedDataRuntime
     {
-        private const string BugfixesAndQoLGuid = "BugfixesAndQoL_Serp";
+        private ICoopAiStartPreviewCapability coopAiPreview;
         private bool coopAiImportAvailable;
         private string coopAiImportUnavailableReason = string.Empty;
 
@@ -23,6 +24,7 @@ namespace ExtendedData
                     capability.TryRegisterProvider("ExtendedData.CoopPackage", ProvideCoopAiStart, out diagnostic))
                 {
                     coopAiImportAvailable = true;
+                    coopAiPreview = capability as ICoopAiStartPreviewCapability;
                     return;
                 }
                 coopAiImportUnavailableReason = diagnostic?.Reason ?? "unknown";
@@ -69,7 +71,10 @@ namespace ExtendedData
                     continue;
                 }
                 if (Shared.CoopAiStartPlanFactory.IsSameSelection(entry.Value, current, singlePlayer))
-                    plan = Shared.CoopAiStartPlanFactory.Create(entry.Value, playerId, lordType, -1, null, true);
+                    // In multiplayer only candidate zero could be compared with the lobby; the packaged rest is
+                    // an assumption that a synchronized complete list of the host's selection overrides.
+                    plan = Shared.CoopAiStartPlanFactory.Create(entry.Value, playerId, lordType, -1, null, true,
+                        singlePlayer ? -1 : 1);
                 else if (singlePlayer)
                     plan = Shared.CoopAiStartPlanFactory.Create(current, playerId, lordType, -1, null, true);
                 else
@@ -110,14 +115,17 @@ namespace ExtendedData
         }
 
         // Host check before the start: returns the block reason or null. A customized multiplayer slot with
-        // several castle candidates needs a confirmed transfer of its complete list, which only BugfixesAndQoL's
-        // AIV synchronization provides; Vanilla's lobby data carries one candidate.
+        // several castle candidates needs a provider that transfers its complete list to every peer (Vanilla's
+        // lobby data carries one candidate). APIShared's preview runs every provider for this start, so the check
+        // relies on the plan that will actually be imported, and contradicting plans block here instead of
+        // aborting inside the native start.
         private string CoopAiStartBlockReason(FRONT_Multiplayer self)
         {
             ResolvedMission mission = selected;
             if (mission == null || self?.currentLobby == null)
                 return null;
             bool needsImport = false;
+            var needsSynchronizedList = new Dictionary<int, int>();
             foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> entry in mission.AiInfoByPlayerIndex)
             {
                 int playerId = entry.Key + 1;
@@ -134,12 +142,26 @@ namespace ExtendedData
                     hostSelection.aivs.Count <= 1 ||
                     Shared.CoopAiStartPlanFactory.IsSameSelection(entry.Value, hostSelection, true))
                     continue;
-                if (!BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(BugfixesAndQoLGuid))
-                    return SerpLocalization.Get("ExtendedData.ErrorCustomizedCandidatesUnsynchronized")
-                        .Replace("{Player}", playerId.ToString());
+                needsSynchronizedList[playerId] = hostSelection.aivs.Count;
             }
-            if (needsImport && !coopAiImportAvailable)
-                return SerpLocalization.Get("ExtendedData.ErrorCoopAiImportUnavailable") + " " + coopAiImportUnavailableReason;
+            if (!needsImport)
+                return null;
+            if (!coopAiImportAvailable || coopAiPreview == null)
+                return SerpLocalization.Get("ExtendedData.ErrorCoopAiImportUnavailable") + " " +
+                    (coopAiImportAvailable ? "Coop AI start preview unavailable." : coopAiImportUnavailableReason);
+            if (!coopAiPreview.TryPreview(mission.Loaded.TrailNumber, mission.Loaded.MissionNumber - 1,
+                    out CoopAiStartPreview preview, out NativeCapabilityDiagnostic diagnostic))
+                return SerpLocalization.Get("ExtendedData.ErrorCoopAiImportUnavailable") + " " + diagnostic?.Reason;
+            if (!preview.Succeeded)
+                return SerpLocalization.Get("ExtendedData.ErrorCoopAiPlansConflict").Replace("{Reason}", preview.Failure);
+            foreach (KeyValuePair<int, int> slot in needsSynchronizedList)
+            {
+                CoopAiSlotPlan plan = preview.PlanFor(slot.Key);
+                if (plan == null || !plan.CandidateListComplete || plan.ConfirmedCandidateCount != plan.CandidateCount ||
+                    plan.CandidateCount != slot.Value)
+                    return SerpLocalization.Get("ExtendedData.ErrorCustomizedCandidatesUnsynchronized")
+                        .Replace("{Player}", slot.Key.ToString());
+            }
             return null;
         }
     }

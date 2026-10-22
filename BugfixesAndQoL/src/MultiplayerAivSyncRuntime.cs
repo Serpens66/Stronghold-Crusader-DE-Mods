@@ -136,6 +136,9 @@ namespace BugfixesAndQoL
                 loadMapHook = installedLoadMap;
                 updateHook = installedUpdate;
                 initialized = true;
+                // Coop start previews ask whether the host start transfers the complete candidate lists.
+                CoopCustomLordSelectionFeature.HostStartSynchronizesCandidates =
+                    platform => IsFeatureActive() && IsEligibleLobby(platform);
             }
             catch
             {

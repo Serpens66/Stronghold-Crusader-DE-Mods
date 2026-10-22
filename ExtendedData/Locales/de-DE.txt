@@ -96,6 +96,7 @@ ExtendedData.ImportSidecarsIncomplete=Die Trail-Missionen wurden importiert, die
 ExtendedData.BackupSidecarsIncomplete=Die Sicherung enthält die Trail-Missionen, aber nicht diese Begleitdateien: {Files}. Details findest du im BepInEx-Log (LogOutput.log).
 ExtendedData.ErrorCustomizedCandidatesUnsynchronized=KI-Spieler {Player} verwendet mehrere Burgen einer geänderten Lord-Auswahl. Ohne die AIV-Synchronisierung von Bugfixes and QoL erhalten die anderen Spieler nur die erste Burg. Wähle eine einzelne Burg oder installiere Bugfixes and QoL.
 ExtendedData.ErrorCoopAiImportUnavailable=Die eigenen KI-Daten dieser Koop-Mission können nicht angewendet werden, weil der benötigte Coop-KI-Startimport von APIShared nicht verfügbar ist. Aktualisiere APIShared.
+ExtendedData.ErrorCoopAiPlansConflict=Die eigenen KI-Daten dieser Koop-Mission widersprechen der Coop-KI-Auswahl einer anderen Mod: {Reason} Ändere die Lord-Auswahl dieses KI-Spielers.
 ExtendedData.ExportFailed=Der normale Trail wurde nicht exportiert, weil das Koop-Paket nicht erstellt werden konnte.
 ExtendedData.MapModSettingsErrorTitle=Map-Modsettings nicht verfügbar
 ExtendedData.MapModSettingsUnavailable=Die ausgewählte Map enthält keine gültigen eingebetteten Modsettings.

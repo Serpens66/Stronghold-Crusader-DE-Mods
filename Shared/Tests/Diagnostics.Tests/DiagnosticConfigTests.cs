@@ -26,13 +26,16 @@ public sealed class DiagnosticConfigTests
                 Assert.IsFalse(CrashBreadcrumbDiagnostics.IsEnabled);
                 Assert.IsNull(typeof(CrashBreadcrumbDiagnostics).GetField("recorder", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null));
                 using (CrashBreadcrumbDiagnostics.Enter("unused")) { CrashBreadcrumbDiagnostics.Record("unused"); }
-                DebugLogHelper.LogInfo(log, "must be silent");
+                DebugLogHelper.LogDebug(log, "must be silent");
                 Assert.AreEqual(0, messages);
                 RuntimeHealth.Failure(null, "null-logger", true, "Explicitly absent source must remain silent.");
                 Assert.AreEqual(0, messages);
+                // Info is routine release logging and stays visible without diagnostics.
+                DebugLogHelper.LogInfo(log, "info remains visible");
+                Assert.AreEqual(1, messages);
                 DebugLogHelper.LogWarning(log, "warning remains visible");
                 DebugLogHelper.LogError(log, "error remains visible");
-                Assert.AreEqual(2, messages);
+                Assert.AreEqual(3, messages);
             }
         });
     }

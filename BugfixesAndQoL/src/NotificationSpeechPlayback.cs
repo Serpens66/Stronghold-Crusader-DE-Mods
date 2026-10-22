@@ -125,7 +125,8 @@ namespace BugfixesAndQoL
             AudioClip loadedClip = null;
             try
             {
-                string path = (folder == "*" || folder.StartsWith("_SE_", StringComparison.OrdinalIgnoreCase))
+                // A null folder takes Vanilla's Path.Combine branch, which rejects it like the original loader.
+                string path = (folder == "*" || folder != null && folder.StartsWith("_SE_", StringComparison.OrdinalIgnoreCase))
                     ? soundName
                     : (ConfigSettings.Settings_EnglishSpeech || FatControler.UsesEnglishSpeechFolder()
                         ? Path.Combine(Application.streamingAssetsPath, "EnglishSpeech", folder, soundName)

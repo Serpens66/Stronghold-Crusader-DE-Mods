@@ -35,8 +35,11 @@ public sealed class RuntimeHealthTests
         Assert.AreEqual(2, messages.Count);
         Assert.AreEqual(LogLevel.Error, messages[0].Item1); Assert.AreEqual(LogLevel.Warning, messages[1].Item1);
         Assert.IsTrue(messages.All(m => m.Item2.Contains("mod=mod; feature=")));
-        Assert.IsTrue(messages.All(m => System.Text.RegularExpressions.Regex.IsMatch(m.Item2,
-            @"^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\] MOD_FAILURE")));
+        Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(messages[0].Item2,
+            @"^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\] MOD_FAILURE "));
+        // Warnings carry APIShared's warning tag, not the failure tag.
+        Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(messages[1].Item2,
+            @"^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\] MOD_WARNING "));
     }
     [TestMethod]
     public void NewCausesAndIndependentFunctionsHaveNoReportQuota()

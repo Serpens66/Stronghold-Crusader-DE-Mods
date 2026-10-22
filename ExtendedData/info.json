@@ -10,7 +10,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.3"
+      "MinimumVersion": "0.12.5"
     }
   ],
   "Manifest": 1,
@@ -25,7 +25,9 @@
         "Preserve packaged Lord requirements and sidecar data when re-saving or exporting Custom and Coop Trails; report missing or conflicting mission assets explicitly.",
         "Allow supported current-setting recovery when a save contains an unreadable APIShared settings record.",
         "Avoid disabled synchronization and settings-log preparation and cache repeated failure hashes.",
-        "Require APIShared 0.12.3 or newer."
+        "Coop Trail packages exported with this version use mission schema 5 and need ExtendedData 1.0.16 or newer on every player's game.",
+        "Check packaged Coop starts with APIShared's Coop start preview: contradicting AI selections and unsynchronized castle lists block at the start button with a message instead of aborting the start; a host selection that differs only after the first castle uses the synchronized list.",
+        "Require APIShared 0.12.5 or newer."
       ]
     },
     { "Version": "1.0.15", "Changes": ["Use the APIShared load/save requester service while retaining Lord readiness checks and editor save options."] },

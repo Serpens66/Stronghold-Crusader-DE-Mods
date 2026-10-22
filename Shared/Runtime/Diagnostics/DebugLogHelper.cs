@@ -95,7 +95,8 @@ namespace Shared
         }
 
         // External services may write routine logs without offering a diagnostic switch.
-        // This unregistered source forwards their events to the owning mod's real logger.
+        // This unregistered source forwards their events to the owning mod's real logger:
+        // Info always passes (as in APIShared), only Debug needs diagnostics.
         public static ManualLogSource ForExternalCode(ManualLogSource log)
         {
             if (log == null) return null;
@@ -107,7 +108,7 @@ namespace Shared
                 {
                     if ((args.Level & (LogLevel.Warning | LogLevel.Error | LogLevel.Fatal)) != 0)
                         RuntimeHealth.Forward(log, args.Level, Convert.ToString(args.Data, CultureInfo.InvariantCulture));
-                    else if (DiagnosticsEnabled)
+                    else if ((args.Level & LogLevel.Debug) == 0 || IsDebugEnabled())
                         try { log.Log(args.Level, WithTimestamp(Convert.ToString(args.Data, CultureInfo.InvariantCulture))); } catch { }
                 };
                 externalLogs.Add(log, proxy);
@@ -194,15 +195,16 @@ namespace Shared
             try { log.LogDebug(WithTimestamp(messageFactory())); } catch { }
         }
 
+        // Info is routine release logging (one-time status, user actions) and is never gated;
+        // per-map, per-command or detailed output belongs to LogDebug.
         public static void LogInfo(ManualLogSource log, string message)
         {
-            if (!DiagnosticsEnabled) return;
             try { log?.LogInfo(WithTimestamp(message)); } catch { }
         }
 
         public static void LogInfo(ManualLogSource log, Func<string> messageFactory)
         {
-            if (log == null || messageFactory == null || !DiagnosticsEnabled) return;
+            if (log == null || messageFactory == null) return;
             try { log.LogInfo(WithTimestamp(messageFactory())); } catch { }
         }
 
@@ -383,6 +385,9 @@ namespace Shared
     // Runs only at a failure boundary. Cache eviction never prevents a new report.
     internal sealed class RuntimeHealthLedger
     {
+        // Same severity tags as APIShared's ledger: errors are failures, warnings are not.
+        internal const string FailureTag = "MOD_FAILURE", WarningTag = "MOD_WARNING";
+
         private sealed class Entry
         {
             internal LinkedListNode<string> Node;
@@ -471,7 +476,7 @@ namespace Shared
                     }
                 }
                 string message = "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture) +
-                    "] MOD_FAILURE mod=" + owner + "; feature=" + feature + "; cause=" + cause + "; detail=" + Clean(detail) +
+                    "] " + (error ? FailureTag : WarningTag) + " mod=" + owner + "; feature=" + feature + "; cause=" + cause + "; detail=" + Clean(detail) +
                     (suppressed == 0 ? "" : "; suppressed repeats=" + suppressed);
                 try { write?.Invoke(error ? LogLevel.Error : LogLevel.Warning, message); } catch { }
             }
@@ -564,7 +569,8 @@ namespace Shared
         {
             // Already reported failures passed through a service proxy retain their
             // identity and repeat count. A proxy must not throttle them a second time.
-            if (text != null && text.IndexOf("] MOD_FAILURE mod=", StringComparison.Ordinal) >= 0)
+            if (text != null && (text.IndexOf("] " + RuntimeHealthLedger.FailureTag + " mod=", StringComparison.Ordinal) >= 0 ||
+                text.IndexOf("] " + RuntimeHealthLedger.WarningTag + " mod=", StringComparison.Ordinal) >= 0))
             { Emit(target, level, text); return; }
             Failure(target, CallerFeature(), (level & (LogLevel.Error | LogLevel.Fatal)) != 0, text);
         }

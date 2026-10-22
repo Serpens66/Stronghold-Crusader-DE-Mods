@@ -79,6 +79,8 @@ namespace BugfixesAndQoL
         private static CoopCustomLordSelectionFeature current;
         // Plans of the multiplayer Coop start currently inside Platform_Multiplayer.StartGame.
         private static Dictionary<int, CoopAiSlotPlan> activeCoopStartPlans;
+        // Set by the installed AIV synchronization: true when the host's start transfers every candidate list.
+        internal static Func<Platform_Multiplayer, bool> HostStartSynchronizesCandidates;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -365,7 +367,6 @@ namespace BugfixesAndQoL
                 if (partnerId == CoopCustomLordSelectionPolicy.SharedProgressId)
                     ClearSelection("shared Coop progress deleted");
                 CoopPopulateFriendsListHook(self);
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"Bugfixes and QoL deleted Coop progress for partner ID {partnerId}.");
@@ -759,6 +760,8 @@ namespace BugfixesAndQoL
                 : null;
             if (self?.currentLobby == null || self.AIVs == null)
                 return null;
+            if (request.IsPreview && !self.singlePlayerCoop && request.CoopTrail > 0)
+                return PreviewMultiplayerCoopStart(self);
             int selectedAllyLordType = checked((int)(ulong)SinglePlayerCoopAllyField.GetValue(self));
             var plans = new List<CoopAiSlotPlan>();
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
@@ -798,6 +801,33 @@ namespace BugfixesAndQoL
                 {
                     plan = Shared.CoopAiStartPlanFactory.Create(selectedInfo, playerId, lordType, -1, null, true);
                 }
+                if (plan != null)
+                    plans.Add(plan);
+            }
+            return plans.Count == 0 ? null : new CoopAiStartContribution(plans);
+        }
+
+        // Host-side preview of BeginCoopStart: every AI slot from the host's selection, which its lobby data and
+        // the AIV synchronization manifest transmit. A slot is complete only when the host start will transfer
+        // its candidate list; otherwise every peer knows Vanilla's single candidate.
+        private static CoopAiStartContribution PreviewMultiplayerCoopStart(FRONT_Multiplayer self)
+        {
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            if (self.currentLobby?.isHost != true)
+                return null;
+            bool synchronized = HostStartSynchronizesCandidates?.Invoke(platform) == true;
+            var plans = new List<CoopAiSlotPlan>();
+            foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+            {
+                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                    continue;
+                int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                if (playerId < 2 || playerId > 8 || playerId > self.AIVs.Length)
+                    throw new InvalidOperationException("Custom Coop Trail has an invalid AI player slot.");
+                FRONT_Multiplayer.MPAIVInfo info = self.AIVs[playerId - 1];
+                bool complete = synchronized && (info?.aivs?.Count ?? 0) > 1;
+                CoopAiSlotPlan plan = Shared.CoopAiStartPlanFactory.Create(info, playerId, member.GetLordType(),
+                    complete ? -1 : 1, null, complete);
                 if (plan != null)
                     plans.Add(plan);
             }

@@ -72,6 +72,11 @@ internal static class Program
         Check(complete.CandidateCount == 4 && prefix.CandidateCount == 1 && !prefix.CandidateListComplete &&
               extended.CandidateCount == 4 && extended.CopyCandidate(3)[0] == 4,
             "complete, transmitted and synchronized candidate lists keep their order");
+        CoopAiSlotPlan assumed = CoopAiStartPlanFactory.Create(package, 4, custom, -1, null, true, 1);
+        Check(complete.ConfirmedCandidateCount == 4 && prefix.ConfirmedCandidateCount == 1 &&
+              assumed.CandidateCount == 4 && assumed.CandidateListComplete && assumed.ConfirmedCandidateCount == 1 &&
+              CoopAiStartPlanFactory.Create(package, 4, custom, -1, null, true, 9).ConfirmedCandidateCount == 4,
+            "a packaged list compared only through candidate zero confirms only that candidate");
         Check(Reject<InvalidOperationException>(() => CoopAiStartPlanFactory.Create(Info(custom, false, true, name: "Sir Otto"), 4, custom, -1, null, true)) != null &&
               Reject<InvalidOperationException>(() => CoopAiStartPlanFactory.Create(Info(custom, false, false, candidates: 1), 4, custom, -1, null, true)) != null,
             "named custom Lords need their own castles and name");

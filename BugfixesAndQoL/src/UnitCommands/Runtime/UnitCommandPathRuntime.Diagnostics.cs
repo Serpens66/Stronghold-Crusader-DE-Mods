@@ -28,46 +28,11 @@ namespace BugfixesAndQoL.UnitCommands
         // The dedicated diagnostic build includes these traces. Ordinary builds remove
         // the calls and their interpolated arguments; local support logging stays independent.
         [System.Diagnostics.Conditional("SERP_DEVDIAG")]
-        internal void LogCursorDecision(string message)
-        {
-#if SERP_DEVDIAG
-            LogDetailedInfo($"Bugfixes and QoL friendly-moat-movement {message}.");
-
-#endif
-        }
-
-        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogDetailedInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
 #if SERP_DEVDIAG
             if (DetailedDiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
-
-#endif
-        }
-
-        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
-        internal void LogPositiveCursorDecision(ref int lastLoggedGeneration, string message)
-        {
-#if SERP_DEVDIAG
-            if (lastLoggedGeneration == gridGeneration)
-                return;
-
-            lastLoggedGeneration = gridGeneration;
-            LogCursorDecision(message);
-
-#endif
-        }
-
-        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
-        internal void LogCursorOwnerBlockDecision(ref int lastLoggedGeneration, string message)
-        {
-#if SERP_DEVDIAG
-            if (lastLoggedGeneration == gridGeneration)
-                return;
-
-            lastLoggedGeneration = gridGeneration;
-            LogCursorDecision(message);
 
 #endif
         }
@@ -81,15 +46,6 @@ namespace BugfixesAndQoL.UnitCommands
 
         [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogMovementContext(string message)
-        {
-#if SERP_DEVDIAG
-            BufferOrLogCommandDiagnostic(message);
-
-#endif
-        }
-
-        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
-        internal void LogBuilderDecision(string message)
         {
 #if SERP_DEVDIAG
             BufferOrLogCommandDiagnostic(message);

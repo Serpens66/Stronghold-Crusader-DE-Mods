@@ -51,7 +51,6 @@ namespace BugfixesAndQoL
                 harmony.Patch(target, prefix: new HarmonyMethod(typeof(GatehouseTargetMarkerHeightHook), nameof(BeforeAddUpdatePixie)));
                 settings.SettingChanged += OnSettingChanged;
                 RefreshEnabled();
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogInfo(log,
                         "GATEHOUSE_TARGET_MARKER_INSTALLED: permanent GameMap prefix; enabled=" +
                         (Volatile.Read(ref enabled) != 0));
@@ -81,7 +80,6 @@ namespace BugfixesAndQoL
             {
                 if (Volatile.Read(ref postStartupLogged) == 0 && Interlocked.Exchange(ref postStartupLogged, 1) == 0)
                     {
-                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
                             Shared.DebugLogHelper.LogInfo(log,
                         "GATEHOUSE_TARGET_MARKER_POST_STARTUP: first cursor pixie; image=" + image +
                         ", tile_x=" + tile_x + ", tile_y=" + tile_y + ", layerDelay=" + _layerDelay +
@@ -117,7 +115,6 @@ namespace BugfixesAndQoL
                         : Interlocked.Exchange(ref correctionLogged, 1) == 0;
                     if (firstCorrection)
                         {
-                            if (Shared.DebugLogHelper.DiagnosticsEnabled)
                                 Shared.DebugLogHelper.LogInfo(log,
                             "GATEHOUSE_TARGET_MARKER_APPLIED: family=" + (clickAnimation ? "ClickAnimation" : "Persistent") +
                             ", buildingId=" + buildingId +

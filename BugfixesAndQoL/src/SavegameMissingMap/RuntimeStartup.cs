@@ -18,7 +18,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
         internal void Subscribe(Action<Action> subscribe, Action initialize, Action<bool> activate,
             Action<string> log, Action<Exception> error)
         {
-            Report(log, "WAITING: installed APIShared 0.9.2; awaiting game library.");
+            Report(log, "WAITING: awaiting game library.");
             subscribe(() =>
             {
                 if (Interlocked.Exchange(ref attempted, 1) != 0) return;

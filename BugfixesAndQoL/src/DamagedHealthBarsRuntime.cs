@@ -185,7 +185,7 @@ namespace BugfixesAndQoL
                 break;
             }
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogInfo(log, "HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
+                Shared.DebugLogHelper.LogDebug(log, "HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
                     "}, buildingSample={" + buildingSample + "}.");
         }
 
