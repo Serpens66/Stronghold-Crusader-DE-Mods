@@ -20,6 +20,7 @@ namespace PerfProbe
         static partial void DiagBindConfig(BepInEx.Configuration.ConfigFile config)
         {
             if (config == null) return;
+            PerfProbeAutomation.Bind(config, log);
             PerfProbeRuntime.RenderSnapshots = config.Bind("Zoom", "RenderSnapshots", true,
                 "Write the 5 s render/zoom snapshot lines (original purpose of PerfProbe).").Value;
             PerfProbeRuntime.SpikeLines = config.Bind("Spikes", "Enabled", true,
@@ -31,6 +32,8 @@ namespace PerfProbe
                 config.Bind("Spikes", "FreezeMs", 400, "Spike lines at or above this duration are marked freeze=true.").Value);
             PerfProbeExtras.BindConfig(config);
             PerfProbeThreadSampler.BindConfig(config);
+            // Baseline runs: all keys stay bound (complete config file), but nothing is attached or started.
+            if (PerfProbeAutomation.AutomationOnly) return;
             // The sampler starts in Awake to cover plugin startup; DevDiag output needs the logger now.
             // Measurement series may defer it: suspending the main thread while Harmony patches
             // Director.Update occasionally hung the start (runs X1OFF/G1SE, 2026-10-23). The
@@ -43,6 +46,13 @@ namespace PerfProbe
 
         static partial void DiagInstall(ManualLogSource logger)
         {
+            PerfProbeAutomation.OnExtenderReady();
+            if (PerfProbeAutomation.AutomationOnly)
+            {
+                logger.LogMessage("[" + DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture) +
+                    "] PERFPROBE_AUTOMATION_ONLY: no timing patches, samplers or extras installed.");
+                return;
+            }
             Shared.DevDiag.Attach(logger);
             PerfProbeRuntime.Install(logger);
         }

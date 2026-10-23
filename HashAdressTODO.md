@@ -74,7 +74,7 @@ Diese Skripte prüfen den Datei-Hash der `Assembly-CSharp.dll` und brechen nach 
 - `BugfixesAndQoL/Test-GatehouseTargetMarkerHeight.ps1:17`
 - `ExtraFeatures/verify-repair.ps1:16`
 - `Shared/Tools/Release/Test-SCDEModManagerCompatibility.ps1:101`
-- `Testmods/PerfFixTest/verify.ps1:9`, `Testmods/PerfProbe/verify.ps1:9` (nur Warnungen)
+- `Testmods/PerfProbe/verify.ps1:9` (nur Warnung)
 
 ## Weitere Hash-Gates in APIShared
 

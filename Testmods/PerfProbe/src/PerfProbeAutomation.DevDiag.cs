@@ -1,51 +1,58 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using BepInEx.Configuration;
+using BepInEx.Logging;
 using CrusaderDE;
 using SHCDESE.API;
 using UnityEngine;
 
-namespace PerfFixTest.Automation
+namespace PerfProbe
 {
-    // Reproducible A/B measurement run (see AutomatisierungTest.md):
-    // main menu -> load save -> warm-up ticks -> zoom fully out -> settle -> native pause (hold)
+    // Reproducible A/B measurement run (see AutomatisierungTest.md), moved from the retired
+    // PerfFixTest test mod (last state: commit a7978899f):
+    // main menu -> load save -> warm-up ticks -> zoom out -> settle -> native pause (hold)
     // -> unpause (run) -> PASS/FAIL -> optional quit. Every phase boundary is logged with an
     // "AUTOMATION" marker so PerfProbe windows can be cut by phase.
     //
-    // Deliberate exception (user decision 2026-10-20): no APIShared mission lifecycle, so the
-    // measured installation stays Extender + PerfProbe + PerfFixTest only. Readiness is derived
+    // Deliberate exception (user decision 2026-10-20): no APIShared mission lifecycle, so a
+    // baseline installation stays Extender + PerfProbe (AutomationOnly) only. Readiness is derived
     // from Vanilla state plus observed simulation ticks; this detector exists only in this test mod.
     //
     // Driven by a static Application.onBeforeRender callback (runs while paused; survives the
     // SHCDE startup cleanup), limited to once per frame. Simulation ticks arrive on the sim
-    // thread and only increment a counter.
-    internal static class AutomationController
+    // thread through GameTimeManagerAPI.OnTick (rooted by the extender) and only increment counters.
+    internal static class PerfProbeAutomation
     {
         private enum Phase { Disabled, WaitMenu, WaitMission, ZoomOut, Settle, PauseHold, RunHold, Done, Failed }
 
         private static readonly CultureInfo C = CultureInfo.InvariantCulture;
+        private static ManualLogSource log;
         private static Phase phase = Phase.Disabled;
-        private static string savePath, runLabel;
-        private static int warmupTicks, settleSeconds, pauseSeconds, runSeconds, timeoutSeconds, maxZoomSteps;
-        private static bool quitWhenDone, extenderReady, tickSubscribed;
-        private static int lastFrame = -1, zoomSteps, unchangedSteps;
-        private static long ticks, ticksAtPhase;
-        private static long startStamp, phaseStamp;
+        private static string savePath, runLabel, screenshotDir;
+        private static int warmupTicks, settleSeconds, pauseSeconds, runSeconds, timeoutSeconds, maxZoomSteps, gameSpeed;
+        private static bool quitWhenDone, extenderReady, tickSubscribed, missionReadyLogged, speedApplied;
+        private static int lastFrame = -1, zoomSteps, unchangedSteps, gcAtRunStart;
+        private static long ticks, ticksAtPhase, startStamp, phaseStamp, loadStamp, heapAtRunStart, lastFrameStamp;
         private static float zoomBeforeStep = -1f, targetZoom;
         private static bool stepPending, resumeConfirmed, screenshotTaken;
-        private static string screenshotDir;
-        private static bool sheetProbe, sheetProbeDone, sheetMergeMidPause, sheetMergeControl, sheetRenderCheck, midPauseDone, secondShotTaken, lodProbe, quadProbe, lodDone, noesisProbe, noesisSingleMip, hudProbe, rebindProbe;
-        private static long lodDoneStamp;
         private static readonly FrameStats frames = new FrameStats();
-        private static long lastFrameStamp, mergeStamp;
 
-        internal static void Bind(ConfigFile config)
+        // Baseline runs: skip every other PerfProbe hook and sampler, so the installation measures
+        // only the automation (equivalent to the former PerfFixTest with all fixes off).
+        internal static bool AutomationOnly { get; private set; }
+
+        internal static void Bind(ConfigFile config, ManualLogSource logger)
         {
+            log = logger;
             bool enabled = config.Bind("Automation", "Enabled", false,
                 "Run the automated A/B measurement once per game start (load save, zoom out, pause, run, quit).").Value;
+            AutomationOnly = config.Bind("Automation", "AutomationOnly", false,
+                "Install no PerfProbe timing patches, samplers or extras (baseline runs: only the automation is active). Restart required.").Value;
             savePath = config.Bind("Automation", "SavePath", "test_dustyFPS.sav",
                 "Single-player save: absolute path or relative to the game's Saves directory.").Value;
             runLabel = config.Bind("Automation", "RunLabel", "",
@@ -53,52 +60,24 @@ namespace PerfFixTest.Automation
             warmupTicks = config.Bind("Automation", "WarmupTicks", 80, "Simulation ticks to observe after loading before zooming.").Value;
             settleSeconds = config.Bind("Automation", "SettleSeconds", 3, "Seconds to wait after zooming out before pausing.").Value;
             pauseSeconds = config.Bind("Automation", "PauseSeconds", 25, "Seconds to hold the native pause (identical scene).").Value;
-            runSeconds = config.Bind("Automation", "RunSeconds", 25, "Seconds to run unpaused at full zoom-out.").Value;
+            runSeconds = config.Bind("Automation", "RunSeconds", 25, "Seconds to run unpaused at the measured zoom.").Value;
             timeoutSeconds = config.Bind("Automation", "TimeoutSeconds", 300, "Overall timeout from game start; FAIL on expiry.").Value;
             maxZoomSteps = config.Bind("Automation", "MaxZoomSteps", 20, "Upper bound of zoom-out steps.").Value;
             gameSpeed = config.Bind("Automation", "GameSpeed", 0, "Game speed set after loading (0 = keep the save's speed).").Value;
             targetZoom = config.Bind("Automation", "TargetZoom", 0f, "Stop zooming out at this zoom (0 = until the zoom-out limit).").Value;
             quitWhenDone = config.Bind("Automation", "QuitWhenDone", true, "Quit the game after PASS or FAIL.").Value;
-            sheetProbe = config.Bind("Probes", "SheetMergeProbe", false,
-                "V7 feasibility probe in the main menu (GPU limits, sprite geometry of the TeamColour sheets, one test page copy).").Value;
-            sheetMergeMidPause = config.Bind("Probes", "SheetMergeMidPause", false,
-                "V7 in-run comparison: apply the sheet merge in the middle of the paused hold (stats/screenshot before and after).").Value;
-            sheetMergeControl = config.Bind("Probes", "SheetMergeControl", false,
-                "Control run for SheetMergeMidPause: same before/after screenshots and stats, but without merging.").Value;
-            sheetRenderCheck = config.Bind("Probes", "SheetMergeRenderCheck", false,
-                "With SheetMergeMidPause: after merging, render sampled sprites off-screen with original and page sprite/material for every cutoff stage and count differing pixels.").Value;
-            lodProbe = config.Bind("Probes", "LodProbe", false,
-                "LOD potential: in the paused hold, census of detail categories, then hide each category for one window and measure (screenshots before/after).").Value;
-            quadProbe = config.Bind("Probes", "QuadProbe", false,
-                "V11 potential (needs V7): in the paused hold, replace tight sprite meshes by their 4-vertex bounding quads (all / lossless only) and measure.").Value;
-            noesisProbe = config.Bind("Probes", "NoesisProbe", false,
-                "Log the textures Noesis receives (format, mips, native pointer) when the pause starts (D3D12 HUD investigation).").Value;
-            noesisSingleMip = config.Bind("Probes", "NoesisSingleMip", false,
-                "D3D12 HUD test: pass mip count 1 for every Noesis XAML texture (transpiler on NoesisTextureProvider.UpdateTextures).").Value;
-            hudProbe = config.Bind("Probes", "HudProbe", false,
-                "Noesis HUD cost: in the paused hold, disable all NoesisView components for one window between two control windows.").Value;
-            rebindProbe = config.Bind("Probes", "NoesisRebindProbe", false,
-                "D3D12 HUD feasibility: in the paused hold, replace XAML bitmap sources by TextureSource (screenshots before/after).").Value;
-            screenshotDir = config.Bind("Automation", "ScreenshotDir", "BepInEx/PerfFixTest_shots",
+            screenshotDir = config.Bind("Automation", "ScreenshotDir", "BepInEx/PerfProbe_shots",
                 "Folder (relative to the game root or absolute) for the paused-scene screenshot used for pixel comparison; empty disables it.").Value;
             if (!enabled) return;
-            ControlsSheetMerge = sheetMergeMidPause;
             phase = Phase.WaitMenu;
             startStamp = phaseStamp = Stopwatch.GetTimestamp();
             Application.onBeforeRender += OnBeforeRender;
             Log("armed save=" + savePath + " warmupTicks=" + warmupTicks + " settle=" + settleSeconds + "s pause=" + pauseSeconds +
-                "s run=" + runSeconds + "s timeout=" + timeoutSeconds + "s quit=" + quitWhenDone);
+                "s run=" + runSeconds + "s timeout=" + timeoutSeconds + "s quit=" + quitWhenDone + " automationOnly=" + AutomationOnly);
         }
 
         // Extender APIs (GameTimeManagerAPI, GamePlayerManagerAPI) only after the native library is ready.
-        internal static void OnExtenderReady()
-        {
-            extenderReady = true;
-            if (phase != Phase.Disabled && noesisSingleMip) NoesisProbe.InstallSingleMip(Log);
-        }
-
-        // An armed run with SheetMergeMidPause switches V7 itself in the middle of the pause.
-        internal static bool ControlsSheetMerge { get; private set; }
+        internal static void OnExtenderReady() => extenderReady = true;
 
         // Sim-thread tick gaps while running unpaused (> 100 ms = simulation stall, even if frames stay smooth).
         private static volatile bool recordTickGaps;
@@ -124,7 +103,7 @@ namespace PerfFixTest.Automation
             if (phase == Phase.Done || phase == Phase.Failed) { StepQuit(); return; }
             long frameNow = Stopwatch.GetTimestamp();
             // Frame interval of the frame that just ended; the first 2 s of a hold phase are skipped (transition).
-            if (lastFrameStamp != 0 && (phase == Phase.PauseHold || phase == Phase.RunHold) && Seconds(phaseStamp) >= 2 && (mergeStamp == 0 || Seconds(mergeStamp) >= 2))
+            if (lastFrameStamp != 0 && (phase == Phase.PauseHold || phase == Phase.RunHold) && Seconds(phaseStamp) >= 2)
                 frames.Add((frameNow - lastFrameStamp) * 1000.0 / Stopwatch.Frequency);
             lastFrameStamp = frameNow;
             try
@@ -149,13 +128,6 @@ namespace PerfFixTest.Automation
             MainViewModel view = MainViewModel.Instance;
             if (!view.Show_Frontend_MainMenu || view.Show_IntroSequence || view.HUDmain == null || view.HUDIngameMenu == null ||
                 Director.instance == null || EditorDirector.instance == null) return;
-            if (sheetProbe && !sheetProbeDone)
-            {
-                if (spriteLoader.instance == null || !spriteLoader.instance.spritesLoaded) return;
-                sheetProbeDone = true;
-                try { SheetMergeProbe.Run(Log); }
-                catch (Exception exception) { Log("probe=sheetmerge exception " + exception); }
-            }
             string resolved = Path.IsPathRooted(savePath) ? savePath : Path.Combine(ConfigSettings.GetSavesPath(), savePath);
             if (!File.Exists(resolved)) { Fail("save not found: " + resolved); return; }
             // Folder type 0 is Vanilla's user-file catalog selector, not a game/player ID.
@@ -166,6 +138,7 @@ namespace PerfFixTest.Automation
             loadStamp = Stopwatch.GetTimestamp();
             Enter(Phase.WaitMission, "loading " + resolved);
             // Same preparation as FrontendMenus' single-player load confirmation (as in AutoLoadSave).
+            // Loading without the dialog keeps the current mod settings (APIShared "use current").
             Platform_Multiplayer.Instance.gameMembers = null;
             view.InitNewScene(Enums.SceneIDS.MainGame);
             Director.instance.SetPausedState(false);
@@ -225,56 +198,15 @@ namespace PerfFixTest.Automation
         {
             if (!TrySetPause(true)) { Fail("native pause could not be set"); return; }
             Enter(Phase.PauseHold, "paused zoom=" + Zoom());
-            if (noesisProbe) NoesisProbe.Dump(Log);
         }
 
         private static void StepPauseHold()
         {
             if (!GamePlayerManagerAPI.Instance.IsLocalPaused()) { Fail("pause was lifted externally"); return; }
-            if (lodProbe || quadProbe || hudProbe || rebindProbe)
-            {
-                // Own timing: screenshot, all probe windows, screenshot again, then continue unpaused.
-                if (!screenshotTaken) { if (Seconds(phaseStamp) >= 2) TakeScreenshot("_before"); return; }
-                if (!lodDone)
-                {
-                    if (Seconds(phaseStamp) < 4) return;
-                    if (!(rebindProbe ? NoesisRebindProbe.Step(Log) : hudProbe ? HudProbe.Step(Log) : quadProbe ? QuadProbe.Step(Log) : LodProbe.Step(Log))) return;
-                    lodDone = true;
-                    lodDoneStamp = Stopwatch.GetTimestamp();
-                    return;
-                }
-                if (!secondShotTaken) { if (Seconds(lodDoneStamp) >= 2) { secondShotTaken = true; TakeScreenshot("_after"); } return; }
-                if (Seconds(lodDoneStamp) < 4) return;
-                frames.Clear();
-                EndPause();
-                return;
-            }            if (sheetMergeMidPause && !midPauseDone)
-            {
-                // Before half: screenshot shortly before switching, then stats, then the merge.
-                if (!screenshotTaken && Seconds(phaseStamp) >= pauseSeconds / 2.0 - 2) TakeScreenshot("_before");
-                if (Seconds(phaseStamp) < pauseSeconds / 2.0) return;
-                Log("framestats phase=pause-before " + frames.Summary());
-                frames.Clear();
-                midPauseDone = true;
-                if (sheetMergeControl) Log("v7 control: merge skipped");
-                else
-                {
-                    SheetMerge.Apply(Log);
-                    if (sheetRenderCheck) SheetMergeRenderCheck.Run(Log, 60);
-                }
-                mergeStamp = Stopwatch.GetTimestamp();
-                return;
-            }
-            if (sheetMergeMidPause && !secondShotTaken && Seconds(phaseStamp) >= pauseSeconds - 2) { secondShotTaken = true; TakeScreenshot("_after"); }
-            if (!sheetMergeMidPause && !screenshotTaken && Seconds(phaseStamp) >= pauseSeconds / 2.0) TakeScreenshot("");
+            if (!screenshotTaken && Seconds(phaseStamp) >= pauseSeconds / 2.0) TakeScreenshot();
             if (Seconds(phaseStamp) < pauseSeconds) return;
-            Log("framestats phase=" + (sheetMergeMidPause ? "pause-after " : "pause ") + frames.Summary());
+            Log("framestats phase=pause " + frames.Summary());
             frames.Clear();
-            EndPause();
-        }
-
-        private static void EndPause()
-        {
             Log("phase=pause-end held=" + Seconds(phaseStamp).ToString("0.0", C) + "s zoom=" + Zoom());
             if (!TrySetPause(false)) { Fail("native pause could not be lifted"); return; }
             resumeConfirmed = false;
@@ -311,13 +243,13 @@ namespace PerfFixTest.Automation
                 GC.CollectionCount(0) - gcAtRunStart, (GC.CollectionCount(0) - gcAtRunStart) / ran,
                 heapAtRunStart / 1048576.0, GC.GetTotalMemory(false) / 1048576.0));
             frames.Clear();
-            Log("phase=run-end ran=" + Seconds(phaseStamp).ToString("0.0", C) + "s ticks=" + (Interlocked.Read(ref ticks) - ticksAtPhase) + " zoom=" + Zoom());
+            Log("phase=run-end ran=" + ran.ToString("0.0", C) + "s ticks=" + ranTicks + " zoom=" + Zoom());
             Finish(Phase.Done, "PASS total=" + Seconds(startStamp).ToString("0.0", C) + "s");
         }
 
         // Native path manager (FBCB9319 base+0x60AD660): +0x78 counts failed route reconstructions
         // (0xE1640, each followed by a full-map rebuild 0xDAA50), +0x74 executed PCL rebuilds (0xE49D0).
-        // Read-only, so the same counters can be compared between SE-only and mod runs.
+        // Read-only, so the same counters can be compared between baseline and mod runs.
         private static string NativePathCounters()
         {
             IntPtr module = GetModuleHandle("CrusaderDE.dll");
@@ -335,7 +267,7 @@ namespace PerfFixTest.Automation
         private static extern IntPtr GetModuleHandle(string name);
 
         // Paused, identical scene: the PNG of run A and B must match pixel for pixel unless a fix changes the image.
-        private static void TakeScreenshot(string suffix)
+        private static void TakeScreenshot()
         {
             screenshotTaken = true;
             if (string.IsNullOrEmpty(screenshotDir)) return;
@@ -343,7 +275,7 @@ namespace PerfFixTest.Automation
             {
                 string dir = Path.IsPathRooted(screenshotDir) ? screenshotDir : Path.Combine(BepInEx.Paths.GameRootPath, screenshotDir);
                 Directory.CreateDirectory(dir);
-                string file = Path.Combine(dir, (runLabel.Length == 0 ? "run" : runLabel) + "_pause" + suffix + ".png");
+                string file = Path.Combine(dir, (runLabel.Length == 0 ? "run" : runLabel) + "_pause.png");
                 ScreenCapture.CaptureScreenshot(file);
                 Log("screenshot requested " + file + " textureMemoryMB=" + (Texture.currentTextureMemory / 1048576.0).ToString("0", C));
             }
@@ -394,24 +326,14 @@ namespace PerfFixTest.Automation
             if (quitStamp == 0 || Seconds(quitStamp) < QuitDelaySeconds) return;
             quitStamp = 0;
             Log("quit now");
-            FlushDiskLog();
-            Application.Quit();
-        }
-
-        private static void FlushDiskLog()
-        {
             try
             {
-                foreach (BepInEx.Logging.ILogListener listener in BepInEx.Logging.Logger.Listeners)
-                    if (listener is BepInEx.Logging.DiskLogListener disk) disk.LogWriter?.Flush();
+                foreach (ILogListener listener in BepInEx.Logging.Logger.Listeners)
+                    if (listener is DiskLogListener disk) disk.LogWriter?.Flush();
             }
-            catch (Exception exception) { PerfFixTestPlugin.Fail("disk log flush failed: " + exception.Message); }
+            catch (Exception exception) { log?.LogError(Stamp() + "AUTOMATION disk log flush failed: " + exception.Message); }
+            Application.Quit();
         }
-
-        private static long loadStamp, heapAtRunStart;
-        private static int gcAtRunStart;
-        private static bool missionReadyLogged, speedApplied;
-        private static int gameSpeed;
 
         private static string ProcessUptime()
         {
@@ -423,7 +345,38 @@ namespace PerfFixTest.Automation
 
         private static double Seconds(long since) => (Stopwatch.GetTimestamp() - since) / (double)Stopwatch.Frequency;
 
-        private static void Log(string message) => PerfFixTestPlugin.Note("AUTOMATION run=" + (runLabel.Length == 0 ? "-" : runLabel) +
-            " features(" + PerfFixTestPlugin.FeatureSummary + ") " + message);
+        private static string Stamp() => "[" + DateTime.Now.ToString("HH:mm:ss.fff", C) + "] ";
+
+        // Automation markers are plain messages (not throttled DevDiag output); ms timestamps.
+        private static void Log(string message) =>
+            log?.LogMessage(Stamp() + "AUTOMATION run=" + (runLabel.Length == 0 ? "-" : runLabel) + " " + message);
+
+        // Frame-interval statistics of one hold phase, measured by the automation itself so a
+        // comparison does not depend on the samplers (and works with AutomationOnly). Lag counters
+        // use the user's freeze definition (> 100 ms) plus a 50 ms stutter bucket.
+        private sealed class FrameStats
+        {
+            private readonly List<double> intervals = new List<double>(8192);
+
+            internal void Add(double milliseconds) => intervals.Add(milliseconds);
+
+            internal void Clear() => intervals.Clear();
+
+            internal string Summary()
+            {
+                if (intervals.Count == 0) return "frames=0";
+                double[] sorted = intervals.OrderBy(v => v).ToArray();
+                double total = sorted.Sum();
+                int over50 = sorted.Count(v => v > 50), over100 = sorted.Count(v => v > 100);
+                double lagMs = sorted.Where(v => v > 100).Sum();
+                string top = string.Join(",", sorted.Reverse().Take(5).Select(v => v.ToString("0", C)));
+                return string.Format(C, "frames={0} fps={1:0.0} meanMs={2:0.000} p50Ms={3:0.000} p95Ms={4:0.000} p99Ms={5:0.000} maxMs={6:0.0} over50={7} over100={8} lagSumMs={9:0} top5Ms={10}",
+                    sorted.Length, sorted.Length * 1000.0 / total, total / sorted.Length, Percentile(sorted, 0.50),
+                    Percentile(sorted, 0.95), Percentile(sorted, 0.99), sorted[sorted.Length - 1], over50, over100, lagMs, top);
+            }
+
+            private static double Percentile(double[] sorted, double fraction) =>
+                sorted[Math.Min(sorted.Length - 1, (int)Math.Floor(fraction * (sorted.Length - 1)))];
+        }
     }
 }

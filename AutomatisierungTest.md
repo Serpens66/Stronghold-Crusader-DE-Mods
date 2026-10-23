@@ -168,7 +168,7 @@ Für schrittgenaues Simulieren einer festen Anzahl nativer Ticks wäre ein zusä
 
 ## Praxiserkenntnisse aus dem automatisierten Messlauf (PerfFixTest)
 
-Stand: 20.10.2026, rund 40 vollständige Läufe mit `test_dustyFPS2.sav`. Referenzimplementierung: [AutomationController.cs](Testmods/PerfFixTest/src/Automation/AutomationController.cs) und [Run-Automation.ps1](Testmods/PerfFixTest/tools/Run-Automation.ps1).
+Stand: 20.10.2026, rund 40 vollständige Läufe mit `test_dustyFPS2.sav`. Referenzimplementierung damals im inzwischen stillgelegten PerfFixTest (Commit `a7978899f`). Seit 23.10.2026 liegt sie in PerfProbe: [PerfProbeAutomation.DevDiag.cs](Testmods/PerfProbe/src/PerfProbeAutomation.DevDiag.cs) und [Run-Automation.ps1](Testmods/PerfProbe/tools/Run-Automation.ps1).
 
 ### Im Spiel bestätigt
 

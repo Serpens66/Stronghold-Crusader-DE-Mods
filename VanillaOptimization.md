@@ -1,6 +1,6 @@
 # Vanilla-Optimierung SHCDE
 
-Ergebnis der Untersuchung, warum SHCDE beim Herauszoomen stark an FPS verliert, und welche Optimierungen per Mod sinnvoll sind. Alle Optimierungen sind im Testmod `Testmods/PerfFixTest` umgesetzt. Seit 21.10.2026 sind V1, V5 und V7 als lokale Client-Optionen in BugfixesAndQoL übernommen (`src/VanillaPerformance`, Standard an) und V9 als Script-Extender-Korrektur in APIShared (`src/ScriptExtenderFixes/InterpolateEvent`).
+Ergebnis der Untersuchung, warum SHCDE beim Herauszoomen stark an FPS verliert, und welche Optimierungen per Mod sinnvoll sind. Alle Optimierungen wurden zuerst im Testmod `PerfFixTest` umgesetzt (stillgelegt, siehe Anhang „Stillgelegter Testmod PerfFixTest“). Seit 21.10.2026 sind V1, V5 und V7 als lokale Client-Optionen in BugfixesAndQoL übernommen (`src/VanillaPerformance`, Standard an) und V9 als Script-Extender-Korrektur in APIShared (`src/ScriptExtenderFixes/InterpolateEvent`).
 
 ## Kurzfazit
 
@@ -53,9 +53,9 @@ Die Werte sind Mittel bzw. typische Werte aus mehreren automatisierten Läufen. 
 
 - **Nach V7** kosten die Einheiten pro Objekt, nicht pro Eckpunkt oder Bilddetail (V10/V11). Mehr FPS gäbe es nur mit weniger Unity-Objekten, siehe V12.
 
-## Umgesetzte Optimierungen (Testmod PerfFixTest)
+## Umgesetzte Optimierungen (zuerst im Testmod PerfFixTest)
 
-Alle Eingriffe sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode=0`), ohne native Hooks und verträglich mit Script Extender und Fixes-Mod. Die Schalter stehen in `BepInEx/config/PerfFixTest_Serp.cfg` unter `[Features]`, alle standardmäßig an; nach einer Änderung ist ein Neustart nötig.
+Alle Eingriffe sind verwaltete Harmony-Eingriffe, nur clientseitig (`NetworkMode=0`), ohne native Hooks und verträglich mit Script Extender und Fixes-Mod. Im Testmod standen die Schalter unter `[Features]` (Namen in Klammern). Heute gelten die Fassungen in BugfixesAndQoL bzw. APIShared.
 
 ### V1 – Minimap nicht bei jedem Tick neu binden (`RadarRebindSkip`)
 
@@ -170,7 +170,7 @@ Machbarkeitsprüfung `0xF5A40` (23.10.2026, statisch): Die Schleifen lesen pro s
 ## Offene Punkte
 
 - **V7:** Sichtprüfung durch den Nutzer in verschiedenen Spielständen. Tests mit Atlas-Overrides, dem Foliage-Begleitplugin des AtlasBuilders und auf Grafikkarten mit wenig VRAM bzw. kleinerer maximaler Texturgröße.
-- **Übernahme** (21.10.2026): V1/V5/V7 in BugfixesAndQoL, V9 in APIShared. Noch offen: Spieltest der übernommenen Fassungen. PerfFixTest bleibt Messwerkzeug; seine `[Features]` neben BugfixesAndQoL/APIShared abschalten, sonst greifen beide Fassungen (harmlos, aber Messungen werden ununterscheidbar).
+- **Übernahme** (21.10.2026): V1/V5/V7 in BugfixesAndQoL, V9 in APIShared. Noch offen: Spieltest der übernommenen Fassungen. Die Messautomatisierung liegt seit 23.10.2026 in PerfProbe; PerfFixTest ist stillgelegt.
 - **Ladephase** (unabhängig vom Zoom): `EngineInterface.LoadSaveFile` ~300 ms, `NoesisView.OnGUI` ~800 ms nach dem Laden, `FatControler.Update` ~2.4 s beim Wechsel vom Hauptmenü auf die Karte.
 
 ## Anhang
@@ -184,17 +184,15 @@ Machbarkeitsprüfung `0xF5A40` (23.10.2026, statisch): Die Schleifen lesen pro s
 
 ### Messverfahren
 
-- **Automatisierung** (`PerfFixTest`, `[Automation]`, standardmäßig aus): Hauptmenü → Spielstand laden → 80 Sim-Ticks → auf Zoom 0.25 → native Pause halten → laufen lassen → Spiel beenden. Die Frame-Statistik je Phase misst die Automatisierung selbst. Die Bereitschaft wird ohne APIShared erkannt, damit nichts das Ergebnis verfälscht.
-- **Lauf-Skript** `Testmods/PerfFixTest/tools/Run-Automation.ps1`:
-  - `-Label`, `-OutputDirectory`, `-Features "Schalter=Wert;…"`;
+- **Automatisierung** (seit 23.10.2026 in PerfProbe, [PerfProbeAutomation.DevDiag.cs](Testmods/PerfProbe/src/PerfProbeAutomation.DevDiag.cs), `[Automation]` in `PerfProbe_Serp.cfg`, standardmäßig aus, nur im DEVDIAG-Build): Hauptmenü → Spielstand laden → 80 Sim-Ticks → Zoom bis `TargetZoom` bzw. Grenze → native Pause halten → laufen lassen → Spiel beenden. Die Frame-Statistik je Phase misst die Automatisierung selbst. Die Bereitschaft wird ohne APIShared erkannt, damit nichts das Ergebnis verfälscht. `AutomationOnly = true` installiert keine anderen PerfProbe-Hooks, Sampler oder Extras (Basislauf „nur SE“; entspricht dem früheren PerfFixTest mit allen Fixes aus, Logmarker `PERFPROBE_AUTOMATION_ONLY`).
+- **Lauf-Skript** [Testmods/PerfProbe/tools/Run-Automation.ps1](Testmods/PerfProbe/tools/Run-Automation.ps1):
+  - `-Label`, `-OutputDirectory`, `-Config "Abschnitt.Schlüssel=Wert;…"` (abschnittsgenau, z. B. `Automation.RunSeconds=60;Sampler.Enabled=true`), `-AutomationOnly`;
+  - `-AffinityMask` (Prozess auf feste Kerne, z. B. `0xFFFF`);
   - `-BootConfig "key=value;…"` (`boot.config` vorübergehend, byte-genau wiederhergestellt);
   - `-LaunchArgs` (Direktstart der exe, braucht vorübergehend `steam_appid.txt`).
-  - Es sichert `LogOutput.log`, `Player.log` und Screenshots und setzt die Config danach zurück.
+  - Es sichert `LogOutput.log`, `Player.log` und den Pause-Screenshot und setzt `[Automation]` danach zurück.
   - Vor jedem Start wartet es, bis der vorige Spielprozess samt Crash-Handler beendet ist.
-- **Vergleiche im selben Lauf:** Proben unter `[Probes]` schalten in der Pause um und messen Fenster für Fenster, mit Kontrollfenstern und Screenshots vorher/nachher.
-  - `SheetMergeMidPause`, `SheetMergeControl`, `SheetMergeRenderCheck`, `SheetMergeProbe`;
-  - `LodProbe`, `QuadProbe`, `HudProbe`;
-  - `NoesisProbe`, `NoesisSingleMip`, `NoesisRebindProbe`.
+- **Vergleiche im selben Lauf (historisch, PerfFixTest):** Proben unter `[Probes]` schalteten in der Pause um und maßen Fenster für Fenster, mit Kontrollfenstern und Screenshots vorher/nachher. Beschreibung im Anhang „Stillgelegter Testmod PerfFixTest“.
 
 ### Sortierung je Kartenzeile (49er-Block)
 
@@ -228,7 +226,21 @@ Details stehen in der Native-Baseline unter `knowledge/SIM_TICK_SPIKE_PATHING.md
 ### Messwerkzeuge
 
 - **PerfProbe** (`Testmods/PerfProbe`, nur `build.bat /devdiag`): Zeitmessung der Kernmethoden und des Sim-Ticks, Render-Snapshots (Draw Calls, SetPass), Engine-Recorder, Draw-Call-Census, Sweep über Unity-Callbacks, Allokationen, Ruckler-Zeilen mit Kontext, Stack-Sampler für lange Sim-Ticks (`simSample`, RVAs mit `query.ps1 function <RVA>` auflösen).
-- **PerfFixTest** (`Testmods/PerfFixTest`):
-  - Fixes unter `[Features]`: `RadarRebindSkip`, `MeritDataLockCache`, `InterpolateEventReuse`, `SheetMerge`.
-  - Automatisierung unter `[Automation]`, Proben unter `[Probes]`.
-  - Log-Marker: `AUTOMATION … phase=`, `framestats`, `probe=`, `v7`, `result PASS|FAIL`.
+- **Automatisierung in PerfProbe:** Log-Marker `AUTOMATION … phase=`, `framestats`, `tickstats`, `nativecounters`, `gcstats`, `result PASS|FAIL`.
+
+### Stillgelegter Testmod PerfFixTest
+
+Am 23.10.2026 entfernt. Letzter vollständiger Quellstand: Commit `a7978899f`, Ordner `Testmods/PerfFixTest`. Wiederherstellen bei Bedarf mit `git checkout a7978899f -- Testmods/PerfFixTest`. Die Proben setzten das damalige Assembly-CSharp `BC8B6A39…` voraus.
+
+- **Fixes** (`[Features]`): `RadarRebindSkip` (V1), `MeritDataLockCache` (V5), `InterpolateEventReuse` (V9) und `SheetMerge` (V7). V1, V5 und V7 leben überarbeitet in BugfixesAndQoL (`src/VanillaPerformance`), V9 in APIShared (`src/ScriptExtenderFixes/InterpolateEvent`). Die Testfassung von V9 war ein Transpiler auf `ManagedHookManager.GameMap_InterpChimpHook`. Er ersetzte die eine Allokation durch eine wiederverwendete Instanz, nur beim äußersten Aufruf auf dem Main-Thread. Bewusst gab es kein Präfix und keinen Finalizer, weil deren try/finally-Hülle bei ~3000 Aufrufen pro Frame messbar bremste.
+- **Automatisierung** (`[Automation]`): nach PerfProbe übernommen. Neu ist `AutomationOnly`; die probebezogenen Teile entfielen (Mid-Pause-Umschaltung, zwei Screenshots, `features(…)` in den Logzeilen).
+- **Proben** (`[Probes]`, alle nur messend, nur in der gehaltenen Pause):
+  - `SheetMergeProbe` (Hauptmenü): GPU-Grenzen (max. Texturgröße, CopyTexture, BC7/DXT1, VRAM), Tight-Mesh-Anteil, Prüfung „alle Mesh-Ecken im Sprite-Rect“ (Voraussetzung, weil `Sprite.OverrideGeometry` nur Ecken im Rect annimmt) und eine zeitgemessene GPU-Kopie eines BC7-Sheets auf eine 16384²-Seite.
+  - `SheetMergeMidPause`/`SheetMergeControl`: V7 mitten in der Pause anwenden bzw. nur so tun. Statistik und Screenshot jeweils vorher/nachher.
+  - `SheetMergeRenderCheck`: Ausgewählte Sprites werden off-screen pixelgenau gerendert, je Cutoff-Stufe mit Original- bzw. Seiten-Sprite und Material und mit nicht-weißer Tönung (Teamfarben-Maske), und die Pixel verglichen. Damit trennt die Probe echte Renderfehler von reinen Reihenfolgeänderungen. Ergebnis siehe V7.
+  - `LodProbe`: Bestand je Detailkategorie (aus Vanillas `GameMap`-Objekt-Dictionaries, nicht aus Sortieroffsets), dann je Kategorie ein Fenster mit `renderer.enabled = false` und exakter Wiederherstellung. Kontrollfenster am Anfang und Ende. Liefert die Obergrenze eines LOD-Gewinns.
+  - `QuadProbe` (braucht V7): Tight-Meshes werden durch das 4-Ecken-Begrenzungsrechteck ersetzt. Je Sprite wird off-screen geprüft, ob das verlustfrei ist. Gemessen werden die Fenster Kontrolle, alle Quads, nur verlustfreie Quads und Kontrolle.
+  - `HudProbe`: alle `NoesisView` für ein Fenster aus (Kosten des HUD, getrennt vom D3D12-Effekt).
+  - `NoesisProbe`/`NoesisSingleMip`: Liste der Texturen, die `NoesisTextureProvider.UpdateTextures` an Noesis übergibt (Format, Mips, nativer Zeiger). Ein Transpiler testete Mip-Anzahl 1 (D3D12-HUD-Hypothese). Der Extender hookt `GetTextureInfo`, nicht `UpdateTextures`, daher gab es keine Überlappung.
+  - `NoesisRebindProbe`: `BitmapImage`-Quellen von `Image`/`ImageBrush` werden durch `TextureSource` um dieselbe Unity-Textur ersetzt (der Weg, der unter D3D12 rendert, wie die Minimap). Screenshots vorher/nachher; die Szene wird nicht zurückgesetzt.
+- **Nativer Zählerzugriff** (übernommen): Pfadmanager `base+0x60AD660`, `+0x78` fehlgeschlagene Routenrekonstruktionen, `+0x74` PCL-Neuaufbauten. Nur lesend und mit Prüfung der Imagegröße.

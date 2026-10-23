@@ -2,9 +2,11 @@
 param(
     [Parameter(Mandatory)] [string]$Label,
     [Parameter(Mandatory)] [string]$OutputDirectory,
-    # Feature switches as "RadarRebindSkip=true;MeritDataLockCache=false;..." (string: works with powershell.exe -File).
-    [string]$Features = '',
+    # Extra PerfProbe config entries as "Section.Key=value;..." (e.g. "Automation.RunSeconds=60;Sampler.Enabled=true").
+    [string]$Config = '',
     [string]$SavePath = 'test_dustyFPS2.sav',
+    # Baseline run: PerfProbe installs nothing except the automation ([Automation] AutomationOnly).
+    [switch]$AutomationOnly,
     # Temporary Unity boot.config entries "key=value;..." (restored byte-exact after the run).
     [string]$BootConfig = '',
     # Unity command-line arguments (e.g. -force-d3d12); the game executable is then started directly.
@@ -16,26 +18,32 @@ param(
     # Makes runs comparable on CPUs with unequal core complexes (7950X3D: V-cache on one CCD).
     [long]$AffinityMask = 0
 )
-# Runs one automated PerfFixTest measurement: writes the [Automation]/[Features] config, starts the
-# game through Steam, waits for the automation to quit the game and copies the logs and the
-# screenshot before the next start overwrites them (BepInEx AppendLog is disabled by the user).
+# Runs one automated PerfProbe measurement (DEVDIAG build of PerfProbe required): writes the
+# [Automation] section and the requested config entries, starts the game through Steam, waits for
+# the automation to quit the game and copies the logs and the screenshot before the next start
+# overwrites them (BepInEx AppendLog is disabled by the user).
 $ErrorActionPreference = 'Stop'
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
-$config = Join-Path $game 'BepInEx\config\PerfFixTest_Serp.cfg'
+$configPath = Join-Path $game 'BepInEx\config\PerfProbe_Serp.cfg'
 $log = Join-Path $game 'BepInEx\LogOutput.log'
 $playerDir = Join-Path $env:USERPROFILE 'AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition'
-$shotDir = Join-Path $game 'BepInEx\PerfFixTest_shots'
+$shotDir = Join-Path $game 'BepInEx\PerfProbe_shots'
 $process = 'Stronghold Crusader Definitive Edition'
 
-function Set-Value([string]$text, [string]$key, [string]$value) {
+# Section-aware: PerfProbe uses the key "Enabled" in several sections. A missing key or section is
+# appended (keys of a newer build appear in the file only after its first start).
+function Set-CfgValue([string]$text, [string]$section, [string]$key, [string]$value) {
     $pattern = '(?m)^' + [regex]::Escape($key) + ' = .*$'
-    if ($text -notmatch $pattern) {
-        # Keys of a newer build appear only after its first start; probes may be added explicitly.
-        $section = @{ SheetMergeProbe = 'Probes'; SheetMergeMidPause = 'Probes'; SheetMergeControl = 'Probes'; SheetMergeRenderCheck = 'Probes'; LodProbe = 'Probes'; QuadProbe = 'Probes'; NoesisProbe = 'Probes'; NoesisSingleMip = 'Probes'; HudProbe = 'Probes'; NoesisRebindProbe = 'Probes'; SheetMerge = 'Features' }[$key]
-        if ($section) { return $text.TrimEnd() + "`r`n`r`n[" + $section + "]`r`n" + $key + ' = ' + $value + "`r`n" }
-        throw "Config key missing: $key"
-    }
-    return [regex]::Replace($text, $pattern, ($key + ' = ' + $value))
+    $sectionMatch = [regex]::Match($text, '(?m)^\[' + [regex]::Escape($section) + '\]\r?$')
+    if (-not $sectionMatch.Success) { return $text.TrimEnd() + "`r`n`r`n[" + $section + "]`r`n" + $key + ' = ' + $value + "`r`n" }
+    $headEnd = $sectionMatch.Index + $sectionMatch.Length
+    $rest = $text.Substring($headEnd)
+    $next = [regex]::Match($rest, '(?m)^\[')
+    $body = if ($next.Success) { $rest.Substring(0, $next.Index) } else { $rest }
+    $tail = if ($next.Success) { $rest.Substring($next.Index) } else { '' }
+    if ($body -match $pattern) { $body = [regex]::Replace($body, $pattern, ($key + ' = ' + $value)) }
+    else { $body = "`r`n" + $key + ' = ' + $value + $body }
+    return $text.Substring(0, $headEnd) + $body + $tail
 }
 
 if (Get-Process -Name $process -ErrorAction SilentlyContinue) { throw 'The game is already running.' }
@@ -45,15 +53,21 @@ $quiet = (Get-Date).AddSeconds(60)
 while ((Get-Process -Name 'UnityCrashHandler64' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $quiet) { Start-Sleep -Seconds 1 }
 Start-Sleep -Seconds 10
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-$text = [IO.File]::ReadAllText($config)
-foreach ($pair in ($Features -split ';' | Where-Object { $_ -match '=' })) { $kv = $pair -split '=', 2; $text = Set-Value $text $kv[0].Trim() $kv[1].Trim().ToLowerInvariant() }
-$text = Set-Value $text 'Enabled' 'true'
-$text = Set-Value $text 'RunLabel' $Label
-$text = Set-Value $text 'SavePath' $SavePath
-[IO.File]::WriteAllText($config, $text, (New-Object Text.UTF8Encoding($false)))
-# Screenshots of an earlier run with the same label are deleted one by one (exact names only).
-$shotNames = @('_pause.png', '_pause_before.png', '_pause_after.png') | ForEach-Object { Join-Path $shotDir ($Label + $_) }
-foreach ($shot in $shotNames) { if (Test-Path -LiteralPath $shot) { [IO.File]::Delete($shot) } }
+$text = if (Test-Path -LiteralPath $configPath) { [IO.File]::ReadAllText($configPath) } else { '' }
+foreach ($pair in ($Config -split ';' | Where-Object { $_ -match '=' })) {
+    $kv = $pair -split '=', 2
+    $sectionKey = $kv[0].Trim() -split '\.', 2
+    if ($sectionKey.Count -ne 2) { throw "Config entry needs Section.Key: $pair" }
+    $text = Set-CfgValue $text $sectionKey[0] $sectionKey[1] $kv[1].Trim().ToLowerInvariant()
+}
+$text = Set-CfgValue $text 'Automation' 'Enabled' 'true'
+$text = Set-CfgValue $text 'Automation' 'AutomationOnly' $(if ($AutomationOnly) { 'true' } else { 'false' })
+$text = Set-CfgValue $text 'Automation' 'RunLabel' $Label
+$text = Set-CfgValue $text 'Automation' 'SavePath' $SavePath
+[IO.File]::WriteAllText($configPath, $text, (New-Object Text.UTF8Encoding($false)))
+# A screenshot of an earlier run with the same label is deleted (exact name only).
+$shot = Join-Path $shotDir ($Label + '_pause.png')
+if (Test-Path -LiteralPath $shot) { [IO.File]::Delete($shot) }
 
 $bootPath = Join-Path $game 'Stronghold Crusader Definitive Edition_Data\boot.config'
 $bootOriginal = [IO.File]::ReadAllBytes($bootPath)
@@ -105,19 +119,18 @@ finally {
 }
 Copy-Item -LiteralPath $log -Destination (Join-Path $OutputDirectory ($Label + '_LogOutput.log'))
 Copy-Item -LiteralPath (Join-Path $playerDir 'Player.log') -Destination (Join-Path $OutputDirectory ($Label + '_Player.log'))
-foreach ($shot in $shotNames) { if (Test-Path -LiteralPath $shot) { Copy-Item -LiteralPath $shot -Destination $OutputDirectory } }
+if (Test-Path -LiteralPath $shot) { Copy-Item -LiteralPath $shot -Destination $OutputDirectory }
 
-# Leave the installation in its normal state: automation off, fixes on.
-$text = [IO.File]::ReadAllText($config)
-$text = Set-Value $text 'Enabled' 'false'
-foreach ($key in 'RadarRebindSkip', 'MeritDataLockCache', 'InterpolateEventReuse', 'SheetMerge') { if ($text -match ('(?m)^' + $key + ' = ')) { $text = Set-Value $text $key 'true' } }
-foreach ($probe in 'SheetMergeProbe', 'SheetMergeMidPause', 'SheetMergeControl', 'SheetMergeRenderCheck', 'LodProbe', 'QuadProbe', 'NoesisProbe', 'NoesisSingleMip', 'HudProbe', 'NoesisRebindProbe') { if ($text -match ('(?m)^' + $probe + ' = ')) { $text = Set-Value $text $probe 'false' } }
-$text = Set-Value $text 'PauseSeconds' '25'
-$text = Set-Value $text 'RunSeconds' '25'
-[IO.File]::WriteAllText($config, $text, (New-Object Text.UTF8Encoding($false)))
+# Leave the installation in its normal state: automation off, all PerfProbe measurements available.
+$text = [IO.File]::ReadAllText($configPath)
+$text = Set-CfgValue $text 'Automation' 'Enabled' 'false'
+$text = Set-CfgValue $text 'Automation' 'AutomationOnly' 'false'
+$text = Set-CfgValue $text 'Automation' 'PauseSeconds' '25'
+$text = Set-CfgValue $text 'Automation' 'RunSeconds' '25'
+[IO.File]::WriteAllText($configPath, $text, (New-Object Text.UTF8Encoding($false)))
 
 $gfx = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_Player.log')) -Pattern 'GfxDevice: creating|Version:  Direct3D|Vulkan API|Graphics API' | ForEach-Object { $_.Line.Trim() }
-$markers = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_LogOutput.log')) -Pattern 'AUTOMATION .*(result|framestats|screenshot|probe=|v7 )' | ForEach-Object Line
+$markers = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_LogOutput.log')) -Pattern 'AUTOMATION .*(result|framestats|screenshot)|PERFPROBE_AUTOMATION_ONLY' | ForEach-Object Line
 "run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + 's' + $(if ($affinityApplied) { " affinity=$affinityApplied" } else { '' }) + $(if ($stalled) { " STALLED: no log output for $StallSeconds s, test instance stopped" } else { '' })
 $gfx
 $markers
