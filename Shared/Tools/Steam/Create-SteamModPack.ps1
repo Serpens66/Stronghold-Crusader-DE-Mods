@@ -54,7 +54,11 @@ $script:CompatibilityChange = 'Added optional Serps Mods Host dependency for Wor
 $script:CecilSourcePath = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll'
 $script:CecilLoadPath = $null
 $script:BepInExCorePath = Split-Path -Parent $script:CecilSourcePath
-$script:ScriptExtenderOutputPath = Join-Path $script:Root 'shcde-script-extender\src\SHCDESE.BepInEx\bin\net481'
+# The Git-ignored local Extender checkout exists only in the coordinator workspace, not in release worktrees.
+$script:ScriptExtenderRoot = @($script:Root, (Get-ApiMainWorkspace $script:Root)) | ForEach-Object { Join-Path $_ 'shcde-script-extender' } |
+    Where-Object { Test-Path -LiteralPath $_ -PathType Container } | Select-Object -First 1
+if (-not $script:ScriptExtenderRoot) { $script:ScriptExtenderRoot = Join-Path $script:Root 'shcde-script-extender' }
+$script:ScriptExtenderOutputPath = Join-Path $script:ScriptExtenderRoot 'src\SHCDESE.BepInEx\bin\net481'
 $script:ReleaseList = @()
 $script:UploadHistoryPath = Join-Path (Get-ApiMainWorkspace $script:Root) ".release-output\SteamWorkshop\items\$SteamAppId-$SteamStateName.upload-history.json"
 $script:UploadHistorySeedPath = Join-Path $PSScriptRoot "$SteamStateName.upload-history.seed.json"
@@ -1412,7 +1416,7 @@ function Resolve-WorkshopPackager {
         if (-not (Test-Path -LiteralPath $WorkshopPackagerPath -PathType Leaf)) { Fail-Pack 2 "Workshop packager not found: $WorkshopPackagerPath" }
         return (Resolve-Path $WorkshopPackagerPath).Path
     }
-    $project = Join-Path $script:Root 'shcde-script-extender\src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\SHCDESE.WorkshopPackager.csproj'
+    $project = Join-Path $script:ScriptExtenderRoot 'src\SHCDESE.WorkshopPackager\src\SHCDESE.WorkshopPackager\SHCDESE.WorkshopPackager.csproj'
     if (-not (Test-Path -LiteralPath $project)) { Fail-Pack 2 "Workshop packager project not found: $project" }
     if ($Validate) { return "AUTO ($project)" }
     Invoke-Checked -FilePath 'dotnet' -Arguments @('build',$project,'--configuration','Release','--nologo') -FailureCode 9 | Out-Null

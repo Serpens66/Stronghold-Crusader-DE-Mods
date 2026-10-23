@@ -16,7 +16,9 @@ $null=Assert-ApiBuildProof $apiRoot
 if($status.Count){throw 'Pinned main worktree changed.'}
 $commit=(& git -C $apiRoot rev-parse HEAD).Trim();if($LASTEXITCODE -ne 0){throw 'Cannot read APIShared source commit.'}
 $tag=if($test){'APIShared/test/v'+$info.Version+'-'+$commit.Substring(0,12)}else{'APIShared/v'+$info.Version}
-$packager=if($config.Packager -ne 'AUTO'){$config.Packager}else{(Get-ChildItem -LiteralPath (Join-Path $config.Root 'shcde-script-extender/src/SHCDESE.WorkshopPackager') -Recurse -File -Filter 'SHCDESE.WorkshopPackager.exe'|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1).FullName}
+# The Git-ignored local Extender checkout exists only in the coordinator workspace, not in release worktrees.
+$packagerRoot=@($config.Root,(Get-ApiMainWorkspace $config.Root))|ForEach-Object{Join-Path $_ 'shcde-script-extender/src/SHCDESE.WorkshopPackager'}|Where-Object{Test-Path -LiteralPath $_ -PathType Container}|Select-Object -First 1
+$packager=if($config.Packager -ne 'AUTO'){$config.Packager}elseif($packagerRoot){(Get-ChildItem -LiteralPath $packagerRoot -Recurse -File -Filter 'SHCDESE.WorkshopPackager.exe'|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1).FullName}
 if(-not $packager -or -not(Test-Path -LiteralPath $packager)){throw 'Build the existing Extender Workshop packager before preparing packages.'}
 if(-not(Test-Path -LiteralPath $api.Preview)){throw 'APIShared preview missing.'}
 . (Join-Path $apiRoot 'tools/Release/GitHubRelease.ps1')
