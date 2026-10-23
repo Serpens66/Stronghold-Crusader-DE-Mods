@@ -17,6 +17,7 @@ var tests = new (string Name, Action Run)[]
     ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),
     ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
+    ("Extended map defaults verify live sources, absence and Trail media remapping", FixesBridgeTests.MapDefaultSources),
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
     ("Custom Coop Trail preview separates displayed teams", TestCoopTrailPreviewTeams),

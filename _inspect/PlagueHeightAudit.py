@@ -8,7 +8,7 @@ import sys
 import capstone
 import pefile
 
-root = pathlib.Path(__file__).resolve().parents[3]
+root = pathlib.Path(__file__).resolve().parent.parent
 baseline = root / '_inspect/CrusaderDE-Native-Baseline'
 current = json.loads((baseline / 'CURRENT.json').read_text())
 native_path = pathlib.Path(sys.argv[1])
@@ -22,7 +22,7 @@ cs.detail = True
 cs.skipdata = True
 db = sqlite3.connect((baseline / current['semanticDirectory'] / 'CrusaderDE-semantic.sqlite').resolve().as_uri() + '?mode=ro', uri=True)
 sites = [(0x9FDB8, 32, 0x9F960), (0x192809, 26, 0x192750), (0x9CB6F, 26, 0x9C730), (0x9CC3D, 26, 0x9C730)]
-source = (pathlib.Path(__file__).parents[1] / 'src/PlagueHeightAssembly.cs').read_text()
+source = (root / 'APIShared/src/Projectiles/PlagueHeightAssembly.cs').read_text()
 hexes = re.findall(r'"([A-F0-9]{40,})"', source)
 for (site, size, function), expected in zip(sites, hexes):
     assert pe.get_data(site, size).hex().upper() == expected

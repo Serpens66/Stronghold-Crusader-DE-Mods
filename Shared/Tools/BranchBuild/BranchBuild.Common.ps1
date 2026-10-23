@@ -317,7 +317,11 @@ function Set-BranchBuildTools($Selection, [string]$ControllerRoot, [switch]$Api,
         'Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1')
     foreach ($relative in $tracked) {
         if ($relative -match '^(_inspect|\.inspect|shcde-script-extender)/') { continue }
+        if ($relative -notmatch '(^|/)build\.bat$' -and $relative -notin $installScripts) { continue }
         $path = Join-Path $Selection.Root $relative
+        # Working overlays preserve deletions, but ls-files still lists their HEAD entries.
+        # Do not recreate or adapt retired drivers; committed-source reads remain strict.
+        if ($Selection.Branch -eq 'working' -and -not [IO.File]::Exists($path)) { continue }
         if ($relative -match '(^|/)build\.bat$') {
             $text = Convert-BranchBatch ([IO.File]::ReadAllText($path)) $relative $suffix
         } elseif ($relative -in $installScripts) {

@@ -464,3 +464,12 @@ project's UpdateToNewDLL.md for hash, ABI, candidate-only rollback and tests. Th
 - GameUnit exclusion fields: `TargetExclusionWordOffset` `0x29C` (no Extender field; hash-bound) and `TargetExclusionByteOffset` `0x458` (= Extender `GameUnit.N000000DE`, validated with `Marshal.OffsetOf`).
 - Failure behaviour: any contract mismatch leaves only this feature uninstalled and logged; a callback exception permanently turns the published detour into a Vanilla pass-through. The published instance stays statically rooted until process exit.
 - Update audit: re-derive all RVAs/strides above from the list builder and its healer consumers in the new semantic baseline; re-check the two exclusion fields and the Extender unit layout before changing the hash.
+
+## Plague standing heights (2026-10-23)
+
+Native ownership and four-site ABI are in APIShared's Plague standing heights
+update contract. Extra Features acquires the owner-bound public capability and
+publishes its host-synchronized Walls/Gates/Towers/Keeps policy at tolerance 20.
+Defaults are true/true/true/false; global host activation and mission mode gate
+control this owner's activation. No own native plague-height hooks remain here.
+Vanilla apothecary resistance and Tweaker damage remain unchanged.

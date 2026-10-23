@@ -36,6 +36,7 @@ set "GAME_DIR=FIXTURE_GAME"
 set "PLUGIN_NAME=Fixture_Serp"
 set "PROJECT_DIR=%~dp0"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+if exist "%~dp0..\Retired\build.bat" echo RETIRED_DRIVER_PRESENT
 echo BUILD_SOURCE:
 type "%~dp0source.txt"
 echo BUILD_ARGUMENTS=%*
@@ -48,6 +49,7 @@ if errorlevel 1 exit /b 1
 exit /b 0
 '@.Replace('FIXTURE_GAME',$game)
     Write-BranchText (Join-Path $repo 'Fixture/build.bat') $batch
+    Write-BranchText (Join-Path $repo 'Retired/build.bat') "@echo off`r`nexit /b 99`r`n"
     Write-BranchText (Join-Path $repo 'Fixture/source.txt') "MAIN_COMMITTED`r`n"
     Git-Fixture @('add','.')
     Git-Fixture @('commit','-m','main fixture')
@@ -55,6 +57,8 @@ exit /b 0
     Write-BranchText (Join-Path $repo 'Fixture/source.txt') "DEVELOP_COMMITTED`r`n"
     Git-Fixture @('add','.')
     Git-Fixture @('commit','-m','develop fixture')
+    # A removed tracked driver reproduces retirement before its deletion is committed.
+    Remove-Item -LiteralPath (Join-Path $repo 'Retired/build.bat')
     Write-BranchText (Join-Path $repo 'Fixture/source.txt') "UNCOMMITTED_MUST_NOT_BUILD`r`n"
     # main builds also load the DEVDIAG release guard.
     foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1','../Validation/DevDiagnostics.Common.ps1')) {
@@ -104,6 +108,7 @@ function Assert-ApiBuildProof([string]$Root) {
     Write-BranchText (Join-Path $mainDir 'sentinel.txt') 'main sentinel'
     Write-BranchText (Join-Path $devDir 'sentinel.txt') 'dev sentinel'
     $output = Invoke-Fixture @('/branch:main','/nopause')
+    Assert-Case (($output -join "`n") -match 'RETIRED_DRIVER_PRESENT') 'Committed source lost its historical driver'
     Assert-Case (($output -join "`n") -match 'MAIN_COMMITTED' -and ($output -join "`n") -notmatch 'UNCOMMITTED_MUST_NOT_BUILD') 'main source selection failed'
     Assert-Case (($output -join "`n") -match 'API_MAIN' -and ($output -join "`n") -notmatch 'API_DEVELOP') 'main did not select APIShared main'
     Assert-Case ([IO.File]::ReadAllText((Join-Path $mainDir 'built.txt')).Trim() -ceq 'MAIN_COMMITTED') 'main installation failed'
@@ -161,6 +166,8 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case ([IO.File]::ReadAllText((Join-Path $apiRepo 'source.txt')) -ceq 'API_PERSONAL_DIRTY') 'personal SDK sources changed'
     # Working sources use current file contents; install and no-install remain independent.
     $workingOutput = Invoke-Fixture @('/nopause','/noinstall')
+    Assert-Case (($workingOutput -join "`n") -notmatch 'RETIRED_DRIVER_PRESENT') 'Working source restored a deleted tracked driver'
+    Assert-Case (-not (Test-Path -LiteralPath (Join-Path $repo 'Retired/build.bat'))) 'Build restored a retired driver in the developer checkout'
     Assert-Case (($workingOutput -join "`n") -match 'UNCOMMITTED_MUST_NOT_BUILD' -and ($workingOutput -join "`n") -match 'API_PERSONAL_DIRTY') 'Automatic working-source/default local SDK selection failed'
     Assert-Case ((Get-BranchHash (Join-Path $mainDir 'built.txt')) -ceq $beforeMain) 'Working /noinstall changed installation'
     $workingOutput = Invoke-Fixture @('/source:working','/nopause')

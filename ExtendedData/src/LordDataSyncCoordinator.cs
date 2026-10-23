@@ -65,6 +65,8 @@ namespace ExtendedData
         private LordDataSnapshot active;
         private LordDataSnapshot pendingTrail;
         private bool trailApplied;
+        private LordPackageManifest trailSaveManifest;
+        private readonly Dictionary<int, TrailLordSlot> pendingTrailRequirements = new Dictionary<int, TrailLordSlot>();
         private Dictionary<int, string> pendingTrailMediaNames = new Dictionary<int, string>();
         private HashSet<int> embeddedTrailSlots = new HashSet<int>();
         private bool trailSelectionActive;
@@ -119,6 +121,8 @@ namespace ExtendedData
             fixes.Restore();
             active = null;
             pendingTrail = null;
+            trailSaveManifest = null;
+            pendingTrailRequirements.Clear();
             packageManifest = null;
             pendingTrailMediaNames.Clear();
             localLordPaths.Clear();
@@ -165,8 +169,12 @@ namespace ExtendedData
                 }
                 if (pendingTrail != null)
                 {
-                    if (!trailApplied && notification.Context.Mode.IsRealMultiplayer)
+                    if (!trailApplied && notification.Context.Mode.IsRealMultiplayer &&
+                        pendingTrail.FixesInstalled && pendingTrail.Slots.Count > 0)
                         pendingTrail = AcknowledgedTrailSources(pendingTrail);
+                    if (!trailApplied && packageManifest != null)
+                        trailSaveManifest = LordPackageManifest.Create(pendingTrail.SessionId, false,
+                            packageManifest.Slots.Where(slot => pendingTrail.GetSlot(slot.PlayerId) != null));
                     fixes.Restore();
                     active = null;
                     packageManifest = null;
@@ -248,6 +256,8 @@ namespace ExtendedData
                 if (trailApplied)
                 {
                     pendingTrail = null;
+                    trailSaveManifest = null;
+                    pendingTrailRequirements.Clear();
                     pendingTrailMediaNames.Clear();
                     trailApplied = false;
                     SetEmbeddedTrailSlots(null);
@@ -364,6 +374,8 @@ namespace ExtendedData
             bool remapNow, out string reason, bool captureLocalReplacements = false)
         {
             pendingTrail = null;
+            trailSaveManifest = null;
+            pendingTrailRequirements.Clear();
             pendingTrailMediaNames.Clear();
             trailApplied = false;
             if (requirements == null)
@@ -378,44 +390,46 @@ namespace ExtendedData
             }
             if (!TryInspectTrail(requirements, infos, out Dictionary<int, string> names, out reason))
                 return false;
-            var slots = requirements.Slots.Where(slot => embeddedTrailSlots.Contains(slot.PlayerId))
-                .Select(slot => new LordDataSlot
-            {
-                PlayerId = slot.PlayerId,
-                LordType = slot.LordType ?? infos[slot.PlayerId].lordConfig.lordType,
-                LordName = names.TryGetValue(slot.PlayerId, out string name) ? name : slot.LordName,
-                ConfigName = infos[slot.PlayerId].lordConfig.name,
-                ConfigChecksum = infos[slot.PlayerId].lordConfig.checksum.ToString(),
-                ModLordJson = slot.ModLordJson,
-                FixesJson = slot.FixesJson,
-                FixesSources = slot.FixesSources,
-            }).ToList();
-            // The ordinary multiplayer snapshot carries the host's values for replaced
-            // Custom Lords. Trail values only belong to slots still using the embedded Lord.
-            if (captureLocalReplacements)
-            {
-                FRONT_Multiplayer lobby = ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer;
-                foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> item in infos ??
-                    new Dictionary<int, FRONT_Multiplayer.MPAIVInfo>())
-                {
-                    if (embeddedTrailSlots.Contains(item.Key) ||
-                        !IsActiveAiSlot(lobby, item.Key) || item.Value?.builtInLord != false)
-                        continue;
-                    slots.Add(CaptureSlot(item.Key, item.Value.lordName, item.Value.lordConfig));
-                }
-            }
-            else if (active != null && packageManifest != null &&
-                string.Equals(active.SessionId, packageManifest.SessionId, StringComparison.Ordinal))
-                slots.AddRange(active.Slots.Where(slot => !embeddedTrailSlots.Contains(slot.PlayerId) &&
-                    infos != null && infos.TryGetValue(slot.PlayerId, out FRONT_Multiplayer.MPAIVInfo info) &&
-                    info?.builtInLord == false &&
-                    string.Equals(info.lordConfig?.checksum.ToString(), slot.ConfigChecksum,
-                        StringComparison.Ordinal) &&
-                    packageManifest.Slots.Any(item => item.PlayerId == slot.PlayerId &&
-                        item.NeedsSnapshot &&
-                        string.Equals(item.ConfigChecksum, slot.ConfigChecksum, StringComparison.Ordinal))));
             try
             {
+                var slots = requirements.Slots.Where(slot => embeddedTrailSlots.Contains(slot.PlayerId))
+                    .Select(slot => new LordDataSlot
+                {
+                    PlayerId = slot.PlayerId,
+                    LordType = slot.LordType ?? infos[slot.PlayerId].lordConfig.lordType,
+                    LordName = names.TryGetValue(slot.PlayerId, out string name) ? name : slot.LordName,
+                    ConfigName = infos[slot.PlayerId].lordConfig.name,
+                    ConfigChecksum = infos[slot.PlayerId].lordConfig.checksum.ToString(),
+                    ModLordJson = slot.ModLordJson,
+                    FixesJson = slot.FixesJson,
+                    FixesSources = fixes.RebindMapDefaultName(slot.FixesSources,
+                        slot.LordType ?? infos[slot.PlayerId].lordConfig.lordType,
+                        infos[slot.PlayerId].lordConfig.lordData.opponent_type, slot.LordName,
+                        names.TryGetValue(slot.PlayerId, out string selectedName) ? selectedName : slot.LordName),
+                }).ToList();
+                // The ordinary multiplayer snapshot carries the host's values for replaced
+                // Custom Lords. Trail values only belong to slots still using the embedded Lord.
+                if (captureLocalReplacements)
+                {
+                    FRONT_Multiplayer lobby = ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer;
+                    foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> item in infos ??
+                        new Dictionary<int, FRONT_Multiplayer.MPAIVInfo>())
+                    {
+                        if (embeddedTrailSlots.Contains(item.Key) ||
+                            !IsActiveAiSlot(lobby, item.Key) || item.Value?.builtInLord != false)
+                            continue;
+                        slots.Add(CaptureSlot(item.Key, item.Value.lordName, item.Value.lordConfig));
+                    }
+                }
+                else if (active != null && packageManifest != null &&
+                    string.Equals(active.SessionId, packageManifest.SessionId, StringComparison.Ordinal))
+                    slots.AddRange(active.Slots.Where(slot => !embeddedTrailSlots.Contains(slot.PlayerId) &&
+                        infos != null && infos.TryGetValue(slot.PlayerId, out FRONT_Multiplayer.MPAIVInfo info) &&
+                        info?.builtInLord == false &&
+                        string.Equals(info.lordConfig?.checksum.ToString(), slot.ConfigChecksum,
+                            StringComparison.Ordinal) &&
+                        packageManifest.Slots.Any(item => item.PlayerId == slot.PlayerId &&
+                            string.Equals(item.ConfigChecksum, slot.ConfigChecksum, StringComparison.Ordinal))));
                 foreach (IGrouping<string, LordDataSlot> group in slots.GroupBy(
                     FixesLordPreferencesBridge.Identity, StringComparer.OrdinalIgnoreCase))
                     if (group.Select(slot => slot.FixesJson).Distinct(StringComparer.Ordinal).Skip(1).Any())
@@ -426,6 +440,8 @@ namespace ExtendedData
                 // Only the local author or authenticated host prepares the authoritative Trail values.
                 if (GameNetworkAPI.IsLocalHost())
                     pendingTrail = CompleteFixesSources(pendingTrail, slot => infos[slot.PlayerId].lordConfig.lordData.opponent_type);
+                foreach (TrailLordSlot slot in requirements.Slots)
+                    pendingTrailRequirements[slot.PlayerId] = slot;
                 pendingTrailMediaNames = names;
                 FRONT_Multiplayer currentLobby = ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer;
                 if (IsHostLobby(currentLobby) &&
@@ -695,13 +711,18 @@ namespace ExtendedData
                 // Embedded Trail AICs need no installed package, but their host values still require ACKs.
                 foreach (LordDataSlot slot in pendingTrail?.Slots.Where(value => embeddedTrailSlots.Contains(value.PlayerId)) ??
                     Enumerable.Empty<LordDataSlot>())
+                {
+                    bool needsFiles = pendingTrailRequirements.TryGetValue(slot.PlayerId, out TrailLordSlot requirement) &&
+                        requirement.RequiresInstalledPackage;
                     slots.Add(new LordPackageSlot { PlayerId = slot.PlayerId, LordType = FixesLordPreferencesBridge.ResolveLordType(slot),
                         LordName = slot.LordName, ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum,
-                        FileDigest = LordDataSyncDiagnostics.Hash("embedded:" + slot.ConfigChecksum),
+                        FileDigest = needsFiles ? requirement.PackageDigest : LordDataSyncDiagnostics.Hash("embedded:" + slot.ConfigChecksum),
+                        NeedsLocalFiles = needsFiles,
                         EmbeddedTrail = true,
                         NeedsSnapshot = slot.ModLordJson != null || slot.FixesJson != null || slot.FixesSources != null,
                         FixesDigest = slot.FixesJson == null ? null : LordDataSyncDiagnostics.Hash(fixes.Normalize(slot.FixesJson)),
                         FixesSourcesDigest = FixesPreferenceSources.Digest(fixes.NormalizeSources(slot.FixesSources)) });
+                }
                 bool keepLocal = !trailSelectionActive && packageManifest?.UseLocalValues == true &&
                     packageManifest.Slots.Count == slots.Count &&
                     packageManifest.Slots.Zip(slots, (left, right) => left.PlayerId == right.PlayerId &&
@@ -1485,9 +1506,10 @@ namespace ExtendedData
         private byte[] SaveSnapshot(SaveContext context)
         {
             LordDataSnapshot snapshot = trailApplied ? pendingTrail : active;
-            if (!context.IsSaveFile || (snapshot == null && packageManifest == null))
+            LordPackageManifest manifest = trailApplied ? trailSaveManifest : packageManifest;
+            if (!context.IsSaveFile || (snapshot == null && manifest == null))
                 return null;
-            string json = LordDataSaveRecord.Write(snapshot, packageManifest);
+            string json = LordDataSaveRecord.Write(snapshot, manifest);
             return StrictUtf8.GetBytes(json);
         }
 
@@ -1523,7 +1545,8 @@ namespace ExtendedData
                 }
             LordDataSnapshot completed = CompleteFixesSources(LordDataSnapshot.Create(saved.SessionId, saved.FixesInstalled, slots));
             if (manifest?.UseLocalValues == true && manifest.Slots.Any(slot => slot.FixesSourcesDigest != null &&
-                slot.FixesSourcesDigest != FixesPreferenceSources.Digest(completed.GetSlot(slot.PlayerId).FixesSources)))
+                (slot.FixesSourcesDigest != FixesPreferenceSources.Digest(completed.GetSlot(slot.PlayerId).FixesSources) ||
+                 !fixes.MatchesRecordedSources(completed.GetSlot(slot.PlayerId).FixesSources))))
                 throw new InvalidDataException("Local Fixes inheritance no longer matches the saved Lord sources.");
             return completed;
         }
@@ -1648,8 +1671,7 @@ namespace ExtendedData
                 {
                     string actual = fixes.Capture(slot.LordName, FixesLordPreferencesBridge.ResolveLordType(slot));
                     bool matches = string.Equals(actual, fixes.Normalize(slot.FixesJson), StringComparison.Ordinal);
-                    matches &= string.Equals(FixesPreferenceSources.Digest(fixes.CaptureRecordedSources(slot.FixesSources)),
-                        FixesPreferenceSources.Digest(fixes.NormalizeSources(slot.FixesSources)), StringComparison.Ordinal);
+                    matches &= fixes.MatchesRecordedSources(slot.FixesSources);
                     string message = "Lord-data Fixes verification: source=" + source +
                         ",digest=" + snapshot.Digest + ",lord=" + LordDataSyncDiagnostics.SafeLabel(slot.LordName) +
                         ",expected=" + LordDataSyncDiagnostics.DescribeJson(slot.FixesJson, true) +

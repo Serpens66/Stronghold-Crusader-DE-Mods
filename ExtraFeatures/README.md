@@ -65,6 +65,9 @@ Multiply all market buying and selling prices globally, then fine-tune the buyin
 
 ## Plague features
 
+### Plague damage on elevated defenses
+Four independent host checkboxes allow plague clouds to damage units on walls, gates, towers and keeps. Walls, gates and towers are enabled by default; keeps are disabled. Units can take damage when their actual standing height differs from the cloud standing surface by at most 20 native height units. The visual cloud offset is excluded. Cloud height follows movement, demolition and collapse. Vanilla horizontal range, damage, apothecary protection, treatment and unit immunities remain unchanged.
+
 ### Customize plague-cloud duration
 Set how long plague clouds remain active from 0.5 to 20 times the Vanilla duration. Longer durations also extend how long a cloud can cause damage. By default set to *4.
 
@@ -73,8 +76,8 @@ Set how far an apothecary searches from its assigned building for plague clouds.
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.7.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.14.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
-Market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
+Plague-height, market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
 
 Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change.

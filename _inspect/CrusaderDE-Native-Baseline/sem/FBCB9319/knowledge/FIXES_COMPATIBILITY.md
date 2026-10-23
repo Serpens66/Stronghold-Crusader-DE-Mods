@@ -169,3 +169,44 @@ Its own `verify.ps1` and manual call-path review check the initial publication a
 unpublished-candidate rollback; the new setting gate precedes that entire path.
 This is a scanner limitation, not permission to toggle published patches. No game
 or multiplayer session was run as part of this implementation.
+
+### Additional review and ExtendedData 1.0.18, 2026-10-23
+
+The managed map-default path has an additional named lookup: Fixes
+`Preferences.Load` consults `CustomLordPreferences[name]` for Extended Lords as
+well as Custom Lords, whereas ordinary `TryGet` consults that selected name only
+for Custom Lords. The Extender obtains this name from the selected restart/lobby
+slot through `GetCustomAILordNameByPlayerId` / `GetGenericSlotLordName`. ExtendedData
+now captures the Extended selection's named map-default source, including absence,
+alongside its ordinary AIC-base sources. Equal selected/base names share one entry.
+The selected Extended entry retains its original `FixesJson` meaning. Fixes' map
+slots and merge precedence remain unchanged.
+
+When an embedded Trail uses a different registered media provider, the captured
+map-default entry follows the selected media name. The old name remains a source
+only when the AIC still needs it as its base. Contradictory map/base identities
+reject preparation before mutation; preparation failures remain inside the normal
+launch-blocking error path. Regression cases verify named values, explicit absence,
+original reference restoration, migration, media remapping and shared base names.
+
+Local-values save validation now checks the current dictionary values in addition
+to the historical source digest. Comparing a saved digest to its own saved source
+list alone cannot detect changed or additionally present local defaults. The same
+live-source comparison is used by ordinary applied-snapshot verification.
+
+Fresh review evidence is under `.work/a/fixes-review/001`: 87/87 ExtendedData tests,
+122 Fixes startup/schema assertions, 76 AIAttackTest assertions, scoped EnemyBridge
+verification and ExtendedData source/member preflights passed. ExtendedData 1.0.18
+was built against the previously validated isolated SDK and installed with all 34
+package hashes checked. The other 458 previously installed ActiveAIVDetector and
+BugfixesAndQoL files were unchanged. Testmods were not installed; game/MP acceptance
+remains open.
+
+The unscoped EnemyBridge/Coarse verification scripts also invoke a workspace-wide
+scanner. In this review that scanner rejected concurrent, unrelated APIShared
+`src/Projectiles/PlagueNativeCode.cs` executable-memory code. Scoped EnemyBridge
+verification passed; Coarse's dedicated checks reached that final global scan,
+but its complete unscoped script is not recorded as passing. Those external work
+in progress sources and scanner expectations were not modified. Build warnings
+remain the existing linked JSON type-name collisions and an unused field; no
+compile errors occurred.

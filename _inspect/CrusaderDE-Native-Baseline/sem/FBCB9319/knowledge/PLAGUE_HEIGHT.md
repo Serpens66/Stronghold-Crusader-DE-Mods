@@ -59,8 +59,8 @@ jump/pointer forms must be read from actual module memory. Existing Extender
 plague features do not own these four sites. Canonical Fixes HEAD f91968217e5ece7901df45a7d90e01fb48be2b96 has no matching plague/target hook source.
 This is static compatibility evidence, not combined-installation game acceptance.
 
-Detailed implementation/rollback/memory contracts and pending game cases:
-Testmods/PlagueHeightTest/UpdateToNewDLL.md. Raw baseline exports remain unchanged.
+Current implementation/publication contracts and pending game cases:
+APIShared/UpdateToNewDLL.md, section Plague standing heights. Raw baseline exports remain unchanged.
 
 Review fixtures additionally execute the complete installed 192750 routine plus
 its jump tables. Ground hits match Vanilla's whole unit record across radius
@@ -68,3 +68,15 @@ its jump tables. Ground hits match Vanilla's whole unit record across radius
 exclusions are removed only when enabled; height rejection, wall damage, source
 self/dead/type immunity and unrelated-projectile early exclusion remain tested.
 These are isolated native execution results, not a game or multiplayer run.
+
+## Integration observation, 2026-10-23
+
+Installed native/backend hashes and the full original four spans were revalidated.
+APIShared now owns these sites; ExtraFeatures is an owner-bound policy consumer.
+Tests/audits formerly under Testmods/PlagueHeightTest moved to
+APIShared/tests/PlagueHeight.NativeTests and workspace _inspect/PlagueHeightAudit.py.
+Full native damage fixtures now also cover all 16 category combinations and
+building-before-wall classification. Existing historical findings above are retained.
+User reports successful in-game cloud-edge movement, wall demolition and tower
+collapse on the prior testmod. This does not establish multiplayer acceptance of
+the new integration or the separate category controls.

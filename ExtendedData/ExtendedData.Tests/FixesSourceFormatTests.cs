@@ -38,12 +38,13 @@ internal static class FixesSourceFormatTests
             ConfigChecksum = "42", FixesSources = new[] { new FixesPreferenceSource { CustomName = "RAT" } } };
         var snapshot = LordDataSnapshot.Create("ready", true, new[] { slot });
         var packageSlot = new LordPackageSlot { PlayerId = 1, LordType = -1, LordName = "Custom", ConfigName = "cfg",
-            ConfigChecksum = "42", FileDigest = "files", NeedsSnapshot = true, EmbeddedTrail = true,
+            ConfigChecksum = "42", FileDigest = "files", NeedsLocalFiles = true, NeedsSnapshot = true, EmbeddedTrail = true,
             FixesSourcesDigest = FixesPreferenceSources.Digest(slot.FixesSources) };
         var manifest = LordPackageManifest.Create("ready", false, new[] { packageSlot });
         LordDataSaveRecord.Read(LordDataSaveRecord.Write(snapshot, manifest), out var saved, out var savedPackage);
         Check(saved.Digest == snapshot.Digest && saved.GetSlot(1).FixesSources.Single().Json == null &&
             savedPackage.Digest == manifest.Digest && savedPackage.Slots.Single().EmbeddedTrail &&
+            savedPackage.Slots.Single().NeedsLocalFiles && savedPackage.Slots.Single().FileDigest == "files" &&
             savedPackage.Slots.Single().FixesSourcesDigest == packageSlot.FixesSourcesDigest,
             "Save roundtrip lost explicit absence or its separate source digest.");
         Check(manifest.MatchesSnapshot(snapshot, bridge.Normalize), "Complete absent-source snapshot was not ready.");

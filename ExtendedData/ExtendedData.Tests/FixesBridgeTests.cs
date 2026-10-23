@@ -46,6 +46,63 @@ internal static class FixesBridgeTests
     { try { action(); } catch (InvalidDataException) { return; } throw new Exception(message); }
     private static LordDataSlot Slot(string name, int player = 1, int type = -1) => new LordDataSlot
     { PlayerId = player, LordType = type, LordName = name, ConfigName = "cfg", ConfigChecksum = "42" };
+    internal static void MapDefaultSources()
+    {
+        var plugin = new Fixes.Boostrap.Plugin();
+        BepInEx.Bootstrap.Chainloader.PluginInfos["fixes"] = new BepInEx.Bootstrap.FakePluginInfo { Instance = plugin };
+        var bridge = new FixesLordPreferencesBridge();
+        var named = new Fixes.Config.CustomLordPreferencesEntry { Value = 81 };
+        plugin.CustomLordPreferences["ExtendedAlias"] = named;
+        plugin.CustomLordPreferences["RAT"] = new Fixes.Config.CustomLordPreferencesEntry { Value = 71 };
+        Fixes.Config.Preferences.SetExtended(3, new Fixes.Config.CustomLordPreferencesEntry { Value = 61 });
+        var source = bridge.CaptureSources("ExtendedAlias", 3, 1);
+        Require(source.Count == 2 && source.Single(item => item.CustomName == "ExtendedAlias").Json.Contains("81") &&
+            source.Single(item => item.CustomName == "RAT").Json.Contains("71"),
+            "Extended map-name defaults or ordinary AIC-base defaults were omitted.");
+        Require(bridge.Capture("ExtendedAlias", 3).Contains("61"), "Map-name capture changed the meaning of the selected Extended entry.");
+        var missing = bridge.CaptureSources("OtherAlias", 3, 1);
+        Require(missing.Single(item => item.CustomName == "OtherAlias").Json == null,
+            "Missing map-name defaults must be explicit, including when the AIC base exists.");
+        Require(bridge.CaptureSources("rat", 3, 1).Count == 1,
+            "A selected name equal to the AIC base created duplicate source identities.");
+        var clientOnly = new Fixes.Config.CustomLordPreferencesEntry { Value = 91 };
+        plugin.CustomLordPreferences["OtherAlias"] = clientOnly;
+        Require(!bridge.MatchesRecordedSources(missing), "A prior source digest hid an extra local map-default entry.");
+        Require(bridge.MatchesRecordedSources(source), "Unchanged stored map defaults were rejected.");
+        named.Value = 82;
+        Require(!bridge.MatchesRecordedSources(source), "Current map-default changes were checked against saved values only.");
+        named.Value = 81;
+        var absent = Slot("OtherAlias", type: 3); absent.FixesSources = missing;
+        bridge.Apply(LordDataSnapshot.Create("map-absence", true, new[] { absent }));
+        Require(!plugin.CustomLordPreferences.ContainsKey("OtherAlias") &&
+            bridge.MatchesRecordedSources(missing),
+            "Local Extended map defaults survived a host's explicit absence.");
+        bridge.Restore();
+        Require(ReferenceEquals(plugin.CustomLordPreferences["OtherAlias"], clientOnly), "Map-default original object was not restored.");
+
+        // A portable Trail can use another registered Lord solely to provide media.
+        var remapped = bridge.RebindMapDefaultName(source, 3, 1, "ExtendedAlias", "MediaAlias");
+        Require(remapped.Single(item => item.CustomName == "MediaAlias").Json.Contains("81") &&
+            remapped.Single(item => item.CustomName == "RAT").Json.Contains("71") &&
+            !remapped.Any(item => item.CustomName == "ExtendedAlias"), "Media remapping changed defaults or retained an unrelated old name.");
+        var sameAsBase = bridge.RebindMapDefaultName(bridge.CaptureSources("RAT", 3, 1), 3, 1, "RAT", "BaseMedia");
+        Require(sameAsBase.Count == 2 && sameAsBase.All(item => item.Json.Contains("71")),
+            "Remapping a shared map/base source removed the ordinary AIC fallback.");
+        var selected = Slot("MediaAlias", type: 3); selected.FixesSources = remapped;
+        bridge.Apply(LordDataSnapshot.Create("map-remap", true, new[] { selected }));
+        Require(plugin.CustomLordPreferences["MediaAlias"].Value == 81, "The remapped map reader cannot see the saved named defaults.");
+        bridge.Restore();
+        Require(!plugin.CustomLordPreferences.ContainsKey("MediaAlias") && ReferenceEquals(plugin.CustomLordPreferences["ExtendedAlias"], named),
+            "Media remapping did not restore original names and absence.");
+        var absentRemap = bridge.RebindMapDefaultName(missing, 3, 1, "OtherAlias", "AbsentMedia");
+        Require(absentRemap.Single(item => item.CustomName == "AbsentMedia").Json == null, "Remapped absent defaults became unknown.");
+        Reject(() => bridge.RebindMapDefaultName(source, 3, 1, "ExtendedAlias", "RAT"), "Conflicting media and base-name sources were silently overwritten.");
+        var legacy = Slot("ExtendedAlias", type: 3);
+        var completed = bridge.CompleteSources(LordDataSnapshot.Create("legacy-map", true, new[] { legacy }), _ => 1);
+        Require(completed.Slots[0].FixesSources.Single(item => item.CustomName == "ExtendedAlias").Json.Contains("81"),
+            "Host migration omitted Extended map-name defaults.");
+        plugin.CustomLordPreferences.Clear(); Fixes.Config.Preferences.Reset();
+    }
     private static void TestSources()
     {
         var plugin = new Fixes.Boostrap.Plugin();
@@ -78,8 +135,8 @@ internal static class FixesBridgeTests
         Reject(() => bridge.Apply(LordDataSnapshot.Create("bad", true, new[] { bad })), "Unsupported property accepted.");
         Require(!plugin.CustomLordPreferences.ContainsKey("RAT"), "Failed validation partially applied values.");
         bridge.Restore(); Require(ReferenceEquals(plugin.CustomLordPreferences["RAT"], rat), "Original source object was not restored.");
-        Require(bridge.CaptureSources("WolfAlias", 3, 1).Single().CustomName == "RAT",
-            "Extended selection did not resolve its AIC base before its own last fallback.");
+        Require(bridge.CaptureSources("WolfAlias", 3, 1).Any(source => source.CustomName == "RAT"),
+            "Extended selection did not retain its ordinary AIC base alongside map-name defaults.");
         var overlay = Slot("RAT"); overlay.FixesJson = "{\"Value\":88}";
         bridge.Apply(LordDataSnapshot.Create("previous", true, new[] { overlay }));
         var legacyDuringOverlay = bridge.CompleteSources(LordDataSnapshot.Create("next", true, new[] { Slot("New") }), _ => 1);

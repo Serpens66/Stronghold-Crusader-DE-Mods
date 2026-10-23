@@ -34,6 +34,10 @@ namespace ExtraFeatures
         private bool marketPricesAlsoForAI;
         private double[] marketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
         private double[] marketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
+        private bool plagueDamageWalls = true;
+        private bool plagueDamageGates = true;
+        private bool plagueDamageTowers = true;
+        private bool plagueDamageKeeps = false;
         private double plagueDurationMultiplier = 4.0;
         private int apothecaryPlagueSearchDistance = 50;
         private int campfirePeasantsLimit = -1;
@@ -134,6 +138,19 @@ namespace ExtraFeatures
         public string LordHealthTitleText => SerpLocalization.Get(SerpLocalization.LordHealthTitle);
         public string LordHealthHelpText => SerpLocalization.Get(SerpLocalization.LordHealthHelp);
         public string BuildingsProductionTitleText => SerpLocalization.Get(SerpLocalization.BuildingsProductionTitle);
+        public string PlagueDamageSurfacesText => SerpLocalization.Get("SomeSettings.PlagueDamageSurfaces");
+        public string PlagueDamageWallsText => SerpLocalization.Get("SomeSettings.PlagueDamageWalls");
+        public string PlagueDamageWallsHelpText => SerpLocalization.Get("SomeSettings.PlagueDamageWallsHelp");
+        [SyncHostOnly] public bool PlagueDamageWalls { get => plagueDamageWalls; set => SetSetting(ref plagueDamageWalls, value, nameof(PlagueDamageWalls)); }
+        public string PlagueDamageGatesText => SerpLocalization.Get("SomeSettings.PlagueDamageGates");
+        public string PlagueDamageGatesHelpText => SerpLocalization.Get("SomeSettings.PlagueDamageGatesHelp");
+        [SyncHostOnly] public bool PlagueDamageGates { get => plagueDamageGates; set => SetSetting(ref plagueDamageGates, value, nameof(PlagueDamageGates)); }
+        public string PlagueDamageTowersText => SerpLocalization.Get("SomeSettings.PlagueDamageTowers");
+        public string PlagueDamageTowersHelpText => SerpLocalization.Get("SomeSettings.PlagueDamageTowersHelp");
+        [SyncHostOnly] public bool PlagueDamageTowers { get => plagueDamageTowers; set => SetSetting(ref plagueDamageTowers, value, nameof(PlagueDamageTowers)); }
+        public string PlagueDamageKeepsText => SerpLocalization.Get("SomeSettings.PlagueDamageKeeps");
+        public string PlagueDamageKeepsHelpText => SerpLocalization.Get("SomeSettings.PlagueDamageKeepsHelp");
+        [SyncHostOnly] public bool PlagueDamageKeeps { get => plagueDamageKeeps; set => SetSetting(ref plagueDamageKeeps, value, nameof(PlagueDamageKeeps)); }
         public string PlagueTitleText => SerpLocalization.Get("SomeSettings.PlagueTitle");
         public string BulldozeHelpText => SerpLocalization.Get(SerpLocalization.BulldozeHelp);
         public string WoodRefundText => SerpLocalization.Get(SerpLocalization.WoodRefund);
@@ -329,6 +346,10 @@ namespace ExtraFeatures
                 MarketPricesAlsoForAI = false;
                 MarketGoodBuyPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
                 MarketGoodSellPriceMultipliers = MarketGoodPriceDefinition.CreateDefaultMultipliers();
+                PlagueDamageWalls = true;
+                PlagueDamageGates = true;
+                PlagueDamageTowers = true;
+                PlagueDamageKeeps = false;
                 PlagueDurationMultiplier = 4.0;
                 ApothecaryPlagueSearchDistance = 50;
                 CampfirePeasantsLimit = -1;

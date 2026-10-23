@@ -130,17 +130,47 @@ namespace ExtendedData
             if (type < 0 && read(new FixesPreferenceSource { CustomName = name }).Json != null)
                 return Array.Empty<FixesPreferenceSource>();
             var result = new List<FixesPreferenceSource>();
+            // Preferences.Load uses the selected name even for Extended Lords when
+            // merging map overrides. TryGet's ordinary Extended fallback does not.
+            if (type >= 0) result.Add(read(new FixesPreferenceSource { CustomName = name }));
             // Fixes GetBaseLord accepts only the native base enums. Do not clamp modder AIC values.
-            if (baseLord > (int)SHCDESE.Interop.AILords.SK_NULL && baseLord < (int)SHCDESE.Interop.AILords.SK_X1 &&
-                Enum.IsDefined(typeof(SHCDESE.Interop.AILords), (uint)baseLord))
+            string baseName = BaseLordName(baseLord);
+            if (baseName != null)
             {
-                string baseName = ((SHCDESE.Interop.AILords)(uint)baseLord).ToString().Substring(3);
                 FixesPreferenceSource customSource = read(new FixesPreferenceSource { CustomName = baseName });
-                result.Add(customSource);
+                if (!result.Any(source => FixesPreferenceSources.Identity(source) == FixesPreferenceSources.Identity(customSource)))
+                    result.Add(customSource);
                 if (customSource.Json == null)
                     result.Add(read(new FixesPreferenceSource { LordType = baseLord - 1 }));
             }
             return result;
+        }
+
+        private static string BaseLordName(int baseLord)
+            => baseLord > (int)SHCDESE.Interop.AILords.SK_NULL && baseLord < (int)SHCDESE.Interop.AILords.SK_X1 &&
+                Enum.IsDefined(typeof(SHCDESE.Interop.AILords), (uint)baseLord)
+                ? ((SHCDESE.Interop.AILords)(uint)baseLord).ToString().Substring(3) : null;
+
+        internal IReadOnlyList<FixesPreferenceSource> RebindMapDefaultName(
+            IReadOnlyList<FixesPreferenceSource> sources, int type, int baseLord, string authoredName, string selectedName)
+        {
+            if (sources == null || type < 0 || string.Equals(authoredName, selectedName, StringComparison.OrdinalIgnoreCase))
+                return sources;
+            FixesPreferenceSource authored = sources.FirstOrDefault(source =>
+                string.Equals(source.CustomName, authoredName, StringComparison.OrdinalIgnoreCase));
+            if (authored == null) return sources;
+            FixesPreferenceSource selected = sources.FirstOrDefault(source =>
+                string.Equals(source.CustomName, selectedName, StringComparison.OrdinalIgnoreCase));
+            if (selected != null)
+            {
+                if (Normalize(selected.Json) != Normalize(authored.Json))
+                    throw new InvalidDataException("Conflicting Fixes map-default source after Lord media remapping: " + selectedName);
+            }
+            // Keep the old name only when the unchanged AIC still reads it as its base.
+            bool keepAuthored = string.Equals(authoredName, BaseLordName(baseLord), StringComparison.OrdinalIgnoreCase);
+            return sources.Where(source => keepAuthored || !ReferenceEquals(source, authored))
+                .Concat(selected == null ? new[] { new FixesPreferenceSource { CustomName = selectedName, Json = authored.Json } }
+                    : Array.Empty<FixesPreferenceSource>()).ToArray();
         }
 
         internal static CustomisationFileManager.CustomLordConfig ResolveConfiguration(LordDataSlot slot)
@@ -185,6 +215,10 @@ namespace ExtendedData
         internal IReadOnlyList<FixesPreferenceSource> NormalizeSources(IReadOnlyList<FixesPreferenceSource> sources)
             => sources?.Select(source => new FixesPreferenceSource { CustomName = source.CustomName,
                 LordType = source.LordType, Json = Normalize(source.Json) }).ToArray();
+
+        internal bool MatchesRecordedSources(IReadOnlyList<FixesPreferenceSource> sources)
+            => string.Equals(FixesPreferenceSources.Digest(CaptureRecordedSources(sources)),
+                FixesPreferenceSources.Digest(NormalizeSources(sources)), StringComparison.Ordinal);
 
         private Dictionary<string, FixesPreferenceSource> Collect(LordDataSnapshot snapshot)
         {

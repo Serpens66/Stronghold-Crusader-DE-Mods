@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.116",
+  "Version": "1.0.117",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.0"
+      "MinimumVersion": "0.14.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.117",
+      "Changes": [
+        "Plague clouds can damage units on walls, gates, towers and keeps according to their actual standing heights. Four host settings control these surfaces independently; walls, gates and towers are enabled by default, keeps are disabled.",
+        "Damage reaches units within 20 native height units of the cloud standing surface, excluding the visual cloud offset. Cloud height follows movement and building changes; Vanilla damage, range, apothecary protection, treatment and unit immunities are preserved.",
+        "Use the shared APIShared 0.14.0 plague-height capability; the standalone PlagueHeightTest mod is retired."
+      ]
+    },
     {
       "Version": "1.0.116",
       "Changes": [

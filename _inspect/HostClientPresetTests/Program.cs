@@ -111,6 +111,7 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "plague-height") { PlagueHeightPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "preview-identity")
             {
                 TestPreviewIdentityFailureKinds();

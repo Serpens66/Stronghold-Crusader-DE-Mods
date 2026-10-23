@@ -221,6 +221,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            ApplyPlagueHeightSettings();
             processKeepBuildRangeRuntime?.Refresh();
             TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
             ApplyNoKillRewardSetting();
@@ -467,6 +468,8 @@ namespace ExtraFeatures
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod) || propertyName.StartsWith("PlagueDamage", StringComparison.Ordinal))
+                ApplyPlagueHeightSettings();
             if (propertyName == nameof(ExtraFeaturesViewModel.KeepBuildRange))
             {
                 processKeepBuildRangeRuntime?.Refresh();

@@ -277,7 +277,7 @@
       <Link>TroopActionHudLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
-  <ItemGroup><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /><Compile Include="AiSellThresholdPresetTests.cs" /><Compile Include="EnemyGateRoutingPresetTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="PlagueHeightPresetTests.cs" /><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /><Compile Include="AiSellThresholdPresetTests.cs" /><Compile Include="EnemyGateRoutingPresetTests.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
