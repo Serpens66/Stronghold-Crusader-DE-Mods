@@ -105,6 +105,7 @@ internal static class TrailSetupTests
 public sealed class FileHeader { public string Title, Briefing; public int Size; }
 public static class EngineInterface
 {
+    public struct AILordConfigTransferData { public int opponent_type; }
     public sealed class MultiplayerSetupData
     {
         public int advanced_skirmish_options, StartingGold, StartingSpeed;

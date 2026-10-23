@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.16",
+  "Version": "1.0.17",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.3"
+      "MinimumVersion": "0.12.5"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.17",
+      "Changes": [
+        "Synchronize all selected Fixes preference sources, including inherited base-AI entries and explicit absence; reject conflicting shared requirements and restore original objects on errors or selection changes.",
+        "Use Lord snapshot and Trail requirement version 4 plus package manifest version 2 with a separate source digest; verify complete sources before acknowledging or starting.",
+        "Migrate older Trail and save preferences from authoritative host or local single-player values while preserving stored entries and historical checksum checks; persist the result on the next regular save or export."
+      ]
+    },
     {
       "Version": "1.0.16",
       "Changes": [
@@ -25,7 +33,10 @@
         "Preserve packaged Lord requirements and sidecar data when re-saving or exporting Custom and Coop Trails; report missing or conflicting mission assets explicitly.",
         "Allow supported current-setting recovery when a save contains an unreadable APIShared settings record.",
         "Avoid disabled synchronization and settings-log preparation and cache repeated failure hashes.",
-        "Require APIShared 0.12.3 or newer."
+        "Coop Trail packages exported with this version use mission schema 5 and need ExtendedData 1.0.16 or newer on every player's game.",
+        "Check packaged Coop starts with APIShared's Coop start preview: contradicting AI selections and unsynchronized castle lists block at the start button with a message instead of aborting the start; a host selection that differs only after the first castle uses the synchronized list.",
+        "Limit the Trail Maker embedded-map cache to the 16 most recently used maps and 256 MB; the map of the current Maker Load is always kept.",
+        "Require APIShared 0.12.5 or newer."
       ]
     },
     { "Version": "1.0.15", "Changes": ["Use the APIShared load/save requester service while retaining Lord readiness checks and editor save options."] },

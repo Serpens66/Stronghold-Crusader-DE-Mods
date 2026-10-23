@@ -24,6 +24,10 @@ namespace R3
 }
 namespace SHCDESE.EventAPI { public enum EventHookPhase { Pre, Post } }
 namespace SHCDESE.EventAPI.MapLoader { }
+namespace SHCDESE.EventAPI.Player
+{
+    public class PlayerCalculatePopularityEventArgs { public SHCDESE.EventAPI.EventHookPhase Phase; public int PlayerId; }
+}
 namespace SHCDESE.EventAPI.Projectiles
 {
     public class ProjectileSpawnEventArgs { public SHCDESE.EventAPI.EventHookPhase Phase; public ProjectileType ProjectileType; public long ReturnValue; }
@@ -31,6 +35,11 @@ namespace SHCDESE.EventAPI.Projectiles
 }
 namespace SHCDESE.EventAPI
 {
+    public static class PlayerR3EventHooks
+    {
+        public static readonly R3.TestObservable<Player.PlayerCalculatePopularityEventArgs> OnPlayerCalculatePopularity =
+            new R3.TestObservable<Player.PlayerCalculatePopularityEventArgs>();
+    }
     public static class ProjectileR3EventHooks
     {
         public static readonly R3.TestObservable<ProjectileSpawnEventArgs> OnProjectileSpawn = new R3.TestObservable<ProjectileSpawnEventArgs>();

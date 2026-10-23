@@ -82,8 +82,9 @@ var tests = new (string Name, Action Run)[]
     ("selected Lord data uses host snapshots without local files", TestSelectedLordDataSnapshot),
     ("Lord data rejects altered and oversized snapshots", TestInvalidLordDataSnapshot),
     ("Lord mod data validates local limits and UTF-8", TestLordModDataLimits),
-    ("Lord snapshot version 3 holds six mods across eight slots", TestLargeLordDataSnapshot),
+    ("current Lord snapshot holds six mods across eight slots", TestLargeLordDataSnapshot),
     ("Lord snapshot version 1 remains readable", TestLegacyLordDataSnapshot),
+    ("Fixes source formats retain history and require complete package proof", FixesSourceFormatTests.Run),
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
     ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
@@ -460,9 +461,9 @@ static void TestLargeLordDataSnapshot()
     var envelope = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(created.WireJson);
     var payload = (Dictionary<string, object>)envelope["payload"];
     var firstSlot = (Dictionary<string, object>)((List<object>)payload["slots"])[0];
-    Assert(payload["version"] is int version && version == 3 &&
+    Assert(payload["version"] is int version && version == LordDataSnapshot.ProtocolVersion &&
         firstSlot["modLordData"] is Dictionary<string, object>,
-        "version 3 still embeds escaped mod-data JSON");
+        "current snapshots must embed mod-data objects rather than escaped JSON");
     LordDataSnapshot restored = LordDataSnapshot.Parse(created.WireJson);
     ExtendedDataModDataApi.SetNetworkSnapshot(restored, true);
     try
@@ -2418,5 +2419,6 @@ public sealed partial class CustomisationFileManager
         public string path;
         public int lordType;
         public ulong checksum;
+        public EngineInterface.AILordConfigTransferData lordData;
     }
 }

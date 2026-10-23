@@ -38,6 +38,7 @@ namespace ExtendedData.Core
                     PackageDigest = slot.PackageDigest,
                     ModLordJson = slot.ModLordJson,
                     FixesJson = slot.FixesJson,
+                    FixesSources = slot.FixesSources,
                     EmbeddedValuesOnly = slot.EmbeddedValuesOnly,
                 }).ToArray();
         }

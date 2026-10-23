@@ -20,7 +20,7 @@
 
 - [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; generated baseline remains on its recorded 2.14.2 provenance.
 
-- [Minimap last-frame speech ownership](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, managed video/speech lifecycle, channel replacement defect and isolated regression limits.
+- [Minimap last-frame HD speech wait](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, archived HD last-frame/20-second bound, managed completion safeguards and isolated regression limits.
 
 - [Foreign troop HUD player colors](./sem/FBCB9319/knowledge/FOREIGN_TROOP_PLAYER_COLORS.md): current owner mapping, loaded-player remapping, material tint versus UI portrait order, and pending in-game acceptance.
 

@@ -1,98 +1,36 @@
 # Vor-Release: offene Punkte develop → main
 
-Stand 2026-10-23 (Review-Befunde in 2a). Hier steht nur noch, was vor bzw. beim Release offen ist. Erledigtes steht in den Changelogs (`info.json`) und in der Git-Historie (Mod-Repo bis `8b6ebb9b3` „1002“, APIShared bis `e72c436`).
+Stand 2026-10-23, 18:40. Hier steht nur, was vor bzw. beim Release noch offen ist. Erledigtes steht in den Changelogs (`info.json`) und in der Git-Historie (Mod-Repo bis `603b87b8c` „1013“, APIShared bis `4a49893` „46 shared tooltips“).
 
 ## 1. Commit (Nutzer)
 
-Seit den letzten Commits noch nicht committet. Parallel arbeiten andere Chats an BFQoL und APIShared (z. B. APIShared 0.12.6, Native-Switches, Modsettings-Tests). Vor dem Commit deshalb `git status` prüfen.
+Noch nicht committet (parallele Arbeit, Stand 18:40; vor dem Commit `git status` prüfen):
 
-**APIShared**
-- Neue öffentliche Provider-APIs (im 0.12.6-Changelog):
-  - `RouteSearchEvents.BeginSearch`
-  - `RouteSearchContext`-Konstruktor
-  - `AssassinPathAPI.BeginRouteOutput`
-  - `EnemyBridgeDiagnosticBridge.PublishTopologyOwner`
-  - `GateRoutingNativeLayout`
-  - Slot-Layout-Properties in `GateNativeSearchScopes`
-- Public-API-Baseline: nur Zusätze.
-- `InternalsVisibleTo("BugfixesAndQoL")` und `FriendInternals.BugfixesAndQoL.txt` sind entfernt; die Friend-Tests kommen jetzt auch ohne Friend-Konsumenten aus.
-- Review-Fixes:
-  - Markup-Erweiterungen in der ModSettings-Suche
-  - Workshop: Neuversuch der Abo-Liste, kein doppeltes Cancel, Upload ohne Dispatcher schlägt fehl
-  - Suche faltet kulturunabhängig
-  - Recruitment-Hover-Handler werden nur einmal angehängt
-- Audio: Der Managed-Teil hat keinen Assembly-CSharp-Hash mehr (IL-Vertrag); der native Teil nutzt den einmal berechneten Native-Hash.
-- Doku: Katalog, `GATE_ROUTING.md`, `ARCHITECTURE.md`, `API_COMPATIBILITY.md`.
-- Tests: Core.Tests 302/302, APISharedTests 371/371 (1 übersprungen), Doku-Linkprüfung PASS.
+- Tooltip-Umstellung auf APIShared 0.13.0 in BuildingCosts, UnitCosts, UnitLimit und BuildingLimit (Quellen, XAML-Patches, Plugin-Ausgaben).
+- ExtendedData: `LordDataSnapshot.cs`, `TrailLordRequirements.cs`, neu `FixesPreferenceSources.cs`.
+- RandomEvents: Plugin-Ausgaben (`info.json`, DLL, PDB).
+- Gelöschte Planungsdateien: `ExtendedData-APIShared-Umzugsplan.md`, `ModsettingsFix.md`, `PerformanceFix.md`.
 
-**Mod-Repo**
-- BFQoL nutzt nur noch öffentliche APIShared-APIs. Dazu gehören Routensuche, Assassinen-Ausgabe, `GateRoutingNativeLayout`, Slot-Layout, ein eigenes `CommandDetourBackend` und eine DEVDIAG-Kopie des Callback-Emitters; die Fixtures sind angepasst.
-- Native Prüfungen:
-  - neuer `BfqolNativeCache` über `Shared/Runtime/Native/NativeResolutionCache.cs` und `NativeInstructionOperands.cs`
-  - persistenter Datei-Hash-Cache in `Shared/Runtime/Diagnostics/DebugLogHelper.cs`
-  - NotificationQueue mit Referenz-RVAs
-  - Formation und neun weitere Stellen ohne Vollscan bei bekanntem Hash
-  - neue Tests in `Shared/Tests/Native.Tests` und `Diagnostics.Tests`
-- SavegameMissingMap ohne Assembly-CSharp-Hash (IL-Vertrag plus kompilierter Dry-Run).
-- `PermanentNativeSwitch`: Ein fremder Hook (Script Extender bei 0x8EA60) an einer belegten Grenze wird akzeptiert; behebt den Startfehler des Friedenszeit-Fixes. Ein Test dafür ist ergänzt.
-- AGENTS-Regeln:
-  - `native-analysis.md`: Prüfkosten, Offset-Ableitung mit Zweitbeleg
-  - `native-hooks.md`: fremde Hooks, Prüfung am unveränderten Abbild
-  - `performance.md`: Verweis auf das Prüfverfahren
-- Neu: `HashAdressTODO.md`; Baseline-Wissen `MOVE_STAGER_DATA_ANCHORS.md` mit Index in `CURRENT.md`; Abschnitt in `BugfixesAndQoL/UpdateToNewDLL.md`.
-- Ältere, noch nicht committete Punkte:
-  - DEVDIAG-Reparatur nach B1
-  - Test-Stubs
-  - `Issue6.Tests` und `StartSettings.Tests`
-  - ExtendedData-Kartencache-Grenze
-  - `errorlevel`-Umstellung in den `build.bat` und der BOM-Fix in `Test-BuildDrivers.ps1`
-- Grün:
-  - BugfixesAndQoLNativeTests, VanillaPeaceTimeNativeTests, ImprovedMoatFilling.Tests
-  - ExtendedShiftCommandQueue.Tests, FormationSpeech.Tests, ModsettingsNative.Tests
-  - GateRouting.Tests, AssassinPathfinding.Tests, MoatMove-Suite, `Test-RuntimePreflight`
-  - Consumer-Scan ohne Interna
+## 2. Bauen und prüfen (Spiel vorher schließen)
 
-**Rot durch fremde, uncommittete Arbeit (nicht durch diese Änderungen)**
-- `Test-SharedBoundaries`: LF in `BugfixesAndQoL/tests/Modsettings.Tests/Modsettings.Tests.csproj`.
-- `Test-UnitCommandSplit` und ein Compile ohne Workspace-Targets: `Shared.DevDiagRuntime` fehlt für `UnitCommandPathRuntime.Spikes.DevDiag.cs`.
-- Gate-Acceptance-Harness und FriendlyMoatMovement.Tests: Die Fixtures kennen `partial void DiagFinishBuildingApproach` nicht.
-- Nach der Korrektur durch den zuständigen Chat diese vier erneut laufen lassen.
-
-## 2. Bauen und installieren (Spiel vorher schließen)
-
-Stand 2026-10-22, 23:17–23:40: Alle Release-Mods und APIShared sind vom Arbeitsstand gebaut und installiert, ohne DEVDIAG. APIShared lief mit `/workspace`, die übrigen Mods mit `/source:working`; `_dev`-Installationen blieben `_dev`. ExtendedData wurde nach dem Fix in `CustomLordUploadWorkflow` erneut gebaut. MoatMove ist darin nicht enthalten. Nach weiteren Codeänderungen, auch aus anderen Chats, erneut bauen.
-
-1. Für den Release-Build gegen das veröffentlichte SDK bauen (siehe 3.), nicht gegen `/workspace`.
-2. Nach dem Start im Log prüfen:
+1. Nach allen Codeänderungen (auch aus anderen Chats) neu bauen. Für den Release-Build gegen das veröffentlichte APIShared-SDK bauen (siehe 3.), nicht gegen `/workspace`.
+2. Nach dem Start im Log prüfen, was am 23.10.2026 noch nicht bestätigt ist:
+   - Mit installiertem Fixes-Mod erscheint `Fixes wheat CORRECTED` bzw. `ALREADY-CORRECT` (ohne Fixes kam korrekt `NOT-NEEDED`).
    - Info-Zeilen erscheinen nur einmalig pro Start oder bei Nutzeraktionen.
-   - Mit Fixes erscheint `Fixes wheat CORRECTED` bzw. `ALREADY-CORRECT`.
-   - `Native address resolved: … method=reference-rva` erscheint für NotificationQueue; nirgends steht `signature-fallback`.
-   - Der Friedenszeit-Fix startet ohne „Native switch following live instruction differs“.
-   - SavegameMissingMap meldet `READY`.
-   - `AI sell hook resolved: reference-rva=…` erscheint zweimal, und BFQoL „AI sell threshold safety“ meldet keinen Fehler.
-3. Den BFQoL-Release-Build vor der Veröffentlichung mit `APISHARED_CONSUMER_SCAN` gegen APIShared scannen. Es dürfen keine Interna gebunden sein: Ohne Grant würden sie zur Laufzeit scheitern.
-
-## 2a. Review des neuen Codes (Stand 2026-10-23)
-
-Geprüft wurde der Code seit Mod-Repo `ab291bbfb` bzw. APIShared `66e7f98`. Die Befunde sind umgesetzt, noch nicht committet und noch nicht gebaut:
-
-- APIShared KI-Verkauf: Die Datei-Hashes auf RedBird/Iced sind durch eine Laufzeitprüfung des erzeugten Stubs ersetzt. Der tote Scan ist entfernt, Grenzen werden am unveränderten Ladeabbild geprüft, und ein fremder Hook an einer Folgegrenze ist erlaubt. `AiMarketSell.NativeTests` ist grün.
-- BFQoL `PermanentNativeSwitch` loggt den eigenen Vertrags-Hash. Die vermutete fehlende Fremd-Hook-Toleranz war unbegründet, weil die mitkopierten Folgebytes selbst Patchstellen sind.
-- Shared Hash-Speicher: Die Temp-Datei hat jetzt einen eindeutigen Namen, und Reste werden entfernt.
-- ExtendedData Lord-Daten: Ein während der Partie abgeschaltetes Aufräumen wird bei Partieende nachgeholt.
-
-Stand 2026-10-23, 02:11: APIShared, ExtendedData und ExtraFeatures (`_dev`) sind gebaut und installiert. BFQoL ist als **DEVDIAG** installiert (auf Wunsch zur Diagnose). Vor jedem Release muss deshalb ein normaler BFQoL-Build darüber; Release- und Modpack-Skripte brechen mit einer DEVDIAG-Assembly ab. Der Gatehouse-Quelltexttest in `BugfixesAndQoL/tests/Program.cs` ist an die Struktur aus Commit „1009“ angepasst.
+   - Bereits bestätigt (Start `S3FIX` 18:02 mit APIShared 0.13.0 und BFQoL 1.0.197): NotificationQueue mit `method=reference-rva`, kein `signature-fallback`, kein Friedenszeit-Fehler, `AI sell hook resolved` zweimal, keine Fehlerzeilen; SavegameMissingMap `READY` (nur mit `[Diagnostics] Enabled`, Lauf `L3BFQDIAG`). Nach weiteren Änderungen erneut kurz kontrollieren.
+3. Den BFQoL-Release-Build vor der Veröffentlichung mit `APISHARED_CONSUMER_SCAN` gegen APIShared scannen. Es dürfen keine Interna gebunden sein.
+4. BugfixesAndQoL ist derzeit normal installiert (kein DEVDIAG). Im Plugins-Ordner liegt zusätzlich der Testmod PerfProbe (DEVDIAG); er gehört nicht ins Modpack.
 
 ## 3. Release-Reihenfolge (Nutzer)
 
-1. APIShared `dev/Serpens66` → develop → main mergen, Tag für die veröffentlichte Version (derzeit 0.12.6), GitHub-Release und Workshop-Update. Erst danach das Modpack gegen das veröffentlichte SDK bauen; BFQoL verlangt APIShared 0.12.6.
+1. APIShared `dev/Serpens66` → develop → main mergen, Tag für die veröffentlichte Version (derzeit **0.13.0**), GitHub-Release und Workshop-Update. Erst danach das Modpack gegen das veröffentlichte SDK bauen. BuildingCosts, UnitCosts und UnitLimit verlangen APIShared 0.13.0, BFQoL 0.12.6.
 2. Mod-Repo develop → main, Modpack-Release. Alle Mods erscheinen zeitgleich; ältere BFQoL-Versionen sind mit dem neuen APIShared nicht kompatibel, weil der Friend-Zugriff entfernt ist.
 3. Auf den Steam-Workshop-Seiten von APIShared und Modpack ergänzen: Alle Spieler einer MP-Partie brauchen dieselben Versionen von APIShared und Modpack. Diese Texte stehen nicht im Repo.
-4. Nach dem Release-Build die committeten `*/BepInEx/plugins/*/info.json` mit den Quell-`info.json` abgleichen (einige waren veraltet, z. B. ExtraFeatures 1.0.114, RandomEvents 1.0.52, SerpsModsHost 1.0.28).
+4. Nach dem Release-Build die committeten `*/BepInEx/plugins/*/info.json` mit den Quell-`info.json` abgleichen. Die Quellversionen sind einheitlich (Stand 23.10.2026 abends: Plugin-Konstante, Quell-`info.json` und csproj stimmen in allen Release-Mods überein). Veraltet sind nur eingecheckte Paketausgaben vom 18.10.2026, und zwar `info.json` **und** DLL zusammen: ExtraFeatures (Paket 1.0.114, Quelle 1.0.116), SerpsModsHost (Paket 1.0.28 einschließlich `serps-modpack.json`, Quelle 1.0.30) und die APIShared-Mindestversion im ExtendedData-Paket (0.12.3, Quelle 0.12.5). Branch-Builds (`/source:working`) aktualisieren diese Paketordner nicht. Nicht von Hand angleichen, sonst entsteht ein gemischtes Paket mit alter DLL; der Release-Build erzeugt sie neu.
 
 ## 4. Spieltests (Nutzer)
 
-Bisher ist keiner durchgeführt. Vorrangig 1–4, 13 und 15.
+Bisher ist keiner durchgeführt. Vorrangig 1–4, 13, 15 und 16.
 
 1. **Bewegung durch eigene Gräben (B1):** ohne MoatMove keine Bewegung durch eigene Gräben, kein Lag mehr. Dazu Angriffe von Einheiten mit Grab-Fähigkeit nahe eigener Gräber, Gebäudeangriffe, Feindgraben füllen und Bewegung aus dem eigenen Graben, jeweils mit und ohne MoatMove. Lag-Vergleich gegenüber dem bisherigen Stand.
 2. **MP-Lobby und Presets (Host und Client):** Beitritt, Slotwechsel, Hoständerungen vor und nach dem Beitritt, Preset laden, Kartenstart. Ein Setting, das einen Wert ablehnt, darf das Preset nicht blockieren.
@@ -112,14 +50,10 @@ Bisher ist keiner durchgeführt. Vorrangig 1–4, 13 und 15.
     - Jeweils Host und Client.
 14. **KI-Verkauf (BFQoL „AI sell threshold safety“):** KI verkauft nie unter null bzw. mehr als den Bestand. Mit ExtraFeatures-KI-Marktpreisen zusammen. Schalter aus heißt Vanilla.
 15. **Workshop:** ModSettings-Suche (auch mit türkischer Systemsprache), Upload eines eigenen Items, Startbehandlung bei laufenden Downloads.
+16. **Tooltips mit APIShared 0.13.0:** Gebäude-Hover und -Platzierung (kompakt und ausführlich), Bauvorschau-Bodenwerte (BFQoL), Kosten und Limits von BuildingCosts, BuildingLimit, UnitCosts und UnitLimit bei Rekrutierung, Belagerungsbau und Reparatur; Darstellung und Text ohne doppelte oder fehlende Zeilen.
+17. **Assassinen-Wegsuche (neu 23.10.2026):** Getrennte Hostschalter „Mensch“ und „KI-Lords“ in allen vier Kombinationen; Kletter-Button nur mit „Mensch“. Im MP ohne Desync. Auf großen Karten mit vielen KI-Assassinen kein Lag nach dem Laden (`test_stresstest4.sav` automatisiert bereits bestätigt).
+18. **Formationsvorschau (neu 23.10.2026):** Große Auswahl (mehrere Hundert Einheiten) mit Linie und Kreis ziehen und drehen; Zielpunkte wie bisher, flüssigere Vorschau.
 
-## 5. Hinweise für spätere Spiel- oder Extender-Updates
+## 5. Später (nicht releaseblockierend)
 
-- **Hashgebunden bleiben:**
-  - die gemeinsame Befehls-Runtime `UnitCommandPathRuntime` (etwa 40 Detours, rund 100 Konstanten) und damit ExtendedShiftCommandQueue sowie Formation/FormationSpeech
-  - weitere BFQoL-Features mit festen Daten-RVAs
-  - PopularityDisplay (Managed-Hash, kein IL-Vertrag)
-  - die KI-Verkaufs-Hooks in APIShared (feste RVAs ohne Fallback; der Backend-Vertrag wird zur Laufzeit geprüft)
-
-  Die vollständige Liste, die Reihenfolge und die schon auditierten Anker stehen in `HashAdressTODO.md` und `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md`.
-- **Nach einem Spielupdate:** Funktionen mit Pattern-Fallback suchen einmal und cachen das Ergebnis (`BepInEx/cache/BugfixesAndQoL_Serp.native-cache.tsv`). Ab dem zweiten Start entfällt der Scan.
+- Hashgebundene Stellen auf Pattern-/IL-Verträge umstellen: Liste, Reihenfolge und auditierte Anker in `HashAdressTODO.md` und `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md`.

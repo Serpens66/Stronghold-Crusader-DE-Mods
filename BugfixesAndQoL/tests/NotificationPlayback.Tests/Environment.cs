@@ -18,8 +18,9 @@ namespace Shared { public static class DebugLogHelper { public static bool Diagn
 } }
 namespace Noesis { public class RoutedEventArgs { } }
 namespace NoesisApp { public class MediaElement {
- public Uri Source; public float Opacity=1; public bool Paused; public int Closes;
- public void Pause(){Paused=true;} public void Stop(){Paused=false;}
+ public Uri Source; public float Opacity=1; public bool Paused,FailPause; public int Closes;
+ public void Pause(){if(FailPause)throw new InvalidOperationException("deliberate decoder pause failure");Paused=true;}
+ public void Play(){Paused=false;} public void Stop(){Paused=false;}
  public void Close(){Closes++;}
 } }
 namespace UnityEngine {
@@ -65,7 +66,7 @@ public static class Enums { public enum eOnScreenText { OST_MESSAGE_BAR=30, OST_
 public class OnScreenText {
  public static OnScreenText Instance=new OnScreenText(); public bool Pending;
  public void addOSTEntry(Enums.eOnScreenText id,int data1,int data2=2,int data3=0,int data4=0,int data5=0){
-  MonoMod.RuntimeDetour.Hook.Dispatch("text",this,id,data1,data2,data3,data4,data5);
+  if(id==Enums.eOnScreenText.OST_MESSAGE_BAR)Pending=true;
  }
  public void Flush(){if(Pending){Pending=false;MainViewModel.Instance.OST_Message_Bar_Vis=true;}}
 }

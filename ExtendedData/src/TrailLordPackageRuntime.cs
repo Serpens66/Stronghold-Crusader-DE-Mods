@@ -94,6 +94,7 @@ namespace ExtendedData
                 PackageDigest = package.HasUnsupportedGameplayFiles ? package.Digest : null,
                 ModLordJson = modJson,
                 FixesJson = fixes.Capture(source.Name, source.Config.lordType),
+                FixesSources = fixes.CaptureSources(source.Name, source.Config.lordType, source.Config.lordData.opponent_type),
             };
         }
 

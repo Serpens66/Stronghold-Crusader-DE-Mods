@@ -42,8 +42,8 @@ internal static class CustomTrailFixTests
         ConfigChecksum = checksum, AivChecksums = new[] { "21", "22" },
     };
 
-    // F5/F6: stored requirements keep values only for the same authored identity; v2 stays readable by old
-    // readers unless the explicit embedded-only decision is present.
+    // F5/F6: stored requirements keep values only for the same authored identity. New writes use v4;
+    // legacy v2/v3 remain readable without inventing complete Fixes source captures.
     internal static void RequirementsBindIdentityAndDecision()
     {
         string root = TempRoot();
@@ -54,8 +54,11 @@ internal static class CustomTrailFixTests
             TrailLordSlot valued = Slot(3);
             valued.ModLordJson = "{\"test.mod\":{\"value\":1}}";
             TrailLordRequirements.Create(trail, new[] { valued }).Write(trail);
-            Check(File.ReadAllText(TrailLordRequirements.SidecarPath(trail)).Contains("\"version\": 2"),
-                "requirements without an embedded-only decision changed their version");
+            string current = File.ReadAllText(TrailLordRequirements.SidecarPath(trail));
+            Check(current.Contains("\"version\": 4"), "complete source format was not written");
+            File.WriteAllText(TrailLordRequirements.SidecarPath(trail), current.Replace("\"version\": 4", "\"version\": 2"));
+            Check(TrailLordRequirements.Read(trail).Slots.Single().FixesSources == null,
+                "legacy requirements invented a complete source capture");
 
             File.AppendAllText(trail, " re-saved");
             TrailLordRequirements stale = TrailLordRequirements.ReadUnbound(trail, out bool bound);
@@ -78,7 +81,7 @@ internal static class CustomTrailFixTests
             TrailLordRequirements.Create(trail, new[] { embeddedOnly, Slot(5) }).Write(trail);
             string json = File.ReadAllText(TrailLordRequirements.SidecarPath(trail));
             TrailLordRequirements read = TrailLordRequirements.Read(trail);
-            Check(json.Contains("\"version\": 3") && read.Slots.Single(slot => slot.PlayerId == 3).EmbeddedValuesOnly &&
+            Check(json.Contains("\"version\": 4") && read.Slots.Single(slot => slot.PlayerId == 3).EmbeddedValuesOnly &&
                 !read.Slots.Single(slot => slot.PlayerId == 5).EmbeddedValuesOnly,
                 "the embedded-only export decision was not stored per slot");
             embeddedOnly.FixesJson = "{}";

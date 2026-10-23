@@ -20,6 +20,7 @@ namespace ExtendedData
         public string PackageDigest { get; set; }
         public string ModLordJson { get; set; }
         public string FixesJson { get; set; }
+        public IReadOnlyList<FixesPreferenceSource> FixesSources { get; set; }
         // Authoring evidence: the exporter explicitly chose the AIC/AIV embedded in the Trail
         // without unknown extra values. It never implies that no such values existed.
         public bool EmbeddedValuesOnly { get; set; }
@@ -58,12 +59,10 @@ namespace ExtendedData
             if (!string.Equals(MissionDigest, Hash(File.ReadAllBytes(missionPath)), StringComparison.Ordinal))
                 throw new InvalidDataException("Lord requirements refer to another mission.");
             Validate(this);
-            // Version 3 only adds the explicit embedded-only decision; files without it stay
-            // version 2 so existing readers keep accepting them.
             bool embeddedOnly = Slots.Any(slot => slot.EmbeddedValuesOnly);
             string json = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
             {
-                ["version"] = embeddedOnly ? 3 : 2,
+                ["version"] = 4,
                 ["missionDigest"] = MissionDigest,
                 ["slots"] = Slots.Select(slot =>
                 {
@@ -79,6 +78,7 @@ namespace ExtendedData
                         ["packageDigest"] = slot.PackageDigest,
                         ["modLordJson"] = slot.ModLordJson,
                         ["fixesJson"] = slot.FixesJson,
+                        ["fixesSources"] = FixesPreferenceSources.Encode(slot.FixesSources),
                     };
                     if (embeddedOnly)
                         row["embeddedValuesOnly"] = slot.EmbeddedValuesOnly;
@@ -117,7 +117,7 @@ namespace ExtendedData
             if (bytes.Length > MaximumBytes) throw new InvalidDataException("Lord requirements exceed 512 KiB.");
             var root = Object(Shared.DependencyFreeJson.Parse(new UTF8Encoding(false, true).GetString(bytes)));
             int version = Convert.ToInt32(root["version"]);
-            if (version < 1 || version > 3)
+            if (version < 1 || version > 4)
                 throw new InvalidDataException("Unsupported Lord requirements version.");
             var rows = root["slots"] as List<object> ?? throw new InvalidDataException("Invalid Lord requirements slots.");
             var slots = rows.Select(value =>
@@ -136,6 +136,8 @@ namespace ExtendedData
                     PackageDigest = row["packageDigest"] as string,
                     ModLordJson = row["modLordJson"] as string,
                     FixesJson = row["fixesJson"] as string,
+                    FixesSources = version >= 4 && row.TryGetValue("fixesSources", out object sources)
+                        ? FixesPreferenceSources.Decode(sources) : null,
                     EmbeddedValuesOnly = version >= 3 && row.TryGetValue("embeddedValuesOnly", out object embedded) &&
                         (embedded as bool? ?? throw new InvalidDataException("Invalid embedded-values decision.")),
                 };
@@ -172,12 +174,12 @@ namespace ExtendedData
                     slot.AivChecksums.Count > 32 || slot.RequiresInstalledPackage && slot.PackageDigest?.Length != 64)
                     throw new InvalidDataException("Invalid Lord requirement slot.");
                 if (slot.EmbeddedValuesOnly && (slot.RequiresInstalledPackage || slot.ModLordJson != null ||
-                        slot.FixesJson != null))
+                        slot.FixesJson != null || slot.FixesSources != null))
                     throw new InvalidDataException("An embedded-only Lord slot cannot carry extra values.");
                 LordDataSnapshot.ValidateModLord(slot.ModLordJson);
             }
             LordDataSnapshot.CreateTrail("trail:" + value.MissionDigest,
-                value.Slots.Any(slot => slot.FixesJson != null),
+                value.Slots.Any(slot => slot.FixesJson != null || slot.FixesSources != null),
                 value.Slots.Select(slot => new LordDataSlot
                 {
                     PlayerId = slot.PlayerId,
@@ -187,6 +189,7 @@ namespace ExtendedData
                     ConfigChecksum = slot.ConfigChecksum,
                     ModLordJson = slot.ModLordJson,
                     FixesJson = slot.FixesJson,
+                    FixesSources = slot.FixesSources,
                 }));
         }
 

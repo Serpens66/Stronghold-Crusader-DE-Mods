@@ -7,6 +7,7 @@ using SHCDESE.API.Components.SaveData;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Projectiles;
+using SHCDESE.EventAPI.Player;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -58,6 +59,7 @@ namespace BugfixesAndQoL
         private readonly Dictionary<int, int> loggedDiagnosticRevisions = new Dictionary<int, int>();
         private long diagnosticGeneration;
         private readonly Dictionary<int, string> diagnosticTimers = new Dictionary<int, string>();
+        private readonly Dictionary<int, int> diagnosticOpportunities = new Dictionary<int, int>();
         private HookTransaction transaction;
         private readonly DetourHandle<CreateHerdDelegate> createHerdHook = new DetourHandle<CreateHerdDelegate>();
         private readonly HookHandle<X64InlineHook> popularityExitHook = new HookHandle<X64InlineHook>();
@@ -114,6 +116,9 @@ namespace BugfixesAndQoL
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnProjectileDelete));
+                subscriptions.Add(PlayerR3EventHooks.OnPlayerCalculatePopularity.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnPopularityCalculation));
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetMapState));
                 settings.SettingChanged += OnSettingChanged;
 
@@ -505,6 +510,7 @@ namespace BugfixesAndQoL
             CancelDiagnostic(playerId);
             int revision = GetCount(diagnosticRevisions, playerId) + 1;
             diagnosticRevisions[playerId] = revision;
+            diagnosticOpportunities[playerId] = 0;
             long generation = diagnosticGeneration;
             try
             {
@@ -515,12 +521,14 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 // Diagnostics must never disable a working gameplay correction.
+                diagnosticOpportunities.Remove(playerId);
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:481", "Plague callback watchdog could not be armed: " + ex);
             }
         }
 
         private void CancelDiagnostic(int playerId)
         {
+            diagnosticOpportunities.Remove(playerId);
             if (!diagnosticTimers.TryGetValue(playerId, out string handle)) return;
             diagnosticTimers.Remove(playerId);
             GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(handle);
@@ -532,6 +540,20 @@ namespace BugfixesAndQoL
             foreach (string handle in diagnosticTimers.Values)
                 GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(handle);
             diagnosticTimers.Clear();
+            diagnosticOpportunities.Clear();
+        }
+
+        private void OnPopularityCalculation(PlayerCalculatePopularityEventArgs args)
+        {
+            if (!correctionEnabled || !correctionAvailable || !mapActive) return;
+            lock (stateGate)
+            {
+                // The existing Extender Pre lies on the path to our correction hook.
+                // Count only opportunities inside this player's currently watched revision.
+                if (correctionEnabled && correctionAvailable && mapActive &&
+                    diagnosticTimers.ContainsKey(args.PlayerId))
+                    diagnosticOpportunities[args.PlayerId] = 1;
+            }
         }
 
         private void ReportMissingPopularityCallback(int playerId, int revision, long generation)
@@ -539,10 +561,19 @@ namespace BugfixesAndQoL
             lock (stateGate)
             {
                 if (!correctionEnabled || !correctionAvailable || !mapActive ||
-                    diagnosticGeneration != generation || GetCount(diagnosticRevisions, playerId) != revision) return;
+                    diagnosticGeneration != generation || GetCount(diagnosticRevisions, playerId) != revision ||
+                    !diagnosticTimers.ContainsKey(playerId)) return;
+                bool hadOpportunity = GetCount(diagnosticOpportunities, playerId) != 0;
                 diagnosticTimers.Remove(playerId);
+                diagnosticOpportunities.Remove(playerId);
                 if (GetCount(loggedDiagnosticRevisions, playerId) == revision) return;
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:508", $"No plague popularity correction callback was observed within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
+                if (!hadOpportunity)
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(() => $"Plague callback watchdog expired without a popularity calculation opportunity: playerId={playerId}, diagnosticRevision={revision}.");
+                    return;
+                }
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:508", $"No plague popularity correction callback was observed despite a popularity calculation opportunity within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
                     $"playerId={playerId}, diagnosticRevision={revision}, activeHerds={CountHerds(playerId)}, " +
                     $"livingProjectiles={CountProjectiles(playerId)}, popularityCallbacksObserved={DescribeCallbackCounts()}.");
             }

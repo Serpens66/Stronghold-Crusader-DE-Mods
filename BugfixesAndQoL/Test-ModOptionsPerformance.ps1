@@ -11,6 +11,8 @@ foreach ($required in @('herds.ReconcilePlayer(playerId, isLivingProjectile)',
     'herds.ReconcileDeletedSlot(args.ProjectileId, isLivingProjectile)',
     'herds.ReconcileAll(isLivingProjectile)', 'herds.ToSaveRecords()', 'herds.Load(state.Herds)',
     'AddDelayedAction(', 'CancelDiagnostic(playerId)', 'diagnosticGeneration != generation',
+    # Wiring guardrail: the runtime behavior fixture verifies player/revision isolation and cancellation.
+    'PlayerR3EventHooks.OnPlayerCalculatePopularity.Observable', '.Subscribe(OnPopularityCalculation)',
     'private volatile bool correctionEnabled', 'settings.SettingChanged += OnSettingChanged',
     'serp-plague-popularity-v1', '*popularityAccumulator = correctedPopularity;')) {
     if (-not $plague.Contains($required)) { throw "Missing plague performance/compatibility contract: $required" }

@@ -549,6 +549,12 @@ namespace ExtendedData
                 (selected?.Loaded.LordRequirements != null ||
                     lordDataCoordinator.RequiresLordSyncFromSelection(self)))
             {
+                if (selected?.Loaded.LordRequirements != null &&
+                    !PrepareSelectedLordRequirements(out string preparationReason))
+                {
+                    BlockLaunch(command, preparationReason);
+                    return;
+                }
                 bool inspected = lordDataCoordinator.RefreshPackageManifest(self, "start-attempt");
                 if (!inspected)
                 {

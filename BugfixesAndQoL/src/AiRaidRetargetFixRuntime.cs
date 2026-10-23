@@ -394,9 +394,21 @@ namespace BugfixesAndQoL
             }
             if (stack.Count != 0 && stack.Peek().Tick != lastTick)
             {
-                LogRepeated($"unpaired:{args.TribeId}/{tribeGlobalId}",
-                    $"AI_RAID_ATTACK_UNPAIRED: session={sessionId}, tick={lastTick}, " +
-                    $"tribe={args.TribeId}/{tribeGlobalId}, discardedPreCalls={stack.Count}.", true);
+                var incomplete = new List<string>();
+                int skipped = 0;
+                foreach (AttackCandidateCapture frame in stack)
+                {
+                    // The final flag belongs to the old publisher invocation. Skipped
+                    // originals intentionally have no Post, even across a tick boundary.
+                    if (frame.PreEvent.SkipOriginalFunction) { skipped++; continue; }
+                    incomplete.Add($"tick={frame.Tick}, tribe={frame.Evidence.TribeId}/{frame.TribeGlobalId}, " +
+                        $"sequence={frame.Evidence.Sequence}, command={frame.Command}, " +
+                        $"target={frame.BuildingId}/{frame.BuildingGlobalId}");
+                }
+                if (incomplete.Count != 0)
+                    LogRepeated("unpaired",
+                        $"AI_RAID_ATTACK_UNPAIRED: session={sessionId}, discardedPreCalls={incomplete.Count}, " +
+                        $"regularlySkippedCalls={skipped}, calls=[{string.Join("; ", incomplete)}].", true);
                 stack.Clear();
             }
             stack.Push(new AttackCandidateCapture(args, lastTick, tribeGlobalId,

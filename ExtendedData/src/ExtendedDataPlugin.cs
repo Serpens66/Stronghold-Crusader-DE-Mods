@@ -20,7 +20,7 @@ namespace ExtendedData
     {
         public const string PluginGuid = "ExtendedData_Serp";
         public const string PluginName = "Extended Data";
-        public const string PluginVersion = "1.0.16";
+        public const string PluginVersion = "1.0.17";
         public const bool ExtendedDataModSettingsOptOut = true;
         // Advertised before LibraryLoaded so APIShared can reject older competing dialog hooks.
         public const bool UsesApiSharedSaveLoadDialog = true;

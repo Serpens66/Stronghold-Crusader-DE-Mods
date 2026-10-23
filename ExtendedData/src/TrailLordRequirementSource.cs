@@ -34,6 +34,7 @@ namespace ExtendedData
             internal IReadOnlyDictionary<int, TrailLordPackageRuntime.Candidate> InstalledSources;
             internal IReadOnlyList<int> ReusedPlayerIds;
             internal IReadOnlyList<int> EmbeddedOnlyPlayerIds;
+            internal bool MigratedFixesSources;
         }
 
         // Stored requirements are the source of extra values and installation duties. A re-saved
@@ -77,12 +78,28 @@ namespace ExtendedData
                     embeddedOnly.Add(playerId);
                 }
             }
+            bool migrated = false;
+            if (fixes.Installed)
+            {
+                var captured = LordDataSnapshot.CreateTrail("author:" + trailPath, true,
+                    slots.Where(slot => !slot.EmbeddedValuesOnly).Select(slot => new LordDataSlot
+                    {
+                        PlayerId = slot.PlayerId, LordType = slot.LordType, LordName = slot.LordName,
+                        ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum,
+                        ModLordJson = slot.ModLordJson, FixesJson = slot.FixesJson, FixesSources = slot.FixesSources,
+                    }));
+                var completed = fixes.CompleteSources(captured, slot => restart.aivs[slot.PlayerId - 1].lordConfig.lordData.opponent_type);
+                migrated = !ReferenceEquals(captured, completed);
+                foreach (LordDataSlot slot in completed.Slots)
+                    slots.Single(value => value.PlayerId == slot.PlayerId).FixesSources = slot.FixesSources;
+            }
             return new Resolution
             {
                 Slots = slots,
                 InstalledSources = sources,
                 ReusedPlayerIds = reused,
                 EmbeddedOnlyPlayerIds = embeddedOnly,
+                MigratedFixesSources = migrated,
             };
         }
     }

@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Active AIV Detector",
   "Description": "Diagnostic mod that logs the lord and AIVJSON selected by the native castle placement engine.",
-  "Version": "0.10.2",
+  "Version": "0.10.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 0,
   "SerpChangelog": [
+    {
+      "Version": "0.10.3",
+      "Changes": [
+        "Skip only final AIV selection capture when Fixes expanded defensive positions are enabled or unverifiable; retain independent oracle, validator and trace functions and report the required restart setting.",
+        "Validate the live native entry before installing final selection capture."
+      ]
+    },
     {
       "Version": "0.10.2",
       "Changes": [

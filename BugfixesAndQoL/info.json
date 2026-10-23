@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.197",
+  "Version": "1.0.198",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,10 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.198",
+      "Changes": ["Avoid raid missing-Post warnings for regularly skipped calls and report discarded invocation identities; warn about missing plague corrections only after an observed player-local calculation opportunity.", "Hold notification video frames until speech ends with the bounded HD waiting rule."]
+    },
     {
       "Version": "1.0.197",
       "Changes": ["Add a default-enabled Host option under Fixes? to prevent AI sales without stock through negative sell thresholds, using shared native reserve and quantity safety for every goods category."]

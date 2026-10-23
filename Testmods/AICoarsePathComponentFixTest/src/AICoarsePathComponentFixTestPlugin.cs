@@ -18,7 +18,7 @@ namespace AICoarsePathComponentFixTest
     {
         public const string Guid = "AICoarsePathComponentFixTest_Serp";
         public const string Name = "AI Coarse Path Component Fix Test";
-        public const string Version = "0.1.1";
+        public const string Version = "0.1.2";
 
         private static ManualLogSource log;
         private static AiCoarsePathComponentFix runtime;
@@ -77,7 +77,9 @@ namespace AICoarsePathComponentFixTest
             {
                 Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_TEST_UNAVAILABLE: " + ex);
             }
-            if (woodGuardRequested && woodGuard == null)
+            if (woodGuardRequested && woodGuard == null && Shared.FixesStartupGate.CanInstall(
+                "WoodSiteGuard", "FixPlacementSelectionNotAccountingForFarmland",
+                message => Shared.DebugLogHelper.LogError(log, message)))
             {
                 try
                 {

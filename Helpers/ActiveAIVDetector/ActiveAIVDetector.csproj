@@ -125,6 +125,7 @@
     <Compile Include="src\OracleStartStructureCapture.cs" />
     <Compile Include="src\ActiveAIVDetectionRuntime.cs" />
     <Compile Include="src\ActiveAIVDetectorPlugin.cs" />
+    <Compile Include="..\..\Shared\Runtime\Compatibility\FixesStartupGate.cs"><Link>Shared\Runtime\Compatibility\FixesStartupGate.cs</Link></Compile>
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

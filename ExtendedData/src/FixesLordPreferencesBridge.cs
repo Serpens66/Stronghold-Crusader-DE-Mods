@@ -11,13 +11,19 @@ namespace ExtendedData
     // Fixes owns the dictionaries and map override precedence. Never write its slot overrides.
     internal sealed class FixesLordPreferencesBridge
     {
-        private readonly Dictionary<string, object> originals = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> originallyPresent = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, int> touched = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private sealed class StoredValue
+        {
+            internal IDictionary Store;
+            internal object Key, Value;
+            internal bool Present;
+            internal void Write() { if (Present) Store[Key] = Value; else Store.Remove(Key); }
+        }
+        private readonly Dictionary<string, StoredValue> touched = new Dictionary<string, StoredValue>(StringComparer.OrdinalIgnoreCase);
         private IDictionary custom;
         private IDictionary extended;
         private Type entryType;
         private FieldInfo mapSlots;
+        private bool inheritedPreferences;
         internal bool Installed => Chainloader.PluginInfos.ContainsKey("fixes");
 
         internal void Validate()
@@ -42,6 +48,12 @@ namespace ExtendedData
             FieldInfo slots = preferences?.GetField("_slots", BindingFlags.NonPublic | BindingFlags.Static);
             if (slots != null && slots.FieldType != entry.MakeArrayType())
                 throw new InvalidOperationException("The installed Fixes map preference contract changed.");
+            MethodInfo fallback = preferences?.GetMethod("TryGetBaseLordPreferences", BindingFlags.NonPublic | BindingFlags.Static);
+            if (fallback != null && (fallback.ReturnType != typeof(bool) ||
+                !fallback.GetParameters().Select(parameter => parameter.ParameterType)
+                    .SequenceEqual(new[] { typeof(int), entry.MakeByRefType() })))
+                throw new InvalidOperationException("The installed Fixes inheritance contract changed.");
+            inheritedPreferences = fallback != null;
             entryType = entry; extended = extendedCandidate; mapSlots = slots; custom = (IDictionary)dictionary;
         }
 
@@ -66,13 +78,27 @@ namespace ExtendedData
         private static object Key(string name, int type) => type < 0 ? (object)name : checked(type + 1);
 
         internal string Capture(string lordName, int? lordType = null)
+            => Capture(lordName, lordType, false);
+
+        private string Capture(string lordName, int? lordType, bool original)
         {
             Validate();
             if (!Installed) return null;
             int type = lordType ?? ResolveLordType(lordName);
             IDictionary store = Store(type); object key = Key(lordName, type);
-            if (store == null || !store.Contains(key)) return null;
-            object entry = store[key];
+            var source = new FixesPreferenceSource { CustomName = type < 0 ? lordName : null,
+                LordType = type < 0 ? null : (int?)type };
+            object entry;
+            if (original && touched.TryGetValue(FixesPreferenceSources.Identity(source), out StoredValue saved))
+            {
+                if (!saved.Present) return null;
+                entry = saved.Value;
+            }
+            else
+            {
+                if (store == null || !store.Contains(key)) return null;
+                entry = store[key];
+            }
             if (entry == null || entry.GetType() != entryType) throw new InvalidDataException("Unexpected Fixes entry type.");
             return TypedPreferenceSnapshotCodec.Capture(entry);
         }
@@ -84,6 +110,104 @@ namespace ExtendedData
             return TypedPreferenceSnapshotCodec.Capture(TypedPreferenceSnapshotCodec.Restore(entryType, json));
         }
         internal void ValidateSnapshotValue(string json) { Normalize(json); }
+
+        internal IReadOnlyList<FixesPreferenceSource> CaptureSources(string name, int type, int baseLord)
+            => CaptureSources(name, type, baseLord, null);
+
+        private IReadOnlyList<FixesPreferenceSource> CaptureSources(string name, int type, int baseLord,
+            IDictionary<string, FixesPreferenceSource> recorded)
+        {
+            Validate();
+            if (!Installed) return null;
+            if (!inheritedPreferences) return Array.Empty<FixesPreferenceSource>();
+            Func<FixesPreferenceSource, FixesPreferenceSource> read = source =>
+            {
+                string id = FixesPreferenceSources.Identity(source);
+                source.Json = recorded != null && recorded.TryGetValue(id, out FixesPreferenceSource saved)
+                    ? saved.Json : Capture(source.CustomName, source.LordType ?? -1, recorded != null);
+                return source;
+            };
+            if (type < 0 && read(new FixesPreferenceSource { CustomName = name }).Json != null)
+                return Array.Empty<FixesPreferenceSource>();
+            var result = new List<FixesPreferenceSource>();
+            // Fixes GetBaseLord accepts only the native base enums. Do not clamp modder AIC values.
+            if (baseLord > (int)SHCDESE.Interop.AILords.SK_NULL && baseLord < (int)SHCDESE.Interop.AILords.SK_X1 &&
+                Enum.IsDefined(typeof(SHCDESE.Interop.AILords), (uint)baseLord))
+            {
+                string baseName = ((SHCDESE.Interop.AILords)(uint)baseLord).ToString().Substring(3);
+                FixesPreferenceSource customSource = read(new FixesPreferenceSource { CustomName = baseName });
+                result.Add(customSource);
+                if (customSource.Json == null)
+                    result.Add(read(new FixesPreferenceSource { LordType = baseLord - 1 }));
+            }
+            return result;
+        }
+
+        internal static CustomisationFileManager.CustomLordConfig ResolveConfiguration(LordDataSlot slot)
+        {
+            int type = ResolveLordType(slot);
+            var matches = (CustomisationFileManager.Instance.getLordLordList(type, slot.LordName) ??
+                new List<CustomisationFileManager.CustomLordConfig>()).Where(config => config != null &&
+                    config.lordType == type && string.Equals(config.name, slot.ConfigName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(config.checksum.ToString(), slot.ConfigChecksum, StringComparison.Ordinal))
+                .GroupBy(config => config.path, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToArray();
+            if (matches.Length != 1) throw new InvalidDataException("Missing or ambiguous saved AIC configuration: " + slot.LordName);
+            return matches[0];
+        }
+
+        // The caller must be the authenticated host/local author. Parsing already verified the old digest.
+        internal LordDataSnapshot CompleteSources(LordDataSnapshot snapshot, Func<LordDataSlot, int> resolveBase = null)
+        {
+            if (!snapshot.FixesInstalled || snapshot.Slots.All(slot => slot.FixesSources != null)) return snapshot;
+            Validate();
+            if (!Installed) throw new InvalidDataException("Fixes is required to migrate inherited preferences.");
+            var recorded = Collect(snapshot);
+            LordDataSlot[] slots = snapshot.Slots.Select(slot => new LordDataSlot
+            {
+                PlayerId = slot.PlayerId, LordType = ResolveLordType(slot), LordName = slot.LordName,
+                ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum, ModLordJson = slot.ModLordJson,
+                FixesJson = slot.FixesJson,
+                FixesSources = slot.FixesSources ?? CaptureSources(slot.LordName, ResolveLordType(slot),
+                    resolveBase != null ? resolveBase(slot) : ResolveConfiguration(slot).lordData.opponent_type, recorded),
+            }).ToArray();
+            var result = LordDataSnapshot.Create(snapshot.SessionId, snapshot.FixesInstalled, slots);
+            Collect(result); // Detect shared-source conflicts before publishing any mutation.
+            return result;
+        }
+
+        internal IReadOnlyList<FixesPreferenceSource> CaptureRecordedSources(IReadOnlyList<FixesPreferenceSource> sources)
+        {
+            if (sources == null) return null;
+            return sources.Select(source => new FixesPreferenceSource { CustomName = source.CustomName,
+                LordType = source.LordType, Json = Capture(source.CustomName, source.LordType ?? -1) }).ToArray();
+        }
+
+        internal IReadOnlyList<FixesPreferenceSource> NormalizeSources(IReadOnlyList<FixesPreferenceSource> sources)
+            => sources?.Select(source => new FixesPreferenceSource { CustomName = source.CustomName,
+                LordType = source.LordType, Json = Normalize(source.Json) }).ToArray();
+
+        private Dictionary<string, FixesPreferenceSource> Collect(LordDataSnapshot snapshot)
+        {
+            var result = new Dictionary<string, FixesPreferenceSource>(StringComparer.OrdinalIgnoreCase);
+            foreach (LordDataSlot slot in snapshot.Slots)
+            {
+                int type = ResolveLordType(slot);
+                AddSource(result, new FixesPreferenceSource { CustomName = type < 0 ? slot.LordName : null,
+                    LordType = type < 0 ? null : (int?)type, Json = slot.FixesJson });
+                foreach (FixesPreferenceSource source in slot.FixesSources ?? Array.Empty<FixesPreferenceSource>())
+                    AddSource(result, source);
+            }
+            return result;
+        }
+
+        private void AddSource(IDictionary<string, FixesPreferenceSource> values, FixesPreferenceSource source)
+        {
+            string id = FixesPreferenceSources.Identity(source);
+            string json = Normalize(source.Json);
+            if (values.TryGetValue(id, out FixesPreferenceSource existing) && existing.Json != json)
+                throw new InvalidDataException("Conflicting shared Fixes preference source: " + id);
+            values[id] = new FixesPreferenceSource { CustomName = source.CustomName, LordType = source.LordType, Json = json };
+        }
         internal bool HasMapOverride(int playerId)
         {
             Validate();
@@ -95,36 +219,41 @@ namespace ExtendedData
             if (Installed != snapshot.FixesInstalled) throw new InvalidOperationException("Fixes installation differs from the host.");
             if (!Installed) return;
             Validate();
-            var desired = snapshot.Slots.GroupBy(Identity, StringComparer.OrdinalIgnoreCase).ToArray();
-            var prepared = new Dictionary<string, Tuple<LordDataSlot, int, object>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var group in desired)
+            var prepared = new Dictionary<string, StoredValue>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in Collect(snapshot))
             {
-                LordDataSlot slot = group.First(); int type = ResolveLordType(slot);
-                string json = group.Select(item => Normalize(item.FixesJson)).Distinct(StringComparer.Ordinal).Single();
-                if (Store(type) == null && json != null) throw new InvalidOperationException("Installed Fixes does not support Extended Lord preferences.");
-                prepared.Add(group.Key, Tuple.Create(slot, type, json == null ? null : TypedPreferenceSnapshotCodec.Restore(entryType, json)));
+                FixesPreferenceSource source = pair.Value;
+                IDictionary store = Store(source.LordType ?? -1);
+                if (store == null && source.Json != null) throw new InvalidOperationException("Installed Fixes does not support Extended Lord preferences.");
+                if (store != null) prepared.Add(pair.Key, new StoredValue { Store = store,
+                    Key = Key(source.CustomName, source.LordType ?? -1), Present = source.Json != null,
+                    Value = source.Json == null ? null : TypedPreferenceSnapshotCodec.Restore(entryType, source.Json) });
             }
-            foreach (string old in touched.Keys.Where(key => !prepared.ContainsKey(key)).ToArray()) RestoreOne(old);
-            foreach (var item in prepared)
+            var previous = new Dictionary<string, StoredValue>(touched, StringComparer.OrdinalIgnoreCase);
+            var rollback = touched.Concat(prepared).GroupBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => Read(group.First().Value)).ToArray();
+            try
             {
-                var value = item.Value; IDictionary store = Store(value.Item2);
-                if (store == null) continue; // Older Fixes has no extended store; absent values require no write.
-                object key = Key(value.Item1.LordName, value.Item2);
-                if (!touched.ContainsKey(item.Key))
+                foreach (string old in touched.Keys.Where(key => !prepared.ContainsKey(key)).ToArray()) RestoreOne(old);
+                foreach (var pair in prepared)
                 {
-                    if (store.Contains(key)) { originallyPresent.Add(item.Key); originals[item.Key] = store[key]; }
-                    touched.Add(item.Key, value.Item2);
+                    if (!touched.ContainsKey(pair.Key)) touched.Add(pair.Key, Read(pair.Value));
+                    pair.Value.Write();
                 }
-                if (value.Item3 == null) store.Remove(key); else store[key] = value.Item3;
+            }
+            catch
+            {
+                foreach (StoredValue value in rollback) value.Write();
+                touched.Clear(); foreach (var pair in previous) touched.Add(pair.Key, pair.Value);
+                throw;
             }
         }
+        private static StoredValue Read(StoredValue target) => new StoredValue { Store = target.Store, Key = target.Key,
+            Present = target.Store.Contains(target.Key), Value = target.Store.Contains(target.Key) ? target.Store[target.Key] : null };
         internal void Restore() { foreach (string identity in touched.Keys.ToArray()) RestoreOne(identity); }
         private void RestoreOne(string identity)
         {
-            int type = touched[identity]; IDictionary store = Store(type);
-            object key = type < 0 ? (object)identity.Substring("custom:".Length) : checked(type + 1);
-            if (originallyPresent.Remove(identity)) store[key] = originals[identity]; else store.Remove(key);
-            originals.Remove(identity); touched.Remove(identity);
+            touched[identity].Write(); touched.Remove(identity);
         }
     }
 }

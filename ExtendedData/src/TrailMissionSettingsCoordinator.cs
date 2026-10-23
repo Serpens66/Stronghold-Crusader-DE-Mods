@@ -1813,6 +1813,9 @@ namespace ExtendedData
                 TrailLordRequirementSource.Resolution resolution = TrailLordRequirementSource.Resolve(
                     trailPath, restart, includedPlayerIds, allowEmbeddedValuesOnly);
                 resolved[IOPath.GetFullPath(trailPath)] = resolution.Slots;
+                if (resolution.MigratedFixesSources)
+                    DebugLogHelper.LogInfo(log, "Legacy Trail Fixes inheritance supplemented with current host/author sources; " +
+                        "stored preferences retained: " + IOPath.GetFileName(trailPath));
                 if (resolution.ReusedPlayerIds.Count > 0 || resolution.EmbeddedOnlyPlayerIds.Count > 0)
                     DebugLogHelper.LogInfo(log, "Trail Lord requirements for [" + IOPath.GetFileName(trailPath) +
                         "]: stored=[" + string.Join(",", resolution.ReusedPlayerIds) +

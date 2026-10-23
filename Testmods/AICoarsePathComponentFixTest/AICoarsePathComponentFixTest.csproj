@@ -44,6 +44,7 @@
     <Compile Include="src\AiCoarsePathComponentFix.cs" />
     <Compile Include="src\WoodSiteGuardExperiment.cs" />
     <Compile Include="src\WoodGuardOutcomeObserver.cs" />
+    <Compile Include="..\..\Shared\Runtime\Compatibility\FixesStartupGate.cs"><Link>Shared\Runtime\Compatibility\FixesStartupGate.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
   </ItemGroup>

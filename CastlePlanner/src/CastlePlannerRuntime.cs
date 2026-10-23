@@ -79,7 +79,6 @@ namespace CastlePlanner
         private const int PrebuiltPlayersReferenceRva = 0x95FF8;
         private const int PreparedKeepCoordinatesReferenceRva = 0x95EA3;
         private const int HumanKeepCoordinateLoadRva = 0x95B3C;
-        private const int DeferredCompoundPlacementMaxAttempts = 3;
         private const int DeferredCompoundPlacementTimeoutTicks = 600;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -156,12 +155,7 @@ namespace CastlePlanner
         private int nativeCastleExecutionPlayerId;
         private int nextHovelVisualStyle;
         private int correctedHovelVisualCount;
-        private bool captureSupplementalBuilding;
-        private int captureSupplementalPlayerId;
-        private int captureSupplementalX;
-        private int captureSupplementalY;
-        private eStructs captureSupplementalStruct;
-        private int capturedSupplementalBuildingId;
+        private readonly SupplementalPrefabSpawner supplementalSpawner = new SupplementalPrefabSpawner();
 
         public CastlePlannerRuntime(
             ManualLogSource log,
@@ -821,21 +815,15 @@ namespace CastlePlanner
             if (!IsCastleSpawningModeAllowed())
                 return;
 
-            if (!captureSupplementalBuilding ||
-                args.PlayerId != captureSupplementalPlayerId ||
-                args.TileX != captureSupplementalX ||
-                args.TileY != captureSupplementalY ||
-                (captureSupplementalStruct != eStructs.STRUCT_NULL &&
-                 args.Building != captureSupplementalStruct))
-            {
-                return;
-            }
-            capturedSupplementalBuildingId = unchecked((int)args.ReturnValue);
+            supplementalSpawner.Observe(args.ReturnValue, args.PlayerId, args.Building,
+                args.TileX, args.TileY, LookupSupplementalBuilding);
         }
 
         private void SpawnSupplementalContents(PreparedAivCastle castle)
         {
             var digestRows = new List<string>();
+            var skipped = new SupplementalSpawnReport();
+            var attemptedPrefabs = new HashSet<string>(StringComparer.Ordinal);
             var queuedDecorations = new HashSet<string>(StringComparer.Ordinal);
             AivRotation rotation = ToAivRotation(castle.Orientation);
             int nativeReferenceX = castle.RequestedKeepX;
@@ -857,17 +845,22 @@ namespace CastlePlanner
                 if (!isFearFactor && !isStockpile)
                     continue;
 
-                string objectKind = isStockpile ? "AIV Stockpile" : "Fearfactor object";
                 string digestKind = isStockpile ? "stockpile" : "fear";
                 foreach (int encodedPosition in frame.tilePositionOfsets)
                 {
-                    AivGridPoint rawAnchor = new AivGridPoint(encodedPosition);
-                    AivWorldTile projectedAnchor = AivWorldTransform.ProjectNativeFit(
-                        rawAnchor,
-                        nativeReferenceX,
-                        nativeReferenceY,
-                        rotation);
                     eMappers mapper = (eMappers)frame.itemType;
+                    if (!CanPlaceSupplementalPrefab(
+                            mapper,
+                            encodedPosition,
+                            nativeReferenceX,
+                            nativeReferenceY,
+                            rotation,
+                            out string reason))
+                    {
+                        skipped.Add(reason, $"mapper={mapper}, aivAnchor={encodedPosition}");
+                        continue;
+                    }
+                    AivGridPoint rawAnchor = new AivGridPoint(encodedPosition);
                     int footprintSize = AivMapperCatalog.Resolve(frame.itemType)
                         .FootprintSize.GetValueOrDefault(1);
                     if (footprintSize < 1)
@@ -878,17 +871,11 @@ namespace CastlePlanner
                         nativeReferenceX,
                         nativeReferenceY,
                         rotation);
-                    if (!CanPlaceSupplementalPrefab(
-                            mapper,
-                            encodedPosition,
-                            nativeReferenceX,
-                            nativeReferenceY,
-                            rotation,
-                            out string reason))
+                    // Retain attempts even when native creation cannot be confirmed.
+                    // Repeated AIV entries must not retry an uncertain side effect.
+                    if (!attemptedPrefabs.Add($"{(int)mapper}:{buildOrigin.X}:{buildOrigin.Y}"))
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:925", $"Supplemental {objectKind} skipped: playerId={castle.PlayerId}, mapper={mapper}, " +
-                            $"aivAnchor=({projectedAnchor.X},{projectedAnchor.Y}), " +
-                            $"buildOrigin=({buildOrigin.X},{buildOrigin.Y}), reason={reason}.");
+                        skipped.Add("duplicate-prefab-request", $"mapper={mapper}, origin=({buildOrigin.X},{buildOrigin.Y})");
                         continue;
                     }
                     int height = GameTileManagerAPI.Instance.GetTileHeight(
@@ -900,23 +887,21 @@ namespace CastlePlanner
                             castle.PlayerId,
                             buildOrigin.X,
                             buildOrigin.Y,
-                            mapper);
+                            mapper, out reason);
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:945", $"Supplemental {objectKind} creation threw and was skipped: " +
-                            $"playerId={castle.PlayerId}, mapper={mapper}, " +
-                            $"aivAnchor=({projectedAnchor.X},{projectedAnchor.Y}), " +
-                            $"buildOrigin=({buildOrigin.X},{buildOrigin.Y}), " +
-                            $"error={ex.GetBaseException().Message}.");
+                        skipped.Add("creation-threw", $"mapper={mapper}, origin=({buildOrigin.X},{buildOrigin.Y}), error={ex.GetBaseException().Message}");
                         continue;
                     }
-                    if (id > 0)
+                    if (id <= 0)
                     {
-                        digestRows.Add(
-                            $"{digestKind}:{(int)mapper}:{castle.PlayerId}:" +
-                            $"{buildOrigin.X}:{buildOrigin.Y}:{height}");
+                        skipped.Add(reason, $"mapper={mapper}, origin=({buildOrigin.X},{buildOrigin.Y})");
+                        continue;
                     }
+                    digestRows.Add(
+                        $"{digestKind}:{(int)mapper}:{castle.PlayerId}:" +
+                        $"{buildOrigin.X}:{buildOrigin.Y}:{height}");
                 }
             }
 
@@ -931,7 +916,7 @@ namespace CastlePlanner
                     rotation);
                 if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tile.X, tile.Y))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:974", $"Supplemental misc item skipped: playerId={castle.PlayerId}, sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y}), reason=out-of-bounds.");
+                    skipped.Add("out-of-bounds", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
                     continue;
                 }
 
@@ -941,7 +926,7 @@ namespace CastlePlanner
                 {
                     if (!AivSpawnPlan.TryMapSiegeEngine(item.itemType, out eChimps chimp))
                     {
-                        LogUnknownMisc(castle.PlayerId, index, item);
+                        skipped.Add("unknown-misc", $"sourceIndex={index}, itemType={item.itemType}");
                         continue;
                     }
                     long id;
@@ -957,12 +942,12 @@ namespace CastlePlanner
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1002", $"Supplemental unit creation threw and was skipped: playerId={castle.PlayerId}, sourceIndex={index}, chimp={chimp}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}.");
+                        skipped.Add("unit-creation-threw", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}");
                         continue;
                     }
                     if (id <= 0)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1007", $"Supplemental unit creation failed: playerId={castle.PlayerId}, sourceIndex={index}, chimp={chimp}, position=({tile.X},{tile.Y}), height={height}.");
+                        skipped.Add("unit-creation-failed", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
                         continue;
                     }
                     digestRows.Add($"unit:{(int)chimp}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}:slot{item.number}");
@@ -978,7 +963,7 @@ namespace CastlePlanner
                             out eMappers mapper,
                             out ProjectileType projectileType))
                     {
-                        LogUnknownMisc(castle.PlayerId, index, item);
+                        skipped.Add("unknown-misc", $"sourceIndex={index}, itemType={item.itemType}");
                         continue;
                     }
 
@@ -1004,7 +989,7 @@ namespace CastlePlanner
                             projectileType,
                             out int projectileId))
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1050", $"Supplemental decoration creation failed: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}), height={height}.");
+                        skipped.Add("decoration-creation-failed", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
                         continue;
                     }
                     if (projectileType == ProjectileType.Disease)
@@ -1013,9 +998,12 @@ namespace CastlePlanner
                     continue;
                 }
 
-                LogUnknownMisc(castle.PlayerId, index, item);
+                skipped.Add("unknown-misc", $"sourceIndex={index}, itemType={item.itemType}");
             }
 
+            if (skipped.Count != 0)
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:supplemental-summary",
+                    $"Supplemental castle contents omitted: playerId={castle.PlayerId}, {skipped}.");
             string digestPayload = string.Join("|", digestRows);
             string digest;
             using (SHA256 sha = SHA256.Create())
@@ -1134,94 +1122,46 @@ namespace CastlePlanner
             AivRotation rotation,
             out string reason)
         {
-            AivMapperInfo info = AivMapperCatalog.Resolve((int)mapper);
-            int size = info.FootprintSize.GetValueOrDefault(1);
-            if (size < 1)
-                size = 1;
-            AivGridPoint anchor = new AivGridPoint(encodedPosition);
-            for (int rowOffset = 0; rowOffset < size; rowOffset++)
-            {
-                for (int columnOffset = 0; columnOffset < size; columnOffset++)
-                {
-                    int row = anchor.Row - rowOffset;
-                    int column = anchor.Column + columnOffset;
-                    if (row < 0 || row >= AivGridPoint.GridSize ||
-                        column < 0 || column >= AivGridPoint.GridSize)
-                    {
-                        reason = "source-footprint-out-of-bounds";
-                        return false;
-                    }
-                    AivWorldTile footprintTile = AivWorldTransform.ProjectNativeFit(
-                        new AivGridPoint(row, column),
-                        keepX,
-                        keepY,
-                        rotation);
-                    if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(footprintTile.X, footprintTile.Y))
-                    {
-                        reason = "footprint-out-of-bounds";
-                        return false;
-                    }
-                    int tileId = GameTileManagerAPI.Instance.GetTileId(footprintTile.X, footprintTile.Y);
-                    if (GameTileManagerAPI.Instance.GetTileBuildingId(tileId) > 0)
-                    {
-                        reason = "occupied-or-already-created";
-                        return false;
-                    }
-                }
-            }
-            reason = string.Empty;
-            return true;
+            return SupplementalPlacementPolicy.CanPlace((int)mapper, encodedPosition, keepX, keepY,
+                rotation, tile => CheckSupplementalTile(mapper, tile), out reason);
+        }
+
+        private static string CheckSupplementalTile(eMappers mapper, AivWorldTile tile)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (!tiles.IsTileInsideMapBounds(tile.X, tile.Y)) return "footprint-out-of-bounds";
+            int tileId = tiles.GetTileId(tile.X, tile.Y);
+            if (!tiles.IsValidTileId(tileId)) return "invalid-map-tile";
+            return SupplementalPlacementPolicy.CheckPhysicalTile((int)mapper,
+                tiles.GetTileBuildingId(tileId), tiles.GetTileHeight(tileId), tiles.GetTilePropertyFlag(tileId));
+        }
+
+        private static SupplementalBuildingIdentity? LookupSupplementalBuilding(int id)
+        {
+            if (id <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null)
+                return null;
+            return new SupplementalBuildingIdentity(building->r_GlobalId, building->r_PlayerIdOwner,
+                building->r_BuildingType, building->r_TilePositionXBegin, building->r_TilePositionYBegin, building->r_AliveState);
         }
 
         private int CreateSupplementalPrefab(
-            int playerId,
-            int x,
-            int y,
-            eMappers mapper,
+            int playerId, int x, int y, eMappers mapper, out string reason,
             bool bypassPlacementRules = true)
         {
-            captureSupplementalBuilding = true;
-            captureSupplementalPlayerId = playerId;
-            captureSupplementalX = x;
-            captureSupplementalY = y;
-            captureSupplementalStruct = mapper.ConvertToEStructs();
-            capturedSupplementalBuildingId = -1;
             bool previousBypassEnabled = GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride;
             bool previousBypassValue = GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue;
-            long result;
             try
             {
-                result = GameBuildingManagerAPI.Instance.CreatePrefab(
-                    playerId,
-                    x,
-                    y,
-                    mapper,
-                    BuildingScales.GetScale(mapper),
-                    0,
-                    true,
-                    bypassPlacementRules);
+                return supplementalSpawner.Create(playerId, mapper.ConvertToEStructs(), x, y,
+                    () => GameBuildingManagerAPI.Instance.CreatePrefab(playerId, x, y, mapper,
+                        BuildingScales.GetScale(mapper), 0, true, bypassPlacementRules),
+                    LookupSupplementalBuilding, out reason);
             }
             finally
             {
                 GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue = previousBypassValue;
                 GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride = previousBypassEnabled;
-                captureSupplementalBuilding = false;
             }
-
-            int id = capturedSupplementalBuildingId > 0
-                ? capturedSupplementalBuildingId
-                : unchecked((int)result);
-            if (id <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) ||
-                building->r_PlayerIdOwner != playerId ||
-                (captureSupplementalStruct != eStructs.STRUCT_NULL &&
-                 building->r_BuildingType != captureSupplementalStruct) ||
-                (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))
-            {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1272", $"Supplemental prefab creation failed verification: playerId={playerId}, mapper={mapper}, position=({x},{y}), returnedId={id}.");
-                return -1;
-            }
-            return id;
         }
 
         private void QueueDeferredCompoundBuildings(PreparedAivCastle castle)
@@ -1293,6 +1233,8 @@ namespace CastlePlanner
                         continue;
                     }
 
+                    if (queue.Processing) continue;
+                    queue.Processing = true;
                     try
                     {
                         if (ProcessDeferredCompoundBuilding(queue, tick))
@@ -1304,6 +1246,7 @@ namespace CastlePlanner
                         Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1357", $"Deferred compound-building queue aborted after an exception: " +
                             $"playerId={playerId}, tick={tick}, error={ex}.");
                     }
+                    finally { queue.Processing = false; }
                 }
             }
             finally
@@ -1344,7 +1287,6 @@ namespace CastlePlanner
                             $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
                             $"buildingId={existingId}, tick={tick}.");
                     queue.Cursor++;
-                    queue.Attempts = 0;
                     continue;
                 }
 
@@ -1376,16 +1318,15 @@ namespace CastlePlanner
                     Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1434", $"Deferred compound-building placement aborted: playerId={queue.PlayerId}, " +
                         $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
                         $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                        $"reason={reason}, tick={tick}.");
+                        $"reason={reason}, remaining={queue.Placements.Count - queue.Cursor}, tick={tick}.");
                     return true;
                 }
 
-                queue.Attempts++;
                 int buildingId = CreateSupplementalPrefab(
                     queue.PlayerId,
                     placement.BuildOrigin.X,
                     placement.BuildOrigin.Y,
-                    placement.Mapper,
+                    placement.Mapper, out string spawnReason,
                     bypassPlacementRules: false);
                 if (buildingId > 0)
                 {
@@ -1400,19 +1341,18 @@ namespace CastlePlanner
                         Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1459", $"Deferred compound-building placement accepted by Vanilla: " +
                             $"playerId={queue.PlayerId}, sourceOrdinal={placement.SourceOrdinal}, " +
                             $"mapper={placement.Mapper}, position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                            $"buildingId={buildingId}, attempt={queue.Attempts}, tick={tick}.");
+                            $"buildingId={buildingId}, tick={tick}.");
                     return false;
                 }
 
-                if (queue.Attempts >= DeferredCompoundPlacementMaxAttempts)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1470", $"Deferred compound-building placement rejected repeatedly: " +
-                        $"playerId={queue.PlayerId}, sourceOrdinal={placement.SourceOrdinal}, " +
-                        $"mapper={placement.Mapper}, position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                        $"attempts={queue.Attempts}, tick={tick}.");
-                    return true;
-                }
-                return false;
+                // An unconfirmed native call may already have created a building.
+                // Abort this queue rather than risk a duplicate on the next tick.
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:compound-unconfirmed",
+                    $"Deferred compound-building queue aborted: playerId={queue.PlayerId}, " +
+                    $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
+                    $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), reason={spawnReason}, " +
+                    $"remaining={queue.Placements.Count - queue.Cursor}, tick={tick}.");
+                return true;
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -1487,10 +1427,6 @@ namespace CastlePlanner
             deferredCompoundBuildings.Clear();
         }
 
-        private void LogUnknownMisc(int playerId, int index, AivJsonMiscItem item)
-        {
-            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1558", $"Unknown supplemental misc item skipped: playerId={playerId}, sourceIndex={index}, itemType={item.itemType}, positionOffset={item.positionOfset}, number={item.number}.");
-        }
 
         private static AivRotation ToAivRotation(int nativeOrientation)
         {
@@ -2435,8 +2371,8 @@ namespace CastlePlanner
             public AivRotation Rotation { get; }
             public List<AivCompoundBuildingPlacement> Placements { get; }
             public List<string> DigestRows { get; } = new List<string>();
+            public bool Processing { get; set; }
             public int Cursor { get; set; }
-            public int Attempts { get; set; }
             public int FirstTick { get; set; } = -1;
         }
 

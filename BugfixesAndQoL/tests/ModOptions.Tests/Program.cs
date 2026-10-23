@@ -79,6 +79,9 @@ namespace BugfixesAndQoL
             return context;
         }
         private static byte[] Save() => ModSaveDataAPI.Instance.Save(new SaveContext());
+        private static void Opportunity(int player, EventHookPhase phase = EventHookPhase.Pre) =>
+            PlayerR3EventHooks.OnPlayerCalculatePopularity.Emit(new SHCDESE.EventAPI.Player.PlayerCalculatePopularityEventArgs
+            { Phase = phase, PlayerId = player });
         private static PlaguePopularitySaveState Decode(byte[] bytes) => MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(bytes);
 
         private static void RuntimeTests()
@@ -153,10 +156,45 @@ namespace BugfixesAndQoL
             int warnings = Shared.DebugLogHelper.Warnings;
             stale();
             Check(Shared.DebugLogHelper.Warnings == warnings, "old-session watchdog cannot warn for new session");
+            Opportunity(1);
             GameTimeManagerAPI.Instance.Timers.Fire();
             Check(Shared.DebugLogHelper.Warnings == warnings + 1, "temporary watchdog warns once");
             GameTimeManagerAPI.Instance.Timers.Fire();
             Check(Shared.DebugLogHelper.Warnings == warnings + 1, "watchdog does not repeat");
+
+            Start(true);
+            warnings = Shared.DebugLogHelper.Warnings;
+            Create(1);
+            Opportunity(2); // Another player cannot prove an opportunity for player one.
+            Opportunity(1, EventHookPhase.Post);
+            GameTimeManagerAPI.Instance.Timers.Fire();
+            Check(Shared.DebugLogHelper.Warnings == warnings, "no matching Pre opportunity produces no warning");
+            Create(1);
+            Opportunity(1);
+            Action oldRevision = GameTimeManagerAPI.Instance.Timers.Pending.Values.First();
+            Create(1); // Replaces the watched revision, including its observed opportunities.
+            oldRevision();
+            GameTimeManagerAPI.Instance.Timers.Fire();
+            Check(Shared.DebugLogHelper.Warnings == warnings, "old revision cannot donate an opportunity or warn");
+            Create(1);
+            Opportunity(1);
+            Action correctedTimer = GameTimeManagerAPI.Instance.Timers.Pending.Values.First();
+            Correct(1);
+            correctedTimer();
+            Check(Shared.DebugLogHelper.Warnings == warnings, "canceled successful revision cannot warn even if queued");
+            Create(2);
+            Opportunity(2);
+            foreach (var herd in Decode(Save()).Herds.Where(h => h.PlayerId == 2))
+                foreach (int slot in herd.ProjectileSlotIds) GameProjectileManagerAPI.Instance.Pool[slot].r_AliveState = AliveState.ToDelete;
+            Check((short)Correct(2).RAX == 0, "observed calculation still corrects after the last herd expires");
+            GameTimeManagerAPI.Instance.Timers.Fire();
+            Check(Shared.DebugLogHelper.Warnings == warnings, "zero-herd success cancels watchdog");
+            Create(1);
+            Create(2);
+            Opportunity(1);
+            GameTimeManagerAPI.Instance.Timers.Fire();
+            Check(Shared.DebugLogHelper.Warnings == warnings + 1, "two watched players keep calculation opportunities separate");
+            Start(true);
 
             Shared.DebugLogHelper.FailDebug = true;
             Create(2);
@@ -166,8 +204,14 @@ namespace BugfixesAndQoL
             Create(2);
             Check((short)Correct(2).RAX == -50, "watchdog failure preserves correction");
             GameTimeManagerAPI.Instance.Timers.Fail = false;
+            Create(1);
+            Opportunity(1);
+            Action disabledTimer = GameTimeManagerAPI.Instance.Timers.Pending.Values.First();
+            int beforeDisable = Shared.DebugLogHelper.Warnings;
             settings.EnableMod = false;
             Check(GameTimeManagerAPI.Instance.Timers.Pending.Count == 0, "disable cancels pending diagnostics");
+            disabledTimer();
+            Check(Shared.DebugLogHelper.Warnings == beforeDisable, "queued callback cannot warn after disable");
             int rejections = Shared.DebugLogHelper.Warnings;
             LoadSave(new byte[] { 0xC1 }, true);
             // Each of the two load passes rejects the record; the real helper rate-limits by site.

@@ -17,6 +17,7 @@ namespace ExtendedData
         public string ConfigChecksum { get; set; }
         public string ModLordJson { get; set; }
         public string FixesJson { get; set; }
+        public IReadOnlyList<FixesPreferenceSource> FixesSources { get; set; }
     }
 
     public sealed class LordDataSnapshot
@@ -24,7 +25,7 @@ namespace ExtendedData
         public const int MaxSidecarBytes = APIShared.ModData.ModDataDocumentJson.MaximumDocumentBytes;
         public const int MaxNamespaceBytes = APIShared.ModData.ModDataDocumentJson.MaximumNamespaceBytes;
         public const int MaxSnapshotBytes = 256 * 1024;
-        public const int ProtocolVersion = 3;
+        public const int ProtocolVersion = 4;
 
         public string SessionId { get; private set; }
         public string Digest { get; private set; }
@@ -60,6 +61,7 @@ namespace ExtendedData
                     ["configChecksum"] = item.ConfigChecksum,
                     ["modLordData"] = item.ModLordJson == null ? null : ParseModLord(item.ModLordJson),
                     ["fixesJson"] = item.FixesJson,
+                    ["fixesSources"] = FixesPreferenceSources.Encode(item.FixesSources),
                 }).ToList(),
             };
             string payloadJson = SerializeCompact(payload);
@@ -97,7 +99,7 @@ namespace ExtendedData
             if (!string.Equals(Hash(payloadJson), digest, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("The Lord-data snapshot checksum does not match.");
             int version = Convert.ToInt32(payload["version"]);
-            if (legacy ? version != 1 : version != 2 && version != ProtocolVersion)
+            if (legacy ? version != 1 : version < 2 || version > ProtocolVersion)
                 throw new InvalidDataException("Unsupported Lord-data snapshot version.");
             if (!payload.TryGetValue("fixesInstalled", out object installedValue) || !(installedValue is bool fixesInstalled))
                 throw new InvalidDataException("The Fixes installation marker is invalid.");
@@ -119,6 +121,8 @@ namespace ExtendedData
                             ? SerializeCompact(RequireObject(modData))
                             : null,
                     FixesJson = OptionalString(item, "fixesJson"),
+                    FixesSources = version >= 4 && item.TryGetValue("fixesSources", out object sources)
+                        ? FixesPreferenceSources.Decode(sources) : null,
                 };
             }).ToArray();
             ValidateSlots(slots, fixesInstalled);
@@ -186,7 +190,8 @@ namespace ExtendedData
             {
                 if (slot.LordType < -1) throw new InvalidDataException("Invalid Lord type identity.");
                 ValidateModLord(slot.ModLordJson);
-                if (!fixesInstalled && slot.FixesJson != null)
+                FixesPreferenceSources.Validate(slot.FixesSources);
+                if (!fixesInstalled && (slot.FixesJson != null || slot.FixesSources != null))
                     throw new InvalidDataException("Fixes preferences were supplied without Fixes.");
             }
         }

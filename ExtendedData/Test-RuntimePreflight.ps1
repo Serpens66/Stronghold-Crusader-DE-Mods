@@ -195,6 +195,8 @@ try {
         @('CustomisationFileManager/CustomLordConfig', 'lordType', 'System.Int32'),
         @('CustomisationFileManager/CustomLordConfig', 'name', 'System.String'),
         @('CustomisationFileManager/CustomLordConfig', 'path', 'System.String'),
+        @('CustomisationFileManager/CustomLordConfig', 'lordData', 'EngineInterface/AILordConfigTransferData'),
+        @('EngineInterface/AILordConfigTransferData', 'opponent_type', 'System.Int32'),
         @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'lordType', 'System.Int32'),
         @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'lordName', 'System.String'),
         @('ConfigSettings', 'extendedLordPaths', 'System.String[]'),

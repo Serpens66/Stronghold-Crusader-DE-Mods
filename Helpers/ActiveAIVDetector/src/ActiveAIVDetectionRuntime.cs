@@ -67,6 +67,7 @@ namespace ActiveAIVDetector
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
         private readonly DetourHandle<PrepareLayoutDelegate> prepareLayoutHook =
             new DetourHandle<PrepareLayoutDelegate>();
+        private bool finalSelectionAvailable;
 
         // Retaining the transaction keeps the native detour alive for the full process lifetime.
         private HookTransaction transaction;
@@ -155,20 +156,29 @@ namespace ActiveAIVDetector
                     OwnsHooks = false
                 });
 
-            Shared.NativeResolution prepareLayoutResolution = Shared.NativePatternResolver.ResolveUnique(
-                context.Memory,
-                PrepareLayoutPattern,
-                PrepareLayoutRva,
-                referenceHashMatches,
-                "prepare AIV layout",
-                log);
-
-            transaction.AddDetour(
-                prepareLayoutHook,
-                HookTarget.FromAddress(
-                    unchecked((ulong)context.ModuleHandle.ToInt64()) +
-                    unchecked((ulong)prepareLayoutResolution.Rva)),
-                PrepareLayout);
+            bool installFinalSelection = Shared.FixesStartupGate.CanInstall("Active AIV final-selection capture",
+                "AllowExpandedDefensivePositionsPatch", message => Shared.DebugLogHelper.LogError(log, message));
+            if (installFinalSelection)
+            {
+                IntPtr liveEntry = IntPtr.Zero;
+                try
+                {
+                    Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
+                        context.Memory, PrepareLayoutPattern, PrepareLayoutRva, referenceHashMatches,
+                        "prepare AIV layout", log);
+                    liveEntry = IntPtr.Add(context.ModuleHandle, resolution.Rva);
+                    byte[] prologue = { 0x44, 0x89, 0x44, 0x24, 0x18, 0x53, 0x55, 0x56, 0x57,
+                        0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xEC, 0x68 };
+                    Shared.FixesStartupGate.RequireOriginal(liveEntry, prologue);
+                }
+                catch (Exception ex)
+                {
+                    installFinalSelection = false;
+                    Shared.DebugLogHelper.LogError(log, "Active AIV final-selection capture disabled: " + ex.Message);
+                }
+                if (installFinalSelection) transaction.AddDetour(prepareLayoutHook,
+                    HookTarget.FromAddress(unchecked((ulong)liveEntry.ToInt64())), PrepareLayout);
+            }
 
             placementOracle = new AivPlacementOracle(
                 log,
@@ -183,10 +193,11 @@ namespace ActiveAIVDetector
 
             CommitResult commitResult = transaction.Commit();
 
-            if (!commitResult.IsCompleteSuccess || !prepareLayoutHook.Success)
+            if (!commitResult.IsCompleteSuccess || (installFinalSelection && !prepareLayoutHook.Success))
                 throw new InvalidOperationException(
                     $"The active-AIV hook set was not installed atomically: {commitResult}.");
             placementOracle.ValidateHooks();
+            finalSelectionAvailable = installFinalSelection && prepareLayoutHook.Success;
 
             if (prebuildTraceOptions.Enabled)
             {
@@ -219,7 +230,7 @@ namespace ActiveAIVDetector
             SubscribeLifecycleHooks();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Native active-AIV detector and passive placement oracle installed at Info level; " +
+                "Passive placement oracle installed; final-selection capture available=" + finalSelectionAvailable + "; " +
                 "Vanilla candidate tests will be joined with lobby metadata after OnStartMap(Post).");
         }
 
@@ -724,6 +735,8 @@ namespace ActiveAIVDetector
             pendingOracleSelections.Sort((left, right) => left.Sequence.CompareTo(right.Sequence));
             foreach (OracleSelectionSnapshot oracleSelection in pendingOracleSelections)
                 ReportOracleSelection(oracleSelection, "OnStartMap(Post)");
+
+            if (!finalSelectionAvailable) return; // Deliberately unavailable; do not report missing captures as failures.
 
             List<int> playerIds = new List<int>(pendingSelections.Keys);
             playerIds.Sort();
