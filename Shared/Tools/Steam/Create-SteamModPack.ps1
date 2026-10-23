@@ -546,7 +546,7 @@ function Get-ApiSharedReleasePackage {
     $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @(
             'release','view',$tag,'--repo',$Infrastructure.Repository,'--json','tagName,isDraft,targetCommitish,url,assets'
     ) -FailureCode 7 -AllowFailure
-    if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is unavailable. Prepare and publish APIShared separately before preparing this modpack." }
+    if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is unavailable. Prepare APIShared first (CreateSteamModPack.bat: APIShared or Beide), which creates its release from main." }
     $release = ($releaseResult.Output -join "`n") | ConvertFrom-Json
     if ([string]$release.tagName -cne $tag -or [bool]$release.isDraft -ne [bool]$apiTest) {
         Fail-Pack 7 "APIShared release $tag is missing, still a draft, or resolved to an unexpected tag."

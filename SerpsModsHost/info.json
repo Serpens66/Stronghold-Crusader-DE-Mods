@@ -19,10 +19,10 @@
     {
       "Version": "1.0.30",
       "Changes": [
-        "Multiplayer: every player needs this modpack version and APIShared 0.12.5 or newer; mixed versions cannot load saves together.",
+        "Multiplayer: every player needs this modpack version and APIShared 0.14.0 or newer; mixed versions cannot load saves together.",
         "Search only explicitly registered managed mod catalogs; prevent reentrant search updates and handle malformed Unicode safely through APIShared 0.12.3 or newer.",
         "Accept validated APIShared development installations and distinguish dependency mismatches from missing or invalid package evidence.",
-        "Select a compatible published APIShared version independently of a hard-coded SDK version; public packages require its separate prior release.",
+        "Select a compatible published APIShared version independently of a hard-coded SDK version; public packages use its release, which CreateSteamModPack.bat creates from main beforehand.",
         "Keep the same validated SDK commit, version, package hashes and preparation identity through modpack preparation, verification and upload; keep private test mode separate.",
         "Verify cached SDK assets against their canonical uploaded digests; reject modified prepared content instead of silently preparing another source during upload.",
         "Separate development-only diagnostics from normal builds and avoid disabled support-log and breadcrumb preparation across the included mods."

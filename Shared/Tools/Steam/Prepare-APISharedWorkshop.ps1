@@ -34,8 +34,21 @@ if($exists){
         Write-Host 'Reusing published APIShared: release-relevant main sources are unchanged.'
     }
 }
-if(-not $exists){throw "Required APIShared release $tag is unavailable. Prepare it through APIShared's own release.bat first; this consumer workflow never creates an APIShared release."}
+# Validation never publishes, so a missing release stays a failure there.
+if($ValidateOnly -and -not $exists){throw "APIShared release $tag is unavailable. Run the preparation without /validate to create it from pinned main $commit."}
 if($ValidateOnly){Write-Host "Validated APIShared $($info.Version), tag $tag; no release or build started.";exit 0}
+# The source is always the pinned public-main worktree (Assert-ApiMainSelection), so only
+# main can be released; Release.ps1 additionally requires a pushed, clean commit.
+if(-not $exists){
+    $word=if($test){'TESTPAKET'}else{'VEROEFFENTLICHEN'}
+    if((Read-Host "Type $word to build and create the reviewed APIShared GitHub release $tag from main $commit") -cne $word){throw 'Preparation cancelled.'}
+    $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $apiRoot 'tools/Release/Release.ps1'),'-WorkshopPackagerPath',$packager,'-PreviewPath',$api.Preview)
+    if($test){$arguments+='-TestRelease'}else{$arguments+='-Publish'}
+    & powershell.exe @arguments;if($LASTEXITCODE -ne 0){throw 'APIShared release preparation failed.'}
+    $release=Get-ApiGitHubRelease 'SHCDE-APIShared/APIShared' $tag
+    if(-not $release -or [string]$release.targetCommitish -cne $commit -or [bool]$release.isDraft -ne $test){throw 'Created APIShared release has an unexpected source or publication mode.'}
+    $exists=$true
+}
 $run=Join-Path (Get-WorkshopStateRoot $config $test) ('preparation/APIShared-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($run)
 & gh release download $tag --repo 'SHCDE-APIShared/APIShared' --pattern 'APIShared*' --dir $run

@@ -185,13 +185,17 @@ function Invoke-MenuBat([string]$Selection){
  $start.UseShellExecute=$false;$start.CreateNoWindow=$true
  $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
  $process=[Diagnostics.Process]::new();$process.StartInfo=$start
+ # With a UTF-8 console the .NET Framework stdin writer emits a BOM that the hidden child
+ # decodes as visible OEM characters before the answer; typed input never carries it.
+ $inputEncoding=[Console]::InputEncoding
  try{
+  if($inputEncoding.GetPreamble().Length){[Console]::InputEncoding=[Text.UTF8Encoding]::new($false)}
   [void]$process.Start();$output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
   $process.StandardInput.WriteLine($Selection);$process.StandardInput.Close();$process.WaitForExit()
   return @{ExitCode=$process.ExitCode;Output=$output.Result;Errors=$errors.Result}
- }finally{$process.Dispose()}
+ }finally{$process.Dispose();if([Console]::InputEncoding -ne $inputEncoding){[Console]::InputEncoding=$inputEncoding}}
 }
-$menu=Invoke-MenuBat '0';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'Modpack-Branch' -and $menu.Output -notmatch 'FIXTURE_SOURCE=') 'BAT menu cancellation failed'
+$menu=Invoke-MenuBat '0';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'Modpack-Branch' -and $menu.Output -notmatch 'FIXTURE_SOURCE=') ('BAT menu cancellation failed: '+$menu.ExitCode+' / '+$menu.Output+$menu.Errors)
 $menu=Invoke-MenuBat '1';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'branch=main;test=0') ('BAT main menu failed: '+$menu.Output+$menu.Errors)
 $menu=Invoke-MenuBat '2';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'branch=develop;test=1') ('BAT develop menu failed: '+$menu.Output+$menu.Errors)
 & (Join-Path $caller 'CreateSteamModPack.bat') /both /branch:develop /nopause *> $log
@@ -228,4 +232,22 @@ Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '333'
 Check ($LASTEXITCODE -ne 0) 'Dirty selected source was accepted'
 Check (((Invoke-ApiRepositoryGit $caller @('branch','--show-current'))-join '').Trim() -ceq 'caller') 'Caller branch was switched'
 $env:MODPACK_FIXTURE_HOST_BUILD=''
+# A PR merged on GitHub must fast-forward the clean local release worktree; divergence must stop.
+$originRepo=Join-Path $fixture 'origin.git';$pusher=Join-Path $fixture 'pusher'
+Check ((Invoke-ApiRepositoryProcess 'git' @('clone','--bare','--quiet',$root,$originRepo)).ExitCode -eq 0) 'Bare origin clone failed'
+Git @('remote','add','origin',$originRepo)|Out-Null
+Check ((Invoke-ApiRepositoryProcess 'git' @('clone','--quiet','--branch','main',$originRepo,$pusher)).ExitCode -eq 0) 'Pusher clone failed'
+function Push-OriginCommit([string]$Name){
+ [IO.File]::WriteAllText((Join-Path $pusher ($Name+'.txt')),$Name)
+ Invoke-ApiRepositoryGit $pusher @('add','-A')|Out-Null
+ Invoke-ApiRepositoryGit $pusher @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','-m',$Name)|Out-Null
+ Invoke-ApiRepositoryGit $pusher @('push','--quiet','origin','main')|Out-Null
+ return ((Invoke-ApiRepositoryGit $pusher @('rev-parse','HEAD'))-join '').Trim()
+}
+$merged=Push-OriginCommit 'merged-pr'
+$synced=Resolve-ModpackSource $caller 'main'
+Check ($synced.Root -ieq [IO.Path]::GetFullPath($root) -and $synced.Commit -ceq $merged) 'Clean local main was not fast-forwarded to origin/main'
+Git @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','--allow-empty','-m','local-only')|Out-Null
+$null=Push-OriginCommit 'remote-only'
+Reject {Resolve-ModpackSource $caller 'main'}
 Write-Host "PASS: $checks modpack branch/menu/worktree/proof/ID checks with real BAT and PowerShell children. Fixtures: $fixture"

@@ -25,6 +25,26 @@ function Assert-ModpackSource([string]$Workspace,$Source,[switch]$Clean) {
     if($Clean -and @(Invoke-ApiRepositoryGit $root @('status','--porcelain','--untracked-files=normal')).Count){throw 'Selected modpack source must be clean; commit or preserve its changes first.'}
     return $root
 }
+# A merge on GitHub must reach the selected local worktree, because publishing requires
+# HEAD == origin/<branch>. Only a clean fast-forward is applied; divergence is never reset.
+function Sync-ModpackBranchFromOrigin([string]$Root,[string]$Branch) {
+    if((Invoke-ApiRepositoryProcess 'git' @('-C',$Root,'remote','get-url','origin')).ExitCode -ne 0){return}
+    Invoke-ApiRepositoryGit $Root @('fetch','--no-tags','origin',("+refs/heads/{0}:refs/remotes/origin/{0}" -f $Branch))|Out-Null
+    $local=((Invoke-ApiRepositoryGit $Root @('rev-parse','HEAD')) -join '').Trim()
+    $upstream=((Invoke-ApiRepositoryGit $Root @('rev-parse',"refs/remotes/origin/$Branch")) -join '').Trim()
+    if($local -ceq $upstream){return}
+    if((Invoke-ApiRepositoryProcess 'git' @('-C',$Root,'merge-base','--is-ancestor',$local,$upstream)).ExitCode -ne 0){
+        # Local commits ahead of origin are left for the publishing check, which requires a push.
+        if((Invoke-ApiRepositoryProcess 'git' @('-C',$Root,'merge-base','--is-ancestor',$upstream,$local)).ExitCode -eq 0){return}
+        throw "Local $Branch diverged from origin/$Branch; resolve it manually in $Root."
+    }
+    if(@(Invoke-ApiRepositoryGit $Root @('status','--porcelain','--untracked-files=normal')).Count){
+        Write-Host "WARNING: local $Branch is behind origin/$Branch, but $Root has changes; it was not updated."
+        return
+    }
+    Invoke-ApiRepositoryGit $Root @('merge','--ff-only',$upstream)|Out-Null
+    Write-Host "Fast-forwarded local $Branch to origin/$Branch ($upstream)."
+}
 function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$AllowGeneratedOutputs) {
     if($Branch -cnotin @('main','develop')){throw 'Unsupported modpack branch.'}
     $root=$null;$candidate=$null
@@ -38,6 +58,8 @@ function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$Allow
         if(@(Get-ChildItem -LiteralPath $root -Force).Count){throw 'Allocated modpack worktree is not empty.'}
         Invoke-ApiRepositoryGit $Workspace @('worktree','add',$root,$Branch)|Out-Null
     }
+    # Only a new preparation follows origin; uploads keep the worktree of their proof.
+    if(-not $AllowGeneratedOutputs){Sync-ModpackBranchFromOrigin $root $Branch}
     $source=[ordered]@{Branch=$Branch;Root=[IO.Path]::GetFullPath($root);Commit=((Invoke-ApiRepositoryGit $root @('rev-parse','HEAD')) -join '').Trim()}
     if($AllowGeneratedOutputs){
         $null=Assert-ModpackSource $Workspace $source
