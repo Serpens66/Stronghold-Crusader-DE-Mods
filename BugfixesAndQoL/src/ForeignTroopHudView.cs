@@ -7,7 +7,6 @@ namespace BugfixesAndQoL
 {
     internal sealed class ForeignTroopHudView
     {
-        private static readonly int[] PortraitCodes = CreatePortraitCodes();
         private readonly Canvas[] slots = new Canvas[8];
         private readonly Button[] portraits = new Button[8];
         private readonly TextBlock[] typeLabels = new TextBlock[8];
@@ -18,11 +17,6 @@ namespace BugfixesAndQoL
         private readonly List<ForeignTroopEntry> visibleEntries = new List<ForeignTroopEntry>();
         private readonly List<ForeignTroopEntry> visibleEntryPool = new List<ForeignTroopEntry>();
         private readonly ForeignTroopEntry[] drawnEntries = new ForeignTroopEntry[8];
-        private static readonly SolidColorBrush[] PlayerBrushes = {
-            Brush(210, 204, 188), Brush(235, 72, 56), Brush(238, 156, 55),
-            Brush(237, 212, 72), Brush(87, 147, 229), Brush(163, 158, 155),
-            Brush(171, 105, 203), Brush(107, 211, 223), Brush(103, 207, 92)
-        };
         private Canvas panel;
         private TextBlock pageText;
         private Button previous;
@@ -141,7 +135,9 @@ namespace BugfixesAndQoL
                 for (int i = 0; i < entries.Count; i++)
                     if (entries[i].Owner != visibleEntries[i].Owner ||
                         entries[i].Type != visibleEntries[i].Type ||
+                        entries[i].Material != visibleEntries[i].Material ||
                         entries[i].ColorId != visibleEntries[i].ColorId ||
+                        entries[i].OwnerColorArgb != visibleEntries[i].OwnerColorArgb ||
                         entries[i].Count != visibleEntries[i].Count ||
                         entries[i].CurrentHealth != visibleEntries[i].CurrentHealth ||
                         entries[i].MaxHealth != visibleEntries[i].MaxHealth)
@@ -157,7 +153,9 @@ namespace BugfixesAndQoL
                     if (index == visibleEntryPool.Count) visibleEntryPool.Add(copy);
                     copy.Owner = entry.Owner;
                     copy.Type = entry.Type;
+                    copy.Material = entry.Material;
                     copy.ColorId = entry.ColorId;
+                    copy.OwnerColorArgb = entry.OwnerColorArgb;
                     copy.Count = entry.Count;
                     copy.CurrentHealth = entry.CurrentHealth;
                     copy.MaxHealth = entry.MaxHealth;
@@ -322,15 +320,14 @@ namespace BugfixesAndQoL
                 ForeignTroopEntry entry = visibleEntries[entryIndex];
                 ForeignTroopEntry drawn = drawnEntries[i];
                 bool identityChanged = drawn == null || drawn.Owner != entry.Owner ||
-                    drawn.Type != entry.Type || drawn.ColorId != entry.ColorId;
+                    drawn.Type != entry.Type || drawn.Material != entry.Material || drawn.ColorId != entry.ColorId;
                 if (drawn == null) slots[i].Visibility = Visibility.Visible;
                 if (identityChanged)
                 {
-                    ownerLabels[i].Foreground = PlayerBrush(entry.ColorId);
                     ownerLabels[i].Text = "P" + entry.Owner;
-                    int portraitCode = entry.Type < PortraitCodes.Length ? PortraitCodes[entry.Type] : 0;
+                    string portraitKey = ForeignTroopPortraits.GetResourceKey(entry.Type, entry.Material);
                     ImageSource source = entry.Type == 55 ? Shared.LordPortraitPalette.Get(entry.ColorId) :
-                        portraitCode == 0 ? null : FindPortrait(portraitCode, entry.ColorId);
+                        portraitKey == null ? null : FindPortrait(portraitKey, entry.ColorId);
                     if (entry.Type == 55 && source == null) LordIconMissing = true;
                     Canvas.SetTop(portraits[i], entry.Type == 55 ? 65f : 53f);
                     Canvas.SetTop(typeLabels[i], entry.Type == 55 ? 65f : 53f);
@@ -342,6 +339,8 @@ namespace BugfixesAndQoL
                     typeLabels[i].Text = "Typ " + entry.Type;
                     typeLabels[i].Visibility = source == null ? Visibility.Visible : Visibility.Collapsed;
                 }
+                if (drawn == null || drawn.OwnerColorArgb != entry.OwnerColorArgb)
+                    ownerLabels[i].Foreground = PlayerBrush(entry.OwnerColorArgb);
                 if (drawn == null || drawn.Count != entry.Count) counts[i].Text = entry.Count.ToString();
                 if (drawn == null || drawn.CurrentHealth != entry.CurrentHealth || healthChanged)
                     currentHealth[i].Text = showHealth ? ScaleHealth(entry.CurrentHealth) : string.Empty;
@@ -353,7 +352,9 @@ namespace BugfixesAndQoL
                 if (drawn == null) drawnEntries[i] = drawn = new ForeignTroopEntry();
                 drawn.Owner = entry.Owner;
                 drawn.Type = entry.Type;
+                drawn.Material = entry.Material;
                 drawn.ColorId = entry.ColorId;
+                drawn.OwnerColorArgb = entry.OwnerColorArgb;
                 drawn.Count = entry.Count;
                 drawn.CurrentHealth = entry.CurrentHealth;
                 drawn.MaxHealth = entry.MaxHealth;
@@ -372,9 +373,8 @@ namespace BugfixesAndQoL
         private static string ScaleHealth(ulong value) =>
             SelectedUnitHealthSummary.ScaleForDisplay((long)Math.Min(value, (ulong)long.MaxValue)).ToString();
 
-        private static ImageSource FindPortrait(int code, int colorId)
+        private static ImageSource FindPortrait(string key, int colorId)
         {
-            string key = "UI-Buttons K" + code.ToString("000");
             string suffix = ColorSuffix(colorId);
             var resources = GUI.GetApplicationResources();
             if (resources == null) return null;
@@ -410,25 +410,8 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static SolidColorBrush PlayerBrush(int colorId)
-        {
-            return colorId >= 1 && colorId < PlayerBrushes.Length ? PlayerBrushes[colorId] : PlayerBrushes[0];
-        }
-
-        private static SolidColorBrush Brush(byte r, byte g, byte b) =>
-            new SolidColorBrush(Noesis.Color.FromArgb(255, r, g, b));
-
-        private static int[] CreatePortraitCodes()
-        {
-            int[] codes = new int[89];
-            int[] pairs = {
-                22,23, 24,1, 26,3, 23,5, 25,25, 27,7, 28,27, 30,9, 37,11, 29,29, 5,31,
-                39,13, 40,15, 59,17, 58,19, 60,33, 41,21, 61,35, 70,37, 71,39, 72,41,
-                73,43, 74,45, 75,47, 76,49, 77,51, 78,53, 79,55, 80,57, 81,59, 82,61,
-                83,63, 84,65, 85,67
-            };
-            for (int i = 0; i < pairs.Length; i += 2) codes[pairs[i]] = pairs[i + 1];
-            return codes;
-        }
+        private static SolidColorBrush PlayerBrush(uint argb) =>
+            new SolidColorBrush(Noesis.Color.FromArgb((byte)(argb >> 24),
+                (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));
     }
 }

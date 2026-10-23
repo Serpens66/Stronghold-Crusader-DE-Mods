@@ -77,13 +77,9 @@ namespace ExtraFeatures
         internal ElevatedMoatPatch(
             ManualLogSource log,
             CrusaderLibraryLoadContext context,
-            bool referenceHashMatches,
-            bool allowAIPlacement,
-            bool allowHumanPlacement)
+            bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            if (!allowAIPlacement && !allowHumanPlacement)
-                throw new ArgumentException("At least one elevated-moat placement audience must be enabled.");
             if (context == null || context.ModuleHandle == IntPtr.Zero || context.Memory.Length == 0)
                 throw new ArgumentException("The Crusader native library is unavailable.", nameof(context));
             if (!referenceHashMatches)
@@ -279,7 +275,7 @@ namespace ExtraFeatures
                 WriteNativeFlag(aivAudienceAllowedFlag, false);
                 WriteNativeFlag(featureActiveFlag, false);
                 WriteNativeFlag(humanPlacementAllowedFlag, false);
-                UpdateSettings(allowAIPlacement, allowHumanPlacement);
+                // Every hook starts logically disabled (Vanilla); UpdateSettings enables it later.
                 pending = new HookTransaction(
                     context.Region,
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
@@ -540,9 +536,10 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.AreaRemovalHeightLength,
                     "area moat-removal height");
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:543", $"Extra Features elevated-moat active; AI={allowAIPlacement}, human={allowHumanPlacement}, editor=true, " +
-                    $"adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
-                    $"healthReportInterval={ElevatedMoatHealthReporting.ReportInterval} corrections.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:543", $"Extra Features elevated-moat hooks installed (logically disabled until enabled); editor=true, " +
+                        $"adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
+                        $"healthReportInterval={ElevatedMoatHealthReporting.ReportInterval} corrections.");
 
                 transaction = pending;
                 pending = null;
@@ -819,9 +816,10 @@ namespace ExtraFeatures
             if (!ElevatedMoatHealthReporting.ShouldReport(total))
                 return;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:824", $"Extra Features elevated-moat healthy: corrections={total}, " +
-                $"completed={Interlocked.Read(ref completedHeightCorrections)}, " +
-                $"restored={Interlocked.Read(ref restoredHeightCorrections)}, errors=0.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:824", $"Extra Features elevated-moat healthy: corrections={total}, " +
+                    $"completed={Interlocked.Read(ref completedHeightCorrections)}, " +
+                    $"restored={Interlocked.Read(ref restoredHeightCorrections)}, errors=0.");
         }
 
         private static bool IsValidTileId(long tileId) =>
@@ -1010,6 +1008,12 @@ namespace ExtraFeatures
         {
             // At FUN_180059730 entry, RDX is param_2: the actual 1-based player ID.
             bool allowed = false;
+            // The hooks stay installed while the feature is off; skip the player lookups then.
+            if (!IsActive)
+            {
+                WriteNativeFlag(aivAudienceAllowedFlag, false);
+                return;
+            }
             try
             {
                 int playerId = unchecked((int)context.Pointer->RDX);

@@ -1,0 +1,22 @@
+{
+  "ProtectedBugfixFiles": 52,
+  "ProtectedBugfixUnchanged": true,
+  "InstalledApiHash": "4EF262A5F69F16EF6B6E5238606F5013B6400B83D2F8C354E5C53F4EFDD52BC1",
+  "ApiBranch": "dev/Serpens66",
+  "ApiCommit": "2a191eed640718400c90259419126dac471443b0",
+  "ApiCheckoutUnchanged": true,
+  "Mods": [
+    {
+      "Mod": "SpectatorEditorBuildTest",
+      "Version": "0.1.2.0",
+      "SHA256": "1B160C0BB454E3F98AB37873162DBC008E361D6C6F3E276FDA1A5CD88A597F1F",
+      "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll"
+    },
+    {
+      "Mod": "AIBuildDiagnoseTest",
+      "Version": "0.2.0.0",
+      "SHA256": "38499922F3E118A545ABD977A411B4A9D012B895E5B57CC29A98C80AB7F3A4DC",
+      "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AIBuildDiagnoseTest_Serp\\AIBuildDiagnoseTest.dll"
+    }
+  ]
+}

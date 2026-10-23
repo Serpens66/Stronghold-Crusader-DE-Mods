@@ -9,7 +9,7 @@ internal static class CadenceSnapshotTests
     internal static void Validate(string root)
     {
         string resolver = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs"));
-        string patterns = File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Internal/Native/NativePatternResolver.cs"));
+        string patterns = File.ReadAllText(Path.Combine(root, "Shared/Runtime/Native/NativePatternResolver.cs"));
         var runtime = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "UnitCommandPathRuntime")).GetRoot();
         var optional = runtime.DescendantNodes().OfType<TryStatementSyntax>()
             .Single(t => t.Block.ToString().Contains("nativeMovementCadenceResolver = new NativeMovementCadenceResolver"));
@@ -31,11 +31,11 @@ namespace SHCDESE.API.LowLevel {
         public ReadOnlySpan<byte> Memory => snapshot;
     }
 }
-namespace Shared { public static class DebugLogHelper { public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(BepInEx.Logging.ManualLogSource log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
-namespace APIShared.Internal {
-    internal static class DebugLogHelper {
-        public static void LogDebugLimited(ManualLogSource log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource log,string message) {}
-        public static void LogWarningLimited(ManualLogSource log, string site, params object[] parts) { LogWarning(log, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource log,string message) {}
+namespace Shared {
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
+        public static void LogInfo(ManualLogSource log,string message) {}
+        public static void LogDebug(ManualLogSource log,string message) {}
+        public static void LogWarningLimited(ManualLogSource log,string site,params object[] parts) {}
     }
 }
 namespace BugfixesAndQoL.UnitCommands {

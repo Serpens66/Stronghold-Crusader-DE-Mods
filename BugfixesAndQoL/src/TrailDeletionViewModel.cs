@@ -29,7 +29,7 @@ namespace BugfixesAndQoL
 
         public event PropertyChangedEventHandler PropertyChanged;
         public RelayCommand DeleteTrailCommand { get; }
-        private bool Enabled => settings.EnableMod && settings.ShowLoadSaveDialogControls;
+        private bool Enabled => settings.EnableClientFeatures && settings.ShowLoadSaveDialogControls;
         public Visibility DeleteTrailVisibility => Enabled ? Visibility.Visible : Visibility.Collapsed;
         public bool DeleteTrailEnabled => CanDelete();
         public string DeleteTrailText => SerpLocalization.Get("BugfixesAndQoL.DeleteTrail");
@@ -50,7 +50,7 @@ namespace BugfixesAndQoL
 
         private void SettingsChanged(object sender, PropertyChangedEventArgs args)
         {
-            if (args.PropertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
+            if (args.PropertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
                 args.PropertyName != nameof(BugfixesAndQoLViewModel.ShowLoadSaveDialogControls))
                 return;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeleteTrailVisibility)));
@@ -111,7 +111,7 @@ namespace BugfixesAndQoL
                     !string.Equals(currentPath, requestedPath, StringComparison.OrdinalIgnoreCase))
                     throw new IOException("The confirmed Trail source is no longer available or safe.");
                 TrailDeletionPolicy.Delete(row.Text1, requestedPath, false, ConfigSettings.GetUserCustomTrailsPath());
-                Shared.DebugLogHelper.LogInfo(log, $"Bugfixes and QoL permanently deleted local Trail [{requestedPath}]; no backup created.");
+                    Shared.DebugLogHelper.LogInfo(log, $"Bugfixes and QoL permanently deleted local Trail [{requestedPath}]; no backup created.");
                 rows.Remove(row);
                 list.SelectedItem = null;
                 if (FRONT_ManageTrail.Instance.FindName("ImportImportButton") is Button importButton)

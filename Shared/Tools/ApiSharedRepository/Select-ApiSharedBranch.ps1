@@ -6,7 +6,7 @@ param(
 )
 # Selects the APIShared source a consumer build.bat compiles against.
 #   /apishared:main  pinned public main (release branch), isolated worktree under
-#                    .release-output/APIShared/main/<commit>/source, built with /noinstall
+#                    .work/b/api-main/<number>, built with /noinstall
 #   /apishared:dev   local development checkout APIShared/ (its current branch)
 # SHCDE_API_SHARED_BRANCH supplies the same choice for scripted builds.
 # The caller applies the result through the generated cmd file; nothing is installed here.
@@ -21,6 +21,16 @@ function Write-Selection([string[]]$Lines) {
 }
 
 try {
+    if ($env:SHCDE_BRANCH_API_ROOT) {
+        $root = [IO.Path]::GetFullPath($env:SHCDE_BRANCH_API_ROOT)
+        $commit = ((Invoke-ApiGit $root @('rev-parse','HEAD')) -join '').Trim()
+        if ($commit -cne $env:SHCDE_BRANCH_API_COMMIT) { throw 'Selected branch SDK commit changed.' }
+        $null = Assert-ApiConsumerPackage $Workspace (Join-Path $root 'BepInEx/plugins/APIShared_Serp')
+        Write-Selection @(
+            'set "SHCDE_API_SHARED_MAIN_SELECTION="',
+            ('set "API_SHARED_DIR=' + (Join-Path $root 'BepInEx\plugins\APIShared_Serp') + '"'))
+        exit 0
+    }
     $Workspace = [IO.Path]::GetFullPath($Workspace).TrimEnd('\','/')
     $requested = @()
     foreach ($argument in @($DriverArguments)) {
@@ -56,6 +66,9 @@ try {
                 ('set "API_SHARED_DIR=' + (Join-Path $api 'BepInEx\plugins\APIShared_Serp') + '"'))
         }
         'main' {
+            if ($DriverArguments -icontains '/tests:none') {
+                throw '/tests:none requires an existing SDK selected by the branch dispatcher; it cannot prepare an SDK here. Use build.bat /source:working /apishared:main.'
+            }
             # The game directory of the calling driver lets a fresh main worktree build.
             if (-not $env:SHCDE_GAME_DIR -and $env:GAME_DIR) { $env:SHCDE_GAME_DIR = $env:GAME_DIR }
             $selectionPath = Resolve-ApiMainSelection $Workspace

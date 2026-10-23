@@ -1,0 +1,217 @@
+{
+  "CheckedUtc": "2026-10-17T20:03:40.8031773Z",
+  "Branch": "dev/Serpens66",
+  "InstalledPairVerified": true,
+  "BuildExitCode": 1,
+  "BuildLimitation": "Preexisting publisher fixture.txt preserved; final exact-directory check rejects it. All delivered file hashes match.",
+  "ManagedTestsPassed": 493,
+  "ManagedTestsSkipped": 1,
+  "PairRegressionCases": 73,
+  "OriginalDependencyComparisons": 75,
+  "UnchangedOriginalPluginPatcherFiles": 273,
+  "Control": {
+    "ActiveIssues": 3,
+    "AtUtc": "2026-10-17T20:00:48.5465023Z",
+    "OrphanIssues": 4,
+    "Files": [
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyFixture/Modules/Provider/APISharedDependencyControl.dll",
+        "SHA256": "67494e8b5722dc9421f43cfa5e06596b6a27c08a055f73babae4c21603e2c723"
+      },
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyFixture/Modules/Provider/info.json",
+        "SHA256": "dbe82377d854d45f176d7d2a5a25648e53142b08caf89117e38b11d131780f4d"
+      },
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyControls_Test/info.json",
+        "SHA256": "99f5389b52d91a7bf299c465f5d1bccd49ad45ab7e4fefb497ca327fa9471e97"
+      },
+      {
+        "Path": "BepInEx/plugins/APISharedDependencyFixture/info.json",
+        "SHA256": "0962d2a95cf24bd672adfd6bacbfcc1ec223df8d1bd8bcc0dc121cb6b0725cdf"
+      }
+    ],
+    "Installed": true
+  },
+  "Files": [
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/APIShared.dll",
+      "Sha256": "18a0b5777f98632b7f23e8d662185ef8de600d6afd9cafdeed603d95a7e16496"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/APIShared.pdb",
+      "Sha256": "0ef88d81d8c645ed740e92494e9cf49dd6ff70ba97ab161102bcbd6ae3c3812d"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/APIShared.xml",
+      "Sha256": "dfc1f31f0f143fa18845a010c7aed7074982004e1c248dc8c0f10ac80409da09"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/apishared-workshop-files.json",
+      "Sha256": "2eaec0ec49cf1e72defcb23a109cace2c9e6a4cfacadc26436e4ee42b913448a"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/dependency-bootstrap-pair.json",
+      "Sha256": "4e9e78095f15a25b656fd935adcb3ddde45d27f985e19b5c3c233034ef6f2c8b"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/info.json",
+      "Sha256": "3bc390acbdd805df3ed865d173f6f02a1f600fdf91ce5043fce920f918cd115f"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAML/IngameUIScreens.xaml",
+      "Sha256": "dcaff77e7ea569288a1d727de0430a7075d1f30cd89e63d7a4a52d99868d24ea"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAML/MainHUD.xaml",
+      "Sha256": "15bdee94859ae81d37dabbf7dff0a259522e3e1591bc2bf43259a8e8921bf321"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml",
+      "Sha256": "c8af066c4c11b65d3008b79daf31a6db653475088e1ae254ae8531b3c76b88a0"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAMLResources/HUD_Troops.xaml",
+      "Sha256": "9003f13b8b672ff651364b7ca356b8f5f0a2aaf8fd0dd0e59cb06837b43dd197"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Workshop/Bootstrap/build.bat.template",
+      "Sha256": "642abb4d172a4a9add3d876467b9cc04e1ac6a47b08ec0ebb88bda6f3a5fed5b"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Workshop/Bootstrap/Build.ps1.template",
+      "Sha256": "48513911454d31767a0992553f1267fd3d4694b2ef83fcf42d63f5ef3e54af17"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Workshop/Bootstrap/Plugin.cs.template",
+      "Sha256": "09bed7db66bcf5278e4da0ebcc74c64fd79d24988dd216d745585bc232c0e7c8"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Workshop/workshop-maintenance.ps1",
+      "Sha256": "a7b5abb75ca08b54594ab373de266418726053d85ddd47118db96f3e4d6524fc"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Workshop/workshop-maintenance.sh",
+      "Sha256": "ab0c80aa3bd751e72c130dec54b00039b99a095cb5875d18dd3773d7f28f7d99"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Workshop/workshop-updater.ps1",
+      "Sha256": "fffaa3da2be9507b7a65c6a684fb6df508da195e18eb3f538f76c35d808129a8"
+    },
+    {
+      "Path": "BepInEx/plugins/APIShared_Serp/Workshop/workshop-updater.sh",
+      "Sha256": "dfd7fb2b61cca5fb2e4ac764bc4576ddcac7750b2f76a66f01d81be3de83875a"
+    },
+    {
+      "Path": "BepInEx/patchers/APIShared.DependencyBootstrap.dll",
+      "Sha256": "ead38b5b1c0112a77e5efc00de8c2b4d60fa495a5042e35af70c8cfb7bb88930"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/com.rlabrecque.steamworks.net.dll",
+      "Sha256": "71123ab0b6b8e8489a39ce16bfa3d7498b40904e0b43d7cb5369fe40b6552596"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/ICSharpCode.SharpZipLib.dll",
+      "Sha256": "cb9c05b5a1e1db26ff43490ee26f2e02abae3f321d2dd5ddd43a68da48eab83d"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/publisher-files.json",
+      "Sha256": "18d1f2b66b8ea9da7a5a25dff14f1c8d2f1857d8d2f4a7ad6e47b520c0656122"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/steam_api64.dll",
+      "Sha256": "670d654aa3255c5061cf0236a1cdbb2f5076cbd5ae44f613b6f4921558e83e2d"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/UnityEngine.CoreModule.dll",
+      "Sha256": "e468e19789d608b41e2c7fe4f367c7082fece7d1883f568e75870f6c5384cc86"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/UnityEngine.SharedInternalsModule.dll",
+      "Sha256": "efa3408469dba6156e410ce864257189f169515967915a2f5da203c8713bbf0a"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/UploadMod.bat",
+      "Sha256": "f4004a88b7b4cd7999cd9d29efc8727af04ae0c3ba9a5360dbf1d040a1ba0306"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/UploadMod-linux.sh",
+      "Sha256": "22a318b7aad7955a557c4ffb89312db394a97e42307fbb09198bb0ba94c0798b"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/WorkshopUploader.exe",
+      "Sha256": "e35ee60e1d037d54723ad246162579d311d07b55790dddca53b2a1ca21e002d9"
+    },
+    {
+      "Path": "BepInEx/tools/APISharedWorkshopPublisher/WorkshopUploader.exe.config",
+      "Sha256": "59da7f6c878b7102592f543e3f0f2badad4c93ffda8ab3334c74462f24555ff2"
+    }
+  ],
+  "ArchiveSHA256": "d48f6f0180f437820e55e646050298a2c5d3370a63870de4df03d91bbe2d04d9",
+  "GameAcceptance": "Both required game runs passed: active 2026-10-17 22:07, orphan 22:24. Tested package restored and controls removed.",
+  "ArchivedDiagnosticFiles": [
+    {
+      "Name": "APIShared.DependencyBootstrap.trace.log",
+      "SHA256": "cce21c6f8410e7d74c3f79d4c6bc3a0e2fe937892f690eac466d4b8caa1c7d5c"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.337889a36613434b8d8405d22555deaa.json",
+      "SHA256": "0b54b1cfc8a8c90f5a165aa13c9ad77f34668f7b07553793cb92b8a01959e8b5"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.42e713bbb95842f18154452e9b1c3384.json",
+      "SHA256": "d9f4c33c3cf12cd80fd7f44ac02935c92d05f250b88ba612fe9c917d3ed8b664"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.45bcef198f5a42ddbb4052cb29a518c8.json",
+      "SHA256": "fbb44ad03a7ddfecb852e1bb74f357fb9637b8b9fb094895bbf3667c2d4dcaa4"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.680a71a003dc41c29fc64d2b4f7b1d1a.json",
+      "SHA256": "80a1ac05ab635cb353c73e830e7827b326544c63d35334da0fcf3e896ee9eeab"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.86fd7520327f4992bdd0bbc84cd14406.json",
+      "SHA256": "56723a055a6890df48acb890dfe482d41c7d1338604e8b029271e6c0135a4452"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.a921d3a0265e4cb28daada0c73d3c5b6.json",
+      "SHA256": "fc233fc6cf4c159ef5e26dfc0ef5986d06574cba2eb874798b66f526718a432d"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.d5d88aa67a1b44b0b629fb2de76c1f7b.json",
+      "SHA256": "061ac1b7909a638f899f379045307af94a5de8f7195b553dcf5871f2b1f2aede"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.eae72bd3ed2b4cfaa49f081b680ce589.json",
+      "SHA256": "9966adbb869fd79f483361d6505cb795d52ff8492ea5fecde7a27d98671b32e1"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.ebfa35579c0b4a78aa139d95720b1aa8.json",
+      "SHA256": "4af1f0f2df1caa4aed78c7070802fe710bc7231504bb854b79d27a1c2c0da8b9"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.ed6453f87d294ead87b07ef1aed086cb.json",
+      "SHA256": "0e1ca65dd2b4bb14d7f52b5cedf0be473be99e767e94f6c4e7cfb729dd76e27f"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.f93d1abcec1543568a8be524cd70173e.json",
+      "SHA256": "bbde5bed4781887870dcb5c07615c440e96b24f77a8cd8909adb3211f2bbcf91"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.lifecycle.json",
+      "SHA256": "9966adbb869fd79f483361d6505cb795d52ff8492ea5fecde7a27d98671b32e1"
+    },
+    {
+      "Name": "DependencyBootstrapProbe.trace.log",
+      "SHA256": "ae6d3795575882630909401f4e0640a5a9f1228273d18bbd4bf9ab76b7d49425"
+    }
+  ],
+  "Completion": {
+    "AtUtc": "2026-10-17T20:29:14.5217022Z",
+    "RestoredFiles": 17,
+    "RemovedControlFiles": 4,
+    "OtherFilesUnchanged": 274,
+    "FurtherGameTestRequired": false
+  }
+}

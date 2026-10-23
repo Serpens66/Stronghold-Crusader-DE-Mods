@@ -117,8 +117,9 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:120", $"Validating Steam lobby invitation: inviterId={context.InviterId}, lobbyId={context.LobbyId}, " +
-                    $"gameId={context.GameId}, inviteAppId={context.InviteAppId}, currentAppId={context.CurrentAppId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:120", $"Validating Steam lobby invitation: inviterId={context.InviterId}, lobbyId={context.LobbyId}, " +
+                        $"gameId={context.GameId}, inviteAppId={context.InviteAppId}, currentAppId={context.CurrentAppId}.");
             }
             catch (Exception ex)
             {
@@ -172,10 +173,11 @@ namespace BugfixesAndQoL
                     }
                     if (!context.GameIdPresent)
                     {
-                        Shared.DebugLogHelper.LogDebug(
-                            log,
-                            $"Validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} " +
-                            "through the SHCDE-SE lobby marker because Steam supplied gameId=0.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebug(
+                                log,
+                                $"Validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} " +
+                                "through the SHCDE-SE lobby marker because Steam supplied gameId=0.");
                     }
                     if (!IsSafeToShowPrompt(out string promptState))
                     {
@@ -266,11 +268,12 @@ namespace BugfixesAndQoL
                 _checkChangeAction: value => blockInviter = value,
                 MPConf: useMultiplayerConfirmation);
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Displayed validated Steam lobby invitation from '{inviterName}' ({context.InviterId}) " +
-                $"for lobby {context.LobbyId}; confirmationSurface=" +
-                $"{(useMultiplayerConfirmation ? "multiplayer" : "standard")}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Displayed validated Steam lobby invitation from '{inviterName}' ({context.InviterId}) " +
+                    $"for lobby {context.LobbyId}; confirmationSurface=" +
+                    $"{(useMultiplayerConfirmation ? "multiplayer" : "standard")}.");
         }
 
         private static bool IsSafeToShowPrompt(out string state)
@@ -340,9 +343,10 @@ namespace BugfixesAndQoL
                     Director.instance != null && Director.instance.SimRunning)
                     MainViewModel.Instance.InitNewScene(Enums.SceneIDS.FrontEnd);
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Accepted validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} through Vanilla's join flow.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Accepted validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} through Vanilla's join flow.");
             }
             catch (Exception ex)
             {
@@ -360,7 +364,8 @@ namespace BugfixesAndQoL
             {
                 if (blacklist.TryAdd(context.InviterId, out string error))
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:367", $"Dismissed the in-game Steam lobby-invite popup and added inviter {context.InviterId} to the local popup blacklist.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SteamLobbyInvitePrompt.cs:367", $"Dismissed the in-game Steam lobby-invite popup and added inviter {context.InviterId} to the local popup blacklist.");
                     return;
                 }
 

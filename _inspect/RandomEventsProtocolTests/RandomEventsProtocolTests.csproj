@@ -12,7 +12,7 @@
   <PropertyGroup><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Security" />
-    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>true</Private></Reference>
@@ -23,6 +23,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="RandomEventsChatAnnouncementTests.cs" />
+    <Compile Include="..\..\RandomEvents\src\RandomEventsChatAnnouncements.cs"><Link>RandomEventsChatAnnouncements.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\ArcherSourceNativeLayout.cs"><Link>ArcherSourceNativeLayout.cs</Link></Compile>

@@ -31,8 +31,10 @@ namespace BugfixesAndQoL.UnitCommands
                 return;
 
             // TEMP_GATE_ROUTE_ACCEPTANCE: existing Pre/Post pair only.
+#if SERP_DEVDIAG
             ObserveTemporaryAssassinOrderPhase(args.Phase == EventHookPhase.Pre, "group-move",
                 args.TribeId, (int)args.MoveType, args.TileX, args.TileY, args.ReturnValue);
+#endif
 
             if (args.Phase == EventHookPhase.Pre)
             {
@@ -94,7 +96,7 @@ namespace BugfixesAndQoL.UnitCommands
                     if (command != null)
                     {
                         command.ElapsedMilliseconds =
-                            (Stopwatch.GetTimestamp() - command.StartTimestamp) * 1000.0 /
+                            ((DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - command.StartTimestamp) * 1000.0 /
                             Stopwatch.Frequency;
                     }
                     LogCommandDiagnostic(
@@ -187,8 +189,10 @@ namespace BugfixesAndQoL.UnitCommands
             try
             {
                 // TEMP_GATE_ROUTE_ACCEPTANCE: existing Pre/Post pair only.
+#if SERP_DEVDIAG
             ObserveTemporaryAssassinOrderPhase(args.Phase == EventHookPhase.Pre, "group-target",
                 args.TribeId, (int)args.AICommand, args.TargetValue1, args.TargetValue2, args.ReturnValue);
+#endif
 
             if (args.Phase == EventHookPhase.Pre)
                 {
@@ -206,7 +210,9 @@ namespace BugfixesAndQoL.UnitCommands
                             args.TargetValue1,
                             args.TargetValue2,
                             MovementOptionsSnapshot.Capture(settings));
-                        if (!activeAttackCommand.Options.RequiredOnly)
+                        // Candidates feed only the friendly-moat attack scopes (MoatMove).
+                        if (activeAttackCommand.Options.TraversalEnabled &&
+                            !activeAttackCommand.Options.RequiredOnly)
                         {
                             CaptureAttackCommandCandidates(activeAttackCommand);
                             LogAttackCommandCandidates(activeAttackCommand, "pre");
@@ -234,7 +240,7 @@ namespace BugfixesAndQoL.UnitCommands
                         }
                         else
                             RemoveSynchronousAttackTrackers(scope, "command-rejected");
-                        long dispatchFinished = Stopwatch.GetTimestamp();
+                        long dispatchFinished = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                         scope.DispatchElapsedTicks = dispatchFinished - scope.StartedTimestamp;
                         double exclusiveQualificationMilliseconds = Math.Max(
                             0.0, scope.QualificationMilliseconds - scope.FloodQualificationMilliseconds);

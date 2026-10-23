@@ -2,7 +2,8 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/modpack-branches-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ModpackBranches'
 $root=Join-Path $fixture 'author';$caller=Join-Path $fixture 'caller'
 $checks=0
 function Check($Ok,$Message){if(-not $Ok){throw $Message};$script:checks++}
@@ -17,20 +18,20 @@ Reject {Resolve-WorkshopOptions @('/apishared','/branch:main')}
 Reject {Resolve-WorkshopOptions @('/modpack','/branch:invalid')}
 [void][IO.Directory]::CreateDirectory($root)
 $init=Invoke-ApiRepositoryProcess 'git' @('init','--initial-branch=main',$root);Check ($init.ExitCode -eq 0) 'Init failed'
-foreach($relative in @('Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1',
+foreach($relative in @('Shared/Tools/Paths/WorkPaths.ps1','Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1',
  'Shared/Tools/Steam/ModpackSource.Common.ps1','Shared/Tools/Steam/WorkshopOptions.Common.ps1','Shared/Tools/Steam/WorkshopWorkflow.ps1',
  'Shared/Tools/Steam/WorkshopWorkflow.Common.ps1','Shared/Tools/Steam/WorkshopOutputRetention.ps1','Shared/Tools/Steam/SteamWorkshopHistory.ps1',
- 'Shared/Tools/Steam/PublishedModpack.Common.ps1','Shared/Tools/Steam/ReleaseAssetCache.ps1',
+ 'Shared/Tools/Steam/PublishedModpack.Common.ps1','Shared/Tools/Steam/ReleaseAssetCache.ps1','Shared/Tools/Steam/ApiSharedSdkPolicy.ps1',
  'CreateSteamModPack.bat','UploadWorkshop.bat')){Put $relative ([IO.File]::ReadAllText((Join-Path $workspace $relative)))}
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll' 'original fixture build'
-Put '.gitignore' ".release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
+Put '.gitignore' ".work/`r`n.release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
 # External SDK/publisher services are inert fixtures; routing, policy, proofs, Git, BAT and PS children are real.
 $apiHelper=Join-Path $root 'Shared/Tools/ApiSharedRepository/MainSource.Common.ps1'
 [IO.File]::AppendAllText($apiHelper, @'
 
 function Resolve-ApiMainSelection($Workspace){return 'fixture-published-sdk'}
 function Assert-ApiMainSelection($Workspace,$Path){return @{Root=(Get-WorkshopApiRoot $Workspace);Commit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d'}}
-function Ensure-ApiMainBuild($Workspace){if($env:SHCDE_API_SHARED_PUBLISHED_092 -cne '1'){throw 'Missing published SDK pin'}}
+function Ensure-ApiMainBuild($Workspace){if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){throw 'Missing fixed SDK selection'}}
 function Get-WorkshopApiRoot($Workspace){$common=((Invoke-ApiRepositoryGit $Workspace @('rev-parse','--path-format=absolute','--git-common-dir'))-join '').Trim();return (Join-Path (Split-Path -Parent $common) 'APIShared')}
 function Get-ApiMainDeliveryIdentity($Workspace){return @{Commit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d';Selection='fixture-published-sdk'}}
 function Assert-ApiMainDeliveryIdentity($Workspace,$Identity){if($Identity.Commit -cne 'c7b210f007035ff8edaf4d359a21f7bfbcbe479d'){throw 'SDK changed'};return 'fixture-published-sdk'}
@@ -72,9 +73,19 @@ Publish-WorkshopFolder $stage $folder $config.Root
 $commit=((Invoke-ApiRepositoryGit $config.Root @('rev-parse','HEAD'))-join '').Trim()
 if($Target -eq 'SerpsMods'){
  $reference=Join-Path (Get-WorkshopStateRoot $config $test) 'references/SerpsMods.provenance.json'
- [void][IO.Directory]::CreateDirectory((Split-Path -Parent $reference));[IO.File]::WriteAllText($reference,'{"Commit":"'+$commit+'"}')
+ [void][IO.Directory]::CreateDirectory((Split-Path -Parent $reference))
+ $apiCommit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d'
+ $apiTag=if($test){'APIShared/test/v0.9.2-'+$apiCommit.Substring(0,12)}else{'APIShared/v0.9.2'}
+ $proof=[ordered]@{Commit=$commit;ApiSharedCommit=$apiCommit;ApiSharedMainCommit=$apiCommit;Infrastructure=@(@{Guid='APIShared_Serp';Version='0.9.2';SourceCommit=$apiCommit;ReleaseTag=$apiTag;PackageSha256=('a'*64)})}
+ [IO.File]::WriteAllText($reference,($proof|ConvertTo-Json -Depth 5))
 }
-$null=Write-WorkshopPreparation $config $config.$Target $test '1.0.28' $commit 'fixture'
+if($Target -eq 'APIShared'){
+ $apiCommit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d'
+ $apiTag=if($test){'APIShared/test/v0.9.2-'+$apiCommit.Substring(0,12)}else{'APIShared/v0.9.2'}
+ $evidence=[pscustomobject]@{Commit=$apiCommit;Version='0.9.2';Tag=$apiTag;Package=@{Sha256=('a'*64)}}
+ $sdkIdentity=Get-ApiSharedPackageIdentity $evidence $apiCommit $test
+ $null=Write-WorkshopPreparation $config $config.$Target $test '0.9.2' $apiCommit $apiTag -SdkIdentity $sdkIdentity
+}else{$null=Write-WorkshopPreparation $config $config.$Target $test '1.0.28' $commit 'fixture'}
 '@
 foreach($service in @('Prepare-LatestModpackUpload.ps1','Prepare-ModpackWorkflow.ps1','Prepare-APISharedWorkshop.ps1')){Put ('Shared/Tools/Steam/'+$service) $prepare}
 Put 'Shared/Tools/Steam/Upload-WorkshopTarget.ps1' @'
@@ -174,13 +185,17 @@ function Invoke-MenuBat([string]$Selection){
  $start.UseShellExecute=$false;$start.CreateNoWindow=$true
  $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
  $process=[Diagnostics.Process]::new();$process.StartInfo=$start
+ # With a UTF-8 console the .NET Framework stdin writer emits a BOM that the hidden child
+ # decodes as visible OEM characters before the answer; typed input never carries it.
+ $inputEncoding=[Console]::InputEncoding
  try{
+  if($inputEncoding.GetPreamble().Length){[Console]::InputEncoding=[Text.UTF8Encoding]::new($false)}
   [void]$process.Start();$output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
   $process.StandardInput.WriteLine($Selection);$process.StandardInput.Close();$process.WaitForExit()
   return @{ExitCode=$process.ExitCode;Output=$output.Result;Errors=$errors.Result}
- }finally{$process.Dispose()}
+ }finally{$process.Dispose();if([Console]::InputEncoding -ne $inputEncoding){[Console]::InputEncoding=$inputEncoding}}
 }
-$menu=Invoke-MenuBat '0';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'Modpack-Branch' -and $menu.Output -notmatch 'FIXTURE_SOURCE=') 'BAT menu cancellation failed'
+$menu=Invoke-MenuBat '0';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'Modpack-Branch' -and $menu.Output -notmatch 'FIXTURE_SOURCE=') ('BAT menu cancellation failed: '+$menu.ExitCode+' / '+$menu.Output+$menu.Errors)
 $menu=Invoke-MenuBat '1';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'branch=main;test=0') ('BAT main menu failed: '+$menu.Output+$menu.Errors)
 $menu=Invoke-MenuBat '2';Check ($menu.ExitCode -eq 0 -and $menu.Output -match 'branch=develop;test=1') ('BAT develop menu failed: '+$menu.Output+$menu.Errors)
 & (Join-Path $caller 'CreateSteamModPack.bat') /both /branch:develop /nopause *> $log
@@ -190,20 +205,22 @@ $p=[IO.File]::ReadAllText($testProof)|ConvertFrom-Json
 Check ($p.Mode -ceq 'Test' -and $p.ModpackSource.Branch -ceq 'develop') 'Develop did not force private mode'
 $before=Get-ApiRepositoryHash $testProof
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
-Check ($LASTEXITCODE -eq 0 -and ([IO.File]::ReadAllText($testProof)|ConvertFrom-Json).ModpackSource.Branch -ceq 'main') ('Private upload must select main: '+[IO.File]::ReadAllText($log))
+Check ($LASTEXITCODE -eq 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before -and ([IO.File]::ReadAllText($testProof)|ConvertFrom-Json).ModpackSource.Branch -ceq 'develop') ('Private upload must retain its prepared source and SDK: '+[IO.File]::ReadAllText($log))
 $before=Get-ApiRepositoryHash $testProof
 $ErrorActionPreference='Continue' # Expected BAT failures may write native stderr in Windows PowerShell 5.1.
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /branch:develop /test /validate /nopause *> $log
-Check ($LASTEXITCODE -ne 0) 'Develop upload was accepted'
+Check ($LASTEXITCODE -eq 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) 'Matching prepared private develop upload was rejected or changed'
+& (Join-Path $caller 'UploadWorkshop.bat') /modpack /branch:develop /validate /nopause *> $log
+Check ($LASTEXITCODE -ne 0) 'Public upload accepted a develop source'
 $generated=Join-Path $root 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'
 $generatedBytes=[IO.File]::ReadAllText($generated);[IO.File]::WriteAllText($generated,'changed generated build')
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
-Check ($LASTEXITCODE -eq 0) 'Known generated outputs must not prevent refreshing a published upload'
+Check ($LASTEXITCODE -eq 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) 'Unrelated main outputs must not replace the prepared develop upload'
 [IO.File]::WriteAllText($generated,$generatedBytes)
-$payload=Join-Path $root '.release-output/SteamWorkshop/test/packages/SerpsMods/payload.txt'
+$payload=Join-Path $p.ModpackSource.Root '.release-output/SteamWorkshop/test/packages/SerpsMods/payload.txt'
 $originalPayload=[IO.File]::ReadAllText($payload);[IO.File]::WriteAllText($payload,'tampered')
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
-Check ($LASTEXITCODE -eq 0 -and [IO.File]::ReadAllText($payload) -ceq 'main') 'Changed prepared payload was not repaired from main release'
+Check ($LASTEXITCODE -ne 0 -and [IO.File]::ReadAllText($payload) -ceq 'tampered') 'Changed prepared payload must be rejected without overwriting the preparation'
 [IO.File]::WriteAllText($payload,$originalPayload)
 [IO.File]::WriteAllText($generated,'original fixture build')
 Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '3788821961'
@@ -215,4 +232,22 @@ Put '.release-output/SteamWorkshop/test/items/3024040-SerpsMods.item-id' '333'
 Check ($LASTEXITCODE -ne 0) 'Dirty selected source was accepted'
 Check (((Invoke-ApiRepositoryGit $caller @('branch','--show-current'))-join '').Trim() -ceq 'caller') 'Caller branch was switched'
 $env:MODPACK_FIXTURE_HOST_BUILD=''
+# A PR merged on GitHub must fast-forward the clean local release worktree; divergence must stop.
+$originRepo=Join-Path $fixture 'origin.git';$pusher=Join-Path $fixture 'pusher'
+Check ((Invoke-ApiRepositoryProcess 'git' @('clone','--bare','--quiet',$root,$originRepo)).ExitCode -eq 0) 'Bare origin clone failed'
+Git @('remote','add','origin',$originRepo)|Out-Null
+Check ((Invoke-ApiRepositoryProcess 'git' @('clone','--quiet','--branch','main',$originRepo,$pusher)).ExitCode -eq 0) 'Pusher clone failed'
+function Push-OriginCommit([string]$Name){
+ [IO.File]::WriteAllText((Join-Path $pusher ($Name+'.txt')),$Name)
+ Invoke-ApiRepositoryGit $pusher @('add','-A')|Out-Null
+ Invoke-ApiRepositoryGit $pusher @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','-m',$Name)|Out-Null
+ Invoke-ApiRepositoryGit $pusher @('push','--quiet','origin','main')|Out-Null
+ return ((Invoke-ApiRepositoryGit $pusher @('rev-parse','HEAD'))-join '').Trim()
+}
+$merged=Push-OriginCommit 'merged-pr'
+$synced=Resolve-ModpackSource $caller 'main'
+Check ($synced.Root -ieq [IO.Path]::GetFullPath($root) -and $synced.Commit -ceq $merged) 'Clean local main was not fast-forwarded to origin/main'
+Git @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','--allow-empty','-m','local-only')|Out-Null
+$null=Push-OriginCommit 'remote-only'
+Reject {Resolve-ModpackSource $caller 'main'}
 Write-Host "PASS: $checks modpack branch/menu/worktree/proof/ID checks with real BAT and PowerShell children. Fixtures: $fixture"

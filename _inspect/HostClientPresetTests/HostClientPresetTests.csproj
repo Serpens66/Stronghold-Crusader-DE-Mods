@@ -74,6 +74,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="ExtremePowersPresetTests.cs" />
+    <Compile Include="RandomEventsChatPresetTests.cs" />
+    <Compile Include="..\..\RandomEvents\src\RandomEventsSettingsViewModel.cs" />
+    <Compile Include="..\..\RandomEvents\src\RandomEventDefinitions.cs" />
+    <Compile Include="..\..\Shared\Runtime\UI\NumericTextInput.cs" />
+    <Compile Include="..\..\ExtremePowers\src\Settings\ExtremePowersSettings.cs" />
     <Compile Include="DynamicPresetTests.cs" />
     <Compile Include="RestartSettingsTests.cs" />
     <Compile Include="TweakerProviderTests.cs" />
@@ -92,6 +98,7 @@
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
     <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\HostLobbySettingsPublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs" />
@@ -101,6 +108,7 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
@@ -264,14 +272,15 @@
     <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs">
       <Link>NativePatternResolver.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs">
-      <Link>TroopActionButtonLayoutPolicy.cs</Link>
+    <Compile Include="..\..\APIShared\src\Presentation\TroopActions\TroopActionHudLayoutPolicy.cs">
+      <Link>TroopActionHudLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
-  <ItemGroup><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /><Compile Include="EnemyGateRoutingPresetTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="PlagueHeightPresetTests.cs" /><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /><Compile Include="AiSellThresholdPresetTests.cs" /><Compile Include="EnemyGateRoutingPresetTests.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\LobbySettingsRestoreScope.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
     <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
     <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />

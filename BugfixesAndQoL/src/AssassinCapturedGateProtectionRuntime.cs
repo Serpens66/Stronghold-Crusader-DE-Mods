@@ -38,7 +38,7 @@ namespace BugfixesAndQoL
             if (!confirmed)
             {
                 confirmed = true;
-                log.LogDebug($"{DateTime.Now:HH:mm:ss.fff} Assassin captured-gate protection: persistent callback active after startup cleanup.");
+                Shared.DebugLogHelper.LogDebug(log, "Assassin captured-gate protection: persistent callback active after startup cleanup.");
             }
             if (!UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 !AssassinCapturedGateProtectionPolicy.IsEligibleUnit(in *unit)) return false;

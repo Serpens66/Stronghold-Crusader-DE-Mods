@@ -38,7 +38,7 @@ namespace BugfixesAndQoL.UnitCommands
                 failed = true;
             }
             try { menuViewModel.CloseMenu(); } catch { }
-            try { APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
+            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:44", $"Formation native assignment failed open at {stage}; " +
@@ -51,7 +51,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void LogDebugNoThrow(string message)
         {
-            APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 try
                 {
@@ -65,7 +65,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void LogWarningNoThrow(string message)
         {
-            APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 try
                 {
@@ -79,7 +79,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void LogErrorNoThrow(string message)
         {
-            APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 try
                 {

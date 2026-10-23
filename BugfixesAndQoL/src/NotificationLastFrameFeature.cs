@@ -1,13 +1,15 @@
-// Feature: Keep the last frame of a minimap video visible while its speech continues.
+// Feature: Hold a minimap video's last frame for speech, with HD's fixed 20-second bound.
+using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
 using NoesisApp;
 using SHCDESE.API;
-using SHCDESE.API.LowLevel;
 using System;
+using System.Diagnostics;
 using System.Reflection;
+using System.Threading;
 
 namespace BugfixesAndQoL
 {
@@ -15,47 +17,57 @@ namespace BugfixesAndQoL
     {
         private delegate void VideoEndedDelegate(MainHUD self, object sender, RoutedEventArgs args);
         private delegate void PlayBinkDelegate(SFXManager self, string binkName, bool loop, bool waitForSpeech);
-
         private static NotificationLastFrameFeature instance;
-        private static Hook videoEndedHook;
-        private static Hook playBinkHook;
+        private static Hook videoEndedHook, playBinkHook;
         private static VideoEndedDelegate originalVideoEnded;
         private static PlayBinkDelegate originalPlayBink;
+        private static MethodInfo videoPathResolver;
         private static bool postStartupLogged;
-
+        // HD 00409200/00408FC0 expire the speech binding only after elapsed > 20000 ms.
+        private static readonly long MaximumSpeechWaitTicks = 20L * Stopwatch.Frequency;
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly Func<long> timestamp;
+        private Playback playback;
 
         internal NotificationLastFrameFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
+            : this(log, settings, Stopwatch.GetTimestamp) { }
+
+        // The internal clock seam exercises the production completion path without real-time sleeps.
+        internal NotificationLastFrameFeature(ManualLogSource log, BugfixesAndQoLViewModel settings, Func<long> timestamp)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.timestamp = timestamp ?? throw new ArgumentNullException(nameof(timestamp));
             if (instance != null)
                 return;
+            // Use the installed asset resolver before adding the Noesis playback suffix.
+            videoPathResolver = typeof(GameAssetManagerAPI).GetMethod("TryResolveVideoPath",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                new[] { typeof(string), typeof(string).MakeByRefType() }, null);
+            if (videoPathResolver == null || videoPathResolver.ReturnType != typeof(bool))
+                throw new MissingMethodException("Script Extender video asset resolution contract changed.");
+            MethodInfo playMethod = typeof(SFXManager).GetMethod("playBink", BindingFlags.Instance | BindingFlags.Public,
+                null, new[] { typeof(string), typeof(bool), typeof(bool) }, null);
+            MethodInfo endMethod = typeof(MainHUD).GetMethod("RadarME_Ended", BindingFlags.Instance | BindingFlags.NonPublic,
+                null, new[] { typeof(object), typeof(RoutedEventArgs) }, null);
+            if (playMethod == null || playMethod.ReturnType != typeof(void) ||
+                endMethod == null || endMethod.ReturnType != typeof(void))
+                throw new MissingMethodException("Minimap video presentation contract changed.");
 
-            Hook playCandidate = null;
-            Hook endCandidate = null;
-            bool tickSubscribed = false;
+            Hook playCandidate = null, endCandidate = null;
             try
             {
-                MethodInfo playMethod = typeof(SFXManager).GetMethod(
-                    "playBink", BindingFlags.Instance | BindingFlags.Public, null,
-                    new[] { typeof(string), typeof(bool), typeof(bool) }, null);
-                MethodInfo endMethod = typeof(MainHUD).GetMethod(
-                    "RadarME_Ended", BindingFlags.Instance | BindingFlags.NonPublic, null,
-                    new[] { typeof(object), typeof(RoutedEventArgs) }, null);
-                if (playMethod == null || playMethod.ReturnType != typeof(void) ||
-                    endMethod == null || endMethod.ReturnType != typeof(void))
-                    throw new MissingMethodException("Minimap video playback contract changed.");
-
-                playCandidate = new Hook(playMethod, (PlayBinkDelegate)OnPlayBink);
-                PlayBinkDelegate playOriginal = playCandidate.GenerateTrampoline<PlayBinkDelegate>();
-                endCandidate = new Hook(endMethod, (VideoEndedDelegate)OnVideoEnded);
-                VideoEndedDelegate endOriginal = endCandidate.GenerateTrampoline<VideoEndedDelegate>();
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-                tickSubscribed = true;
-                originalPlayBink = playOriginal;
-                originalVideoEnded = endOriginal;
+                var config = new HookConfig { ManualApply = true, ID = "BugfixesAndQoL.NotificationLastFrame" };
+                playCandidate = new Hook(playMethod, (PlayBinkDelegate)OnPlayBink, config);
+                endCandidate = new Hook(endMethod, (VideoEndedDelegate)OnVideoEnded, config);
+                originalPlayBink = playCandidate.GenerateTrampoline<PlayBinkDelegate>();
+                originalVideoEnded = endCandidate.GenerateTrampoline<VideoEndedDelegate>();
+                if (!PresentationEvents.TryRegister(PresentationOperation.GuiChecks, BugfixesAndQoLPlugin.PluginGuid,
+                    "NotificationLastFrame", null, OnGuiChecks, out string reason))
+                    throw new InvalidOperationException(reason);
+                playCandidate.Apply();
+                endCandidate.Apply();
                 playBinkHook = playCandidate;
                 videoEndedHook = endCandidate;
                 instance = this;
@@ -65,26 +77,24 @@ namespace BugfixesAndQoL
                 // Only unpublished installation candidates can be undone.
                 if (instance == null)
                 {
-                    if (tickSubscribed)
-                        GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
-                    if (endCandidate != null)
-                    {
-                        endCandidate.Undo();
-                        endCandidate.Dispose();
-                    }
-                    if (playCandidate != null)
-                    {
-                        playCandidate.Undo();
-                        playCandidate.Dispose();
-                    }
+                    endCandidate?.Dispose();
+                    playCandidate?.Dispose();
                 }
                 throw;
             }
-            Shared.DebugLogHelper.LogDebug(log, "NOTIFICATION_LAST_FRAME_INSTALLED: permanent playback and MediaEnded hooks installed.");
+            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            Shared.DebugLogHelper.LogDebug(log, "NOTIFICATION_LAST_FRAME_INSTALLED: permanent playback and MediaEnded hooks installed; HD speech wait bound is 20000 ms.");
         }
 
-        private bool Enabled => settings.EnableMod && settings.EnableClientFeatures &&
-            settings.EnableNotificationLastFrame;
+        private bool Enabled => settings.EnableClientFeatures && settings.EnableNotificationLastFrame;
+
+        // Mission notifications may come from another thread. Close Noesis only on the presentation caller.
+        internal void ResetMapState()
+        {
+            Playback current = Volatile.Read(ref playback);
+            if (current != null)
+                Volatile.Write(ref current.Invalidated, true);
+        }
 
         private static void OnGameTick(int tick)
         {
@@ -96,83 +106,190 @@ namespace BugfixesAndQoL
 
         private static void OnPlayBink(SFXManager self, string binkName, bool loop, bool waitForSpeech)
         {
+            Uri before = self?.requestBinkPlaybackURI;
             originalPlayBink(self, binkName, loop, waitForSpeech);
             NotificationLastFrameFeature feature = instance;
-            if (feature == null || !feature.Enabled || loop || self?.requestBinkPlaybackURI == null)
-                return;
-
+            if (feature == null || self == null || ReferenceEquals(before, self.requestBinkPlaybackURI))
+                return; // Rejected requests neither replace the owner nor renew its deadline.
             try
             {
-                Uri original = self.requestBinkPlaybackURI;
-                string value = original.OriginalString;
+                long started = feature.timestamp();
+                feature.Finish(Volatile.Read(ref feature.playback));
+                if (!feature.Enabled || loop || self.requestBinkPlaybackURI == null || !MainViewModel.viewModelLoaded)
+                    return;
+                MainViewModel main = MainViewModel.Instance;
+                if (main?.HUDmain == null)
+                    return;
+                MainHUD hud = main.HUDRoot;
+                if (hud?.RefRadarME == null)
+                    return;
+                Uri source = self.requestBinkPlaybackURI;
+                string value = source.OriginalString;
                 if (string.IsNullOrEmpty(value) || value.EndsWith("*", StringComparison.Ordinal))
                     return;
-                self.requestBinkPlaybackURI = new Uri(
-                    value + "**", original.IsAbsoluteUri ? UriKind.Absolute : UriKind.Relative);
+                // SE's MediaElement setter can redirect to an absolute .webm/.mp4 and
+                // discard **. Resolve once here so both identity and end semantics survive.
+                source = ResolveVideoSource(source);
+                value = source.OriginalString;
+                source = new Uri(value + "**", source.IsAbsoluteUri ? UriKind.Absolute : UriKind.Relative);
+                self.requestBinkPlaybackURI = source;
+                Volatile.Write(ref feature.playback, new Playback(self, main, hud, source,
+                    MyAudioManager.Instance, started, waitForSpeech && self.binkWaitForSpeech));
             }
-            catch (Exception ex)
-            {
-                feature.log.LogError("NOTIFICATION_LAST_FRAME_URI_FAILED: Vanilla playback retained: " + ex);
-            }
+            catch (Exception ex) { feature.LogFailure("URI", ex); }
         }
 
         private static void OnVideoEnded(MainHUD self, object sender, RoutedEventArgs args)
         {
             NotificationLastFrameFeature feature = instance;
-            if (feature == null || !feature.Enabled)
+            if (feature != null && feature.Enabled)
             {
-                originalVideoEnded(self, sender, args);
-                return;
-            }
-
-            SFXManager sfx = null;
-            MediaElement media = null;
-            bool retain = false;
-            bool previousWaitForSpeech = false;
-            try
-            {
-                sfx = SFXManager.instance;
-                media = self?.RefRadarME;
-                retain = sfx != null && media != null &&
-                    sfx.requestBinkPlayState == 1 && sfx.binkIsPlaying &&
-                    MyAudioManager.Instance != null && MyAudioManager.Instance.isSpeechPlaying(1);
-                if (retain)
+                try
                 {
-                    previousWaitForSpeech = sfx.binkWaitForSpeech;
-                    sfx.binkWaitForSpeech = true;
+                    if (MainViewModel.viewModelLoaded && !ReferenceEquals(MainViewModel.Instance.HUDRoot, self))
+                    {
+                        return;
+                    }
+                    Playback current = Volatile.Read(ref feature.playback);
+                    if (current != null)
+                    {
+                        if (!current.Matches(self, sender))
+                        {
+                            return; // A late event must not finish its replacement.
+                        }
+                        if (Volatile.Read(ref current.Invalidated))
+                        {
+                            feature.Finish(current);
+                            return;
+                        }
+                        if (current.Sfx.requestBinkPlayState == 1)
+                        {
+                            if (!feature.IsSpeechWaitActive(current))
+                            {
+                                feature.Finish(current);
+                                return;
+                            }
+                            // State 1 + playing avoids FatControler's speech-dependent state-3 cleanup.
+                            // ** is nonlooping; Pause keeps the frame and respects a previous left-click hide.
+                            current.Held = true;
+                            current.Media.Pause();
+                            return;
+                        }
+                    }
                 }
+                catch (Exception ex) { feature.LogFailure("DISPLAY", ex); }
             }
-            catch (Exception ex)
-            {
-                retain = false;
-                feature.log.LogError("NOTIFICATION_LAST_FRAME_GUARD_FAILED: " + ex);
-            }
+            originalVideoEnded(self, sender, args);
+        }
 
-            try
+        private bool IsSpeechWaitActive(Playback current)
+        {
+            // Like HD's stream-index clear, expiry/end is latched even while the video is
+            // still playing. Later speech on the same channel cannot re-arm this binding.
+            if (current.WaitingForSpeech && (timestamp() - current.Started > MaximumSpeechWaitTicks ||
+                current.Audio == null || !ReferenceEquals(MyAudioManager.Instance, current.Audio) ||
+                !current.Audio.isSpeechPlaying(1)))
             {
-                originalVideoEnded(self, sender, args);
+                current.WaitingForSpeech = false;
             }
-            finally
-            {
-                if (retain)
-                    sfx.binkWaitForSpeech = previousWaitForSpeech;
-            }
-            if (!retain)
+            return current.WaitingForSpeech;
+        }
+
+        private static void OnGuiChecks(PresentationPostEventArgs args)
+        {
+            NotificationLastFrameFeature feature = instance;
+            if (feature == null || !args.OriginalCompleted)
                 return;
-
             try
             {
-                if (sfx.requestBinkPlayState != 3 || !sfx.binkIsPlaying ||
-                    !MyAudioManager.Instance.isSpeechPlaying(1) || media.Source == null)
+                Playback current = Volatile.Read(ref feature.playback);
+                if (current == null)
                     return;
-                media.Pause();
-                media.Opacity = 1f;
-                Shared.DebugLogHelper.LogDebugLimited(feature.log, "BugfixesAndQoL/src/NotificationLastFrameFeature.cs:170", "NOTIFICATION_LAST_FRAME_HELD: final frame held while speech continues.");
+                MainViewModel main = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+                if (Volatile.Read(ref current.Invalidated) || !feature.Enabled ||
+                    !ReferenceEquals(main, current.Main) || !ReferenceEquals(main?.HUDRoot, current.Hud) ||
+                    !ReferenceEquals(current.Hud.RefRadarME, current.Media) ||
+                    !current.IsCurrentRequest() || current.Sfx.requestBinkPlayState == 0)
+                {
+                    feature.Finish(current);
+                    return;
+                }
+                bool waiting = feature.IsSpeechWaitActive(current);
+                if (current.Held && !waiting)
+                {
+                    feature.Finish(current);
+                    return;
+                }
+                if (current.Held && current.HasMediaSource(current.Media.Source))
+                    current.Media.Pause(); // Vanilla may resume the media after closing a briefing.
             }
-            catch (Exception ex)
+            catch (Exception ex) { feature.LogFailure("COMPLETION", ex); }
+        }
+
+        private void Finish(Playback current)
+        {
+            if (current == null)
+                return;
+            // Never clear global flags belonging to a replacement request or HUD.
+            if (current.IsCurrentRequest() && MainViewModel.viewModelLoaded &&
+                ReferenceEquals(MainViewModel.Instance.HUDRoot, current.Hud) &&
+                ReferenceEquals(current.Hud.RefRadarME, current.Media) &&
+                (current.HasMediaSource(current.Media.Source) || current.Media.Source == null))
+                current.Hud.RadarME_Ended();
+            else if (current.HasMediaSource(current.Media.Source))
             {
-                feature.log.LogError("NOTIFICATION_LAST_FRAME_DISPLAY_FAILED: " + ex);
+                current.Media.Stop();
+                current.Media.Source = null;
+                current.Media.Close();
+                current.Media.Opacity = 0f;
             }
+            Interlocked.CompareExchange(ref playback, null, current);
+        }
+
+        private void LogFailure(string operation, Exception ex) =>
+            Shared.DebugLogHelper.LogErrorLimited(log, "NotificationLastFrame." + operation,
+                "NOTIFICATION_LAST_FRAME_" + operation + "_FAILED: " + ex);
+
+        private static Uri ResolveVideoSource(Uri source)
+        {
+            object[] arguments = { source.OriginalString.TrimStart('/', '\\'), null };
+            return (bool)videoPathResolver.Invoke(GameAssetManagerAPI.Instance, arguments)
+                ? new Uri((string)arguments[1], UriKind.Absolute) : source;
+        }
+
+        private static string MediaSourceKey(Uri source)
+        {
+            string value = source?.OriginalString;
+            return value == null || value.IndexOf('\\') < 0 ? value : value.Replace('\\', '/');
+        }
+
+        private static bool MediaSourcesMatch(Uri actual, Uri expected, string expectedKey) =>
+            actual != null && expected != null && actual.IsAbsoluteUri == expected.IsAbsoluteUri &&
+            (actual == expected || string.Equals(MediaSourceKey(actual), expectedKey, StringComparison.Ordinal));
+
+        private sealed class Playback
+        {
+            internal readonly SFXManager Sfx;
+            internal readonly MainViewModel Main;
+            internal readonly MainHUD Hud;
+            internal readonly MediaElement Media;
+            internal readonly Uri Source;
+            internal readonly string SourceKey;
+            internal readonly MyAudioManager Audio;
+            internal readonly long Started;
+            internal bool WaitingForSpeech, Held, Invalidated;
+            internal Playback(SFXManager sfx, MainViewModel main, MainHUD hud, Uri source,
+                MyAudioManager audio, long started, bool waitingForSpeech)
+            {
+                Sfx = sfx; Main = main; Hud = hud; Media = hud.RefRadarME; Source = source;
+                Audio = audio; Started = started; WaitingForSpeech = waitingForSpeech;
+                SourceKey = MediaSourceKey(source); // No expected-path normalization/allocation in GUI checks.
+            }
+            internal bool HasMediaSource(Uri actual) => MediaSourcesMatch(actual, Source, SourceKey);
+            internal bool IsCurrentRequest() => ReferenceEquals(SFXManager.instance, Sfx) &&
+                ReferenceEquals(Sfx.requestBinkPlaybackURI, Source);
+            internal bool Matches(MainHUD hud, object sender) => IsCurrentRequest() && ReferenceEquals(Hud, hud) &&
+                ReferenceEquals(Media, hud.RefRadarME) && ReferenceEquals(sender, Media) && HasMediaSource(Media.Source);
         }
     }
 }

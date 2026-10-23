@@ -174,7 +174,10 @@ namespace ExtraFeatures
                 timingReadinessRegistered = true;
                 ApiShared.WhenReady(OnApiSharedReady);
             }
-            LogInfo("gatehouse automation initialized; savegames use global building IDs and editor maps use stable locators in save schema v2.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo("gatehouse automation initialized; savegames use global building IDs and editor maps use stable locators in save schema v2.");
+            }
         }
 
         public void InitializeNetwork()
@@ -185,7 +188,8 @@ namespace ExtraFeatures
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<GatehouseAutomationPacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
             networkInitialized = true;
-            LogInfo($"gatehouse Chore packet registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse Chore packet registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void ApplySettings()
@@ -214,7 +218,8 @@ namespace ExtraFeatures
             ResolvePendingMapLocators(removeUnresolved: true);
             ReconcileManualGateTimers(removeMissing: true);
             RefreshButtonVisibility();
-            LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={manualOnlyGateGlobalIds.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={manualOnlyGateGlobalIds.Count}.");
         }
 
         public void EndMap()
@@ -326,7 +331,10 @@ namespace ExtraFeatures
                 }
                 automationReady = true;
                 ApplySettings();
-                LogInfo("gatehouse timing is owned by APIShared; no local native timing patch is installed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogInfo("gatehouse timing is owned by APIShared; no local native timing patch is installed.");
+                }
             }
             catch (Exception ex)
             {
@@ -425,6 +433,11 @@ namespace ExtraFeatures
             if (args == null || args.Phase != EventHookPhase.Post)
                 return;
             int buildingId = args.BuildingId;
+            // Raised for every building of every player for the whole process. Pre-filter on the
+            // raising thread (plain reads) so only a deleted selected building costs a closure
+            // and dispatch; the Unity-thread action re-checks the live state.
+            if (!mapActive || GamePlayerManagerAPI.Instance.GetSelectedBuildingId() != buildingId)
+                return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 if (mapActive && GamePlayerManagerAPI.Instance.GetSelectedBuildingId() == buildingId)
@@ -434,7 +447,9 @@ namespace ExtraFeatures
 
         private void OnBuildingSpawned(BuildingSpawnEventArgs args)
         {
-            if (args == null || args.Phase != EventHookPhase.Post)
+            // Pending locators exist only in an editor session; skip the closure otherwise.
+            if (args == null || args.Phase != EventHookPhase.Post ||
+                !editorSessionActive || pendingMapLocators.Count == 0)
                 return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
@@ -472,7 +487,8 @@ namespace ExtraFeatures
             }
 
             buttonViewModel.SetIcon(icon);
-            LogInfo($"gatehouse automation icon loaded: asset='{AutomationIconAssetPath}', bytes={imageBytes.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse automation icon loaded: asset='{AutomationIconAssetPath}', bytes={imageBytes.Length}.");
         }
 
         private void ToggleSelectedGatehouse()
@@ -538,7 +554,8 @@ namespace ExtraFeatures
                 return false;
             }
 
-            LogInfo($"gatehouse Chore queued: operationId={operationId}, globalId={globalId}, automaticEnabled={automaticEnabled}, payloadBytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse Chore queued: operationId={operationId}, globalId={globalId}, automaticEnabled={automaticEnabled}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -592,7 +609,8 @@ namespace ExtraFeatures
             }
 
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
-            LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={building->r_GateState}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={building->r_GateState}.");
         }
 
         private void OnGatehouseQuery(GatehouseQueryEventArgs args)
@@ -602,7 +620,8 @@ namespace ExtraFeatures
 
             try
             {
-                if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out _))
+                // Cheap building checks first; the path-record lookup scans every record.
+                if (!TryGetLiveGatehouseBuilding(args.BuildingId, out GameBuilding* building))
                     return;
 
                 // The Script Extender supplies the normal one-based game ID.
@@ -616,6 +635,19 @@ namespace ExtraFeatures
                         out int unitId) ||
                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null)
+                {
+                    return;
+                }
+
+                // Most queries come from distant units of the owner's list. Vanilla cannot
+                // close for them whatever the answer, so leaving the Extender default there
+                // is exact (BugfixesAndQoL skips the same queries).
+                if (!Shared.GatehouseQueryUnitIdPolicy.IsWithinVanillaCloseRange(
+                        (short)building->r_TilePositionXBegin,
+                        (short)building->r_TilePositionYBegin,
+                        (short)unit->r_CurrentWorldPositionX,
+                        (short)unit->r_CurrentWorldPositionY) ||
+                    !TryGetLiveGatehouse(args.BuildingId, out _, out _))
                 {
                     return;
                 }
@@ -638,9 +670,10 @@ namespace ExtraFeatures
                 if (!firstQueryLogged)
                 {
                     firstQueryLogged = true;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Extra Features gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Extra Features gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
                 }
 
                 // A manual gate still supplies Vanilla's enemy decision to automatic bridges.
@@ -674,7 +707,8 @@ namespace ExtraFeatures
                 ManualOnlyGateGlobalIds = editorMapSave ? Array.Empty<int>() : ids,
                 ManualOnlyGateLocators = locators
             });
-            LogInfo($"gatehouse state saved: context={(editorMapSave ? "editor-map" : "save-file")}, globalIds={(editorMapSave ? 0 : ids.Length)}, locators={locators.Length}, payloadBytes={bytes.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse state saved: context={(editorMapSave ? "editor-map" : "save-file")}, globalIds={(editorMapSave ? 0 : ids.Length)}, locators={locators.Length}, payloadBytes={bytes.Length}.");
             return bytes;
         }
 
@@ -711,7 +745,8 @@ namespace ExtraFeatures
                 pendingMapLocators.AddRange(savedLocators);
             }
 
-            LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
         }
 
         private GatehouseMapLocator[] BuildMapLocators()
@@ -765,7 +800,8 @@ namespace ExtraFeatures
 
             pendingMapLocators.Clear();
             pendingMapLocators.AddRange(remaining);
-            LogInfo($"gatehouse map locators resolved: resolved={resolved}, pending={pendingMapLocators.Count}, ambiguous={ambiguous}, finalPass={removeUnresolved}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse map locators resolved: resolved={resolved}, pending={pendingMapLocators.Count}, ambiguous={ambiguous}, finalPass={removeUnresolved}.");
         }
 
         public void BeginEditorMap()
@@ -914,7 +950,8 @@ namespace ExtraFeatures
                 ReleaseManualGateTimers();
             if (mapActive)
             {
-                LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}.");
             }
             mapActive = false;
             editorSessionActive = false;
@@ -953,20 +990,29 @@ namespace ExtraFeatures
 
         private static bool TryGetLiveGatehouse(int buildingId, out GameBuilding* building, out PathConnectionRecord* gatehouse)
         {
-            building = null;
             gatehouse = null;
-            GameBuildingManagerAPI api = GameBuildingManagerAPI.Instance;
-            if (buildingId <= 0 || !api.TryGetBuildingById(buildingId, out building) || building == null ||
-                building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
-                building->r_GlobalId > int.MaxValue)
+            if (!TryGetLiveGatehouseBuilding(buildingId, out building))
                 return false;
             if (building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE)
                 return true;
-            if (!IsGatehouseType(building->r_BuildingType))
-                return false;
             return GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
                 gatehouse != null && gatehouse->r_BuildingId == buildingId &&
                 gatehouse->r_SubjectGlobalId == building->r_GlobalId;
+        }
+
+        // Building-array checks of TryGetLiveGatehouse without the path-record lookup.
+        private static bool TryGetLiveGatehouseBuilding(int buildingId, out GameBuilding* building)
+        {
+            building = null;
+            if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) ||
+                building == null || building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
+                building->r_GlobalId > int.MaxValue ||
+                (building->r_BuildingType != eStructs.STRUCT_DRAWBRIDGE && !IsGatehouseType(building->r_BuildingType)))
+            {
+                building = null;
+                return false;
+            }
+            return true;
         }
 
         private static bool TryFindGatehouseByGlobalId(int globalId, out GameBuilding* building, out int buildingId)
@@ -1050,7 +1096,12 @@ namespace ExtraFeatures
             if (string.Equals(lastVisibilityState, state, StringComparison.Ordinal))
                 return;
             lastVisibilityState = state;
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures.GatehouseVisibility", () => $"Extra Features gatehouse button visibility: {state}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticState = @state;
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures.GatehouseVisibility", () => $"Extra Features gatehouse button visibility: {diagnosticState}.");
+            }
         }
 
         private void LogFailure(string message)
@@ -1061,8 +1112,13 @@ namespace ExtraFeatures
             LogWarning($"{message}. Vanilla remains authoritative ({failureLogs}/{MaximumFailureLogs}).");
         }
 
-        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        // Diagnostics are a startup snapshot; skip the closure and dispatch when they are off.
+        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
+        {
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        }
         private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
             () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
         private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(

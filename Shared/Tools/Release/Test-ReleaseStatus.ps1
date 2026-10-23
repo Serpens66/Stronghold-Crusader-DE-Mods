@@ -124,7 +124,8 @@ foreach ($project in $config.Projects) {
     Assert-True -Condition (@($projectManifest.dependencies).Count -eq $expectedDependencyCount) -Message "$project has an unexpected manager hard dependency."
 }
 if (-not $SourceOnly) {
-    $managerTestRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-manager-package-' + [Guid]::NewGuid().ToString('N'))
+    . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+    $managerTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus'
     try {
         [void](New-Item -ItemType Directory -Path $managerTestRoot -Force)
         $apiMetadata = Get-TestPluginMetadata -ModName 'APIShared'
@@ -166,7 +167,8 @@ function Assert-ApiSharedValidationFails {
         [Parameter(Mandatory)][string]$MinimumVersion,
         [Parameter(Mandatory)][string]$ExpectedMessage
     )
-    $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-api-release-' + [Guid]::NewGuid().ToString('N'))
+    . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+    $fixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus'
     try {
         $fixturePackage = Join-Path $fixtureRoot 'APIShared\BepInEx\plugins\APIShared_Serp'
         [void](New-Item -ItemType Directory -Path $fixturePackage -Force)
@@ -233,7 +235,8 @@ try {
     Remove-Variable -Name apiReleaseFixture -Scope Script -ErrorAction SilentlyContinue
 }
 if (-not $SourceOnly) {
-    $dependencyFixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-release-dependencies-' + [Guid]::NewGuid().ToString('N'))
+    . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+    $dependencyFixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus'
     try {
         $fixtureGameDir = Join-Path $dependencyFixtureRoot 'Game'
         $fixtureExtenderDir = Join-Path $dependencyFixtureRoot 'Extender'

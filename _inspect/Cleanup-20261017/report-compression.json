@@ -1,0 +1,14 @@
+[
+  {
+    "path": "actions.json.gz",
+    "uncompressedSha256": "77418FE10B26F9F8F9DCE5B85F237E883FAF1620BCF5CCBB932C89319677B848"
+  },
+  {
+    "path": "actions-verified.json.gz",
+    "uncompressedSha256": "EE3D3BD3160F6F10EEBC4FF41E2E1BB602851BA9181F8057D6DD8295E7D6B84C"
+  },
+  {
+    "path": "execution.jsonl.gz",
+    "uncompressedSha256": "D1D311E483E9043B14D2EFF3CF0335928B7C7DB4C1858FF8BB36EE365D6C2A33"
+  }
+]

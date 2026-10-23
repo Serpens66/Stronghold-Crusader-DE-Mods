@@ -32,7 +32,7 @@ function Save-WorkshopReleaseReference($Config,[bool]$Test,[string]$Source){
     Assert-ApiWorkshopUnlinkedPath $Source;Assert-ApiWorkshopUnlinkedPath $path
     [void][IO.Directory]::CreateDirectory((Split-Path -Parent $path));Copy-Item -LiteralPath $Source -Destination $path -Force
 }
-function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,[string]$Commit,[string]$ReleaseTag,[string]$ReleaseNotes='',$PublishedRelease=$null){
+function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,[string]$Commit,[string]$ReleaseTag,[string]$ReleaseNotes='',$PublishedRelease=$null,$SdkIdentity=$null){
     $proof=[ordered]@{SchemaVersion=1;Target=$Target.Key;PackageId=$Target.Guid;Version=$Version;Mode=$(if($Test){'Test'}else{'Production'});Commit=$Commit;ReleaseTag=$ReleaseTag;ReleaseNotes=$ReleaseNotes;Files=@(Get-WorkshopRecords (Get-WorkshopFolder $Config $Target $Test))}
     if($Target.Key -eq 'SerpsMods' -and $env:SHCDE_MODPACK_BRANCH -and -not $PublishedRelease){
         . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
@@ -40,8 +40,13 @@ function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,
         $source=Get-ModpackPreparationSource $Config.Root $env:SHCDE_MODPACK_BRANCH $Commit
         if($source.Commit -cne $Commit -or $source.Root -ine $Config.Root){throw 'Prepared package/source identity mismatch.'}
         $proof.ModpackSource=$source
-        $proof.PublishedSdk=[ordered]@{Version='0.9.2';Commit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d';DllSha256='2797b06042b0634ccc97ee5d2175c96944f95edfa1924d764776d9a6bde14758'}
     }
+    if($Target.Key -eq 'SerpsMods'){
+        $reference=Join-Path (Get-WorkshopStateRoot $Config $Test) 'references/SerpsMods.provenance.json'
+        $provenance=[IO.File]::ReadAllText($reference)|ConvertFrom-Json
+        $proof.PublishedSdk=Get-ModpackApiSharedIdentity $provenance ($Test -and -not $PublishedRelease)
+    }
+    if($Target.Key -eq 'APIShared' -and $SdkIdentity){$proof.PublishedSdk=$SdkIdentity}
     if($PublishedRelease){$proof.PublishedRelease=$PublishedRelease}
     if($env:SHCDE_API_SHARED_MAIN_SELECTION){$proof.MainSource=Get-ApiMainDeliveryIdentity $Config.Root}
     if($Target.Key -eq 'SerpsMods'){$reference=Join-Path (Get-WorkshopStateRoot $Config $Test) 'references/SerpsMods.provenance.json';$proof.ReleaseProvenance=$reference;$proof.ReleaseProvenanceSha256=Get-WorkshopFileHash $reference}
@@ -58,15 +63,25 @@ function Assert-WorkshopPreparation($Config,$Target,[bool]$Test){
         . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
         $source=Get-PreparedModpackSource $Config.Root $Test $env:SHCDE_MODPACK_BRANCH
         if($source.Root -ine $Config.Root -or -not $proof.PSObject.Properties['PublishedSdk'] -or
-           $proof.PublishedSdk.Version -cne '0.9.2' -or $proof.PublishedSdk.Commit -cne $proof.MainSource.Commit -or
-           $proof.PublishedSdk.DllSha256 -cne '2797b06042b0634ccc97ee5d2175c96944f95edfa1924d764776d9a6bde14758'){throw 'Prepared modpack SDK/source identity changed.'}
+           $proof.PublishedSdk.MainCommit -cne $proof.MainSource.Commit){throw 'Prepared modpack SDK/source identity changed.'}
     }
     $actual=@(Get-WorkshopRecords (Get-WorkshopFolder $Config $Target $Test))
     if($actual.Count -ne @($proof.Files).Count){throw 'Prepared folder contents changed.'}
     $byPath=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
     foreach($file in $actual){$byPath.Add($file.Path,$file)}
     foreach($file in $proof.Files){if(-not $byPath.ContainsKey($file.Path) -or $byPath[$file.Path].Size -ne $file.Size -or $byPath[$file.Path].Sha256 -cne $file.Sha256){throw "Prepared file changed: $($file.Path)"}}
-    if($Target.Key -eq 'SerpsMods' -and (Get-WorkshopFileHash $proof.ReleaseProvenance) -cne $proof.ReleaseProvenanceSha256){throw 'Prepared release provenance changed.'}
+    if($Target.Key -eq 'SerpsMods'){
+        if((Get-WorkshopFileHash $proof.ReleaseProvenance) -cne $proof.ReleaseProvenanceSha256){throw 'Prepared release provenance changed.'}
+        $identity=Get-ModpackApiSharedIdentity ([IO.File]::ReadAllText($proof.ReleaseProvenance)|ConvertFrom-Json) ($Test -and -not $proof.PSObject.Properties['PublishedRelease'])
+        Assert-ModpackApiSharedIdentity $proof.PublishedSdk $identity
+    }
+    if($Target.Key -eq 'APIShared' -and $proof.PSObject.Properties['MainSource']){
+        if(-not $proof.PSObject.Properties['PublishedSdk']){throw 'Prepare APIShared again to record its exact SDK artifact identity.'}
+        $evidence=[pscustomobject]@{Version=$proof.Version;Commit=$proof.Commit;Tag=$proof.ReleaseTag;
+            Package=[pscustomobject]@{Sha256=$proof.PublishedSdk.PackageSha256}}
+        $identity=Get-ApiSharedPackageIdentity $evidence $proof.MainSource.Commit $Test
+        Assert-ModpackApiSharedIdentity $proof.PublishedSdk $identity
+    }
     if($proof.PSObject.Properties['MainSource']){$null=Assert-ApiMainDeliveryIdentity $Config.Root $proof.MainSource}
     return $proof
 }

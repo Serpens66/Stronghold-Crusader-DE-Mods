@@ -35,6 +35,7 @@ namespace BugfixesAndQoL
         private const int ChoreProtocolVersion = 2;
         private const int SetSingleBuildingAction = 1;
         private const int ResetBuildingTypeAction = 2;
+        private const string SaveDataIdentifier = "BugfixesAndQoL-SingleBuildingPause";
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -58,6 +59,7 @@ namespace BugfixesAndQoL
         private R3PacketEventHook<SingleBuildingPausePacket> pausePacketHook;
         private IDisposable pausePacketSubscription;
         private IDisposable buildingDeleteSubscription;
+        private SessionSaveRecordSlot<SingleBuildingPauseSaveState> saveSlot;
 
         public SingleBuildingPauseHook(
             ManualLogSource log,
@@ -144,12 +146,89 @@ namespace BugfixesAndQoL
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingDeleting);
             networkInitialized = true;
-            LogInfo($"Chore packet registered eagerly: packetId={pausePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"Chore packet registered eagerly: packetId={pausePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void ClearOverrides(string reason)
         {
             ClearManualSleepOverrides();
+        }
+
+        // The native save keeps each building's sleep byte, but not the override that stops the
+        // periodic type-wide synchronizer from resetting it after a load.
+        public void InitializeSaveData()
+        {
+            if (saveSlot != null)
+                return;
+
+            saveSlot = SessionSaveRecordSlot<SingleBuildingPauseSaveState>.Register(
+                log,
+                SaveDataIdentifier,
+                CaptureSaveState,
+                state => MessagePack.MessagePackSerializer.Serialize(state),
+                bytes => MessagePack.MessagePackSerializer.Deserialize<SingleBuildingPauseSaveState>(bytes));
+        }
+
+        private SingleBuildingPauseSaveState CaptureSaveState()
+        {
+            SingleBuildingPauseOverride[] entries = overrides.Snapshot();
+            var records = new SingleBuildingPauseSaveEntry[entries.Length];
+            for (int index = 0; index < entries.Length; index++)
+            {
+                SingleBuildingPauseOverride entry = entries[index];
+                records[index] = new SingleBuildingPauseSaveEntry
+                {
+                    BuildingId = entry.BuildingId,
+                    GlobalId = entry.GlobalId,
+                    Owner = entry.Owner,
+                    BuildingType = (int)entry.BuildingType,
+                    IsSleeping = entry.IsSleeping
+                };
+            }
+
+            return new SingleBuildingPauseSaveState { Entries = records };
+        }
+
+        // Runs at the loaded session's start, before its first simulation tick, on every peer
+        // with that peer's save copy. Only the override store is restored: the native save
+        // already holds the matching sleep bytes, and the next native synchronization applies
+        // any difference through the regular interception path.
+        internal unsafe void RestoreFromSave(Shared.GameplaySessionStartedContext context)
+        {
+            if (saveSlot == null || !saveSlot.TryTake(context, out SingleBuildingPauseSaveState state))
+                return;
+
+            ClearManualSleepOverrides();
+            if (state.Entries.Length == 0)
+                return;
+            if (!settings.EnableMod || !settings.EnableSingleBuildingPause)
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"single-building pause save data ignored because the feature is disabled: overrides={state.Entries.Length}.");
+                return;
+            }
+
+            int restored = 0;
+            int rejected = 0;
+            foreach (SingleBuildingPauseSaveEntry entry in state.Entries)
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
+                    building->r_AliveState != AliveState.IsAlive ||
+                    (int)building->r_GlobalId != entry.GlobalId ||
+                    building->r_PlayerIdOwner != entry.Owner ||
+                    (int)building->r_BuildingType != entry.BuildingType ||
+                    !SetManualSleepOverride(entry.BuildingId, entry.IsSleeping))
+                {
+                    rejected++;
+                    continue;
+                }
+
+                restored++;
+            }
+
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"single-building pause overrides restored from save: restored={restored}, rejected={rejected}.");
         }
 
         internal void SetSleepStateBridge(
@@ -249,7 +328,8 @@ namespace BugfixesAndQoL
             {
                 if (mapEditor && !ownedByControlledPlayer)
                 {
-                    LogInfo($"single-building pause editor action delegated to Vanilla: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, reason=selected-building-not-owned.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogInfo($"single-building pause editor action delegated to Vanilla: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, reason=selected-building-not-owned.");
                 }
                 buttonTrampoline(self, parameter);
                 return;
@@ -257,7 +337,8 @@ namespace BugfixesAndQoL
 
             if (mapEditor)
             {
-                LogInfo($"single-building pause editor action accepted: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, controlPressed={controlPressed}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"single-building pause editor action accepted: selectedBuildingId={selectedBuildingId}, activePlayerId={GetControlledPlayerId()}, controlPressed={controlPressed}.");
             }
 
             if (!controlPressed)
@@ -461,7 +542,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogInfo($"single-building pause Chore queued: operationId={operationId}, action={action}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, synchronizeAfterReset={synchronizeAfterReset}, payloadBytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"single-building pause Chore queued: operationId={operationId}, action={action}, buildingGlobalId={buildingGlobalId}, targetSleeping={targetSleeping}, synchronizeAfterReset={synchronizeAfterReset}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -519,11 +601,12 @@ namespace BugfixesAndQoL
                             ownerSnapshot,
                             buildingTypeSnapshot,
                             sleepingSnapshot));
-                    LogInfo(
-                        $"building-type sleep Chore executed: operationId={packet.OperationId}, " +
-                        $"buildingType={building->r_BuildingType}, playerId={packet.PlayerId}, " +
-                        $"targetSleeping={packet.TargetSleeping}, synchronizeAfterReset={packet.SynchronizeAfterReset}, " +
-                        $"removedOverrides={removedOverrides}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogInfo(
+                            $"building-type sleep Chore executed: operationId={packet.OperationId}, " +
+                            $"buildingType={building->r_BuildingType}, playerId={packet.PlayerId}, " +
+                            $"targetSleeping={packet.TargetSleeping}, synchronizeAfterReset={packet.SynchronizeAfterReset}, " +
+                            $"removedOverrides={removedOverrides}.");
                     return;
                 }
 
@@ -541,7 +624,8 @@ namespace BugfixesAndQoL
                     if (TryGetSelectedBuildingId() == buildingIdSnapshot)
                         UpdateSleepButtonVisibility(MainViewModel.Instance, selectedSleepingSnapshot);
                 });
-                LogInfo($"single-building pause Chore executed: operationId={packet.OperationId}, action={packet.Action}, buildingId={buildingId}, buildingGlobalId={packet.BuildingGlobalId}, targetSleeping={packet.TargetSleeping}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"single-building pause Chore executed: operationId={packet.OperationId}, action={packet.Action}, buildingId={buildingId}, buildingGlobalId={packet.BuildingGlobalId}, targetSleeping={packet.TargetSleeping}.");
             }
             catch (Exception ex)
             {
@@ -925,10 +1009,10 @@ namespace BugfixesAndQoL
                     return;
 
                 if (self.HUDBuildingPanel.RefBuildingZZZButtonOff != null)
-                    self.HUDBuildingPanel.RefBuildingZZZButtonOff.Visibility = isSleeping ? (Visibility)2 : (Visibility)1;
+                    self.HUDBuildingPanel.RefBuildingZZZButtonOff.Visibility = isSleeping ? Noesis.Visibility.Visible : Noesis.Visibility.Hidden;
 
                 if (self.HUDBuildingPanel.RefBuildingZZZButtonOn != null)
-                    self.HUDBuildingPanel.RefBuildingZZZButtonOn.Visibility = isSleeping ? (Visibility)1 : (Visibility)2;
+                    self.HUDBuildingPanel.RefBuildingZZZButtonOn.Visibility = isSleeping ? Noesis.Visibility.Hidden : Noesis.Visibility.Visible;
             }
             catch (Exception ex)
             {

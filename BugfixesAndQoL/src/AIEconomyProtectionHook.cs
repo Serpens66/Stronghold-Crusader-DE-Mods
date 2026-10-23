@@ -585,6 +585,7 @@ namespace BugfixesAndQoL
             bool classificationAvailable,
             AIBuildingAccessDiagnostic diagnostic)
         {
+            if (!Shared.DebugLogHelper.IsDebugEnabled()) return;
             int tick = diagnostic.Tick;
             if (tick < lastInaccessibleDiagnosticTick)
             {
@@ -618,21 +619,23 @@ namespace BugfixesAndQoL
                 if (!inaccessibleDiagnosticSamplingCompleteLogged)
                 {
                     inaccessibleDiagnosticSamplingCompleteLogged = true;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:621", $"Bugfixes and QoL AI inaccessible-building diagnostics sampled " +
-                        $"{MaximumInaccessibleDiagnosticSamplesPerMap} distinct outcomes; further samples on this map are omitted.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:621", $"Bugfixes and QoL AI inaccessible-building diagnostics sampled " +
+                            $"{MaximumInaccessibleDiagnosticSamplesPerMap} distinct outcomes; further samples on this map are omitted.");
                 }
                 return;
             }
             inaccessibleDiagnosticSamples.Add(sampleKey);
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:630", $"Bugfixes and QoL AI inaccessible-building sample: " +
-                $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
-                $"buildingType={building->r_BuildingType}, owner={playerId}, " +
-                $"vanillaAccessibilityResult={vanillaResult}, effectiveAccessibilityResult={effectiveResult}, " +
-                $"buildingPcl={diagnostic.BuildingPcl}, keepPcl={diagnostic.KeepPcl}, " +
-                $"mode={mode}, modClassification={classification}, " +
-                $"modDecision={(effectiveResult != vanillaResult ? "SuppressAccessibilityDemolition" : "AllowVanilla")}, " +
-                summary);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:630", $"Bugfixes and QoL AI inaccessible-building sample: " +
+                    $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
+                    $"buildingType={building->r_BuildingType}, owner={playerId}, " +
+                    $"vanillaAccessibilityResult={vanillaResult}, effectiveAccessibilityResult={effectiveResult}, " +
+                    $"buildingPcl={diagnostic.BuildingPcl}, keepPcl={diagnostic.KeepPcl}, " +
+                    $"mode={mode}, modClassification={classification}, " +
+                    $"modDecision={(effectiveResult != vanillaResult ? "SuppressAccessibilityDemolition" : "AllowVanilla")}, " +
+                    summary);
         }
 
         private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)

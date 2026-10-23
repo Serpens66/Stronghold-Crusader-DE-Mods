@@ -1,11 +1,24 @@
 @echo off
 setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Testmods/EngineerSiegeFixTest/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
 set "BUILD_DRIVER_NOPAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START EngineerSiegeFixTest
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -22,7 +35,7 @@ exit /b 1
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -46,7 +59,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 rem Never replace plugin files while the game has loaded them.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build and installation aborted: Stronghold Crusader Definitive Edition is still running.
   echo The local package and installed mod were not changed.
   exit /b 1
@@ -65,7 +78,7 @@ if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" EngineerSiegeFixTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 echo [%date% %time%] Copy package files
@@ -76,18 +89,20 @@ if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%GAME_PLUGIN_DIR%\" (
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
     rmdir /S /Q "%%~fD"
+    if not errorlevel 0 cmd /c exit 1
     if errorlevel 1 goto copy_failed
   )
   for %%F in ("%GAME_PLUGIN_DIR%\*") do (
     if exist "%%~fF" if not exist "%%~fF\" (
       del /F /Q "%%~fF"
+      if not errorlevel 0 cmd /c exit 1
       if errorlevel 1 goto copy_failed
     )
   )
 )
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 
 echo Engineer Siege Fix Test built and installed successfully.
 exit /b 0

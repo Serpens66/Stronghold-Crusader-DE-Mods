@@ -9,7 +9,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.7.0")]
+    [BepInDependency(ApiSharedGuid, "0.14.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -25,7 +25,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.114";
+        public const string PluginVersion = "1.0.117";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -39,6 +39,7 @@ namespace ExtraFeatures
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.CrashBreadcrumbDiagnostics.Initialize(
                 Logger,
@@ -61,6 +62,14 @@ namespace ExtraFeatures
         }
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
+        {
+            // Initial native installation window (see ExtraFeaturesHookInfrastructure.DetourBackend).
+            ExtraFeaturesHookInfrastructure.InitialLibraryLoad = true;
+            try { InitializeLibraryRuntime(context); }
+            finally { ExtraFeaturesHookInfrastructure.InitialLibraryLoad = false; }
+        }
+
+        private void InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
         {
             // The Script Extender registers its built-in packet types in its earlier LibraryLoaded
             // handler. Register ours immediately afterwards, unconditionally and before any settings.
@@ -90,10 +99,11 @@ namespace ExtraFeatures
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     Settings,
-                    "ScriptExtenderUI/ExtraFeaturesSettings.xaml");
+                    "ScriptExtenderUI/ExtraFeaturesSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

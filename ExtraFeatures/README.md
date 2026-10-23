@@ -65,6 +65,9 @@ Multiply all market buying and selling prices globally, then fine-tune the buyin
 
 ## Plague features
 
+### Plague damage on elevated defenses
+Plague clouds can also damage units on nearby walls, gates, towers and keeps when their heights are close enough. The host controls each of these four surfaces separately: walls, gates and towers are enabled by default, keeps are disabled; normal damage and apothecary protection still apply.
+
 ### Customize plague-cloud duration
 Set how long plague clouds remain active from 0.5 to 20 times the Vanilla duration. Longer durations also extend how long a cloud can cause damage. By default set to *4.
 
@@ -73,8 +76,8 @@ Set how far an apothecary searches from its assigned building for plague clouds.
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.7.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.14.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
-Market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
+Plague-height, market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
 
 Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change.

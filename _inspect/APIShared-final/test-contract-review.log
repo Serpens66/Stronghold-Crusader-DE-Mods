@@ -1,0 +1,17 @@
+Testlauf für "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\APISharedTests\bin\Release\net481\APISharedTests.dll" (.NETFramework,Version=v4.8.1)
+Insgesamt 1 Testdateien stimmten mit dem angegebenen Muster überein.
+  Fehler AFailedPatchWritePreservesAnAlreadyPublishedHook [43 ms]
+  Fehlermeldung:
+   Assertion failed. Es wurde erwartet, dass die Bedingung „true“ ist.
+A later publication failure disabled an already published hook.
+
+actual: false
+
+Assert.IsTrue(first.IsInstalled)
+  Stapelverfolgung:
+     bei Microsoft.VisualStudio.TestTools.UnitTesting.Assert.ReportAssertFailed(StructuredAssertionMessage structuredMessage)
+   bei Microsoft.VisualStudio.TestTools.UnitTesting.Assert.ReportAssertIsTrueFailed(Nullable`1 condition, String message, String conditionExpression)
+   bei Microsoft.VisualStudio.TestTools.UnitTesting.Assert.IsTrue(Nullable`1 condition, String message, String conditionExpression)
+   bei NativeHookPublicationTests.AFailedPatchWritePreservesAnAlreadyPublishedHook() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\tests\APISharedTests\NativeHookPublicationTests.cs:Zeile 71.
+
+Fehler!      : Fehler:     1, erfolgreich:     4, übersprungen:     0, gesamt:     5, Dauer: 303 ms - APISharedTests.dll (net481)

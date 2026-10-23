@@ -1,0 +1,49 @@
+{
+  "OldVersion": "2.14.1",
+  "NewVersion": "2.14.2",
+  "TargetCommit": "10628df85cd432184742a50a1dee3969a66cf89e",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "5908e1f12437deb7ef5f5b1dc2d64e301178fba3",
+    "CrusaderNativeFiles": [],
+    "ExternalNativeFiles": [],
+    "NonSemanticArtifacts": [
+      "CHANGELOG.md"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GameAssetManagerAPI.cs",
+        "Symbol": "Music override playback behavior (internal implementation; no public signature change)",
+        "Consumers": [],
+        "Compatibility": "Decoded music samples are cached; each uncached music playback receives a fresh streaming clip. Resource replacement invalidates its music cache. Workspace mods contain no music overrides and do not call the internal loader."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Bootstrap/Plugin.cs",
+        "Symbol": "Startup preloading after GameAssetModManager.RegisterAll",
+        "Consumers": [],
+        "Compatibility": "Adds synchronous preloading of indexed OGG/WAV music overrides. External music packages may increase startup work and retained RAM; workspace assets do not use this path."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/ManagedHooks/MyAudioManager_Hooks.cs",
+        "Symbol": "MyAudioManager_LoadClip_Hook documentation",
+        "Consumers": [
+          "BugfixesAndQoL",
+          "APIShared",
+          "ArabianIdleSoundTest"
+        ],
+        "Compatibility": "Comment-only change in this file. Hook signature and body unchanged. Speech and SFX retain their prior paths; APIShared loads private resources through GetModFileBinaryContent and AudioClipExtensions."
+      }
+    ],
+    "AffectedMods": [],
+    "BuildMods": []
+  },
+  "Mods": {},
+  "CompatibilityNotes": [
+    "Source-only review and semantic baseline refresh; no extender/mod build, installation, game launch or runtime acceptance.",
+    "Local bin, mod_output and installed SHCDESE.dll remain byte-identical at 2.14.1.0; SHA256 E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3.",
+    "Source target tree: a612b537010c88e2837bb8895c9657e730365423. Native hash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.",
+    "No public C# signature, Lua, enum, interop layout, native hook, AOB, semantic header or packaged dependency change.",
+    "Existing minimum versions remain valid. No workspace music overrides found; the ArabianIdleSoundTest WAV uses its separate private-resource path.",
+    "The known startup crash-handler false alarm has no fix in this diff and no new runtime acceptance. Existing projectile-slot workarounds are unaffected.",
+    "Online upstream verification was unavailable during review; local HEAD, v2.14.2, origin/main and upstream/main agreed. This is not a claim about future upstream releases."
+  ]
+}

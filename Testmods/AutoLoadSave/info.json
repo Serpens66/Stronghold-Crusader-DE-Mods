@@ -1,0 +1,11 @@
+{
+  "GUID": "AutoLoadSave_Serp",
+  "Author": "Serpens66",
+  "Name": "AutoLoadSave",
+  "Description": "Loads one configured local single-player save after the main menu is ready. Test utility.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.12.0" }],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

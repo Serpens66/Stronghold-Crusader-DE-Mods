@@ -19,7 +19,8 @@ $completed.Clear()
 Reject {Invoke-WorkshopTargets @('APIShared','SerpsMods') {param($target) $completed.Add($target);if($target -eq 'SerpsMods'){throw 'Second step failed'}}}
 Check (($completed -join ',') -ceq 'APIShared,SerpsMods') 'First success was not retained before second failure.'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $root ('.inspect/workshop-workflow-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopWorkflow'
 [void][IO.Directory]::CreateDirectory($fixture)
 $config=Get-WorkshopConfiguration;$config.Root=$fixture;$config.APIShared.Folder=Join-Path $fixture 'APISharedWorkshop';$config.SerpsMods.Folder=Join-Path $fixture 'SerpsMods'
 Check ((Get-WorkshopItemId $config $config.SerpsMods $false) -ceq '3788821961') 'SerpsMods identity changed.'

@@ -2,21 +2,44 @@
 
 **Lesen, wenn:** ein Mod gebaut, eine Version geändert, Textdateien nach CRLF konvertiert, Hashprüfungen in Treibern geschrieben oder ein Release/Steam-Modpack vorbereitet wird. PowerShell-Aufrufdetails: [shell-windows.md](shell-windows.md). Gilt zusätzlich zur Root-`AGENTS.md`.
 
+Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlungen und Standardverhalten, keine unveränderlichen Buildregeln. Der ausdrückliche Nutzerauftrag bestimmt Quellstand, Branch, SDK, Prüfungsumfang, Buildweg und Installation. Auftragsbezogene Einschränkungen nie als allgemeine Verbote übernehmen. Technische Voraussetzungen und gültige Pfade bleiben erforderlich.
+
 ## Modpack-Branches
 
 - Im Modpack-Repository ist `main` der releasefertige Stand; aktive und noch nicht releasefertige Arbeit gehört nach `develop`. Der normale Entwicklungs-Workspace bleibt auf `develop`.
 - Release-Fixes auf `main` nur gezielt übernehmen und prüfen; danach nach `develop` zurückführen. Fertige Entwicklung regulär nach `main` mergen. Bestehende Release-Tags und veröffentlichte Historie nicht verschieben.
 - APIShared bleibt ein unabhängiges Repository mit eigenem Branch-Workflow. Beide Modpack-Branches ignorieren dessen lokalen Checkout und enthalten keinen APIShared-Gitlink. Releases verwenden den festgehaltenen öffentlichen APIShared-`main`-Stand.
+
+## Auswahl der Prüfungen
+
+- Für alle Mods nur Prüfungen ausführen, die für den zu bauenden Mod, seine betroffenen Funktionen und den tatsächlichen Änderungsumfang relevant sind. Das Lesen einer Themendatei allein verpflichtet nicht zu sämtlichen dort genannten Tests; deren konkrete Auslöser beachten.
+- Prüfungen möglichst auf das Modprojekt und seine relevanten Abhängigkeiten bzw. Quelllinks begrenzen (z. B. `Test-SharedBoundaries.ps1 -ModDirectory <Modpfad>`). Bei Änderungen an gemeinsam genutztem Code empfehlen sich zusätzlich die einschlägigen Prüfungen der dadurch betroffenen Verbraucher. Bietet ein Prüfer keine passende Eingrenzung, die relevanten Fälle separat prüfen; keine fachfremde Gesamtsuite allein wegen dieser technischen Einschränkung verlangen.
+- Eine unveränderte APIShared-Referenz oder die gemeinsame Installation anderer Mods begründet allein keinen Gesamttest. Die fachlichen Auslöser für Preset- und UI-Prüfungen stehen in [modsettings-ui.md](modsettings-ui.md#pflichttests-vor-dem-build).
+- Fachfremde Fehler blockieren den Build nicht und lösen keine ungefragten Reparaturen aus. Bei ausdrücklich angeforderten Gesamttests fachfremde Befunde separat ausweisen; Fehler im relevanten Prüfbereich sollten vor dem Build geklärt oder als bewusste Einschränkung ausgewiesen werden.
+- Vor dem Build kurz festhalten, welche Prüfungen vorgesehen sind und warum.
+
+## Belastbare Tests und Zustandsnachweise
+
+- Neue Tests oder Prüfscripte sind kein automatischer Bestandteil jeder Änderung. Vor ihrer Erstellung den konkreten zusätzlichen Nutzen bestimmen: Welche relevante Regression oder welcher verbindliche Vertrag ist durch bestehende Prüfungen noch nicht ausreichend abgesichert? Aufwand, Komplexität und spätere Wartung müssen zum Risiko passen. Vorhandene sinnvolle Tests bevorzugt ergänzen statt eine weitere Prüfdatei oder Testsuite einzuführen.
+- Bei reiner Bereinigung, insbesondere dem Entfernen erledigter Entwicklungsdiagnose, zugehörige überflüssige Tests, Fixtures und Buildaufrufe mit entfernen. Nicht eigens neue Tests erstellen, die nur das Entfernen oder die Abwesenheit des alten Codes bestätigen. Ein zusätzlicher Test ist erst sinnvoll, wenn eine konkrete weiterhin relevante Fehlerklasse oder eigenständige Sicherheitsgrenze ihn begründet; bestehende allgemeine Sicherheitsprüfungen bleiben erhalten.
+- Die Grundregel zu Verträgen und Momentaufnahmen aus der Root-AGENTS.md gilt auch für Tests, Buildtreiber, Konfigurationen und technische Markdown-Dateien. Verhalten, Ergebnisse und relevante Sicherheitsinvarianten prüfen; gleichwertige Umstrukturierungen sollen Tests nicht brechen.
+- Exakte Quelltextfragmente, private Membernamen, Methodenaufteilungen oder interne Ordnerstrukturen nur als Prüfbedingung verwenden, wenn deren konkrete Form für den nachzuweisenden Vertrag erforderlich ist. Den Grund und die Grenzen der Prüfung am Test festhalten. Andernfalls geeignete Verhaltenstests, Metadaten oder strukturelle Prüfungen verwenden; keine bloßen Wortlautprüfungen als Sicherheitsnachweis ausgeben.
+- Tests künftig nur für eine konkrete relevante Fehlerklasse schreiben: Eingaben, beobachtbares Ergebnis und eine plausible Regression benennen. Keine Tests auf Kommentare, beliebige Logformulierungen, frühere Versionsnummern oder selbst nachgerechnete Konstantenausdrücke. Testdoubles ersetzen externe Grenzen; eine nachgeschriebene Implementierung beweist nicht die Produktion. Quelltext-Heuristiken nur als ausdrücklich begrenzte Guardrails verwenden, niemals als Verhaltens- oder Laufzeitnachweis. Bei ihrer Ablösung muss die relevante Sicherheitsabdeckung erhalten bleiben.
+- Buildprüfungen verwenden die tatsächlich ausgewählten SDK-/Spielreferenzen. Keine Abhängigkeit von unbeteiligten Modausgaben, pauschalen Workspace-Scans oder der Gesamtzahl vorhandener Features. Identische Prüfungen nicht mehrfach pro Build ausführen; unterschiedliche Backend-, Fehler- oder Prozesskontexte sind eigenständige Fälle und bleiben erhalten.
+- Fixtures übernehmen relevante Eingaben und Abhängigkeiten aus der maßgeblichen Quelle bzw. einer bewusst festgelegten Testspezifikation. Eine exakte Pfadlänge ist beispielsweise im expliziten Grenzfalltest zulässig; andere Tests benötigen nur die für ihr Verhalten relevanten Eigenschaften. Ein absichtlicher Kompatibilitätsbruch oder eine reale Sicherheitsregression darf weiterhin fehlschlagen.
+- Branch, HEAD, Dirty-Status, Verfügbarkeit und Buildfehler vor einer darauf beruhenden Entscheidung erneut feststellen. Zustandsberichte nennen Zeitpunkt, geprüften Quellstand und Nachweis/Prüfbefehl. Ein Commit nach einer früheren „uncommitted“-Beobachtung oder ein später erfolgreicher Build widerlegt keine historische Beobachtung und darf nicht durch diese blockiert werden.
+
 ## Build-Ablauf
 
-- Nach dem Erstellen oder Ändern eines Mods zuerst alle Prüfungen und Codekontrollen abschließen (z. B. `Test-SharedBoundaries.ps1`, `Test-DependencyMetadata.ps1`, `Test-PermanentNativeRuntimePatches.ps1`, mod-eigene `verify.ps1`, bei Modsettings die Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen.
-- Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) ausführen: `& '<Pfad>\build.bat' /nopause; exit $LASTEXITCODE`. Nicht selbst bauen oder kopieren; `build.bat` übernimmt Build und Installation in den Spieleordner. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
+- Nach dem Erstellen oder Ändern eines Mods empfohlen: zunächst die nach der [Prüfauswahl](#auswahl-der-prüfungen) relevanten Prüfungen und Codekontrollen abschließen (z. B. modbezogene Shared-Boundary- und Abhängigkeitsprüfungen, mod-eigene `verify.ps1`, bei betroffenen Modsettings-/UI-Funktionen die einschlägigen Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen; der Nutzer kann einen anderen Prüfungsumfang wählen.
+- Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) und `/nopause` gemäß der Nutzerwahl ausführen. Standardmäßig übernimmt `build.bat` Build und Installation; andere ausdrücklich gewünschte Buildwege sind zulässig. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
 
-## APIShared-Branch für Verbraucher-Builds (Pflichtabklärung)
+## Buildstand und SDK: Nutzerwahl vor Standard
 
-- Vor jedem Build eines Mods, der APIShared referenziert, beim Nutzer abklären, gegen welche APIShared-Branch gebaut werden soll, sofern er es für diese Aufgabe nicht bereits ausdrücklich festgelegt hat. Nicht stillschweigend den Default annehmen. Die getroffene Wahl in der Abschlussmeldung nennen.
-- Auswahl über das Argument der `build.bat`: `/apishared:main` baut gegen die öffentliche Release-Branch `main` (festgehaltener Commit in einem isolierten Worktree unter `.release-output/APIShared/main/<commit>/source`, bei Bedarf dort mit `/noinstall` gebaut; das installierte Spiel-APIShared und der Entwicklungs-Checkout bleiben unverändert). `/apishared:dev` baut gegen den lokalen Entwicklungs-Checkout `APIShared/` und dessen aktuell ausgecheckte Branch (normalerweise `dev/Serpens66`); dafür muss zuvor `APIShared/build.bat` für den aktuellen Stand gelaufen sein. Ohne Argument gilt `dev`, außer ein Release-Treiber hat das SDK bereits gepinnt. Skripte können dieselbe Wahl über `SHCDE_API_SHARED_BRANCH` treffen. Beispiel: `& '<Pfad>\build.bat' /nopause /apishared:main; exit $LASTEXITCODE`.
-- Andere Branches (`develop`, fremde dev-Branches) werden vom Treiber nicht unterstützt; dafür nicht den Entwicklungs-Checkout umschalten, sondern beim Nutzer nachfragen. Gemeinsame Logik: `Shared/Tools/ApiSharedRepository/Select-ApiSharedBranch.ps1`/`.cmd`; neue Verbraucher-`build.bat` rufen sie unmittelbar vor `Test-ConsumerPackage.ps1` mit `%*` auf.
+- Ausdrückliche Nutzerwünsche bestimmen Quellstand (auch uncommittierter Arbeitsstand), Branch und SDK. Es gibt keine allgemeine Pflicht, vor einem Build zu committen, eine bestimmte Branch zu wählen oder ausschließlich deren letzten Commit zu bauen.
+- Die vorhandenen Branchmenüs, Commit-Worktrees und zugehörigen SDK-Auswahlen in `build.bat` sind Standardabläufe für Aufrufe ohne abweichenden Nutzerauftrag. Sie sind keine Einschränkung ausdrücklich gewünschter Arbeitsstand- oder SDK-Builds. Fehlt dafür ein expliziter Treiberweg, ihn gezielt ergänzen; keine interne Release-Pinningvariable als versteckte Umgehung verwenden.
+- Ohne abweichenden Auftrag bleiben vorhandene Release-Pins, Installationsvarianten und Bereinigungsgrenzen der Treiber erhalten. Ein gewählter Buildstand autorisiert weder Commits noch Branchwechsel, Stash, Reset oder eine Veröffentlichung.
+- Unverändert verlangte SDKs und installierte Abhängigkeiten vor/nach dem Build prüfen und weder neu bauen noch ersetzen. Prüfungen sind der empfohlene Standard; technische Installationsfehler sind vom gewählten Quellstand unabhängig.
 
 ## CRLF
 
@@ -24,6 +47,14 @@
 - Nie Git-/MSYS-Perl oder shellübergreifend gequotete Aufrufe wie `perl -pi -e 's/\r?\n/\r\n/g'` verwenden (fehlerhafte Argumentübergabe kann normale `n`-Zeichen beschädigen).
 - In .NET/PowerShell `"\r\n"` nie als Ersatzzeichenfolge an `Regex.Replace` übergeben (PowerShell schreibt sonst die vier sichtbaren Zeichen `\r\n`). Zeilenumbrüche nur über `[Environment]::NewLine`, ``"`r`n"`` oder `[char]13`/`[char]10` bilden und danach prüfen, dass keine wörtlichen `\r\n`-Sequenzen zurückbleiben.
 - CRLF nur mit einer eng begrenzten .NET-Dateioperation mit expliziten Zielpfaden herstellen: erwarteten Text im Speicher bilden, schreiben, ordinal vergleichen; danach je Datei CRLF-Anzahl, verbleibende nackte LF und repräsentativen Inhalt kontrollieren.
+
+## Entwicklungsdiagnose (DEVDIAG)
+
+- Zweck: Entwicklungsdiagnosen bleiben im Quellbaum und sind ausschließlich im eigenen Diagnose-Build enthalten; normale Builds einschließlich `main` schließen ihre Arbeit beim Kompilieren aus. Messpunkte über `Shared.DevDiag` (`Shared/Runtime/Diagnostics/DevDiag.cs`); größere Implementierungen in `*.DevDiag.cs` oder vollständig mit `#if SERP_DEVDIAG` abgrenzen, einschließlich Vorbereitungen, Feldern, Subscriptions und Diagnosekonfiguration. Laufzeitschalter ersetzen die Buildgrenze nicht. Dauerhafte Supportdiagnosen, Fehlerwarnungen und öffentliche APIShared-Beobachter sind davon getrennt und bleiben nach ihrem Vertrag verfügbar.
+- Alle `DevDiag`-Methoden sind `[Conditional("SERP_DEVDIAG")]`: ohne Symbol entfernt der Compiler Aufruf und Argumentauswertung; Call-Sites brauchen kein `#if`. Größere Diagnoseblöcke liegen in `src/**/*.DevDiag.cs` und werden nur mit Symbol kompiliert; funktionale Klassen binden sie über `partial void Diag…(…)`-Deklarationen an, deren Implementierung im `*.DevDiag.cs`-Teil liegt (ohne ihn entfernt der Compiler Aufrufe samt Argumenten). Nach dem Löschen der `*.DevDiag.cs`-Dateien auch die dann wirkungslosen `Diag…`-Deklarationen und -Aufrufe entfernen; die Inventur listet sie. Projekte mit Messpunkten verlinken `Shared/Runtime/Diagnostics/DevDiag.cs` ausdrücklich im csproj (wie `DebugLogHelper.cs`), damit auch csproj-lesende Quellprüfungen ihn sehen.
+- Aktivierung nur ausdrücklich per `build.bat /devdiag` (setzt `SHCDE_DEVDIAG=1` nur für diesen Build; eine geerbte Variable wird verworfen). Für `main` verboten. Ausgabe: gedrosselte `DEVDIAG perf:`-Zeilen mit ms-Zeitstempel, nach `DevDiag.Attach(log)`.
+- Sperren prüfen das erzeugte Artefakt: Eine DEVDIAG-Assembly trägt `AssemblyMetadata("SerpDevDiagnostics","true")` und `Shared.DevDiagRuntime`; `Release-Mod.ps1` und `Create-SteamModPack.ps1` brechen dann ab (`Assert-NoDevDiagnosticAssemblies`). Diagnosequellen sind auf allen Branches zulässig und blockieren einen normalen `main`-Build nicht. Inventur: `Shared/Tools/Validation/Test-DevDiagnostics.ps1 -ModDirectory <Mod>`; sie ist keine Entfernungsliste. `Test-DevDiagnosticsGate.ps1` prüft normale und Diagnose-Fixtures einschließlich Argumentauswertung, Partial-Aufrufen und der Binärsperre.
+- Wiederverwendbare Diagnosequellen dürfen nach einer Untersuchung erhalten bleiben; ihre Entfernung ist keine Releasevoraussetzung. Veraltete Diagnose bei Bedarf gezielt bereinigen. DEVDIAG-Artefakte nie als normalen Build oder Release weitergeben.
 
 ## Hashprüfungen in Treibern
 
@@ -37,7 +68,7 @@
 
 ## Steam-Modpack „Serps Mods“
 
-- `CreateSteamModPack.bat` ist der kanonische Einstieg. Ein neuer kompatibler Mod wird ausschließlich über den nächsten freien `STEAM_MOD_XX`-Eintrag im Kopfbereich aufgenommen.
+- `CreateSteamModPack.bat` ist der kanonische Einstieg. Mit Ziel „APIShared“ oder „Beide“ legt er ein fehlendes APIShared-Release nach Bestätigung aus dem gepinnten öffentlichen `main` an; andere Branches werden nie veröffentlicht. Nach einem PR-Merge auf GitHub spult die Vorbereitung den sauberen lokalen Release-Branch per Fast-Forward nach. Ein neuer kompatibler Mod wird ausschließlich über die Liste `Mods` in `Shared/Tools/Steam/WorkshopConfiguration.ps1` aufgenommen.
 - Host-GUID `SerpsMods_Serp`, veröffentlichte Child-GUIDs und alle ausgelieferten relativen Pfade sind unveränderlich: nicht umbenennen, wiederverwenden oder stillschweigend entfernen.
 - Einmal ausgelieferte Pfade bleiben in jedem späteren Paket typgültig vorhanden: entfernte DLLs als gültige minimale No-op-Assembly mit gleichem Dateinamen und gleicher Plugin-GUID; JSON/XAML/strukturierte Dateien als formatspezifisch gültige neutrale Tombstones (keine leeren oder ungültigen Dateien).
 - Stillgelegte Mods bleiben in `serps-modpack.json` mit `State: Retired` und erwarteten Tombstone-Hashes. Echte Pfadentfernung erst nach erfolgreichem Update-/Löschtest des verwendeten Extenders.
@@ -46,3 +77,33 @@
 - Vor Einzel- und Packreleases ZIP-/Map-Hash, Provenance, GUID, Version, kompilierte Soft-Abhängigkeit und extrahierten Inhalt prüfen; ein Teilfehler ist kein erfolgreicher Packbuild.
 - Host-eigene Fehler mit ms-Zeitstempel und Fehlerkennung ins BepInEx-Log; Error-/Fatal-Meldungen enthaltener Mods zusätzlich in der begrenzten Host-Diagnoseansicht, ohne sie rekursiv erneut zu loggen.
 - Rückwärtskompatibilität modinterner Implementierungen ist nur für bereits als „SerpsMods“ auf Steam veröffentlichten Code nötig (APIShared: siehe [apishared.md](apishared.md)).
+
+## Short development paths
+
+New branch sources use `.work/b/<branch>/<number>`; full commits remain in build records.
+`build.bat /source:working /nopause /noinstall` builds an isolated copy of current
+tracked and untracked sources without committing or switching the checkout.
+`/noinstall` is optional and independent of this source selection. Automated
+`/nopause` calls without a source choice default to the working tree; calls without
+arguments retain the branch menu.
+Do not combine it with `/branch`. Every branch or working build removes its copy
+afterwards (about 5 GB, mostly tracked `_inspect` data); the `.build.json` record and
+local provenance stay beside it. Pass `/keepsource` only to inspect a copy, then remove it.
+The record hashes only files that differ from its commit (working overlays, adapter
+rewrites, untracked inputs); the commit identifies everything else.
+An APIShared `main`/`develop` SDK is built and fully tested once per input state and kept
+as the only SDK of that branch in `.work/c/apishared-<branch>` (a Git worktree of the
+APIShared repository). Consumer builds reuse it while `Assert-ApiBuildProof` still matches
+(sources, tests, tools, game/Extender references, MSBuild); any change rebuilds and retests
+it once. Consumer builds of the same SDK branch are serialized. The cache may be deleted
+at any time through `git -C APIShared worktree remove --force <path>`; the next build
+recreates it. Mod consumers can select a previously validated
+package explicitly with `/apishared:package` and `SHCDE_API_SHARED_DIR`; the package
+is verified, never rebuilt. Test and analysis work uses `.work/t` and `.work/a`.
+Historical evidence and published package paths retain their original locations.
+
+Native audits resolve the database through CURRENT.json and its database manifest.
+Branch builds pass SHCDE_NATIVE_BASELINE_ROOT for read-only access to local baseline
+artifacts; audit code must verify that source and shared metadata identify the same
+dataset. Missing databases use the documented RestoreDatabase command, never an
+older guessed filename. Generated audit buffers belong in .work/a.

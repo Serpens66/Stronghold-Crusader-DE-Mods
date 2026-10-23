@@ -141,18 +141,27 @@ namespace CastlePlanner
                 BlueprintBuildingIconCatalog
                     .CurrentCalibrationRevision);
             Save();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:144", () => $"Blueprint building alignment calibrated from Vanilla preview: " +
-                $"mapper={mapperName} ({mapperValue}), " +
-                $"skin={skin}, " +
-                $"worldSize={preview.Width:F4}x{preview.Height:F4}, " +
-                $"visualOffset=({preview.VisualOffsetX:F4}," +
-                $"{preview.VisualOffsetY:F4}), " +
-                $"fragments={preview.FragmentCount}, " +
-                $"groundTiles={preview.GroundTileCount}, " +
-                $"source={preview.Source}, " +
-                $"rotation={rotation}, " +
-                $"revision={BlueprintBuildingIconCatalog.CurrentCalibrationRevision}, " +
-                $"file={filePath}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticMapperName = @mapperName;
+                var diagnosticMapperValue = @mapperValue;
+                var diagnosticSkin = @skin;
+                var diagnosticPreview = @preview;
+                var diagnosticRotation = @rotation;
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:144", () => $"Blueprint building alignment calibrated from Vanilla preview: " +
+                    $"mapper={diagnosticMapperName} ({diagnosticMapperValue}), " +
+                    $"skin={diagnosticSkin}, " +
+                    $"worldSize={diagnosticPreview.Width:F4}x{diagnosticPreview.Height:F4}, " +
+                    $"visualOffset=({diagnosticPreview.VisualOffsetX:F4}," +
+                    $"{diagnosticPreview.VisualOffsetY:F4}), " +
+                    $"fragments={diagnosticPreview.FragmentCount}, " +
+                    $"groundTiles={diagnosticPreview.GroundTileCount}, " +
+                    $"source={diagnosticPreview.Source}, " +
+                    $"rotation={diagnosticRotation}, " +
+                    $"revision={BlueprintBuildingIconCatalog.CurrentCalibrationRevision}, " +
+                    $"file={filePath}.");
+            }
             return true;
         }
 
@@ -508,9 +517,15 @@ namespace CastlePlanner
                     IsUsableMeasurement);
                 int alignedCount = measurements.Values.Count(
                     HasUsableGroundOffset);
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:513", () => $"Loaded {measurements.Count} Blueprint building-size " +
-                    $"calibrations ({usableCount} usable sizes, " +
-                    $"{alignedCount} ground-aligned) from {filePath}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticUsableCount = @usableCount;
+                    var diagnosticAlignedCount = @alignedCount;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintBuildingSizeCalibration.cs:513", () => $"Loaded {measurements.Count} Blueprint building-size " +
+                        $"calibrations ({diagnosticUsableCount} usable sizes, " +
+                        $"{diagnosticAlignedCount} ground-aligned) from {filePath}.");
+                }
             }
             catch (Exception ex)
             {

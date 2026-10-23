@@ -1,0 +1,5 @@
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: Diagnostic runtime and CRLF checks.
+PASS: General economy, removal and passive integration boundaries.
+PASS: unchanged installed Bugfix 1.0.192 reference and explicit protection coverage gap.

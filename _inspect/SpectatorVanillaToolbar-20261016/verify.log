@@ -1,0 +1,34 @@
+PASS: 76 action policy checks (amounts, overflow, exactly once, sessions, force isolation).
+PASS: compact layout structure, all eight slots, 1/4/8-slot row geometry, inline action and zero default.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+PASS: 12 production input adapter checks (focus, typing, paste, overflow, hiding and detach).
+Validated public member: System.Boolean CrusaderDE.MainViewModel::viewModelLoaded
+Validated public member: Noesis.ImageSource CrusaderDE.MainViewModel::getAIFace(System.Int32,System.Boolean)
+Validated public member: System.Void CrusaderDE.MainViewModel::SetNoesisKeyboardState(System.Boolean)
+Validated public member: System.Boolean FatControler::get_NoesisHasKeyboard()
+Validated public member: System.Void FatControler::SetNoesisKeyboardState(System.Boolean)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(System.String)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(System.String,System.Int32)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(Enums/eTextSections,Enums/eTextValues)
+Validated public member: System.String CrusaderDE.Translate::lookUpText(Enums/eTextSections,System.Int32)
+Validated public member: System.String Platform_Multiplayer::getSkirmishName(System.Int32,System.Boolean)
+Validated public member: System.String OnScreenText::getComputerName(System.Int32,System.Int32)
+Validated public member: System.Void CrusaderDE.MainViewModel::setUpInbuilding(System.Int32,System.Int32)
+Validated public member: System.Void CrusaderDE.MainViewModel::InBuildingGameAction()
+Validated private static object EngineInterface.threadLock (encapsulated reflection).
+PASS: Noesis input, paste rollback and focus contracts.
+Validated Extender API: System.Void SHCDESE.API.GamePlayerManagerAPI::AddIncomingGood(System.Int32,SHCDESE.Interop.eGoods,System.Int32)
+Validated Extender API: System.Boolean SHCDESE.API.GamePlayerManagerAPI::AddPlayerGold(System.Int32,System.Int32)
+Validated Extender API: System.Int32 SHCDESE.API.GamePlayerManagerAPI::GetPlayerGold(System.Int32)
+Validated Extender API: System.Boolean SHCDESE.API.GamePlayerManagerAPI::TryGetPlayerResourcesById(System.Int32,SHCDESE.Interop.GamePlayerResources*&)
+Validated Extender API: System.Void SHCDESE.API.GamePlayerManagerAPI::SetLocalPlayerExtremePowersEnabled(System.Boolean)
+Validated Extender API: System.Boolean SHCDESE.API.GamePlayerManagerAPI::IsLocalPlayerExtremePowersEnabled()
+Validated Extender API: System.Int32 SHCDESE.API.GamePlayerManagerAPI::GetLordUnitId(System.Int32)
+Validated Extender API: System.Int32 SHCDESE.API.GamePlayerManagerAPI::GetLordUnitGlobalId(System.Int32)
+PASS: installed game visibility, Extender APIs, events and all Vanilla goods-button IDs.
+PASS: full 587-byte native order function decodes; defend/attack acceptance and attack preparation calls match.
+PASS: complete power/gate/bridge instruction fixtures and effect/coupling call targets.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+PASS: 10 production optional-adapter checks (absence, tuning, replacement, explicit AI, once, rejection, unavailable).
+SpectatorEditorBuildTest prebuild checks passed.

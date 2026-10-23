@@ -1,0 +1,2 @@
+PASS: real nested MSBuild SDK selection, explicit/environment/default precedence, matching compiler references and strict release proof.
+PASS: published SDK reuse, retained provenance, runtime changes, mode/path conflicts and complete file hashes.

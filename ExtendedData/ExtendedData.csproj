@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>ExtendedData</RootNamespace>
     <AssemblyName>ExtendedData</AssemblyName>
-    <AssemblyVersion>1.0.12.0</AssemblyVersion>
-    <FileVersion>1.0.12.0</FileVersion>
+    <AssemblyVersion>1.0.18.0</AssemblyVersion>
+    <FileVersion>1.0.18.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>annotations</Nullable>
@@ -43,6 +43,7 @@
     <Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared.Content"><HintPath>$(ApiSharedDir)\APIShared.Content.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
@@ -65,13 +66,18 @@
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs"><Link>Shared\Runtime\UI\CoopTrailSetupPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Workshop\WorkshopContentPaths.cs"><Link>Shared\Runtime\Workshop\WorkshopContentPaths.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs"><Link>Shared\Runtime\Workshop\WorkshopUploadStaging.cs</Link></Compile>
     <Compile Include="src\ExtendedDataPlugin.cs" />
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\ExtendedDataSettingsViewModel.cs" />
+    <Compile Include="src\ExtendedDataFeatureActivation.cs" />
     <Compile Include="src\TrailModSelectionItem.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
+    <Compile Include="src\ExtendedDataRuntime.CoopAiStart.cs" />
+    <Compile Include="..\Shared\Runtime\Gameplay\CoopAiSelectionRules.cs"><Link>Shared\Runtime\Gameplay\CoopAiSelectionRules.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\CoopAiStartPlanFactory.cs"><Link>Shared\Adapters\APIShared\CoopAiStartPlanFactory.cs</Link></Compile>
     <Compile Include="src\ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="src\ExtendedDataOriginRegistration.cs" />
     <Compile Include="src\ExtendedDataModDataApi.cs" />
@@ -80,6 +86,7 @@
     <Compile Include="src\LordDataSyncCoordinator.cs" />
     <Compile Include="src\LordDataSyncDiagnostics.cs" />
     <Compile Include="src\TrailLordPackageRuntime.cs" />
+    <Compile Include="src\TrailLordRequirementSource.cs" />
     <Compile Include="src\TrailLordSourceSelector.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\BuiltInCustomizeOriginPacket.cs" />
@@ -88,9 +95,13 @@
     <Compile Include="src\BugfixesAndQoLTrailCustomizationBridge.cs" />
     <Compile Include="src\MissionPresetLifecycleState.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
+    <Compile Include="src\TrailModCompatibilityInfo.cs" />
+    <Compile Include="src\TrailSettingsSourceState.cs" />
+    <Compile Include="src\CoopSettingsDraftState.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\EditorModSettingsSaveOptionsViewModel.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
+    <Compile Include="src\MissionAssetException.cs" />
     <Compile Include="src\CoopTrailPackageExporter.cs" />
     <Compile Include="src\ResolvedMission.cs" />
     <Compile Include="src\LordUpload\CustomLordCompatibilityProfile.cs" />

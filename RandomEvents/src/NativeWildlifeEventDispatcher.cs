@@ -468,7 +468,8 @@ namespace RandomEvents
                 actionPointHandler = FilterActionPoint;
                 installedDetour.Apply();
                 actionPointDetour = installedDetour;
-                LogDebug($"Native minimap action-point target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Native minimap action-point target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
             }
             catch
             {

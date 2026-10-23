@@ -23,11 +23,43 @@ namespace Shared
         private static bool isAllowed => gate?.IsAllowed ?? false;
         private static bool initialized;
         private static bool routineLoggingEnabled = true;
+        // Feature decisions only change with the snapshot. Each slot packs (generation << 1) | allowed;
+        // generation 0 never matches, so an untouched slot is always recomputed.
+        private static int featureGeneration = 1;
+        private static readonly int[] featureDecisionCache = new int[FeatureCacheSize];
+        private const int FeatureCacheSize = 32;
         internal static event Action<bool> StateChanged;
 
         internal static bool IsAllowed => isAllowed;
         internal static GameModeSnapshot Snapshot => snapshot;
         internal static bool IsEnabled(bool configuredEnabled) => configuredEnabled && IsAllowed;
+
+        /// <summary>
+        /// Same decision as GameplayFeatureModePolicy.IsAllowed(modGuid, featureId, Snapshot), cached until
+        /// the next mode update. Invalid identities are never cached, so their health report is unchanged.
+        /// </summary>
+        internal static bool IsFeatureAllowed(string modGuid, GameplayFeatureId featureId)
+        {
+            // Keyed by featureId only: this source is linked per assembly and every assembly passes its own
+            // single modGuid, so one cache never mixes decisions of different mods.
+            int index = (int)featureId;
+            int generation = System.Threading.Volatile.Read(ref featureGeneration);
+            if (index >= 0 && index < FeatureCacheSize)
+            {
+                int cached = System.Threading.Volatile.Read(ref featureDecisionCache[index]);
+                if ((cached >> 1) == generation)
+                    return (cached & 1) != 0;
+            }
+
+            bool allowed = GameplayFeatureModePolicy.IsAllowed(modGuid, featureId, snapshot);
+            if (index >= 0 && index < FeatureCacheSize && GameplayFeatureModePolicy.IsKnownIdentity(modGuid, featureId))
+                System.Threading.Volatile.Write(ref featureDecisionCache[index], (generation << 1) | (allowed ? 1 : 0));
+            return allowed;
+        }
+
+        // Called after every gate.Update so a reader that sees the new generation also sees the new snapshot.
+        private static void InvalidateFeatureDecisions() =>
+            System.Threading.Interlocked.Increment(ref featureGeneration);
 
         internal static void Initialize(
             ManualLogSource logger,
@@ -65,6 +97,7 @@ namespace Shared
                 next.IsRealMultiplayer != snapshot.IsRealMultiplayer ||
                 next.HasConflictingCustomizedOrigin != snapshot.HasConflictingCustomizedOrigin;
             gate.Update(next);
+            InvalidateFeatureDecisions();
             if (changed)
                 LogTransition(source, previousAllowed != isAllowed);
             if (previousAllowed != isAllowed)
@@ -77,6 +110,7 @@ namespace Shared
                 snapshot.LaunchVariant != GameModeLaunchVariant.Standard;
             bool previousAllowed = isAllowed;
             gate.Update(default(GameModeSnapshot));
+            InvalidateFeatureDecisions();
             if (changed)
                 LogTransition(source, previousAllowed != isAllowed);
             if (previousAllowed)

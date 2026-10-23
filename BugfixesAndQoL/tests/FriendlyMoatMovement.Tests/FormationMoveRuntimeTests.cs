@@ -73,10 +73,10 @@ public class EditorDirector {
     public int Left;public bool RightDown,RightUp,StateRead,UpPending;
     public void clearMouseStateForEngine() {Left=0;StateRead=true;UpPending=false;}
 }
-namespace Shared { public static class DebugLogHelper { public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
+namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
 namespace APIShared.Internal {
     public class NativeTroopCommandModeReader {public int Mode=1;public int Read()=>Mode;}
-    public static class DebugLogHelper {public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string m) {} public static void LogWarningLimited(object l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(object l,string m) {}}
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string m) {} public static void LogWarningLimited(object l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(object l,string m) {}}
     public static class GroundMovePreviewEligibility {
         public static GroundMovePreviewRejection EvaluateCommandMode(int mode)=>mode==1?GroundMovePreviewRejection.None:GroundMovePreviewRejection.NonMoveCommandMode;
     }
@@ -122,6 +122,8 @@ namespace BugfixesAndQoL.UnitCommands {
         private Entry<int> densityConfig=new Entry<int>(2);
         private Entry<RangedPlacementMode> placementModeConfig=new Entry<RangedPlacementMode>(RangedPlacementMode.Off);
         private bool Enabled=true,initialized=true,startupConfirmed;private int lastWheelFrame=-1;
+        // Local gesture/preview gate; the fixture's FailOpen closes it together with Enabled.
+        private bool LocalInputEnabled=>Enabled;
         private static SelectionIdentity[] selection;private static bool mapValid=true,shift;private static int button,selectionTribe=2;
         private int Originals,VanillaReleases,Dispatched;private int OriginalResult=1;private bool RejectPacket,RenderInsideOriginal;
         private FormationOrderPacket LastPacket;
@@ -134,6 +136,11 @@ namespace BugfixesAndQoL.UnitCommands {
         private void ResetTransientState() {drag=null;ClearPreview();}
         private void FailOpen(string stage,Exception error) {Enabled=false;ResetTransientState();throw new Exception(stage,error);}
         private void RequireMainThread(string context) {}
+        // Speech is an independent side effect in this movement fixture. Its
+        // production capture/frame/queue/error paths execute in FormationSpeech.Tests.
+        private sealed class FormationSpeechRequest {}
+        private FormationSpeechRequest CaptureSpeech(ActiveDrag state)=>null;
+        private void QueueSpeech(FormationSpeechRequest request) {}
         private void AgeReleaseConsumptionWatch() {}
         private void LogDebugNoThrow(string text) {} private void LogWarningNoThrow(string text) {}
         private void LogTargetRejection(APIShared.Internal.GroundMovePreviewRejection r,GroundTarget t) {}

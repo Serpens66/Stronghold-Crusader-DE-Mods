@@ -10,11 +10,15 @@ ExtendedData adds shared supplemental data for Custom Trails, Custom Lords, and 
 
 Trail authors can store host-managed settings of compatible mods per mission. ExtendedData also supports portable Coop Trail packages containing their missions and required maps, Lords, and AIV files.
 
+Active map, Trail and savegame mod settings are kept when restarting a mission, including the Trail author's fixed rules. Packaged Coop missions use their saved AI behaviour and castles even without BugfixesAndQoL; conflicting AI selections or missing synchronization are explained before the mission starts.
+
 A custom Coop Trail ends after its last included mission. Later mission slots are unavailable while that package is selected; select Vanilla Coop Trails to play the original missions again.
 
-Coop Trail export also resolves Extended Lords whose saved display name is empty. Lord and AIV files are taken from the same resolved author package, with AIV names and checksums checked together. If export fails, the dialog directs you to `BepInEx/LogOutput.log` for the affected mission and source details.
+Saving or exporting a Custom or Coop Trail again preserves its required Lord content and companion files. If extra Lord data cannot be verified, you can confirm an export using only the saved AI behaviour, castles and portrait; unverified extras such as Fixes preferences and required scripts are then omitted.
 
-With BugfixesAndQoL installed and **Show extra map, save and Trail controls** enabled, the Import Trail dialog can delete local Coop Trail packages after confirmation. ExtendedData supplies the source folder and Workshop subscription status so subscribed Trails remain protected. Deletion creates no backup.
+Missing or conflicting mission files are reported with details in `BepInEx/LogOutput.log`. All players should use the same current version of ExtendedData for new Coop packages.
+
+With BugfixesAndQoL installed and **Extended map, save and trail dialogs** enabled, the Import Trail dialog can delete local Coop Trail packages after confirmation. Subscribed Workshop Trails remain protected; deletion creates no backup.
 
 - [Mod settings in Maps and Custom Trails](../Guides/ExtendedData/Custom%20Trail%20Mod%20Settings.md#english)
 - [ExtendedData compatibility for mod authors](../Guides/ExtendedData/Mod%20Compatibilty%20ExtendedData.md#english)
@@ -23,12 +27,14 @@ With BugfixesAndQoL installed and **Show extra map, save and Trail controls** en
 
 ExtendedData supports Script Extender content in Custom Lord packages. Mods can also read additional static data for one AIC from GUID-separated namespaces in a matching `name.modlord.json` file.
 
+Selected Lords bring their associated Fixes preferences into the match, including inherited preferences. Conflicting requirements are reported before starting, and changing the selection restores the previous preferences.
+
 - [Custom Lord packages with Script Extender](../Guides/ExtendedData/CustomLordExtendedPackages.md#english)
 - [Mod-specific data for Custom Lord AICs](../Guides/ExtendedData/ModLordData.md#english)
 
 ### Map data
 
-Map authors can add a `modmap.json` file to the appended archive of a Script Extender map. Each mod reads only its own GUID namespace. The base map remains usable without ExtendedData; only the supplemental namespaced data is unavailable.
+Map authors can add a `modmap.json` file to the appended archive of a Script Extender map. Each mod reads only its own GUID namespace. The base map remains usable without ExtendedData. Mods can read supplemental namespaces through APIShared alone.
 
 - [Mod-specific data for maps](../Guides/ExtendedData/ModMapData.md#english)
 
@@ -36,11 +42,21 @@ The complete index is available under [ExtendedData guides](../Guides/ExtendedDa
 
 ### Mod settings in saved games
 
-Saved games retain the host settings of compatible mods. Loading normally restores those saved values. For customizable games, **Use current mod settings** in the Load Game dialog lets you use your currently active host settings instead. Personal settings remain your own. ExtendedData's own options are excluded from these gameplay-setting snapshots.
+APIShared provides **Use current mod settings** in the Load Game dialog, even when ExtendedData is absent or disabled. For customizable saves, the checkbox chooses between saved and currently active host settings supported by APIShared. Its last explicit choice is remembered across saves, games and full game restarts. Initially it is off, so saved settings are used.
+
+Where permitted, current settings can also be used if the saved mod settings cannot be read.
+
+Without a usable checkbox, automatic loads use current supported settings. Existing mission restrictions and fixed Trail creator rules remain in force. Forced states for old or restricted saves do not overwrite your remembered choice. Personal settings remain your own; ExtendedData's own options are excluded from these gameplay-setting snapshots.
+
+### Choose which features to use
+
+The host can separately enable map/Trail mod settings, custom Coop packages and extended Lord content. Personal editor/import/export tools and extended Workshop uploads have their own switches; saving author data does not automatically enable it in a match.
 
 ### Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.5.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.12.5 or newer**, including its `APIShared.Content.dll`. Subscribe to APIShared separately when using the Steam modpack.
+
+Map/Trail compatibility messages use APIShared's shared participant checks. A broken settings provider is reported without hiding other compatible mods. APIShared prepares and applies temporary settings snapshots and handles their cleanup. ExtendedData supplies content sources and coordinates the mission lifecycle.
 
 Shared services handle presets and game-mode classification. Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change. Validated Fixes preference property metadata is cached; preference values and snapshot checks are unchanged.
 
@@ -54,11 +70,15 @@ ExtendedData ergänzt Stronghold Crusader DE um gemeinsam nutzbare Zusatzdaten f
 
 Trail-Ersteller können hostverwaltete Einstellungen kompatibler Mods pro Mission speichern. ExtendedData unterstützt außerdem portable Koop-Trail-Pakete mit ihren Missionen und den benötigten Maps, Lords und AIV-Dateien.
 
+Beim Neustart einer Mission bleiben die aktiven Mod-Einstellungen aus Karte, Trail oder Spielstand sowie feste Vorgaben des Trail-Erstellers erhalten. Koop-Pakete verwenden ihr gespeichertes KI-Verhalten und ihre Burgen auch ohne BugfixesAndQoL; widersprüchliche KI-Auswahlen oder fehlende Synchronisierung werden vor dem Start erklärt.
+
 Ein benutzerdefinierter Koop-Trail endet nach seiner letzten enthaltenen Mission. Spätere Missionsplätze sind nicht verfügbar, solange dieses Paket ausgewählt ist. Wähle wieder die Vanilla-Koop-Trails, um die ursprünglichen Missionen zu spielen.
 
-Der Koop-Trail-Export löst Extended Lords auch bei leerem gespeichertem Anzeigenamen auf. Lord- und AIV-Dateien stammen aus demselben ermittelten Autorenpaket; bei AIVs werden Name und Prüfsumme gemeinsam geprüft. Schlägt der Export fehl, verweist der Dialog auf `BepInEx/LogOutput.log` mit Angaben zur betroffenen Mission und Quelle.
+Beim erneuten Speichern oder Exportieren eines Custom- oder Koop-Trails bleiben benötigte Lord-Inhalte und Begleitdateien erhalten. Lassen sich Lord-Zusatzdaten nicht prüfen, kannst du einen Export nur mit gespeichertem KI-Verhalten, Burgen und Porträt bestätigen; ungeprüfte Extras wie Fixes-Präferenzen und benötigte Skripte fehlen dann.
 
-Mit installiertem BugfixesAndQoL und aktivierter Option **Zusätzliche Karten-, Spielstand- und Trailbuttons anzeigen** lassen sich lokale Koop-Trail-Pakete nach Bestätigung im Trail-Importdialog löschen. ExtendedData liefert den Quellordner und den Workshop-Abonnementstatus, damit abonnierte Trails geschützt bleiben. Beim Löschen wird kein Backup erstellt.
+Fehlende oder widersprüchliche Missionsdateien werden mit Details in `BepInEx/LogOutput.log` gemeldet. Alle Spieler sollten für neue Koop-Pakete dieselbe aktuelle Version von ExtendedData verwenden.
+
+Mit installiertem BugfixesAndQoL und aktivierter Option **Erweiterte Karten-, Spielstand- und Trail-Dialoge** lassen sich lokale Koop-Trail-Pakete nach Bestätigung im Trail-Importdialog löschen. Abonnierte Workshop-Trails bleiben geschützt; beim Löschen wird kein Backup erstellt.
 
 - [Mod-Einstellungen in Maps und Custom Trails](../Guides/ExtendedData/Custom%20Trail%20Mod%20Settings.md#deutsch)
 - [ExtendedData-Kompatibilität für Modentwickler](../Guides/ExtendedData/Mod%20Compatibilty%20ExtendedData.md#deutsch)
@@ -67,12 +87,14 @@ Mit installiertem BugfixesAndQoL und aktivierter Option **Zusätzliche Karten-, 
 
 ExtendedData unterstützt Script-Extender-Inhalte in Custom-Lord-Paketen. Mods können außerdem zusätzliche statische Daten für eine einzelne AIC aus GUID-getrennten Bereichen einer passenden `name.modlord.json` lesen.
 
+Ausgewählte Lords bringen ihre zugehörigen Fixes-Präferenzen mit in die Partie, einschließlich geerbter Einstellungen. Widersprüchliche Vorgaben werden vor dem Start gemeldet; ein Wechsel der Auswahl stellt die vorherigen Präferenzen wieder her.
+
 - [Custom-Lord-Pakete mit Script Extender](../Guides/ExtendedData/CustomLordExtendedPackages.md#deutsch)
 - [Mod-spezifische Daten für Custom-Lord-AICs](../Guides/ExtendedData/ModLordData.md#deutsch)
 
 ### Map-Daten
 
-Map-Ersteller können eine `modmap.json` in das angehängte Archiv einer Script-Extender-Map aufnehmen. Jeder Mod liest ausschließlich seinen eigenen GUID-Bereich. Die zugrunde liegende Map bleibt ohne ExtendedData verwendbar; lediglich die zusätzlichen Namensraumdaten stehen dann nicht zur Verfügung.
+Map-Ersteller können eine `modmap.json` in das angehängte Archiv einer Script-Extender-Map aufnehmen. Jeder Mod liest ausschließlich seinen eigenen GUID-Bereich. Die zugrunde liegende Map bleibt ohne ExtendedData verwendbar. Mods können zusätzliche Namensraumdaten auch über APIShared allein lesen.
 
 - [Mod-spezifische Daten für Maps](../Guides/ExtendedData/ModMapData.md#deutsch)
 
@@ -80,10 +102,20 @@ Das vollständige Inhaltsverzeichnis befindet sich unter [ExtendedData Guides](.
 
 ### Mod-Einstellungen in Spielständen
 
-Spielstände behalten die Host-Einstellungen kompatibler Mods. Beim Laden werden normalerweise diese gespeicherten Werte wiederhergestellt. Bei anpassbaren Spielen kannst du im Dialog zum Laden mit **Aktuelle Modsettings verwenden** stattdessen deine derzeit aktiven Host-Einstellungen übernehmen. Persönliche Einstellungen bleiben deine eigenen. ExtendedDatas eigene Optionen sind von diesen Spielsettings-Snapshots ausgenommen.
+APIShared stellt die Checkbox **Aktuelle Modsettings verwenden** im Ladedialog bereit, auch wenn ExtendedData fehlt oder deaktiviert ist. Bei anpassbaren Spielständen wählst du damit zwischen gespeicherten und derzeit aktiven, von APIShared unterstützten Host-Einstellungen. Die letzte bewusste Auswahl bleibt über Spielstände, Partien und vollständige Spielneustarts hinweg erhalten. Anfangs ist die Checkbox aus; dann gelten die gespeicherten Einstellungen.
+
+Soweit erlaubt, lassen sich aktuelle Einstellungen auch verwenden, wenn die gespeicherten Mod-Einstellungen nicht lesbar sind.
+
+Fehlt eine nutzbare Checkbox, werden beim automatischen Laden die aktuellen unterstützten Einstellungen verwendet. Bestehende Missionssperren und feste Trail-Autorenregeln bleiben erhalten. Erzwungene Zustände bei alten oder gesperrten Spielständen überschreiben deine gemerkte Auswahl nicht. Persönliche Einstellungen bleiben deine eigenen; ExtendedDatas eigene Optionen sind von diesen Spielsettings-Snapshots ausgenommen.
+
+### Funktionen einzeln auswählen
+
+Der Host kann Mod-Einstellungen aus Karten und Trails, eigene Koop-Pakete und erweiterte Lord-Inhalte getrennt aktivieren. Persönliche Editor-, Import- und Exportwerkzeuge sowie erweiterte Workshop-Uploads haben eigene Schalter; gespeicherte Autorenangaben werden dadurch nicht automatisch in einer Partie angewendet.
 
 ### Kompatibilität und Diagnosen
 
-Diese Mod benötigt den Script Extender und **APIShared 0.5.0 oder neuer**. APIShared muss beim Steam-Modpack separat abonniert werden.
+Diese Mod benötigt den Script Extender und **APIShared 0.12.5 oder neuer**, einschließlich `APIShared.Content.dll`. APIShared muss beim Steam-Modpack separat abonniert werden.
+
+Kompatibilitätsmeldungen für Maps und Trails verwenden APIShareds gemeinsame Teilnehmerprüfung. Ein fehlerhafter Settings-Anbieter wird gemeldet, ohne andere kompatible Mods auszublenden. APIShared bereitet temporäre Settings-Snapshots vor, wendet sie an und bereinigt sie. ExtendedData liefert die Inhaltsquellen und koordiniert den Missionslifecycle.
 
 Gemeinsame Dienste übernehmen Presets und die Erkennung des Spielmodus. Routineausgaben erscheinen auf Debug-Ebene. Wiederholte Diagnosen werden begrenzt, um das Log zu entlasten; Warnungen und Fehler bleiben verfügbar. Dafür ist keine Spieleinstellung nötig. Geprüfte Metadaten der Fixes-Einstellungen werden zwischengespeichert; Einstellungswerte und Snapshot-Prüfungen bleiben unverändert.

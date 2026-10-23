@@ -1,0 +1,12 @@
+[Message:   BepInEx] BepInEx fixture - Stronghold Crusader Definitive Edition
+[Info:Probe] [DBP:FINISH] synthetic fixture
+[Info:Probe] [DBP:CHAIN_COPY_COMPILED] synthetic fixture
+[Info:Probe] [DBP:CHAIN_HOOK_INSTALLED] synthetic fixture
+[Info:Probe] [DBP:CHAIN_ENTER] synthetic fixture
+[Info:Probe] [DBP:SNAPSHOT] synthetic fixture
+[Info:Probe] [DBP:BEFORE_EXTENDER] synthetic fixture
+[Info:Probe] [DBP:SE_HOOK_INSTALLED] synthetic fixture
+[Info:Probe] [DBP:COMPATIBILITY_ENTER] synthetic fixture
+[Info:Probe] [DBP:CHAIN_COMPLETE] snapshot=True extender=True checks=1
+[Info:Probe] [DBP:POST_CLEANUP_RENDER] synthetic fixture
+[Message:   BepInEx] BepInEx fixture - Stronghold Crusader Definitive Edition

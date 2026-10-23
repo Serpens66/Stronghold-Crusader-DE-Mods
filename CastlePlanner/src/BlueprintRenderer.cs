@@ -227,9 +227,15 @@ namespace CastlePlanner
                 }
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:230", () => $"Blueprint first visible output prepared: tiles={renderedTiles}, " +
-                $"icons={renderedIcons}, depthReady={CompletedDepthCaptureCount}/" +
-                $"{RequestedDepthCaptureCount}, elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticRenderedTiles = @renderedTiles;
+                var diagnosticRenderedIcons = @renderedIcons;
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:230", () => $"Blueprint first visible output prepared: tiles={diagnosticRenderedTiles}, " +
+                    $"icons={diagnosticRenderedIcons}, depthReady={CompletedDepthCaptureCount}/" +
+                    $"{RequestedDepthCaptureCount}, elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
+            }
             LogTerrainProjectionFailuresIfPending("initial render");
             LogProgressiveCompletionIfReady();
 
@@ -400,9 +406,10 @@ namespace CastlePlanner
             if (progressiveCompletionLogged || progressiveLoadTimer == null || IsDepthLoading)
                 return;
             progressiveCompletionLogged = true;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:405", () => $"Blueprint progressive rendering complete: depthCaptures=" +
-                $"{CompletedDepthCaptureCount}/{RequestedDepthCaptureCount}, " +
-                $"elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:405", () => $"Blueprint progressive rendering complete: depthCaptures=" +
+                    $"{CompletedDepthCaptureCount}/{RequestedDepthCaptureCount}, " +
+                    $"elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
         }
 
         private bool TryCreateDepthIcon(
@@ -887,10 +894,18 @@ namespace CastlePlanner
                 Object.DontDestroyOnLoad(texture);
                 Object.DontDestroyOnLoad(sprite);
                 helpImageSprites.Add(cacheKey, sprite);
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:903", () => $"Loaded bundled directional Drawbridge Blueprint: " +
-                    $"file='{fileName}', size={texture.width}x{texture.height}, " +
-                    $"pivotPixels={pivotPixelsFromBottom:F1}, " +
-                    $"path={fullPath}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticFileName = @fileName;
+                    var diagnosticTexture = @texture;
+                    var diagnosticPivotPixelsFromBottom = @pivotPixelsFromBottom;
+                    var diagnosticFullPath = @fullPath;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:903", () => $"Loaded bundled directional Drawbridge Blueprint: " +
+                        $"file='{diagnosticFileName}', size={diagnosticTexture.width}x{diagnosticTexture.height}, " +
+                        $"pivotPixels={diagnosticPivotPixelsFromBottom:F1}, " +
+                        $"path={diagnosticFullPath}.");
+                }
                 return true;
             }
             catch (Exception ex)
@@ -1153,9 +1168,17 @@ namespace CastlePlanner
                 Object.DontDestroyOnLoad(texture);
                 Object.DontDestroyOnLoad(sprite);
                 helpImageSprites.Add(fileName, sprite);
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1181", () => $"Loaded clean Vanilla help image for Blueprint: " +
-                    $"file='{fileName}', source={texture.width}x{texture.height}, " +
-                    $"alphaBounds={alphaBounds}, cleanup={cleanup}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticFileNameValue = @fileName;
+                    var diagnosticTextureValue = @texture;
+                    var diagnosticAlphaBounds = @alphaBounds;
+                    var diagnosticCleanup = @cleanup;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1181", () => $"Loaded clean Vanilla help image for Blueprint: " +
+                        $"file='{diagnosticFileNameValue}', source={diagnosticTextureValue.width}x{diagnosticTextureValue.height}, " +
+                        $"alphaBounds={diagnosticAlphaBounds}, cleanup={diagnosticCleanup}.");
+                }
                 return true;
             }
             catch (Exception ex)

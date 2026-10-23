@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <OutputPath>bin\</OutputPath>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
+    <Compile Include="..\..\Shared\Runtime\Gameplay\OwnedValueOverrides.cs"><Link>OwnedValueOverrides.cs</Link></Compile>
+    <Compile Include="..\..\UnitCosts\src\UnitCostOverrides.cs"><Link>UnitCostOverrides.cs</Link></Compile>
+    <Compile Include="..\..\ExtraFeatures\src\MarketPriceOverrides.cs"><Link>MarketPriceOverrides.cs</Link></Compile>
+    <Compile Include="..\..\ExtraFeatures\src\MarketGoodPriceDefinition.cs"><Link>MarketGoodPriceDefinition.cs</Link></Compile>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

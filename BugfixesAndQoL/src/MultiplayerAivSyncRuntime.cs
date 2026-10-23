@@ -136,6 +136,9 @@ namespace BugfixesAndQoL
                 loadMapHook = installedLoadMap;
                 updateHook = installedUpdate;
                 initialized = true;
+                // Coop start previews ask whether the host start transfers the complete candidate lists.
+                CoopCustomLordSelectionFeature.HostStartSynchronizesCandidates =
+                    platform => IsFeatureActive() && IsEligibleLobby(platform);
             }
             catch
             {
@@ -148,15 +151,16 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Bugfixes and QoL multiplayer AIV sync initialized: packetId={packetHook.GetPacketId()}, " +
-                $"protocol={MultiplayerAivSyncProtocol.ProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Bugfixes and QoL multiplayer AIV sync initialized: packetId={packetHook.GetPacketId()}, " +
+                    $"protocol={MultiplayerAivSyncProtocol.ProtocolVersion}.");
         }
 
         private void HostStartGameHook(Platform_Multiplayer self)
         {
-            if (FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame &&
+            if (IsFeatureActive() && FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame &&
                 self?.activeLobby?.isHost == true)
             {
                 try
@@ -230,9 +234,10 @@ namespace BugfixesAndQoL
             sourceFingerprint = BuildSelectionFingerprint(frontend, platform.activeLobby);
             transferInProgress = expectedAcks.Count > 0;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:233", $"Bugfixes and QoL AIV sync generation prepared: generation={generation}, lobby={manifest.LobbyId}, " +
-                $"slots={manifest.Slots.Count}, rawBytes={encoded.Length}, compressedBytes={compressed.Length}, " +
-                $"chunks={chunks.Count}, peers={expectedAcks.Count}, hash={hash}, candidates={DescribeManifest(manifest)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:233", $"Bugfixes and QoL AIV sync generation prepared: generation={generation}, lobby={manifest.LobbyId}, " +
+                    $"slots={manifest.Slots.Count}, rawBytes={encoded.Length}, compressedBytes={compressed.Length}, " +
+                    $"chunks={chunks.Count}, peers={expectedAcks.Count}, hash={hash}, candidates={DescribeManifest(manifest)}.");
 
             if (!transferInProgress)
             {
@@ -467,9 +472,10 @@ namespace BugfixesAndQoL
                 pendingClientOwner,
                 CreateResponse(MultiplayerAivSyncPacketKind.Ack, pendingClientBegin, string.Empty));
             SyncStatusText = SerpLocalization.Get("BugfixesAndQoL.AivSyncReady");
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:472", $"Bugfixes and QoL AIV sync accepted: generation={pendingClientBegin.Generation}, " +
-                $"lobby={pendingClientBegin.LobbyId}, slots={confirmedManifest.Slots.Count}, " +
-                $"hash={pendingClientBegin.ManifestHash}, candidates={DescribeManifest(confirmedManifest)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:472", $"Bugfixes and QoL AIV sync accepted: generation={pendingClientBegin.Generation}, " +
+                    $"lobby={pendingClientBegin.LobbyId}, slots={confirmedManifest.Slots.Count}, " +
+                    $"hash={pendingClientBegin.ManifestHash}, candidates={DescribeManifest(confirmedManifest)}.");
             ClearPendingClientManifest(clearConfirmed: false);
         }
 
@@ -544,14 +550,20 @@ namespace BugfixesAndQoL
         {
             try
             {
-                if (coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
+                if (IsFeatureActive() && coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
                     ValidateCustomCoopLobby(self?.activeLobby, null, false);
-                activeStartManifest = ResolveManifestForStart(coopTrailId);
+                MultiplayerAivManifest manifest = ResolveManifestForStart(coopTrailId);
                 int preparedSlots = CoopCustomLordSelectionFeature.BeginCoopStart(
-                    self?.activeLobby, coopTrailId);
+                    self?.activeLobby, coopTrailId, manifest);
+                // Coop extra candidates belong to the APIShared import plans, which import every candidate
+                // once at the AI upload. Only other starts import them right before the map load.
+                activeStartManifest = coopTrailId > 0 ? null : manifest;
                 if (coopTrailId > 0)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:557", $"Coop Trail AIV start snapshot prepared: trail={coopTrailId}, mission={coopMissionId}, " +
-                        $"selectedSlots={preparedSlots}, extraCandidateSlots={activeStartManifest?.Slots.Count ?? 0}.");
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:557", $"Coop Trail AIV start plans prepared: trail={coopTrailId}, mission={coopMissionId}, " +
+                        $"plannedSlots={preparedSlots}, extraCandidateSlots={manifest?.Slots.Count ?? 0}.");
+                    }
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
             }
             catch (Exception ex)
@@ -609,28 +621,30 @@ namespace BugfixesAndQoL
                 string encoded = GetVanillaAivData(lobby, playerId);
                 var transmitted = new FRONT_Multiplayer.MPAIVInfo();
                 transmitted.decode(encoded ?? string.Empty);
-                if (transmitted.lordType != member.GetLordType() ||
-                    (!transmitted.builtInLord &&
-                     (string.IsNullOrWhiteSpace(transmitted.lordName) ||
-                      transmitted.lordConfig == null || transmitted.builtIn ||
-                      transmitted.community || transmitted.historical)))
+                if (transmitted.lordType != member.GetLordType())
                     throw new InvalidOperationException($"Custom Coop Trail Lord data for player {playerId} is incomplete.");
-                if (!transmitted.builtIn || !transmitted.builtInLord)
-                {
-                    if (transmitted.aivs == null || transmitted.aivs.Count != 1 ||
-                        transmitted.aivs[0]?.data == null || transmitted.aivs[0].data.Length == 0)
-                        throw new InvalidOperationException($"Custom Coop Trail AIV for player {playerId} is missing or invalid.");
-                }
+                // The AIC and the castle source are independent: a standard Lord may combine a custom AIC
+                // with standard, community or historical castles.
+                string invalid = Shared.CoopAiSelectionRules.Classify(transmitted.lordType,
+                    transmitted.builtInLord, transmitted.lordConfig != null, transmitted.lordName,
+                    transmitted.builtIn, transmitted.community, transmitted.historical,
+                    transmitted.aivs?.Count ?? 0, out Shared.CoopAiCastleKind castle, out _);
+                if (invalid != null)
+                    throw new InvalidOperationException($"Custom Coop Trail Lord data for player {playerId} {invalid}.");
+                if (castle == Shared.CoopAiCastleKind.Explicit &&
+                    (transmitted.aivs.Count != 1 || transmitted.aivs[0]?.data == null ||
+                     transmitted.aivs[0].data.Length == 0))
+                    throw new InvalidOperationException($"Custom Coop Trail AIV for player {playerId} is missing or invalid.");
                 if (!compareHostCandidates)
                     continue;
                 FRONT_Multiplayer.MPAIVInfo local = frontend.AIVs[playerId - 1];
                 if (local == null || local.lordType != transmitted.lordType ||
                     local.builtInLord != transmitted.builtInLord)
                     throw new InvalidOperationException($"Custom Coop Trail Lord selection for player {playerId} changed.");
-                if (!transmitted.builtIn &&
+                if (castle == Shared.CoopAiCastleKind.Explicit &&
                     (local.aivs == null || local.aivs.Count == 0))
                     throw new InvalidOperationException($"Custom Coop Trail AIV selection for player {playerId} is missing.");
-                if (local.aivs != null && local.aivs.Count > 0 && !local.builtIn &&
+                if (castle == Shared.CoopAiCastleKind.Explicit && local.aivs.Count > 0 && !local.builtIn &&
                     !local.community && !local.historical)
                 {
                     if (local.aivs.Count > MultiplayerAivSyncProtocol.MaximumCandidatesPerLord ||
@@ -671,9 +685,10 @@ namespace BugfixesAndQoL
                         }
                     }
                 }
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:680", $"Bugfixes and QoL imported synchronized extra AIV candidates immediately before map load: " +
-                    $"lobby={activeStartManifest.LobbyId}, slots={activeStartManifest.Slots.Count}, " +
-                    $"candidates={DescribeManifest(activeStartManifest)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs:680", $"Bugfixes and QoL imported synchronized extra AIV candidates immediately before map load: " +
+                        $"lobby={activeStartManifest.LobbyId}, slots={activeStartManifest.Slots.Count}, " +
+                        $"candidates={DescribeManifest(activeStartManifest)}.");
             }
             return loadMapTrampoline(mapName, multiplayerSave);
         }
@@ -859,9 +874,7 @@ namespace BugfixesAndQoL
             };
 
         private bool IsFeatureActive() =>
-            settings.EnableMod &&
-            (settings.EnableCustomLordListEnhancements ||
-             FRONT_Multiplayer.coopGame);
+            settings.EnableMod && settings.EnableCustomLordListEnhancements;
 
         private static bool IsEligibleLobby(Platform_Multiplayer platform) =>
             platform?.activeLobby != null &&

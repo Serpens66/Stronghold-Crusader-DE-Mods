@@ -234,9 +234,13 @@
     <Compile Include="src\CastleRotationOptions.cs" />
     <Compile Include="src\CastleSpawnContentPolicy.cs" />
     <Compile Include="src\CoalescedSynchronizationContextQueue.cs" />
+    <Compile Include="src\SupplementalPrefabSpawner.cs" />
+    <Compile Include="src\SupplementalPlacementPolicy.cs" />
+    <Compile Include="..\AIVPlacement\AIVPlacement.Core\AivTerrainPlacementRules.cs" Link="SpawnPlan\AivTerrainPlacementRules.cs" />
     <Compile Include="src\DecorationVerificationPolicy.cs" />
     <Compile Include="src\ExtraFeaturesFlagBridge.cs" />
     <Compile Include="src\FreeCastleProtocol.cs" />
+    <Compile Include="src\FreeCastleIdentityReadiness.cs" />
     <Compile Include="src\FreeCastlePreviewRuntime.cs" />
     <Compile Include="src\MultiplayerLoadingWarningGate.cs" />
     <Compile Include="src\FixesKeepRotationCompatibility.cs" />
@@ -255,9 +259,13 @@
   <!-- Shared game/Extender libraries are supplied by the declared dependencies.
        Only our four private companion assemblies belong in this thin package. -->
   <Target Name="FilterThinPackageReferences" AfterTargets="ResolveReferences">
+    <PropertyGroup>
+      <_CastlePlannerOwnedReferenceNames>;@(Reference->WithMetadataValue('Private', 'true')->'%(Identity)');</_CastlePlannerOwnedReferenceNames>
+    </PropertyGroup>
     <ItemGroup>
+      <!-- Keep exactly the dependencies declared private by this project. -->
       <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
-        Condition="'%(ReferenceCopyLocalPaths.Filename)' != 'CastlePlanner.AIVPlacement.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'AIVPlacement.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'AIVParser.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'MapParser.Core'" />
+        Condition="!$([System.String]::Copy('$(_CastlePlannerOwnedReferenceNames)').Contains(';%(ReferenceCopyLocalPaths.Filename);'))" />
     </ItemGroup>
   </Target>
 

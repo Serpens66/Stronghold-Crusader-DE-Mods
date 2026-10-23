@@ -31,11 +31,18 @@ namespace BugfixesAndQoL.UnitCommands
             if (!startupConfirmed && initialized && HasValidMap())
             {
                 startupConfirmed = true;
-                LogDebugNoThrow("FORMATION_RUNTIME_AFTER_STARTUP_CLEANUP: persistent EngineInterface.run callback reached.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebugNoThrow("FORMATION_RUNTIME_AFTER_STARTUP_CLEANUP: persistent EngineInterface.run callback reached.");
+                }
             }
-            if (!Enabled)
+            if (!LocalInputEnabled)
             {
-                try { ResetTransientState(); }
+                try
+                {
+                    if (!Enabled) ResetTransientState();
+                    else AbortDrag("local-input-disabled");
+                }
                 catch (Exception ex) { FailOpen("disabled-reset", ex); }
                 return engineRunOriginal(mpFrameSkip);
             }
@@ -49,13 +56,15 @@ namespace BugfixesAndQoL.UnitCommands
                 if (director == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
-                inputState = CaptureMouseState(director);
-
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
+
+                // Five reflected reads per frame are only needed while a drag exists; nothing
+                // between the frame start and this point writes these director fields.
+                inputState = CaptureMouseState(director);
 
                 APIShared.Internal.GroundMovePreviewRejection modeRejection =
                     EvaluateCommandMode();
@@ -104,6 +113,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!TryCreatePacket(state, out FormationOrderPacket packet))
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
+                FormationSpeechRequest speechRequest = CaptureSpeech(state);
                 DispatchDisposition disposition = TryDispatch(packet, out string rejection);
                 if (disposition != DispatchDisposition.Accepted)
                 {
@@ -117,6 +127,7 @@ namespace BugfixesAndQoL.UnitCommands
                     mpFrameSkip,
                     packet,
                     inputState,
+                    speechRequest,
                     ref originalEntered);
             }
             catch (Exception exception)
@@ -134,6 +145,7 @@ namespace BugfixesAndQoL.UnitCommands
             bool mpFrameSkip,
             FormationOrderPacket packet,
             FormationMouseState originalState,
+            FormationSpeechRequest speechRequest,
             ref bool originalEntered)
         {
             if (director == null)
@@ -158,6 +170,7 @@ namespace BugfixesAndQoL.UnitCommands
                 releaseConsumptionWatch = new ReleaseConsumptionWatch(
                     packet.OperationId, state.TribeId, state.CommandButton, 2);
             }
+            QueueSpeech(speechRequest);
 
             try
             {
@@ -213,7 +226,7 @@ namespace BugfixesAndQoL.UnitCommands
             ActiveDrag state;
             lock (stateSync)
                 state = drag;
-            if (Enabled && state != null && state.Authorization.IsConfirmed)
+            if (LocalInputEnabled && state != null && state.Authorization.IsConfirmed)
                 self.AllowZoom = false;
             cameraUpdateOriginal(self);
             try

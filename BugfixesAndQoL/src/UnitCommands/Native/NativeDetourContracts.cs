@@ -10,6 +10,11 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
+        // The NativeX64 backend holds only its options, so this instance is equivalent to
+        // the one APIShared uses for its Assassin hooks: Indirect scheme, jumps not followed.
+        internal static readonly NativeDetourBackend CommandDetourBackend = new NativeDetourBackend(
+            new NativeDetourOptions { AllowedSchemes = DetourScheme.Indirect, FollowJumps = false });
+
         // NativeX64 Indirect needs six bytes rounded to complete instructions.
         // FBCB9319 full feature audit; inline-hook lengths are a separate contract.
         private static readonly Dictionary<int, string> nativeDetourPrefixes = new Dictionary<int, string> {
@@ -157,7 +162,7 @@ namespace BugfixesAndQoL.UnitCommands
             var request = new DetourRequest<T> {
                 Name = "UnitCommandPathAPI prepublication contract", TargetAddress = address,
                 Callback = callback, IntermediaryFactory = intermediary };
-            var candidate = APIShared.AssassinPathAPI.Backend.CreateDetour(in request) as NativeDetour<T>;
+            var candidate = CommandDetourBackend.CreateDetour(in request) as NativeDetour<T>;
             if (candidate == null) throw new InvalidOperationException("NativeX64 command backend unavailable.");
             using (candidate) ValidateCommandNativeDetour(candidate, address, count, false);
             if (!nativePublicationChecks.TryGetValue(transaction, out List<Action> checks))

@@ -144,7 +144,7 @@ namespace SerpsModsHost
         }
         internal Dictionary<string, object> ReadOwn()
         {
-            var watch = Stopwatch.StartNew();
+            var watch = diagnostics != null ? Stopwatch.StartNew() : null;
             ownReads++;
             object snapshot = Call("ReadOwnConfiguration");
             var values = new Dictionary<string, object>(Read<Dictionary<string, object>>(snapshot, "Values"), StringComparer.Ordinal);
@@ -158,7 +158,7 @@ namespace SerpsModsHost
         public Dictionary<string, object> ReadValues() => new Dictionary<string, object>(working, StringComparer.Ordinal);
         public void ValidateValues(Dictionary<string, object> values)
         {
-            var watch = Stopwatch.StartNew();
+            var watch = diagnostics != null ? Stopwatch.StartNew() : null;
             validations++;
             string[] errors = ((IEnumerable)Call("ValidateConfiguration", values)).Cast<object>()
                 .Select(item => Read<string>(item, "Key") + ": " + Read<string>(item, "Message")).ToArray();

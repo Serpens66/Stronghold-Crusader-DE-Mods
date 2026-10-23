@@ -267,7 +267,8 @@ namespace ExtraFeatures
             transformationPacketHook = packetHookCandidate;
             transformationPacketSubscription = packetSubscriptionCandidate;
             networkInitialized = true;
-            LogDebug($"Knight transformation synchronization registered: protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Knight transformation synchronization registered: protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void Initialize()
@@ -297,10 +298,13 @@ namespace ExtraFeatures
 
         public void RefreshButtonVisibility()
         {
+            // Any full refresh covers a pending coalesced UnitLimit refresh. Clearing the marker here
+            // also self-heals if the dispatcher ever dropped a queued callback.
+            System.Threading.Interlocked.Exchange(ref unitLimitRefreshQueued, 0);
             HUD_Troops troopPanel = null;
             TryGetHudTroopPanel(out troopPanel);
             RefreshButtonVisibility(troopPanel);
-            Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
+            APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
         }
 
         internal void RefreshButtonVisibility(HUD_Troops troopPanel)
@@ -323,13 +327,14 @@ namespace ExtraFeatures
 
                 int localPlayerId = GetSelectionPlayerId();
                 TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
-                if (HasSelectedOwnKnight(localPlayerId, selection))
+                FindSelectedOwnKnightOrSwordsman(localPlayerId, selection, out bool knight, out bool swordsman);
+                if (knight)
                 {
                     buttonViewModel.ShowDismount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN));
                     return;
                 }
 
-                if (HasSelectedOwnSwordsman(localPlayerId, selection))
+                if (swordsman)
                 {
                     buttonViewModel.ShowMount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT));
                     return;
@@ -599,32 +604,45 @@ namespace ExtraFeatures
                 longTooltip.Visibility = showLongTooltip ? Visibility.Visible : Visibility.Hidden;
         }
 
-        private bool HasSelectedOwnKnight(int localPlayerId, APIShared.LocalSelectionSnapshot selection)
-        {
-            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT, selection);
-        }
-
-        private bool HasSelectedOwnSwordsman(int localPlayerId, APIShared.LocalSelectionSnapshot selection)
-        {
-            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN, selection);
-        }
-
         private bool HasUnitLimitCapacity(int playerId, eChimps targetUnitType)
         {
             return !unitLimitBridge.TryGetCapacity(playerId, targetUnitType, out int count, out int limit) ||
                 count < limit;
         }
 
+        // UnitLimit notifies on every local recruit and death (mostly from the simulation thread),
+        // which in large battles means many notifications per frame. One queued refresh per Unity
+        // dispatch reaches the same final button state; later notifications before it runs are
+        // already covered by it. On the main thread the refresh stays inline as before.
+        private int unitLimitRefreshQueued;
+
         internal void OnUnitLimitStateChanged()
         {
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
+            if (Shared.UnityMainThreadDispatch.IsMainThread)
+            {
+                RefreshButtonVisibility();
+                return;
+            }
+            if (System.Threading.Interlocked.Exchange(ref unitLimitRefreshQueued, 1) != 0)
+                return;
+            if (!Shared.UnityMainThreadDispatch.TryEnqueue(RunQueuedUnitLimitRefresh))
+                System.Threading.Interlocked.Exchange(ref unitLimitRefreshQueued, 0);
         }
 
-        private bool HasSelectedOwnUnit(int localPlayerId, eChimps unitType,
-            APIShared.LocalSelectionSnapshot selection)
+        private void RunQueuedUnitLimitRefresh()
         {
+            RefreshButtonVisibility();
+        }
+
+        // Determines both button types in one pass: first the captured selection, then (only when
+        // that did not already decide the knight priority) one allocation-free pass over the
+        // native unit array that tests the cheap selection mark before anything else.
+        private void FindSelectedOwnKnightOrSwordsman(int localPlayerId,
+            APIShared.LocalSelectionSnapshot selection, out bool knight, out bool swordsman)
+        {
+            knight = swordsman = false;
             if (localPlayerId < 1 || localPlayerId > 8)
-                return false;
+                return;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
 
             for (int i = 0; selection != null && i < selection.Count; i++)
@@ -632,23 +650,20 @@ namespace ExtraFeatures
                 int unitId = selection[i].UnitId;
                 if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
                     continue;
-
-                if (IsOwnAliveUnit(unit, localPlayerId, unitType))
-                    return true;
+                if (IsOwnAliveUnit(unit, localPlayerId, eChimps.CHIMP_TYPE_KNIGHT)) { knight = true; return; }
+                if (IsOwnAliveUnit(unit, localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN)) swordsman = true;
             }
 
-            int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();
-            for (int i = 0; i < aliveUnits.Length; i++)
+            Span<GameUnit> units = unitApi.GetUnitsAsSpan();
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
-                int unitId = aliveUnits[i];
-                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
+                ref GameUnit candidate = ref units[spanIndex];
+                if ((ushort)candidate.r_UnitHover == 0 || !APIShared.UnitAccess.IsReallyAlive(in candidate) ||
+                    candidate.r_ControllableForPlayerId != localPlayerId)
                     continue;
-
-                if (IsSelected(unit) && IsOwnAliveUnit(unit, localPlayerId, unitType))
-                    return true;
+                if (candidate.r_UnitChimp == eChimps.CHIMP_TYPE_KNIGHT) { knight = true; return; }
+                if (candidate.r_UnitChimp == eChimps.CHIMP_TYPE_SWORDSMAN) swordsman = true;
             }
-
-            return false;
         }
 
         private static bool TryGetHudTroopPanel(out HUD_Troops troopPanel)
@@ -884,7 +899,8 @@ namespace ExtraFeatures
 
                 StartPendingBatch(packet.PlayerId, packet.Action, snapshots, localAction, "multiplayer-chore");
 
-                LogDebug($"Knight transformation started: action={packet.Action}, unitCount={snapshots.Count}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Knight transformation started: action={packet.Action}, unitCount={snapshots.Count}.");
             }
             catch (Exception ex)
             {
@@ -900,13 +916,28 @@ namespace ExtraFeatures
         {
             var snapshots = new List<UnitTransformSnapshot>(globalIds.Length);
             var seen = new HashSet<int>();
+            // One pass resolves every requested global ID (first = lowest game ID, as a per-ID scan would)
+            // instead of one full unit scan per selected unit.
+            var resolvedIds = new Dictionary<int, int>(globalIds.Length);
+            for (int index = 0; index < globalIds.Length; index++)
+                if (globalIds[index] > 0) resolvedIds[globalIds[index]] = -1;
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+            {
+                ref GameUnit candidate = ref units[spanIndex];
+                int candidateGlobalId = (int)candidate.r_GlobalId;
+                if (candidateGlobalId > 0 && resolvedIds.TryGetValue(candidateGlobalId, out int known) && known < 0 &&
+                    APIShared.UnitAccess.IsReallyAlive(in candidate))
+                    resolvedIds[candidateGlobalId] = spanIndex + 1;
+            }
+
             for (int index = 0; index < globalIds.Length; index++)
             {
                 int globalId = globalIds[index];
                 if (globalId <= 0 || !seen.Add(globalId))
                     continue;
 
-                int unitId = FindAliveUnitIdByGlobalId(globalId);
+                int unitId = resolvedIds[globalId];
                 if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     !IsOwnAliveUnit(unit, playerId, expectedType))
                 {
@@ -1132,9 +1163,10 @@ namespace ExtraFeatures
             if (transferSelection)
                 selectedReplacementUnitId = swordsmanUnitId;
 
-            LogDebug(
-                $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +
-                $"swordsmanUnitId={swordsmanUnitId}, linkedHorseConsumed={consumedHorse.IsActive}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +
+                    $"swordsmanUnitId={swordsmanUnitId}, linkedHorseConsumed={consumedHorse.IsActive}.");
             return true;
         }
 
@@ -1217,7 +1249,7 @@ namespace ExtraFeatures
 
         private bool TryResolveAliveUnitByGlobalId(UnitTransformSnapshot snapshot, eChimps expectedType, out int currentUnitId)
         {
-            currentUnitId = snapshot.GlobalId > 0 ? FindAliveUnitIdByGlobalId(snapshot.GlobalId) : snapshot.UnitId;
+            currentUnitId = snapshot.GlobalId > 0 ? FindAliveUnitIdByGlobalId(snapshot.GlobalId, snapshot.UnitId) : snapshot.UnitId;
             return ValidateAliveUnit(snapshot, expectedType, currentUnitId);
         }
 
@@ -1243,10 +1275,11 @@ namespace ExtraFeatures
         {
             if (!unitLimitBridge.ArmReservation(limitReservationId))
             {
-                LogDebug(
-                    $"Knight {label} stopped because its UnitLimit reservation is no longer valid: " +
-                    $"reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, " +
-                    $"reservationId={limitReservationId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Knight {label} stopped because its UnitLimit reservation is no longer valid: " +
+                        $"reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, " +
+                        $"reservationId={limitReservationId}.");
                 return -1;
             }
 
@@ -1710,21 +1743,26 @@ namespace ExtraFeatures
             return $"stableId={stableId}, stableGlobalId={stable->r_GlobalId}, total={stable->r_TotalHorses}, used={stable->r_UsedHorses}, recharge={stable->r_HorseRechargeTimer}, observedSlot={slot}, slots=[{stable->r_UsedHorse1UnitId}/{stable->r_UsedHorse1GlobalId},{stable->r_UsedHorse2UnitId}/{stable->r_UsedHorse2GlobalId},{stable->r_UsedHorse3UnitId}/{stable->r_UsedHorse3GlobalId},{stable->r_UsedHorse4UnitId}/{stable->r_UsedHorse4GlobalId}]";
         }
 
-        private static int FindAliveUnitIdByGlobalId(int globalId)
+        // Finds the really-alive unit carrying this native global ID. A unit keeps its game ID for its
+        // whole life and global IDs are unique per unit, so a still-matching hint is exactly the unit the
+        // scan would find; this path runs per tick for every pending transformation. Otherwise one
+        // allocation-free pass in ascending game-ID order (the order of GetAllReallyAliveUnits).
+        private static int FindAliveUnitIdByGlobalId(int globalId, int hintUnitId = 0)
         {
             if (globalId <= 0)
                 return -1;
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            int[] aliveUnitIds = APIShared.UnitAccess.GetAllReallyAliveUnits();
-            for (int i = 0; i < aliveUnitIds.Length; i++)
-            {
-                int unitId = aliveUnitIds[i];
-                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
-                    continue;
+            if (hintUnitId > 0 && APIShared.UnitAccess.TryGetById(unitApi, hintUnitId, out GameUnit* hinted, out _) &&
+                (int)hinted->r_GlobalId == globalId && APIShared.UnitAccess.IsReallyAlive(hinted))
+                return hintUnitId;
 
-                if ((int)unit->r_GlobalId == globalId)
-                    return unitId;
+            Span<GameUnit> units = unitApi.GetUnitsAsSpan();
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+            {
+                ref GameUnit candidate = ref units[spanIndex];
+                if ((int)candidate.r_GlobalId == globalId && APIShared.UnitAccess.IsReallyAlive(in candidate))
+                    return spanIndex + 1;
             }
 
             return -1;
@@ -1807,6 +1845,8 @@ namespace ExtraFeatures
 
         private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
+            // Diagnostics are a startup snapshot; skip the closure and dispatch when they are off.
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
         }

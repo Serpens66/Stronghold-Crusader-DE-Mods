@@ -17,6 +17,12 @@ internal static class ActivationTests {
   var logger = new ManualLogSource("Raid integration tests");
   var lines = new List<string>(); var levels = new List<LogLevel>();
   logger.LogEvent += (sender, args) => { lines.Add(args.Data.ToString()); levels.Add(args.Level); };
+  // Exercise the real opt-in contract; a Debug listener alone cannot enable diagnostics.
+  var config = new BepInEx.Configuration.ConfigFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+   "activation-fixture.cfg"), false) { SaveOnConfigSet = false };
+  config.Bind("Diagnostics", "Enabled", true);
+  Shared.DebugLogHelper.InitializeDiagnostics(config, logger);
+  lines.Clear(); levels.Clear();
   var runtime = new AiRaidRetargetFixRuntime(logger);
   var activation = (RaidActivationState)Field("activation").GetValue(runtime);
   Field("initialized").SetValue(runtime, true);
@@ -72,6 +78,20 @@ internal static class ActivationTests {
    "Retry confirmation and summary are Debug; validation warnings remain Warning");
   int bytes=System.Text.Encoding.UTF8.GetByteCount(String.Join("\r\n",lines));
   Check(bytes<100000,"Minimal logging below 100 KB for 34001 simulated operations");
+  lines.Clear(); levels.Clear();
+  runtime.OnSessionStarted(new Shared.GameplaySessionStartedContext { SessionId=7 });
+  const string uncertainKey = "uncertain:searchCompletionNotObserved:notEvaluatedWithoutFreshness";
+  const string uncertainMessage = "AI_RAID_UNCERTAIN: freshness=searchCompletionNotObserved; vanillaPreserved=true.";
+  for(int i=0;i<100;i++) repeated.Invoke(runtime,new object[] {uncertainKey,uncertainMessage,false});
+  Check(lines.Count==1 && levels[0]==LogLevel.Debug && lines[0].Contains("AI_RAID_UNCERTAIN") && !lines[0].Contains("MOD_FAILURE"),
+   "Unobserved search is Debug without a failure marker, once per session");
+  Check((int)Field("suppressedMessageCount").GetValue(runtime)==99,"Repeated uncertain diagnostics remain bounded");
+  runtime.OnSessionStarted(new Shared.GameplaySessionStartedContext { SessionId=8 });
+  // Info uses the shared time limiter as well as the per-session reason set.
+  // Wait past that limiter before checking the independent session reset contract.
+  System.Threading.Thread.Sleep(5100);
+  repeated.Invoke(runtime,new object[] {uncertainKey,uncertainMessage,false});
+  Check(lines.Count==2 && levels[1]==LogLevel.Debug,"A new session permits the same uncertain diagnostic again");
   Logger.Listeners.Remove(debugListener);
   cacheExpiry.SetValue(null, DateTime.MinValue);
   lines.Clear(); levels.Clear();
@@ -79,6 +99,7 @@ internal static class ActivationTests {
   object quietRetry=Activator.CreateInstance(retryType,BindingFlags.NonPublic|BindingFlags.Instance,null,
    new object[] {1,0,1,1u,2,119,6450u,0,0},null);
   logRetry.Invoke(runtime,new object[] {quietRetry,"selected",204,1371841u,0,0u});
+  repeated.Invoke(runtime,new object[] {uncertainKey,uncertainMessage,false});
   repeated.Invoke(runtime,new object[] {"debug-off-warning","visible validation warning",true});
   runtime.OnSessionEnded();
   Check(lines.Count==1 && levels[0]==LogLevel.Warning && lines[0].Contains("visible validation warning"),

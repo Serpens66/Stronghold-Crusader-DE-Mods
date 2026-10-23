@@ -29,8 +29,9 @@ namespace SerpsModsHost
             if (directOwner?.PropertyType == typeof(bool) && (bool)directOwner.GetValue(null)) return;
             integration.Discover(installed, api, () =>
             {
-                var phase = Stopwatch.StartNew();
-                var provider = new StatsTweakerConfigurationProvider(api, message => Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/StatsTweakerPresetAdapter.cs:33", message));
+                var phase = Shared.DebugLogHelper.IsDebugEnabled() ? Stopwatch.StartNew() : null;
+                var provider = new StatsTweakerConfigurationProvider(api, Shared.DebugLogHelper.IsDebugEnabled()
+                    ? (Action<string>)(message => Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/StatsTweakerPresetAdapter.cs:33", message)) : null);
                 if (observedApi != api)
                 {
                     var changed = api.GetEvent("Changed", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
@@ -41,12 +42,20 @@ namespace SerpsModsHost
 
                 if (!provider.IsReady) return null;
                 var candidate = new StatsTweakerPresetViewModel(provider);
-                var registration = LobbyModSettingsPresetRegistration.PrepareExternalWorkingCopy(log, storageAssembly,
+                var registration = LobbyModSettingsPresetRegistration.PrepareExternalWorkingCopy(Shared.DebugLogHelper.ForExternalCode(log), storageAssembly,
                     TargetGuid, TargetGuid, plugin.Metadata.Version, candidate);
                 registration.Activate(provider.EnableRestartManagedSynchronization,
                     error => error.GetBaseException() is InvalidOperationException);
-                Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/StatsTweakerPresetAdapter.cs:48", "[PresetPerf] provider activation: options=" + provider.GetSettings().Count + ", ms=" +
-                    phase.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", " + provider.PerformanceCounts);
+                if (phase != null) {
+                                       if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                       {
+                                           // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                                           var diagnosticProvider = @provider;
+                                           var diagnosticPhase = @phase;
+                                           Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/StatsTweakerPresetAdapter.cs:48", () => "[PresetPerf] provider activation: options=" + diagnosticProvider.GetSettings().Count + ", ms=" +
+                    diagnosticPhase.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", " + diagnosticProvider.PerformanceCounts);
+                                       }
+                                   }
                 return candidate;
             }, error => log.LogWarning("[TweakerPresets] Optional integration unavailable: " + error.GetBaseException().Message));
             integration.Attach(viewModel =>
@@ -57,7 +66,7 @@ namespace SerpsModsHost
                 var scroll = root.Children.OfType<ScrollViewer>().SingleOrDefault();
                 if (!(scroll?.Content is StackPanel parent)) return false;
                 string xaml = Path.Combine(Path.GetDirectoryName(storageAssembly), "Override", "ScriptExtenderUI", "StatsTweakerPresets.xaml");
-                var uiWatch = Stopwatch.StartNew();
+                var uiWatch = Shared.DebugLogHelper.IsDebugEnabled() ? Stopwatch.StartNew() : null;
                 FrameworkElement panel;
                 using (var stream = File.OpenRead(xaml)) panel = GUI.LoadXaml(stream, xaml) as FrameworkElement;
                 if (panel == null) throw new InvalidDataException("Preset panel could not be loaded.");
@@ -71,10 +80,17 @@ namespace SerpsModsHost
                     ConverterParameter = parent.Margin.Left + parent.Margin.Right
                 });
                 panel.DataContext = viewModel;
-                LobbyModSettingsPresetRegistration.AttachExternalView(panel, log, TargetGuid);
+                LobbyModSettingsPresetRegistration.AttachExternalView(panel, Shared.DebugLogHelper.ForExternalCode(log), TargetGuid);
                 scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
                 parent.Children.Insert(0, panel);
-                Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/StatsTweakerPresetAdapter.cs:77", "[PresetPerf] preset panel: ms=" + uiWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+                if (uiWatch != null) {
+                                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                         {
+                                             // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                                             var diagnosticUiWatch = @uiWatch;
+                                             Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/StatsTweakerPresetAdapter.cs:77", () => "[PresetPerf] preset panel: ms=" + diagnosticUiWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+                                         }
+                                     }
                 Shared.DebugLogHelper.LogDebugLimited(log, "SerpsModsHost/src/StatsTweakerPresetAdapter.cs:78", "[TweakerPresets] Optional configuration integration attached.");
                 return true;
             }, error => log.LogWarning("[TweakerPresets] Preset page unavailable; configuration guards remain active: " + error.GetBaseException().Message));

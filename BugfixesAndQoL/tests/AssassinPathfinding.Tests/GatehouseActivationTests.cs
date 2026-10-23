@@ -17,6 +17,10 @@ namespace APIShared { static class AssassinPathAPI {
  public static bool Active; public static int Calls; public static string Owner;
  public static void SetDirectGatehouseClimbing(string owner,bool enabled){Calls++;Owner=owner;Active=enabled;}
 } }
+namespace GateRouting { static class AssassinGatehouseDescentFeature {
+ public static int Calls; public static bool Last;
+ public static void Refresh(){Calls++;Last=APIShared.AssassinPathAPI.Active;}
+} }
 static class BugfixesAndQoLPlugin { public const string PluginGuid="BugfixesAndQoL_Serp"; }
 sealed class Settings { public bool EnableMod,EnableAssassinGatehouseClimbFix; }
 public sealed class ActivationFixture {
@@ -27,13 +31,15 @@ public sealed class ActivationFixture {
  var r=new ActivationFixture();
  r.settings.EnableMod=r.settings.EnableAssassinGatehouseClimbFix=true;
  r.ApplyAssassinGatehouseClimbFix();
- if(APIShared.AssassinPathAPI.Calls!=0)throw new Exception("pre-native setting touched hook owner");
+ if(APIShared.AssassinPathAPI.Calls!=0 || GateRouting.AssassinGatehouseDescentFeature.Calls!=0)throw new Exception("pre-native setting touched hook owner");
  r.nativeLibraryAvailable=true;
  foreach(bool mod in new[]{false,true})foreach(bool fix in new[]{false,true}) {
  r.settings.EnableMod=mod;r.settings.EnableAssassinGatehouseClimbFix=fix;
  r.ApplyAssassinGatehouseClimbFix();
  if(APIShared.AssassinPathAPI.Active!=(mod&&fix)||APIShared.AssassinPathAPI.Owner!=BugfixesAndQoLPlugin.PluginGuid)
   throw new Exception("activation/ownership mismatch");
+ if(GateRouting.AssassinGatehouseDescentFeature.Calls!=APIShared.AssassinPathAPI.Calls || GateRouting.AssassinGatehouseDescentFeature.Last!=(mod&&fix))
+  throw new Exception("descent refresh missing or ordered before climb activation");
  }
  r.settings.EnableAssassinGatehouseClimbFix=false;r.ApplyAssassinGatehouseClimbFix();
  r.settings.EnableAssassinGatehouseClimbFix=true;r.ApplyAssassinGatehouseClimbFix();

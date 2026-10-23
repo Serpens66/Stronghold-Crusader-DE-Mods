@@ -100,7 +100,10 @@ namespace BugfixesAndQoL.UnitCommands
             pendingFillMoatApproach = null;
             pendingDigMoatTarget = null;
             lastMoatWorkSelectionByUnit.Clear();
+#if SERP_DEVDIAG
             lastMoatWorkApproachByUnit.Clear();
+#endif
+
         }
 
         internal sealed class PendingDigMoatTarget

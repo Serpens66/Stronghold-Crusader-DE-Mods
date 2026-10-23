@@ -22,6 +22,7 @@ namespace BugfixesAndQoL
         // Script Extender's GameTribe* begins +0x2A into that record.
         private const int TribeFreeUnitSpeedsOffset = 0x542;
         private const int TribeMovementSpeedOffset = 0x54E;
+        private const string SaveDataIdentifier = "BugfixesAndQoL-TroopMovementSync";
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -47,6 +48,7 @@ namespace BugfixesAndQoL
         private SpearmanMovementPatch spearmanMovementPatch;
         private static SpearmanMovementPatch processSpearmanMovementPatch;
         private SynchronizedMovementCadencePatch cadencePatch;
+        private SessionSaveRecordSlot<TroopMovementSyncSaveState> saveSlot;
         private GameUnit* unitArray;
         private int unitArrayLength;
         private IntPtr libraryHandle;
@@ -188,6 +190,110 @@ namespace BugfixesAndQoL
             DeactivateTroopMovementFix();
             cadencePatch?.SetRallyEnabled(false);
             cadencePatch?.SetTerrainEnabled(false);
+        }
+
+        // The native save keeps the synchronized tribe speed (+0x54E) and the cleared free-unit
+        // speed, but neither the speed to restore nor the cadence entry. Without them a loaded
+        // tribe keeps the slowest member's speed after its synchronized order ends.
+        public void InitializeSaveData()
+        {
+            if (saveSlot != null)
+                return;
+
+            saveSlot = SessionSaveRecordSlot<TroopMovementSyncSaveState>.Register(
+                log,
+                SaveDataIdentifier,
+                CaptureSaveState,
+                state => MessagePack.MessagePackSerializer.Serialize(state),
+                bytes => MessagePack.MessagePackSerializer.Deserialize<TroopMovementSyncSaveState>(bytes));
+        }
+
+        private TroopMovementSyncSaveState CaptureSaveState()
+        {
+            var tribeIds = new List<int>(synchronizationByTribeId.Keys);
+            tribeIds.Sort();
+            var entries = new List<TroopMovementSyncSaveEntry>(tribeIds.Count);
+            foreach (int tribeId in tribeIds)
+            {
+                TribeSynchronization synchronization = synchronizationByTribeId[tribeId];
+                if (!TryGetTribe(tribeId, out GameTribe* tribe) || tribe->r_GlobalId == 0)
+                    continue;
+
+                entries.Add(new TroopMovementSyncSaveEntry
+                {
+                    TribeId = tribeId,
+                    TribeGlobalId = tribe->r_GlobalId,
+                    Running = synchronization.Cadence == SynchronizedMovementCadence.Running,
+                    RunningSpeedBonus = synchronization.RunningSpeedBonus,
+                    PreviousMovementSpeed = synchronization.PreviousMovementSpeed,
+                    AppliedMovementSpeed = synchronization.AppliedMovementSpeed
+                });
+            }
+
+            return new TroopMovementSyncSaveState { Entries = entries.ToArray() };
+        }
+
+        // Runs at the loaded session's start, before its first simulation tick, on every peer
+        // with that peer's save copy.
+        public void RestoreSessionState(Shared.GameplaySessionStartedContext context)
+        {
+            if (saveSlot == null || !saveSlot.TryTake(context, out TroopMovementSyncSaveState state))
+                return;
+
+            ClearSynchronization();
+            if (state.Entries.Length == 0)
+                return;
+            if (!nativeLibraryAvailable || initializationFailed || !fixedLayoutHashValidated)
+            {
+                TroopMovementFix3ModLog.Warning(
+                    log,
+                    $"Troop movement save data ignored because the native tribe layout is unavailable: tribes={state.Entries.Length}.");
+                return;
+            }
+
+            bool enabled = IsFeatureEnabled;
+            int restored = 0;
+            int reverted = 0;
+            int rejected = 0;
+            foreach (TroopMovementSyncSaveEntry entry in state.Entries)
+            {
+                if (!TryGetTribe(entry.TribeId, out GameTribe* tribe) ||
+                    tribe->r_GlobalId != entry.TribeGlobalId)
+                {
+                    rejected++;
+                    continue;
+                }
+
+                if (!enabled)
+                {
+                    // Same result as DeactivateTroopMovementFix in the uninterrupted game.
+                    ushort* movementSpeed =
+                        (ushort*)((byte*)tribe + TribeMovementSpeedOffset);
+                    if (*movementSpeed == entry.AppliedMovementSpeed)
+                        *movementSpeed = entry.PreviousMovementSpeed;
+                    reverted++;
+                    continue;
+                }
+
+                var synchronization = new TribeSynchronization(
+                    entry.Running
+                        ? SynchronizedMovementCadence.Running
+                        : SynchronizedMovementCadence.Walking,
+                    entry.RunningSpeedBonus,
+                    entry.PreviousMovementSpeed,
+                    entry.AppliedMovementSpeed);
+                synchronizationByTribeId[entry.TribeId] = synchronization;
+                cadencePatch.SetSynchronization(
+                    entry.TribeId,
+                    synchronization.Cadence,
+                    synchronization.RunningSpeedBonus);
+                restored++;
+            }
+
+            TroopMovementFix3ModLog.Debug(
+                log,
+                $"Troop movement synchronization restored from save: restored={restored}, " +
+                $"revertedToVanilla={reverted}, rejected={rejected}.");
         }
 
         private bool AreTroopMovementFixComponentsActive =>

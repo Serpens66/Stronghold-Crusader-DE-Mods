@@ -1,11 +1,24 @@
 @echo off
 setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Testmods/AIAttackTest/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
 set "BUILD_DRIVER_NOPAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START AIAttackTest
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -22,7 +35,7 @@ exit /b 1
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -43,7 +56,7 @@ for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 rem Never replace plugin files while the game has loaded them.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build and installation aborted: Stronghold Crusader Definitive Edition is still running.
   echo The local package and installed mod were not changed.
   exit /b 1
@@ -57,30 +70,30 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
 rem Runtime dependency and Unity lifecycle preflight required for every build.
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -Command "$codeFiles = Get-ChildItem -LiteralPath '%PROJECT_DIR%src' -Recurse -File -Include *.cs; $projectFiles = Get-ChildItem -LiteralPath '%PROJECT_DIR%' -File | Where-Object { $_.Extension -eq '.csproj' }; $runtimeFiles = @($codeFiles) + @($projectFiles); if ($runtimeFiles | Select-String -Pattern 'System\.Text\.Json|Newtonsoft\.Json|JavaScriptSerializer|System\.Web\.Extensions|DataContractJsonSerializer|JsonUtility') { exit 1 }; if ($codeFiles | Select-String -Pattern '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\(') { exit 1 }; exit 0"
-if errorlevel 1 goto preflight_failed
+if not "%ERRORLEVEL%"=="0" goto preflight_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\..\_inspect\Fixes124Implementation\Verify-Implementation.ps1"
-if errorlevel 1 goto build_failed
+if not "%ERRORLEVEL%"=="0" goto build_failed
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" tests\AIAttackTest.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\AIAttackTest.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto test_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" AIAttackTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 echo [%date% %time%] Copy package files
 xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
-if errorlevel 1 goto package_failed
+if not "%ERRORLEVEL%"=="0" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\AIAttackTest.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Override\ScriptExtenderUI\AIAttackTestSettings.xaml" goto package_failed
@@ -89,18 +102,20 @@ if "%NO_INSTALL%"=="1" goto built_without_install
 if exist "%GAME_PLUGIN_DIR%\" (
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
     rmdir /S /Q "%%~fD"
+    if not errorlevel 0 cmd /c exit 1
     if errorlevel 1 goto copy_failed
   )
   for %%F in ("%GAME_PLUGIN_DIR%\*") do (
     if exist "%%~fF" if not exist "%%~fF\" (
       del /F /Q "%%~fF"
+      if not errorlevel 0 cmd /c exit 1
       if errorlevel 1 goto copy_failed
     )
   )
 )
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 
 echo AI Attack Test checks passed, mod built and installed successfully.
 exit /b 0

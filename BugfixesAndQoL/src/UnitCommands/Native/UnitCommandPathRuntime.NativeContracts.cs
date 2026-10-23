@@ -25,10 +25,10 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
-        internal APIShared.Internal.NativeResolution Resolve(
+        internal Shared.NativeResolution Resolve(
             ReadOnlySpan<byte> memory, string pattern, int expectedRva, string label)
         {
-            APIShared.Internal.NativeResolution resolution = APIShared.Internal.NativePatternResolver.ResolveUnique(
+            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 pattern,
                 expectedRva,
@@ -81,7 +81,7 @@ namespace BugfixesAndQoL.UnitCommands
             if (expectedBytes.Length != 5 || expectedBytes[0] != 0xE8)
                 throw new InvalidOperationException($"The validated {label} is not a near CALL.");
 
-            int targetRva = APIShared.Internal.NativePatternResolver.ResolveRelativeTarget(
+            int targetRva = Shared.NativePatternResolver.ResolveRelativeTarget(
                 memory, callRva + 1, callRva + 5);
             if (targetRva != expectedTargetRva)
             {
@@ -107,7 +107,7 @@ namespace BugfixesAndQoL.UnitCommands
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     // Published hooks remain process-owned permanently.
                     OwnsHooks = true,
-                    Backend = APIShared.AssassinPathAPI.Backend
+                    Backend = HookInstallPhase.Backend(CommandDetourBackend)
                 });
         }
 
@@ -157,7 +157,7 @@ namespace BugfixesAndQoL.UnitCommands
                 Callback = rootedUnitStandingOnCompletedMoat,
                 IntermediaryFactory = MoatModeFlagIntermediaryFactory.Instance
             };
-            var candidate = APIShared.AssassinPathAPI.Backend.CreateDetour(in request)
+            var candidate = CommandDetourBackend.CreateDetour(in request)
                 as NativeDetour<UnitStandingOnCompletedMoatDelegate>;
             if (candidate == null)
                 throw new InvalidOperationException("The installed moat-mode backend is not NativeX64.");

@@ -36,7 +36,8 @@ foreach ($mod in $mods) {
     Assert-True ($changelog.Text -notmatch '(?m)^##[ \t]+Source and verification') "Changes-Extraktion darf Folgeabschnitte fuer $mod nicht enthalten."
 }
 
-$notesTestRoot = Join-Path ([IO.Path]::GetTempPath()) ("nexus-notes-test-" + [Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$notesTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
 try {
     [void](New-Item -ItemType Directory -Path $notesTestRoot)
     $notesRelease = [PSCustomObject]@{ ModName='NotesTest'; Version='1.2.3'; Directory=$notesTestRoot }
@@ -56,7 +57,8 @@ try {
     if (Test-Path -LiteralPath $notesTestRoot) { Remove-Item -LiteralPath $notesTestRoot -Recurse -Force }
 }
 
-$artifactTestRoot = Join-Path ([IO.Path]::GetTempPath()) ("nexus-artifact-test-" + [Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$artifactTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
 try {
     $artifactReleaseDirectory = Join-Path $artifactTestRoot '.release-output\Synthetic\v1.2.3'
     $thinStage = Join-Path $artifactTestRoot 'thin-stage\BepInEx\plugins\Synthetic_Serp'
@@ -237,7 +239,8 @@ try {
     if (Test-Path -LiteralPath $dpapiPath) { Remove-Item -LiteralPath $dpapiPath -Force }
 }
 
-$tamperRoot = Join-Path ([IO.Path]::GetTempPath()) ("shcde-nexus-test-" + [Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$tamperRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
 try {
     [void](New-Item -ItemType Directory -Path $tamperRoot)
     $source = Get-LatestNexusLocalRelease -Root $root -ModName 'StartConditions'

@@ -1,0 +1,32 @@
+{
+    "RunId":  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "RemovalAuthorized":  false,
+    "Owners":  [
+                   {
+                       "SHA256":  "6155F9A44261F7464C96F6AF77A66028A4D0FAE0EC8485391C62BD8A139C63A4",
+                       "Version":  "1.0",
+                       "Reason":  "Manual installation possible",
+                       "Path":  "C:/fixture.dll",
+                       "Claims":  [
+
+                                  ],
+                       "State":  "NotFound",
+                       "Guid":  "nested"
+                   }
+               ],
+    "CoreSHA256":  "A948C81DAC166AB996BA8415146A2556034087EF105058E42883DD772E5DAF12",
+    "Complete":  true,
+    "ExtenderSHA256":  "D1C8EA2FF82AC84BB867056656E58E2198D8042F6D6DD2920336150F771FEC55",
+    "Schema":  1,
+    "PluginSHA256":  "6155F9A44261F7464C96F6AF77A66028A4D0FAE0EC8485391C62BD8A139C63A4",
+    "Errors":  [
+
+               ],
+    "WorkshopPaths":  [
+
+                      ],
+    "Maps":  [
+
+             ],
+    "PatcherSHA256":  "8A1C1A2B7B0B2E1131ABA2A65F168FA2141662B0FD5BEE7AAB3103C5E8AD9866"
+}

@@ -154,6 +154,8 @@ public static class SerpLocalization
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
     public const string EnableImprovedAssassinPathfinding = "SomeSettings.EnableImprovedAssassinPathfinding";
     public const string EnableImprovedAssassinPathfindingHelp = "SomeSettings.EnableImprovedAssassinPathfindingHelp";
+    public const string EnableImprovedAssassinPathfindingAI = "SomeSettings.EnableImprovedAssassinPathfindingAI";
+    public const string EnableImprovedAssassinPathfindingAIHelp = "SomeSettings.EnableImprovedAssassinPathfindingAIHelp";
     public const string EnableAssassinCombatResumeFix = "BugfixesAndQoL.EnableAssassinCombatResumeFix";
     public const string EnableAssassinCombatResumeFixHelp = "BugfixesAndQoL.EnableAssassinCombatResumeFixHelp";
     public const string EnableTrailCustomizationButtons = "BugfixesAndQoL.EnableTrailCustomizationButtons";
@@ -677,8 +679,10 @@ public static class SerpLocalization
         { EnableMonksAlwaysRunHelp, "Lets Monks use the normal troop running decision and running animation instead of their special walking restriction. Applies to both the Fighting Monk and Temple Guard skins." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
-        { EnableImprovedAssassinPathfinding, "Improved Assassin pathfinding" },
-        { EnableImprovedAssassinPathfindingHelp, "Chooses Assassin routes by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
+        { EnableImprovedAssassinPathfinding, "Improved Assassin pathfinding (human players)" },
+        { EnableImprovedAssassinPathfindingHelp, "Chooses routes for the Assassins of human players by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
+        { EnableImprovedAssassinPathfindingAI, "Improved Assassin pathfinding (AI lords)" },
+        { EnableImprovedAssassinPathfindingAIHelp, "Chooses routes for the Assassins of AI lords by expected travel time, including climbing animations. When disabled, AI lords use Vanilla Assassin pathfinding." },
         { EnableAssassinCombatResumeFix, "Resume Assassin movement after combat" },
         { EnableAssassinCombatResumeFixHelp, "Makes Assassins continue their original movement order after an automatically fought melee combat, including routes that require climbing." },
         { AssassinClimbingToggleTooltip, "Toggle global climbing mode" },
@@ -702,6 +706,15 @@ public static class SerpLocalization
         { EnableAIQuarryPileTowardsKeepHelp, "Moves each newly built AI quarry's linked stone pile to the valid Vanilla position nearest to that AI player's Keep. Existing quarries are not changed. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
         { EnableExtraChurchPriests, "Enable extra priests for churches" },
         { EnableExtraChurchPriestsHelp, "When enabled, churches receive two priests and cathedrals receive three priests." },
+        { "SomeSettings.PlagueDamageSurfaces", "Plague clouds also damage units standing on:" },
+        { "SomeSettings.PlagueDamageWalls", "Walls" },
+        { "SomeSettings.PlagueDamageGates", "Gates" },
+        { "SomeSettings.PlagueDamageTowers", "Towers" },
+        { "SomeSettings.PlagueDamageKeeps", "Keep" },
+        { "SomeSettings.PlagueDamageWallsHelp", "Allows plague damage on low and high walls and their stairs. Cloud and unit standing heights must differ by at most 20 native height units. Unit-type immunity, damage and apothecary protection remain unchanged. Off preserves Vanilla exclusions for this category." },
+        { "SomeSettings.PlagueDamageGatesHelp", "Allows plague damage on walkable gatehouses. Cloud and unit standing heights must differ by at most 20 native height units. Unit-type immunity, damage and apothecary protection remain unchanged. Off preserves Vanilla exclusions for this category." },
+        { "SomeSettings.PlagueDamageTowersHelp", "Allows plague damage on defensive towers. Cloud and unit standing heights must differ by at most 20 native height units. Unit-type immunity, damage and apothecary protection remain unchanged. Off preserves Vanilla exclusions for this category." },
+        { "SomeSettings.PlagueDamageKeepsHelp", "Allows plague damage on keep platforms. Cloud and unit standing heights must differ by at most 20 native height units. Unit-type immunity, damage and apothecary protection remain unchanged. Off preserves Vanilla exclusions for this category." },
         { PlagueDurationMultiplier, "Plague cloud duration" },
         { PlagueDurationMultiplierHelp, "Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage." },
         { ApothecaryPlagueSearchDistance, "Apothecary plague-search range" },
@@ -1042,7 +1055,7 @@ public static class SerpLocalization
         string englishPath,
         string localePath)
     {
-        if (!routineLoggingEnabled)
+        if (!routineLoggingEnabled || !Shared.DebugLogHelper.DiagnosticsEnabled)
             return;
 
         try
@@ -1050,8 +1063,8 @@ public static class SerpLocalization
             if (localizationLog == null)
                 localizationLog = BepInEx.Logging.Logger.CreateLogSource("Serp Localization");
 
-            localizationLog.LogDebug(
-                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Locale selected: locale={locale}, " +
+            Shared.DebugLogHelper.LogDebug(localizationLog, () =>
+                $"Locale selected: locale={locale}, " +
                 $"source={source}, rawLanguage={rawLanguage}, configuredProvider={configuredProvider}, " +
                 $"scriptExtenderLanguage={extenderLanguage}, pluginDirectory={pluginDirectory}, " +
                 $"englishFileExists={File.Exists(englishPath)}, " +

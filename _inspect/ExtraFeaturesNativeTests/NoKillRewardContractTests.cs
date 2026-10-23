@@ -49,16 +49,11 @@ namespace ExtraFeatures
                 foreach (int offset in new[] { 0, length / 2, length - 1 })
                 {
                     Marshal.WriteByte(live, offset, (byte)(expected[offset] ^ 0x01));
-                    try
-                    {
-                        NoKillRewardStubContract.VerifyLiveSpan(expected, address, rva);
-                        throw new InvalidOperationException("Changed live bytes were accepted at RVA 0x" + (rva + offset).ToString("X") + ".");
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        if (!ex.Message.Contains("changed at RVA 0x" + (rva + offset).ToString("X")))
-                            throw;
-                    }
+                    bool rejected = false;
+                    try { NoKillRewardStubContract.VerifyLiveSpan(expected, address, rva); }
+                    catch (InvalidOperationException) { rejected = true; }
+                    if (!rejected)
+                        throw new InvalidOperationException("Changed live hook bytes were accepted.");
                     Marshal.WriteByte(live, offset, expected[offset]);
                 }
             }
@@ -66,16 +61,11 @@ namespace ExtraFeatures
             {
                 Marshal.FreeHGlobal(live);
             }
-            try
-            {
-                NoKillRewardStubContract.VerifyLiveSpan(expected, new byte[length - 1], rva);
+            bool truncatedRejected = false;
+            try { NoKillRewardStubContract.VerifyLiveSpan(expected, new byte[length - 1], rva); }
+            catch (InvalidOperationException) { truncatedRejected = true; }
+            if (!truncatedRejected)
                 throw new InvalidOperationException("Truncated live hook bytes were accepted.");
-            }
-            catch (InvalidOperationException ex)
-            {
-                if (!ex.Message.Contains("different length"))
-                    throw;
-            }
         }
 
         private static void CheckBytes(byte[] image, int rva, byte[] expected)

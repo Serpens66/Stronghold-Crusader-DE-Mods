@@ -13,7 +13,7 @@ namespace BugfixesAndQoL
 namespace Shared
 {
     internal static class DebugLogHelper
-    {
+    { public static bool DiagnosticsEnabled => true;
         internal static int Failures, Messages;
         internal static void LogInfo(BepInEx.Logging.ManualLogSource log, object text) { Messages++; }
         internal static void LogError(BepInEx.Logging.ManualLogSource log, object text) { Failures++; }

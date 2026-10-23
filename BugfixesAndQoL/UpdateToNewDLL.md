@@ -1,5 +1,29 @@
 # Native update contract: Bugfixes and QoL damaged health bars
 
+## Engine presentation bridge (2026-10-23)
+
+The private VanillaPerformance bridge uses managed `EngineInterface.run` and
+`SaveSaveGame` IL, the existing `threadLock`, and public managed/PInvoke methods.
+No new native hook, address, structure layout or APIShared signature. Validate
+both wrapper signatures, unique Monitor/finally scopes, gate field identity,
+buffer/native/publication order and the save call before activation. Unknown
+anchors retain the incoming IL and disable this optimization. Other transpilers,
+including PerfProbe, retain labels and exception blocks. Recheck these contracts
+and the production Harmony fixtures after a game update.
+
+The underlying GetMeritData/SetAchValues/save behavior was audited against
+native hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+see [ENGINE_PRESENTATION_BRIDGE.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ENGINE_PRESENTATION_BRIDGE.md).
+
+## Minimap refresh throttle V13 (2026-10-23)
+
+- Owner: `src/VanillaPerformance/MinimapRefreshThrottle.cs` (host setting `EnableMinimapRefreshThrottle`).
+- Reference: hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, RVA `0xF5A40` (minimap pass), prologue `48 89 5C 24 10 55`; NativeX64 `Indirect` detour with exactly 6 displaced bytes (pointer-slot patch validated after commit).
+- ABI: single direct caller `0x86B9B` in `DLL_RunTick`; `rcx`, `rdx`, `r8` (`radarMap`), `r9d` and seven stack dwords `[rsp+0x20..0x50]`; return value unused. No internal branch targets `0xF5A41..0xF5A45`.
+- Managed contract: `GameMap.processTestMap(short[], int, EngineInterface.PlayState, byte[])` stores the private `lastRadarMap`; `GameMap.ApplyRadarMap` uploads it once per frame; `MemoryBuffers` keeps a ring of 6 buffers.
+- Fallback: none (hash-bound). Another hash, prologue or member layout leaves Vanilla unchanged and logs `VANILLA_PERF_MINIMAP_THROTTLE_DISABLED`.
+- Update checks: find the pass again (only writer of `radarMap` and `*(radar+0x70)`, no simulation writes), re-check the call ABI, the displaced span and the managed buffer ring; audit: [RADAR_PASS_F5A40.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md).
+
 ## AI keep-range probe allocation (2026-10-05)
 
 The 18:51 startup failed before the actual EEF90 hook: the copied-entry probe
@@ -653,3 +677,225 @@ BugfixesAndQoL owns the preview detour and the Ground contribution. [PresetLocal
 BuildPreviewStateStore atomically publishes immutable activation, generation, session and snapshot together. Activation/session changes increment the generation and clear actual counts. A captured producer can only compare/exchange against the same generation/session, so a late callback cannot republish into a newer activation. Unchanged snapshot values reuse the state and snapshot; soil and temporary preview buffers are still checked on every eligible native callback. The diagnostic eligible-tile traversal has been removed.
 
 Native regression and full-image incoming-edge checks: tests/BuildPreview.Tests. Real Assembly-CSharp signatures, hash, installed NativeX64 Indirect scheme, six bytes, trampoline, pointer-slot and HookEntryPoint remain covered by Test-BuildPreviewPreflight.ps1 and the machine tests. Acceptance evidence and pending integrated-switch checks live in tests/BuildPreview.Tests/ACCEPTANCE.md. No allocation/FPS claim is made beyond the isolated production state publication path.
+
+## Infinite patrol isolation from the Shift queue (2026-10-17)
+
+Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The existing hash-bound Chore-17 hook also reads the signed patrol-mode staging
+field at RVA `0x86C1338` (between Y `0x86C1334` and move type `0x86C133C`).
+Producer `0x195E30` stores argument 5 there; Chore-17 handler `0x10AE0` packs
+one byte and sign-extends it on unpack before `0x196100` / `0x11B520`.
+The field is read only during outgoing Chore packing. No additional hook or
+executable-memory mutation is introduced. No semantic relocation fallback is
+available for these staging globals; the existing fixed-layout hash gate remains
+mandatory. On a native update recheck the complete pack/unpack flow and field
+width/order together with the existing queue marker contract.
+
+`TribePatrolMode.PatrolInfinite` bypasses queue marking and capture. Chore 71
+(`0x176C0` -> `0x11C3A0`) retains its original one-based tribe ID, coordinates,
+waypoint index and signed mode. Only the affected tribe's old queue and dedup
+state are discarded. `PatrolOnce` and ordinary Shift Moves retain queue handling.
+Production-entrypoint regressions: `tests/Issue6.Tests`; actual in-game looping
+and real host/client acceptance are separate from those boundary-double tests.
+
+
+## Formation command speech (2026-10-17, Issue 6)
+
+Reference native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+FormationFeature retains the canonical native hash gate. FormationSpeechNative is a
+mod-internal callable adapter, not a hook or a replacement movement command.
+
+- 0x11A1B0: selected dominant voice type. ABI: int(nativeTribeManager, int tribe,
+  int* optionalCount). RCX/RDX are unused in this binary; R8 is the optional output.
+  Despite the decompiler's void declaration, EAX returns the chosen type (verified
+  complete disassembly and 0x195EA7 call). It counts selected, alive, local units of
+  types below 90; ties prefer the lower type. No parallel voice table is maintained.
+- 0x18D460: native selected representative. ABI: int(nativeUnitManager, int firstId).
+  Use manager RVA 0x67E8400 and first Game-ID 1. This scans by native type priority
+  and uses current-unit scratch global 0x9302C4; capture saves/restores that Int32
+  in finally. The representative's current LogicGrid tile must not have bit
+  0x40000000. Engineer (Extender enum) with GameUnit+0x388 != 0 suppresses speech;
+  this field is manager+0x658+gameId*0x490+0x388, matching global 0x67E8DE0.
+- 0xE0E0: int(nativeSoundManager), manager RVA 0x88E72D0. Preserves native
+  busy-channel policy, including its per-player exception. This is checked inside
+  the native frame, after DLL_RunTick has copied current Unity channel states.
+- 0x3BC0: void(dialogueManager, int voiceType, int response, int targetTile).
+  Dialogue manager RVA 0x64C4490. Response 6 is used when both leader/anchor axis
+  differences are <=72; response 10 otherwise. Response 6 receives GetTileId(anchor),
+  response 10 receives zero. Capture leader position before dispatch; never derive
+  the voice from a delayed multiplayer receiver. DefaultInSync excludes Archer,
+  Crossbowman and Catapult; Trebuchet, Mangonel and Ballista are always excluded.
+  Archer_debug remains allowed. Native 0x3BC0 owns selection, duplicate suppression
+  and special-type branches; 0x3770/0x38A0 and 0xEDF0 remain untouched.
+
+Each new code target uses its complete-instruction signature, scanned only in PE
+executable sections; duplicate or missing matches fail closed. An invalid reference
+RVA still tries that executable pattern fallback. Data layouts have no semantic
+fallback and remain hash-bound. Resolution logs retain method and resolved RVA.
+Only speech is disabled on resolution/capture/playback failure; formation and
+marker availability are not changed. No hook is added to any of these targets.
+
+Local release capture -> accepted dispatch -> consumed input -> pending speech.
+The existing 0x41D10 draw-list reset detour invokes the internal feedback callback
+after its original. Full flow: DLL_RunTick 0x86680 updates channels, render 0x41D60
+ends at 0x41D10, then dialogue 0x41C0 and sound/export paths run. 0xEDF0 writes
+channel flags/path and emits a sound-volume record; the managed EngineInterface
+reads speechFileName from returned play-state data. Callback exceptions cannot
+repeat the original reset or disable markers. Only a matching main-thread
+EngineInterface.run can consume pending feedback. No-buffer runs retain it; stale
+map/player/tribe-global identities and feature disable discard it. Consume before
+checking busy channels or emitting, so suppression/errors never replay a response.
+Packet protocol and synchronized simulation execution remain unchanged.
+
+Offline verification: tests/FormationSpeech.Tests executes production engine and
+speech methods with boundary doubles, and checks real installed enum/layout,
+canonical binary signatures, complete instruction spans and ambiguous/fallback
+resolution. Audible output, Mono execution and real Host/Client acceptance still
+require an in-game test; no installation is performed by the Issue 6 build.
+
+Capture acquires the real private static object EngineInterface.threadLock by
+validated reflection and nonblocking Monitor.TryEnter. A busy engine omits only
+that optional response. Both the temporary 18D460 scratch write and its restore
+are inside this lock. The render-end emitter also requires Monitor.IsEntered
+on the same object. EngineInterface.run holds it around preDLLCallActions,
+DLL_RunTick and play-state copying; no new native call races the simulation.
+The offline test checks this field against the real Assembly-CSharp metadata,
+not a publicized assembly, and exercises busy/unprotected/protected cases.
+
+## Modsettings activation dispatches (1.0.196)
+
+The current implementation replaces the former unconditional No Dogs / peace
+patch installation with `PermanentNativeSwitch` and `NativeSwitchCatalog`.
+Reference SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The complete feature audit is in baseline knowledge/MODSETTINGS_ACTIVATION.md;
+its full-function incoming-edge, switch-table, data-flow and Fixes checks apply.
+This paragraph supersedes the earlier description of the installation mechanism;
+the original active No Dogs and peace semantics remain the reference.
+
+No Dogs demand is `EnableMod && ShowMpAdvancedSettingsInSingleplayer`;
+peace demand is `EnableMod && EnablePeaceTimeGameplayFixes`. Client is independent.
+Each logical feature roots all prepared hooks before publication with demand=0.
+All groups and following instructions are byte-validated before the first Enable.
+A partial publication failure retains every rooted hook with demand=0; original
+paths remain valid. Published code, pointer slots and pages survive process exit;
+settings changes write only the one-byte native demand, never executable bytes.
+There is no native/managed hot-path transition or setting-driven teardown.
+
+The actual RedBird X64AssemblyPatch backend writes a six-byte RIP-indirect jump,
+rounded to complete instructions; the existing two entry spans remain 16/18 bytes.
+Near allocation and signed RIP reach, OverwrittenByteCount, target address,
+complete original/copy bytes and the first following instruction are checked.
+Info initialization logs contain start/end RVA, instruction lengths and following
+bytes. Reaudit all spans and incoming destinations on a DLL/backend update;
+a changed hash is rejected without a pattern fallback.
+
+| Group RVA | Physical bytes | Copied active bytes | First following instruction bytes |
+| --- | ---: | ---: | --- |
+| `0x105520` | 7 | 7 | `833D46A46E0300` |
+| `0x119050` | 16 | 16 | `33DB` |
+| `0x124BB4` | 6 | 6 | `48895C2460` |
+| `0x1256C3` | 6 | 6 | `48895C2460` |
+| `0x1259F3` | 6 | 6 | `8B0529055403` |
+| `0x156EAB` | 6 | 6 | `664239BC2B2C0A0000` |
+| `0x17F3E0` | 6 | 6 | `460FBF8C291E070000` |
+| `0x1867A0` | 18 | 18 | `4C03D9` |
+| `0x1868B2` | 6 | 6 | `6683E92D` |
+| `0x186976` | 6 | 6 | `B801000000` |
+| `0x18699A` | 6 | 6 | `83F863` |
+| `0x8A141` | 7 | 9 | `744E` |
+| `0x8D360` | 6 | 8 | `740F` |
+| `0x8D7BD` | 7 | 9 | `7409` |
+| `0x8E05E` | 7 | 7 | `448B44244C` |
+| `0x8E0D7` | 7 | 9 | `7409` |
+| `0x8E5F8` | 7 | 9 | `7409` |
+| `0x8EA59` | 7 | 7 | `4963C1` |
+| `0x8EC9E` | 7 | 7 | `4963C1` |
+| `0xABC88` | 6 | 8 | `741A` |
+| `0xC70BA` | 9 | 9 | `0F858A010000` |
+| `0xCA904` | 7 | 7 | `8B0D47B65903` |
+| `0xCDD81` | 6 | 6 | `458B8850390000` |
+| `0xCE2FD` | 7 | 9 | `7408` |
+| `0xFFD94` | 6 | 6 | `833DC3FB6E0300` |
+
+The dormant side relocates exactly the physical original instructions and jumps
+to the first following original instruction. The active side relocates the full
+audited group, applies the original 28 peace edits / No Dogs edit, and returns
+after that group; starting-troop and wildlife prefixes retain their old guards.
+The flag-neutral dispatcher saves RCX, reads demand with MOV/MOVZX/JRCXZ, restores
+RCX and tail-jumps. It preserves incoming flags, stack, other GPRs and XMM state.
+
+`Test-Modsettings.ps1 -RunNative` exercises the real installer in private executable
+PE copies. It compares the full No Dogs function for 322,560 inputs across original,
+old active, production off/on/off, validates every grouped/following byte, and
+checks register/flag preservation, branch/RIP relocation and exact continuations.
+Executable target bytes remain identical across settings changes. The existing
+VanillaPeaceTimeNativeTests retains active start-troop/wildlife/peace coverage.
+These offline tests do not replace live Mono, game UI or two-player acceptance.
+## AI sell threshold safety (1.0.197)
+
+BFQoL owns no executable bytes for this fix. Its default-enabled, synchronized Host
+option `EnableAiSellThresholdFix` requests both safety flags from APIShared
+`AiMarketSellPolicies`, registration `BugfixesAndQoL_Serp/ai-sell-threshold-safety`.
+Effective activation is EnableMod && EnableAiSellThresholdFix on every peer.
+The static registration survives startup cleanup and card/save changes; only its
+logical activation changes. No Dispose/unpatch path and no per-sale managed callback.
+
+APIShared 0.12.6 or newer is required. The SDK owns hash/backend/layout validation,
+both 15-byte spans (0x3F1F3 and 0x29723), final stock recheck and cancellation via
+0x2978B. Its UpdateToNewDLL.md section "AI market sell policies" is authoritative.
+Reference native SHA-256 remains
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No overlap with BFQoL's stone-reserve site 0x3F156..0x3F16A, Fixes' wheat-category
+site or native price hooks. Disable the standalone AISellThresholdFixTest plugin
+before the next game start; retain sources/evidence rather than deleting it.
+
+## Update fallback, startup checks and remaining hash bindings (2026-10-22)
+
+Procedure: [AGENTS/native-analysis.md](../AGENTS/native-analysis.md), section „Prüfkosten“.
+- **Known native hash:** reference bytes only.
+- **Unknown hash:** one section-limited pattern fallback whose result is cached in `BepInEx/cache/BugfixesAndQoL_Serp.native-cache.tsv`. The cache key is the native SHA-256 plus the mod version.
+- The shared cache is `src/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
+- The CrusaderDE.dll hash itself is cached across starts by path, size and write time (`Serp.file-hashes.tsv`).
+
+**Notification queue (`src/NotificationQueueNativeContract.cs`)**
+
+The eight patterns previously had no reference RVA and were scanned on every start. The references below come from the installed FBCB9319 DLL; each pattern matched exactly once, and the fixed distances in the contract hold:
+
+| Pattern | Reference RVA |
+|---|---|
+| DLL_RunTick entry | `0x86680` |
+| DLL_RunTick notification call | `0x86A91` (= entry + 0x411) |
+| Queue update entry | `0xFE570` |
+| Completion tail | `0xFE5C9` (= update + 0x59) |
+| Queue finalizer | `0x102A70` |
+| Queue promotion | `0x102AB5` |
+| Presentation entry | `0xFEE50` |
+| Presentation pending-flag set | `0xFEEB1` (= entry + 0x61) |
+
+Another build scans the unique patterns once and caches them. All call-target and distance checks of the contract still run.
+
+**Reference-first uniqueness checks**
+
+Formation selectors (`ValidateUniqueEntry`), AI defense patrol, AI resource-shortage sleep, AIV defender position, AI wall targeting, control-group disband, healer attack, Lord control group and the connectivity observer used to rescan the executable sections to prove uniqueness, although their result must equal the reference RVA.
+
+They now confirm the reference bytes when the hash matches and scan only for another build, so the behavior on an unknown build is unchanged. The second uniqueness scan of the workshop idle delay was removed; that feature is gated by the reference hash.
+
+**SavegameMissingMap (managed)**
+
+The SHA-256 gate of `Assembly-CSharp.dll` was removed. The fix is gated by the IL contract of the loaded methods:
+- member checks;
+- the `RunHookPlan` preflight of every transform;
+- a JIT-compiled copy of each transformed method.
+
+An update that keeps these methods keeps the fix; any IL change fails closed with `FIX_DISABLED`.
+
+**Peace time / native switches (`src/PermanentNativeSwitch.cs`)**
+
+Instruction boundaries are proven on the unmodified load image. Live, a foreign hook may already start at the boundary after a span; for example, the Script Extender's wall-targeting context hook starts at `0x8EA60` right after the peace-time span `0x8EA59..0x8EA5F`. Only `jmp rel32` or `jmp [rip+disp32]` is accepted there; any other live change fails closed.
+
+**Still hash-bound: ExtendedShiftCommandQueue, Formation and FormationSpeech**
+
+These features depend on the shared command runtime `UnitCommandPathRuntime`. It requires the reference hash and binds about 40 fixed detour prefixes (`src/UnitCommands/Native/NativeDetourContracts.cs`) and about 100 native constants. Deriving their own data addresses cannot keep them working after an update until that runtime gets the same fallback.
+
+The audited anchors, with a second evidence for the Chore staging globals, managers, strides and speech call targets, are recorded in [MOVE_STAGER_DATA_ANCHORS.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md). Formation's `TribeUnitCountOffset 0x5C` and `MovementTargetAvailability 0x3A11EA4` have no confirmed anchor yet.

@@ -29,7 +29,7 @@ namespace Shared
         public static bool IsEnabled(bool enabled) { return Allowed && enabled; }
     }
     public static class DebugLogHelper
-    {
+    { public static bool DiagnosticsEnabled { get { return true; } }
         public static int DebugCalls, ErrorCalls;
         public static bool ThrowDebug, ThrowError;
         public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text)

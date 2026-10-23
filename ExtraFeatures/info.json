@@ -3,19 +3,44 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.114",
+  "Version": "1.0.117",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.7.0"
+      "MinimumVersion": "0.14.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.117",
+      "Changes": [
+        "Plague clouds can damage units on walls, gates, towers and keeps according to their actual standing heights. Four host settings control these surfaces independently; walls, gates and towers are enabled by default, keeps are disabled.",
+        "Damage reaches units within 20 native height units of the cloud standing surface, excluding the visual cloud offset. Cloud height follows movement and building changes; Vanilla damage, range, apothecary protection, treatment and unit immunities are preserved.",
+        "Use the shared APIShared 0.14.0 plague-height capability; the standalone PlagueHeightTest mod is retired."
+      ]
+    },
+    {
+      "Version": "1.0.116",
+      "Changes": [
+        "Install AI defence and elevated-moat hooks during startup and keep them logically inactive until enabled; share validated native DLL fingerprints.",
+        "Use native fear-factor stubs and reduce repeated goods-multiplier, market-price and gatehouse-automation work.",
+        "Track owned market-price overrides so restoring settings does not overwrite values subsequently changed by another participant.",
+        "Coordinate troop HUD and recruitment availability with APIShared, including knight dismount capacity handling.",
+        "Avoid disabled support-log preparation across feature callbacks and cache repeated failure hashes while retaining warnings and errors."
+      ]
+    },
+    {
+      "Version": "1.0.115",
+      "Changes": [
+        "Faster game start: startup detours install without suspending game threads and the native DLL hash is shared; AI defense and elevated-moat hooks install at game start and stay inactive until their feature is enabled.",
+        "Fear factor uses native stubs instead of managed callbacks; lighter goods-multiplier and gatehouse-automation event handling. Behavior is unchanged."
+      ]
+    },
     {
       "Version": "1.0.114",
       "Changes": [

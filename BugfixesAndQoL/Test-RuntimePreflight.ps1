@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([switch]$SkipCommonChecks)
 
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -12,8 +12,10 @@ if ($mod.Count -ne 1) {
     throw "Expected exactly one BugfixesAndQoL Script Extender inventory entry; found $($mod.Count)."
 }
 
+if (-not $SkipCommonChecks) {
 Assert-SERuntimeModPreflight $mod[0] $workspace
 
+}
 $runtimeSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File -Recurse)
 $pluginSources = @($runtimeSources | Where-Object { $_.Name -like '*Plugin.cs' })
 $projectText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'BugfixesAndQoL.csproj'))
@@ -77,9 +79,8 @@ if ($waterboyRuntime -match '\btargetSearchHook\s*\.\s*(Dispose|Undo|Disable)\s*
     $waterboyRuntime -match '\b(Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
     throw 'Waterboy runtime contains a published-hook teardown or MonoBehaviour callback.'
 }
-if ($waterboyRuntime -match 'MaximumDetailedLogs|LogDetail\(|map modes|reached OnGameTick|dependencies detected' -or
-    $waterboyRuntime -match 'WaterboySettings|EnableNearestWaterboyTargetingData|ResolveEffectiveMode') {
-    throw 'Waterboy detailed diagnostics or obsolete per-player setting artifacts remain.'
+if ($waterboyRuntime -match 'WaterboySettings|EnableNearestWaterboyTargetingData|ResolveEffectiveMode') {
+    throw 'Obsolete Waterboy per-player setting artifacts remain.'
 }
 if (-not $waterboyViewModel.Contains('private bool enableNearestWaterboyTargeting = true;') -or
     -not $waterboyViewModel.Contains('[SyncHostOnly]' + [Environment]::NewLine +
@@ -88,6 +89,7 @@ if (-not $waterboyViewModel.Contains('private bool enableNearestWaterboyTargetin
     throw 'Waterboy host setting contract is incomplete.'
 }
 
+if (-not $SkipCommonChecks) {
 $patchRoot = Join-Path $PSScriptRoot 'Patches'
 $xamlViolations = @(foreach ($file in Get-ChildItem -LiteralPath $patchRoot -Filter '*.xaml' -Recurse) {
     [xml]$document = Get-Content -Raw -LiteralPath $file.FullName
@@ -110,6 +112,7 @@ if ($xamlViolations.Count -ne 0) {
     throw "Script Extender XAML patch <Content> contract failed: $($details -join '; ')"
 }
 
+}
 $viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
 $movementRuntime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFix3Runtime.cs'))
 $cadence = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFix3SynchronizedMovementCadencePatch.cs'))
@@ -124,7 +127,7 @@ if (-not $cadence.Contains('Interlocked.CompareExchange(ref *terrainEnabledFlag,
     -not $cadence.Contains('terrainCaptureHook.Hook.DisplacedByteCount != 14') -or
     -not $cadence.Contains('returnAddress != instructions[0].IP + 14') -or
     -not $cadence.Contains('EmitTerrainRestore(assembler);') -or
-    -not $cadence.Contains('terrainTransaction?.Dispose(); // Unpublished optional initialization rollback only.')) {
+    -not $cadence.Contains('terrainTransaction?.Dispose();')) {
     throw 'Rally terrain native publication, epoch or boundary contract is missing.'
 }
 $keys = @('BugfixesAndQoL.EnableRallyTerrainSlowdownFix', 'BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp')

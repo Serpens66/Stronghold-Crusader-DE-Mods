@@ -49,7 +49,8 @@ namespace ExtraFeatures
                 referenceHashMatches);
             ValidateWorkerCounts();
             initialized = true;
-            LogInfo($"church worker table found at {unchecked((ulong)workerCountTable.ToInt64()).ToString("X16", CultureInfo.InvariantCulture)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"church worker table found at {unchecked((ulong)workerCountTable.ToInt64()).ToString("X16", CultureInfo.InvariantCulture)}.");
         }
 
         public void ApplySetting()
@@ -61,7 +62,8 @@ namespace ExtraFeatures
             SetDefaultWorkerCount(eStructs.STRUCT_CHURCH2, enabled ? Church2ModdedWorkerCount : Church2VanillaWorkerCount);
             SetDefaultWorkerCount(eStructs.STRUCT_CHURCH3, enabled ? Church3ModdedWorkerCount : Church3VanillaWorkerCount);
             ApplyExistingChurches(enabled);
-            LogInfo($"church priest counts applied: enabled={enabled}, church2={GetDefaultWorkerCount(eStructs.STRUCT_CHURCH2)}, church3={GetDefaultWorkerCount(eStructs.STRUCT_CHURCH3)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"church priest counts applied: enabled={enabled}, church2={GetDefaultWorkerCount(eStructs.STRUCT_CHURCH2)}, church3={GetDefaultWorkerCount(eStructs.STRUCT_CHURCH3)}.");
         }
 
         public void ApplySpawnedBuilding(BuildingSpawnEventArgs args)
@@ -212,6 +214,7 @@ namespace ExtraFeatures
 
         private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
+            if (!Shared.DebugLogHelper.DiagnosticsEnabled) return;
             Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
         }
 

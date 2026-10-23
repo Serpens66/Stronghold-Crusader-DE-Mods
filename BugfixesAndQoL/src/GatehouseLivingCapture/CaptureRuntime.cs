@@ -12,7 +12,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Threading;
 
 namespace BugfixesAndQoL.GatehouseLivingCapture
@@ -37,9 +36,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
             NativeDefinition.ValidateLayout();
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            string hash;
-            using (var sha = SHA256.Create())
-            using (var input = File.OpenRead(path)) hash = BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "");
+            string hash = Shared.DebugLogHelper.GetFileSha256(path);
             if (hash != NativeDefinition.Sha256)
                 throw new InvalidOperationException("Unknown native field/layout contract: " + hash);
             if (context == null || context.ModuleHandle == IntPtr.Zero)
@@ -76,10 +73,16 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
                 if (!published) transaction?.Dispose(); // Roll back only an unpublished initialization candidate.
                 throw;
             }
-            try { log.LogDebug($"GATEHOUSE_LIVING_CAPTURE_READY: method={resolved.Method}, rva=0x{resolved.Rva:X}, " +
-                $"end=0x{NativeDefinition.ContinueRva:X}, skip=0x{NativeDefinition.SkipRva:X}, displaced=18 (2+7+9), " +
-                $"redBird={typeof(X64InlineHook).Assembly.GetName().Version}, sha256={hash}; " +
-                "GameUnit size=0x490, alive=0x88, deathLowWord=0x29C, owner=0x92, health=0x3C4; original cadence/scoring retained."); }
+            try { if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                  {
+                      // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                      var diagnosticResolved = @resolved;
+                      var diagnosticHash = @hash;
+                      Shared.DebugLogHelper.LogDebug(log, () => $"GATEHOUSE_LIVING_CAPTURE_READY: method={diagnosticResolved.Method}, rva=0x{diagnosticResolved.Rva:X}, " +
+                    $"end=0x{NativeDefinition.ContinueRva:X}, skip=0x{NativeDefinition.SkipRva:X}, displaced=18 (2+7+9), " +
+                    $"redBird={typeof(X64InlineHook).Assembly.GetName().Version}, sha256={diagnosticHash}; " +
+                    "GameUnit size=0x490, alive=0x88, deathLowWord=0x29C, owner=0x92, health=0x3C4; original cadence/scoring retained.");
+                  } }
             catch { /* Installation diagnostics cannot deactivate a published hook. */ }
         }
 
@@ -121,7 +124,10 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
             try
             {
                 if (Interlocked.Exchange(ref confirmed, 1) == 0)
-                    LogInfo("GATEHOUSE_LIVING_CAPTURE_CONFIRMED: capture hook executed after startup.");
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogInfo("GATEHOUSE_LIVING_CAPTURE_CONFIRMED: capture hook executed after startup.");
+                    }
             }
             catch { /* Logging is observational only. */ }
         }

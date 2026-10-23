@@ -18,7 +18,7 @@ namespace BuildingLimit
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.32";
+        public const string PluginVersion = "1.0.33";
 
         private static BuildingLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -27,6 +27,7 @@ namespace BuildingLimit
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
 
             Settings = new BuildingLimitLobbyViewModel();
             runtime = new BuildingLimitRuntime(Logger, Settings);
@@ -48,10 +49,11 @@ namespace BuildingLimit
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "BuildingLimit_Serp",
                     Settings,
-                    "ScriptExtenderUI/BuildingLimitSettings.xaml");
+                    "ScriptExtenderUI/BuildingLimitSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {
@@ -78,7 +80,7 @@ namespace BuildingLimit
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/src/BuildingLimitPlugin.cs:88", $"BuildingLimit {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"BuildingLimit {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

@@ -26,10 +26,128 @@ internal static class Program
     private const int TrailSentinel = 900002;
     private const int AuthoritativeTrailSentinel = 900003;
 
+    internal static string PresetFixtureInstallRoot;
+
+    private static void TestSettingsOpacity()
+    {
+        GameNetworkAPI.LocalHost = true;
+        GameNetworkAPI.Networked = true;
+        GameNetworkAPI.MultiplayerGame = true;
+        string assembly = Path.Combine(PresetFixtureInstallRoot, "Opacity.dll");
+        var settings = new ActivationViewModel();
+        settings.PreparePresets(null, assembly, "Opacity");
+        settings.ActivatePresets();
+        var changes = new List<string>();
+        settings.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        settings.HostSettingsEnabled = false;
+        Check(settings.HostSettingsOpacity == 0.65f && settings.ClientSettingsOpacity == 1f,
+            "host switch did not dim only host settings");
+        settings.ClientSettingsEnabled = false;
+        Check(settings.ClientSettingsOpacity == 0.65f && settings.CanEditHostSettings && settings.CanEditClientSettings,
+            "opacity introduced an editing lock");
+        Check(settings.CanToggleHostSettings && settings.CanToggleClientSettings && settings.CanChangePreset && settings.CanResetSettings,
+            "inactive settings blocked activation or preset actions");
+        Check(changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
+            "switches did not notify opacity bindings in an unchanged role");
+        settings.HostNumber = 73;
+        settings.ClientNumber = 84;
+        settings.HostSettingsEnabled = true;
+        settings.ClientSettingsEnabled = true;
+        Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f &&
+            settings.HostNumber == 73 && settings.ClientNumber == 84, "inactive edits were not retained on reactivation");
+        var snapshot = settings.System_CreateCurrentWorkingSnapshot();
+        snapshot[nameof(settings.EnableMod)] = MessagePackSerializer.Serialize(false);
+        snapshot[nameof(settings.EnableClientFeatures)] = MessagePackSerializer.Serialize(false);
+        changes.Clear();
+        settings.System_ApplyWorkingSnapshot(snapshot);
+        Check(settings.HostSettingsOpacity == 0.65f && settings.ClientSettingsOpacity == 0.65f &&
+            changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
+            "working snapshot did not refresh opacity");
+        changes.Clear();
+        settings.System_LoadModDefaults();
+        Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f &&
+            changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
+            "reset did not refresh opacity");
+        settings.System_EnterMissionPreset(snapshot, "Trail", false);
+        Check(settings.HostSettingsOpacity == 0.65f && !settings.CanEditHostSettings && !settings.CanEditClientSettings,
+            "mission opacity changed read-only policy");
+        settings.System_ExitMissionPreset();
+        Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f,
+            "mission exit did not restore opacity");
+        GameNetworkAPI.LocalHost = false;
+        settings.System_RefreshSettingsAccess();
+        int localHostValue = settings.HostNumber;
+        settings.HostSettingsEnabled = false;
+        settings.HostNumber = 99;
+        Check(settings.HostSettingsOpacity == 1f && settings.HostNumber == localHostValue && !settings.CanToggleHostSettings,
+            "client was permitted to change host state");
+        changes.Clear();
+        GameXAMLManagerAPI.Instance.ApplyNetworkSync(settings, () => settings.EnableMod = false);
+        Check(settings.HostSettingsOpacity == 0.65f && changes.Contains(nameof(settings.HostSettingsOpacity)) &&
+            !settings.CanEditHostSettings, "incoming host activation did not refresh client presentation");
+        settings.ClientSettingsEnabled = false;
+        settings.ClientNumber = 91;
+        Check(settings.ClientSettingsOpacity == 0.65f && settings.ClientNumber == 91 && settings.CanEditClientSettings,
+            "host switch or client opacity blocked personal edits");
+        var withoutSwitches = new HostOnlyViewModel();
+        withoutSwitches.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "OpacityNoSwitch.dll"), "OpacityNoSwitch");
+        Check(withoutSwitches.HostSettingsOpacity == 1f && withoutSwitches.ClientSettingsOpacity == 1f,
+            "missing activation switches dimmed the content");
+        GameNetworkAPI.LocalHost = true;
+        GameNetworkAPI.Networked = false;
+        GameNetworkAPI.MultiplayerGame = false;
+    }
+
     private static int Main(string[] args)
     {
+        string documentsRoot = Path.Combine(Path.GetTempPath(), "HostClientDocuments-" + Guid.NewGuid().ToString("N"));
+        PresetFixtureInstallRoot = Path.Combine(documentsRoot, "installation");
+        Directory.CreateDirectory(PresetFixtureInstallRoot);
+        PersonalSettingsPaths.TestDocumentsDirectory = assembly =>
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return Path.Combine(documentsRoot, BitConverter.ToString(sha.ComputeHash(
+                    System.Text.Encoding.UTF8.GetBytes(Path.GetDirectoryName(assembly)))).Replace("-", "").Substring(0, 12));
+        };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "plague-height") { PlagueHeightPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "preview-identity")
+            {
+                TestPreviewIdentityFailureKinds();
+                Console.WriteLine("PASS: preview identity availability, final mapping and conflict classification.");
+                return 0;
+            }
+            if (args != null && args.Length == 1 && args[0] == "ai-sell-threshold") { AiSellThresholdPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "settings-opacity")
+            {
+                TestSettingsOpacity();
+                Console.WriteLine("PASS: settings opacity, activation notifications, editable values, snapshots and host/client authority.");
+                return 0;
+            }
+            if (args != null && args.Length == 1 && args[0] == "random-events-chat")
+            {
+                RandomEventsChatPresetTests.Run();
+                return 0;
+            }
+            if (args != null && args.Length == 1 && args[0] == "extreme-powers-presets")
+            {
+                ExtremePowersPresetTests.Run();
+                return 0;
+            }
+            if (args != null && args.Length == 1 && args[0] == "preset-storage")
+            {
+                TestLobbySettingsRouting();
+                TestPresetRegistrationWithoutExtenderPersistence();
+                TestSharedPerPlayerLobbyConvergence();
+                TestPersonalBundledExternalPresetSaveLoad();
+                TestPresetLocalRoundTrip();
+                TestDoNotPersistPresetExclusion();
+                DynamicPresetTests.Run();
+                Console.WriteLine("PASS: Documents storage, pre-binding registration, presets, authority and external configuration providers.");
+                return 0;
+            }
+
             if (args != null && args.Length == 1 && args[0] == "dynamic-presets") { DynamicPresetTests.Run(); return 0; }
 
             if (args != null && args.Length == 1 &&
@@ -93,7 +211,6 @@ internal static class Program
             TestP2aMigrationContracts();
             TestNoKillRewardHostSettings();
             TestGameplayGateSourceIntegration();
-            TestGameplaySessionSourceIntegration();
             TestLocalPerPlayerSetting();
             TestShiftRepairAllBuildingsPolicy();
             TestMarketGoodsOrderDefinition();
@@ -138,13 +255,16 @@ internal static class Program
             TestCastlePlannerBlueprintHudPolicies();
             TestCastleSpawnContentPolicy();
             TestSnapshotCompletionHook();
+            RandomEventsChatPresetTests.Run();
+            ExtremePowersPresetTests.Run();
             TestFreeCastleProtocol();
             TestModSettingsSearchPolicy();
+            TestSettingsOpacity();
             TestUnitGoldCostSnapshot();
             TestSharedModSettingsSearchMatcher();
 
-            string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
-            string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "HostClientTest.msgpack");
+            string pluginPath = Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll");
+            string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.HostClientTest").SettingsFile;
             if (File.Exists(settingsPath))
                 File.Delete(settingsPath);
 
@@ -310,15 +430,12 @@ internal static class Program
             GameNetworkAPI.Networked = true;
             GameNetworkAPI.LocalHost = true;
             var singleplayer = new MixedViewModel();
-            string singleplayerPath = Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                "LobbyModSettings",
-                "SingleplayerTrailTest.msgpack");
+            string singleplayerPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.SingleplayerTrailTest").SettingsFile;
             if (File.Exists(singleplayerPath))
                 File.Delete(singleplayerPath);
             singleplayer.PreparePresets(
                 null,
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SingleplayerTrailTest.dll"),
+                Path.Combine(PresetFixtureInstallRoot, "SingleplayerTrailTest.dll"),
                 "SingleplayerTrailTest");
             singleplayer.ActivatePresets();
 
@@ -356,7 +473,7 @@ internal static class Program
             GameNetworkAPI.MultiplayerGame = true;
 
             var activation = new ActivationViewModel();
-            activation.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Activation.dll"), "ActivationTest");
+            activation.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "Activation.dll"), "ActivationTest");
             GameNetworkAPI.LocalHost = true;
             activation.System_RefreshSettingsAccess();
             Check(activation.HasHostSettingsActivation && activation.HasClientSettingsActivation,
@@ -375,7 +492,7 @@ internal static class Program
                 "shared activation bindings did not preserve host/client authority");
 
             var hostOnly = new HostOnlyViewModel();
-            hostOnly.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HostOnly.dll"), "HostOnlyTest");
+            hostOnly.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "HostOnly.dll"), "HostOnlyTest");
             GameNetworkAPI.LocalHost = false;
             hostOnly.System_RefreshSettingsAccess();
             Check(!hostOnly.CanChangePreset, "pure host mod exposed a functional client preset");
@@ -390,7 +507,7 @@ internal static class Program
                 "client settings without a dedicated activation property exposed an unusable header switch");
 
             var conflicting = new ConflictingAttributesViewModel();
-            conflicting.PreparePresets(null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Conflicting.dll"), "ConflictingTest");
+            conflicting.PreparePresets(null, Path.Combine(PresetFixtureInstallRoot, "Conflicting.dll"), "ConflictingTest");
             Check(conflicting.HasHostSettings && !conflicting.HasClientSettings, "SyncHostOnly did not take precedence over a conflicting client attribute");
 
             Console.WriteLine("PASS: routing, authority, game modes, Trail/client locks, presets, and MessagePack sentinels");
@@ -400,6 +517,11 @@ internal static class Program
         {
             Console.Error.WriteLine("FAIL: " + exception);
             return 1;
+        }
+        finally
+        {
+            PersonalSettingsPaths.TestDocumentsDirectory = null;
+            if (Directory.Exists(documentsRoot)) Directory.Delete(documentsRoot, true);
         }
     }
 
@@ -559,11 +681,10 @@ internal static class Program
     {
         const string modName = "PresetStorageOptOutProbe";
         const string targetGuid = "tests.preset-storage-opt-out-probe";
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, modName + ".dll");
-        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, modName + ".dll");
+        string settingsPath = Path.Combine(PresetFixtureInstallRoot,
             "LobbyModSettings", modName + ".msgpack");
-        string migratedPresetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings", "Presets", "Override", targetGuid,
+        string migratedPresetPath = Path.Combine(new PersonalSettingsPaths(pluginPath, targetGuid).Presets,
             "preset_legacy-preset-1.json");
         Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
         if (File.Exists(migratedPresetPath))
@@ -583,6 +704,7 @@ internal static class Program
         plugin.Info.Metadata.GUID = targetGuid;
         var viewModel = new HostOnlyViewModel();
         LobbyModSettingsPresetRegistration.Register(plugin, null, modName, viewModel, "unused.xaml");
+        settingsPath = new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile;
         Check(!manager.LastUseBuiltInPersistence &&
               viewModel.HostValue == 123,
             "preset registration did not restore legacy values before opting out of Extender persistence");
@@ -1750,7 +1872,7 @@ internal static class Program
             "StartConditions mode precedence or map-session reset regressed");
 
         string hudCoordinatorSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "Runtime", "UI", "TroopActionButtonLayout.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "Presentation", "TroopActions", "TroopActionHud.cs"));
         string bugfixRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         string assassinClimbSource = File.ReadAllText(
@@ -1966,8 +2088,8 @@ internal static class Program
         Check(observedSurrenderBody.SequenceEqual(new byte[] { 0x01 }),
             "surrender execution body is no longer the expected one-byte minimal payload");
 
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SurrenderAndStatisticsSetting.dll");
-        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", "SurrenderAndStatisticsSettingTest.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "SurrenderAndStatisticsSetting.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.SurrenderAndStatisticsSettingTest").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -3035,30 +3157,30 @@ internal static class Program
 
     private static void TestTroopActionButtonLayoutPolicy()
     {
-        Check(!TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(false, true) &&
-              !TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, false) &&
-              TroopActionButtonLayoutPolicy.IsEffectivelyOccupied(true, true),
+        Check(!APIShared.Presentation.TroopActionHudLayoutPolicy.IsEffectivelyOccupied(false, true) &&
+              !APIShared.Presentation.TroopActionHudLayoutPolicy.IsEffectivelyOccupied(true, false) &&
+              APIShared.Presentation.TroopActionHudLayoutPolicy.IsEffectivelyOccupied(true, true),
             "shared troop action collision policy did not require effective visibility and interactivity");
 
-        Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
+        Check(APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_Host", 1, "Example.Mod.Action", 150,
                 out int explicitPriority, out string explicitActionId) &&
               explicitPriority == 150 && explicitActionId == "Example.Mod.Action",
             "shared troop action metadata contract rejected valid explicit metadata");
-        Check(TroopActionButtonLayoutPolicy.TryResolveIdentity(
+        Check(APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_0125_LegacyAction", null, null, null,
                 out int legacyPriority, out string legacyActionId) &&
               legacyPriority == 125 && legacyActionId == "LegacyAction",
             "shared troop action metadata contract rejected the legacy host format");
-        Check(!TroopActionButtonLayoutPolicy.TryResolveIdentity(
+        Check(!APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_Host", 2, "Example.Mod.Action", 150, out _, out _) &&
-              !TroopActionButtonLayoutPolicy.TryResolveIdentity(
+              !APIShared.Presentation.TroopActionHudLayoutPolicy.TryResolveIdentity(
                 "SerpTroopAction_Host", 1, "Example.Mod.Action", null, out _, out _),
             "shared troop action metadata contract accepted an unknown version or incomplete metadata");
 
-        var knight = new TroopActionRequest("ExtraFeatures_Serp.KnightTransform", 100, true);
-        var assassin = new TroopActionRequest("BugfixesAndQoL_Serp.AssassinClimb", 200, true);
-        TroopActionLayoutDecision bothFree = TroopActionButtonLayoutPolicy.CreateDecision(
+        var knight = new APIShared.Presentation.TroopActionRequest("ExtraFeatures_Serp.KnightTransform", 100, true);
+        var assassin = new APIShared.Presentation.TroopActionRequest("BugfixesAndQoL_Serp.AssassinClimb", 200, true);
+        APIShared.Presentation.TroopActionLayoutDecision bothFree = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, false, false);
         Check(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}").SequenceEqual(new[]
         {
@@ -3066,49 +3188,49 @@ internal static class Program
             "BugfixesAndQoL_Serp.AssassinClimb:BottomMiddle"
         }), "shared troop actions did not use priority order for the two free slots");
 
-        TroopActionLayoutDecision reverseOrder = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision reverseOrder = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { knight, assassin }, false, false);
         Check(reverseOrder.Assignments.Select(value => $"{value.ActionId}:{value.Slot}")
                 .SequenceEqual(bothFree.Assignments.Select(value => $"{value.ActionId}:{value.Slot}")),
             "shared troop action assignment depended on registration or mod load order");
 
-        TroopActionLayoutDecision rightOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision rightOccupied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, true, false);
         Check(rightOccupied.Assignments.Count == 1 &&
               rightOccupied.Assignments[0].ActionId == knight.ActionId &&
-              rightOccupied.Assignments[0].Slot == TroopActionSlot.BottomMiddle &&
+              rightOccupied.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomMiddle &&
               rightOccupied.OverflowActionIds.SequenceEqual(new[] { assassin.ActionId }),
             "shared troop actions did not give the remaining middle slot to the highest priority action");
 
-        TroopActionLayoutDecision middleOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision middleOccupied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, false, true);
         Check(middleOccupied.Assignments.Count == 1 &&
               middleOccupied.Assignments[0].ActionId == knight.ActionId &&
-              middleOccupied.Assignments[0].Slot == TroopActionSlot.BottomRight,
+              middleOccupied.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomRight,
             "shared troop actions did not preserve the working bottom-right Knight slot");
 
-        TroopActionLayoutDecision bothOccupied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision bothOccupied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin, knight }, true, true);
         Check(bothOccupied.Assignments.Count == 0 && bothOccupied.OverflowActionIds.Count == 2,
             "shared troop actions overlaid occupied Vanilla/foreign slots");
 
-        TroopActionLayoutDecision assassinOnly = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision assassinOnly = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { assassin }, false, false);
         Check(assassinOnly.Assignments.Count == 1 &&
-              assassinOnly.Assignments[0].Slot == TroopActionSlot.BottomRight,
+              assassinOnly.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomRight,
             "a lone Assassin action did not receive the preferred bottom-right slot");
 
-        TroopActionLayoutDecision knightOnly = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision knightOnly = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[] { knight }, false, false);
         Check(knightOnly.Assignments.Count == 1 &&
               knightOnly.Assignments[0].ActionId == knight.ActionId &&
-              knightOnly.Assignments[0].Slot == TroopActionSlot.BottomRight,
+              knightOnly.Assignments[0].Slot == APIShared.Presentation.TroopActionSlot.BottomRight,
             "a lone Knight action did not receive the preferred bottom-right slot");
 
-        TroopActionLayoutDecision threeActions = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision threeActions = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.Third", 300, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.Third", 300, true),
                 assassin,
                 knight
             },
@@ -3118,11 +3240,11 @@ internal static class Program
               threeActions.OverflowActionIds.SequenceEqual(new[] { "Example.Mod.Third" }),
             "shared troop action overflow did not hide the lowest priority third action");
 
-        TroopActionLayoutDecision tied = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision tied = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.B", 100, true),
-                new TroopActionRequest("Example.Mod.A", 100, true)
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.B", 100, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.A", 100, true)
             },
             false,
             false);
@@ -3130,11 +3252,11 @@ internal static class Program
               tied.Assignments[1].ActionId == "Example.Mod.B",
             "equal troop action priorities were not resolved by ordinal action id");
 
-        TroopActionLayoutDecision duplicate = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision duplicate = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.Duplicate", 100, true),
-                new TroopActionRequest("Example.Mod.Duplicate", 200, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.Duplicate", 100, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.Duplicate", 200, true),
                 knight
             },
             false,
@@ -3142,11 +3264,11 @@ internal static class Program
         Check(duplicate.DuplicateActionIds.SequenceEqual(new[] { "Example.Mod.Duplicate" }) &&
               duplicate.Assignments.Count == 1 && duplicate.Assignments[0].ActionId == knight.ActionId,
             "duplicate troop action ids did not fail closed without blocking unrelated actions");
-        TroopActionLayoutDecision hiddenDuplicate = TroopActionButtonLayoutPolicy.CreateDecision(
+        APIShared.Presentation.TroopActionLayoutDecision hiddenDuplicate = APIShared.Presentation.TroopActionHudLayoutPolicy.CreateDecision(
             new[]
             {
-                new TroopActionRequest("Example.Mod.HiddenDuplicate", 100, true),
-                new TroopActionRequest("Example.Mod.HiddenDuplicate", 200, false)
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.HiddenDuplicate", 100, true),
+                new APIShared.Presentation.TroopActionRequest("Example.Mod.HiddenDuplicate", 200, false)
             },
             false,
             false);
@@ -4395,11 +4517,8 @@ internal static class Program
 
     private static void TestMarketOrderPresetRoundTrip()
     {
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MarketOrderPresetTest.dll");
-        string settingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "MarketOrderPresetTest.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "MarketOrderPresetTest.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.MarketOrderPresetTest").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -4427,8 +4546,8 @@ internal static class Program
 
     private static void TestBuildPreviewLocalIntegration()
     {
-        string pluginPath=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"BuildPreviewPresetProbe.dll");
-        string settingsPath=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"LobbyModSettings","BuildPreviewPresetProbe.msgpack");
+        string pluginPath=Path.Combine(PresetFixtureInstallRoot,"BuildPreviewPresetProbe.dll");
+        string settingsPath=new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.BuildPreviewPresetProbe").SettingsFile;
         if(File.Exists(settingsPath)) File.Delete(settingsPath);
         GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
         var vm=new BuildPreviewPresetProbe();
@@ -4455,11 +4574,8 @@ internal static class Program
 
     private static void TestPresetLocalRoundTrip()
     {
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PresetLocalRoundTrip.dll");
-        string settingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "PresetLocalRoundTrip.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "PresetLocalRoundTrip.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.PresetLocalRoundTrip").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -4477,12 +4593,9 @@ internal static class Program
             "PresetLocal working value did not survive restart");
 
         string castlePlannerPluginPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
+            PresetFixtureInstallRoot,
             "CastlePlannerPresetProbe.dll");
-        string castlePlannerSettingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "CastlePlannerPresetProbe.msgpack");
+        string castlePlannerSettingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.CastlePlannerPresetProbe").SettingsFile;
         if (File.Exists(castlePlannerSettingsPath))
             File.Delete(castlePlannerSettingsPath);
 
@@ -4536,11 +4649,8 @@ internal static class Program
 
     private static void TestDoNotPersistPresetExclusion()
     {
-        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DoNotPersistPreset.dll");
-        string settingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "LobbyModSettings",
-            "DoNotPersistPreset.msgpack");
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "DoNotPersistPreset.dll");
+        string settingsPath = new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.DoNotPersistPreset").SettingsFile;
         if (File.Exists(settingsPath))
             File.Delete(settingsPath);
 
@@ -4575,7 +4685,7 @@ internal static class Program
         const string targetGuid = "Tests.PresetCatalogProbe";
         string root = Path.Combine(Path.GetTempPath(), "PresetCatalogProbe-" + Guid.NewGuid().ToString("N"));
         string pluginPath = Path.Combine(root, "Probe.dll");
-        string personalDirectory = Path.Combine(root, "LobbyModSettings", "Presets", "Override", targetGuid);
+        string personalDirectory = new PersonalSettingsPaths(pluginPath, targetGuid).Presets;
         string bundledDirectory = Path.Combine(root, "Override", targetGuid);
         string externalRoot = Path.Combine(root, "ExternalProvider");
         string externalDirectory = Path.Combine(externalRoot, "Override", targetGuid);
@@ -4639,7 +4749,7 @@ internal static class Program
                 "fixed/player/default load modes did not materialize the editable working state");
             vm.HostValue = 504;
             Dictionary<string, byte[]> payload = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(
-                File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack")));
+                File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile));
             Check(MessagePackSerializer.Deserialize<bool>(payload["__SerpPresetDirty"]),
                 "editing loaded values did not persist the modified state");
 
@@ -4692,7 +4802,7 @@ internal static class Program
             string normalStatus = vm.System_TestPresetStatusText;
             Check(normalStatus.Contains("Based on: Same name"),
                 "normal lobby preset status lost its published source");
-            byte[] normalWorkingFile = File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"));
+            byte[] normalWorkingFile = File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile);
             vm.System_EnterMissionPreset(
                 new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
                 "Trail",
@@ -4704,7 +4814,7 @@ internal static class Program
                 "Customize load did not resolve player values from the suspended normal working state");
             Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider",
                 "loading a preset into editable Trail did not show its actual source");
-            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"))),
+            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "loading a preset into editable Trail changed the normal working-state file");
             vm.HostValue = 777;
             Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider (modified)",
@@ -4722,7 +4832,7 @@ internal static class Program
             vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Mod defaults");
             Check(vm.System_TestPresetStatusText == "Mod defaults",
                 "resetting to Mod defaults retained the previous published preset source");
-            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"))),
+            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "editing or resetting the Trail working copy changed the normal working-state file");
             vm.System_ExitMissionPreset();
             Check(vm.HostValue == 505 && vm.ClientValue == 611 && vm.LocalValue == 301,
@@ -4854,7 +4964,7 @@ internal static class Program
         viewModel.PreparePresets(
             null,
             Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
+                PresetFixtureInstallRoot,
                 "SnapshotCompletionProbe.dll"),
             "SnapshotCompletionProbe");
         viewModel.ActivatePresets();
@@ -4906,6 +5016,23 @@ internal static class Program
     {
         try { value = MessagePackSerializer.Deserialize<int>(bytes); return true; }
         catch { value = 0; return false; }
+    }
+
+    private static void TestPreviewIdentityFailureKinds()
+    {
+        foreach (bool multiplayer in new[] { false, true })
+        {
+            var missing = PlayerIdentityHelper.ResolveLocalPlayerId(multiplayer, false, 0, 0, 0);
+            Check(!missing.IsResolved && !missing.IsConflict, "temporary missing identity must be retryable");
+        }
+        var mismatch = PlayerIdentityHelper.ResolveLocalPlayerId(true, true, 4, 3, 3);
+        Check(!mismatch.IsResolved && mismatch.IsConflict, "native/roster mismatch must abort rather than wait");
+        mismatch = PlayerIdentityHelper.ResolveLocalPlayerId(true, true, 3, 3, 2);
+        Check(!mismatch.IsResolved && mismatch.IsConflict, "final lobby/roster mismatch must abort rather than wait");
+        var ready = PlayerIdentityHelper.ResolveLocalPlayerId(true, true, 3, 3, 3);
+        Check(ready.IsResolved && ready.PlayerId == 3 && !ready.IsConflict, "matching final MP identity must be accepted");
+        var provisional = PlayerIdentityHelper.ResolveLocalPlayerId(true, false, 4, 0, 3);
+        Check(provisional.IsResolved && provisional.PlayerId == 3, "lobby capture must retain final lobby precedence over stale native state");
     }
 
     private static void TestFreeCastleProtocol()
@@ -5525,70 +5652,6 @@ internal static class Program
         LobbyLifecycle.System_TestReset();
     }
 
-    private static void TestGameplaySessionSourceIntegration()
-    {
-        string workspaceRoot = Path.GetFullPath(
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        var runtimeRoots = Directory.GetDirectories(workspaceRoot)
-            .Where(path => Directory.GetFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any())
-            .Select(path => Path.Combine(path, "src"))
-            .Where(Directory.Exists)
-            .ToList();
-        runtimeRoots.Add(Path.Combine(workspaceRoot, "Shared"));
-        foreach (string groupName in new[] { "Helpers" })
-        {
-            string groupRoot = Path.Combine(workspaceRoot, groupName);
-            runtimeRoots.AddRange(Directory.GetDirectories(groupRoot)
-                .Select(path => Path.Combine(path, "src"))
-                .Where(Directory.Exists));
-        }
-
-        foreach (string root in runtimeRoots)
-        {
-            foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
-            {
-                string source = File.ReadAllText(path);
-                if (path.Contains(Path.DirectorySeparatorChar + "APIShared" + Path.DirectorySeparatorChar) || !source.Contains("MapLoaderR3EventHooks.OnStartMap.Observable"))
-                    continue;
-
-                bool covered = source.Contains("GameplaySessionLifecycle.SubscribeStarted") ||
-                    source.Contains("MapLoaderR3EventHooks.OnLoadSave.Observable") ||
-                    source.Contains("SaveLifecycle:");
-                Check(covered,
-                    $"direct OnStartMap runtime lacks a save-load path or explicit lifecycle classification: {path}");
-            }
-        }
-
-        string lifecycle = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "Adapters", "APIShared", "MissionEventsAdapter.cs"));
-        Check(lifecycle.Contains("TryGetMissionLifecycle") &&
-              lifecycle.Contains("priority?.Invoke(notification)") &&
-              !lifecycle.Contains("OnUnloadMap.Observable") &&
-              !lifecycle.Contains("RegisterModDataHandler"),
-            "Shared gameplay lifecycle no longer gates successful save Post, reacts to nested unloads, or introduced persistence");
-
-        string coordinator = string.Join("\n", Directory.GetFiles(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "Lobby"), "*.cs").Select(File.ReadAllText));
-        Check(coordinator.Contains("TryGetLobbyState") &&
-              coordinator.Contains("API_SHARED_LOBBY_OBSERVER") &&
-              !coordinator.Contains("Application.onBeforeRender") &&
-              !coordinator.Contains("GameNetworkAPI.GetLocalPlayerId"),
-            "per-player lobby observation must use APIShared without restoring a local render poller or noisy identity call");
-
-        string extraFeaturesRuntime = File.ReadAllText(
-            Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
-        Check(extraFeaturesRuntime.Contains("!context.IsReplay") &&
-              extraFeaturesRuntime.Contains("ApplyMapLoadedSettings(context.IsEditor);") &&
-              !extraFeaturesRuntime.Contains("TrySubscribeFeature(\"save-load settings\""),
-            "Extra Features does not initialize map-loaded state through the replay-safe shared lifecycle");
-
-        string aiTowerRuinRepair = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AITowerRuinRepairFix.cs"));
-        Check(aiTowerRuinRepair.Contains("RebuildRuntimeRuinIndex();") &&
-              aiTowerRuinRepair.Contains("int buildingId = spanIndex + 1;") &&
-              aiTowerRuinRepair.Contains("building.r_GlobalId == 0"),
-            "AI tower-ruin tracking is not safely reconstructed from loaded native buildings");
-    }
-
     private static void TestSharedGameplaySessionLifecycle()
     {
         MissionEvents.ResetForTests();
@@ -6145,6 +6208,32 @@ internal sealed class ActivationViewModel : PresetLobbyModSettingsViewModel
 {
     private bool enableMod = true;
     private bool enableClientFeatures = true;
+    private int hostNumber;
+    private int clientNumber;
+
+    [SyncHostOnly]
+    public int HostNumber
+    {
+        get => hostNumber;
+        set
+        {
+            if (!CanMutateSetting(nameof(HostNumber)) || hostNumber == value) return;
+            hostNumber = value;
+            OnPropertyChanged(nameof(HostNumber));
+        }
+    }
+
+    [PresetLocal]
+    public int ClientNumber
+    {
+        get => clientNumber;
+        set
+        {
+            if (!CanMutateSetting(nameof(ClientNumber)) || clientNumber == value) return;
+            clientNumber = value;
+            OnPropertyChanged(nameof(ClientNumber));
+        }
+    }
 
     [SyncHostOnly]
     public bool EnableMod
@@ -6343,7 +6432,7 @@ namespace BepInEx.Logging { public sealed class ManualLogSource { } }
 namespace Noesis
 {
     public enum Visibility { Visible, Hidden, Collapsed }
-    public sealed class ComboBoxItem { public object Content { get; set; } public Visibility Visibility { get; set; } }
+    public sealed class ComboBoxItem { public object Content { get; set; } public Visibility Visibility { get; set; } public bool IsEnabled { get; set; } = true; }
 }
 
 namespace SHCDESE.Interop
@@ -6558,6 +6647,16 @@ namespace SHCDESE.API
 
         public static GameXAMLManagerAPI Instance { get; } = new GameXAMLManagerAPI();
         public SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin CurrentLobbyModSettingsChangeOrigin { get; private set; }
+        // External boundary double: preserve the installed Extender's origin stack
+        // and swallowed-callback behavior; the production wrapper must rethrow.
+        internal void RunWithChangeOrigin(SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin origin, Action action)
+        {
+            var previous = CurrentLobbyModSettingsChangeOrigin;
+            CurrentLobbyModSettingsChangeOrigin = origin;
+            try { action(); }
+            catch { }
+            finally { CurrentLobbyModSettingsChangeOrigin = previous; }
+        }
         public List<Registration> RegisteredModSettings { get; } = new List<Registration>();
         public int BroadcastCount { get; private set; }
         public int SaveCount { get; private set; }
@@ -6593,6 +6692,7 @@ namespace SHCDESE.API
             notify.PropertyChanged += (sender, args) =>
             {
                 if (CurrentLobbyModSettingsChangeOrigin == SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.IncomingNetwork ||
+                    CurrentLobbyModSettingsChangeOrigin == SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.InitialLoad ||
                     sender is SHCDESE.ViewModels.LobbyModSettingsBaseViewModel revertingVm && revertingVm.IsSuppressingSync ||
                     sender == null ||
                     string.IsNullOrEmpty(args.PropertyName))
@@ -6866,6 +6966,7 @@ namespace Shared
 {
     internal static class DebugLogHelper
     {
+        public static bool DiagnosticsEnabled => false;
         public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { }
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }

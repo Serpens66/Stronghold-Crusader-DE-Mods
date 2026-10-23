@@ -62,9 +62,10 @@ namespace BugfixesAndQoL
             }
 
             button.DataContext = vanillaViewModel;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsAccessViewModel.cs:67", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BOUND: " +
-                "commandAvailable=true, " +
-                "dataContext=MainViewModel.Instance.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsAccessViewModel.cs:67", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BOUND: " +
+                    "commandAvailable=true, " +
+                    "dataContext=MainViewModel.Instance.");
         }
 
         private void OnSettingChanged(string propertyName)

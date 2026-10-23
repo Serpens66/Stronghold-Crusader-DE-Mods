@@ -19,6 +19,8 @@ namespace BugfixesAndQoL
             TestXamlAndOwnership(check);
         }
 
+        internal static void RunSettingsUiChecks(Action<bool, string> check) => TestXamlAndOwnership(check);
+
         private static void TestTransaction(Action<bool, string> check)
         {
             var committed = new Model { Peace = 4, StrongWalls = 0, Buildings = new[] { 1, 1 } };
@@ -174,7 +176,7 @@ namespace BugfixesAndQoL
             XElement hostInterface = settingsXaml.Descendants().Single(element =>
                 element.Attributes().Any(attribute =>
                     attribute.Name.LocalName == "ModSettingsSearch.SectionKey" &&
-                    (string)attribute == "bugfixes.section.host-interface"));
+                    (string)attribute == "bugfixes.topic.host-setup"));
             string[] interfaceSettingKeys =
             {
                 "bugfixes.show-mp-advanced-settings-in-sp",
@@ -191,11 +193,13 @@ namespace BugfixesAndQoL
                           element.Attributes().Any(attribute =>
                               attribute.Name.LocalName == "ModSettingsSearch.Key" &&
                               (string)attribute == settingKey)) == 1,
-                    settingKey + " exists exactly once in the Host Interface section");
+                    settingKey + " exists exactly once in the Host setup topic");
             }
-            check(settingsXaml.ToString().Contains("{Binding InterfaceTitleText}") &&
+            check(settingsXaml.Descendants().Any(element => element.Attributes().Any(attribute =>
+                      attribute.Name.LocalName == "ModSettingsSearch.SectionTitle" &&
+                      (string)attribute == "{Binding SettingsPresentation.HostSetup.Title}")) &&
                   !settingsXaml.ToString().Contains("ClientInterfaceTitleText"),
-                "client and host sections share the generalized Interface title binding");
+                "host setup has a localized topic title without reviving the retired client-only heading");
 
             string[] localePaths = Directory.GetFiles(
                 Path.Combine(project, "Locales"),
@@ -219,7 +223,8 @@ namespace BugfixesAndQoL
                 "Vanilla preset strip is enabled for local Skirmish hosts");
 
             string runtime = File.ReadAllText(Path.Combine(project, @"src\SkirmishGameOptionsRuntime.cs"));
-            check(runtime.Contains("viewModel.Show_MPPeacetime = peaceTimeNativeAvailable;") &&
+            // The built-DLL settings suite separately executes PeaceAvailable for both Host states.
+            check(runtime.Contains("viewModel.Show_MPPeacetime = PeaceAvailable;") &&
                   !runtime.Contains("ExtraFeatures") &&
                   runtime.Contains("working.peacetime = committedBeforeApply.peacetime;") &&
                   runtime.Contains("committed.advanced_options = 0;") &&
@@ -268,13 +273,9 @@ namespace BugfixesAndQoL
                 @"src\VanillaPeaceTimeGameplayPatch.cs"));
             check(!runtime.Contains("DebugLogHelper.LogInfo(") &&
                   !access.Contains("DebugLogHelper.LogInfo(") &&
-                  !noDogsPatch.Contains("DebugLogHelper.LogInfo(") &&
-                  !peaceTimePatch.Contains("DebugLogHelper.LogInfo(") &&
                   runtime.Contains("DebugLogHelper.LogDebug(") &&
-                  access.Contains("DebugLogHelper.LogDebugLimited(") &&
-                  noDogsPatch.Contains("DebugLogHelper.LogDebug(") &&
-                  peaceTimePatch.Contains("DebugLogHelper.LogDebug("),
-                "successful initialization and routine Skirmish actions are debug-only");
+                  access.Contains("DebugLogHelper.LogDebugLimited("),
+                "routine Skirmish UI actions are debug-only; native ownership is logged by the permanent switch installer");
             check(runtime.Contains("DebugLogHelper.LogWarningLimited(") &&
                   runtime.Contains("SKIRMISH_GAME_OPTIONS_NO_DOGS_DISABLED") &&
                   runtime.Contains("SKIRMISH_GAME_OPTIONS_PEACE_TIME_DISABLED") &&

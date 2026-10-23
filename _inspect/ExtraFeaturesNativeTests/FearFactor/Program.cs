@@ -27,13 +27,8 @@ namespace ExtraFeatures
                 Check(host.Contains("nameof(ExtraFeaturesViewModel.EnableFearFactorNeutralization)"), "setting changes reconcile native activation");
                 string runtime = File.ReadAllText(Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "ExtraFeatures", "src", "FearFactorNeutralizationRuntime.cs"));
-                Check(runtime.Contains("Registers = X64SmartCPUContextRegs.All"),
-                    "UI callback preserves live volatile registers including render-cache R11");
-                Check(runtime.Contains("Placement = OverwrittenInstructionPlacement.BeforeCallback"),
-                    "fear load executes before neutralizing its result");
-                Check(runtime.Contains("return damageHook.Original(unitManager, baseDamage, playerIndex);"),
-                    "disabled damage delegates to Vanilla");
-                Check(runtime.Contains("if (!enabled) return;"), "disabled overlay preserves loaded value");
+                // Register preservation and both enabled/disabled paths of the native stubs are
+                // executed against the Vanilla bytes in ExtraFeaturesNativeTests (FearFactorStubTests).
                 Check(runtime.Contains("pending.Dispose()") && runtime.Contains("DisplacedByteCount != FearFactorNativeDefinition.UiHookLength"), "partial installation rolls back");
                 Check(runtime.Contains("FearFactorNeutralizationTest_Serp"), "legacy hook conflict guard");
                 byte[] file = File.ReadAllBytes(DllPath);

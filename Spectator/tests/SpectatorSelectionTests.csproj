@@ -1,0 +1,6 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputType>Exe</OutputType><AssemblyName>SpectatorSelectionTests</AssemblyName><LangVersion>latest</LangVersion></PropertyGroup>
+  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/>
+    <Compile Include="SpectatorSelectionTests.cs"/><Compile Include="..\src\PlayerSelectionController.cs"/><Compile Include="..\src\TestActionPolicy.cs"/>
+  </ItemGroup><Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

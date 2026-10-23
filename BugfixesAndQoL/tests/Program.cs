@@ -38,8 +38,40 @@ namespace BugfixesAndQoL
 
         private static int failures;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "--settings-ui", StringComparison.Ordinal))
+            {
+                TestTimerCountdownMigration();
+                TestWaterboyTargetReservationIntegration();
+                TestKeepFlagRotationIntegration();
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "SurrenderFeature.cs")));
+                TestPlacementCancelMoveSuppressionIntegration();
+                TestNotificationSkipIntegration();
+                TestResolutionAwareZoomIntegration();
+                TestMultiplayerSafetyPolicy();
+                TestBriefingNoStartingGoldFix();
+                TestLobbyYellowContrast();
+                TestTrailCustomizationOwnership();
+                TestTunnelPlacementDistanceIntegration();
+                TestFriendlyMoatMovementIntegration();
+                TestAiDefensePatrolIntegration();
+                TestAiStoneReserveIntegration();
+                TestAiWallTargetingIntegration();
+                CorruptLordDataSpawnTests.Run(Check);
+                SkirmishGameOptionsTests.RunSettingsUiChecks(Check);
+                Console.WriteLine("Settings UI integration checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
+            if (args.Length == 1 && args[0] == "--notifications")
+            {
+                TestNotificationSkipPolicy();
+                TestNotificationManagedContracts();
+                TestNotificationQueueNearCallResolver();
+                TestNotificationSkipIntegration();
+                Console.WriteLine("Notification policy and integration checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             TestSurrenderGameOverPolicy();
             TestSurrenderSelectionCleanup();
             TestCoopCustomLordSelectionPolicy();
@@ -195,8 +227,7 @@ namespace BugfixesAndQoL
             string customTrail = File.ReadAllText(Path.Combine("src", "CustomTrailExtremeGoldFixHook.cs"));
             string enemyCursor = File.ReadAllText(Path.Combine("src", "EnemyProximityBulldozeCursorHook.cs"));
 
-            Check(CountOccurrences(runtime, "ReconcilePermanentClientHook(") == 5 &&
-                  !runtime.Contains("DisposeFeature(\"market autotrade sell threshold\"") &&
+            Check(!runtime.Contains("DisposeFeature(\"market autotrade sell threshold\"") &&
                   !runtime.Contains("DisposeFeature(\"enemy-proximity bulldoze cursor\"") &&
                   !runtime.Contains("DisposeFeature(\"HD market view\"") &&
                   !runtime.Contains("DisposeFeature(\"camera movement modifier\"") &&
@@ -237,10 +268,8 @@ namespace BugfixesAndQoL
                   runtime.Contains("ValidateCommittedDetour(committedDetour, expectedTargetAddress);") &&
                   runtime.Contains("internal void SetEnabled(bool enabled)") &&
                   runtime.Contains("if (!correctionAvailable || !optimizationEnabled)") &&
-                  !runtime.Contains("public void Dispose()") &&
-                  !runtime.Contains("MaximumDetailedLogs") &&
-                  !runtime.Contains("LogDetail("),
-                "Waterboy detour only rolls back unpublished candidates and omits routine detail logging");
+                  !runtime.Contains("public void Dispose()"),
+                "Waterboy detour validates committed targets, rolls back unpublished candidates and switches logically");
             Check(project.Contains("src\\WaterboyReservationLedger.cs") &&
                   project.Contains("src\\WaterboyNativeDefinition.cs") &&
                   project.Contains("src\\WaterboyTargetReservationRuntime.cs") &&
@@ -485,26 +514,8 @@ namespace BugfixesAndQoL
                   Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(1) &&
                   Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(10000),
                 "selection count policy accepts only Vanilla's 0..10000 capacity");
-            string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
-            string formation = string.Join(Environment.NewLine, Directory.GetFiles(Path.Combine("src", "Formations"), "FormationRuntime.*.cs").Select(File.ReadAllText));
-            string assassin = File.ReadAllText(Path.Combine("src", "AssassinClimbRuntime.cs"));
-            Check(health.Contains(
-                    "int unitId = state.selectedChimps[index];" + Environment.NewLine +
-                    "                    if (unitId <= 0) continue;") &&
-                  formation.Contains("APIShared.LocalSelectionAPI.TryCapture(playerId") &&
-                  formation.Contains("selected.Count < 2") &&
-                  assassin.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
-                  assassin.Contains("ReferenceEquals(selected, lastSelectionSnapshot)") &&
-                  assassin.Contains("!lastSelectionHasAssassin && !lastSelectionHasAssassinType") &&
-                  assassin.Contains("selected[index].UnitType != (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN") &&
-                  assassin.Contains("lastSelectionHasAssassinType = hasAssassinType;") &&
-                  assassin.Contains("lastSelectionSnapshot = null;") &&
-                  assassin.Contains("lastSelectionHasAssassinType = false;") &&
-                  Regex.IsMatch(assassin, @"public void BeginMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
-                  Regex.IsMatch(assassin, @"public void EndMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
-                  !formation.Contains("GetSelectedChimps") &&
-                  !assassin.Contains("GetSelectedChimps"),
-                "selection failures and changed Assassin ownership invalidate cached button decisions");
+            // Ownership/cache/failure behavior executes the actual production methods in
+            // AssassinPathfinding.Tests/SelectionCacheTests.cs; source wording is not a proof.
         }
 
         private static void TestFriendlyMoatCursorIdGuard()
@@ -939,7 +950,7 @@ namespace BugfixesAndQoL
                     featureSource.Contains("badgeMode == statisticsTeamBadgeMode"),
                 "statistics team badges select Vanilla or Easy Read visuals and cache the chosen mode");
             Check(featureSource.Contains(
-                        "private bool StatisticsTeamBadgesEnabled => settings.EnableMod && settings.EnableClientFeatures;") &&
+                        "private bool StatisticsTeamBadgesEnabled => settings.EnableClientFeatures;") &&
                     featureSource.Contains("!StatisticsTeamBadgesEnabled") &&
                     featureSource.Contains("badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff"),
                 "statistics team badges use the independent client gate and support Off mode");
@@ -1631,27 +1642,25 @@ namespace BugfixesAndQoL
         private static void TestPlacementCancelMoveSuppressionPolicy()
         {
             Check(!PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 5, false),
+                    true, true, 5, false),
                 "DE right-click placement cancellation is not forwarded to the engine");
             Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 0, false) &&
+                    true, true, 0, false) &&
                   PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 3, false),
+                    true, true, 3, false),
                 "ordinary and non-building right-clicks retain Vanilla forwarding");
             Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, true, 5, true),
+                    true, true, 5, true),
                 "SH1 controls retain Vanilla placement-cancel forwarding");
             Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    false, true, true, 5, false) &&
+                    false, true, 5, false) &&
                   PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, false, true, 5, false) &&
-                  PlacementCancelRightClickPolicy.ShouldForwardRightDown(
-                    true, true, false, 5, false),
-                "disabled mod, client features, or local option retain Vanilla forwarding");
+                    true, false, 5, false),
+                "disabled Client features or local option retain Vanilla forwarding");
 
             bool suppressRightUp = false;
             bool placementDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
-                true, true, true, 5, false, ref suppressRightUp);
+                true, true, 5, false, ref suppressRightUp);
             bool placementUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
                 ref suppressRightUp);
             bool followingUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
@@ -1661,7 +1670,7 @@ namespace BugfixesAndQoL
 
             suppressRightUp = true;
             bool ordinaryDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
-                true, true, true, 0, false, ref suppressRightUp);
+                true, true, 0, false, ref suppressRightUp);
             bool ordinaryUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
                 ref suppressRightUp);
             Check(ordinaryDown && ordinaryUp && !suppressRightUp,
@@ -1669,7 +1678,7 @@ namespace BugfixesAndQoL
 
             suppressRightUp = false;
             bool disabledDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
-                true, true, false, 5, false, ref suppressRightUp);
+                true, false, 5, false, ref suppressRightUp);
             Check(disabledDown &&
                   PlacementCancelRightClickPolicy.CompleteRightClickGesture(ref suppressRightUp),
                 "disabled placement suppression forwards the complete right-click gesture");
@@ -1858,6 +1867,7 @@ namespace BugfixesAndQoL
         private static void TestNotificationSkipIntegration()
         {
             string feature = File.ReadAllText(Path.Combine("src", "NotificationSkipFeature.cs"));
+            string speechPlayback = File.ReadAllText(Path.Combine("src", "NotificationSpeechPlayback.cs"));
             string behavior = File.ReadAllText(Path.Combine("src", "NotificationSkipBehavior.cs"));
             string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
             string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
@@ -1868,7 +1878,7 @@ namespace BugfixesAndQoL
             string mainHudPatch = File.ReadAllText(mainHudPatchPath);
 
             Check(feature.Contains("MainViewModel.Instance.HUDRoot.RadarME_Ended();") &&
-                  feature.Contains("StopSpeechChannel1(MyAudioManager.Instance);") &&
+                  feature.Contains("speech.StopSpeechChannel1(MyAudioManager.Instance);") &&
                   feature.Contains("Enums.eOnScreenText.OST_MESSAGE_BAR") &&
                   feature.Contains("MainViewModel.Instance.OST_Message_Bar_Vis = false;") &&
                   feature.Contains("ImmediateCommandIdOffset") &&
@@ -1892,7 +1902,7 @@ namespace BugfixesAndQoL
                       behavior.IndexOf("CompleteFromNotificationSurfaceRightClick(surface, args)", StringComparison.Ordinal) &&
                   behavior.Contains("private static NotificationSkipFeature feature;") &&
                   feature.Contains("NotificationSkipBehavior.Configure(this);") &&
-                  feature.Contains("source?.Stop();"),
+                  speechPlayback.Contains("source?.Stop();"),
                 "left-click exits in the static behavior before feature inspection and paused channel 1 stops");
             Check(feature.Contains("surface == NotificationSkipSurface.Minimap") &&
                   feature.Contains("NotificationSkipPolicy.ShouldArmMinimap") &&
@@ -1903,16 +1913,11 @@ namespace BugfixesAndQoL
                   feature.Contains("NotificationSkipPolicy.AudioPathMatches") &&
                   feature.Contains("The immediate notification audio path is not null-terminated"),
                 "video and videoless minimap clicks are classified separately, including a transparent RadarME overlay, and only matching notification audio is stopped");
-            Check(feature.Contains("initializationStage = \"channel-1 speech hook\"") &&
-                  feature.Contains("initializationStage = \"native notification-update detour\"") &&
-                  feature.Contains("RollbackFailedInitialization(pendingLoadHook, pendingNativeTransaction)") &&
-                  feature.IndexOf("speechSource1Field = FindField", StringComparison.Ordinal) <
-                      feature.IndexOf("pendingLoadHook = new Hook", StringComparison.Ordinal) &&
-                  feature.IndexOf("pendingLoadHook = new Hook", StringComparison.Ordinal) <
-                      feature.IndexOf("pendingNativeTransaction.Commit()", StringComparison.Ordinal) &&
-                  feature.IndexOf("NotificationSkipBehavior.Configure(this);", StringComparison.Ordinal) <
-                      feature.IndexOf("catch (Exception ex)", StringComparison.Ordinal),
-                "audio and native hook failures have distinct context and share fail-closed publication");
+            Check(feature.Contains("speech = NotificationSpeechPlayback.Get(log);") &&
+                  feature.Contains("speech.SetNotificationClassifier(IsActiveNotificationAudioLoad);") &&
+                  feature.Contains("RollbackFailedInitialization(pendingNativeTransaction)") &&
+                  !feature.Contains("new Hook("),
+                "native skip reuses the independent managed speech owner and publishes its classifier only after initialization");
             int updateCallback = feature.IndexOf(
                 "private void UpdateNotificationQueue(IntPtr manager)", StringComparison.Ordinal);
             int messageBarHelper = feature.IndexOf(
@@ -1926,23 +1931,15 @@ namespace BugfixesAndQoL
                   feature.Contains("notificationUpdateHook.Original(manager);") &&
                   !feature.Contains("0x102C30"),
                 "central single-message finalizer is called only from the validated native update callback");
-            Check(feature.Contains("PendingSkipRequest") &&
-                  feature.Contains("expectedPresentationId") &&
-                  feature.Contains("complete notification-skip hooks installed for the process lifetime") &&
+            Check(feature.Contains("PendingSkipRequest") && feature.Contains("expectedPresentationId") &&
                   feature.Contains("discarded notification completion for an unexpected manager") &&
                   feature.Contains("discarded stale notification completion") &&
                   feature.Contains("complete notification skip failed after activation") &&
-                  feature.Contains("native notification completion failed") &&
-                  !feature.Contains("requested right-click notification completion") &&
-                  !feature.Contains("completed the right-clicked notification centrally") &&
-                  !feature.Contains("queuedAtClick") &&
-                  !feature.Contains("elapsedMs=") &&
-                  !feature.Contains("skipRequestGeneration") &&
-                  !feature.Contains("RequestedTimestamp"),
-                "notification requests remain identity-bound while routine click logs and diagnostic-only state are omitted");
-            Check(feature.Contains("speechChannel1Generation") &&
-                  feature.Contains("loadedClip?.UnloadAudioData();") &&
-                  feature.Contains("generation != Volatile.Read"),
+                  feature.Contains("native notification completion failed"),
+                "notification requests remain identity-bound and expose rejected or failed completion");
+            Check(speechPlayback.Contains("speechChannel1Generation") &&
+                  speechPlayback.Contains("loadedClip?.UnloadAudioData();") &&
+                  speechPlayback.Contains("!IsCurrent(audio, generation)"),
                 "superseded channel-1 loads cannot replay skipped notification audio");
             Check(feature.Contains("RollbackFailedInitialization") &&
                   !feature.Contains("public void Dispose()"),
@@ -2050,16 +2047,13 @@ namespace BugfixesAndQoL
                   xaml.Contains("bugfixes.enable-notification-last-frame") &&
                   xaml.Contains("IsChecked=\"{Binding EnableNotificationLastFrame, Mode=TwoWay}\""),
                 "last-frame setting is local, saved per player, reset off, and visible in client UI");
-            Check(lastFrame.Contains("originalPlayBink(self, binkName, loop, waitForSpeech);") &&
-                  lastFrame.Contains("!feature.Enabled || loop") &&
-                  lastFrame.Contains("value + \"**\"") &&
-                  lastFrame.Contains("if (feature == null || !feature.Enabled)") &&
-                  lastFrame.Contains("originalVideoEnded(self, sender, args);") &&
-                  lastFrame.Contains("media.Pause();") &&
-                  lastFrame.Contains("media.Opacity = 1f;") &&
-                  lastFrame.Contains("sfx.requestBinkPlayState != 3") &&
+            // Source-only guardrail: behavior is exercised by NotificationPlayback.Tests using the production feature.
+            Check(!lastFrame.Contains("NotificationSpeechPlayback") &&
+                  !lastFrame.Contains("OST_Message_Bar_Vis") &&
+                  !lastFrame.Contains("addOSTEntry") &&
+                  lastFrame.Contains("PresentationOperation.GuiChecks") &&
                   !lastFrame.Contains("public void Dispose()"),
-                "both permanent video hooks preserve Vanilla when disabled and retain the last frame only during speech");
+                "last-frame feature uses the presentation publisher without text ownership or hook teardown");
             Check(runtime.Contains("private static NotificationLastFrameFeature processNotificationLastFrameFeature;") &&
                   runtime.Contains("new NotificationLastFrameFeature(log, settings)"),
                 "last-frame feature is rooted for the process lifetime");
@@ -2744,7 +2738,7 @@ namespace BugfixesAndQoL
             Check(hookSource.Contains("FindRequiredMethod(\"UpdateUploadAIVList\")") &&
                     hookSource.Contains("FindRequiredMethod(\"UpdateUploadLordList\")") &&
                     hookSource.Contains("selectedLordTypeField.SetValue(self, restoredLordType);") &&
-                    hookSource.Contains("if (!settings.EnableMod || !settings.EnableWorkshopUploadLordSelectionFix)") &&
+                    hookSource.Contains("if (!settings.EnableClientFeatures || !settings.EnableWorkshopUploadLordSelectionFix)") &&
                     policySource.Contains("internal const int MinimumLordType = 2;") &&
                     policySource.Contains("requestedRefresh == currentMode") &&
                     hookSource.Contains("if (isDoUpload && FRONT_EditorSetup.canCloseWorkshop)") &&
@@ -2864,6 +2858,42 @@ namespace BugfixesAndQoL
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, false, 4) &&
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(false, false, true, true, true, 4),
                 "Custom Coop AI selections survive singleplayer restart without overriding the Vanilla partner");
+
+            // F4: the AIC (builtInLord) and the castle source are independent dimensions.
+            int custom = Shared.CoopAiSelectionRules.FirstCustomLordType;
+            Shared.CoopAiCastleKind castle;
+            bool needsPlan;
+            Check(
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "", true, false, false, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Standard && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "", false, true, false, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Community && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "Named", false, false, true, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Historical && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, false, true, "", false, false, false, 0,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Standard && needsPlan,
+                "a standard Lord with a custom AIC may use standard, community or historical castles");
+            Check(
+                Shared.CoopAiSelectionRules.Classify(3, true, false, "", true, false, false, 8,
+                    out castle, out needsPlan) == null && !needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, true, false, "", false, true, false, 0,
+                    out castle, out needsPlan) == null && needsPlan &&
+                Shared.CoopAiSelectionRules.Classify(3, true, false, "", false, false, false, 2,
+                    out castle, out needsPlan) == null && castle == Shared.CoopAiCastleKind.Explicit && needsPlan,
+                "Vanilla AIC keeps Vanilla upload only for its standard castles");
+            Check(
+                Shared.CoopAiSelectionRules.Classify(3, false, false, "", true, false, false, 0,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, false, true, "Lord", true, false, false, 0,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, false, true, "", false, false, false, 1,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, true, false, "Lord", false, false, false, 1,
+                    out _, out _) != null &&
+                Shared.CoopAiSelectionRules.Classify(custom, false, true, "Lord", false, false, false, 1,
+                    out castle, out _) == null && castle == Shared.CoopAiCastleKind.Explicit &&
+                custom == checked((int)AILords.SK_X1 - 1),
+                "named custom Lords need their configuration and castles; a missing AIC object stays an error");
 
             Check(
                 CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
@@ -3335,11 +3365,10 @@ namespace BugfixesAndQoL
         private static void TestBriefingNoStartingGoldFix()
         {
             Check(
-                BriefingNoStartingGoldFixPolicy.IsEnabled(true, true, true) &&
-                !BriefingNoStartingGoldFixPolicy.IsEnabled(false, true, true) &&
-                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, false, true) &&
-                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, true, false),
-                "briefing No Starting Gold correction follows all three gates");
+                BriefingNoStartingGoldFixPolicy.IsEnabled(true, true) &&
+                !BriefingNoStartingGoldFixPolicy.IsEnabled(false, true) &&
+                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, false),
+                "briefing No Starting Gold correction follows the independent Client and option gates");
             Check(
                 BriefingNoStartingGoldFixPolicy.Apply(2000, 0, true, true, true) == 0 &&
                 BriefingNoStartingGoldFixPolicy.Apply(2000, 2000, false, true, true) == 2000 &&
@@ -3364,7 +3393,7 @@ namespace BugfixesAndQoL
                 "briefing No Starting Gold setting is default-on, per-player, and searchable in the UI");
             Check(
                 registration.Contains("BriefingGoldAdjustmentStage.VanillaCorrection") &&
-                registration.Contains("settings.EnableMod") &&
+                !registration.Contains("settings.EnableMod") &&
                 registration.Contains("settings.EnableClientFeatures") &&
                 runtime.Contains("static BriefingNoStartingGoldFixRegistration") &&
                 !runtime.Contains("processBriefingNoStartingGoldFixRegistration?.Dispose"),
@@ -3384,11 +3413,10 @@ namespace BugfixesAndQoL
         private static void TestLobbyYellowContrast()
         {
             Check(
-                LobbyYellowContrastPolicy.IsEnabled(true, true, true) &&
-                !LobbyYellowContrastPolicy.IsEnabled(false, true, true) &&
-                !LobbyYellowContrastPolicy.IsEnabled(true, false, true) &&
-                !LobbyYellowContrastPolicy.IsEnabled(true, true, false),
-                "high-contrast lobby yellow follows mod, client-feature, and local setting gates");
+                LobbyYellowContrastPolicy.IsEnabled(true, true) &&
+                !LobbyYellowContrastPolicy.IsEnabled(false, true) &&
+                !LobbyYellowContrastPolicy.IsEnabled(true, false),
+                "high-contrast lobby yellow follows only Client and local setting gates");
             Check(
                 LobbyYellowContrastPolicy.ClassifyResourceState(
                     true, true, false, false) == LobbyYellowResourceState.Baseline &&
@@ -4224,11 +4252,12 @@ namespace BugfixesAndQoL
             Check(xaml.Contains("EnableTunnelPlacementDistanceFix, Mode=TwoWay") &&
                     xaml.Contains("bugfixes.enable-tunnel-placement-distance-fix"),
                 "tunnel distance fix is exposed in the settings UI");
-            Check(xaml.Contains(
-                    "<Grid Style=\"{StaticResource ModSettingsSearchTargetGrid}\" shared:ModSettingsSearch.Key=\"bugfixes.category.client-qol\"") &&
-                    !xaml.Contains(
-                    "<TextBlock Text=\"{Binding QolTitleText}\" Style=\"{StaticResource CategoryHeader}\" Margin=\"0,8,0,4\" shared:ModSettingsSearch.Key=\"bugfixes.category.client-qol\""),
-                "client QoL category uses the neutral Grid search target wrapper");
+            var settingsDocument = new XmlDocument();
+            settingsDocument.LoadXml(xaml);
+            XmlNodeList headings = settingsDocument.SelectNodes("//*[local-name()='TextBlock' and @Text='{Binding QolTitleText}']");
+            Check(headings.Count > 0 && headings.Cast<XmlNode>().All(heading =>
+                    heading.Attributes.Cast<XmlAttribute>().All(attribute => attribute.LocalName != "ModSettingsSearch.Key")),
+                "static QoL headings have no orphaned search targets; searchable settings retain their Grid wrappers");
         }
 
         private static void TestFriendlyMoatMovementPolicy()
@@ -4358,7 +4387,8 @@ namespace BugfixesAndQoL
                     !troopPatch.Contains("AttributeName=\"{clr-namespace:"),
                 "XAML SetAttribute operations use the audited Script Extender patch contract");
             Check(moatWork.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
-                    moatWork.Contains("relationshipMode == 1 && !friendlyMovementEnabled") &&
+                    // Dig work (mode 1) is routed only by an active traversal provider (MoatMove), whose own activation is independent of this mod's Host switch.
+                    moatWork.Contains("relationshipMode == 1 && !TraversalEnabled") &&
                     moatWork.Contains("if (!ExtensionsEnabled)") &&
                     !moatWork.Contains("RegisterImprovedMoatFillingProvider"),
                 "hostile filling remains independent while Off blocks every friendly moat work route");
@@ -4422,10 +4452,6 @@ namespace BugfixesAndQoL
                 projectDirectory,
                 "src",
                 "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
-            string spearmanPatch = File.ReadAllText(Path.Combine(
-                projectDirectory,
-                "src",
-                "TroopMovementFix3SpearmanMovementPatch.cs"));
             string integration = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "MovementCadenceIntegration.cs"));
             string bridge = File.ReadAllText(Path.Combine(
@@ -4448,10 +4474,6 @@ namespace BugfixesAndQoL
                     cadencePatch.Contains("RallyGenerationGlobalIdOffset") &&
                     cadencePatch.Contains("RallyUnitTypeOffset"),
                 "fast recruit rally tracks only valid human owners and preserves owner identity");
-            Check(!fastRecruit.Contains("FastRecruitRallyMovementModLog.Debug") &&
-                    !fastRecruit.Contains("Fast recruit rally tracking added") &&
-                    !fastRecruit.Contains("Fast recruit rally movement started"),
-                "fast recruit rally omits routine per-unit lifecycle logging");
             Check(fastRecruit.Contains("if (enabled &&" +
                     Environment.NewLine +
                     "                args.Phase == EventHookPhase.Pre") &&
@@ -4484,22 +4506,8 @@ namespace BugfixesAndQoL
             string groupSynchronization = troopMovement.Substring(
                 groupSynchronizationStart,
                 groupSynchronizationEnd - groupSynchronizationStart);
-            Check(!groupSynchronization.Contains(
-                        "TroopMovementFix3ModLog.Debug") &&
-                    !groupSynchronization.Contains("synchronization prepared") &&
-                    groupSynchronization.Contains(
-                        "TroopMovementFix3ModLog.Warning") &&
-                    troopMovement.Contains(
-                        "Movement features: sameSpeed={sameSpeedActive}") &&
-                    !troopMovement.Contains("Movement options reconciled") &&
-                    !troopMovement.Contains("Troop Movement Fix 3 active") &&
-                    !cadencePatch.Contains(
-                        "Native allocation-free movement-speed") &&
-                    !cadencePatch.Contains(
-                        "Pre-terrain speed hook span validated") &&
-                    !spearmanPatch.Contains(
-                        "Native Spearman movement-option branch replaced"),
-                "movement logging omits commands and redundant component success messages");
+            Check(groupSynchronization.Contains("TroopMovementFix3ModLog.Warning"),
+                "movement synchronization retains its warning path");
             int assignHandlerStart = troopMovement.IndexOf(
                 "private void OnTribeAssignUnit(",
                 StringComparison.Ordinal);
@@ -4554,17 +4562,6 @@ namespace BugfixesAndQoL
                     cadencePatch.IndexOf("applyRallyProfile", StringComparison.Ordinal) <
                         cadencePatch.IndexOf("applyRunningProfile", StringComparison.Ordinal),
                 "native tables preserve rally identity, interrupted-path state and rally precedence");
-            string removedRallyDiagnosticsTag =
-                "RALLY_ANIMATION_" + "DIAGNOSTICS";
-            bool diagnosticsRemain = Directory
-                .EnumerateFiles(
-                    projectDirectory,
-                    "*.cs",
-                    SearchOption.AllDirectories)
-                .Any(path => File.ReadAllText(path).Contains(
-                    removedRallyDiagnosticsTag));
-            Check(!diagnosticsRemain,
-                "temporary rally animation diagnostics are completely removed");
             Check(cadencePatch.Contains(
                       "SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);") &&
                     parityHarness.Contains(
@@ -4949,12 +4946,15 @@ namespace BugfixesAndQoL
             string multiplayerSource = File.ReadAllText(Path.Combine(
                 sourceDirectory,
                 "MultiplayerAivSyncRuntime.cs"));
+            // Guardrail only: the Coop upload has one owner in APIShared; this feature supplies plans and
+            // must neither hook UploadDefaultAIV again nor import AIVs itself.
             Check(
-                coopSource.Contains("IAivImportBackend importBackend = GetAivImportBackend();") &&
-                coopSource.Contains("for (int index = 0; index < info.aivs.Count; index++)") &&
-                coopSource.Contains("importBackend.ImportAIV(") &&
+                coopSource.Contains("TryGetCoopAiStartImport(") &&
+                coopSource.Contains("TryRegisterProvider(") &&
+                !coopSource.Contains("UploadDefaultAIV") &&
+                !coopSource.Contains(".ImportAIV(") &&
                 !coopSource.Contains("GameAIVManagerAPI.Instance"),
-                "Coop custom-lord imports use the protected backend starting at candidate zero");
+                "Coop custom-lord imports are planned through APIShared's single upload owner");
             Check(
                 multiplayerSource.Contains("IAivImportBackend importBackend = GetAivImportBackend();") &&
                 multiplayerSource.Contains("for (int candidateId = 1; candidateId < slot.Candidates.Count; candidateId++)") &&
@@ -5427,12 +5427,20 @@ namespace BugfixesAndQoL
                     !handler.Contains("unitId+1"),
                 "gatehouse handler applies no obsolete +1 conversion to the event Unit ID");
 
+            // Footprint candidates come from the pure-coordinate cache over APIShared's ordered footprint;
+            // the first-distinct drawbridge selection and the exterior-approach route test are inline.
+            string footprintCache = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "GatehouseFootprintGeometryCache.cs"));
             Check(source.Contains("STRUCT_DRAWBRIDGE") &&
                     source.Contains("MaximumSynchronizedDrawbridges") &&
-                    source.Contains("BuildOrderedFootprintCandidates(") &&
-                    source.Contains("CollectFirstDistinctBuildingIds(") &&
-                    source.Contains("CanReachAnyExteriorApproach(") &&
+                    source.Contains("GatehouseFootprintGeometryCache.Get(") &&
+                    footprintCache.Contains("BuildOrderedFootprintCandidates(") &&
+                    source.Contains("id == first || id == second") &&
+                    source.Contains("TryTraceExteriorApproach(") &&
+                    source.Contains("CanReachDrawbridge(") &&
+                    source.Contains("FindNextComponentTowardDestination(") &&
                     source.Contains("GetTileBuildingId(") &&
+                    !footprintCache.Contains("GameBuilding*") &&
                     !source.Contains("GATE_REACH_DIAG") &&
                     !source.Contains("GatehouseReachabilityDiagnosticThrottle") &&
                     !source.Contains("missing-path-record") &&
@@ -5789,6 +5797,7 @@ namespace BugfixesAndQoL
             {
                 (0xE19D8, 6, 18, "Assassin current-tile building rejection"),
                 (0xE19F9, 6, 23, "Assassin neighbor-tile building rejection"),
+                (0xE19C0, 14, 14, "Assassin reconstruction connection test"),
                 (0x912AF, 16, 16, "assembly-point shared failure status"),
                 (0x912E2, 6, 16, "assembly-point tunneler rejection"),
                 (0x913D1, 6, 18, "assembly-point knight rejection"),

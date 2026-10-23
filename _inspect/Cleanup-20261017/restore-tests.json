@@ -1,0 +1,14 @@
+[
+  {
+    "original": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-00C.jsonl",
+    "destination": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\Cleanup-20261017\\restore-smoke-archive.bin",
+    "bytes": 7824644,
+    "sha256": "4809044062E5351B9BCDA1D8573BE6166675C6EB563F8C4CAC71C70CC06767DA"
+  },
+  {
+    "original": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-02C.jsonl",
+    "destination": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\Cleanup-20261017\\restore-smoke-current-identical.bin",
+    "bytes": 10898357,
+    "sha256": "C4166C2CDD9B6DDAF9A0AE5B98254567AC2DDD885EA1A19FE7E1F3D8FD821181"
+  }
+]

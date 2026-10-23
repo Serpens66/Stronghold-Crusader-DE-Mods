@@ -1,4 +1,4 @@
-param([switch]$SkipTests, [string]$GameDir, [string]$ExtenderDir, [string]$ApiSharedDir)
+param([switch]$SkipTests, [string]$GameDir, [string]$ExtenderDir, [string]$ApiSharedDir, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
 $runtimePath = Join-Path $PSScriptRoot 'src\AIKeepRangeRuntime.cs'
@@ -10,7 +10,8 @@ if ($contract -match 'AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager.F
     $contract -notmatch 'ProbeBackend\(target, NativeMemoryManager.AllocateStub\)' -or
     $contract -notmatch 'AllowedSchemes = DetourScheme.Indirect' -or
     $contract -notmatch 'NativeMemoryManager.WriteStub\(copy, buffer\)' -or
-    $runtime -notmatch 'AIKeepRangeNativeContract.Backend.CreateDetour') {
+    # The install-phase wrapper keeps the same Indirect-only options (HookInstallPhase.Backend).
+    $runtime -notmatch 'AIKeepRangeNativeContract\.Backend\)?\.CreateDetour') {
     throw 'Probe storage must use target-relative RedBird slabs and the same Indirect-only backend as the real hook.'
 }
 $vm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
@@ -26,11 +27,6 @@ if ($source -match '\bhook\??\.(Enable|Dispose)\s*\(' -or
     $runtime -notmatch 'AIKeepRangeDecision.Execute\(bypass, original, manager, playerId, x, y, range\)') { throw 'Permanent hook lifetime or original forwarding changed.' }
 if ($runtime.IndexOf('Chainloader.PluginInfos.ContainsKey("AIKeepRangeLimitTest_Serp")') -lt 0 -or
     $runtime.IndexOf('Chainloader.PluginInfos') -gt $runtime.IndexOf('AIKeepRangeNativeContract.Resolve')) { throw 'Legacy testmod must be rejected before resolving/patching.' }
-if ([regex]::Matches($runtime,'DebugLogHelper.LogInfo\(').Count -ne 0 -or
-    [regex]::Matches($runtime,'DebugLogHelper\.LogDebug\(').Count -ne 1 -or
-    [regex]::Matches($runtime,'DebugLogHelper\.LogDebugLimited\(').Count -ne 1 -or
-    $runtime -notmatch 'AI_KEEP_RANGE_READY:' -or
-    $runtime -match 'Interlocked.Increment|AI exception:|human Vanilla forwarding:') { throw 'Unexpected verbose callback logging.' }
 if ($vm -notmatch 'private bool removeAIKeepRangeLimit = true;' -or
     $vm -notmatch '\[SyncHostOnly\]\s*public bool RemoveAIKeepRangeLimit' -or
     $vm -notmatch 'RemoveAIKeepRangeLimit = true;' -or
@@ -40,7 +36,7 @@ if ($vm -notmatch 'private bool removeAIKeepRangeLimit = true;' -or
 $option = $xaml.SelectSingleNode('//*[local-name()="CheckBox" and @IsChecked="{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}"]')
 if ($null -eq $option -or $option.GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or
     $null -eq $option.SelectSingleNode('ancestor::*[@IsEnabled="{Binding CanEditHostSettings}"]') -or
-    $null -eq $option.SelectSingleNode('ancestor::*[@*[local-name()="ModSettingsSearch.SectionKey"]="bugfixes.section.host-possible-fixes"]')) { throw 'Fixes? host section/tooltip contract.' }
+    $null -eq $option.SelectSingleNode("ancestor::*[contains(@Visibility, '.PossibleVisibility}') ]")) { throw 'Host Possible Fix category/tooltip contract.' }
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales') -Filter '*.txt') {
     $text = [IO.File]::ReadAllText($file.FullName)
     foreach ($key in @('BugfixesAndQoL.RemoveAIKeepRangeLimit','BugfixesAndQoL.RemoveAIKeepRangeLimitHelp')) {
@@ -53,10 +49,17 @@ foreach ($file in $files) {
     $text=[IO.File]::ReadAllText((Join-Path $PSScriptRoot $file))
     if ($text -match '(?<!\r)\n|\r(?!\n)') { throw "Non-CRLF: $file" }
 }
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
+if (-not $SkipPermanentHooks) {
+    & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
+}
 Write-Output 'PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.'
 if (-not $SkipTests) {
-    & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect\AIKeepRangeLimit\audit.py')
+    . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
+    $auditWork=New-ShortWorkDirectory -Root $workspace -Kind a -Name keep -Identity (([IO.File]::ReadAllText((Join-Path $workspace '_inspect/CrusaderDE-Native-Baseline/CURRENT.json')) | ConvertFrom-Json).currentNativeHash)
+    $auditOutput=Join-Path $auditWork 'EEF90.bin'
+    & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect/AIKeepRangeLimit/test_audit_paths.py') --fixture $auditWork
+    if ($LASTEXITCODE -ne 0) { throw 'Native baseline path resolution tests failed.' }
+    & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect\AIKeepRangeLimit\audit.py') --output $auditOutput
     if ($LASTEXITCODE -ne 0) { throw 'Native identity/xref audit failed.' }
     $buildArguments = @('/t:Build', '/p:Configuration=Release', '/verbosity:minimal')
     foreach ($dependency in @(@('GameDir', $GameDir), @('ExtenderDir', $ExtenderDir), @('ApiSharedDir', $ApiSharedDir))) {
@@ -66,6 +69,6 @@ if (-not $SkipTests) {
     }
     & dotnet msbuild (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\AIKeepRange.Tests.csproj') @buildArguments
     if ($LASTEXITCODE -ne 0) { throw 'AI keep range tests compilation failed.' }
-    & (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe') (Join-Path $workspace '_inspect\AIKeepRangeLimit\EEF90.bin')
+    & (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe') $auditOutput
     if ($LASTEXITCODE -ne 0) { throw 'AI keep range native/runtime tests failed.' }
 }

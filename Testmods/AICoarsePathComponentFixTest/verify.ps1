@@ -71,6 +71,17 @@ $source = [IO.File]::ReadAllText((Join-Path $project 'src\AiCoarsePathComponentF
 $woodGuard = [IO.File]::ReadAllText((Join-Path $project 'src\WoodSiteGuardExperiment.cs'))
 $outcome = [IO.File]::ReadAllText((Join-Path $project 'src\WoodGuardOutcomeObserver.cs'))
 $plugin = [IO.File]::ReadAllText((Join-Path $project 'src\AICoarsePathComponentFixTestPlugin.cs'))
+# Bounded wiring guardrail: the setting must gate construction (and hence allocation),
+# while the independent observer/tick setup remains after that conditional block.
+# Runtime state and unknown/config-failure behavior are exercised by FixesCompatibility.Tests.
+$gateOffset = $plugin.IndexOf('Shared.FixesStartupGate.CanInstall(')
+$allocationOffset = $plugin.IndexOf('new WoodSiteGuardExperiment(')
+if ($gateOffset -lt 0 -or $gateOffset -ge $allocationOffset -or
+    $plugin -notmatch '"WoodSiteGuard", "FixPlacementSelectionNotAccountingForFarmland"' -or
+    $plugin.IndexOf('if (outcomeObserver == null)') -le $allocationOffset -or
+    $plugin.IndexOf('if (!tickSubscribed)') -le $allocationOffset) {
+    throw 'Wood guard must be disabled before construction without disabling independent diagnostics.'
+}
 $main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'))
 $economyMain = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
 $woodScope = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AiWoodBuildCallScope.cs'))

@@ -1,0 +1,8 @@
+Temporary GitHub failure creating ExtraFeatures/v1.0.113; retry 2/3 after checking release state.
+Temporary GitHub failure creating ExtraFeatures/v1.0.113; retry 2/3 after checking release state.
+Temporary GitHub failure creating ExtraFeatures/v1.0.113; retry 2/3 after checking release state.
+Temporary GitHub failure creating ExtraFeatures/v1.0.113; retry 3/3 after checking release state.
+PASS: transient GitHub failures, bounded retries, ambiguous create recovery, commit ownership, published releases, permissions and strict missing detection; no network writes.
+PASS: real nested MSBuild SDK selection, explicit/environment/default precedence, matching compiler references and strict release proof.
+PASS: published SDK reuse, retained provenance, runtime changes, mode/path conflicts and complete file hashes.
+Release status source/fixture tests succeeded. Fresh-package validation, package import order and live DLL provenance were not run.

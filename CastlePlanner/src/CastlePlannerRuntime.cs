@@ -79,7 +79,6 @@ namespace CastlePlanner
         private const int PrebuiltPlayersReferenceRva = 0x95FF8;
         private const int PreparedKeepCoordinatesReferenceRva = 0x95EA3;
         private const int HumanKeepCoordinateLoadRva = 0x95B3C;
-        private const int DeferredCompoundPlacementMaxAttempts = 3;
         private const int DeferredCompoundPlacementTimeoutTicks = 600;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -156,12 +155,7 @@ namespace CastlePlanner
         private int nativeCastleExecutionPlayerId;
         private int nextHovelVisualStyle;
         private int correctedHovelVisualCount;
-        private bool captureSupplementalBuilding;
-        private int captureSupplementalPlayerId;
-        private int captureSupplementalX;
-        private int captureSupplementalY;
-        private eStructs captureSupplementalStruct;
-        private int capturedSupplementalBuildingId;
+        private readonly SupplementalPrefabSpawner supplementalSpawner = new SupplementalPrefabSpawner();
 
         public CastlePlannerRuntime(
             ManualLogSource log,
@@ -256,10 +250,11 @@ namespace CastlePlanner
                 return;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:263", $"OnStartMap(Post) received: handledCurrentMap={handledCurrentMap}, " +
-                $"preImports={pendingAivImports.Count}, " +
-                $"keepPreSpawns={preparedAivCastles.Count}, " +
-                $"keepPostSpawns={executedAivCastles.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:263", $"OnStartMap(Post) received: handledCurrentMap={handledCurrentMap}, " +
+                    $"preImports={pendingAivImports.Count}, " +
+                    $"keepPreSpawns={preparedAivCastles.Count}, " +
+                    $"keepPostSpawns={executedAivCastles.Count}.");
 
             try
             {
@@ -280,14 +275,15 @@ namespace CastlePlanner
                 }
 
                 EnsureSupportedGameMode(gameMode);
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:293", $"Game-mode guard accepted supported skirmish: " +
-                    $"sharedSingleplayerSkirmish={gameMode.SharedSingleplayerSkirmish}, " +
-                    $"sharedSingleplayerTrail={gameMode.SharedSingleplayerTrail}, " +
-                    $"gameDataSkirmishGameType={gameMode.GameDataSkirmishGameType}, " +
-                    $"lobbySkirmishMembers={gameMode.LobbySkirmishMemberCount}, " +
-                    $"lobbySkirmishHumans={gameMode.LobbySkirmishHumanCount}, " +
-                    $"lobbyNetworkHumans={gameMode.LobbyNetworkHumanCount}, " +
-                    $"realNetworkGameMembers={gameMode.RealNetworkGameMemberCount}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:293", $"Game-mode guard accepted supported skirmish: " +
+                        $"sharedSingleplayerSkirmish={gameMode.SharedSingleplayerSkirmish}, " +
+                        $"sharedSingleplayerTrail={gameMode.SharedSingleplayerTrail}, " +
+                        $"gameDataSkirmishGameType={gameMode.GameDataSkirmishGameType}, " +
+                        $"lobbySkirmishMembers={gameMode.LobbySkirmishMemberCount}, " +
+                        $"lobbySkirmishHumans={gameMode.LobbySkirmishHumanCount}, " +
+                        $"lobbyNetworkHumans={gameMode.LobbyNetworkHumanCount}, " +
+                        $"realNetworkGameMembers={gameMode.RealNetworkGameMemberCount}.");
 
                 int pendingCount = pendingAivImports.Count;
                 int pendingKeepRotationCount = pendingKeepRotations.Count;
@@ -309,8 +305,9 @@ namespace CastlePlanner
                         $"preImportFailure='{spawnPlanFailure}'.");
                 }
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:326", $"Native multiplayer castle execution completed inside map start: " +
-                    $"executedPlayers=[{string.Join(",", executedPlayers)}].");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:326", $"Native multiplayer castle execution completed inside map start: " +
+                        $"executedPlayers=[{string.Join(",", executedPlayers)}].");
             }
             catch (Exception ex)
             {
@@ -327,7 +324,8 @@ namespace CastlePlanner
         {
             ClearDeferredCompoundPlacements("new-map-start");
             ClearMapSpawnState();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:348", $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:348", $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}.");
 
             if (handledCurrentMap || !preview.TryGetCommittedSelections(out List<FreeCastleSelection> requests))
                 return;
@@ -367,10 +365,11 @@ namespace CastlePlanner
                 for (int index = 0; index < castleRequests.Count; index++)
                     ImportPlayerCastle(castleRequests[index], preparedImports[index]);
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:390", $"Native AIV pre-import transaction completed: " +
-                    $"humanPlayers=[{string.Join(",", humanPlayerIds)}], " +
-                    $"selectedPlayers=[{string.Join(",", requests.Select(request => request.PlayerId))}], " +
-                    $"castlePlayers=[{string.Join(",", castleRequests.Select(request => request.PlayerId))}].");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:390", $"Native AIV pre-import transaction completed: " +
+                        $"humanPlayers=[{string.Join(",", humanPlayerIds)}], " +
+                        $"selectedPlayers=[{string.Join(",", requests.Select(request => request.PlayerId))}], " +
+                        $"castlePlayers=[{string.Join(",", castleRequests.Select(request => request.PlayerId))}].");
             }
             catch (Exception ex)
             {
@@ -448,14 +447,15 @@ namespace CastlePlanner
                 CaptureImportedCandidates(request.PlayerId - 1);
             pendingAivImports.Add(request.PlayerId, prepared);
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:475", $"Native AIV pre-import completed: phase=OnStartMap(Pre), " +
-                $"playerId={request.PlayerId}, playerSlot={request.PlayerId - 1}, " +
-                $"castle='{request.DisplayName}', sha256={request.ContentHash}, " +
-                $"candidateId=0, custom=1, " +
-                $"rawShorts={prepared.RawShortCount}, " +
-                $"nativeCandidateCountAfterImport={importedCandidates.Count}, " +
-                $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}, " +
-                $"nativeCandidateTable=0x{importedCandidates.TableAddress.ToInt64():X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:475", $"Native AIV pre-import completed: phase=OnStartMap(Pre), " +
+                    $"playerId={request.PlayerId}, playerSlot={request.PlayerId - 1}, " +
+                    $"castle='{request.DisplayName}', sha256={request.ContentHash}, " +
+                    $"candidateId=0, custom=1, " +
+                    $"rawShorts={prepared.RawShortCount}, " +
+                    $"nativeCandidateCountAfterImport={importedCandidates.Count}, " +
+                    $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}, " +
+                    $"nativeCandidateTable=0x{importedCandidates.TableAddress.ToInt64():X}.");
         }
 
         private void OnBuildStructurePre(BuildStructureEventArgs args)
@@ -500,10 +500,11 @@ namespace CastlePlanner
                 return;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:533", $"Vanilla human Keep reached BuildStructure with its final start data already active: " +
-                $"playerId={args.PlayerId}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
-                $"preparedKeep=({args.TileX},{args.TileY}), orientation={args.Unknown1}, " +
-                $"mapper={args.Mappers}, scale={args.BuildingScaleUnknown}, isFree={args.IsFree}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:533", $"Vanilla human Keep reached BuildStructure with its final start data already active: " +
+                    $"playerId={args.PlayerId}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
+                    $"preparedKeep=({args.TileX},{args.TileY}), orientation={args.Unknown1}, " +
+                    $"mapper={args.Mappers}, scale={args.BuildingScaleUnknown}, isFree={args.IsFree}.");
         }
 
         private bool TryCorrectNativeHovelVisualStyle(BuildStructureEventArgs args)
@@ -523,9 +524,10 @@ namespace CastlePlanner
             // The native AI path ignores AIV's value 15 and cycles Hovel styles 0..6.
             // The human path consumes that value directly, so mirror the AI cycle here.
             args.Unknown1 = correctedVisualStyle;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:558", $"Native Hovel visual style corrected: playerId={args.PlayerId}, " +
-                $"ordinal={correctedHovelVisualCount}, " +
-                $"originalStyle={originalVisualStyle}, correctedStyle={correctedVisualStyle}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:558", $"Native Hovel visual style corrected: playerId={args.PlayerId}, " +
+                    $"ordinal={correctedHovelVisualCount}, " +
+                    $"originalStyle={originalVisualStyle}, correctedStyle={correctedVisualStyle}.");
             return true;
         }
 
@@ -579,10 +581,11 @@ namespace CastlePlanner
             if (count > 32)
                 return;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:618", $"Selected-player early UnitCreate diagnostic: phase={args.Phase}, " +
-                $"ordinal={count}, playerId={playerId}, colorId={args.PlayerColorId}, " +
-                $"type={args.UnitType}, world=({args.WorldTileX},{args.WorldTileY}), " +
-                $"height={args.HeightElevation}, returnValue={args.ReturnValue}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:618", $"Selected-player early UnitCreate diagnostic: phase={args.Phase}, " +
+                    $"ordinal={count}, playerId={playerId}, colorId={args.PlayerColorId}, " +
+                    $"type={args.UnitType}, world=({args.WorldTileX},{args.WorldTileY}), " +
+                    $"height={args.HeightElevation}, returnValue={args.ReturnValue}.");
         }
 
         private void LogVanillaStartState(PreparedAivCastle castle, string phase)
@@ -619,13 +622,14 @@ namespace CastlePlanner
                     $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:662", $"Vanilla start-state diagnostic: phase={phase}, playerId={castle.PlayerId}, " +
-                $"orientation={castle.Orientation}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
-                $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
-                $"resourceKeep={resources->r_KeepId}:({resources->r_KeepTilePositionX},{resources->r_KeepTilePositionY}):" +
-                $"tile={resources->r_KeepTileId}, " +
-                $"resourceDoor={resources->r_KeepDoorId}:({resources->r_KeepDoorTilePositionX},{resources->r_KeepDoorTilePositionY}):" +
-                $"tile={resources->r_KeepDoorTileId}, components=[{string.Join("|", components)}].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:662", $"Vanilla start-state diagnostic: phase={phase}, playerId={castle.PlayerId}, " +
+                    $"orientation={castle.Orientation}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
+                    $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                    $"resourceKeep={resources->r_KeepId}:({resources->r_KeepTilePositionX},{resources->r_KeepTilePositionY}):" +
+                    $"tile={resources->r_KeepTileId}, " +
+                    $"resourceDoor={resources->r_KeepDoorId}:({resources->r_KeepDoorTilePositionX},{resources->r_KeepDoorTilePositionY}):" +
+                    $"tile={resources->r_KeepDoorTileId}, components=[{string.Join("|", components)}].");
         }
 
         private static bool IsVanillaStartDiagnosticStructure(eStructs structure)
@@ -667,13 +671,14 @@ namespace CastlePlanner
             int ownedBuildingsBefore = CountOwnedBuildings(playerId);
             ImportedCandidateSnapshot importedCandidates =
                 CaptureImportedCandidates(playerId - 1);
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:712", $"Native castle spawn planned: playerId={playerId}, " +
-                $"phase=VanillaHumanStart(PreCoordinateRead), keepReference=({keepX},{keepY}), " +
-                $"castle={prepared.DisplayName}, sha256={prepared.ContentHash}, " +
-                $"rawShorts={prepared.RawShortCount}, importedDuringPre=True, " +
-                $"ownedBuildingsBefore={ownedBuildingsBefore}, " +
-                $"nativeCandidateCountBeforePlacement={importedCandidates.Count}, " +
-                $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:712", $"Native castle spawn planned: playerId={playerId}, " +
+                    $"phase=VanillaHumanStart(PreCoordinateRead), keepReference=({keepX},{keepY}), " +
+                    $"castle={prepared.DisplayName}, sha256={prepared.ContentHash}, " +
+                    $"rawShorts={prepared.RawShortCount}, importedDuringPre=True, " +
+                    $"ownedBuildingsBefore={ownedBuildingsBefore}, " +
+                    $"nativeCandidateCountBeforePlacement={importedCandidates.Count}, " +
+                    $"nativeCandidate0Pointer=0x{importedCandidates.FirstPointer.ToInt64():X}.");
 
             int specIndex = allocateSpec(aivState, playerId);
             if (specIndex < 1 || specIndex > 8)
@@ -716,9 +721,10 @@ namespace CastlePlanner
                     "only candidate zero was imported.");
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:763", $"Native AIV placement selected: specIndex={specIndex}, candidateId={candidateId}, " +
-                $"orientation={orientation} ({DescribeOrientation(orientation)}), " +
-                $"placementState={placementState} ({DescribePlacementState(placementState)}).");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:763", $"Native AIV placement selected: specIndex={specIndex}, candidateId={candidateId}, " +
+                    $"orientation={orientation} ({DescribeOrientation(orientation)}), " +
+                    $"placementState={placementState} ({DescribePlacementState(placementState)}).");
 
             prepareLayout(aivState, specIndex, playerId);
             int highestFrame = Marshal.ReadInt32(spec, SpecHighestFrameOffset);
@@ -744,11 +750,12 @@ namespace CastlePlanner
                     $"({nativePreparedKeepX},{nativePreparedKeepY}).");
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:793", $"Native AIV layout prepared before Vanilla Keep: playerId={playerId}, " +
-                $"specIndex={specIndex}, highestFrame={highestFrame}, " +
-                $"requestedKeep=({keepX},{keepY}), " +
-                $"preparedKeep=({nativePreparedKeepX},{nativePreparedKeepY}), " +
-                $"orientation={orientation}, previousActiveSpec={previousActiveSpec}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:793", $"Native AIV layout prepared before Vanilla Keep: playerId={playerId}, " +
+                    $"specIndex={specIndex}, highestFrame={highestFrame}, " +
+                    $"requestedKeep=({keepX},{keepY}), " +
+                    $"preparedKeep=({nativePreparedKeepX},{nativePreparedKeepY}), " +
+                    $"orientation={orientation}, previousActiveSpec={previousActiveSpec}.");
 
             return new PreparedAivCastle(
                 playerId,
@@ -774,10 +781,11 @@ namespace CastlePlanner
             nativeCastleExecutionPlayerId = castle.PlayerId;
             nextHovelVisualStyle = 0;
             correctedHovelVisualCount = 0;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:825", $"Native castle execution planned: playerId={castle.PlayerId}, " +
-                $"specIndex={castle.SpecIndex}, highestFrame={castle.HighestFrame}, " +
-                $"completion=100, ownedBuildingsAtKeepPre={castle.OwnedBuildingsAtPreparation}, " +
-                $"ownedBuildingsBeforeExecution={ownedBuildingsBeforeExecution}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:825", $"Native castle execution planned: playerId={castle.PlayerId}, " +
+                    $"specIndex={castle.SpecIndex}, highestFrame={castle.HighestFrame}, " +
+                    $"completion=100, ownedBuildingsAtKeepPre={castle.OwnedBuildingsAtPreparation}, " +
+                    $"ownedBuildingsBeforeExecution={ownedBuildingsBeforeExecution}.");
 
             try
             {
@@ -792,12 +800,13 @@ namespace CastlePlanner
             }
 
             int ownedBuildingsAfter = CountOwnedBuildings(castle.PlayerId);
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:845", $"Native castle execution completed: playerId={castle.PlayerId}, " +
-                $"specIndex={castle.SpecIndex}, highestFrame={castle.HighestFrame}, " +
-                $"ownedBuildingsBefore={ownedBuildingsBeforeExecution}, " +
-                $"ownedBuildingsAfter={ownedBuildingsAfter}, " +
-                $"buildingDelta={ownedBuildingsAfter - ownedBuildingsBeforeExecution}, " +
-                $"correctedHovelVisuals={correctedHovelVisualCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:845", $"Native castle execution completed: playerId={castle.PlayerId}, " +
+                    $"specIndex={castle.SpecIndex}, highestFrame={castle.HighestFrame}, " +
+                    $"ownedBuildingsBefore={ownedBuildingsBeforeExecution}, " +
+                    $"ownedBuildingsAfter={ownedBuildingsAfter}, " +
+                    $"buildingDelta={ownedBuildingsAfter - ownedBuildingsBeforeExecution}, " +
+                    $"correctedHovelVisuals={correctedHovelVisualCount}.");
             LogSpecialBuildingDiagnostics(castle.PlayerId);
         }
 
@@ -806,32 +815,27 @@ namespace CastlePlanner
             if (!IsCastleSpawningModeAllowed())
                 return;
 
-            if (!captureSupplementalBuilding ||
-                args.PlayerId != captureSupplementalPlayerId ||
-                args.TileX != captureSupplementalX ||
-                args.TileY != captureSupplementalY ||
-                (captureSupplementalStruct != eStructs.STRUCT_NULL &&
-                 args.Building != captureSupplementalStruct))
-            {
-                return;
-            }
-            capturedSupplementalBuildingId = unchecked((int)args.ReturnValue);
+            supplementalSpawner.Observe(args.ReturnValue, args.PlayerId, args.Building,
+                args.TileX, args.TileY, LookupSupplementalBuilding);
         }
 
         private void SpawnSupplementalContents(PreparedAivCastle castle)
         {
             var digestRows = new List<string>();
+            var skipped = new SupplementalSpawnReport();
+            var attemptedPrefabs = new HashSet<string>(StringComparer.Ordinal);
             var queuedDecorations = new HashSet<string>(StringComparer.Ordinal);
             AivRotation rotation = ToAivRotation(castle.Orientation);
             int nativeReferenceX = castle.RequestedKeepX;
             int nativeReferenceY = castle.RequestedKeepY;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Supplemental castle anchor resolved: playerId={castle.PlayerId}, " +
-                $"nativeReference=({nativeReferenceX},{nativeReferenceY}), " +
-                $"liveKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
-                $"liveKeepOffset=({castle.PreparedKeepX - nativeReferenceX},{castle.PreparedKeepY - nativeReferenceY}), " +
-                $"orientation={castle.Orientation}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Supplemental castle anchor resolved: playerId={castle.PlayerId}, " +
+                    $"nativeReference=({nativeReferenceX},{nativeReferenceY}), " +
+                    $"liveKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                    $"liveKeepOffset=({castle.PreparedKeepX - nativeReferenceX},{castle.PreparedKeepY - nativeReferenceY}), " +
+                    $"orientation={castle.Orientation}.");
 
             foreach (AivJsonFrame frame in castle.FilteredDocument.frames)
             {
@@ -841,17 +845,22 @@ namespace CastlePlanner
                 if (!isFearFactor && !isStockpile)
                     continue;
 
-                string objectKind = isStockpile ? "AIV Stockpile" : "Fearfactor object";
                 string digestKind = isStockpile ? "stockpile" : "fear";
                 foreach (int encodedPosition in frame.tilePositionOfsets)
                 {
-                    AivGridPoint rawAnchor = new AivGridPoint(encodedPosition);
-                    AivWorldTile projectedAnchor = AivWorldTransform.ProjectNativeFit(
-                        rawAnchor,
-                        nativeReferenceX,
-                        nativeReferenceY,
-                        rotation);
                     eMappers mapper = (eMappers)frame.itemType;
+                    if (!CanPlaceSupplementalPrefab(
+                            mapper,
+                            encodedPosition,
+                            nativeReferenceX,
+                            nativeReferenceY,
+                            rotation,
+                            out string reason))
+                    {
+                        skipped.Add(reason, $"mapper={mapper}, aivAnchor={encodedPosition}");
+                        continue;
+                    }
+                    AivGridPoint rawAnchor = new AivGridPoint(encodedPosition);
                     int footprintSize = AivMapperCatalog.Resolve(frame.itemType)
                         .FootprintSize.GetValueOrDefault(1);
                     if (footprintSize < 1)
@@ -862,17 +871,11 @@ namespace CastlePlanner
                         nativeReferenceX,
                         nativeReferenceY,
                         rotation);
-                    if (!CanPlaceSupplementalPrefab(
-                            mapper,
-                            encodedPosition,
-                            nativeReferenceX,
-                            nativeReferenceY,
-                            rotation,
-                            out string reason))
+                    // Retain attempts even when native creation cannot be confirmed.
+                    // Repeated AIV entries must not retry an uncertain side effect.
+                    if (!attemptedPrefabs.Add($"{(int)mapper}:{buildOrigin.X}:{buildOrigin.Y}"))
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:925", $"Supplemental {objectKind} skipped: playerId={castle.PlayerId}, mapper={mapper}, " +
-                            $"aivAnchor=({projectedAnchor.X},{projectedAnchor.Y}), " +
-                            $"buildOrigin=({buildOrigin.X},{buildOrigin.Y}), reason={reason}.");
+                        skipped.Add("duplicate-prefab-request", $"mapper={mapper}, origin=({buildOrigin.X},{buildOrigin.Y})");
                         continue;
                     }
                     int height = GameTileManagerAPI.Instance.GetTileHeight(
@@ -884,23 +887,21 @@ namespace CastlePlanner
                             castle.PlayerId,
                             buildOrigin.X,
                             buildOrigin.Y,
-                            mapper);
+                            mapper, out reason);
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:945", $"Supplemental {objectKind} creation threw and was skipped: " +
-                            $"playerId={castle.PlayerId}, mapper={mapper}, " +
-                            $"aivAnchor=({projectedAnchor.X},{projectedAnchor.Y}), " +
-                            $"buildOrigin=({buildOrigin.X},{buildOrigin.Y}), " +
-                            $"error={ex.GetBaseException().Message}.");
+                        skipped.Add("creation-threw", $"mapper={mapper}, origin=({buildOrigin.X},{buildOrigin.Y}), error={ex.GetBaseException().Message}");
                         continue;
                     }
-                    if (id > 0)
+                    if (id <= 0)
                     {
-                        digestRows.Add(
-                            $"{digestKind}:{(int)mapper}:{castle.PlayerId}:" +
-                            $"{buildOrigin.X}:{buildOrigin.Y}:{height}");
+                        skipped.Add(reason, $"mapper={mapper}, origin=({buildOrigin.X},{buildOrigin.Y})");
+                        continue;
                     }
+                    digestRows.Add(
+                        $"{digestKind}:{(int)mapper}:{castle.PlayerId}:" +
+                        $"{buildOrigin.X}:{buildOrigin.Y}:{height}");
                 }
             }
 
@@ -915,7 +916,7 @@ namespace CastlePlanner
                     rotation);
                 if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tile.X, tile.Y))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:974", $"Supplemental misc item skipped: playerId={castle.PlayerId}, sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y}), reason=out-of-bounds.");
+                    skipped.Add("out-of-bounds", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
                     continue;
                 }
 
@@ -925,7 +926,7 @@ namespace CastlePlanner
                 {
                     if (!AivSpawnPlan.TryMapSiegeEngine(item.itemType, out eChimps chimp))
                     {
-                        LogUnknownMisc(castle.PlayerId, index, item);
+                        skipped.Add("unknown-misc", $"sourceIndex={index}, itemType={item.itemType}");
                         continue;
                     }
                     long id;
@@ -941,12 +942,12 @@ namespace CastlePlanner
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1002", $"Supplemental unit creation threw and was skipped: playerId={castle.PlayerId}, sourceIndex={index}, chimp={chimp}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}.");
+                        skipped.Add("unit-creation-threw", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y}), error={ex.GetBaseException().Message}");
                         continue;
                     }
                     if (id <= 0)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1007", $"Supplemental unit creation failed: playerId={castle.PlayerId}, sourceIndex={index}, chimp={chimp}, position=({tile.X},{tile.Y}), height={height}.");
+                        skipped.Add("unit-creation-failed", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
                         continue;
                     }
                     digestRows.Add($"unit:{(int)chimp}:{castle.PlayerId}:{tile.X}:{tile.Y}:{height}:slot{item.number}");
@@ -962,7 +963,7 @@ namespace CastlePlanner
                             out eMappers mapper,
                             out ProjectileType projectileType))
                     {
-                        LogUnknownMisc(castle.PlayerId, index, item);
+                        skipped.Add("unknown-misc", $"sourceIndex={index}, itemType={item.itemType}");
                         continue;
                     }
 
@@ -973,7 +974,8 @@ namespace CastlePlanner
                             castle.PlayerId,
                             projectileType))
                     {
-                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1034", $"Supplemental decoration skipped because it already exists or was queued: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}).");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1034", $"Supplemental decoration skipped because it already exists or was queued: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}).");
                         continue;
                     }
 
@@ -987,7 +989,7 @@ namespace CastlePlanner
                             projectileType,
                             out int projectileId))
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1050", $"Supplemental decoration creation failed: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}), height={height}.");
+                        skipped.Add("decoration-creation-failed", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
                         continue;
                     }
                     if (projectileType == ProjectileType.Disease)
@@ -996,14 +998,18 @@ namespace CastlePlanner
                     continue;
                 }
 
-                LogUnknownMisc(castle.PlayerId, index, item);
+                skipped.Add("unknown-misc", $"sourceIndex={index}, itemType={item.itemType}");
             }
 
+            if (skipped.Count != 0)
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:supplemental-summary",
+                    $"Supplemental castle contents omitted: playerId={castle.PlayerId}, {skipped}.");
             string digestPayload = string.Join("|", digestRows);
             string digest;
             using (SHA256 sha = SHA256.Create())
                 digest = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(digestPayload))).Replace("-", string.Empty).ToLowerInvariant();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1068", $"Supplemental castle spawn digest: playerId={castle.PlayerId}, objects={digestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1068", $"Supplemental castle spawn digest: playerId={castle.PlayerId}, objects={digestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
         }
 
         private static bool HasMatchingDecoration(
@@ -1103,7 +1109,8 @@ namespace CastlePlanner
                 return false;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1174", $"Supplemental decoration created: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), height={height}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1174", $"Supplemental decoration created: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), height={height}.");
             return true;
         }
 
@@ -1115,94 +1122,46 @@ namespace CastlePlanner
             AivRotation rotation,
             out string reason)
         {
-            AivMapperInfo info = AivMapperCatalog.Resolve((int)mapper);
-            int size = info.FootprintSize.GetValueOrDefault(1);
-            if (size < 1)
-                size = 1;
-            AivGridPoint anchor = new AivGridPoint(encodedPosition);
-            for (int rowOffset = 0; rowOffset < size; rowOffset++)
-            {
-                for (int columnOffset = 0; columnOffset < size; columnOffset++)
-                {
-                    int row = anchor.Row - rowOffset;
-                    int column = anchor.Column + columnOffset;
-                    if (row < 0 || row >= AivGridPoint.GridSize ||
-                        column < 0 || column >= AivGridPoint.GridSize)
-                    {
-                        reason = "source-footprint-out-of-bounds";
-                        return false;
-                    }
-                    AivWorldTile footprintTile = AivWorldTransform.ProjectNativeFit(
-                        new AivGridPoint(row, column),
-                        keepX,
-                        keepY,
-                        rotation);
-                    if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(footprintTile.X, footprintTile.Y))
-                    {
-                        reason = "footprint-out-of-bounds";
-                        return false;
-                    }
-                    int tileId = GameTileManagerAPI.Instance.GetTileId(footprintTile.X, footprintTile.Y);
-                    if (GameTileManagerAPI.Instance.GetTileBuildingId(tileId) > 0)
-                    {
-                        reason = "occupied-or-already-created";
-                        return false;
-                    }
-                }
-            }
-            reason = string.Empty;
-            return true;
+            return SupplementalPlacementPolicy.CanPlace((int)mapper, encodedPosition, keepX, keepY,
+                rotation, tile => CheckSupplementalTile(mapper, tile), out reason);
+        }
+
+        private static string CheckSupplementalTile(eMappers mapper, AivWorldTile tile)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (!tiles.IsTileInsideMapBounds(tile.X, tile.Y)) return "footprint-out-of-bounds";
+            int tileId = tiles.GetTileId(tile.X, tile.Y);
+            if (!tiles.IsValidTileId(tileId)) return "invalid-map-tile";
+            return SupplementalPlacementPolicy.CheckPhysicalTile((int)mapper,
+                tiles.GetTileBuildingId(tileId), tiles.GetTileHeight(tileId), tiles.GetTilePropertyFlag(tileId));
+        }
+
+        private static SupplementalBuildingIdentity? LookupSupplementalBuilding(int id)
+        {
+            if (id <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null)
+                return null;
+            return new SupplementalBuildingIdentity(building->r_GlobalId, building->r_PlayerIdOwner,
+                building->r_BuildingType, building->r_TilePositionXBegin, building->r_TilePositionYBegin, building->r_AliveState);
         }
 
         private int CreateSupplementalPrefab(
-            int playerId,
-            int x,
-            int y,
-            eMappers mapper,
+            int playerId, int x, int y, eMappers mapper, out string reason,
             bool bypassPlacementRules = true)
         {
-            captureSupplementalBuilding = true;
-            captureSupplementalPlayerId = playerId;
-            captureSupplementalX = x;
-            captureSupplementalY = y;
-            captureSupplementalStruct = mapper.ConvertToEStructs();
-            capturedSupplementalBuildingId = -1;
             bool previousBypassEnabled = GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride;
             bool previousBypassValue = GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue;
-            long result;
             try
             {
-                result = GameBuildingManagerAPI.Instance.CreatePrefab(
-                    playerId,
-                    x,
-                    y,
-                    mapper,
-                    BuildingScales.GetScale(mapper),
-                    0,
-                    true,
-                    bypassPlacementRules);
+                return supplementalSpawner.Create(playerId, mapper.ConvertToEStructs(), x, y,
+                    () => GameBuildingManagerAPI.Instance.CreatePrefab(playerId, x, y, mapper,
+                        BuildingScales.GetScale(mapper), 0, true, bypassPlacementRules),
+                    LookupSupplementalBuilding, out reason);
             }
             finally
             {
                 GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue = previousBypassValue;
                 GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride = previousBypassEnabled;
-                captureSupplementalBuilding = false;
             }
-
-            int id = capturedSupplementalBuildingId > 0
-                ? capturedSupplementalBuildingId
-                : unchecked((int)result);
-            if (id <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) ||
-                building->r_PlayerIdOwner != playerId ||
-                (captureSupplementalStruct != eStructs.STRUCT_NULL &&
-                 building->r_BuildingType != captureSupplementalStruct) ||
-                (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))
-            {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1272", $"Supplemental prefab creation failed verification: playerId={playerId}, mapper={mapper}, position=({x},{y}), returnedId={id}.");
-                return -1;
-            }
-            return id;
         }
 
         private void QueueDeferredCompoundBuildings(PreparedAivCastle castle)
@@ -1226,8 +1185,9 @@ namespace CastlePlanner
                 TryFindCompoundBuilding(castle.PlayerId, item, out _, out _));
             if (existing == compoundPlan.Count)
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1299", $"Deferred compound-building queue not needed: playerId={castle.PlayerId}, " +
-                    $"planned={compoundPlan.Count}, existing={existing}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1299", $"Deferred compound-building queue not needed: playerId={castle.PlayerId}, " +
+                        $"planned={compoundPlan.Count}, existing={existing}.");
                 return;
             }
 
@@ -1237,10 +1197,11 @@ namespace CastlePlanner
                 castle.RequestedKeepY,
                 ToAivRotation(castle.Orientation),
                 compoundPlan);
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1312", $"Deferred compound-building queue armed: playerId={castle.PlayerId}, " +
-                $"planned={compoundPlan.Count}, existing={existing}, " +
-                $"entries=[{string.Join("|", compoundPlan.Select(item =>
-                    $"{item.SourceOrdinal}:{item.Mapper}:{item.BuildOrigin.X}:{item.BuildOrigin.Y}"))}].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1312", $"Deferred compound-building queue armed: playerId={castle.PlayerId}, " +
+                    $"planned={compoundPlan.Count}, existing={existing}, " +
+                    $"entries=[{string.Join("|", compoundPlan.Select(item =>
+                        $"{item.SourceOrdinal}:{item.Mapper}:{item.BuildOrigin.X}:{item.BuildOrigin.Y}"))}].");
         }
 
         private void OnGameTick(int tick)
@@ -1272,6 +1233,8 @@ namespace CastlePlanner
                         continue;
                     }
 
+                    if (queue.Processing) continue;
+                    queue.Processing = true;
                     try
                     {
                         if (ProcessDeferredCompoundBuilding(queue, tick))
@@ -1283,6 +1246,7 @@ namespace CastlePlanner
                         Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1357", $"Deferred compound-building queue aborted after an exception: " +
                             $"playerId={playerId}, tick={tick}, error={ex}.");
                     }
+                    finally { queue.Processing = false; }
                 }
             }
             finally
@@ -1317,12 +1281,12 @@ namespace CastlePlanner
                     if (existingState != AliveState.IsAlive)
                         return false;
 
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1398", $"Deferred compound-building prerequisite ready: playerId={queue.PlayerId}, " +
-                        $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
-                        $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                        $"buildingId={existingId}, tick={tick}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1398", $"Deferred compound-building prerequisite ready: playerId={queue.PlayerId}, " +
+                            $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
+                            $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
+                            $"buildingId={existingId}, tick={tick}.");
                     queue.Cursor++;
-                    queue.Attempts = 0;
                     continue;
                 }
 
@@ -1354,16 +1318,15 @@ namespace CastlePlanner
                     Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1434", $"Deferred compound-building placement aborted: playerId={queue.PlayerId}, " +
                         $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
                         $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                        $"reason={reason}, tick={tick}.");
+                        $"reason={reason}, remaining={queue.Placements.Count - queue.Cursor}, tick={tick}.");
                     return true;
                 }
 
-                queue.Attempts++;
                 int buildingId = CreateSupplementalPrefab(
                     queue.PlayerId,
                     placement.BuildOrigin.X,
                     placement.BuildOrigin.Y,
-                    placement.Mapper,
+                    placement.Mapper, out string spawnReason,
                     bypassPlacementRules: false);
                 if (buildingId > 0)
                 {
@@ -1374,26 +1337,27 @@ namespace CastlePlanner
                     queue.DigestRows.Add(
                         $"building:{(int)placement.Mapper}:{queue.PlayerId}:" +
                         $"{placement.BuildOrigin.X}:{placement.BuildOrigin.Y}:{height}");
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1459", $"Deferred compound-building placement accepted by Vanilla: " +
-                        $"playerId={queue.PlayerId}, sourceOrdinal={placement.SourceOrdinal}, " +
-                        $"mapper={placement.Mapper}, position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                        $"buildingId={buildingId}, attempt={queue.Attempts}, tick={tick}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1459", $"Deferred compound-building placement accepted by Vanilla: " +
+                            $"playerId={queue.PlayerId}, sourceOrdinal={placement.SourceOrdinal}, " +
+                            $"mapper={placement.Mapper}, position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
+                            $"buildingId={buildingId}, tick={tick}.");
                     return false;
                 }
 
-                if (queue.Attempts >= DeferredCompoundPlacementMaxAttempts)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1470", $"Deferred compound-building placement rejected repeatedly: " +
-                        $"playerId={queue.PlayerId}, sourceOrdinal={placement.SourceOrdinal}, " +
-                        $"mapper={placement.Mapper}, position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                        $"attempts={queue.Attempts}, tick={tick}.");
-                    return true;
-                }
-                return false;
+                // An unconfirmed native call may already have created a building.
+                // Abort this queue rather than risk a duplicate on the next tick.
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:compound-unconfirmed",
+                    $"Deferred compound-building queue aborted: playerId={queue.PlayerId}, " +
+                    $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
+                    $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), reason={spawnReason}, " +
+                    $"remaining={queue.Placements.Count - queue.Cursor}, tick={tick}.");
+                return true;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1481", $"Deferred compound-building queue completed: playerId={queue.PlayerId}, " +
-                $"placements={queue.Placements.Count}, tick={tick}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1481", $"Deferred compound-building queue completed: playerId={queue.PlayerId}, " +
+                    $"placements={queue.Placements.Count}, tick={tick}.");
             string digestPayload = string.Join("|", queue.DigestRows);
             string digest;
             using (SHA256 sha = SHA256.Create())
@@ -1403,8 +1367,9 @@ namespace CastlePlanner
                     .Replace("-", string.Empty)
                     .ToLowerInvariant();
             }
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1494", $"Deferred compound-building spawn digest: playerId={queue.PlayerId}, " +
-                $"objects={queue.DigestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1494", $"Deferred compound-building spawn digest: playerId={queue.PlayerId}, " +
+                    $"objects={queue.DigestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
             LogSpecialBuildingDiagnostics(queue.PlayerId);
             return true;
         }
@@ -1455,16 +1420,13 @@ namespace CastlePlanner
         {
             if (deferredCompoundBuildings.Count > 0)
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1548", $"Deferred compound-building queues cleared: reason={reason}, " +
-                    $"players=[{string.Join(",", deferredCompoundBuildings.Keys)}].");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1548", $"Deferred compound-building queues cleared: reason={reason}, " +
+                        $"players=[{string.Join(",", deferredCompoundBuildings.Keys)}].");
             }
             deferredCompoundBuildings.Clear();
         }
 
-        private void LogUnknownMisc(int playerId, int index, AivJsonMiscItem item)
-        {
-            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1558", $"Unknown supplemental misc item skipped: playerId={playerId}, sourceIndex={index}, itemType={item.itemType}, positionOffset={item.positionOfset}, number={item.number}.");
-        }
 
         private static AivRotation ToAivRotation(int nativeOrientation)
         {
@@ -1568,14 +1530,15 @@ namespace CastlePlanner
                 displacementOffset: 3,
                 instructionLength: 7);
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Native AIV bindings resolved: module=0x{libraryHandle.ToInt64():X}, " +
-                $"aivState=0x{aivState.ToInt64():X}, " +
-                $"playerAivStateBase=0x{playerAivStateBase.ToInt64():X}, " +
-                $"prebuiltPlayers=0x{prebuiltPlayersBitField.ToInt64():X}, " +
-                $"preparedKeepX=0x{preparedKeepX.ToInt64():X}, " +
-                $"preparedKeepY=0x{preparedKeepY.ToInt64():X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Native AIV bindings resolved: module=0x{libraryHandle.ToInt64():X}, " +
+                    $"aivState=0x{aivState.ToInt64():X}, " +
+                    $"playerAivStateBase=0x{playerAivStateBase.ToInt64():X}, " +
+                    $"prebuiltPlayers=0x{prebuiltPlayersBitField.ToInt64():X}, " +
+                    $"preparedKeepX=0x{preparedKeepX.ToInt64():X}, " +
+                    $"preparedKeepY=0x{preparedKeepY.ToInt64():X}.");
         }
 
         private void InitializeAivImportBackend(CrusaderLibraryLoadContext context)
@@ -1642,10 +1605,11 @@ namespace CastlePlanner
             }
             else
             {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"CastlePlanner AIV import backend: official SHCDE-SE {extenderVersion} " +
-                    $"GameAIVManagerAPI is available; compatibility workaround inactive.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"CastlePlanner AIV import backend: official SHCDE-SE {extenderVersion} " +
+                        $"GameAIVManagerAPI is available; compatibility workaround inactive.");
             }
         }
 
@@ -1714,11 +1678,12 @@ namespace CastlePlanner
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Early Vanilla human-start hooks installed: " +
-                $"keepCoordinateRva=0x{humanStartHookRva:X}, " +
-                $"displacedBytes={humanKeepCoordinateLoadHook.Hook.DisplacedByteCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Early Vanilla human-start hooks installed: " +
+                    $"keepCoordinateRva=0x{humanStartHookRva:X}, " +
+                    $"displacedBytes={humanKeepCoordinateLoadHook.Hook.DisplacedByteCount}.");
         }
 
         private void PrepareVanillaHumanStart(
@@ -1739,9 +1704,10 @@ namespace CastlePlanner
             if (!pendingAivImports.TryGetValue(playerId, out PendingAivImport imported))
             {
                 *(int*)(registers->RSP + 0x30) = rotation;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1840", $"Vanilla human Keep rotation prepared without an AIV castle: " +
-                    $"playerId={playerId}, orientation={rotation} " +
-                    $"({DescribeOrientation(rotation)}).");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1840", $"Vanilla human Keep rotation prepared without an AIV castle: " +
+                        $"playerId={playerId}, orientation={rotation} " +
+                        $"({DescribeOrientation(rotation)}).");
                 return;
             }
 
@@ -1775,11 +1741,12 @@ namespace CastlePlanner
                 *(int*)(registers->RSP + 0x30) = castle.Orientation;
                 preparedAivCastles[playerId] = castle;
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1878", $"Vanilla human start prepared before its first Keep-coordinate read: " +
-                    $"playerId={playerId}, startIndex={startIndex}, " +
-                    $"requestedKeep=({requestedKeepX},{requestedKeepY}), " +
-                    $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
-                    $"orientation={castle.Orientation} ({DescribeOrientation(castle.Orientation)}).");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1878", $"Vanilla human start prepared before its first Keep-coordinate read: " +
+                        $"playerId={playerId}, startIndex={startIndex}, " +
+                        $"requestedKeep=({requestedKeepX},{requestedKeepY}), " +
+                        $"preparedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
+                        $"orientation={castle.Orientation} ({DescribeOrientation(castle.Orientation)}).");
             }
             catch (Exception ex)
             {
@@ -1796,8 +1763,9 @@ namespace CastlePlanner
                 return;
 
             options.SpawnStockpile = placeGoodsyard;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1903", $"Fixes goodsyard policy applied to AIV spawn plan: " +
-                $"playerId={playerId}, placeGoodsyard={placeGoodsyard}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1903", $"Fixes goodsyard policy applied to AIV spawn plan: " +
+                    $"playerId={playerId}, placeGoodsyard={placeGoodsyard}.");
         }
 
         private bool TryGetFixesPlaceGoodsyard(int playerId, out bool placeGoodsyard)
@@ -2074,38 +2042,42 @@ namespace CastlePlanner
 
         private void LogGameModeDiagnostics(GameModeSnapshot mode)
         {
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2183", $"Game-mode diagnostics: campaignMapId={mode.CampaignMapId}, " +
-                $"bMultiplayerSave={mode.MultiplayerSave}, " +
-                $"sharedRealMultiplayer={mode.SharedRealMultiplayer}, " +
-                $"sharedSingleplayerSkirmish={mode.SharedSingleplayerSkirmish}, " +
-                $"sharedSingleplayerTrail={mode.SharedSingleplayerTrail}, " +
-                $"directorAvailable={mode.DirectorAvailable}, " +
-                $"directorMultiplayerGame={mode.DirectorMultiplayerGame}, " +
-                $"directorSkirmishModeGame={mode.DirectorSkirmishModeGame}, " +
-                $"directorSimRunning={mode.DirectorSimRunning}, " +
-                $"networkedEnvironment={mode.NetworkedEnvironment}, " +
-                $"networkActivePlayers={mode.NetworkActivePlayers}, " +
-                $"nativeLocalPlayerId={mode.NativeLocalPlayerId}, " +
-                $"platformAvailable={mode.PlatformAvailable}, " +
-                $"platformMpGameActive={mode.PlatformMpGameActive}, " +
-                $"platformIsHost={mode.PlatformIsHost}, " +
-                $"activeLobbyAvailable={mode.ActiveLobbyAvailable}, " +
-                $"lobbyReportedMembers={mode.LobbyReportedMemberCount}, " +
-                $"lobbyMembers={mode.LobbyMemberCount}, " +
-                $"lobbySkirmishMembers={mode.LobbySkirmishMemberCount}, " +
-                $"lobbySkirmishHumans={mode.LobbySkirmishHumanCount}, " +
-                $"lobbyNetworkHumans={mode.LobbyNetworkHumanCount}, " +
-                $"gameMembers={mode.GameMemberCount}, " +
-                $"realNetworkGameMembers={mode.RealNetworkGameMemberCount}, " +
-                $"gameDataMultiplayerMap={mode.GameDataMultiplayerMap}, " +
-                $"gameDataSkirmishGameType={mode.GameDataSkirmishGameType}, " +
-                $"gameDataGameType={mode.GameDataGameType}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2183", $"Game-mode diagnostics: campaignMapId={mode.CampaignMapId}, " +
+                    $"bMultiplayerSave={mode.MultiplayerSave}, " +
+                    $"sharedRealMultiplayer={mode.SharedRealMultiplayer}, " +
+                    $"sharedSingleplayerSkirmish={mode.SharedSingleplayerSkirmish}, " +
+                    $"sharedSingleplayerTrail={mode.SharedSingleplayerTrail}, " +
+                    $"directorAvailable={mode.DirectorAvailable}, " +
+                    $"directorMultiplayerGame={mode.DirectorMultiplayerGame}, " +
+                    $"directorSkirmishModeGame={mode.DirectorSkirmishModeGame}, " +
+                    $"directorSimRunning={mode.DirectorSimRunning}, " +
+                    $"networkedEnvironment={mode.NetworkedEnvironment}, " +
+                    $"networkActivePlayers={mode.NetworkActivePlayers}, " +
+                    $"nativeLocalPlayerId={mode.NativeLocalPlayerId}, " +
+                    $"platformAvailable={mode.PlatformAvailable}, " +
+                    $"platformMpGameActive={mode.PlatformMpGameActive}, " +
+                    $"platformIsHost={mode.PlatformIsHost}, " +
+                    $"activeLobbyAvailable={mode.ActiveLobbyAvailable}, " +
+                    $"lobbyReportedMembers={mode.LobbyReportedMemberCount}, " +
+                    $"lobbyMembers={mode.LobbyMemberCount}, " +
+                    $"lobbySkirmishMembers={mode.LobbySkirmishMemberCount}, " +
+                    $"lobbySkirmishHumans={mode.LobbySkirmishHumanCount}, " +
+                    $"lobbyNetworkHumans={mode.LobbyNetworkHumanCount}, " +
+                    $"gameMembers={mode.GameMemberCount}, " +
+                    $"realNetworkGameMembers={mode.RealNetworkGameMemberCount}, " +
+                    $"gameDataMultiplayerMap={mode.GameDataMultiplayerMap}, " +
+                    $"gameDataSkirmishGameType={mode.GameDataSkirmishGameType}, " +
+                    $"gameDataGameType={mode.GameDataGameType}.");
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2212", $"Shared game-mode diagnostics: {mode.SharedModeDetails}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2212", $"Shared game-mode diagnostics: {mode.SharedModeDetails}.");
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2216", $"Game-member diagnostics: [{mode.GameMemberDetails}].");
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2219", $"Active-player diagnostics (not used for multiplayer detection): " +
-                $"[{mode.ActivePlayerDetails}].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2216", $"Game-member diagnostics: [{mode.GameMemberDetails}].");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2219", $"Active-player diagnostics (not used for multiplayer detection): " +
+                    $"[{mode.ActivePlayerDetails}].");
         }
 
         private static void EnsureSupportedGameMode(GameModeSnapshot mode)
@@ -2133,10 +2105,7 @@ namespace CastlePlanner
         }
 
         private static bool IsCastleSpawningModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                CastlePlannerPlugin.PluginGuid,
-                Shared.GameplayFeatureId.CastleSpawning,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(CastlePlannerPlugin.PluginGuid, Shared.GameplayFeatureId.CastleSpawning);
 
         private static int CountOwnedBuildings(int playerId)
         {
@@ -2181,21 +2150,23 @@ namespace CastlePlanner
                     ref building, out Shared.GameBuildingFootprintBounds bounds)
                     ? $"({bounds.MinX},{bounds.MinY})-({bounds.MaxX},{bounds.MaxY})"
                     : "<invalid>";
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2298", $"Native special-building diagnostics: playerId={playerId}, " +
-                    $"buildingId={spanIndex + 1}, globalId={building.r_GlobalId}, " +
-                    $"type={building.r_BuildingType}, aliveState={building.r_AliveState}, " +
-                    $"footprint={footprint}, access=({building.r_TileAccessPositionX},{building.r_TileAccessPositionY}), " +
-                    $"gridSize={building.r_OccupyTileGridSize}, " +
-                    $"height={building.r_HeightElevation}, " +
-                    $"spritePlayerColorId={building.r_SpritePlayerColorId}, " +
-                    $"spriteVariation={building.r_SpriteVariationIndex}, " +
-                    $"hovelVisualStyle={building.r_BuildingVariation}, " +
-                    $"material={building.r_GameMaterialIndex}, " +
-                    $"health={building.r_CurrentHealth}/{building.r_MaxHealth}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2298", $"Native special-building diagnostics: playerId={playerId}, " +
+                        $"buildingId={spanIndex + 1}, globalId={building.r_GlobalId}, " +
+                        $"type={building.r_BuildingType}, aliveState={building.r_AliveState}, " +
+                        $"footprint={footprint}, access=({building.r_TileAccessPositionX},{building.r_TileAccessPositionY}), " +
+                        $"gridSize={building.r_OccupyTileGridSize}, " +
+                        $"height={building.r_HeightElevation}, " +
+                        $"spritePlayerColorId={building.r_SpritePlayerColorId}, " +
+                        $"spriteVariation={building.r_SpriteVariationIndex}, " +
+                        $"hovelVisualStyle={building.r_BuildingVariation}, " +
+                        $"material={building.r_GameMaterialIndex}, " +
+                        $"health={building.r_CurrentHealth}/{building.r_MaxHealth}.");
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2313", $"Native special-building summary: playerId={playerId}, " +
-                $"granaries={granaryCount}, hovels={hovelCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:2313", $"Native special-building summary: playerId={playerId}, " +
+                    $"granaries={granaryCount}, hovels={hovelCount}.");
         }
 
         private static bool IsKeepMapper(eMappers mapper)
@@ -2400,8 +2371,8 @@ namespace CastlePlanner
             public AivRotation Rotation { get; }
             public List<AivCompoundBuildingPlacement> Placements { get; }
             public List<string> DigestRows { get; } = new List<string>();
+            public bool Processing { get; set; }
             public int Cursor { get; set; }
-            public int Attempts { get; set; }
             public int FirstTick { get; set; } = -1;
         }
 

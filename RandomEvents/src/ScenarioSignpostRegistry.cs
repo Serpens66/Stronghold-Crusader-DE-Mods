@@ -148,12 +148,13 @@ namespace RandomEvents
                 return false;
             }
 
-            LogDebug(
-                $"Native event source isolated: targetPlayerId={targetPlayerId}, " +
-                $"signpostBuildingId={target.BuildingId}, tile=({target.TileX},{target.TileY}), " +
-                $"distanceReference={target.DistanceReference}, signpostDistance={target.Distance:0.00}, exposedSources=1, " +
-                $"originalArcherSource=({originalSourceX},{originalSourceY}), " +
-                $"injectedArcherSource=({sourceTileX},{sourceTileY}), sourcePathComponent={sourcePathComponent}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug(
+                    $"Native event source isolated: targetPlayerId={targetPlayerId}, " +
+                    $"signpostBuildingId={target.BuildingId}, tile=({target.TileX},{target.TileY}), " +
+                    $"distanceReference={target.DistanceReference}, signpostDistance={target.Distance:0.00}, exposedSources=1, " +
+                    $"originalArcherSource=({originalSourceX},{originalSourceY}), " +
+                    $"injectedArcherSource=({sourceTileX},{sourceTileY}), sourcePathComponent={sourcePathComponent}.");
             return true;
         }
 
@@ -476,11 +477,12 @@ namespace RandomEvents
                 archerSourceCoordinatesAddress = new IntPtr(
                     checked((long)playerManager + resolution.SourceXOffset));
                 targetingUnavailableReason = string.Empty;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Native address resolved: name=archer signpost source, method={resolution.Method}, " +
-                    $"rva=0x{resolution.Rva:X}, sourceXOffset=0x{resolution.SourceXOffset:X}, " +
-                    $"sourceYOffset=0x{resolution.SourceYOffset:X}, slotStride=0x{ArcherSourceNativeLayout.SourceRecordStride:X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Native address resolved: name=archer signpost source, method={resolution.Method}, " +
+                        $"rva=0x{resolution.Rva:X}, sourceXOffset=0x{resolution.SourceXOffset:X}, " +
+                        $"sourceYOffset=0x{resolution.SourceYOffset:X}, slotStride=0x{ArcherSourceNativeLayout.SourceRecordStride:X}.");
             }
             catch (Exception ex)
             {
@@ -622,9 +624,10 @@ namespace RandomEvents
                             $"0x{ReferenceSignpostIdsOffset:X}.");
                     }
 
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Native address resolved: name=signpost lookup, method=reference-rva, rva=0x{ExpectedLookupFunctionRva:X}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Native address resolved: name=signpost lookup, method=reference-rva, rva=0x{ExpectedLookupFunctionRva:X}.");
                     return new NativeLookupResolution(slotOffset);
                 }
 
@@ -637,9 +640,10 @@ namespace RandomEvents
                 int match = NativePatternResolver.FindUniquePattern(memory, LookupPattern, "signpost lookup");
                 if (TryValidateLookupCandidate(memory, match, out int slotOffset, out string validationFailure))
                 {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Native address resolved: name=signpost lookup, method=signature-fallback, rva=0x{match:X}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"Native address resolved: name=signpost lookup, method=signature-fallback, rva=0x{match:X}.");
                     return new NativeLookupResolution(slotOffset);
                 }
                 failures.Add($"semantic AOB candidate 0x{match:X} failed validation: {validationFailure}");
@@ -651,9 +655,10 @@ namespace RandomEvents
 
             if (TryFindUniqueStructuralCandidate(memory, out int structuralRva, out int structuralSlotOffset, out int candidateCount))
             {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Native address resolved: name=signpost lookup, method=structural-fallback, rva=0x{structuralRva:X}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Native address resolved: name=signpost lookup, method=structural-fallback, rva=0x{structuralRva:X}.");
                 return new NativeLookupResolution(structuralSlotOffset);
             }
             failures.Add($"structural module scan found {candidateCount} validated candidates instead of one");

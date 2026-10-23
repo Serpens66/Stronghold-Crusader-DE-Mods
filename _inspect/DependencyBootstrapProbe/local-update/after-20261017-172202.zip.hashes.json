@@ -1,0 +1,62 @@
+[
+  {
+    "Path": "BepInEx/DependencyBootstrapProbe.trace.log",
+    "SHA256": "B55D0CC783BB5447927EC22F80405187898726A7DB444124FF1B2A3A91DC14DE"
+  },
+  {
+    "Path": "BepInEx/DependencyBootstrapProbe.lifecycle.json",
+    "SHA256": "56723A055A6890DF48ACB890DFE482D41C7D1338604E8B029271E6C0135A4452"
+  },
+  {
+    "Path": "BepInEx/DependencyBootstrapProbe.lifecycle.337889a36613434b8d8405d22555deaa.json",
+    "SHA256": "0B54B1CFC8A8C90F5A165AA13C9AD77F34668F7B07553793CB92B8A01959E8B5"
+  },
+  {
+    "Path": "BepInEx/DependencyBootstrapProbe.lifecycle.86fd7520327f4992bdd0bbc84cd14406.json",
+    "SHA256": "56723A055A6890DF48ACB890DFE482D41C7D1338604E8B029271E6C0135A4452"
+  },
+  {
+    "Path": "BepInEx/LogOutput.log",
+    "SHA256": "522B359532EE89364F525E8E6688146341C734A580D151958B0AFE0D7B66D284"
+  },
+  {
+    "Path": "BepInEx/config/DependencyBootstrapProbe.local-update.json",
+    "SHA256": "6CFC5C0700A0700423D138BEC921065C20AD92460333716918E5E090F8E132FD"
+  },
+  {
+    "Path": "_SE/DependencyBootstrapProbeLocalTrial.json",
+    "SHA256": "C534FA5EBB33A7AD795101EC8D32D15666AA6832CC62501E1C5CCBEF430AE004"
+  },
+  {
+    "Path": "BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll",
+    "SHA256": "891CDBC4CA26BE17B43EAFD98DB4956D3362BEF34682924B76C4EC4B3FC0F12C"
+  },
+  {
+    "Path": "BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll",
+    "SHA256": "ACCEF411E7C31D82C001E64C671F64179F5ED560E9E78D39A4F06414DA44B824"
+  },
+  {
+    "Path": "BepInEx/plugins/DependencyBootstrapProbe_Serp/info.json",
+    "SHA256": "C49491616C73CF354F67760965623AFF088F9FD9EBB793F5355464DE69215B83"
+  },
+  {
+    "Path": "BepInEx/plugins/DependencyBootstrapProbe_Serp/dependency-bootstrap-pair.json",
+    "SHA256": "6A5C93C469E6F0C78BB65E3181099476D84B19F4EF91AECCF3B470EC1C8DB6F0"
+  },
+  {
+    "Path": "BepInEx/config/DependencyBootstrapProbe.active",
+    "SHA256": "7FCCB5B4C4F78AF415D0E0AC981A25625AD0663F743323F1412B08D0F35FEEED"
+  },
+  {
+    "Path": "BepInEx/config/DependencyBootstrapProbe.correct",
+    "SHA256": "7FCCB5B4C4F78AF415D0E0AC981A25625AD0663F743323F1412B08D0F35FEEED"
+  },
+  {
+    "Path": "Player.log",
+    "SHA256": "12894F1FC91559078E7C3E8173C8F31EAE86EE21F63F128C1CBB70DFC2DEE60F"
+  },
+  {
+    "Path": "proof.json",
+    "SHA256": "F9BA0A7BFA6590CBC3553983425A8D0561B004FE5B9798495825483DBE11659F"
+  }
+]

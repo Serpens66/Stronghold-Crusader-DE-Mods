@@ -111,7 +111,12 @@ namespace BugfixesAndQoL.UnitCommands
         private long nativeFeedbackRunGeneration;
         private bool nativeFeedbackRunActive;
         private bool startupConfirmed;
+        // Gates synchronized command execution on every peer; only shared settings and
+        // simulation-side contract failures may change it.
         internal bool Enabled => initialized && !failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
+        // Gates local input, preview and presentation. A local UI failure must not make
+        // this peer execute received formation packets differently from the other peers.
+        internal bool LocalInputEnabled => Enabled && !localInputFailed;
         private int dispatchDepth;
         internal bool IsDispatching { get { lock (stateSync) return dispatchDepth > 0; } }
 
@@ -147,5 +152,6 @@ namespace BugfixesAndQoL.UnitCommands
         private int mainThreadId;
         private bool initialized;
         private bool failed;
+        private bool localInputFailed;
     }
 }

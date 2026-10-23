@@ -4,14 +4,12 @@ namespace BugfixesAndQoL
     internal static class PlacementCancelRightClickPolicy
     {
         public static bool ShouldForwardRightDown(
-            bool modEnabled,
             bool clientFeaturesEnabled,
             bool optionEnabled,
             int currentAction,
             bool sh1RtsControls)
         {
             bool suppress =
-                modEnabled &&
                 clientFeaturesEnabled &&
                 optionEnabled &&
                 currentAction == 5 &&
@@ -20,7 +18,6 @@ namespace BugfixesAndQoL
         }
 
         public static bool BeginRightClickGesture(
-            bool modEnabled,
             bool clientFeaturesEnabled,
             bool optionEnabled,
             int currentAction,
@@ -28,7 +25,6 @@ namespace BugfixesAndQoL
             ref bool suppressNextRightUp)
         {
             bool forwardRightDown = ShouldForwardRightDown(
-                modEnabled,
                 clientFeaturesEnabled,
                 optionEnabled,
                 currentAction,

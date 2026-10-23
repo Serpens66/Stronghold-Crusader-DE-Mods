@@ -1,11 +1,24 @@
 @echo off
 setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Helpers/AtlasBuilder/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
 set "BUILD_DRIVER_NOPAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START AtlasBuilder
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -27,13 +40,13 @@ set "ATLAS_PYTHON=%ATLAS_BUILDER_PYTHON%"
 if not defined ATLAS_PYTHON set "ATLAS_PYTHON=python"
 echo [%date% %time%] Check Python and packaging dependencies
 "%ATLAS_PYTHON%" --version >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Python was not found. Install Python or set ATLAS_BUILDER_PYTHON to python.exe.
   goto :failed
 )
 if exist "%~dp0.deps\" set "PYTHONPATH=%~dp0.deps;%PYTHONPATH%"
 "%ATLAS_PYTHON%" -c "import PIL, UnityPy, PyInstaller"
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Packaging dependencies are missing or incompatible with this Python version.
   echo Install requirements.txt for the selected Python interpreter.
   goto :failed
@@ -41,13 +54,13 @@ if errorlevel 1 (
 
 echo Building AtlasBuilder portable Windows package...
 "%ATLAS_PYTHON%" fetch_texconv.py
-if errorlevel 1 goto :failed
+if not "%ERRORLEVEL%"=="0" goto :failed
 
 "%ATLAS_PYTHON%" -m PyInstaller --noconfirm --clean AtlasBuilder.spec
-if errorlevel 1 goto :failed
+if not "%ERRORLEVEL%"=="0" goto :failed
 
 "%ATLAS_PYTHON%" package_release.py
-if errorlevel 1 goto :failed
+if not "%ERRORLEVEL%"=="0" goto :failed
 
 echo Build completed: dist\AtlasBuilder-portable-win64.zip
 exit /b 0

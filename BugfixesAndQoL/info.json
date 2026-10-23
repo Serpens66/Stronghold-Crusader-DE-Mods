@@ -3,19 +3,70 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.192",
+  "Version": "1.0.199",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.9.0"
+      "MinimumVersion": "0.12.6"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.199",
+      "Changes": ["Add a default-enabled host option under Game setup, multiplayer and spectators to redraw the minimap at most every 0.1 seconds instead of on every simulation tick, giving clearly higher game speed on large maps (about 85 to 144 ticks per second on an 8-AI test map)."]
+    },
+    {
+      "Version": "1.0.198",
+      "Changes": ["Avoid raid missing-Post warnings for regularly skipped calls and report discarded invocation identities; warn about missing plague corrections only after an observed player-local calculation opportunity.", "Hold notification video frames until speech ends with the bounded HD waiting rule."]
+    },
+    {
+      "Version": "1.0.197",
+      "Changes": ["Add a default-enabled Host option under Fixes? to prevent AI sales without stock through negative sell thresholds, using shared native reserve and quantity safety for every goods category."]
+    },
+    {
+      "Version": "1.0.196",
+      "Changes": [
+        "Separate Host gameplay options from Client and local presentation settings; keep yellow team colours, statistics, notifications, health bars and dialogs independent of the Host switch.",
+        "Split local list search/sorting from extended AI castle selection, add explicit options for random opponents, missing-map recovery, multiplayer startup-state cleanup and peace-time gameplay fixes.",
+        "Make native No Dogs and peace-time extensions logically switchable without changing executable code after installation; preserve original paths when disabled.",
+        "Keep shared gate and moat traversal services available to independent providers while this mod's own Host features are disabled."
+      ]
+    },
+    {
+      "Version": "1.0.195",
+      "Changes": [
+        "Add savegame loading fixes for Solo Multiplayer, lobby load-button visibility and missing original map assets, with configurable recovery.",
+        "Persist individual building pause overrides, assassin climbing restrictions and synchronized troop movement state in versioned save records; validate identities before restoring them.",
+        "Preserve formation command acknowledgements and improve formation destinations, movement markers, queued orders, gate crossings, building attacks and moat work recovery.",
+        "Movement through friendly moats now runs only with the separate MoatMove test mod: without it, units no longer fall back to routes through their own moats, attack targets of moat-capable units are filtered by Vanilla, and moat-filling routes no longer cross friendly moats. This removes the related lag.",
+        "Improve notification skipping, final-frame notification display and speech playback without leaving stale audio or UI state.",
+        "Coordinate Custom Lord Coop starts through APIShared and retain consistent custom AI data on all peers.",
+        "Report the castle lists the host start will synchronize to APIShared's Coop start preview, so packaged Coop missions with several castles start with the host's synchronized selection instead of aborting.",
+        "Write one-time status, hook confirmation and user-action messages (deleted Trails, saves, maps and Coop progress) at Info level without diagnostics; per-map gate-routing details are Debug output.",
+        "Improve preplaced AI building recovery, plague and healer target reservations, waterboy reservations, foreign troop player colours and selected-unit health handling.",
+        "Sprite-sheet merging offers Automatic (default: only with at least 8 GB video memory), On (from 6 GB) and Off; the choice is resolved on each machine at sprite loading.",
+        "Add guarded Vanilla optimizations for merit-data locking, radar rebinding and sprite-sheet merging; reduce repeated assassin route searches and movement-marker work.",
+        "Move native hook installation to the synchronous startup phase and share the native DLL fingerprint instead of repeating expensive work.",
+        "Compile temporary gate, assassin movement, route acceptance and recovery-history diagnostics only in the dedicated diagnostic build.",
+        "Keep stale gate-snapshot refresh functional without diagnostics, coalesce refresh requests and reject delayed work from previous map sessions.",
+        "Skip gate-integrity aggregation when error revisions have not changed; retain throttled warning/error reports and final summaries.",
+        "Avoid disabled support-log formatting and breadcrumb preparation; bound repeated cause hashing without merging distinct failures.",
+        "Require APIShared 0.12.5 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.194",
+      "Changes": ["Faster game start: native hooks install without suspending game threads while the library loads, the native DLL hash is computed once, and gate-routing hooks install at game start instead of the first map tick.", "Lower in-game cost: cheaper AI assassin group path searches, a demand-gated move-marker render hook, and faster gatehouse-reachability and building-attack fallback searches; routes and behavior are unchanged."]
+    },
+    {
+      "Version": "1.0.193",
+      "Changes": ["Keep uncertain AI raid search diagnostics at Debug level; preserve warnings for validation failures and leave raid behavior unchanged."]
+    },
     {
       "Version": "1.0.192",
       "Changes": ["Disable detailed gate diagnosis by default and migrate existing diagnostic configs once; gate rules and pathfinding remain unchanged."]

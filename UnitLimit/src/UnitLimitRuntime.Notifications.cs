@@ -52,7 +52,10 @@ namespace UnitLimit
             }
             catch (System.Exception ex)
             {
-                LogDebug("UnitLimit/src/UnitLimitRuntime.Notifications.cs:55", "Could not cancel limit message timer:", ex.Message);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/UnitLimitRuntime.Notifications.cs:55", "Could not cancel limit message timer:", ex.Message);
+                }
             }
 
             limitMessageTimerHandle = null;

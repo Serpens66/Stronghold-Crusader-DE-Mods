@@ -12,6 +12,7 @@ var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","Manu
     "NativeProbeManagerBytes","NativeProbeGridBytes","nativeProbeGrid","nativeProbeRectangle",
     "nativeProbeManagerBackup","nativeProbeGridBackup","nativeProbeRectangleBackup","nativeProbeMemoryHelperBackup",
     "PushManualCommandContext","RestoreManualCommandContext","ProbeNativeManualPath",
+    "nativeProbeBatchDepth","nativeProbeBatchSnapshot","BeginNativeProbeBatch","EndNativeProbeBatch",
     "PrepareNativeManualGroup","IsNativeManualGroupFlood","CaptureTargetCommandContext",
     "moveEventObservers","moveEventDepths","targetCommandParents","targetEventObservers",
     "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","LogAndResetFastMoatMetrics","ClearDeferredFastMoveScope"};
@@ -41,7 +42,9 @@ foreach(var (name,count,guard) in new[] {
 string source="using System;using System.Collections.Generic;using System.Runtime.InteropServices;namespace CommandFixture { public unsafe partial class UnitCommandPathRuntime {"+
     string.Join("\n",members.Select(m=>m.ToFullString()).Concat(fallbackPrefixes.Select(m=>m.ToFullString()))).Replace("SHCDESE.EventAPI.Tribes.","")
         .Replace("SHCDESE.EventAPI.","")+"}}";
-var trees=new[]{ CSharpSyntaxTree.ParseText(source), CSharpSyntaxTree.ParseText(File.ReadAllText(
+// DEVDIAG measurement calls compile to nothing in production; the fixture only needs the API shape.
+const string devDiagStub="namespace Shared { internal static class DevDiag { internal static void Start(ref long t){} internal static void Stop(ref long t,string n){} internal static void Count(string n){} internal static void Count(string n,long a){} } }";
+var trees=new[]{ CSharpSyntaxTree.ParseText(source), CSharpSyntaxTree.ParseText(devDiagStub), CSharpSyntaxTree.ParseText(File.ReadAllText(
     Path.Combine(root,"BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/ManualHarness.cs"))) };
 var references=((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!.Split(Path.PathSeparator)
     .Select(p=>MetadataReference.CreateFromFile(p));

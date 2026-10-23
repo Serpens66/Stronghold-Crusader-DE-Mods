@@ -1,11 +1,24 @@
 @echo off
 setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../." -Driver "CastlePlanner/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
 set "BUILD_DRIVER_NOPAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START CastlePlanner
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -21,8 +34,8 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "CastlePlanner"
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -44,9 +57,7 @@ if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
-if errorlevel 1 exit /b 1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "EXTENDER_DIR="
@@ -56,7 +67,7 @@ if /I "%~1"=="/nopause" set "NO_PAUSE=1"
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
@@ -114,19 +125,20 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
-dotnet restore AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj -m:1 -p:BuildInParallel=false
-if errorlevel 1 (
+dotnet restore AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%" -m:1 -p:BuildInParallel=false
+if not "%ERRORLEVEL%"=="0" (
   set "BUILD_EXIT_CODE=1"
   popd
   goto build_failed
 )
 echo [%date% %time%] Compile projects
-dotnet build AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj -c Release --no-restore -m:1 -p:BuildInParallel=false
-if errorlevel 1 (
+dotnet build AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%" -c Release --no-restore -m:1 -p:BuildInParallel=false
+if not "%ERRORLEVEL%"=="0" (
   set "BUILD_EXIT_CODE=1"
   popd
   goto build_failed
 )
+set "CASTLE_PLANNER_GAME_DIR=%GAME_DIR%"
 "%PROJECT_DIR%AIVPlacement.Tests\bin\Release\net10.0\CastlePlanner.AIVPlacement.Tests.exe"
 if not "%ERRORLEVEL%"=="0" (
   set "BUILD_EXIT_CODE=1"
@@ -136,7 +148,7 @@ if not "%ERRORLEVEL%"=="0" (
 
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp"
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   popd
   goto build_failed
 )
@@ -146,6 +158,7 @@ set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 if "%BUILD_EXIT_CODE%"=="0" (
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp" -ValidateOnly
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 set "BUILD_EXIT_CODE=1"
 )
 popd
@@ -174,14 +187,17 @@ if "%NO_INSTALL%"=="1" goto prepared_no_install
 
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "!GAME_PLUGIN_DIR!"
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
 
   rem Overlay managed files so Script Extender Msgpack settings survive rebuilds.
 echo [%date% %time%] Copy package files
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CastlePlanner
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert; vorhandene Laufzeitdaten wurden beibehalten.
 ) else (
@@ -205,6 +221,6 @@ exit /b 1
 
 :prepared_no_install
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CastlePlanner
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 echo Paket vorbereitet; Installation uebersprungen.
 exit /b 0

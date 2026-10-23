@@ -86,8 +86,9 @@ namespace BugfixesAndQoL
             }
             else
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ShcdeSeCoarseGridBufferWorkaround.cs:91", $"{consumer} AIV import backend: official SHCDE-SE {extenderVersion} " +
-                    $"GameAIVManagerAPI; {Marker} workaround inactive.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ShcdeSeCoarseGridBufferWorkaround.cs:91", $"{consumer} AIV import backend: official SHCDE-SE {extenderVersion} " +
+                        $"GameAIVManagerAPI; {Marker} workaround inactive.");
             }
             return backend;
         }

@@ -262,9 +262,10 @@ namespace CastlePlanner
             OnPropertyChanged(nameof(AvailableFileCount));
             if (selectionChanged)
                 OnPropertyChanged(nameof(SelectedCastle));
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:271", $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +
-                $"unique={CastleOptions.Count}, identicalDuplicatesIgnored={catalog.IdenticalFileCount}, " +
-                $"nonAivContainersIgnored={catalog.IgnoredNonAivContainerCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:271", $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +
+                    $"unique={CastleOptions.Count}, identicalDuplicatesIgnored={catalog.IdenticalFileCount}, " +
+                    $"nonAivContainersIgnored={catalog.IgnoredNonAivContainerCount}.");
         }
 
         private sealed class CatalogLoadResult
@@ -337,7 +338,8 @@ namespace CastlePlanner
                 enableClientFeatures = value;
                 OnPropertyChanged(nameof(EnableClientFeatures));
                 OnPropertyChanged(nameof(IsBlueprintMode));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:348", $"CastlePlanner local activation changed to {enableClientFeatures}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:348", $"CastlePlanner local activation changed to {enableClientFeatures}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -355,7 +357,8 @@ namespace CastlePlanner
                 enableMod = value;
                 OnPropertyChanged(nameof(EnableMod));
                 OnPropertyChanged(nameof(IsSpawnMode));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:368", $"CastlePlanner host activation changed to {enableMod}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:368", $"CastlePlanner host activation changed to {enableMod}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -375,7 +378,8 @@ namespace CastlePlanner
 
                 enableAivPlacementLobby = value;
                 OnPropertyChanged(nameof(EnableAivPlacementLobby));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:390", $"CastlePlanner host AIV placement feature changed to {enableAivPlacementLobby}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:390", $"CastlePlanner host AIV placement feature changed to {enableAivPlacementLobby}.");
             }
         }
 
@@ -391,7 +395,8 @@ namespace CastlePlanner
                 blueprints = value;
                 OnPropertyChanged(nameof(Blueprints));
                 OnPropertyChanged(nameof(IsBlueprintMode));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:408", $"CastlePlanner local Blueprints changed to {blueprints}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:408", $"CastlePlanner local Blueprints changed to {blueprints}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -460,7 +465,8 @@ namespace CastlePlanner
                 spawnCastle = value;
                 OnPropertyChanged(nameof(SpawnCastle));
                 OnPropertyChanged(nameof(IsSpawnMode));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:479", $"CastlePlanner host Spawn Castle changed to {spawnCastle}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:479", $"CastlePlanner host Spawn Castle changed to {spawnCastle}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -483,7 +489,8 @@ namespace CastlePlanner
                 castleSelectionTimeoutSeconds = normalized;
                 OnPropertyChanged(nameof(CastleSelectionTimeoutSeconds));
                 OnPropertyChanged(nameof(CastleSelectionTimeoutValueText));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:504", $"CastlePlanner host castle-selection timeout changed to {castleSelectionTimeoutSeconds} real seconds.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:504", $"CastlePlanner host castle-selection timeout changed to {castleSelectionTimeoutSeconds} real seconds.");
             }
         }
 
@@ -547,7 +554,8 @@ namespace CastlePlanner
 
                 selectedCastle = normalized;
                 OnPropertyChanged(nameof(SelectedCastle));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:570", $"CastlePlanner local AIVJSON selection changed to '{selectedCastle}'.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:570", $"CastlePlanner local AIVJSON selection changed to '{selectedCastle}'.");
                 SettingsChanged?.Invoke();
             }
         }
@@ -664,7 +672,8 @@ namespace CastlePlanner
 
             field = value;
             OnPropertyChanged(propertyName);
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:689", $"CastlePlanner local {propertyName} changed to {value}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:689", $"CastlePlanner local {propertyName} changed to {value}.");
             BlueprintContentSettingsChanged?.Invoke();
         }
 
@@ -714,7 +723,8 @@ namespace CastlePlanner
 
             field = value;
             OnPropertyChanged(propertyName);
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:741", $"CastlePlanner host {propertyName} changed to {value}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:741", $"CastlePlanner host {propertyName} changed to {value}.");
             SettingsChanged?.Invoke();
         }
 
@@ -751,9 +761,10 @@ namespace CastlePlanner
             runtimeState.BlueprintHudPositionY =
                 NormalizeUnitValue(normalizedY);
             runtimeStorage.Save(runtimeState);
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:778", $"Blueprint HUD position saved: " +
-                $"x={runtimeState.BlueprintHudPositionX:0.000}, " +
-                $"y={runtimeState.BlueprintHudPositionY:0.000}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:778", $"Blueprint HUD position saved: " +
+                    $"x={runtimeState.BlueprintHudPositionX:0.000}, " +
+                    $"y={runtimeState.BlueprintHudPositionY:0.000}.");
         }
 
         internal void LogBlueprintHudMessage(string message)
@@ -1059,7 +1070,8 @@ namespace CastlePlanner
             blueprintHotkey = key;
             OnPropertyChanged(nameof(BlueprintHotkey));
             OnPropertyChanged(nameof(HotkeyDisplayText));
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:1088", $"Blueprint toggle hotkey changed to '{HotkeyDisplayText}' ({blueprintHotkey}).");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:1088", $"Blueprint toggle hotkey changed to '{HotkeyDisplayText}' ({blueprintHotkey}).");
         }
 
         private string NormalizeCastle(string value, string fallback)

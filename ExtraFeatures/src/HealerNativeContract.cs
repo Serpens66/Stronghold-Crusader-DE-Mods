@@ -6,7 +6,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 
 namespace ExtraFeatures
 {
@@ -24,6 +23,11 @@ namespace ExtraFeatures
         internal const int ListCapacity = 10000;
         internal const int PlayerSlots = 9;
         internal const int ExpectedDisplacedBytes = 10;
+        // Raw GameUnit record fields that exclude a unit from the appended healer targets.
+        // 0x458 is the Script Extender's unnamed GameUnit.N000000DE (layout checked below);
+        // 0x29C has no Extender field and is only valid for the audited native hash.
+        internal const int TargetExclusionWordOffset = 0x29C;
+        internal const int TargetExclusionByteOffset = 0x458;
 
         // The first two complete instructions are five bytes each. This exact entry is not
         // an Extender or Fixes hook site in the audited native build.
@@ -37,13 +41,9 @@ namespace ExtraFeatures
         {
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            using (var stream = File.OpenRead(path))
-            using (var sha = SHA256.Create())
-            {
-                string actual = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
-                if (!string.Equals(actual, NativeSha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Installed CrusaderDE.dll differs from the audited native build: " + actual);
-            }
+            string actual = Shared.DebugLogHelper.GetFileSha256(path);
+            if (!string.Equals(actual, NativeSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Installed CrusaderDE.dll differs from the audited native build: " + actual);
 
             if (typeof(NativeDetour<>).Assembly.GetName().Version != new Version(1, 5, 0, 0))
                 throw new InvalidOperationException("Installed RedBird NativeX64 backend version differs from 1.5.0.0.");
@@ -78,7 +78,7 @@ namespace ExtraFeatures
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DD)).ToInt32() != 0x450 ||
-                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DE)).ToInt32() != 0x458)
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DE)).ToInt32() != TargetExclusionByteOffset)
                 throw new InvalidOperationException("Script Extender unit layout differs from the audited native layout.");
         }
 
@@ -116,7 +116,9 @@ namespace ExtraFeatures
                     TargetAddress = unchecked((ulong)copy.ToInt64()),
                     Callback = callback
                 };
-                probe = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<T>;
+                // Same options as the real installation; no thread can execute this private copy.
+                probe = ExtraFeaturesHookInfrastructure.DetourBackend(NativeDetourBackend.Instance)
+                    .CreateDetour(in request) as NativeDetour<T>;
                 if (probe == null || probe.Scheme.ToString() != "Indirect" ||
                     probe.DisplacedByteCount != ExpectedDisplacedBytes || probe.IsInstalled ||
                     probe.TargetAddress != unchecked((ulong)copy.ToInt64()) ||

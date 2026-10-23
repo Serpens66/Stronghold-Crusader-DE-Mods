@@ -26,7 +26,11 @@ namespace BugfixesAndQoL.UnitCommands
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
         // Detailed command traces are opt-in diagnostics, not production logging.
-        internal static readonly bool DetailedDiagnosticsEnabled = false;
+#if SERP_DEVDIAG
+        internal static bool DetailedDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled;
+#else
+        internal const bool DetailedDiagnosticsEnabled = false;
+#endif
 
         internal const int CentralMovementPlanRva = 0x18E1E0;
         internal const int TribeFloodFillMembershipRva = 0x124740;
@@ -125,10 +129,6 @@ namespace BugfixesAndQoL.UnitCommands
         internal const int UnitAdditionalMovementSubstepsOffset = 0x3CE;
         internal const int MaximumTribeCount = 4500;
         internal const int MaximumUnitCount = 10000;
-        internal static readonly int[] EndpointNeighbourX = { -1, 1, 0, 0, -1, 1, -1, 1 };
-        internal static readonly int[] EndpointNeighbourY = { 0, 0, -1, 1, -1, -1, 1, 1 };
-        internal static readonly byte[] EndpointSourceEdgeMasks =
-            { 0x04, 0x40, 0x10, 0x01, 0x08, 0x20, 0x02, 0x80 };
 
         internal const int MoatRecordArrayOffset = 0x1F3EE30;
         internal const int MoatRecordCountOffset = 0x2038E30;
@@ -140,21 +140,14 @@ namespace BugfixesAndQoL.UnitCommands
         internal const int MaximumRegionId = ushort.MaxValue;
         internal const int MaximumFloodFillStamp = 0x7D00;
         internal const int MapWidth = 800;
-        internal const int MapCellCount = MapWidth * MapWidth;
         // Tile-indexed native arrays contain 0x4E520 entries. MapCellCount is only
         // the rectangular coordinate-cell count used by the managed BFS buffers.
         internal const int NativeTileCount = 0x4E520;
-        internal const int RouteStateShift = 20;
-        internal const int RouteCellMask = (1 << RouteStateShift) - 1;
-        internal const int GroundRouteState = 0;
-        internal const int FriendlyMoatRouteState = 1;
-        internal const int EnemyMoatRouteState = 2;
         internal const uint CompletedMoatTileFlag = 0x40000000;
         internal const uint AlternativeTerrainDelayTileFlag = 0x00200000;
         internal const uint OrdinaryWalkableTileFlag = 0x00008000;
         internal const uint CursorSpecialStructureTileFlagMask = 0x10000300;
         internal const uint BuildingContextBlockingTileFlagMask = 0x0F000000;
-        internal const int PathManagerRouteVariantOffset = 0x80;
         internal const int PathManagerFloodGenerationOffset = 0x04;
         internal const int PathManagerFloodDepthOffset = 0x155F38;
         internal const int PathManagerFloodQueueHeadOffset = 0x155F3C;
@@ -354,7 +347,6 @@ namespace BugfixesAndQoL.UnitCommands
         [ThreadStatic]
         internal static AttackApproachDiagnosticScope activeAttackApproachDiagnostic;
         [ThreadStatic] internal static int attackQualificationTimingDepth;
-        [ThreadStatic] internal static int requiredPublicationTimingDepth;
         [ThreadStatic]
         internal static BuildingApproachPerformanceScope activeBuildingApproachPerformance;
         [ThreadStatic]
@@ -434,23 +426,8 @@ namespace BugfixesAndQoL.UnitCommands
         internal IDisposable mapStartSubscription;
         internal IDisposable mapUnloadSubscription;
         internal bool attackTickSubscribed;
-
-        internal int[] visitedWithoutMoat;
-        internal int[] visitedWithMoat;
-        internal int[] visitedWithEnemyMoat;
-        internal int[] distanceWithoutMoat;
-        internal int[] distanceWithMoat;
-        internal int[] distanceWithEnemyMoat;
-        internal int[] queue;
-        internal int[] observedRouteRegions;
-        internal int[] reachedGroundRegions;
-        internal int[] reachedFriendlyMoatRegions;
-        internal int[] reachedEnemyMoatRegions;
-        internal int gridGeneration;
         internal int mapEpoch;
         internal int cacheMapEpoch = -1;
-        internal bool cacheIncludesEnemyRoutes;
-        internal int cachedReachabilityExpandedNodes;
         internal int fallbackContractRejections;
         internal int cacheStartX = -1;
         internal int cacheStartY = -1;
@@ -458,44 +435,48 @@ namespace BugfixesAndQoL.UnitCommands
         internal int cachedTraversedRegionCount;
         internal int cachedReachabilityMapHits;
         internal RouteProbeSummary cachedRouteSummary;
+#if SERP_DEVDIAG
         internal readonly HashSet<ulong> loggedBuildingCursorReachabilityDecisions =
             new HashSet<ulong>();
+#endif
+
         internal readonly Dictionary<int, NativeWaypointQueueTracker> trackedNativeWaypointQueues =
             new Dictionary<int, NativeWaypointQueueTracker>();
+#if SERP_DEVDIAG
         internal readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
+
         internal readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
+#endif
+
         internal readonly Dictionary<int, AttackUnitTracker> trackedAttackUnits =
             new Dictionary<int, AttackUnitTracker>();
         internal readonly Dictionary<int, MoatMoveTracker> trackedMoatMoves =
             new Dictionary<int, MoatMoveTracker>();
         internal readonly HashSet<int> requiredBackgroundTrackedUnitIds = new HashSet<int>();
+#if SERP_DEVDIAG
         internal readonly Dictionary<string, int> requiredBackgroundDiagnostics =
             new Dictionary<string, int>(StringComparer.Ordinal);
+
         internal readonly Dictionary<string, int> requiredBackgroundSuppressedDiagnostics =
             new Dictionary<string, int>(StringComparer.Ordinal);
+#endif
+
         internal int requiredBackgroundDiagnosticTick = int.MinValue;
         internal readonly HashSet<string> reportedDiagnosticFailureStages =
             new HashSet<string>(StringComparer.Ordinal);
+#if SERP_DEVDIAG
         internal readonly HashSet<string> loggedDiggerDecisions =
             new HashSet<string>(StringComparer.Ordinal);
-        internal readonly HashSet<int> loggedFormationExecuteMoveTypes = new HashSet<int>();
+
         internal readonly Dictionary<int, string> lastWeightedPublicationDecisionByUnit =
             new Dictionary<int, string>();
+#endif
+
         internal int moveCommandSequence;
         internal int attackCommandSequence;
         internal bool callbackFailureReported;
         internal bool weightedShadowBusy;
-        internal bool targetedRouteProbeBusy;
         internal bool disposed;
-
-        // Scratch data only: command snapshots and native rollback buffers retain their ownership.
-        internal readonly Stack<BuildingFallbackWorkBuffers> buildingFallbackWorkBuffers =
-            new Stack<BuildingFallbackWorkBuffers>();
-        internal readonly Stack<MoatCandidateField> buildingCandidateFields = new Stack<MoatCandidateField>();
-
-        internal int reachabilityQueueHead, reachabilityQueueTail;
-        internal object reachabilityOwner;
-        internal int reachabilityTick;
 
     }
 }

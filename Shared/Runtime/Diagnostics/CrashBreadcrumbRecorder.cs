@@ -25,6 +25,7 @@ namespace Shared
         private readonly HashSet<string> unexpectedSignatures =
             new HashSet<string>(StringComparer.Ordinal);
         private readonly Action<string> statusLogger;
+        private readonly Action<Exception> persistenceError;
         private readonly string pluginGuid;
         private readonly string pluginName;
         private readonly string pluginVersion;
@@ -41,8 +42,8 @@ namespace Shared
         private long lastPersistedBreadcrumbSequence = -1;
         private long nextSummaryTimestamp;
         private bool cleanShutdown;
-        private bool persistenceDisabled;
-        private bool persistenceFailureReported;
+        private volatile bool persistenceDisabled;
+        private int persistenceFailureReported;
         private bool disposed;
 
         internal CrashBreadcrumbRecorder(
@@ -54,12 +55,20 @@ namespace Shared
             Action<string> statusLogger,
             TimeSpan? snapshotInterval = null,
             TimeSpan? summaryInterval = null)
+            : this(enabled, rootDirectory, pluginGuid, pluginName, pluginVersion, statusLogger,
+                snapshotInterval, summaryInterval, null) { }
+
+        internal CrashBreadcrumbRecorder(
+            bool enabled, string rootDirectory, string pluginGuid, string pluginName, string pluginVersion,
+            Action<string> statusLogger, TimeSpan? snapshotInterval, TimeSpan? summaryInterval,
+            Action<Exception> persistenceError)
         {
             IsEnabled = enabled;
             this.pluginGuid = pluginGuid ?? string.Empty;
             this.pluginName = pluginName ?? string.Empty;
             this.pluginVersion = pluginVersion ?? string.Empty;
             this.statusLogger = statusLogger;
+            this.persistenceError = persistenceError;
             using (Process process = Process.GetCurrentProcess())
             {
                 processId = process.Id;
@@ -82,13 +91,14 @@ namespace Shared
             TryPrepareDirectory();
 
             TimeSpan interval = snapshotInterval ?? TimeSpan.FromSeconds(1);
-            if (interval > TimeSpan.Zero)
+            if (interval > TimeSpan.Zero && !persistenceDisabled)
             {
                 timer = new Timer(
                     _ => TryWriteSnapshot(finalSnapshot: false),
                     null,
-                    interval,
-                    interval);
+                    Timeout.Infinite,
+                    Timeout.Infinite);
+                timer.Change(interval, interval);
             }
         }
 
@@ -395,6 +405,9 @@ namespace Shared
 
             lock (snapshotWriteRoot)
             {
+                // A writer may have passed the outer guard before another writer
+                // disabled persistence. Recheck after acquiring the serialization lock.
+                if (persistenceDisabled || disposed && !finalSnapshot) return;
                 try
                 {
                     if (!finalSnapshot &&
@@ -559,13 +572,13 @@ namespace Shared
         private void DisablePersistence(Exception exception)
         {
             persistenceDisabled = true;
-            if (persistenceFailureReported)
+            try { timer?.Change(Timeout.Infinite, Timeout.Infinite); } catch { }
+            if (Interlocked.Exchange(ref persistenceFailureReported, 1) != 0)
                 return;
-
-            persistenceFailureReported = true;
             try
             {
-                statusLogger?.Invoke("Crash diagnostics persistence disabled for this process: " + exception.Message);
+                if (persistenceError != null) persistenceError(exception);
+                else statusLogger?.Invoke("Crash diagnostics persistence disabled for this process: " + exception.Message);
             }
             catch
             {

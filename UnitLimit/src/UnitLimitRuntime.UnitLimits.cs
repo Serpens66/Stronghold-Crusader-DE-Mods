@@ -15,7 +15,8 @@ namespace UnitLimit
 {
     public sealed partial class UnitLimitRuntime
     {
-        private struct PendingRecruitmentKey
+        // IEquatable avoids boxing on every dictionary lookup (per GUI check and unit event).
+        private struct PendingRecruitmentKey : IEquatable<PendingRecruitmentKey>
         {
             public readonly int PlayerId;
             public readonly eChimps UnitType;
@@ -26,13 +27,9 @@ namespace UnitLimit
                 UnitType = unitType;
             }
 
-            public override bool Equals(object obj)
-            {
-                if (!(obj is PendingRecruitmentKey other))
-                    return false;
+            public bool Equals(PendingRecruitmentKey other) => PlayerId == other.PlayerId && UnitType == other.UnitType;
 
-                return PlayerId == other.PlayerId && UnitType == other.UnitType;
-            }
+            public override bool Equals(object obj) => obj is PendingRecruitmentKey other && Equals(other);
 
             public override int GetHashCode()
             {
@@ -135,12 +132,15 @@ namespace UnitLimit
             {
                 // Forward the remaining limit as a conservative ceiling. Vanilla
                 // still owns peasants, weapons, gold and its native feedback.
-                LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:138",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:138",
                     "UnitLimit could not resolve Vanilla's current Ctrl amount; forwarding remaining limit:",
                     "unit", unitType,
                     "player", playerId,
                     "remaining", remaining,
                     "rawUnitType", rawUnitType);
+                }
                 return MakeTroopGameActionDecision.ForwardAmount(
                     remaining,
                     playerId,
@@ -154,7 +154,9 @@ namespace UnitLimit
                     vanillaRequestedAmount,
                     remaining,
                     interpretCtrlSentinel);
-            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:157",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:157",
                 log,
                 "UnitLimit recruitment decision:",
                 "unit", unitType,
@@ -171,6 +173,7 @@ namespace UnitLimit
                 "forwardedAmount", constraint.AmountToForward,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
+            }
 
             if (constraint.Action != APIShared.Recruitment.RecruitmentConstraintAction.Block)
             {
@@ -189,7 +192,9 @@ namespace UnitLimit
                         amountToReserve);
             }
 
-            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:192",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:192",
                 log,
                 "MakeTroop block: unit limit exceeded",
                 unitType,
@@ -205,6 +210,7 @@ namespace UnitLimit
                 "constraintAction", constraint.Action,
                 "limit", limit,
                 "rawUnitType", rawUnitType);
+            }
 
             if (remaining <= 0)
                 ShowUnitLimitReachedMessageForLocalPlayer(playerId, unitType, limit);
@@ -229,7 +235,9 @@ namespace UnitLimit
                 decision.PendingPlayerId,
                 decision.PendingUnitType,
                 amountToReserve);
-            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:232",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:232",
                 "UnitLimit finalized pending recruitment:",
                 "unit", decision.PendingUnitType,
                 "player", decision.PendingPlayerId,
@@ -237,6 +245,7 @@ namespace UnitLimit
                 "finalChainAmount", finalChainAmount,
                 "hasConcreteChainAmount", hasConcreteChainAmount,
                 "reservedAmount", amountToReserve);
+            }
             RefreshCurrentUnitLimitTooltip();
         }
 
@@ -333,13 +342,16 @@ namespace UnitLimit
 
             args.CustomValidationRules = true;
             args.ForceBlockPlacementState = true;
-            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:336",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:336",
                 "Siege tent placement blocked by unit limit:",
                 "player", args.PlayerId,
                 "mapper", args.Mappers,
                 "unit", unitType,
                 "count", count,
                 "limit", limit);
+            }
             ShowUnitLimitReachedMessage(unitType, limit);
         }
 
@@ -398,7 +410,10 @@ namespace UnitLimit
                 {
                     changed = true;
                     if (ShouldLogHumanPlayer(entry.Key.PlayerId))
-                        LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:401", "Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
+                        {
+                            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:401", "Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
+                        }
                 }
 
                 if (entry.Value.Count == 0)
@@ -426,7 +441,10 @@ namespace UnitLimit
             if (count == 0)
                 return;
 
-            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:429", "Clearing pending recruitments:", reason, "keys", count);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:429", "Clearing pending recruitments:", reason, "keys", count);
+            }
             pendingRecruitments.Clear();
             UnitLimitIntegration.NotifyStateChanged();
         }
@@ -445,10 +463,8 @@ namespace UnitLimit
                 eChimps pendingUnitType = GetPendingRecruitmentUnitType(args.NewSnapshot);
                 bool consumedExternal = args.Reason == ActiveUnitCache.ActiveUnitChangeReason.Created &&
                     TryConsumeArmedExternalReservation(args.NewSnapshot.OwnerId, pendingUnitType);
-                bool consumed = consumedExternal ||
+                if (!consumedExternal)
                     ConsumePendingRecruitment(args.NewSnapshot.OwnerId, pendingUnitType);
-                if (consumed && ShouldLogHumanPlayer(args.NewSnapshot.OwnerId))
-                { }
             }
 
             RefreshCurrentUnitLimitTooltip();
@@ -500,7 +516,10 @@ namespace UnitLimit
         private void ShowUnitLimitReachedMessage(eChimps unitType, int limit)
         {
             string message = SerpLocalization.Get(SerpLocalization.Max) + " " + limit + " " + GetLocalizedUnitName(unitType);
-            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:503", "Unit limit notification shown:", unitType, message);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:503", "Unit limit notification shown:", unitType, message);
+            }
             if (IsEngineerSiegeUnit(unitType))
                 DisplaySiegeLimitNotification(message);
             else
@@ -511,23 +530,30 @@ namespace UnitLimit
         {
             ClearExternalReservations("ApplyUnitLimits");
             activeUnitLimits.Clear();
-            configuredRecruitmentButtons.Clear();
             Dictionary<eChimps, int> parsedLimits = ParseEnumAmounts<eChimps>(settings.UnitLimits);
             foreach (KeyValuePair<eChimps, int> entry in parsedLimits)
             {
                 if (!SoldierChimps.Contains(entry.Key))
                 {
-                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:520", "Unit limit type is not a supported recruitable soldier:", entry.Key);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:520", "Unit limit type is not a supported recruitable soldier:", entry.Key);
+                    }
                     continue;
                 }
 
                 activeUnitLimits[entry.Key] = entry.Value;
                 if (entry.Value >= 0)
-                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:526", "Active unit limit:", entry.Key, "=", entry.Value);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:526", "Active unit limit:", entry.Key, "=", entry.Value);
+                    }
             }
 
-            RebuildConfiguredRecruitmentButtons();
-            LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:530", "Applied active unit limit rules:", activeUnitLimits.Count);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.UnitLimits.cs:530", "Applied active unit limit rules:", activeUnitLimits.Count);
+            }
             RefreshCurrentUnitLimitTooltip();
             UnitLimitIntegration.NotifyStateChanged();
         }

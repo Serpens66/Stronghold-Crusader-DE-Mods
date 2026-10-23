@@ -33,11 +33,16 @@ namespace BugfixesAndQoL.UnitCommands
             int sourceRegion,
             int movementClass)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 ResolveEnemyGateBuildingPlayer(movementClass, tribeId),
                 EnemyGateSearchKind.BuildingApproach, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("BuildingApproach", movementClass);
+#if SERP_DEVDIAG
             object temporaryScope = BeginTemporaryAssassinScope("building-query", tribeId, movementClass, buildingId, sourceRegion);
+#endif
+
             bool bridgeCompleted = false;
             try
             {
@@ -49,101 +54,38 @@ namespace BugfixesAndQoL.UnitCommands
             }
             finally
             {
+#if SERP_DEVDIAG
                 EndTemporaryAssassinScope(temporaryScope, bridgeCompleted, 0);
+#endif
+
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingApproach, bridgeCompleted, false);
+                DiagFinishBuildingApproach(ref measured, tribeId, buildingId, requestedResults, sourceRegion, movementClass);
             }
         }
+
+        partial void DiagFinishBuildingApproach(ref long measured, int tribeId, int buildingId, int requestedResults, int sourceRegion, int movementClass);
+        partial void DiagWrapBuildingOriginals();
 
         internal void ObserveBuildingApproachBuilderWithMoat(
             IntPtr pathManager, int tribeId, int buildingId, int requestedResults,
             int sourceRegion, int movementClass)
         {
-            AttackApproachDiagnosticScope previous = activeAttackApproachDiagnostic;
-            BuildingApproachPerformanceScope previousPerformance =
-                activeBuildingApproachPerformance;
-            AttackApproachDiagnosticScope scope = null;
-            BuildingApproachPerformanceScope performance = null;
-            long started = 0;
-            try
-            {
-                AttackCommandScope command = activeAttackCommand;
-                if (!disposed && pathManager != IntPtr.Zero && command != null &&
-                    command.MapEpoch == mapEpoch && command.TribeId == tribeId &&
-                    IsBuildingAttackCommand(command.Command) &&
-                    !command.Options.RequiredOnly)
-                {
-                    EnsureAttackCommandCandidates(command);
-                    ResolveAttackApproachRepresentative(
-                        command, out int unitId, out int playerId, out eChimps unitType);
-                    scope = new AttackApproachDiagnosticScope(
-                        command,
-                        AttackApproachKind.BuildingApproach,
-                        command.Sequence,
-                        command.Command,
-                        tribeId,
-                        buildingId,
-                        -1,
-                        -1,
-                        requestedResults,
-                        sourceRegion,
-                        movementClass,
-                        unitId,
-                        playerId,
-                        unitType,
-                        CaptureAttackApproachState(
-                            pathManager,
-                            requirePairedResult: true,
-                            requireReachableScore: false));
-                    performance = new BuildingApproachPerformanceScope(
-                        command.Sequence, buildingId);
-                    activeAttackApproachDiagnostic = scope;
-                    activeBuildingApproachPerformance = performance;
-                }
-            }
-            catch (Exception ex)
-            {
-                activeAttackApproachDiagnostic = previous;
-                activeBuildingApproachPerformance = previousPerformance;
-                TryLogDiagnosticFailure("attack-approach-building-pre", ex);
-                scope = null;
-            }
-
-            try
-            {
-                started = Stopwatch.GetTimestamp();
+            // The approach scope only serves friendly-moat routes (MoatMove).
+            if (TraversalEnabled)
+                Traversal.BuildingApproachBuilderTraversal(
+                    pathManager, tribeId, buildingId, requestedResults, sourceRegion, movementClass);
+            else
                 RunBuildingApproachBuilderWithVanillaLadderFix(
                     pathManager, tribeId, buildingId, requestedResults, sourceRegion, movementClass);
-            }
-            finally
-            {
-                if (performance != null && started != 0)
-                    performance.TotalElapsedTicks = Stopwatch.GetTimestamp() - started;
-                if (scope != null)
-                {
-                    try
-                    {
-                        scope.After = CaptureAttackApproachState(
-                            pathManager,
-                            requirePairedResult: true,
-                            requireReachableScore: false);
-                        LogAttackApproachDiagnostic(scope);
-                        LogBuildingApproachPerformance(performance);
-                    }
-                    catch (Exception ex)
-                    {
-                        TryLogDiagnosticFailure("attack-approach-building-post", ex);
-                    }
-                }
-                activeBuildingApproachPerformance = previousPerformance;
-                activeAttackApproachDiagnostic = previous;
-            }
         }
 
         internal void ObserveBuildingCandidateConsumer(
             IntPtr tribeManager, int tribeId, int builderVariant)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 ResolveEnemyGateTribePlayer(tribeId),
                 EnemyGateSearchKind.BuildingConsumer, out object gateScope);
@@ -160,190 +102,60 @@ namespace BugfixesAndQoL.UnitCommands
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingConsumer, bridgeCompleted, false);
+                Shared.DevDiag.StopSpike(ref measured, "uc.attack.buildingConsumer", 20000);
             }
         }
 
         internal void ObserveBuildingCandidateConsumerWithMoat(
             IntPtr tribeManager, int tribeId, int builderVariant)
         {
-            AttackApproachDiagnosticScope previous = activeAttackApproachDiagnostic;
-            BuildingConsumerPerformanceScope previousPerformance =
-                activeBuildingConsumerPerformance;
-            AttackApproachDiagnosticScope scope = null;
-            BuildingConsumerPerformanceScope performance = null;
+            // The consumer scope and its candidate fallback only serve friendly-moat routes
+            // (MoatMove). Without the traversal provider: Vanilla plus the ladder fix.
+            if (TraversalEnabled)
+                Traversal.BuildingCandidateConsumerTraversal(tribeManager, tribeId, builderVariant);
+            else
+                RunBuildingCandidateConsumerWithVanillaLadderFix(tribeManager, tribeId, builderVariant);
+        }
+
+        // Restores the ladder candidates Vanilla's consumer dropped (same steps as the
+        // fast branch above, without any friendly-moat scope).
+        internal void RunBuildingCandidateConsumerWithVanillaLadderFix(
+            IntPtr tribeManager, int tribeId, int builderVariant)
+        {
+            AttackCommandScope command = activeAttackCommand;
+            bool ladder = !disposed && tribeManager != IntPtr.Zero && command != null &&
+                command.MapEpoch == mapEpoch && command.TribeId == tribeId &&
+                IsBuildingAttackCommand(command.Command) &&
+                settings.EnableMod && settings.EnableLadderAttackPathfindingFix;
             BuildingApproachCandidate[] vanillaCandidates = Array.Empty<BuildingApproachCandidate>();
-            AttackCommandScope fastCommand = null;
-            AttackApproachState fastBefore = default;
-            bool vanillaCompleted = false;
-            long vanillaStarted = 0;
-            long vanillaElapsedTicks = 0;
+            if (ladder)
+            {
+                try { vanillaCandidates = CaptureBuildingApproachCandidates(nativePathManager); }
+                catch (Exception ex)
+                {
+                    ladder = false;
+                    TryLogDiagnosticFailure("building-consumer-ladder-capture", ex);
+                }
+            }
+            originalBuildingCandidateConsumer(tribeManager, tribeId, builderVariant);
+            if (!ladder)
+                return;
             try
             {
-                AttackCommandScope command = activeAttackCommand;
-                if (!disposed && tribeManager != IntPtr.Zero && command != null &&
-                    command.MapEpoch == mapEpoch && command.TribeId == tribeId &&
-                    IsBuildingAttackCommand(command.Command))
-                {
-                    vanillaCandidates = CaptureBuildingApproachCandidates(nativePathManager);
-                    if (command.Options.RequiredOnly)
-                    {
-                        fastCommand = command;
-                        fastBefore = CaptureAttackApproachState(
-                            nativePathManager,
-                            requirePairedResult: true,
-                            requireReachableScore: false);
-                    }
-                    else
-                    {
-                        EnsureAttackCommandCandidates(command);
-                        ResolveAttackApproachRepresentative(
-                            command, out int unitId, out int playerId, out eChimps unitType);
-                        scope = new AttackApproachDiagnosticScope(
-                            command,
-                            AttackApproachKind.BuildingCandidateConsumer,
-                            command.Sequence,
-                            command.Command,
-                            tribeId,
-                            command.TargetValue1,
-                            -1,
-                            -1,
-                            -1,
-                            -1,
-                            -1,
-                            unitId,
-                            playerId,
-                            unitType,
-                            CaptureAttackApproachState(
-                                nativePathManager,
-                                requirePairedResult: true,
-                                requireReachableScore: false))
-                        {
-                            ConsumerVariant = builderVariant
-                        };
-                        performance = new BuildingConsumerPerformanceScope(
-                            command.Sequence, command.TargetValue1, vanillaCandidates.Length);
-                        activeAttackApproachDiagnostic = scope;
-                    }
-                }
+                LadderBuildingCandidateRestoreResult ladderRestore =
+                    RestoreVanillaLadderBuildingCandidates(command, tribeManager, vanillaCandidates);
+                if (ladderRestore.RestoredPairs > 0)
+                    LogCommandDiagnostic(
+                        $"stage=building-consumer-ladder commandSeq={command.Sequence} " +
+                        $"building={command.TargetValue1}/{command.TargetValue2} " +
+                        $"proofs={ladderRestore.ProvenTransitions} " +
+                        $"eligible={ladderRestore.EligiblePairs} " +
+                        $"ladderRestored={ladderRestore.RestoredPairs} " +
+                        $"reason={ladderRestore.Reason}.");
             }
             catch (Exception ex)
             {
-                activeAttackApproachDiagnostic = previous;
-                TryLogDiagnosticFailure("attack-approach-building-consumer-pre", ex);
-                scope = null;
-            }
-
-            try
-            {
-                vanillaStarted = Stopwatch.GetTimestamp();
-                originalBuildingCandidateConsumer(tribeManager, tribeId, builderVariant);
-                vanillaCompleted = true;
-            }
-            finally
-            {
-                if (vanillaStarted != 0)
-                {
-                    vanillaElapsedTicks = Stopwatch.GetTimestamp() - vanillaStarted;
-                    if (performance != null)
-                        performance.VanillaElapsedTicks = vanillaElapsedTicks;
-                }
-                if (scope == null && vanillaCompleted && fastCommand != null &&
-                    CaptureAttackApproachState(nativePathManager, requirePairedResult: true)
-                        .UsableResultCount == 0)
-                {
-                    EnsureAttackCommandCandidates(fastCommand);
-                    ResolveAttackApproachRepresentative(
-                        fastCommand, out int unitId, out int playerId, out eChimps unitType);
-                    scope = new AttackApproachDiagnosticScope(
-                        fastCommand, AttackApproachKind.BuildingCandidateConsumer,
-                        fastCommand.Sequence, fastCommand.Command, tribeId,
-                        fastCommand.TargetValue1, -1, -1, -1, -1, -1,
-                        unitId, playerId, unitType, fastBefore)
-                    {
-                        ConsumerVariant = builderVariant
-                    };
-                    performance = new BuildingConsumerPerformanceScope(
-                        fastCommand.Sequence, fastCommand.TargetValue1,
-                        vanillaCandidates.Length)
-                    {
-                        VanillaElapsedTicks = vanillaElapsedTicks
-                    };
-                    activeAttackApproachDiagnostic = scope;
-                }
-                if (scope != null)
-                {
-                    try
-                    {
-                        AttackApproachState vanillaAfter =
-                            CaptureAttackApproachState(nativePathManager, requirePairedResult: true);
-                        BuildingConsumerFallbackResult fallback;
-                        LadderBuildingCandidateRestoreResult ladderRestore;
-                        long fallbackStarted = Stopwatch.GetTimestamp();
-                        activeBuildingConsumerPerformance = performance;
-                        try
-                        {
-                            fallback = vanillaCompleted
-                                ? TryApplyBuildingConsumerFallback(
-                                    scope, tribeManager, vanillaCandidates, vanillaAfter)
-                                : BuildingConsumerFallbackResult.NotAttempted("vanilla-threw");
-                        }
-                        finally
-                        {
-                            if (performance != null)
-                            {
-                                performance.FallbackElapsedTicks =
-                                    Stopwatch.GetTimestamp() - fallbackStarted;
-                            }
-                            activeBuildingConsumerPerformance = previousPerformance;
-                        }
-                        ladderRestore = vanillaCompleted
-                            ? RestoreVanillaLadderBuildingCandidates(
-                                scope.OwnerCommand, tribeManager, vanillaCandidates)
-                            : new LadderBuildingCandidateRestoreResult(
-                                "vanilla-threw", 0, 0, 0, 0);
-                        PublishBuildingApproachPairs(scope.OwnerCommand, nativePathManager);
-                        scope.After = CaptureAttackApproachState(
-                            nativePathManager,
-                            requirePairedResult: true,
-                            requireReachableScore: false);
-                        LogBuildingConsumerCandidates(
-                            scope, vanillaCandidates, vanillaAfter, fallback, ladderRestore);
-                        LogBuildingConsumerPerformance(performance, fallback);
-                        LogAttackApproachDiagnostic(scope);
-                    }
-                    catch (Exception ex)
-                    {
-                        TryLogDiagnosticFailure("attack-approach-building-consumer-post", ex);
-                    }
-                }
-                else if (vanillaCompleted && fastCommand != null)
-                {
-                    try
-                    {
-                        LadderBuildingCandidateRestoreResult ladderRestore =
-                            RestoreVanillaLadderBuildingCandidates(
-                                fastCommand, tribeManager, vanillaCandidates);
-                        if (ladderRestore.RestoredPairs > 0)
-                        {
-                            PublishBuildingApproachPairs(fastCommand, nativePathManager);
-                            LogCommandDiagnostic(
-                                $"stage=building-consumer-ladder commandSeq={fastCommand.Sequence} " +
-                                $"building={fastCommand.TargetValue1}/{fastCommand.TargetValue2} " +
-                                $"proofs={ladderRestore.ProvenTransitions} " +
-                                $"afterMoatPairs={ladderRestore.AfterMoatPairs} " +
-                                $"eligible={ladderRestore.EligiblePairs} " +
-                                $"ladderRestored={ladderRestore.RestoredPairs} " +
-                                $"reason={ladderRestore.Reason}.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        TryLogDiagnosticFailure(
-                            "attack-approach-building-consumer-ladder-fast", ex);
-                    }
-                }
-                activeBuildingConsumerPerformance = previousPerformance;
-                activeAttackApproachDiagnostic = previous;
+                TryLogDiagnosticFailure("building-consumer-ladder", ex);
             }
         }
 
@@ -357,16 +169,6 @@ namespace BugfixesAndQoL.UnitCommands
                 return IsValidBuildingApproachPair(command.TargetValue1,building,tile,candidate.FootprintTileId);
             var pos=GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
             return pos.X<MapWidth && pos.Y<MapWidth && movementTargetAvailability[pos.Y*MapWidth+pos.X]!=0;
-        }
-
-        internal bool BuildingCandidateEdge(int player,int from,int to,int d,bool endpoint,bool reserved,
-            out bool moat,out bool structure)
-        {
-            bool valid=weightedMoatRoutePlanner.TryGetTraversalEdge(player,from%MapWidth,from/MapWidth,
-                GameTileManagerAPI.Instance.GetTileId(from%MapWidth,from/MapWidth),to%MapWidth,to/MapWidth,
-                GameTileManagerAPI.Instance.GetTileId(to%MapWidth,to/MapWidth),d,endpoint,reserved,
-                MoatTraversalPolicy.FriendlyOnly,out MoatTraversalEdgeKind kind,out structure);
-            moat=kind!=MoatTraversalEdgeKind.Ground; return valid;
         }
 
         internal struct BuildingApproachCandidate

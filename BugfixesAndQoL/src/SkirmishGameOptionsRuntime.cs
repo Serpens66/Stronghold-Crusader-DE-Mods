@@ -24,6 +24,9 @@ namespace BugfixesAndQoL
             typeof(FRONT_Multiplayer), "SetupSkirmishModeSettings");
 
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
+        private bool Enabled => settings.EnableMod && settings.ShowMpAdvancedSettingsInSingleplayer;
+        private bool PeaceAvailable => peaceTimeNativeAvailable && settings.EnableMod && settings.EnablePeaceTimeGameplayFixes;
         private readonly WorkingCopyTransaction<EngineInterface.MultiplayerSetupData> transaction;
 
         // The plugin roots this runtime for the complete process lifetime. Dispose is used only
@@ -44,11 +47,25 @@ namespace BugfixesAndQoL
         private bool outpostsUnavailableLogged;
         private bool initialized;
 
-        internal SkirmishGameOptionsRuntime(ManualLogSource log)
+        internal SkirmishGameOptionsRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             transaction =
                 new WorkingCopyTransaction<EngineInterface.MultiplayerSetupData>(CloneSetupData);
+            settings.SettingChanged += OnSettingChanged;
+        }
+
+        private void OnSettingChanged(string propertyName)
+        {
+            if (propertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
+                propertyName != nameof(BugfixesAndQoLViewModel.ShowMpAdvancedSettingsInSingleplayer) &&
+                propertyName != nameof(BugfixesAndQoLViewModel.EnablePeaceTimeGameplayFixes)) return;
+            if (!Enabled) transaction.Cancel();
+            if (!MainViewModel.viewModelLoaded || !FRONT_Multiplayer.skirmishGame) return;
+            MainViewModel view = MainViewModel.Instance;
+            if (!Enabled) view.Show_MPSettings = false;
+            else if (view.Show_MPSettings) view.Show_MPPeacetime = PeaceAvailable;
         }
 
         internal void Initialize()
@@ -143,7 +160,7 @@ namespace BugfixesAndQoL
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string command)
         {
-            if (self == null || !FRONT_Multiplayer.skirmishGame)
+            if (self == null || !FRONT_Multiplayer.skirmishGame || !Enabled)
             {
                 multiplayerButtonOriginal(self, command);
                 return;
@@ -264,11 +281,12 @@ namespace BugfixesAndQoL
             MainViewModel viewModel = MainViewModel.Instance;
             viewModel.Show_MPOnlySettings = true;
             viewModel.Show_MPSettings_MaxPlayers = false;
-            viewModel.Show_MPPeacetime = peaceTimeNativeAvailable;
+            viewModel.Show_MPPeacetime = PeaceAvailable;
             ApplyDialogConstraints(working);
             outpostsUnavailableLogged = false;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:281", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_OPEN: peace={working.peacetime}, advancedSkirmish={working.advanced_skirmish_options}, noDogsAvailable={noDogsNativeAvailable}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:281", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_OPEN: peace={working.peacetime}, advancedSkirmish={working.advanced_skirmish_options}, noDogsAvailable={noDogsNativeAvailable}.");
         }
 
         private void RouteToWorkingCopy(FRONT_Multiplayer self, string command)
@@ -302,7 +320,7 @@ namespace BugfixesAndQoL
             }
 
             EngineInterface.MultiplayerSetupData committedBeforeApply = GetAuthoritative(self);
-            if (!peaceTimeNativeAvailable && committedBeforeApply != null)
+            if (!PeaceAvailable && committedBeforeApply != null)
                 working.peacetime = committedBeforeApply.peacetime;
 
             working.allow_outposts = SkirmishGameOptionsPolicy.NormalizeOutpostsForApply(
@@ -338,7 +356,8 @@ namespace BugfixesAndQoL
 
             UpdateHostInfoMethod.Invoke(self, new object[] { false });
             RefreshAllSkirmishViews(self);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:353", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_APPLY: peace={committed.peacetime}, advancedSkirmish={committed.advanced_skirmish_options}, strongWalls={committed.no_knockdown_walls}, noCows={committed.no_cows}, noDogs={committed.no_dogs}, autoTrading={committed.allow_autotrading}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:353", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_APPLY: peace={committed.peacetime}, advancedSkirmish={committed.advanced_skirmish_options}, strongWalls={committed.no_knockdown_walls}, noCows={committed.no_cows}, noDogs={committed.no_dogs}, autoTrading={committed.allow_autotrading}.");
         }
 
         private void NormalizeLoadedPreset(FRONT_Multiplayer self, string command)
@@ -348,7 +367,8 @@ namespace BugfixesAndQoL
                 return;
             CanonicalizeSharedAdvancedState(working, true);
             ApplyDialogConstraints(working);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:365", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_LOADED: command={command}, peace={working.peacetime}, advanced={working.advanced_options}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:365", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_LOADED: command={command}, peace={working.peacetime}, advanced={working.advanced_options}.");
         }
 
         private void SaveSharedPreset(FRONT_Multiplayer self, string command)
@@ -363,7 +383,8 @@ namespace BugfixesAndQoL
             CanonicalizeSharedAdvancedState(working, false);
             multiplayerButtonOriginal(self, command);
             UpdatePresetButtonAvailability();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:382", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_SAVED: command={command}, sharedWithMultiplayer=true.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:382", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_PRESET_SAVED: command={command}, sharedWithMultiplayer=true.");
         }
 
         private void ApplyDialogConstraints(EngineInterface.MultiplayerSetupData working)
@@ -436,7 +457,8 @@ namespace BugfixesAndQoL
                 int.TryParse(Convert.ToString(parameter), out int command) &&
                 (command == 100 || command == 101))
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:459", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_AUTOTRADE_ACTION_BLOCKED: command={command}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsRuntime.cs:459", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_AUTOTRADE_ACTION_BLOCKED: command={command}.");
                 return;
             }
             buySellOriginal(self, parameter);
@@ -452,13 +474,13 @@ namespace BugfixesAndQoL
             self.HUDBuildingPanel.RefTradePost_Trade_Normal.Visibility = Visibility.Visible;
         }
 
-        private static bool ShouldBlockCows() =>
-            SkirmishGameOptionsPolicy.ShouldBlockCow(
+        private bool ShouldBlockCows() =>
+            Enabled && SkirmishGameOptionsPolicy.ShouldBlockCow(
                 Director.instance != null && Director.instance.SkirmishModeGame,
                 GameData.Instance?.lastGameState?.MP_No_Cows == true);
 
-        private static bool ShouldBlockAutoTrading() =>
-            SkirmishGameOptionsPolicy.ShouldBlockAutoTrading(
+        private bool ShouldBlockAutoTrading() =>
+            Enabled && SkirmishGameOptionsPolicy.ShouldBlockAutoTrading(
                 Director.instance != null && Director.instance.SkirmishModeGame,
                 GameData.Instance?.lastGameState?.MP_AllowAutoTrading == true);
 

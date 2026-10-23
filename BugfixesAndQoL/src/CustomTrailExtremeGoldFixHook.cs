@@ -85,7 +85,8 @@ namespace BugfixesAndQoL
             {
                 if (Normalize(result?.restartSkirmishInfo))
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:88", $"Ignored customisedExtremeTrail=true while reading Custom Trail [{realFilePath ?? filePath}].");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:88", $"Ignored customisedExtremeTrail=true while reading Custom Trail [{realFilePath ?? filePath}].");
                 }
             }
             catch (Exception ex)
@@ -110,7 +111,8 @@ namespace BugfixesAndQoL
                 {
                     if (Normalize(restartInfo))
                     {
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:115", $"Writing Custom Trail [{trailPath}] with customisedExtremeTrail=false.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:115", $"Writing Custom Trail [{trailPath}] with customisedExtremeTrail=false.");
                     }
                 }
                 catch (Exception ex)

@@ -57,6 +57,7 @@ internal static class HardeningTests
     {
         TestInitialization();
         TestFrames();
+        TestExpiredFrames();
         TestExpiry();
         TestWaitingCallbacks();
         Console.WriteLine("PASS: " + assertions + " raid hardening assertions (publication, actual frame helpers, expiration and waiting callbacks).");
@@ -107,6 +108,22 @@ internal static class HardeningTests
         var first = (RaidSearchEvidence)Member(Peek(runtime), "Evidence"); Pop(runtime);
         var second = (RaidSearchEvidence)Member(Peek(runtime), "Evidence"); Pop(runtime);
         Check(first.Sequence != second.Sequence && first.BuildingId == 808 && second.BuildingId == 119, "Normal nested calls retain distinct sequences and targets");
+    }
+    private static void TestExpiredFrames()
+    {
+        var runtime = Create(out var lines); Start(runtime); Complete(runtime);
+        Set(runtime, "lastTick", 10);
+        var skipped = Pre(tribe: 2); Push(runtime, skipped); skipped.SkipOriginalFunction = true;
+        Set(runtime, "lastTick", 11); Push(runtime, Pre(tribe: 3));
+        Check(lines.Count == 0 && Depth(runtime) == 1, "Regularly skipped old call is silently discarded");
+        Pop(runtime);
+        var missing = Pre(tribe: 4, target: 55); Push(runtime, missing);
+        var nestedSkipped = Pre(tribe: 5); Push(runtime, nestedSkipped); nestedSkipped.SkipOriginalFunction = true;
+        Set(runtime, "lastTick", 12); Push(runtime, Pre(tribe: 6));
+        Check(lines.Count == 1 && lines[0].Contains("tribe=4/7") && lines[0].Contains("target=55/6450") &&
+            lines[0].Contains("tick=11") && lines[0].Contains("discardedPreCalls=1") &&
+            !lines[0].Contains("tribe=6/7"), "Mixed stale frames report only the actual incomplete old invocation identity");
+        Check(Depth(runtime) == 1, "New frame survives stale mixed stack cleanup");
     }
     private static void TestExpiry()
     {

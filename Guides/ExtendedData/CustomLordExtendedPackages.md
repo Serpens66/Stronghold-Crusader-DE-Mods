@@ -317,7 +317,7 @@ Lua that changes resources, units, buildings, terrain, AI behavior, or other sim
 
 ExtendedData's Trail export writes a matching `.lordrequirements.json` sidecar for each exported mission. A normal exported mission uses `Trail_Mission_1.lordrequirements.json` beside `Trail_Mission_1.trail`; a Coop package uses `CoopMissions/01.lordrequirements.json` beside `01.coopmission.json`. The sidecar records the mission digest and, for selected Custom Lords, the configuration and AIV checksums plus available `.modlord.json` and Fixes values. Keep it with the mission when distributing the Trail.
 
-The player must have a Lord with matching configuration and AIV checksums. If the Lord package has additional gameplay files, the matching complete package must be installed and registered by Script Extender at startup. ExtendedData checks this before the mission starts and blocks a missing or different required package. Portraits, audio, video, and other presentation files are optional for this package check. In a Coop Trail, every participant must also have the same Coop package contents.
+The AIC and castles come from the Trail itself; an installed Lord with matching checksums only provides optional media. If the Lord package has additional gameplay files, the matching complete package must be installed and registered by Script Extender at startup. ExtendedData checks this before the mission starts and blocks a missing or different required package. Portraits, audio, video, and other presentation files are optional for this package check. In a Coop Trail, every participant must also have the same Coop package contents.
 
 #### Publishing with ExtendedData
 
@@ -672,7 +672,7 @@ Lua, das Ressourcen, Einheiten, Gebäude, Gelände, KI-Verhalten oder anderen Si
 
 Der Trail-Export von ExtendedData schreibt für jede exportierte Mission ein passendes `.lordrequirements.json`-Sidecar. Eine normale exportierte Mission verwendet `Trail_Mission_1.lordrequirements.json` neben `Trail_Mission_1.trail`; ein Koop-Paket verwendet `CoopMissions/01.lordrequirements.json` neben `01.coopmission.json`. Das Sidecar enthält den Missions-Hash und für ausgewählte Custom Lords die Konfigurations- und AIV-Prüfsummen sowie vorhandene `.modlord.json`- und Fixes-Werte. Gib es beim Verteilen des Trails zusammen mit der Mission weiter.
 
-Der Spieler benötigt einen Lord mit übereinstimmenden Konfigurations- und AIV-Prüfsummen. Enthält das Lord-Paket zusätzliche Gameplay-Dateien, muss das passende vollständige Paket installiert und beim Spielstart vom Script Extender registriert sein. ExtendedData prüft dies vor Missionsbeginn und blockiert fehlende oder abweichende erforderliche Pakete. Porträts, Audio, Video und andere Darstellungsdateien sind für diese Paketprüfung optional. In einem Koop-Trail müssen außerdem alle Teilnehmer dieselben Koop-Paketinhalte besitzen.
+AIC und Burgen stammen aus dem Trail selbst; ein installierter Lord mit übereinstimmenden Prüfsummen liefert nur optionale Medien. Enthält das Lord-Paket zusätzliche Gameplay-Dateien, muss das passende vollständige Paket installiert und beim Spielstart vom Script Extender registriert sein. ExtendedData prüft dies vor Missionsbeginn und blockiert fehlende oder abweichende erforderliche Pakete. Porträts, Audio, Video und andere Darstellungsdateien sind für diese Paketprüfung optional. In einem Koop-Trail müssen außerdem alle Teilnehmer dieselben Koop-Paketinhalte besitzen.
 
 #### Veröffentlichung mit ExtendedData
 

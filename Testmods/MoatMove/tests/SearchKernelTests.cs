@@ -53,6 +53,15 @@ namespace MoatMove
             int[] exact = budgetField.Resolve(new[] { 0 }, new[] { 1599 }, open, open);
             Check(exact[0] >= 0 && !budgetField.BudgetExceeded,
                 "unlimited shared field retains Exact behavior");
+            int edgeCalls = 0;
+            MoatSearchEdge counted = (int f, int t, int d, out bool m, out bool st) =>
+            { m = st = false; edgeCalls++; return true; };
+            budgetField.Resolve(new[] { 0 }, new[] { 1599 }, counted, open);
+            // Open 40x40 grid: each tile is discovered once; a visited non-goal neighbor is not
+            // re-evaluated (previously up to eight edge calls per expanded tile).
+            Check(edgeCalls <= budgetField.Expanded * 3,
+                "shared field skips edge evaluation for visited non-goal tiles: calls=" + edgeCalls +
+                ", expanded=" + budgetField.Expanded);
             Console.WriteLine($"PASS: {comparisons} independent building-field distances, directed terminal edges and fresh-state reuse.");
         }
 

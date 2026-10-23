@@ -34,7 +34,7 @@ namespace ExtendedData.Core
                 ["schemaVersion"] = mission.SchemaVersion,
                 ["displayName"] = mission.DisplayName,
                 ["description"] = mission.Description,
-                ["map"] = WriteAsset(mission.Map),
+                ["map"] = WriteMap(mission.Map),
                 ["settings"] = WriteSettings(mission.Settings),
                 ["players"] = mission.Players.Select(WritePlayer).Cast<object>().ToList(),
             };
@@ -189,6 +189,8 @@ namespace ExtendedData.Core
         {
             var result = new MapReference();
             ReadAsset(value, result);
+            result.OriginalSource = OptionalString(value, "originalSource", null);
+            result.OriginalName = OptionalString(value, "originalName", null);
             return result;
         }
 
@@ -198,6 +200,7 @@ namespace ExtendedData.Core
             ReadAsset(value, result);
             result.Configuration = OptionalString(value, "configuration", null);
             OptionalInt(value, "baseLordId", number => result.BaseLordId = number);
+            OptionalNullableInt(value, "sourcePlayerId", number => result.SourcePlayerId = number);
             return result;
         }
 
@@ -237,6 +240,20 @@ namespace ExtendedData.Core
             Dictionary<string, object> result = WriteAsset(lord);
             result["configuration"] = lord.Configuration;
             result["baseLordId"] = lord.BaseLordId;
+            // Schema 5 only; omitted otherwise so schema-4 output stays unchanged.
+            if (lord.SourcePlayerId.HasValue)
+                result["sourcePlayerId"] = lord.SourcePlayerId.Value;
+            return result;
+        }
+
+        private static Dictionary<string, object> WriteMap(MapReference map)
+        {
+            if (map == null) return null;
+            Dictionary<string, object> result = WriteAsset(map);
+            if (map.OriginalSource != null)
+                result["originalSource"] = map.OriginalSource;
+            if (map.OriginalName != null)
+                result["originalName"] = map.OriginalName;
             return result;
         }
 

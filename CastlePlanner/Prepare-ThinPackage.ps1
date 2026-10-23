@@ -10,6 +10,7 @@ $gamePlugins = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definit
 $allowedDirectories = @(
     (Join-Path $projectRoot 'BepInEx\plugins\CastlePlanner_Serp'),
     (Join-Path $gamePlugins 'CastlePlanner_Serp'),
+    (Join-Path $gamePlugins 'CastlePlanner_Serp_dev'),
     (Join-Path $gamePlugins 'SerpsMods_Serp\Mods\CastlePlanner_Serp')
 )
 $target = [IO.Path]::GetFullPath($PackageDirectory).TrimEnd('\')
@@ -33,7 +34,7 @@ foreach ($reference in @($project.SelectNodes("//*[local-name()='Reference']")))
         [void]$ownedNames.Add($reference.GetAttribute('Include'))
     }
 }
-if ($ownedNames.Count -ne 5) { throw 'The CastlePlanner thin-package assembly contract changed; review the build filter.' }
+# Required assemblies follow the actual project metadata; adding a private dependency is supported.
 $files = @(Get-ChildItem -LiteralPath $target -File | Where-Object { $_.Extension -in @('.dll', '.pdb') })
 $unexpected = @($files | Where-Object { -not $ownedNames.Contains($_.BaseName) })
 if ($ValidateOnly) {
@@ -43,7 +44,7 @@ if ($ValidateOnly) {
             throw "Required private assembly is missing: $name"
         }
     }
-    Write-Host 'PASS: CastlePlanner package contains exactly its five own DLLs and no shared runtime copies.'
+    Write-Host 'PASS: CastlePlanner package contains all project-declared own DLLs and no shared runtime copies.'
     return
 }
 foreach ($file in $unexpected) {

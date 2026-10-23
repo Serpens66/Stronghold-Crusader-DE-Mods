@@ -10,7 +10,7 @@ namespace BugfixesAndQoL.GateRouting
         {
             int checks = 0;
             Action<bool, string> check = (ok, message) => { checks++; if (!ok) throw new Exception(message); };
-            string directory = Path.Combine(Path.GetTempPath(), "gate-config-" + Guid.NewGuid().ToString("N"));
+            string directory = TestWorkDirectory.New("gate-config");
             Directory.CreateDirectory(directory);
             foreach (bool legacy in new[] { false, true })
             {

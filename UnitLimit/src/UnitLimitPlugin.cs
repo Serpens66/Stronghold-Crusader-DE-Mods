@@ -10,7 +10,7 @@ namespace UnitLimit
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.6.0")]
+    [BepInDependency("APIShared_Serp", "0.13.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitLimitPlugin : BaseUnityPlugin
     {
@@ -19,7 +19,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.106";
+        public const string PluginVersion = "1.0.108";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -29,6 +29,7 @@ namespace UnitLimit
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.CrashBreadcrumbDiagnostics.Initialize(
                 Logger,
                 PluginGuid,
@@ -41,7 +42,8 @@ namespace UnitLimit
                 false,
                 "Log every UnitLimit unit-cache event and count change. Keep disabled during normal play to avoid large logs.");
             Settings = new UnitLimitLobbyViewModel();
-            runtime = new UnitLimitRuntime(Logger, Settings, verboseUnitEventLogging.Value);
+            runtime = new UnitLimitRuntime(Logger, Settings,
+                Shared.DebugLogHelper.DiagnosticsEnabled && verboseUnitEventLogging.Value);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 
@@ -60,10 +62,11 @@ namespace UnitLimit
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "UnitLimit_Serp",
                     Settings,
-                    "ScriptExtenderUI/UnitLimitSettings.xaml");
+                    "ScriptExtenderUI/UnitLimitSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {
@@ -72,20 +75,6 @@ namespace UnitLimit
             }
 
             RegisterBinding("UnitLimitNotificationOverlay", runtime.LimitNotification);
-            RegisterBinding("UnitLimitSiegeNotificationInlineHost", runtime.SiegeLimitNotification);
-            string[] tooltipTargets =
-            {
-                "UnitLimitTroopLimitInlineHost",
-                "UnitLimitArabTroopLimitInlineHost",
-                "UnitLimitBedouinTroopLimitInlineHost",
-                "UnitLimitEngineersLimitInlineHost",
-                "UnitLimitTunellersLimitInlineHost",
-                "UnitLimitMonkLimitInlineHost",
-                "UnitLimitSiegeLimitInlineHost",
-            };
-            foreach (string target in tooltipTargets)
-                RegisterBinding(target, runtime.UnitLimitTooltip);
-
             try
             {
                 runtime.InitializeAfterLibraryLoaded();
@@ -102,7 +91,7 @@ namespace UnitLimit
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/src/UnitLimitPlugin.cs:105", $"UnitLimit {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"UnitLimit {stageName} failed; independent stages continue: {ex}");
             }
         }
 

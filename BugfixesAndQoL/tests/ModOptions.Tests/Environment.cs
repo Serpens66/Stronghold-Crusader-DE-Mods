@@ -24,6 +24,10 @@ namespace R3
 }
 namespace SHCDESE.EventAPI { public enum EventHookPhase { Pre, Post } }
 namespace SHCDESE.EventAPI.MapLoader { }
+namespace SHCDESE.EventAPI.Player
+{
+    public class PlayerCalculatePopularityEventArgs { public SHCDESE.EventAPI.EventHookPhase Phase; public int PlayerId; }
+}
 namespace SHCDESE.EventAPI.Projectiles
 {
     public class ProjectileSpawnEventArgs { public SHCDESE.EventAPI.EventHookPhase Phase; public ProjectileType ProjectileType; public long ReturnValue; }
@@ -31,6 +35,11 @@ namespace SHCDESE.EventAPI.Projectiles
 }
 namespace SHCDESE.EventAPI
 {
+    public static class PlayerR3EventHooks
+    {
+        public static readonly R3.TestObservable<Player.PlayerCalculatePopularityEventArgs> OnPlayerCalculatePopularity =
+            new R3.TestObservable<Player.PlayerCalculatePopularityEventArgs>();
+    }
     public static class ProjectileR3EventHooks
     {
         public static readonly R3.TestObservable<ProjectileSpawnEventArgs> OnProjectileSpawn = new R3.TestObservable<ProjectileSpawnEventArgs>();
@@ -46,7 +55,7 @@ namespace SHCDESE.Interop
 }
 namespace SHCDESE.API.Components.SaveData
 {
-    public class SaveContext { public bool IsSaveFile = true; }
+    public class SaveContext { public bool IsSaveFile = true; public bool IsMapEditorSave; }
     public class LoadContext { public bool IsSaveFile = true; }
 }
 namespace SHCDESE.API
@@ -79,8 +88,7 @@ namespace SHCDESE.API
         public Func<Components.SaveData.SaveContext, byte[]> Save;
         public Action<byte[], Components.SaveData.LoadContext> Load;
         public Action Reset;
-        public bool RegisterModDataHandler(string id, Func<Components.SaveData.SaveContext, byte[]> save, Action<byte[], Components.SaveData.LoadContext> load, Action reset) { if (id != "serp-plague-popularity-v1") throw new Exception("save identity"); Save = save; Load = load; Reset = reset; return true; }
-        public void UnregisterModDataHandler(string id) { }
+        public bool RegisterModDataHandler(string id, Func<Components.SaveData.SaveContext, byte[]> save, Action<byte[], Components.SaveData.LoadContext> load, Action reset = null) { if (id != "serp-plague-popularity-v1") throw new Exception("save identity"); Save = save; Load = load; Reset = reset; return true; }
     }
     public sealed class GameXAMLManagerAPI { public static readonly GameXAMLManagerAPI Instance = new GameXAMLManagerAPI(); public void RegisterBinding(string key, object value) { } }
 }
@@ -108,15 +116,24 @@ namespace RedBird.X64.Hooks.Transaction
 namespace Shared
 {
     public class Mode { public string ToDiagnosticString() => "test"; }
-    public class GameplaySessionStartedContext { public string Kind = "test"; public Mode Mode = new Mode(); }
+    public class GameplaySessionStartedContext { public string Kind = "test"; public Mode Mode = new Mode(); public bool IsLoadedSave, IsEditor, IsReplay; }
+    public sealed class MissionInitializationArgs { public APIShared.MissionInitializationPhase Phase; }
+    public static class MissionEvents
+    {
+        public static readonly R3.TestObservable<MissionInitializationArgs> Initialization = new R3.TestObservable<MissionInitializationArgs>();
+        public static readonly R3.TestObservable<object> Ended = new R3.TestObservable<object>();
+    }
     public static class GameplaySessionLifecycle
     {
         public static Action<GameplaySessionStartedContext> Started;
         public static Action Reset;
         public static IDisposable SubscribeStarted(BepInEx.Logging.ManualLogSource log, Action<GameplaySessionStartedContext> started, Action reset) { Started = started; Reset = reset; return new R3.Subscription(() => { }); }
+        // Models APIShared's order: End(old), BeforeLoad, native load passes, Start(new).
+        public static void End() { Reset?.Invoke(); MissionEvents.Ended.Emit(null); }
+        public static void BeforeLoad() => MissionEvents.Initialization.Emit(new MissionInitializationArgs { Phase = APIShared.MissionInitializationPhase.BeforeLoad });
     }
     public static class DebugLogHelper
-    {
+    { public static bool DiagnosticsEnabled => true;
         public static int Warnings, Errors, Factories; public static bool FailDebug;
         public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log, string site, System.Func<string> text) { LogDebug(log, text); } public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { if (FailDebug) { Factories++; throw new Exception("listener failure"); } }
         public static void LogWarningLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogWarning(log, System.String.Concat(parts)); } public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { Warnings++; }
@@ -160,4 +177,5 @@ namespace BugfixesAndQoL
     }
 }
 
+namespace APIShared { public enum MissionInitializationPhase { BeforeLoad, BeforeNativeStart } }
 namespace APIShared.GameModes { public static class GameModeHelper { public static Shared.Mode Capture() => new Shared.Mode(); } }

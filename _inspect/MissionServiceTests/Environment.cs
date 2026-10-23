@@ -4,6 +4,7 @@ using System.Reflection;
 namespace BepInEx.Logging { public class ManualLogSource { } }
 namespace R3
 {
+    public class Observable<T> { }
     public class Stream<T>
     {
         readonly List<Action<T>> observers = new();
@@ -14,10 +15,38 @@ namespace R3
 }
 namespace SHCDESE.EventAPI
 {
+    public class EventHookBase { }
+    public class R3EventHook<T> { }
     public enum EventHookPhase { Pre, Post }
     public class MapEvent { public EventHookPhase Phase; public byte bMultiplayerSave; public int CampaignMapId; public long ReturnValue; }
     public class Channel { public R3.Stream<MapEvent> Observable = new(); }
     public static class MapLoaderR3EventHooks { public static Channel OnUnloadMap = new(), OnStartMap = new(); }
+}
+namespace SHCDESE.EventAPI.MapLoader { public class MapStartEventArgs { } public class MapUnloadEventArgs { } }
+namespace APIShared.Internal
+{
+    // The installed-member validation has its own real-assembly tests. This fixture
+    // replaces that SDK boundary, just as it replaces MonoMod installation.
+    internal class ManagedMemberContract
+    {
+        public ManagedMemberContract Field(Type t, string n, Type f) => this;
+        public ManagedMemberContract Method(Type t, string n, Type r, params Type[] p) => this;
+    }
+    internal static class ManagedMemberContracts
+    {
+        public static bool TryValidate(string id, BepInEx.Logging.ManualLogSource log, out APIShared.NativeCapabilityDiagnostic diagnostic) { diagnostic = null; return true; }
+    }
+}
+namespace APIShared
+{
+    internal static class SavegameModSettings
+    {
+        public static void BeginLoad(string path, bool multiplayer) { }
+        public static void FinishLoad() { }
+        public static void ApplyBeforeLoad(bool multiplayer) { }
+        public static void ApplyLoadedSettings(MissionContext context) { }
+        public static void MarkRestoreFailed() { }
+    }
 }
 namespace MonoMod.RuntimeDetour
 {
@@ -27,6 +56,7 @@ namespace MonoMod.RuntimeDetour
         public static readonly List<Hook> All = new();
         public static int FailApplyAt;
         readonly MethodInfo method;
+        public MethodInfo Target => method;
         public readonly Delegate Callback;
         public bool Applied, Disposed;
         public Hook(MethodInfo method, Delegate callback, HookConfig config) { this.method = method; Callback = callback; All.Add(this); }
@@ -39,10 +69,11 @@ namespace MonoMod.RuntimeDetour
 namespace APIShared.GameModes
 {
     public enum GameModeKind { Unknown, MapEditor, Campaign, VanillaTrail, CustomTrail, StandaloneMission, CustomGame, Tutorial, CoopTrail, SandsOfTime }
-    public readonly struct GameModeSnapshot(GameModeKind kind) { public GameModeKind Kind => kind; public bool IsMissionContent => kind == GameModeKind.Campaign || kind == GameModeKind.VanillaTrail; }
+    // Mode policy itself is exercised against the real snapshot in APISharedTests.
+    public readonly struct GameModeSnapshot(GameModeKind kind) { public GameModeKind Kind => kind; public bool IsMissionContent => kind == GameModeKind.Campaign || kind == GameModeKind.VanillaTrail; public bool IsRealMultiplayer { get; init; } public int CampaignMapId => 0; public int EventTrailType => -1; public int CoopTrailId => 0; public GameModeSnapshot WithRestartProvenance(GameModeSnapshot source) => this; }
     public static class GameModeHelper
     {
-        public static GameModeSnapshot CaptureMission(bool multiplayer, bool save, int campaign, int trail, bool editor, EngineInterface.LoadMapReturnData? data, GameModeKind intent, int? coopTrail = null) => new(intent);
+        public static GameModeSnapshot CaptureMission(bool multiplayer, bool save, int campaign, int trail, bool editor, EngineInterface.LoadMapReturnData? data, GameModeKind intent, int? coopTrail = null) => new(intent) { IsRealMultiplayer = multiplayer };
     }
 }
 namespace APIShared
@@ -54,11 +85,12 @@ namespace APIShared
     {
         public static bool Fail;
         public static void Info(BepInEx.Logging.ManualLogSource log, string message) { if (Fail) throw new Exception("logger"); }
+        public static void Debug(BepInEx.Logging.ManualLogSource log, string message) { if (Fail) throw new Exception("logger"); }
         public static void Error(BepInEx.Logging.ManualLogSource log, string message) { if (Fail) throw new Exception("logger"); }
     }
 }
 public static class Enums { public enum GameModes { FreeBuild } public enum SceneIDS { ActualMainGame, FrontEnd, Options } }
-public class FileHeader { }
+public class FileHeader { public string filePath; }
 public class EngineInterface
 {
     public struct MultiplayerSetupData { }
@@ -86,12 +118,14 @@ public class EditorDirector
 }
 namespace CrusaderDE
 {
-    public class HUD_IngameMenu { public class RestartMapInfo { } public class RestartSkirmishMapInfo { } }
+    public class HUD_IngameMenu { public class RestartMapInfo { } public class RestartSkirmishMapInfo { } public static Action<int> ButtonBody; public void ButtonIngameMenuFunction(int function) => ButtonBody?.Invoke(function); }
+    public class HUD_ConfirmationPopup { public static Action Yes, No; public static void ShowConfirmation(string title, Action yes, Action no, bool multiplayer = false, bool masters = false) { Yes = yes; No = no; } }
     public class FRONT_StandaloneMission { public static void StartMap(HUD_IngameMenu.RestartMapInfo info) { } }
     public class FRONT_Multiplayer
     {
+        public static Action RestartBody;
         public void StartSkirmishGame(HUD_IngameMenu.RestartSkirmishMapInfo info) { }
-        public void RestartSkirmishGame(HUD_IngameMenu.RestartSkirmishMapInfo info) { }
+        public void RestartSkirmishGame(HUD_IngameMenu.RestartSkirmishMapInfo info) => RestartBody?.Invoke();
     }
     public class HUD_Tutorial { public void StartTutorial() { } }
     public class MainViewModel { public Enums.SceneIDS CurrentScreenNo = Enums.SceneIDS.ActualMainGame; public void GoToScreen(Enums.SceneIDS target) { if (target != Enums.SceneIDS.Options) CurrentScreenNo = target; } }

@@ -2,23 +2,37 @@
   "GUID": "AIBuildDiagnoseTest_Serp",
   "Author": "Serpens66",
   "Name": "AI Build Diagnose Test",
-  "Description": "Read-only diagnostics for AI woodcutter construction decisions.",
-  "Version": "0.1.1",
-  "MinimumScriptExtenderVersion": "2.11.0",
+  "Description": "General read-only AI diagnostics: construction decisions, AIV steps, searches, routes, building removals, protection, trade and measured gold flows.",
+  "Version": "0.2.1",
+  "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.4.6"
+      "MinimumVersion": "0.9.2"
     },
     {
       "GUID": "BugfixesAndQoL_Serp",
-      "MinimumVersion": "1.0.181"
+      "MinimumVersion": "1.0.192"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SupportedGameVersions": [
     "2.8.0.2"
+  ],
+  "SerpChangelog": [
+    {
+      "Version": "0.2.1",
+      "Changes": [
+        "Read retained protection settings after Unity startup cleanup; isolate unavailable members and warn about expected missing decision coverage."
+      ]
+    },
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "Observe effective AIC profiles, build decisions, removals and protection, trade and attributed versus unknown gold changes; reserve 8 MiB for the new evidence."
+      ]
+    }
   ]
 }

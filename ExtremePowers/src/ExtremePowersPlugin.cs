@@ -20,7 +20,7 @@ namespace ExtremePowers
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.6";
+        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.7";
         private static int initialized; private static IExtremePowersApiClient client; private static IDisposable demoHandle;
         private static Settings.ExtremePowersSettings rootedSettings;
         private static ManualLogSource rootedLogger;
@@ -30,6 +30,7 @@ namespace ExtremePowers
         public Settings.ExtremePowersSettings Settings { get; private set; }
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.GameplayModActivationGate.Initialize(Logger, PluginGuid, PluginName, () => Settings?.EnableMod == true);
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");

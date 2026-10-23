@@ -116,7 +116,8 @@ namespace BugfixesAndQoL.UnitCommands
             catch (Exception exception)
             {
                 ClearPreview();
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:129", $"Formation preview unavailable for this target: {exception.Message}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:129", $"Formation preview unavailable for this target: {exception.Message}");
             }
         }
 
@@ -137,7 +138,7 @@ namespace BugfixesAndQoL.UnitCommands
             lock (stateSync)
             {
                 allowed = false;
-                if (Enabled && ReferenceEquals(drag, state) && ValidateActiveDrag(state))
+                if (LocalInputEnabled && ReferenceEquals(drag, state) && ValidateActiveDrag(state))
                 {
                     GroundMoveFeedback feedback = groundFeedbackReader.Read();
                     GameCursorManager* cursor = GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;

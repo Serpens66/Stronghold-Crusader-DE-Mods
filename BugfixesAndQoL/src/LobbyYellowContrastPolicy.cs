@@ -16,10 +16,9 @@ namespace BugfixesAndQoL
         internal const byte GoldBlue = 11;
 
         internal static bool IsEnabled(
-            bool enableMod,
             bool enableClientFeatures,
             bool improveYellowLobbyContrast) =>
-            enableMod && enableClientFeatures && improveYellowLobbyContrast;
+            enableClientFeatures && improveYellowLobbyContrast;
 
         internal static LobbyYellowResourceState ClassifyResourceState(
             bool sourceIsBaseline,

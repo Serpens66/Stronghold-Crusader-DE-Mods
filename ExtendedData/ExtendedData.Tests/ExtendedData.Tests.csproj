@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <GameDir Condition="'$(GameDir)' == ''">$(SHCDE_GAME_DIR)</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ExtendedData.Tests</RootNamespace>
     <AssemblyName>ExtendedData.Tests</AssemblyName>
@@ -11,10 +13,16 @@
     <ProjectReference Include="..\ExtendedData.Core\ExtendedData.Core.csproj" />
     <Compile Include="..\..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
     <Compile Include="..\src\TrailLordPackageRuntime.cs" Link="TrailLordPackageRuntime.cs" />
+    <Compile Include="..\src\TrailLordRequirementSource.cs" Link="TrailLordRequirementSource.cs" />
     <Compile Include="..\src\TrailLordSourceSelector.cs" Link="TrailLordSourceSelector.cs" />
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
+    <Compile Include="..\src\TrailSettingsSourceState.cs" Link="TrailSettingsSourceState.cs" />
+    <Compile Include="..\src\CoopSettingsDraftState.cs" Link="CoopSettingsDraftState.cs" />
+    <Compile Include="..\..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs" Link="CoopTrailSetupPresentation.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
+    <!-- Production reader with the same local SDK boundary doubles as the legacy facade tests. -->
+    <Compile Include="..\..\APIShared\src\ModData\ModDataAccess.cs" Link="APIShared\ModDataAccess.cs" />
     <Compile Include="..\src\FixesLordPreferencesBridge.cs" Link="FixesLordPreferencesBridge.cs" />
     <Compile Include="..\src\TypedPreferenceSnapshotCodec.cs" Link="TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="..\src\LordDataSyncDiagnostics.cs" Link="LordDataSyncDiagnostics.cs" />
@@ -24,11 +32,12 @@
     <Reference Include="APIShared">
       <HintPath>..\..\APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll</HintPath>
     </Reference>
+    <Reference Include="APIShared.Content"><HintPath>$(ApiSharedDir)\APIShared.Content.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
+      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
     </Reference>
     <Reference Include="MessagePack.Annotations">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.Annotations.dll</HintPath>
+      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>

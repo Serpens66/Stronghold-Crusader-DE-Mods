@@ -1,0 +1,4 @@
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\update-trial\B\BepInEx\plugins\DependencyBootstrapProbe_Serp\DependencyBootstrapProbe.dll
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\update-trial\obj-B\DependencyBootstrapProbe\DependencyBootstrapProbe.csproj.AssemblyReference.cache
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\update-trial\obj-B\DependencyBootstrapProbe\DependencyBootstrapProbe.csproj.CoreCompileInputs.cache
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\DependencyBootstrapProbe\update-trial\obj-B\DependencyBootstrapProbe\DependencyBootstrapProbe.dll

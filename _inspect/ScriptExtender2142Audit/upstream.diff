@@ -1,0 +1,153 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 4a14468..c7e602f 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,3 +1,10 @@
++## [2.14.2](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/compare/v2.14.1...v2.14.2) (2026-10-16)
++
++
++### Bug Fixes
++
++* Add preloading to custom music overrides ([b94161b](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/commit/b94161b414c8af28c81316613334e5c1f70dd658))
++
+ ## [2.14.1](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/compare/v2.14.0...v2.14.1) (2026-10-08)
+ 
+ 
+diff --git a/src/SHCDESE.BepInEx/API/GameAssetManagerAPI.cs b/src/SHCDESE.BepInEx/API/GameAssetManagerAPI.cs
+index de9794a..efc9878 100644
+--- a/src/SHCDESE.BepInEx/API/GameAssetManagerAPI.cs
++++ b/src/SHCDESE.BepInEx/API/GameAssetManagerAPI.cs
+@@ -68,6 +68,77 @@ public sealed class GameAssetManagerAPI
+ 
+     // The Object Cache: Maps "Music/track.wav" (The Game's Request) -> AudioClip (The Mod's .ogg)
+     private Dictionary<string, AudioClip> _audioClipCache = new(StringComparer.OrdinalIgnoreCase);
++    // Music clips are unloaded by the game; retain decoded samples, not playback clips.
++    private readonly Dictionary<IndexedModResource, CachedMusic> _musicCache = new();
++
++    private sealed class CachedMusic(float[] samples, int channels, int frequency)
++    {
++        internal AudioClip CreateClip(string name)
++        {
++            int position = 0;
++            return AudioClip.Create(name, samples.Length / channels, channels, frequency, true, output =>
++            {
++                int count = Math.Min(output.Length, samples.Length - position);
++                Array.Copy(samples, position, output, 0, count);
++                if (count < output.Length) 
++                    Array.Clear(output, count, output.Length - count);
++
++                position += count;
++            },
++            frame => position = (int)Math.Min(samples.Length, Math.Max(0L, (long)frame * channels)));
++        }
++    }
++
++    private static bool IsMusicResource(string path)
++    {
++        string normalized = path.Replace('\\', '/');
++        return normalized.StartsWith("Music/", StringComparison.OrdinalIgnoreCase) || normalized.IndexOf("/Music/", StringComparison.OrdinalIgnoreCase) >= 0;
++    }
++
++    // Called on Unity's main thread after startup providers have been indexed.
++    internal void PreloadMusic()
++    {
++        foreach (KeyValuePair<string, IndexedModResource> entry in _fileIndex)
++        {
++            if (IsMusicResource(entry.Key) && (entry.Key.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) || entry.Key.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)))
++                TryCacheMusic(entry.Value, out _);
++        }
++        LogHelper.Information($"Cached {_musicCache.Count} replacement music tracks");
++    }
++
++    private bool TryCacheMusic(IndexedModResource resource, out CachedMusic? music)
++    {
++        if (_musicCache.TryGetValue(resource, out music)) 
++            return true;
++
++        AudioClip? decoded = null;
++        try
++        {
++            decoded = AudioClipExtensions.LoadAudioClipFromBytes(resource.ReadAllBytes());
++            if (decoded == null) 
++                return false;
++
++            float[] samples = new float[checked(decoded.samples * decoded.channels)];
++            if (!decoded.GetData(samples, 0))
++                return false;
++
++            music = new CachedMusic(samples, decoded.channels, decoded.frequency);
++            _musicCache[resource] = music;
++
++            return true;
++        }
++        catch (Exception ex)
++        {
++            LogHelper.Error(ex, $"Failed to cache music [{resource.Path}]");
++            return false;
++        }
++        finally
++        {
++            if (decoded != null) 
++                UnityEngine.Object.Destroy(decoded);
++        }
++    }
++
+     private Dictionary<string, Texture2D> _textureCache = new(StringComparer.OrdinalIgnoreCase);
+ 
+     // Prevent re-scanning already registered plugins
+@@ -90,6 +161,7 @@ public sealed class GameAssetManagerAPI
+         _patchIndex.Clear();
+         _spriteOverrides.Clear();
+         _audioClipCache.Clear();
++        _musicCache.Clear();
+         _textureCache.Clear();
+         _registeredDirectories.Clear();
+         foreach (IModResourceSource source in _sources)
+@@ -275,6 +347,8 @@ public sealed class GameAssetManagerAPI
+ 
+     private void IndexOverride(string relativePath, IndexedModResource resource, List<string> atlasDefinitions)
+     {
++        if (_fileIndex.TryGetValue(relativePath, out IndexedModResource? previous))
++            _musicCache.Remove(previous);
+         _fileIndex[relativePath] = resource;
+         LogHelper.Verbose($"IndexOverride: [{relativePath}]");
+ 
+@@ -774,6 +848,11 @@ public sealed class GameAssetManagerAPI
+             try
+             {
+                 LogHelper.Debug($"Resolved audio clip: [{cacheKey}] to: [{resource.Path}]");
++                if (!useCache && IsMusicResource(relativePath) && TryCacheMusic(resource, out CachedMusic? music))
++                {
++                    clip = music!.CreateClip(Path.GetFileName(relativePath));
++                    return true;
++                }
+                 clip = AudioClipExtensions.LoadAudioClipFromBytes(resource.ReadAllBytes());
+ 
+                 if (clip != null)
+diff --git a/src/SHCDESE.BepInEx/Bootstrap/Plugin.cs b/src/SHCDESE.BepInEx/Bootstrap/Plugin.cs
+index 728c46d..733ce39 100644
+--- a/src/SHCDESE.BepInEx/Bootstrap/Plugin.cs
++++ b/src/SHCDESE.BepInEx/Bootstrap/Plugin.cs
+@@ -198,6 +198,7 @@ public partial class Plugin : BaseUnityPlugin
+ 
+             // Start the asset manager for this mod.
+             GameAssetModManager.Instance.RegisterAll();
++            GameAssetManagerAPI.Instance.PreloadMusic();
+             if (LogoVideoEnabled.Value)
+             {
+                 AnalogLogoMediaPlayer.PreloadShader();
+diff --git a/src/SHCDESE.BepInEx/ManagedHooks/MyAudioManager_Hooks.cs b/src/SHCDESE.BepInEx/ManagedHooks/MyAudioManager_Hooks.cs
+index 569aacb..e304adf 100644
+--- a/src/SHCDESE.BepInEx/ManagedHooks/MyAudioManager_Hooks.cs
++++ b/src/SHCDESE.BepInEx/ManagedHooks/MyAudioManager_Hooks.cs
+@@ -55,8 +55,8 @@ public partial class ManagedHookManager
+     /// This hook runs on Unity's main thread but is async.
+     /// </summary>
+     /// <remarks>
+-    /// IMPORTANT: MyAudioManager unloads speech/music clips immediately after use,
+-    /// so we CANNOT cache these clips (useCache: false).
++    /// IMPORTANT: MyAudioManager unloads speech/music clips immediately after use, so we CANNOT cache these clips (useCache: false).
++    /// Replacement music samples are predecoded at startup; each playback gets its own streaming clip.
+     /// </remarks>
+     internal async Task<AudioClip> MyAudioManager_LoadClip_Hook(MyAudioManager instance, string path)
+     {

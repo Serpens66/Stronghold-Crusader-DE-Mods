@@ -314,7 +314,8 @@ namespace BugfixesAndQoL
 
                 if (action == DisplayRecoveryAction.Completed)
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:325", $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:325", $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
                 }
                 else if (action == DisplayRecoveryAction.TimedOut)
                 {

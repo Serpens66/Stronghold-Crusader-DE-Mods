@@ -72,7 +72,13 @@ namespace BugfixesAndQoL
                 MainViewModel.Instance.setUpInbuilding(
                     TradepostMainPanel,
                     (int)eStructs.STRUCT_TRADEPOST);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MarketKeyMainTradeMenuHook.cs:75", () => $"Bugfixes and QoL reset tradepost menu from market key: selectedBuildingId={selectedBuildingId}, previousSubMode={subMode}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticSelectedBuildingId = @selectedBuildingId;
+                    var diagnosticSubMode = @subMode;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MarketKeyMainTradeMenuHook.cs:75", () => $"Bugfixes and QoL reset tradepost menu from market key: selectedBuildingId={diagnosticSelectedBuildingId}, previousSubMode={diagnosticSubMode}.");
+                }
             }
             catch (Exception ex)
             {

@@ -1,5 +1,9 @@
 # Fixes 1.25.1 compatibility
 
+For the installed 1.26.4.0 wheat-sale crash, see the separate
+[wheat startup audit](FIXES_WHEAT_STARTUP.md). Its confirmed wrong stack slot and
+startup-only correction do not change the historical provenance below.
+
 Source review date: 2026-10-07. Canonical external clone: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\shcde-fixes-main. Clean v1.25.1 source, commit 226e2e6960ad6f5992d4f5410d701161bb1cdc77, tree f65a826f16b8cc67d0c7a8acc80f41fd06796546. This identifies the reviewed source, not the installed Fixes assembly. Native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 matches the installed DLL and CURRENT.json. Native conclusions below are scoped to that hash.
 
 ## Preference integration contracts
@@ -72,3 +76,137 @@ Canonical clean clone v1.26.3: commit cbabdecac15a6e81cb45404f1a3501a4856dae39, 
 The full v1.25.1..v1.26.3 source diff preserves the documented popularity dependency, purchase pairs, distanced-siege-tent direction behavior, capture hook and PCL flow. SmarterSiegeLaddermen adds two inline hooks, distance-map/reset logic and a 16 MiB native state block. Their signatures uniquely resolve to 0x111C00 and 0x6A5D0 in the unchanged canonical native DLL. Release mods own neither entry; none of the 35 changed Extender engage-range spans overlaps them. EnemyBridgePathTest remains excluded due to its existing 0x111C00 ownership; its unchanged package is not validated with current Fixes.
 
 The ladder search invokes BulkPathingDetours.c_game_pathsearch_bfs_ignoring_dynamic_occupancy and consumes shared WalkGeneration, WalkGrid, CertainPathGrid and AIPlayerObjectiveStorage scratch state. This is process-global mutable pathfinder state, not a pure read-only route query suitable for arbitrary reentrant consumer use. Our mods do not adopt this BFS path. These are source/data-flow findings, not demonstrated gamebreaking failures. No additional testmod or author report is introduced.
+
+## Fixes 1.29.0 compatibility implementation, 2026-10-23
+
+Source observation: the canonical clean clone and upstream main/v1.29.0 identify
+commit `29c9a5dd6b05b4bf62e24916c20e9bfc49ac5c6e`, tree
+`539287f9790310a215afde0035af61d8fc76c55b`. Installed canonical CrusaderDE.dll
+still has SHA256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The external source trees were read only. Source compatibility, offline tests and
+successful compilation do not establish in-game or real multiplayer behavior.
+
+### Preference inheritance and native identity
+
+Fixes `Config/Preferences.cs` resolves map `_slots` first, then a selected Custom
+Lord's own named entry, then the AIC base's named entry, the base Extended entry,
+and finally the selected Extended entry. Map loading also merges its overrides
+over these defaults. The base comes from the selected AIC's `opponent_type`;
+the displayed Lord name or the current lobby slot cannot substitute for it.
+The native feature audit traced `DLL_RegisterSkirmishUser` at RVA `0x86550` and
+`DLL_SetExtendedLordConfig` at `0x87350`, including the AIC copy through `0x7140`
+and `0x1A8EE0`: assignment/speech fields change, while the configuration's initial
+`opponent_type` remains available to Fixes' base lookup. The selected managed
+configuration is checksum bound. Its `lordData` and `opponent_type` members were
+also verified public in the real installed Assembly-CSharp.dll; ExtendedData's
+managed preflight now checks both contracts.
+
+ExtendedData 1.0.17 retains the meaning of `FixesJson` (selected Lord's own entry)
+and captures additional sources separately, including explicit missing entries.
+`FixesSources = null` is incomplete historical information; an empty list is a
+complete capture without additional dependencies. Snapshot/Trail formats write
+version 4; package manifests write version 2 with an independent source digest
+and an explicit embedded-Trail marker. Historical formats and verified historical
+digests remain readable. Package readiness checks identities, direct and inherited
+digests and actual applied values, even if a prior READY acknowledgement exists.
+
+Source requirements are merged across selected configurations before writes.
+Contradictions are rejected, and original objects and original absence are retained
+for rollback, selection changes and session end. Fixes `_slots` is never written.
+Host/local migration projects stored direct and inherited entries first and reads
+current host originals only for missing information, including when a previous
+selection is still overlaid. Clients accept the completed host snapshot rather
+than deriving sources themselves. Migration logs the loss of historical inheritance
+information with a timestamp and persists only on normal save/export. Trail saves
+now include their applied snapshot. Multiple initialization phases reuse the already
+acknowledged values. Unresolvable old Lord/AIC identities fail explicitly.
+
+### Diagnostic hook conflicts and targeted startup gates
+
+Fixes' expanded defensive positions entry at `0x53D00` overlaps ActiveAIVDetector's
+final-selection detour. ActiveAIVDetector 0.10.3 has a Fixes soft dependency and
+skips only that detour when `[AllowExpandedDefensivePositionsPatch] Enabled` is
+true or cannot be verified. Oracle, validator and trace installation remains
+independent; disabled final capture produces no misleading missing-selection
+reports. A startup Error names `fixes.cfg`, `Enabled = false` and the required
+restart. When permitted, live bytes are checked before installation.
+
+The Fixes farmland patch spans `[0x58B12,0x58B2E)`; the optional WoodSiteGuard
+occupies `[0x58B26,0x58B2E)`. AICoarsePathComponentFixTest 0.1.2 checks
+`[FixPlacementSelectionNotAccountingForFarmland] Enabled` before constructing
+the guard, allocating its stub or patching the site. Enabled/unknown states skip
+the guard with the same actionable Error policy, while coarse observation and
+the independent outcome observer continue. Its existing exact live-byte check
+and permanent publication rules remain in place. Neither gate changes foreign
+settings or foreign/published hooks, and this implementation adds no native hook.
+
+The other newly reviewed Fixes sites (`0x55D43`, `0x2BC40`, `0x2FE20`, `0x3E850`,
+`0x10E26E`, `0x11F0E5`, `0x11BB38`) introduce no new production-mod ownership
+overlap in the reviewed workspace. AIAttackTest still independently suppresses
+its recruitment capability when Fixes owns that comparison and validates live
+bytes. Current EnemyBridgePathTest `OwnsEntry` excludes both `0xE49D0` and
+`0x111C00`; its remaining owned entries and relevant attack-body bytes are checked
+before hook preparation. This supersedes the historical 1.26.x exclusion above
+for the current source, without claiming a joint gameplay test. CastlePlanner
+requires no behavior change for this update. No runtime changes were made to
+AIAttackTest, EnemyBridgePathTest or CastlePlanner.
+
+### Verification scope
+
+Evidence and build/install records are under `.work/a/fixes/001` in the local
+workspace. ExtendedData behavior tests cover source priority, checksum-bound
+different bases, explicit absence, shared conflicts, migration, selection restore,
+one-shot write failure rollback, historical formats, separate digests and save/
+Trail roundtrips. FixesCompatibility.Tests compiles the actual canonical external
+preference schema and tests nullable values, absent/enabled/disabled/unknown config
+states and changed live bytes. Both runtime projects compile against actual game,
+Extender and validated APIShared references. Diagnostic wiring guardrails are
+bounded source checks, not a native runtime proof.
+
+The generic scoped permanent-patch scanner flags the testmod's pre-existing
+`VirtualProtect` startup writer; it has no dedicated exception for this experiment.
+Its own `verify.ps1` and manual call-path review check the initial publication and
+unpublished-candidate rollback; the new setting gate precedes that entire path.
+This is a scanner limitation, not permission to toggle published patches. No game
+or multiplayer session was run as part of this implementation.
+
+### Additional review and ExtendedData 1.0.18, 2026-10-23
+
+The managed map-default path has an additional named lookup: Fixes
+`Preferences.Load` consults `CustomLordPreferences[name]` for Extended Lords as
+well as Custom Lords, whereas ordinary `TryGet` consults that selected name only
+for Custom Lords. The Extender obtains this name from the selected restart/lobby
+slot through `GetCustomAILordNameByPlayerId` / `GetGenericSlotLordName`. ExtendedData
+now captures the Extended selection's named map-default source, including absence,
+alongside its ordinary AIC-base sources. Equal selected/base names share one entry.
+The selected Extended entry retains its original `FixesJson` meaning. Fixes' map
+slots and merge precedence remain unchanged.
+
+When an embedded Trail uses a different registered media provider, the captured
+map-default entry follows the selected media name. The old name remains a source
+only when the AIC still needs it as its base. Contradictory map/base identities
+reject preparation before mutation; preparation failures remain inside the normal
+launch-blocking error path. Regression cases verify named values, explicit absence,
+original reference restoration, migration, media remapping and shared base names.
+
+Local-values save validation now checks the current dictionary values in addition
+to the historical source digest. Comparing a saved digest to its own saved source
+list alone cannot detect changed or additionally present local defaults. The same
+live-source comparison is used by ordinary applied-snapshot verification.
+
+Fresh review evidence is under `.work/a/fixes-review/001`: 87/87 ExtendedData tests,
+122 Fixes startup/schema assertions, 76 AIAttackTest assertions, scoped EnemyBridge
+verification and ExtendedData source/member preflights passed. ExtendedData 1.0.18
+was built against the previously validated isolated SDK and installed with all 34
+package hashes checked. The other 458 previously installed ActiveAIVDetector and
+BugfixesAndQoL files were unchanged. Testmods were not installed; game/MP acceptance
+remains open.
+
+The unscoped EnemyBridge/Coarse verification scripts also invoke a workspace-wide
+scanner. In this review that scanner rejected concurrent, unrelated APIShared
+`src/Projectiles/PlagueNativeCode.cs` executable-memory code. Scoped EnemyBridge
+verification passed; Coarse's dedicated checks reached that final global scan,
+but its complete unscoped script is not recorded as passing. Those external work
+in progress sources and scanner expectations were not modified. Build warnings
+remain the existing linked JSON type-name collisions and an unused field; no
+compile errors occurred.

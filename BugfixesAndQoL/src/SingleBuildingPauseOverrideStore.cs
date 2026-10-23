@@ -117,6 +117,18 @@ namespace BugfixesAndQoL
             }
         }
 
+        internal SingleBuildingPauseOverride[] Snapshot()
+        {
+            lock (sync)
+            {
+                var entries = new SingleBuildingPauseOverride[overridesByBuildingId.Count];
+                overridesByBuildingId.Values.CopyTo(entries, 0);
+                // Dictionary order is insertion-dependent; saves of the same state must match.
+                Array.Sort(entries, (left, right) => left.BuildingId.CompareTo(right.BuildingId));
+                return entries;
+            }
+        }
+
         internal int Clear()
         {
             lock (sync)

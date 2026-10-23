@@ -55,8 +55,20 @@ void AddProject(string relative)
     relative = Path.GetRelativePath(root, Path.GetFullPath(Path.Combine(root, relative)));
     if (orderedProjects.Contains(relative)) return;
     var path = Path.Combine(root, relative);
-    foreach (var entry in XDocument.Load(path).Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
+    var document = XDocument.Load(path);
+    foreach (var entry in document.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
         AddProject(Path.GetRelativePath(root, Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path), (string)entry.Attribute("Include")))));
+    // A HintPath into a sibling project's own bin folder (APIShared -> Content\bin\...\APIShared.Content.dll)
+    // is compiled from that project's sources: a fresh source copy has not built the DLL yet.
+    foreach (var entry in document.Descendants().Where(e => e.Name.LocalName == "Reference"))
+    {
+        var include = ((string)entry.Attribute("Include")).Split(',')[0];
+        var hint = entry.Elements().FirstOrDefault(e => e.Name.LocalName == "HintPath")?.Value;
+        if (hint == null || hint.StartsWith("$")) continue;
+        var firstSegment = hint.Split('\\', '/')[0];
+        var sibling = Path.Combine(Path.GetDirectoryName(path), firstSegment, include + ".csproj");
+        if (firstSegment.Length > 0 && File.Exists(sibling)) AddProject(Path.GetRelativePath(root, Path.GetFullPath(sibling)));
+    }
     orderedProjects.Add(relative);
 }
 foreach (var relative in projects) AddProject(relative);
@@ -71,6 +83,7 @@ foreach (var relative in orderedProjects)
     var properties = new Dictionary<string, string> {
         ["GameDir"] = game, ["ExtenderDir"] = game + @"\BepInEx\plugins\000shcdese",
         ["ApiSharedDir"] = game + @"\BepInEx\plugins\APIShared_Serp", ["MSBuildThisFileDirectory"] = folder + "\\",
+        ["MSBuildProjectDirectory"] = folder,
         ["MSBuildSDKsPath"] = Directory.GetDirectories(@"C:\Program Files\dotnet\sdk")
             .OrderByDescending(p => Version.Parse(Path.GetFileName(p))).First() + @"\Sdks"
     };
@@ -83,6 +96,8 @@ foreach (var relative in orderedProjects)
         return value;
     }
     var defines = xml.Descendants().Where(e => e.Name.LocalName == "DefineConstants").SelectMany(e => e.Value.Split(';')).Where(s => !s.Contains('$') && s.Length > 0);
+    bool diagnosticsEnabled = args.Contains("--diagnostic");
+    if (diagnosticsEnabled) defines = defines.Append("SERP_DEVDIAG");
     var parse = new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: defines);
     var sources = xml.Descendants().Where(e => e.Name.LocalName == "Compile" && e.Attribute("Include") != null).SelectMany(e => {
         string path = Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Include")));
@@ -95,21 +110,32 @@ foreach (var relative in orderedProjects)
     }).Distinct().ToArray();
     bool coreProject = xml.Root.Attribute("Sdk") != null;
     if (coreProject)
-        sources = sources.Concat(Directory.GetFiles(folder, "*.cs", SearchOption.TopDirectoryOnly)).Distinct().ToArray();
+        // SDK default items include subfolders (APIShared.Content/ModSettings); build output is never source.
+        sources = sources.Concat(Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories)
+            .Where(p => !Path.GetRelativePath(folder, p).Split(Path.DirectorySeparatorChar).Any(s => s == "bin" || s == "obj"))).Distinct().ToArray();
     var removedSources = xml.Descendants().Where(e => e.Name.LocalName == "Compile" && e.Attribute("Remove") != null)
         .Select(e => Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Remove")))).ToHashSet(StringComparer.OrdinalIgnoreCase);
-    sources = sources.Where(p => !removedSources.Contains(p)).ToArray();
+    // Mirror Directory.Build.targets without invoking a mod build or emitting a DLL.
+    if (diagnosticsEnabled && Directory.Exists(Path.Combine(folder, "src")))
+        sources = sources.Concat(Directory.GetFiles(Path.Combine(folder, "src"), "*.DevDiag.cs", SearchOption.AllDirectories)).Distinct().ToArray();
+    sources = sources.Where(p => !removedSources.Contains(p) &&
+        (diagnosticsEnabled || !p.EndsWith(".DevDiag.cs", StringComparison.OrdinalIgnoreCase))).ToArray();
     var trees = sources.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), parse, p)).ToList();
     if (coreProject && xml.Descendants().Any(e => e.Name.LocalName == "ImplicitUsings" && e.Value == "enable"))
         trees.Add(CSharpSyntaxTree.ParseText("global using System; global using System.Collections.Generic; global using System.IO; global using System.Linq; global using System.Net.Http; global using System.Threading; global using System.Threading.Tasks;", parse, "ImplicitUsings.g.cs"));
     var refs = new List<MetadataReference>();
-    string referenceFramework = coreProject ? Directory.GetDirectories(@"C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref")
+    // A netstandard library (APIShared.Content) is consumed by .NET Framework mods: compile it against
+    // the same Framework references, otherwise its System.Runtime identity cannot bind for consumers.
+    bool netStandard = coreProject && xml.Descendants().Any(e => e.Name.LocalName == "TargetFramework" && e.Value.StartsWith("netstandard"));
+    bool netCore = coreProject && !netStandard;
+    string referenceFramework = netCore ? Directory.GetDirectories(@"C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref")
         .OrderByDescending(p => Version.Parse(Path.GetFileName(p))).SelectMany(p => Directory.GetDirectories(Path.Combine(p, "ref"))).First() : framework;
     var frameworkNames = xml.Descendants().Where(e => e.Name.LocalName == "Reference")
-        .Select(e => ((string)e.Attribute("Include")).Split(',')[0]).Append("mscorlib").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        .Select(e => ((string)e.Attribute("Include")).Split(',')[0]).Append("mscorlib").Append("System").Append("System.Core")
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
     foreach (var path in Directory.GetFiles(referenceFramework, "*.dll").Where(p => !p.Contains(".Thunk.") && !p.Contains(".Wrapper.") &&
-        (coreProject || frameworkNames.Contains(Path.GetFileNameWithoutExtension(p))))) refs.Add(MetadataReference.CreateFromFile(path));
-    if (!coreProject)
+        (netCore || frameworkNames.Contains(Path.GetFileNameWithoutExtension(p))))) refs.Add(MetadataReference.CreateFromFile(path));
+    if (!netCore)
         foreach (var path in Directory.GetFiles(Path.Combine(framework, "Facades"), "*.dll")) refs.Add(MetadataReference.CreateFromFile(path));
     foreach (var entry in xml.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
     {

@@ -1,0 +1,9 @@
+{
+  "creators": {
+    "frozen-sdk-": "Shared/Tools/Steam/Test-PublishedSdkPolicy.ps1",
+    "published-upload-": "Shared/Tools/Steam/Test-PublishedModpack.ps1",
+    "modpack-branches-": "Shared/Tools/Steam/Test-ModpackBranches.ps1",
+    "main-workflow-": "Shared/Tools/ApiSharedRepository/Test-MainSource.ps1"
+  },
+  "blockedExternalGitMetadata": []
+}

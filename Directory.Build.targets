@@ -8,8 +8,25 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Update="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
+    <Reference Update="APIShared.Content"><HintPath>$(ApiSharedDir)\APIShared.Content.dll</HintPath></Reference>
   </ItemGroup>
-  <Target Name="ValidateWorkspaceApiSharedPackage" BeforeTargets="ResolveAssemblyReferences" Condition="'@(Reference->WithMetadataValue('Identity', 'APIShared'))' != ''">
+  <Target Name="ValidateWorkspaceApiSharedPackage" BeforeTargets="ResolveAssemblyReferences" Condition="'@(Reference->WithMetadataValue('Identity', 'APIShared'))' != '' or '@(Reference->WithMetadataValue('Identity', 'APIShared.Content'))' != ''">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1&quot; -Workspace &quot;$(ModWorkspaceRoot)&quot; -PackageDirectory &quot;$(ApiSharedDir)&quot;" />
   </Target>
+  <!-- Development diagnostics (DEVDIAG): only build.bat /devdiag sets SHCDE_DEVDIAG=1 for the
+       selected build. The symbol, *.DevDiag.cs files and the assembly marker exist only then;
+       release and pack drivers reject any assembly with the marker. -->
+  <PropertyGroup Condition="'$(SerpDevDiagnostics)' == '' and '$(SHCDE_DEVDIAG)' == '1'">
+    <SerpDevDiagnostics>true</SerpDevDiagnostics>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SerpDevDiagnostics)' == 'true'">
+    <DefineConstants>$(DefineConstants);SERP_DEVDIAG</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(SerpDevDiagnostics)' != 'true'">
+    <Compile Remove="**\*.DevDiag.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(SerpDevDiagnostics)' == 'true'">
+    <Compile Include="$(MSBuildProjectDirectory)\src\**\*.DevDiag.cs" Exclude="@(Compile)" />
+  </ItemGroup>
+  <Import Project="$(MSBuildThisFileDirectory)Shared/Tools/Paths/Paths.targets" />
 </Project>

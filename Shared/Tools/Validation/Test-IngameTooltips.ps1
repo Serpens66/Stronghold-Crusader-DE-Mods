@@ -1,6 +1,8 @@
 [CmdletBinding()]
-param([string]$Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')), [string[]]$ModDirectories)
+param([string]$Workspace, [string[]]$ModDirectories)
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 leaves $PSScriptRoot empty inside parameter defaults.
+if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
 $checked = 0; $disabled = 0; $failures = [Collections.Generic.List[string]]::new()
 function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
     $values = @{}
@@ -41,6 +43,11 @@ foreach ($directory in $directories) {
         }
     }
 }
+# Provider implementation guardrails run only when APIShared itself is selected.
+# A DLL dependency does not make its unrelated HUD implementation a consumer check.
+$apiRoot = [IO.Path]::GetFullPath((Join-Path $Workspace 'APIShared')).TrimEnd('\','/')
+$checkApi = -not $ModDirectories -or @($directories | Where-Object { $_.FullName.TrimEnd('\','/') -ieq $apiRoot }).Count -gt 0
+if ($checkApi) {
 # Runtime-created HUD buttons store some descriptions in ToolTip but explicitly disable its popup.
 $unitHud = Join-Path $Workspace 'APIShared\src\Presentation\UnitHud'
 foreach ($part in @('ActionButtons','Categories','Recruitment')) {
@@ -60,5 +67,6 @@ if ($extrasSource -notmatch 'RequireStyle\("APISharedHudExtrasTooltipStyle"\)' -
     $extrasSource -notmatch 'tip.Style == null && tip.Template == null') {
     $failures.Add('Side-HUD popup path must use the own default style or an explicitly styled custom tooltip.')
 }
+}
 if ($failures.Count) { throw ($failures -join [Environment]::NewLine) }
-Write-Output "PASS: $checked mod-owned ingame popup usages have the modoptions style; $disabled explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths."
+Write-Output "PASS: $checked scoped mod-owned popup usages have the modoptions style; $disabled explicitly disabled popups; APIShared implementation guardrails=$checkApi (source checks, not an in-game rendering proof)."

@@ -13,6 +13,14 @@ function Assert-ApiCheckout([string]$Workspace) {
     return $api
 }
 function Assert-ApiConsumerPackage([string]$Workspace, [string]$PackageDirectory, [switch]$Release) {
+    if ($env:SHCDE_BRANCH_API_ROOT -and -not $Release -and -not $env:SHCDE_API_SHARED_RELEASE_PROOF) {
+        $root = [IO.Path]::GetFullPath($env:SHCDE_BRANCH_API_ROOT).TrimEnd('\','/')
+        if (((Invoke-ApiGit $root @('rev-parse','HEAD')) -join '').Trim() -cne $env:SHCDE_BRANCH_API_COMMIT) { throw 'Selected SDK commit changed.' }
+        $expected = [IO.Path]::GetFullPath((Join-Path $root 'BepInEx/plugins/APIShared_Serp'))
+        if ($PackageDirectory -and [IO.Path]::GetFullPath($PackageDirectory).TrimEnd('\','/') -ine $expected) { throw 'SDK package differs from the selected branch build.' }
+        . (Join-Path $root 'tools/BuildProof.ps1')
+        return (Assert-ApiBuildProof $root)
+    }
     $api=if($env:SHCDE_API_SHARED_MAIN_SELECTION){Get-WorkshopApiRoot $Workspace}else{Assert-ApiCheckout $Workspace}
     if(-not $PackageDirectory -and $env:SHCDE_API_SHARED_RELEASE_PROOF){$PackageDirectory=$env:SHCDE_API_SHARED_DIR}
     if ($PackageDirectory -and $env:SHCDE_API_SHARED_RELEASE_PROOF) {
@@ -34,7 +42,7 @@ function Assert-ApiPublishedConsumerPackage([string]$Workspace, [string]$Package
     $cacheRoot = [IO.Path]::GetFullPath((Join-Path $Workspace '.release-output/APIShared')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
     $testCacheRoot = [IO.Path]::GetFullPath((Join-Path $Workspace '.release-output/SteamWorkshop/test/SerpsMods/cache/APIShared')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
     $proofPath = [IO.Path]::GetFullPath($ProvenancePath)
-    $allowedRoot = if ($env:SHCDE_WORKSHOP_TEST -eq '1' -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1') { $testCacheRoot } else { $cacheRoot }
+    $allowedRoot = if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $testCacheRoot } else { $cacheRoot }
     if (-not $proofPath.StartsWith($allowedRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Published APIShared proof must be in the workspace release cache for the selected mode.' }
     $cache = Split-Path -Parent $proofPath
     $audit = Join-Path $cache 'audit'
@@ -49,20 +57,22 @@ function Assert-ApiPublishedConsumerPackage([string]$Workspace, [string]$Package
         if($ancestor.ExitCode -ne 0){throw 'Published APIShared SDK source is outside selected main history.'}
     }
     $tag = "APIShared/v$($info.Version)"
-    if ($env:SHCDE_WORKSHOP_TEST -eq '1' -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1') { $tag = "APIShared/test/v$($info.Version)-$(([string]$proof.Commit).Substring(0,12))" }
+    if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $tag = "APIShared/test/v$($info.Version)-$(([string]$proof.Commit).Substring(0,12))" }
     if ($proof.SchemaVersion -ne 1 -or $proof.Mod -cne 'APIShared' -or $proof.PluginGuid -cne 'APIShared_Serp' -or
         $proof.Version -cne $info.Version -or $proof.Tag -cne $tag) { throw 'Published APIShared SDK identity or mode mismatch.' }
     . (Join-Path $PSScriptRoot '../Steam/SteamPackPolicy.ps1')
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION -or $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256){
+        if($env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256 -cnotmatch '^[0-9a-f]{64}$' -or
+           (Get-SteamPackFileSha256 $proofPath) -cne $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256){
+            throw 'Published APIShared evidence changed since canonical release selection.'
+        }
+    }
     $paths = @(Invoke-ApiGit $api @('diff','--name-only',[string]$proof.Commit,'--'))
     $paths += @(Invoke-ApiGit $api @('ls-files','--others','--exclude-standard'))
     $changed = @(Get-SteamApiReleaseRelevantChanges $paths)
     if ($changed.Count) { throw "Published APIShared SDK differs from current package sources: $($changed -join ', ')" }
     $zip = Join-Path $cache "APIShared-v$($proof.Version).zip"
     if ((Get-SteamPackFileSha256 $zip) -cne $proof.Package.Sha256) { throw 'Published APIShared ZIP hash mismatch.' }
-    if($env:SHCDE_API_SHARED_PUBLISHED_092 -eq '1' -and ($proof.Version -cne '0.9.2' -or
-       $proof.Commit -cne 'c7b210f007035ff8edaf4d359a21f7bfbcbe479d' -or
-       $proof.Package.Sha256 -cne 'a83714eb5ffaf24b6042cae4c972f0037c11169fdf25d3a1fe912e0d08c53097' -or
-       (Get-SteamPackFileSha256 $proofPath) -cne 'c73265913ff8e7bcd0ad4aa010e4bb10ef7cbafa2fe7635e91c857467fbf3574')){throw 'Published APIShared 0.9.2 provenance differs from the reviewed release.'}
     $known = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($record in @($proof.Package.Files)) {
         $relative = [string]$record.Path

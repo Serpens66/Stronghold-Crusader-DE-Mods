@@ -20,6 +20,7 @@ namespace AIBuildDiagnoseTest.Tests
         {
             foreach (string field in new[] { "observer", "woodBuildGate", "nearbyWoodOverlay", "woodAttempts" })
                 typeof(AiBuildDiagnostic).GetField(field, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
+            typeof(AiBuildExperimentBridge).GetField("observer", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
             typeof(AiBuildObservation).GetField("sink", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
         }
         private static void Observe(Action<AiBuildDiagnosticRecord> observer)
@@ -37,7 +38,10 @@ namespace AIBuildDiagnoseTest.Tests
             Assert.AreEqual(0L, id); Assert.AreEqual(0, player);
             Assert.IsFalse(AiBuildDiagnostic.SchedulerReady);
             Assert.IsFalse(AiBuildDiagnostic.RouteReady);
-            Assert.AreEqual("unavailable", AiBuildDiagnostic.CaptureEconomyGridEvidence(0UL, -1).Status);
+            AiEconomyGridEvidence unavailable = AiBuildDiagnostic.CaptureEconomyGridEvidence(0UL, -1);
+            Assert.AreEqual("unavailable", unavailable.Status);
+            Assert.AreEqual(-1, unavailable.CoarseX);
+            Assert.AreEqual(-1, unavailable.CoarseY);
             AiBuildObservation.Publish("unused", 6);
             AiBuildObservation.EndWoodAttempt(0);
         }
@@ -85,7 +89,7 @@ namespace AIBuildDiagnoseTest.Tests
         public void ObserverAndGateFailuresDoNotEscapeOrBlockVanilla()
         {
             Observe(_ => throw new InvalidOperationException("observer"));
-            Assert.IsTrue(AiBuildDiagnostic.TryRegisterWoodBuildGate(AIBuildDiagnosePluginGuid,
+            Assert.IsTrue(AiBuildDiagnostic.TryRegisterWoodBuildGate("CanarariWoodTest_Serp",
                 _ => throw new InvalidOperationException("gate"), out _));
             AiBuildObservation.Publish("failure", 6);
             Assert.IsFalse(AiBuildObservation.ShouldDeferWoodBuild(6));
@@ -110,6 +114,32 @@ namespace AIBuildDiagnoseTest.Tests
             Observe(_ => { });
             Assert.IsFalse(AiBuildDiagnostic.TryRegisterWoodBuildGate("Other.Mod", _ => true, out _));
             Assert.IsFalse(AiBuildDiagnostic.TryRegisterNearbyWoodOverlay("Other.Mod", (s, p, x, y) => null, out _));
+        }
+        [TestMethod]
+        public void CompanionIsOptionalExclusiveAndCannotClaimGeneralObserverOwnership()
+        {
+            Action<AiBuildDiagnosticRecord> callback = _ => { };
+            Assert.IsFalse(AiBuildExperimentBridge.TryRegister("CanarariWoodTest_Serp", callback, out _));
+            Observe(_ => { });
+            Assert.IsFalse(AiBuildExperimentBridge.TryRegister(AIBuildDiagnosePluginGuid, callback, out _));
+            Assert.IsTrue(AiBuildExperimentBridge.TryRegister("CanarariWoodTest_Serp", callback, out _));
+            Assert.IsTrue(AiBuildExperimentBridge.TryRegister("CanarariWoodTest_Serp", callback, out _));
+            Assert.IsFalse(AiBuildExperimentBridge.TryRegister("CanarariWoodTest_Serp", _ => { }, out _));
+            Assert.IsFalse(AiBuildDiagnostic.TryRegister("CanarariWoodTest_Serp", callback, out _));
+            Assert.IsFalse(AiBuildDiagnostic.TryRegisterWoodBuildGate(AIBuildDiagnosePluginGuid, _ => true, out _));
+            Assert.IsFalse(AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(AIBuildDiagnosePluginGuid, (s,p,x,y) => null, out _));
+        }
+        [TestMethod]
+        public void CompanionDeliveryIsIndependentAndContainsExceptions()
+        {
+            Observe(_ => { });
+            int calls = 0;
+            Assert.IsTrue(AiBuildExperimentBridge.TryRegister("CanarariWoodTest_Serp", _ =>
+                { calls++; throw new InvalidOperationException("companion"); }, out _));
+            AiBuildExperimentBridge.Deliver(new AiBuildDiagnosticRecord("test", 2, 0, 0, 0, 0, 0), null);
+            AiBuildExperimentBridge.Deliver(new AiBuildDiagnosticRecord("test", 3, 0, 0, 0, 0, 0), null);
+            Assert.AreEqual(2, calls);
+            Assert.IsFalse(AiBuildDiagnostic.ShouldDeferWoodBuild(2));
         }
         private const string AIBuildDiagnosePluginGuid = "AIBuildDiagnoseTest_Serp";
     }

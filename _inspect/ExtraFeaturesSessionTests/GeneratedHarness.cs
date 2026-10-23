@@ -28,7 +28,7 @@ namespace SHCDESE.Interop {
     public struct GameUnit { public uint r_GlobalId,r_CurrentHealth,r_MaxHealth,r_HealthBarBlocks; public ushort r_IsKilledByProjectile,r_InterestingTodo4MaybeRandomPathing; public ushort r_CurrentHealthPercentage; public int r_ControllableForPlayerId; public eChimps r_UnitChimp; public AliveState r_AliveState; }
 }
 namespace Shared {
-    public static class DebugLogHelper { public static void LogDebug(object l,string s){} public static void LogError(object l,string s){} public static void LogWarning(object l,string s){} }
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => false; public static void LogDebug(object l,string s){} public static void LogError(object l,string s){} public static void LogWarning(object l,string s){} }
     public static class GameplayModActivationGate { public static bool Allowed=true; public static object Snapshot=>null; public static bool IsEnabled(bool enabled)=>Allowed&&enabled; }
 }
 namespace APIShared.SerpsMods {

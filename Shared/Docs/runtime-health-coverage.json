@@ -1,0 +1,1405 @@
+{
+  "SchemaVersion": 1,
+  "Policy": "Failure-boundary inventory only. No runtime success tracking or health polling. A silent log does not prove gameplay acceptance.",
+  "Mods": [
+    {
+      "Mod": "APIShared_Serp",
+      "Trigger": "Native initialization and existing functional operations",
+      "Postcondition": "Existing install/save invariants retained; fear overflow preserves original SE contribution",
+      "Gap": "Fear results, rendered HUD, native effects and multiplayer require manual acceptance; no runtime success monitor.",
+      "Failure": "MOD_FAILURE or existing feature-specific errors"
+    },
+    {
+      "Mod": "SerpsMods_Serp",
+      "Trigger": "Existing host initialization and dependency/package audit",
+      "Postcondition": "Existing package/manifest checks retained",
+      "Gap": "No added mission audit; plugin presence does not prove gameplay.",
+      "Failure": "Existing H000-H007 errors"
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Trigger": "Named initialization, persistent initialization, application and mission boundaries",
+      "Postcondition": "Existing guarded actions and error boundaries; no added native diagnostic reads.",
+      "Gap": "Initialization/application is not a native outcome proof. Individual fixes require their triggering scenarios.",
+      "Failure": "Named per-feature failures and existing callback errors"
+    },
+    {
+      "Mod": "BuildingCosts_Serp",
+      "Trigger": "Startup stages, mission callbacks and cost/tooltip errors",
+      "Postcondition": "Startup stages returned; existing failure boundaries active",
+      "Gap": "Final resource charges and rendered tooltips are not automatically proven.",
+      "Failure": "Stage/callback failures bypass diagnostic switch"
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Trigger": "Startup, limit feature initialization and mission callbacks",
+      "Postcondition": "Feature initialization returned; existing limit failures reported",
+      "Gap": "Exercise actual building placement and player limits.",
+      "Failure": "Stage/feature failures"
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Trigger": "Startup, cost application and mission callbacks",
+      "Postcondition": "Named cost actions returned; override failures reported",
+      "Gap": "Native recruitment charges and composition with other price writers require real actions.",
+      "Failure": "Stage/application/callback failures"
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Trigger": "Startup, capacity initialization and external state-change notification",
+      "Postcondition": "Initialization returned; failed notification subscribers isolated and reported",
+      "Gap": "Recruitment/reservation effects need corresponding game actions.",
+      "Failure": "Feature/callback failures, external-capacity-notification"
+    },
+    {
+      "Mod": "ExtendedData_Serp",
+      "Trigger": "Mission, save/restart, required Lord package selection",
+      "Postcondition": "Existing round-trip/save checks retained; unreadable required package metadata reported",
+      "Gap": "Creator permissions, Lord content and restart provenance need exercised load paths.",
+      "Failure": "Existing settings/package errors plus required-lord-package-fingerprint and lord-package-manifest"
+    },
+    {
+      "Mod": "ExtraFeatures_Serp",
+      "Trigger": "Mission and independent feature callbacks",
+      "Postcondition": "Existing feature isolation retained; errors remain unconditional",
+      "Gap": "Actual native/visual results of each enabled option are not inferred from activation.",
+      "Failure": "Existing functional errors/warnings use structured per-session reporting"
+    },
+    {
+      "Mod": "RandomEvents_Serp",
+      "Trigger": "Mission lifecycle and actual random-event execution",
+      "Postcondition": "Existing event result and exception guards retained",
+      "Gap": "An event not drawn/executed is unexercised, not failed or verified.",
+      "Failure": "Existing event/callback failures always visible"
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Trigger": "Mission, preview and blueprint operations",
+      "Postcondition": "Existing operation failures reported; policy and lifecycle recorded",
+      "Gap": "Blueprint appearance and completed castle placement need real operations.",
+      "Failure": "Existing preview/blueprint/application errors"
+    },
+    {
+      "Mod": "StartConditions_Serp",
+      "Trigger": "Startup stages and mission start callbacks",
+      "Postcondition": "Stage completion observed; existing spawn/initialization failures retained",
+      "Gap": "Final starting resources/troops require relevant start modes.",
+      "Failure": "Stage and callback failures"
+    },
+    {
+      "Mod": "PopularityTest_Serp",
+      "Trigger": "Independent registration, settings application and mission release",
+      "Postcondition": "Pushed SE overrides read back; owned layer removal checked; optional fear failure isolated",
+      "Gap": "Simulation and visible text evidence are provided independently by APIShared; rendered pixels remain manual.",
+      "Failure": "POPULARITY_INIT_FAILED, POPULARITY_FEAR_FAILED, POPULARITY_APPLY_FAILED, POPULARITY_OWNERSHIP"
+    }
+  ],
+  "FeatureMatrixSnapshot": "2026-10-18: named guarded stages and policy operations in current working sources; see per-mod gaps for uninstrumented outcomes.",
+  "Features": [
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "single-building pause save restore",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "troop movement save restore",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Assassin captured-gate protection",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Assassin gatehouse descent",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Assassin gatehouse climb",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "enemy gate routing",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "drawbridge destruction fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "gatehouse living capture",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI melee raid retarget fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "plague popularity fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "plague cloud removal fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "plague target-reservation fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "stuck-apothecary fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "assembly-point placement fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Healer attack-command fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "mounted-stockpile movement fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "disbanded-unit control-group cleanup",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Lord control groups",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI stone-reserve fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI keep build range",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI defense patrol fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI wall-targeting fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "baker/miller breaks",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "workshop idle delay",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AIV defender-position fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI preplaced-map-building fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializePersistentFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI tower-ruin repair fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "better AI overbuild rules",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "ally goods amount modifiers",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Ctrl single-unit market trade",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Assassin gatehouse climb",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI melee raid retarget fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Trail Customize buttons",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Coop custom-lord selection",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "moved feature settings",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI tower-ruin repair fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "better AI overbuild rules",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI defense patrol fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI wall-targeting fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "baker/miller breaks",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "workshop idle delay",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AIV defender-position fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "ally goods amount modifiers",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "surrender",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Lord troop HUD",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "shared unit HUD",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "selected-unit health display",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "selected-unit health display",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "surrender",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "resync host kick",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI castle/settings selection memory",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Workshop upload Lord-selection fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI castle/settings selection memory",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "custom-lord list enhancements",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "custom-lord list enhancements",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI castle/settings list enhancements",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI castle/settings list enhancements",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "map-origin sorting",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Vanilla maps in the editor",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "troop movement fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "multiplayer game speed",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "assembly-point placement fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Healer attack-command fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "mounted-stockpile movement fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Lord control groups",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI stone-reserve fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "AI defense patrol fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Assassin path reconstruction",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Assassin climb button",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "Assassin climb button cleanup",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "enemy-proximity bulldoze cursor",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "plague target-reservation fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BugfixesAndQoL_Serp",
+      "Feature": "troop movement fix",
+      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Trigger": "ApplyFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingCosts_Serp",
+      "Feature": "native version diagnostics",
+      "Source": "BuildingCosts/src/BuildingCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingCosts_Serp",
+      "Feature": "localized names",
+      "Source": "BuildingCosts/src/BuildingCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingCosts_Serp",
+      "Feature": "detailed tooltip binding",
+      "Source": "BuildingCosts/src/BuildingCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingCosts_Serp",
+      "Feature": "compact tooltip binding",
+      "Source": "BuildingCosts/src/BuildingCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "native version diagnostics",
+      "Source": "BuildingLimit/src/BuildingLimitPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "localized names",
+      "Source": "BuildingLimit/src/BuildingLimitPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "notification binding",
+      "Source": "BuildingLimit/src/BuildingLimitPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "active-building cache",
+      "Source": "BuildingLimit/src/BuildingLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "active-building cache rollback",
+      "Source": "BuildingLimit/src/BuildingLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "tower-siege unit cache",
+      "Source": "BuildingLimit/src/BuildingLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "tower-siege placement hook",
+      "Source": "BuildingLimit/src/BuildingLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "native version diagnostics",
+      "Source": "UnitCosts/src/UnitCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "localized names",
+      "Source": "UnitCosts/src/UnitCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "notification overlay binding",
+      "Source": "UnitCosts/src/UnitCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "siege notification binding",
+      "Source": "UnitCosts/src/UnitCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "recruitment tooltip bindings",
+      "Source": "UnitCosts/src/UnitCostsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "horse-link lifecycle",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "Vanilla gold-cost capture",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "native gold costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "extra-cost normalization",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "human extra costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "recruitment action enforcement",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "recruitment tooltip",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "siege tooltip",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "recruitment availability UI",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "Vanilla gold-cost capture",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "native gold costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "extra-cost normalization",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "human extra costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "native gold costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "extra-cost normalization",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "human extra costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "human extra costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "native gold costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "extra-cost normalization",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "human extra costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "Vanilla gold-cost capture",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "native gold costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "extra-cost normalization",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "human extra costs",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "gold cost for ",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "siege tent cost for ",
+      "Source": "UnitCosts/src/UnitCostsRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "native version diagnostics",
+      "Source": "UnitLimit/src/UnitLimitPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "localized names",
+      "Source": "UnitLimit/src/UnitLimitPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "active-unit cache",
+      "Source": "UnitLimit/src/UnitLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "active-siege-tent cache",
+      "Source": "UnitLimit/src/UnitLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "recruitment tooltip",
+      "Source": "UnitLimit/src/UnitLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "recruitment availability UI",
+      "Source": "UnitLimit/src/UnitLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "siege tooltip",
+      "Source": "UnitLimit/src/UnitLimitRuntime.cs",
+      "Trigger": "InitializeFeature",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "Blueprint runtime",
+      "Source": "CastlePlanner/src/CastlePlannerPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "free-castle preview runtime",
+      "Source": "CastlePlanner/src/CastlePlannerPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "Blueprint HUD binding",
+      "Source": "CastlePlanner/src/CastlePlannerPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "AIV placement runtime",
+      "Source": "CastlePlanner/src/CastlePlannerPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "AIV selection-list binding",
+      "Source": "CastlePlanner/src/CastlePlannerPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "AIV placement hooks",
+      "Source": "CastlePlanner/src/CastlePlannerPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "StartConditions_Serp",
+      "Feature": "localized names",
+      "Source": "StartConditions/src/StartConditionsPlugin.cs",
+      "Trigger": "InitializeStage",
+      "Postcondition": "Guarded action returned; initialization/execution only.",
+      "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
+      "Gap": "Gameplay outcome has no automatic proof unless separately recorded as verified."
+    },
+    {
+      "Mod": "BuildingCosts_Serp",
+      "Feature": "policy:BuildingCostTooltip",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "BuildingLimit_Serp",
+      "Feature": "policy:BuildingLimitEnforcement",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "UnitCosts_Serp",
+      "Feature": "policy:UnitCostEnforcement",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "UnitLimit_Serp",
+      "Feature": "policy:UnitLimitEnforcement",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "ExtraFeatures_Serp",
+      "Feature": "policy:LordHealthMultipliers",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "CheatMod_Serp",
+      "Feature": "policy:EndlessExtremePowersRecharge",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "RandomEvents_Serp",
+      "Feature": "policy:RandomEventsRuntime",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "ImprovedHunters_Serp",
+      "Feature": "policy:ImprovedHunterTargetSelection",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "policy:CastleSpawning",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "CastlePlanner_Serp",
+      "Feature": "policy:CastleBlueprints",
+      "Source": "Shared/Adapters/APIShared/GameplayFeatureModePolicy.cs",
+      "Trigger": "Activation transition",
+      "Postcondition": "Configured mod and mode permission evaluated.",
+      "Failure": "Invalid feature registration emits a failure; intentional mode exclusion is inactive.",
+      "Gap": "Policy evaluation does not prove per-option activation or gameplay effect."
+    },
+    {
+      "Mod": "APIShared_Serp",
+      "Feature": "fear-calculation",
+      "Source": "APIShared/src/Economy/FearPopularity.cs",
+      "Trigger": "Existing functional path; no added diagnostic observer.",
+      "Postcondition": "Manual gameplay acceptance; automatic success telemetry removed.",
+      "Failure": "Only existing functional exceptions/overflow are reported.",
+      "Gap": "Native consumer effects still require an exercised game scenario."
+    },
+    {
+      "Mod": "APIShared_Serp",
+      "Feature": "popularity-hud-properties:<panel>",
+      "Source": "APIShared/src/ScriptExtenderFixes/Popularity/PopularityPresentation.cs",
+      "Trigger": "Existing functional GUI Post callback",
+      "Postcondition": "Manual rendered output acceptance; added property readback removed.",
+      "Failure": "Existing presentation exception reporting only.",
+      "Gap": "No automatic HUD success verification."
+    },
+    {
+      "Mod": "APIShared_Serp",
+      "Feature": "savegame-settings:<mod>",
+      "Source": "APIShared/src/Savegames/SavegameModSettings.Preparation.cs",
+      "Trigger": "Prepared save settings applied",
+      "Postcondition": "Existing typed saved-host-value readbacks match.",
+      "Failure": "Mismatch/invalid provenance aborts preparation and reports failure.",
+      "Gap": "A path not loaded is unexercised."
+    },
+    {
+      "Mod": "PopularityTest_Serp",
+      "Feature": "popularity-overrides",
+      "Source": "Testmods/PopularityTest/src/OverrideBatch.cs",
+      "Trigger": "Mission initialization/start",
+      "Postcondition": "All requested pushed values read back at their owned depths.",
+      "Failure": "Partial batches are released; error reported.",
+      "Gap": "Does not independently prove native use of every parameter."
+    },
+    {
+      "Mod": "PopularityTest_Serp",
+      "Feature": "popularity-release",
+      "Source": "Testmods/PopularityTest/src/OwnedOverride.cs",
+      "Trigger": "Mission end/configuration replacement",
+      "Postcondition": "Owned depth removed; foreign values preserved.",
+      "Failure": "Ownership/release failure reported.",
+      "Gap": "Untriggered release has no runtime proof."
+    },
+    {
+      "Mod": "SerpsMods_Serp",
+      "Feature": "host-plugin-presence",
+      "Source": "SerpsModsHost/src/SerpsModsHostPlugin.cs",
+      "Trigger": "Existing functional path; no added diagnostic observer.",
+      "Postcondition": "Manual gameplay acceptance; automatic success telemetry removed.",
+      "Failure": "Only existing functional exceptions/overflow are reported.",
+      "Gap": "Plugin presence is not feature correctness."
+    }
+  ]
+}

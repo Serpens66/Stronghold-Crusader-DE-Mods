@@ -180,6 +180,18 @@ namespace BugfixesAndQoL
             singleBuildingPauseHook?.ClearOverrides("map unload");
         }
 
+        private void InitializeMovedFeatureSaveData()
+        {
+            if (singleBuildingPauseHook == null)
+                throw new InvalidOperationException("The single-building pause feature is unavailable.");
+            singleBuildingPauseHook.InitializeSaveData();
+        }
+
+        private void RestoreMovedFeatureSaveState(Shared.GameplaySessionStartedContext context)
+        {
+            singleBuildingPauseHook?.RestoreFromSave(context);
+        }
+
         private void DisposeMovedFeatures()
         {
             reachableEnemyGatehouseRuntime?.Dispose();

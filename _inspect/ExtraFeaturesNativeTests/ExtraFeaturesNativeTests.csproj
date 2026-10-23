@@ -30,6 +30,12 @@
     <Compile Include="Program.cs" />
     <Compile Include="NoKillRewardContractTests.cs" />
     <Compile Include="HealerTargetsContractTests.cs" />
+    <Compile Include="FearFactorStubTests.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\FearFactorNativeDefinition.cs"><Link>FearFactorNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\ExtraFeatures\src\FearFactorNativeStubs.cs"><Link>FearFactorNativeStubs.cs</Link></Compile>
+    <Compile Include="..\..\ExtraFeatures\src\FearFactorNeutralizationPolicy.cs"><Link>FearFactorNeutralizationPolicy.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\HealerListBounds.cs"><Link>HealerListBounds.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\NoKillRewardStubContract.cs"><Link>NoKillRewardStubContract.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\NoKillRewardPolicy.cs"><Link>NoKillRewardPolicy.cs</Link></Compile>

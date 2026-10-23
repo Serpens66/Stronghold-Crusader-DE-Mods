@@ -1,0 +1,28 @@
+{
+  "GUID": "CanarariWoodTest_Serp",
+  "Author": "Serpens66",
+  "Name": "CanarariWoodTest",
+  "Description": "Explicit disposable-save experiments for Canari wood construction and farm-site contracts.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.11.0",
+  "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.6"
+    },
+    {
+      "GUID": "BugfixesAndQoL_Serp",
+      "MinimumVersion": "1.0.181"
+    },
+    {
+      "GUID": "AIBuildDiagnoseTest_Serp",
+      "MinimumVersion": "0.1.2"
+    }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.2"
+  ]
+}

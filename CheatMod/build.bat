@@ -1,11 +1,24 @@
 @echo off
 setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../." -Driver "CheatMod/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
 set "BUILD_DRIVER_NOPAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START CheatMod
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -22,7 +35,7 @@ exit /b 1
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -46,7 +59,7 @@ for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 rem Never touch build or installation output while the game has the plugin DLL loaded.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 goto game_running
+if not "%ERRORLEVEL%"=="0" goto game_running
 
 if not exist "%MSBUILD%" goto build_failed
 if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
@@ -61,7 +74,7 @@ if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
 "%MSBUILD%" CheatMod.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 echo [%date% %time%] Copy package files
@@ -74,17 +87,17 @@ if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 rem Overlay plugin files so saved LobbyModSettings survive development builds.
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
-if errorlevel 1 goto copy_failed
+if not "%ERRORLEVEL%"=="0" goto copy_failed
 if not exist "%GAME_PLUGIN_DIR%\CheatMod.dll" goto copy_verification_failed
 if not exist "%GAME_PLUGIN_DIR%\info.json" goto copy_verification_failed
 if not exist "%GAME_PLUGIN_DIR%\Override\ScriptExtenderUI\CheatModSettings.xaml" goto copy_verification_failed
 fc /B "%LOCAL_PLUGIN_DIR%\CheatMod.dll" "%GAME_PLUGIN_DIR%\CheatMod.dll" >nul
-if errorlevel 1 goto copy_verification_failed
+if not "%ERRORLEVEL%"=="0" goto copy_verification_failed
 fc /B "%LOCAL_PLUGIN_DIR%\info.json" "%GAME_PLUGIN_DIR%\info.json" >nul
-if errorlevel 1 goto copy_verification_failed
+if not "%ERRORLEVEL%"=="0" goto copy_verification_failed
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CheatMod
-if errorlevel 1 goto package_failed
+if not "%ERRORLEVEL%"=="0" goto package_failed
 
 echo Build und Installation von Cheat Mod erfolgreich.
 exit /b 0

@@ -1,0 +1,161 @@
+# Popularity contribution parameters
+
+Audit: 2026-10-16. Installed Native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The installed file matches CURRENT.json and the current-hash function records.
+Local SE source commit `5908e1f12437deb7ef5f5b1dc2d64e301178fba3`, tree
+`c238441ea12db35ee36c5c5668d3c8fce0897295`, matches database provenance.
+Installed SHCDESE assembly version: 2.14.1.0. Its GameGlobalsManager declarations
+were independently decompiled and the consumer type-checked against that DLL.
+
+## Audited path and scope
+
+Current-hash semantic records: resource scheduler 0xD1AD0 calls popularity updater
+0xCB090 outside the excluded app modes. The updater rebuilds church/cathedral
+counts through 0xCCD20, iterates player IDs 1..8, and checks player eligibility.
+Special app-mode branches assign fixed popularity; small-population protection
+can assign 7500 instead of executing the component block. These bypasses remain
+authoritative; configuring a contribution does not force those branches to run.
+
+The ordinary component block selects ration, food-variety, crowding and tax
+contributions, followed by fair, blessing/building, ale and fear contributions.
+The SE's existing inline replacement reads 41 ManagedValue<int> parameters for
+these contributions, 13 separate coverage/ratio thresholds, and publishes
+OnPlayerCalculatePopularity(Pre). This event is before subsequent native event
+penalties and the final clamp, not a final-popularity notification.
+
+The names above are semantic role descriptions. Generic database function names
+retain their candidate classification. The component branches, constants and
+managed replacement are supported by the current-hash decompiler records and
+the matching SE implementation; no new hook span or instruction claim is made.
+
+## Display scale and defaults
+
+Total popularity uses 100 internal units per displayed point (0..10000 internally).
+Component reports instead divide their signed contribution by 25; this is directly
+visible in the current managed FatControler consumer. Configuring component points
+therefore multiplies by 25, not 100.
+
+| Components | Defaults in report points |
+|---|---|
+| Rations None/Half/Full/Extra/Double | -8/-4/0/+4/+8 |
+| No preferred/available food; no population | -8; +8 |
+| Food variety exactly 2/3/4 types | +1/+2/+3 |
+| Crowding 101..120/121..140/141..160/161..180/>180% | -2/-4/-6/-8/-10 |
+| Taxes modes HugeDonation through Cruellest | +7/+5/+3/+1/-2/-4/-6/-8/-12/-16/-20/-24 |
+| Donation without positive gold; unknown mode | +1; -24 |
+| Fair event flag active | +16 |
+| Blessing 25..49/50..74/75..94/>=95% | +2/+4/+6/+8 |
+| At least one church; at least one cathedral | +1; +2 (additive, not per building) |
+| Ale coverage 25..49/50..74/75..99/100% | +2/+4/+6/+8 |
+| Fear coefficient, multiplied by signed fear boost | +1 per level |
+
+Ration-mode contribution requires positive population and preferred-food state;
+otherwise the separate fallback applies. Food variety is added independently.
+Donation selection requires positive gold for modes below None. Thresholds use
+strict > for religion (24/49/74/94), >= for ale (25/50/75/100), and strict > for
+overpopulation (100/120/140/160/180). Ale coverage helper 0xCEA90 computes the
+coverage from inn state and population and clamps to 0..100. Configuring the
+coefficient does not change those producers or thresholds.
+
+## Downstream effects and acceptance limits
+
+The replacement updates the normal contribution report fields, the current
+popularity accumulator and its worst-source selection, then resumes the remaining
+native path. Plague and other timed events continue afterwards; the existing
+BugfixesAndQoL plague correction at 0xCB57C remains outside this mod's ownership.
+Vanilla clamps the final total to 0..10000 and retains its popularity-change
+speech/history decisions. Report producer 0x19D960 independently recomputes component values using hardcoded
+Vanilla constants; it does NOT consume the SE replacement contribution fields.
+The original 2026-10-16 claim that these report fields followed SE values was incorrect.
+
+Religion also adds `(uint)combinedReligionContribution / 25` to
+`r_UnknownPopularityAccumulationByCurrentDividedBy25`. The SE preserves this
+unsigned native bookkeeping expression. A negative configured religion sum
+therefore has a large unsigned quotient in that auxiliary counter. Its gameplay
+meaning is unconfirmed; do not claim that negative religion values preserve all
+unrelated statistics. PopularityTest intentionally exposes the existing direct SE
+parameters and adds no correction hook. Negative modifiers' complete in-game
+effects and report presentation still require runtime acceptance.
+
+No game UI or real multiplayer acceptance is inferred from source/type checks.
+PopularityTest's independent catalog/UI checks compare all 41 SE defaults and
+exercise signed settings, persistence and anonymous-stack ownership separately.
+
+## Display-path correction audit (2026-10-17)
+
+Native hash above unchanged; managed SHA-256
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+Installed SE 2.14.2 still replaces the simulation block only. Latest game log:
+15:37:34 applied 17 overrides; 15:37:40 callback accumulator=10025 with 17 active
+(overall final delta is not logged). The earlier loaded save had zero overrides.
+
+Confirmed static flow: native 0x19D960 -> PlayStateReturnData ->
+EngineInterface.CopyPlayStateStruct -> GameMap -> GameData.setGameState ->
+FatControler.NoesisGUIUpdateChecksInGame -> public MainViewModel properties.
+The native report contains hardcoded contributions for all eight groups and builds
+upcoming_total_popularity from these plus the existing event amounts. Ration and
+tax modes incorporate the selected panel preview. food_types_available carries
+the same native preferred-food field used by the simulation. Fear uses the signed
+fear_factor. Crowding report amounts identify its selected tier (-50..-250).
+Religion coverage thresholds: 25/50/75/95, ale: 25/50/75/100.
+
+Vanilla church_adjustment (25/50/75) is copied from byte to sbyte and serves both
+as a numeric bonus and building identity for localized labels. Do not replace it
+with configurable values: signed/large settings overflow and break label dispatch.
+PopularityTest corrects only public HUD text properties after the existing
+APIShared GuiChecks publisher, preserving PlayState and native simulation.
+The report's zero-population ration value is zero whereas simulation uses +200;
+when that explicit fallback is enabled its absolute effective value is displayed.
+Thus that known Vanilla discrepancy is not a valid default-equality assertion.
+
+The GUI callback also owns the increase/decrease booleans and event-details-button
+visibility (the latter depends on the displayed event sum). Public text setters
+update their associated face icons. Panel wire values 16:{2,3,4,69,72,73,79} are
+Vanilla protocol constants; SE exposes no corresponding panel enum. Normal GUI
+checks also run paused. No new native hook ownership is introduced.
+
+Runtime acceptance of the correction, including multiplayer, remains pending.
+
+## Transfer to APIShared (2026-10-17)
+
+The user confirmed the original PopularityTest correction working in-game. The
+reusable calculator and presentation adapter now live in APIShared ScriptExtenderFixes.
+This transfer reads effective SE values independently of consumer toggles and only
+corrects values differing from Vanilla. Consequently the zero-population discrepancy
+above remains Vanilla when its SE modifier is unchanged. The 13 separate threshold
+parameters are outside this correction's scope. Simulation and override ownership
+remain unchanged. The transferred implementation still requires separate game,
+editor/save/load and real host/client acceptance; no installation is part of this task.
+
+## Fractional fear coefficients (2026-10-18)
+
+Same native fingerprint; the installed SE fingerprint audited for the managed adapter is
+`577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175`.
+The SE callback has two signed-boost multiplication paths (getter/GetValue, signed local,
+`mul`), then stores `r_GoodBadThingsPopularityModifier`, adds to the accumulator and
+compares with the previous worst component before publishing the Pre event. A correction
+only at that event is too late to preserve the worst-source decision. APIShared therefore
+changes just those managed multiplication instructions through one permanent adapter;
+no new native span is installed. It rounds signed level times exact decimal coefficient
+away from zero at midpoint ties, then multiplies whole report points by 25. No registration
+leaves the original unchecked SE product intact. Existing eligibility bypasses and later
+native events/clamp remain unchanged. Display correction uses that same calculator.
+Static installed-body generation and pure fixtures passed; actual Mono/game, editor,
+save/load and host/client acceptance remain outstanding for the new adapter.
+
+## Semantic SE compatibility (2026-10-18)
+
+The original SE hash above remains historical audit evidence. It no longer gates the
+rounded fear adapter. Startup discovers the owner from coefficient access plus native
+contribution storage, checks loaded/disk module identity, and analyzes CFG/stack/locals
+and ref/out resource-pointer provenance. All coefficient reads/products must reach the
+signed-fear multiplication and 32-bit contribution of the same player resources. Site
+count, generated carrier/method names, local encoding and operand order are not fixed.
+Unknown or ambiguous meaning fails closed; native game/report fingerprints remain their
+separate ABI boundaries. The game and native calculation audited earlier are unchanged.
+
+
+## 2026-10-18: managed IL operand representation
+
+The installed Extender fear method has two audited coefficient sites. Inside MonoMod ILContext.Invoke its branches use ILLabel/ILLabel[] operands; direct Cecil-only CFG traversal falsely reported unreachable coefficient access. APIShared now resolves and validates label targets without mutating operands. This is a managed-analysis correction; the hash-bound native formula, resource identity, signed input and hook sites remain unchanged. Offline regression invokes the real installed method through ILContext.Invoke; runtime gameplay acceptance is still required.

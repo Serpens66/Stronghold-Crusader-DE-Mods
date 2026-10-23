@@ -51,9 +51,9 @@ namespace BugfixesAndQoL
                 harmony.Patch(target, prefix: new HarmonyMethod(typeof(GatehouseTargetMarkerHeightHook), nameof(BeforeAddUpdatePixie)));
                 settings.SettingChanged += OnSettingChanged;
                 RefreshEnabled();
-                Shared.DebugLogHelper.LogInfo(log,
-                    "GATEHOUSE_TARGET_MARKER_INSTALLED: permanent GameMap prefix; enabled=" +
-                    (Volatile.Read(ref enabled) != 0));
+                    Shared.DebugLogHelper.LogInfo(log,
+                        "GATEHOUSE_TARGET_MARKER_INSTALLED: permanent GameMap prefix; enabled=" +
+                        (Volatile.Read(ref enabled) != 0));
             }
             catch (Exception exception) { FailOpen(exception); }
         }
@@ -74,13 +74,17 @@ namespace BugfixesAndQoL
         private static void BeforeAddUpdatePixie(GameMap __instance, int x, int y, int tile_x, ref int tile_y,
             int file, int image, bool hiMode, int _layerDelay)
         {
+            // Runs for every pixie each frame; only cursor file 107 can need a correction.
+            if (file != 107) return;
             try
             {
-                if (file == 107 && Interlocked.Exchange(ref postStartupLogged, 1) == 0)
-                    Shared.DebugLogHelper.LogInfo(log,
+                if (Volatile.Read(ref postStartupLogged) == 0 && Interlocked.Exchange(ref postStartupLogged, 1) == 0)
+                    {
+                            Shared.DebugLogHelper.LogInfo(log,
                         "GATEHOUSE_TARGET_MARKER_POST_STARTUP: first cursor pixie; image=" + image +
                         ", tile_x=" + tile_x + ", tile_y=" + tile_y + ", layerDelay=" + _layerDelay +
                         ", hiMode=" + hiMode + ", enabled=" + (Volatile.Read(ref enabled) != 0));
+                    }
                 if (Volatile.Read(ref enabled) == 0 ||
                     !GatehouseTargetMarkerHeightPolicy.IsMoveTarget(file, image, tile_x, hiMode)) return;
                 bool detailed = Marshal.ReadInt32(nativeBase + DetailedRenderingRva) != 0;
@@ -110,12 +114,14 @@ namespace BugfixesAndQoL
                         ? Interlocked.Exchange(ref clickCorrectionLogged, 1) == 0
                         : Interlocked.Exchange(ref correctionLogged, 1) == 0;
                     if (firstCorrection)
-                        Shared.DebugLogHelper.LogInfo(log,
+                        {
+                                Shared.DebugLogHelper.LogInfo(log,
                             "GATEHOUSE_TARGET_MARKER_APPLIED: family=" + (clickAnimation ? "ClickAnimation" : "Persistent") +
                             ", buildingId=" + buildingId +
                             ", type=" + (int)building->r_BuildingType + ", tile=" + tile.gameMapX + "/" + tile.gameMapY +
                             ", image=" + image + ", tile_x=" + tile_x + ", layerDelay=" + _layerDelay +
                             ", tile_y=" + originalHeight + " -> " + tile_y);
+                        }
                 }
             }
             catch (Exception exception) { FailOpen(exception); }

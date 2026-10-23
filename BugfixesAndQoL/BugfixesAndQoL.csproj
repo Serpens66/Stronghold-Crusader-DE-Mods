@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.192.0</AssemblyVersion>
-    <FileVersion>1.0.192.0</FileVersion>
+    <AssemblyVersion>1.0.199.0</AssemblyVersion>
+    <FileVersion>1.0.199.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -29,8 +29,19 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\BfqolNativeCache.cs" />
     <Compile Include="src\GatehouseTargetMarkerHeightPolicy.cs" />
     <Compile Include="src\GatehouseTargetMarkerHeightHook.cs" />
+    <Compile Include="src\VanillaPerformance\VanillaPerformanceFeature.cs" />
+    <Compile Include="src\VanillaPerformance\RadarRebindOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\MeritDataLockOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\EnginePresentationBridge.cs" />
+    <Compile Include="src\VanillaPerformance\EnginePresentationBridge.IL.cs" />
+    <Compile Include="src\VanillaPerformance\AchievementDataOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\SpriteSheetMergeOptimization.cs" />
+    <Compile Include="src\VanillaPerformance\SpriteSheetMergeMode.cs" />
+    <Compile Include="src\VanillaPerformance\MinimapRefreshThrottle.cs" />
+    <Compile Include="src\VanillaPerformance\RadarThrottlePolicy.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />
@@ -66,6 +77,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\Runtime\Gameplay\SelectedChimpsSnapshotPolicy.cs"><Link>Shared\Runtime\Gameplay\SelectedChimpsSnapshotPolicy.cs</Link></Compile>
+    <Compile Include="src\SavegameMissingMap\SavegameFix.cs" />
+    <Compile Include="src\SavegameMissingMap\RuntimeStartup.cs" />
+    <Compile Include="src\SavegameMissingMap\SavegameMissingMapFeature.cs" />
+    <Compile Include="src\SavegameMissingMap\SavegameMissingMapDiagnostics.cs" />
     <Compile Include="src\LocalSelectionSnapshot.cs" />
     <Compile Include="src\AiRaidRetargetFixRuntime.cs" />
     <Compile Include="src\RaidActivationState.cs" />
@@ -77,13 +92,20 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs"><Link>Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs"><Link>Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs"><Link>Shared\Runtime\UI\CoopTrailSetupPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>Shared\Runtime\Native\NativeBuildingCompoundGroup.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativeResolutionCache.cs"><Link>Shared\Runtime\Native\NativeResolutionCache.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativeInstructionOperands.cs"><Link>Shared\Runtime\Native\NativeInstructionOperands.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
     <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
+    <Compile Include="src\LobbySaveLoadingPolicy.cs" />
+    <Compile Include="src\LobbySaveLoadingIl.cs" />
+    <Compile Include="src\LobbySaveLoadingFeature.cs" />
     <Compile Include="src\AIPreplacedBuildingFixPolicy.cs" />
     <Compile Include="src\AIPreplacedBuildingFixRuntime.cs" />
     <Compile Include="src\AiWoodBuildCallScope.cs" />
@@ -135,6 +157,8 @@
     <Compile Include="src\BugfixesAndQoLRuntime.MovedFeatures.cs" />
 
     <Compile Include="src\BugfixesHookInfrastructure.cs" />
+    <Compile Include="src\DemandGatedContextHook.cs" />
+    <Compile Include="src\HookInstallPhase.cs" />
     <Compile Include="src\PermanentInstructionSkipPatch.cs" />
     <Compile Include="src\NativeInstructionReplayEmitter.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />
@@ -178,6 +202,8 @@
     <Compile Include="src\ControlGroupNativeDefinition.cs" />
     <Compile Include="src\CoopCustomLordSelectionFeature.cs" />
     <Compile Include="src\CoopCustomLordSelectionPolicy.cs" />
+    <Compile Include="..\Shared\Runtime\Gameplay\CoopAiSelectionRules.cs"><Link>Shared\Runtime\Gameplay\CoopAiSelectionRules.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\CoopAiStartPlanFactory.cs"><Link>Shared\Adapters\APIShared\CoopAiStartPlanFactory.cs</Link></Compile>
     <Compile Include="src\CustomLordLobbyUtility.cs" />
     <Compile Include="src\CustomTrailExtremeGoldFixHook.cs" />
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
@@ -194,6 +220,9 @@
     <Compile Include="src\WorkshopIdleDelayHook.cs" />
     <Compile Include="src\WorkshopIdleDelayNative.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
+    <Compile Include="src\ModSettingsPresentation.cs" />
+    <Compile Include="src\ModSettingsPresentation.Topics.cs" />
+    <Compile Include="src\ModSettingsPresentation.Recommendations.cs" />
     <Compile Include="src\KeepFlagRotationPolicy.cs" />
     <Compile Include="src\KeepFlagRotationRuntime.cs" />
     <Compile Include="src\CorruptLordDataSpawnPolicy.cs" />
@@ -205,6 +234,7 @@
     <Compile Include="src\NotificationSkipBehavior.cs" />
     <Compile Include="src\NotificationSkipFeature.cs" />
     <Compile Include="src\NotificationLastFrameFeature.cs" />
+    <Compile Include="src\NotificationSpeechPlayback.cs" />
     <Compile Include="src\NotificationSkipPolicy.cs" />
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueModel.cs" />
@@ -255,6 +285,8 @@
     <Compile Include="src\PlagueApothecaryStateTransitionFix.cs" />
     <Compile Include="src\PlagueNativePatternValidator.cs" />
     <Compile Include="src\PlaguePopularitySaveState.cs" />
+    <Compile Include="src\FeatureSaveStates.cs" />
+    <Compile Include="src\SessionSaveRecordSlot.cs" />
     <Compile Include="src\PlacementCancelMoveSuppressionFeature.cs" />
     <Compile Include="src\PlacementCancelRightClickPolicy.cs" />
     <Compile Include="src\RandomOpponentLobbyPolicy.cs" />
@@ -264,12 +296,16 @@
     <Compile Include="src\QuarryKeepCenterPolicy.cs" />
     <Compile Include="src\QuarryPileTargetSelectionPolicy.cs" />
     <Compile Include="src\ReachableEnemyGatehouseRuntime.cs" />
+    <Compile Include="src\SimulationRunScope.cs" />
+    <Compile Include="src\GatehouseFootprintGeometryCache.cs" />
     <Compile Include="src\SynchronizedGatehouseReachabilityPolicy.cs" />
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />
     <Compile Include="src\SelectedUnitHealthFeature.cs" />
     <Compile Include="src\ForeignTroopHudRuntime.cs" />
     <Compile Include="src\ForeignTroopHudView.cs" />
+    <Compile Include="src\ForeignTroopPortraits.cs" />
+    <Compile Include="src\ForeignTroopPlayerColors.cs" />
     <Compile Include="src\BuildPreview\*.cs" />
     <Compile Include="src\DamagedHealthBarsRuntime.cs" />
     <Compile Include="src\HealthBarNativeContract.cs" />
@@ -336,13 +372,12 @@
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs"><Link>Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\GameBuildingFootprint.cs"><Link>Shared\Runtime\Native\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\AiSettingsHelpHover.cs"><Link>Shared\Runtime\UI\AiSettingsHelpHover.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayout.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayout.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
@@ -361,14 +396,14 @@
   <ItemGroup><Compile Include="..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs"><Link>Shared\TemporaryPackedRouteInspection.cs</Link></Compile></ItemGroup>
 
   <ItemGroup>
-    <Compile Include="src\GateRouting\AssassinGateDescentRule.cs" />
-    <Compile Include="src\GateRouting\AssassinGateDescentRuntime.cs" />
-    <Compile Include="src\GateRouting\AttackOrderCorrelationDiagnostics.cs" />
+    <Compile Include="src\Assassins\AssassinGateDescentRule.cs" />
+    <Compile Include="src\Assassins\AssassinGateDescentRuntime.cs" />
     <Compile Include="src\GateRouting\BuildingSearchPlayerResolver.cs" />
     <Compile Include="src\GateRouting\CaptureTransitionDiagnostics.cs" />
     <Compile Include="src\GateRouting\ConnectedGateFootprint.cs" />
     <Compile Include="src\GateRouting\CursorPreviewCache.cs" />
     <Compile Include="src\GateRouting\DeferredGateDiagnosticErrors.cs" />
+    <Compile Include="src\GateRouting\IntegrityErrorFlushGate.cs" />
     <Compile Include="src\GateRouting\EnemyGatePathfindingPolicy.cs" />
     <Compile Include="src\GateRouting\EnemyGatePathfindingRuntime.cs" />
     <Compile Include="src\GateRouting\FunctionalGatePolicyAdapter.cs" />
@@ -378,21 +413,14 @@
     <Compile Include="src\GateRouting\GateRoutePolicySource.cs" />
     <Compile Include="src\GateRouting\GateSearchEvidence.cs" />
     <Compile Include="src\GateRouting\GateTopologySnapshotProvider.cs" />
-    <Compile Include="src\GateRouting\MacemenCommandDiagnostics.cs" />
-    <Compile Include="src\GateRouting\MacemenDiagnosticAggregate.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinDiagnosticHooks.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinMovementDiagnostics.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinMovementDiagnostics.Read.cs" />
-    <Compile Include="src\GateRouting\NativeAssassinTrace.cs" />
     <Compile Include="src\GateRouting\PathfindingGlobalsBaseline.cs" />
     <Compile Include="src\GateRouting\RouteTilePolicySnapshot.cs" />
     <Compile Include="src\GateRouting\SamePclGateRouteRuntime.cs" />
     <Compile Include="src\GateRouting\SparseBuildingFootprint.cs" />
-    <Compile Include="src\GateRouting\TemporaryGateAcceptanceAggregate.cs" />
-    <Compile Include="src\GateRouting\TemporaryGateCaptureTimeline.cs" />
-    <Compile Include="src\GateRouting\TemporaryGateRouteAcceptance.cs" />
     <Compile Include="src\GateRouting\PathDecisionAggregate.cs" />
     <Compile Include="..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" />
   </ItemGroup>
 <ItemGroup><Compile Include="src\GateRouting\GateRoutingFeature.cs" /><Compile Include="src\GateRouting\GateDiagnosticConfiguration.cs" /></ItemGroup>
+<ItemGroup><Compile Include="src\Assassins\AssassinGatehouseDescentFeature.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="src\PermanentNativeSwitch.cs"/><Compile Include="src\NativeSwitchCatalog.cs"/></ItemGroup>
 </Project>

@@ -45,7 +45,10 @@ namespace UnitLimit
                     .Subscribe(OnBuildingDelete));
 
                 subscribed = true;
-                LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:48", "ActiveSiegeTentCache hooks subscribed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:48", "ActiveSiegeTentCache hooks subscribed.");
+                }
             }
             catch
             {
@@ -104,7 +107,10 @@ namespace UnitLimit
                     CreateCountChangeEvents(oldCounts, countsByOwnerAndUnit, ref events, ActiveSiegeTentChangeReason.Resync);
             }
 
-            LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:107", "ActiveSiegeTentCache ResyncAll:", "countKeys", countsByOwnerAndUnit.Count);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:107", "ActiveSiegeTentCache ResyncAll:", "countKeys", countsByOwnerAndUnit.Count);
+            }
             RaiseEvents(events);
         }
 
@@ -340,7 +346,10 @@ namespace UnitLimit
                 countsByOwnerAndUnit.Clear();
             }
 
-            LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:343", "ActiveSiegeTentCache cleared.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveSiegeTentCache.cs:343", "ActiveSiegeTentCache cleared.");
+            }
         }
 
         private void LogDebug(string site, params object[] parts)
@@ -389,7 +398,8 @@ namespace UnitLimit
             }
         }
 
-        private struct SiegeTentCountKey
+        // IEquatable avoids boxing on every dictionary lookup (per GUI check and unit event).
+        private struct SiegeTentCountKey : IEquatable<SiegeTentCountKey>
         {
             public readonly int PlayerId;
             public readonly eChimps UnitType;
@@ -400,13 +410,9 @@ namespace UnitLimit
                 UnitType = unitType;
             }
 
-            public override bool Equals(object obj)
-            {
-                if (!(obj is SiegeTentCountKey other))
-                    return false;
+            public bool Equals(SiegeTentCountKey other) => PlayerId == other.PlayerId && UnitType == other.UnitType;
 
-                return PlayerId == other.PlayerId && UnitType == other.UnitType;
-            }
+            public override bool Equals(object obj) => obj is SiegeTentCountKey other && Equals(other);
 
             public override int GetHashCode()
             {

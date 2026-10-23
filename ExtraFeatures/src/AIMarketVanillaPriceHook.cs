@@ -15,7 +15,7 @@ namespace ExtraFeatures
         {
             if (!MarketPriceEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "ai-default-market-prices", OnPrice, null, out string reason))
                 throw new InvalidOperationException(reason);
-            log?.LogInfo("Extra Features AI market policy registered with APIShared; native helpers have one process owner.");
+            Shared.DebugLogHelper.LogInfo(log, "Extra Features AI market policy registered with APIShared; native helpers have one process owner.");
         }
         public void Dispose() { disposed = true; }
         internal void SetSessionOverride(bool enabled) { useVanillaAIPricesForSession = enabled; }

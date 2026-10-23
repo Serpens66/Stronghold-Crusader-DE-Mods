@@ -34,6 +34,8 @@ namespace ExtraFeatures
 
         private readonly Dictionary<int, PendingKnightTransformation> pendingTransformations =
             new Dictionary<int, PendingKnightTransformation>();
+        // Ordered copy of the pending keys; UpdatePendingTransformations is never re-entered.
+        private readonly List<int> pendingGlobalIdBuffer = new List<int>();
         private readonly HashSet<int> pendingSelectionRequestIds = new HashSet<int>();
         private readonly HashSet<int> pendingSelectionTransferIds = new HashSet<int>();
         private int pendingSelectionTransferTicks;
@@ -98,7 +100,10 @@ namespace ExtraFeatures
                     persistentSaveHook = saveCandidate;
                     PersistentSubscriptions.AddRange(subscriptionCandidates);
                     activeRuntime = this;
-                    LogDebug("Knight transformation persistent Stop/Save/movement/visual infrastructure installed.");
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("Knight transformation persistent Stop/Save/movement/visual infrastructure installed.");
+                    }
                 }
                 catch
                 {
@@ -195,8 +200,9 @@ namespace ExtraFeatures
         private static void PersistentVisualInterpolate(UnitUnityVisualInterpolateEventArgs args)
         {
             KnightDismountRuntime runtime = activeRuntime;
-            if (runtime != null && runtime.IsPendingRuntimeActive() &&
-                runtime.pendingTransformations.Count != 0 && args?.Chimp != null)
+            // Runs per visible unit per frame: the empty-queue test comes first.
+            if (runtime != null && runtime.pendingTransformations.Count != 0 &&
+                args?.Chimp != null && runtime.IsPendingRuntimeActive())
                 runtime.UpdateProgressVisual(args.Chimp);
         }
 
@@ -367,7 +373,10 @@ namespace ExtraFeatures
             if (delaySeconds == 0 && started > 0)
                 UpdatePendingTransformations();
 
-            LogDebug($"Knight transformation pending batch: reason={reason}, action={action}, requested={ordered.Count}, affordable={affordableCount}, started={started}, goldCost={goldCost}, delaySeconds={delaySeconds}.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Knight transformation pending batch: reason={reason}, action={action}, requested={ordered.Count}, affordable={affordableCount}, started={started}, goldCost={goldCost}, delaySeconds={delaySeconds}.");
+            }
         }
 
         private void PlayMissingGoldSpeech()
@@ -391,20 +400,22 @@ namespace ExtraFeatures
             if (pendingTransformations.Count == 0)
                 return;
 
-            int[] globalIds = new int[pendingTransformations.Count];
-            pendingTransformations.Keys.CopyTo(globalIds, 0);
-            Array.Sort(globalIds);
+            // Runs every tick while transformations wait; reuse the ordered key buffer.
+            pendingGlobalIdBuffer.Clear();
+            pendingGlobalIdBuffer.AddRange(pendingTransformations.Keys);
+            pendingGlobalIdBuffer.Sort();
+            int examinedCount = pendingGlobalIdBuffer.Count;
             int readyCount = 0;
             int completedCount = 0;
             int cancelledCount = 0;
-            var selectionTransfers = new List<int>();
-            for (int index = 0; index < globalIds.Length; index++)
+            List<int> selectionTransfers = null;
+            for (int index = 0; index < examinedCount; index++)
             {
-                int globalId = globalIds[index];
+                int globalId = pendingGlobalIdBuffer[index];
                 if (!pendingTransformations.TryGetValue(globalId, out PendingKnightTransformation pending))
                     continue;
 
-                int currentUnitId = FindAliveUnitIdByGlobalId(globalId);
+                int currentUnitId = FindAliveUnitIdByGlobalId(globalId, pending.Snapshot.UnitId);
                 if (currentUnitId <= 0)
                 {
                     // Vanilla death/deletion owns the low-level link invalidation and stable recount.
@@ -444,7 +455,7 @@ namespace ExtraFeatures
                     FinishPending(pending);
                     completedCount++;
                     if (selectedReplacementUnitId > 0)
-                        selectionTransfers.Add(selectedReplacementUnitId);
+                        (selectionTransfers ?? (selectionTransfers = new List<int>())).Add(selectedReplacementUnitId);
                 }
                 else
                 {
@@ -453,13 +464,17 @@ namespace ExtraFeatures
                 }
             }
 
-            PublishSelectionTransfers(selectionTransfers);
+            if (selectionTransfers != null)
+                PublishSelectionTransfers(selectionTransfers);
 
             if (readyCount > 0 || cancelledCount > 0)
             {
-                LogDebug(
-                    $"Knight transformation pending update: examined={globalIds.Length}, ready={readyCount}, " +
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(
+                    $"Knight transformation pending update: examined={examinedCount}, ready={readyCount}, " +
                     $"completed={completedCount}, cancelled={cancelledCount}, remaining={pendingTransformations.Count}.");
+                }
             }
         }
 
@@ -507,9 +522,12 @@ namespace ExtraFeatures
             if (transferSelection)
                 selectedReplacementUnitId = knightUnitId;
 
-            LogDebug(
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
                 $"Knight mount completed: reason={reason}, sourceGlobalId={pending.Snapshot.GlobalId}, " +
                 $"knightUnitId={knightUnitId}, stableId={allocation.StableId}, slot={allocation.Slot}.");
+            }
             return true;
         }
 
@@ -834,7 +852,7 @@ namespace ExtraFeatures
 
             if (releaseReservedHorse && pending.HasHorseAllocation)
             {
-                int unitId = FindAliveUnitIdByGlobalId(pending.Snapshot.GlobalId);
+                int unitId = FindAliveUnitIdByGlobalId(pending.Snapshot.GlobalId, pending.Snapshot.UnitId);
                 if (unitId > 0)
                     ReleaseExactHorseLink(pending.Allocation, unitId, pending.Snapshot.GlobalId, reason);
             }
@@ -1007,7 +1025,10 @@ namespace ExtraFeatures
 
             int currentTick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
             deferredSaveReadyAfterTick = (long)currentTick + 1L;
-            LogDebug($"Knight transformation save cleanup completed; save deferred until tick {deferredSaveReadyAfterTick}.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Knight transformation save cleanup completed; save deferred until tick {deferredSaveReadyAfterTick}.");
+            }
         }
 
         private void TryCompleteDeferredSave(int currentTick)

@@ -15,10 +15,7 @@ namespace UnitLimit
     public sealed partial class UnitLimitRuntime
     {
         private static bool IsUnitLimitModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                UnitLimitPlugin.PluginGuid,
-                Shared.GameplayFeatureId.UnitLimitEnforcement,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(UnitLimitPlugin.PluginGuid, Shared.GameplayFeatureId.UnitLimitEnforcement);
 
         private static bool IsLocalPlayer(int playerId)
         {
@@ -42,7 +39,10 @@ namespace UnitLimit
                 string[] parts = line.Split(new[] { '=' }, 2);
                 if (parts.Length != 2)
                 {
-                    LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:45", "Invalid setting line:", line);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:45", "Invalid setting line:", line);
+                    }
                     continue;
                 }
 
@@ -50,13 +50,19 @@ namespace UnitLimit
                 string amountText = parts[1].Trim();
                 if (!Enum.TryParse(enumName, true, out TEnum enumValue))
                 {
-                    LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:53", "Unknown enum value:", enumName);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:53", "Unknown enum value:", enumName);
+                    }
                     continue;
                 }
 
                 if (!int.TryParse(amountText, out int amount))
                 {
-                    LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:59", "Invalid amount for", enumName, ":", amountText);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:59", "Invalid amount for", enumName, ":", amountText);
+                    }
                     continue;
                 }
 

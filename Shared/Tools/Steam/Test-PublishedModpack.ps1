@@ -10,7 +10,8 @@ function Check($Ok,$Message){if(-not $Ok){throw $Message};$script:checks++}
 function Reject([scriptblock]$Action){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Check $failed 'Expected rejection'}
 function Put($Path,$Text){[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path));[IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))}
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/published-upload-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedModpack'
 $root=Join-Path $fixture 'repository';[void][IO.Directory]::CreateDirectory($root)
 $init=Invoke-ApiRepositoryProcess 'git' @('init','--initial-branch=main',$root);Check ($init.ExitCode -eq 0) 'Init'
 function Git([string[]]$Arguments){Invoke-ApiRepositoryGit $root $Arguments}
@@ -36,7 +37,7 @@ try{
     }
 }finally{$zip.Dispose()}
 $apiCommit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d'
-$provenance=[pscustomobject]@{Pack='SerpsMods';PackGuid='SerpsMods_Serp';Version='1.0.28';Commit=$commit;ApiSharedCommit=$apiCommit;ApiSharedMainCommit=$apiCommit;
+$provenance=[pscustomobject]@{Pack='SerpsMods';PackGuid='SerpsMods_Serp';Version='1.0.28';Commit=$commit;ApiSharedCommit=$apiCommit;ApiSharedMainCommit=$apiCommit;Infrastructure=@(@{Guid='APIShared_Serp';Version='0.9.2';SourceCommit=$apiCommit;ReleaseTag='APIShared/v0.9.2';PackageSha256=('a'*64)});
     Map=@{File='SerpsMods.map';Sha256=$mapHash;Size=(Get-Item (Join-Path $remote 'SerpsMods.map')).Length};
     Workshop=@{File='SerpsMods-Workshop-v1.0.28.zip';Sha256=(Get-WorkshopFileHash $zipPath)}}
 Write-SteamWorkshopJson (Join-Path $remote 'SerpsMods.provenance.json') $provenance

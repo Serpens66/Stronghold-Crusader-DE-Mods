@@ -31,6 +31,8 @@ namespace BepInEx.Configuration {
     }
     public class ConfigFile {
         public string ConfigFilePath=>"__missing_formation_fixture__.cfg";
+        // The fixture entries do not auto-save, so the production code must save explicitly.
+        public bool SaveOnConfigSet { get; set; }
         public readonly Dictionary<string,object> Entries=new Dictionary<string,object>();
         public Dictionary<string,object> Stored=new Dictionary<string,object>();
         public ConfigEntry<T> Bind<T>(string section,string key,T initial,object description) {
@@ -93,7 +95,7 @@ namespace SHCDESE.API {
 }
 namespace APIShared.Internal {
     public static class UnityMainThreadDispatch { public static void TryRunInlineOrEnqueue(Action a)=>a(); }
-    public static class DebugLogHelper {
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
         public static bool IsCurrentNativeLibraryVersion()=>true;
         public static void LogDebugLimited(ManualLogSource l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource l,string m) {}
         public static void LogWarningLimited(ManualLogSource l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource l,string m) {}
@@ -102,7 +104,7 @@ namespace APIShared.Internal {
 }
 namespace Shared {
     public static class UnityMainThreadDispatch { public static void TryRunInlineOrEnqueue(Action a)=>a(); }
-    public static class DebugLogHelper {
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
         public static bool IsCurrentNativeLibraryVersion()=>true;
         public static void LogDebugLimited(ManualLogSource l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource l,string m) {}
         public static void LogWarningLimited(ManualLogSource l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource l,string m) {}
@@ -116,6 +118,7 @@ namespace BugfixesAndQoL.UnitCommands {
         internal static FormationRuntime Last; internal static bool ThrowOnInitialize;
         private readonly BugfixesAndQoL.BugfixesAndQoLViewModel settings; internal bool Failed;
         internal bool Enabled=>!Failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
+        internal bool LocalInputEnabled=>Enabled;
         internal FormationRuntime(ManualLogSource l,SHCDESE.API.LowLevel.CrusaderLibraryLoadContext c,
             ConfigEntry<FormationKind> k,ConfigEntry<int> d,ConfigEntry<RangedPlacementMode> p,
             IFormationPresentation m,BugfixesAndQoL.BugfixesAndQoLViewModel s,object commands,object markers) { settings=s;Last=this; }

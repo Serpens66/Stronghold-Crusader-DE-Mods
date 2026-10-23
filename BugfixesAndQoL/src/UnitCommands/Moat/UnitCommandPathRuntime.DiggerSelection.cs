@@ -28,7 +28,7 @@ namespace BugfixesAndQoL.UnitCommands
         // Mirrors the per-unit switch in Vanilla's DigMoatTileId (command 6) handler.
         // There is no generic capability field in that command path.
         internal bool CanDigMoat(GameUnit* unit) =>
-            settings.EnableMod && (ExtensionsEnabled || settings.EnableImprovedMoatFilling || settings.EnableLadderAttackPathfindingFix) && unit != null && CanDigMoat(unit->r_UnitChimp);
+            (ExtensionsEnabled || (settings.EnableMod && (settings.EnableImprovedMoatFilling || settings.EnableLadderAttackPathfindingFix))) && unit != null && CanDigMoat(unit->r_UnitChimp);
 
         internal static bool CanDigMoat(eChimps type)
         {
@@ -89,24 +89,6 @@ namespace BugfixesAndQoL.UnitCommands
             }
 
             return false;
-        }
-
-        internal void LogDiggerDecision(
-            string source, int unitId, GameUnit* unit, int targetX, int targetY,
-            bool accepted, bool friendlyMoatRequired = false)
-        {
-            if (unit == null)
-                return;
-            string key = $"{mapEpoch}:{source}:{unit->r_UnitChimp}:{unit->r_AI_LastIssuedTribeCommand}:" +
-                $"{targetX}:{targetY}:{accepted}:{friendlyMoatRequired}";
-            if (!loggedDiggerDecisions.Add(key))
-                return;
-            LogCommandDiagnostic(
-                $"stage=vanilla-digger source={source} unit={unitId} " +
-                $"type={unit->r_UnitChimp} command=" +
-                $"{(TribeAICommand)unit->r_AI_LastIssuedTribeCommand} " +
-                $"target=({targetX},{targetY}) accepted={accepted} " +
-                $"friendlyMoatRequired={friendlyMoatRequired}");
         }
 
     }

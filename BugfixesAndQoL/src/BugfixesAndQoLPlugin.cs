@@ -12,11 +12,12 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.9.0")]
+    [BepInDependency(ApiSharedGuid, "0.12.6")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("SavegameMissingMapFixTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("AIKeepRangeLimitTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
     [BepInIncompatibility(TroopMovementFix2Guid)]
@@ -43,7 +44,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.192";
+        public const string PluginVersion = "1.0.199";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -70,6 +71,7 @@ namespace BugfixesAndQoL
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             TrailCustomizationLaunchOriginApi.RegisterModeProvider();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
@@ -92,6 +94,7 @@ namespace BugfixesAndQoL
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
             steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
             FormationFeature.Configure(Logger, Config, Settings);
@@ -103,7 +106,7 @@ namespace BugfixesAndQoL
                 Logger);
             if (skirmishGameOptionsCompatible)
             {
-                skirmishGameOptionsRuntime = new SkirmishGameOptionsRuntime(Logger);
+                skirmishGameOptionsRuntime = new SkirmishGameOptionsRuntime(Logger, Settings);
             }
             else
             {
@@ -190,6 +193,20 @@ namespace BugfixesAndQoL
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
             {
+            // Initial native installation window (see BugfixesHookInfrastructure.DetourBackend).
+            HookInstallPhase.InitialLibraryLoad = true;
+            bool completed;
+            try { completed = InitializeLibraryRuntime(context); }
+            finally { HookInstallPhase.InitialLibraryLoad = false; }
+            // A fail-closed stop inside the runtime initialization leaves the breadcrumb incomplete, as before.
+            if (!completed) return;
+            diagnostic.Complete();
+            }
+        }
+
+        // Runs inside the initial native installation window; false = stopped fail-closed.
+        private bool InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
+        {
             // Register packet types immediately after Script Extender and before settings can vary.
             try
             {
@@ -218,15 +235,16 @@ namespace BugfixesAndQoL
             {
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     Settings,
-                    "ScriptExtenderUI/BugfixesAndQoLSettings.xaml");
+                    "ScriptExtenderUI/BugfixesAndQoLSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:242", $"Bugfixes and QoL settings registration failed; gameplay runtime stopped fail-closed: {ex}");
-                return;
+                return false;
             }
 
             try
@@ -328,6 +346,14 @@ namespace BugfixesAndQoL
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {
+                VanillaPerformance.VanillaPerformanceFeature.Install(Logger, Settings, context);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:353", "BUGFIXES_AND_QOL_VANILLA_PERFORMANCE_DISABLED: Vanilla behavior retained; " + ex);
+            }
+            try
+            {
                 if (damagedHealthBarsRuntime == null)
                     damagedHealthBarsRuntime = DamagedHealthBarsRuntime.Install(context, Logger, Settings);
             }
@@ -359,7 +385,7 @@ namespace BugfixesAndQoL
                         context.ModuleHandle,
                         context.Region,
                         context.Memory,
-                        currentNative);
+                        currentNative, Settings);
                     skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(true);
                 }
                 catch (Exception ex)
@@ -377,7 +403,7 @@ namespace BugfixesAndQoL
                             context.ModuleHandle,
                             context.Region,
                             context.Memory,
-                            currentNative);
+                            currentNative, Settings);
                         skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(true);
                     }
                     catch (Exception ex)
@@ -424,8 +450,9 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:455", $"Bugfixes and QoL settings reconciliation failed; already initialized features remain active: {ex}");
             }
-            diagnostic.Complete();
-            }
+            // Results of a one-time native fallback (unknown game build) are reused on the next start.
+            BfqolNativeCache.Save();
+            return true;
         }
 
         private static bool HasLegacyExtraFeaturesPeaceTimeSetting()

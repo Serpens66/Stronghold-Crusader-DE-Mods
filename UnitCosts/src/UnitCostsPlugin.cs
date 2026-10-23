@@ -11,7 +11,7 @@ namespace UnitCosts
     [BepInDependency(CrusaderDeTweakerGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(UnitLimitGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.6.0")]
+    [BepInDependency("APIShared_Serp", "0.13.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitCostsPlugin : BaseUnityPlugin
     {
@@ -21,7 +21,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.36";
+        public const string PluginVersion = "1.0.38";
 
         private UnitCostsRuntime runtime;
         private static UnitCostsRuntime activeRuntime;
@@ -31,6 +31,7 @@ namespace UnitCosts
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
 
             Settings = new UnitCostsLobbyViewModel();
             runtime = new UnitCostsRuntime(Logger, Settings);
@@ -53,10 +54,11 @@ namespace UnitCosts
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "UnitCosts_Serp",
                     Settings,
-                    "ScriptExtenderUI/UnitCostsSettings.xaml");
+                    "ScriptExtenderUI/UnitCostsSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {
@@ -67,10 +69,6 @@ namespace UnitCosts
             TryInitializeStage("notification overlay binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
                     "UnitCostsNotificationOverlay",
                     runtime.Notification));
-            TryInitializeStage("siege notification binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitCostsSiegeNotificationInlineHost",
-                    runtime.Notification));
-            TryInitializeStage("recruitment tooltip bindings", RegisterRecruitmentCostTooltipBindings);
 
             try
             {
@@ -88,36 +86,9 @@ namespace UnitCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:91", $"UnitCosts {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"UnitCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
 
-        private void RegisterRecruitmentCostTooltipBindings()
-        {
-            string[] bindingTargets =
-            {
-                "UnitCostsTroopCostsInlineHost",
-                "UnitCostsArabTroopCostsInlineHost",
-                "UnitCostsBedouinTroopCostsInlineHost",
-                "UnitCostsEngineersCostsInlineHost",
-                "UnitCostsTunellersCostsInlineHost",
-                "UnitCostsMonkCostsInlineHost",
-                "UnitCostsSiegeBuildCostsInlineHost",
-            };
-
-            foreach (string bindingTarget in bindingTargets)
-            {
-                try
-                {
-                    GameXAMLManagerAPI.Instance.RegisterBinding(
-                        bindingTarget,
-                        runtime.RecruitmentCostTooltip);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:118", $"UnitCosts tooltip binding '{bindingTarget}' failed; remaining bindings continue: {ex}");
-                }
-            }
-        }
     }
 }

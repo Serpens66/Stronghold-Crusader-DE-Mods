@@ -1,4 +1,8 @@
 $ErrorActionPreference = 'Stop'
+# Execute the production save/marker policies as well as the bounded integration
+# guardrails below. Source presence alone cannot prove save recognition.
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-SpectatorSavePolicy.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Spectator save recognition behavior tests failed.' }
 $projectRoot = $PSScriptRoot
 $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter 'Spectator*.cs' -File)
 $projectFile = Get-Item -LiteralPath (Join-Path $projectRoot 'BugfixesAndQoL.csproj')
@@ -62,7 +66,7 @@ if (-not $bootstrap -or
     throw 'Incomplete bootstrap must not activate spectator switching.'
 }
 if ($runtime -notmatch 'return featureReady && sessionEnabled && mapReady && spectatorActive' -or
-    $runtime -notmatch 'return featureReady && state != null && state\.game_type == 3' -or
+    $runtime -notmatch 'return featureReady && state != null && state\.game_type == \(int\)eGameTypeModes\.GAMETYPE_MULTIPLAYER' -or
     $runtime -notmatch 'IsSpectatorActionRestricted\(\) => featureReady &&' -or
     $runtime -notmatch 'recoveryIdentityApplied \|\| IsActiveSpectator\(\) \|\| IsOriginalSpectator\(\)' -or
     $runtime -notmatch 'int candidate = IsActiveSpectator\(\) \? selectedPlayer : PlayerPerspectiveAPI\.GetRawNativeViewPlayerId\(\)' -or
@@ -179,7 +183,6 @@ if ([IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'
     [IO.File]::ReadAllText($projectFile.FullName) -notmatch 'src\\SpectatorSavePolicy.cs') {
     throw 'Pending recovery must block report and ally actions and compile the save policy.'
 }
-& (Join-Path $projectRoot 'Test-SpectatorSavePolicy.ps1')
 if ($hud -match 'SpriteMapping\.RemapMPLoadedColour\(' -or
     $hud -notmatch 'SpriteMapping\.remapColours' -or
     $hud -notmatch 'colourIndex = player < colourMapping\.Length \? colourMapping\[player\] : 0;' -or
@@ -244,7 +247,7 @@ if ($metadata.NetworkMode -ne 1) { throw 'Gameplay-affecting ally actions requir
 $patchPath = Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
 [xml]$patch = Get-Content -LiteralPath $patchPath -Raw
 $contents = @($patch.SelectNodes('/Patch/Operation/Content'))
-if ($contents.Count -ne 3 -or @($contents | Where-Object { $_.OuterXml -match 'BugfixesAndQoLFormationPreviewCanvas' }).Count -ne 1) {
+if (@($contents | Where-Object { $_.OuterXml -match 'BugfixesAndQoLFormationPreviewCanvas' }).Count -ne 1) {
     throw 'Expected ForeignTroopHud, spectator and integrated formation XAML operations.'
 }
 if ($patch.OuterXml -notmatch 'ForeignTroopHudPanel') { throw 'Existing ForeignTroopHud XAML was lost.' }

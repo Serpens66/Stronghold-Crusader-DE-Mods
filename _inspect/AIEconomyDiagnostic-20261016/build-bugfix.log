@@ -1,0 +1,119 @@
+[16.10.2026 16:46:09,08] START BugfixesAndQoL
+[16.10.2026 16:46:09,08] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: BugfixesAndQoL, APIShared and explicit project/source dependencies.
+[Preflight] Checking 24 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 24 projects, 535 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 2 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Checking centralized UnitAccess contract...
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.
+PASS: 643 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 10,7s.
+[Preflight] Completed in 29,4s.
+PASS: 7 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[16.10.2026 16:46:38,74] PowerShell checks / build step
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_UnitChimp type=SHCDESE.Interop.eChimps offset=0x8A width=2 stride=1168
+GameUnit.r_ControllableForPlayerId type=System.UInt16 offset=0x92 width=2 stride=1168
+GameUnit.r_GlobalId type=System.UInt32 offset=0x94 width=4 stride=1168
+GameUnit.r_CurrentTilePositionX type=System.UInt16 offset=0xC0 width=2 stride=1168
+GameUnit.r_CurrentTilePositionY type=System.UInt16 offset=0xC2 width=2 stride=1168
+GameUnit.r_TargetTilePositionX type=System.UInt16 offset=0xC4 width=2 stride=1168
+GameUnit.r_TargetTilePositionY type=System.UInt16 offset=0xC6 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit.r_TribeId type=System.UInt16 offset=0x2D4 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileX type=System.UInt16 offset=0x2D8 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileY type=System.UInt16 offset=0x2DA width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_PlayerIdOwner type=System.UInt16 offset=0x2 width=2 stride=1672
+GameTribe.r_GlobalId type=System.UInt32 offset=0xA width=4 stride=1672
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager.r_IsCursorInGame type=System.UInt32 offset=0x8 width=4 stride=0
+GameCursorManager.r_MouseTileX type=System.UInt32 offset=0x6C width=4 stride=0
+GameCursorManager.r_MouseTileY type=System.UInt32 offset=0x70 width=4 stride=0
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+[16.10.2026 16:46:39,17] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+APIShared verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 215 sources, 0 errors
+BugfixesAndQoL verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+BugfixesAndQoL verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 417 sources, 0 errors
+MoatMove verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+MoatMove verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (658 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+[16.10.2026 16:46:52,81] PowerShell checks / build step
+APIShared: main c7b210f00703 (version 0.9.2) from D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\BepInEx\plugins\APIShared_Serp.
+PASS: verified APIShared consumer package and source inputs.
+[16.10.2026 16:46:58,21] Check that the game is closed
+[16.10.2026 16:46:58,41] Lobby save loading and visibility contracts
+
+  LobbySaveLoading.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\LobbySaveLoading.Tests\bin\LobbySaveLoading.Tests.exe
+
+  UnityMonoHost -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\LobbySaveLoading.Tests\bin\host\UnityMonoHost.exe
+IL fixture: CrusaderDE.FRONT_Multiplayer D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\LobbySaveLoading.Tests\bin\Assembly-CSharp.dll token=6001965 body=True
+PASS: Lobby save loading: 4231 policy, interop and actual Vanilla/SE IL checks. Game UI/loading not executed.
+PASS: lobby save loading settings, localization, tooltips and permanent ownership.
+[16.10.2026 16:46:59,75] Integrated gate routing migration regression
+PASS: 10,000 native trace chains; overwritten outputs, recovery, exact edge correspondence and bounded call-local storage.
+PASS: installed 184FD0 separates roof offset (40) from climb progress (10); synthetic terrain, runtime heights still require observation.
+PASS: real installed closed predicate, 197950 clear and DCE60 descent; functional guard and diagnostics independently on/off; rejection/exception preserves clear; simulated caller restore; 198ED0 unrelated cleanup fixture stubbed.
+PASS: 19 installed native spans, actual RedBird preparation, full stub decoding and all four complete containing bodies/incoming branches.
+PASS: physical execution observer: paired branches, identity/policy changes, nested calls, 100000 events and bounded aggregate history.
+Config fixtures retained: C:\Users\Serpens66\AppData\Local\Temp\gate-config-2988f0af57144a2390910c171d55d81a
+PASS: Macemen aggregate 200000 observations,64 rows; elapsedMs=25,47
+TEMP_GATE_ROUTE_ACCEPTANCE: 6757 assertions, 576000 events across 120 minute windows
+PASS controlled graph comparison: owner1/capturer3/query2 native=accept, policy=reject; query3=accept. Full AI order not measured.
+PASS controlled builder comparison: owner1/capturer3/query2 native=accept, policy=reject; query3=accept. Full AI order not measured.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.
+PASS: migrated NativeX64 Indirect detours: 6/6/10 bytes, pointer slots, prologues, one callback and one original execution.
+IntegratedGatePathfindingPolicy: 157386 assertions passed.
+PASS: 13 actual feature orchestration checks; native runtime/SDK are isolated doubles, no hook execution in this fixture.
+PASS: 13 actual feature orchestration checks; native runtime/SDK are isolated doubles, no hook execution in this fixture.
+PASS: 64 production-reader assertions; native data, SDK fixture boundaries, identities/control/state, owned/captured, maps and synchronous identity changes.
+PASS: 273 actual Raid classifier/retry assertions with final-route observation; native returns/candidate order simulated.
+PASS: 757 actual diagnostic path assertions; no moat-plan helper present in fixture.
+PASS: actual native Observe callback + actual publication observer; ground/climb, secondary overwrite/fallback, nesting, snapshot/failure and different output.
+PASS: actual gate diagnostic, actual packed-publication helper and production weighted-edge loop; isolated SDK fixtures, no game hooks.
+PASS: integrated gate geometry, scopes, adapters, access extensions, route and observation regression.
+[16.10.2026 16:47:06,27] Gatehouse target-marker height contracts
+PASS: 2684 production-prefix native-record cases; bounded logs and permanent lifetime.
+PASS: unknown native build fails open before publication.
+PASS: 2320 marker height cases; real managed member contracts, bounds/IDs, lifetime, setting, XAML and locales.
+[16.10.2026 16:47:08,70] PowerShell checks / build step
+PASS: current native hash; HP/damage tables; 15-byte instruction span; no incoming interior edges; post-damage writer and later lethal branch.
+PASS: drawbridge native/public field/host UI/default/reset/activation/minimal diagnostic contracts.
+
+  Workspace consumers must use the local APIShared package, not an installed or external DLL.
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Directory.Build.targets(13,5): error MSB3073: Der Befehl "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods" -PackageDirectory "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\BepInEx\plugins\APIShared_Serp"" wurde mit dem Code 1 beendet. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\DrawbridgeDestructionFix.Tests\DrawbridgeDestructionFix.Tests.csproj]
+Drawbridge native fixture build failed.
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\BugfixesAndQoL\Test-DrawbridgeDestructionFix.ps1:51 Zeichen:32
++ ... STEXITCODE -ne 0) { throw 'Drawbridge native fixture build failed.' }
++                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Drawbridge native fixture build failed.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Drawbridge native fixture build failed.
+ 
+Build fehlgeschlagen.
+[16.10.2026 16:47:12,39] END: exit code 1

@@ -67,9 +67,19 @@ namespace BugfixesAndQoL
                 keyDownSubscription = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnModifierKeyChanged);
                 keyUpSubscription = InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnModifierKeyChanged);
                 eventsRegistered = true;
-                LogInfo($"fair siege-ammunition shared events initialized: packetId={packetHook.GetPacketId()}, protocol={ProtocolVersion}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"fair siege-ammunition shared events initialized: packetId={packetHook.GetPacketId()}, protocol={ProtocolVersion}.");
             }
             catch { Dispose(); throw; }
+        }
+
+        // Operation IDs restart with every process, so duplicate detection may only span one
+        // gameplay session. A process-wide set would make long-running peers reject Chores
+        // that freshly started peers apply, which diverges stone and ammunition.
+        internal void ResetForMap()
+        {
+            processedOperations.Clear();
+            processedOperationOrder.Clear();
         }
 
         public void Dispose()
@@ -216,7 +226,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogInfo($"fair siege-ammunition Chore queued: playerId={playerId}, operationId={packet.OperationId}, targets={globalUnitIds.Length}, modifier={modifier}, bytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"fair siege-ammunition Chore queued: playerId={playerId}, operationId={packet.OperationId}, targets={globalUnitIds.Length}, modifier={modifier}, bytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -321,7 +332,8 @@ namespace BugfixesAndQoL
             for (int index = 0; index < resolved.Count; index++)
                 WriteAmmunition(resolved[index].Unit, finalById[resolved[index].GlobalUnitId]);
 
-            LogInfo($"fair siege-ammunition {source} applied: playerId={playerId}, targets={resolved.Count}, ammunitionAdded={plan.AmmunitionAdded}, stoneUsed={plan.StoneCost}, modifier={modifier}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"fair siege-ammunition {source} applied: playerId={playerId}, targets={resolved.Count}, ammunitionAdded={plan.AmmunitionAdded}, stoneUsed={plan.StoneCost}, modifier={modifier}.");
         }
 
         private bool TryCaptureSelectedGlobalIds(int playerId, out int[] globalIds)

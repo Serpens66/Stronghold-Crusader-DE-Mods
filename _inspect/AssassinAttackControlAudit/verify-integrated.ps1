@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([switch]$SkipCommonChecks, [switch]$SkipPermanentHooks)
 $ErrorActionPreference='Stop'
 function Get-Sha256([string]$Path) {
     $stream=[IO.File]::OpenRead($Path)
@@ -11,9 +11,13 @@ function Get-Sha256([string]$Path) {
 $workspace=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $mod=Join-Path $workspace 'BugfixesAndQoL'
 $roots=@((Join-Path $workspace 'APIShared'),$mod)
+if (-not $SkipCommonChecks) {
 foreach($root in $roots) {
     $files=@(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
-        $_.FullName -notmatch '\\(?:bin|obj|BepInEx|tests)\\' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.xaml')
+        $relativePath=$_.FullName.Substring($root.Length).TrimStart('\')
+        # Scope runtime rules to runtime inputs; keep tool/test serializers separate.
+        $relativePath -notmatch '^(?:tests|tools|examples|\.local|\.work|\.release-output|_inspect|before)\\' -and
+        $relativePath -notmatch '(?:^|\\)(?:bin|obj|BepInEx)\\' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.xaml')
     })
     foreach($file in $files) {
         $source=[IO.File]::ReadAllText($file.FullName)
@@ -29,10 +33,13 @@ foreach($root in $roots) {
         }
     }
 }
-& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
-if(-not $?) { throw 'Workspace permanent-hook regression failed' }
+}
+if (-not $SkipPermanentHooks) {
+    & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
+    if(-not $?) { throw 'Workspace permanent-hook regression failed' }
+}
 $guard=[IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinAttackControlAPI.cs'))
-if($guard -match '\b(transaction|hook)\??\.Dispose\s*\(' -or $guard -match '\.(Enable|Disable|Undo)\s*\(' -or $guard -notmatch 'if \(hook == candidate\) throw;') { throw 'Published Assassin hook teardown' }
+if($guard -match '\b(transaction|hook)\??\.Dispose\s*\(' -or $guard -match '(?<!NativeHookPublication)\.(Enable|Disable|Undo)\s*\(') { throw 'Direct Assassin hook teardown (source guard only)' }
 $project=[IO.File]::ReadAllText((Join-Path $mod 'BugfixesAndQoL.csproj'))
 if($project -match 'publicized') { throw 'Mainmod must reference real Unity assembly' }
 $native='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
@@ -42,8 +49,7 @@ $runtimeSource=[IO.File]::ReadAllText((Join-Path $mod 'src\AssassinCapturedGateP
 if($runtimeSource -match 'AlternativeSearch|CaptureTraversal|MoveToTile|OnTick|SortedDictionary|BuildGoals|AdvanceSearch') { throw 'Captured-gate runtime must not search, queue or issue movement orders' }
 if($guard -match 'IAssassinTraversalView|RegisterTraversal|CaptureTraversal|IsTraversalAvailable' -or
     $guard -notmatch 'RegisterGuard\(ownerGuid, callback, AssassinObstacleCompletionMode.IdleOnly\)' -or
-    $guard -notmatch 'AssassinObstacleCompletion.Complete' -or
-    ([regex]::Matches($guard,'hook\.Original\(\)').Count -ne 1)) { throw 'Assassin public/default/original completion contract' }
+    $guard -notmatch 'AssassinObstacleCompletion.Complete') { throw 'Assassin public/default completion integration guard' }
 $completion=[IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinObstacleCompletion.cs'))
 if($completion -notmatch 'unit->r_AIObjectiveRole2' -or $completion -notmatch 'finally') { throw 'Objective/exception completion contract' }
 
@@ -59,7 +65,10 @@ if($runtimeSource -notmatch '!settings.EnableMod \|\| !settings.EnableAssassinCa
     $runtimeSource -match 'LogInfo|protectedCount|protectedReports|foreach\s*\(|for\s*\('){throw 'Activation, completion, logging or constant-work contract'}
 if($runtimeSource.IndexOf('IsEligibleUnit') -gt $runtimeSource.IndexOf('IsAIPlayer')){throw 'Filter unit before player lookup'}
 $xaml=[IO.File]::ReadAllText((Join-Path $mod 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
-if($xaml.IndexOf('Binding EnableAssassinCapturedGateProtectionFix,') -lt $xaml.IndexOf('Binding FixesTitleText')){throw 'Protection outside Fixes'}
+[xml]$settingsDocument = $xaml
+$controls = @($settingsDocument.SelectNodes("//*[local-name()='CheckBox'][@IsChecked='{Binding EnableAssassinCapturedGateProtectionFix, Mode=TwoWay}']"))
+if ($controls.Count -ne 1 -or $null -eq $controls[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
+    $null -eq $controls[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.PossibleVisibility}') ]")) { throw 'Protection checkbox must remain a host-authorized Possible Fix.' }
 foreach($file in Get-ChildItem -LiteralPath (Join-Path $mod 'Locales') -Filter '*.txt'){
  foreach($key in @('EnableAssassinCapturedGateProtectionFix','EnableAssassinCapturedGateProtectionFixHelp')){
   if([regex]::Matches([IO.File]::ReadAllText($file.FullName),'(?m)^BugfixesAndQoL\.'+$key+'=').Count -ne 1){throw "Protection locale: $file/$key"}

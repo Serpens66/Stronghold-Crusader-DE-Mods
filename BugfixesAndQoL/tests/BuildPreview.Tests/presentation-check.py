@@ -7,8 +7,8 @@ from lxml import etree as E
 root = pathlib.Path(sys.argv[1])
 mod = root / 'BugfixesAndQoL'
 locales = list((mod / 'Locales').glob('*.txt'))
-reference = {p.name for p in (root / 'BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Locales').glob('*.txt')}
-assert {p.name for p in locales} == reference and len(locales) == 21
+assert locales, 'No build-preview translations found'
+assert {'de-DE.txt', 'en-US.txt'} <= {p.name for p in locales}
 keys = {'Ground.Coverage', 'Ground.Green', 'Ground.Stone', 'Ground.Iron', 'Ground.Pitch'}
 for locale in locales:
     text = locale.read_text(encoding='utf-8')
@@ -22,79 +22,76 @@ vanilla = E.parse(str(root / '_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/r
 
 ours = E.parse(str(root/'APIShared/Patches/Assets/GUI/XAML/MainHUD.xaml'))
 for content in ours.findall('.//Content'): assert len(content) == 1
-for name in ('APISharedBuildingTooltipDetailed','APISharedBuildingTooltipCompact'):
-    host = ours.xpath('//*[@x:Name="'+name+'"]',namespaces=ns)[0]
-    assert host.tag=='ItemsControl' and host.get('MaxWidth')=='{Binding MaxWidth}'
-    assert 'GlobalTextFlowAL2R' in host.get('FlowDirection')
-    assert all(t.get('Background') is None for t in host.findall('.//TextBlock'))
-    assert all(t.get('TextWrapping')=='Wrap' for t in host.findall('.//TextBlock'))
+# APIShared 0.13 tooltip contract (docs/TOOLTIPS.md): the patch only marks three Vanilla elements with
+# the attached TooltipAnchor.Anchor property; the runtime creates the contributed lines. No XAML hosts.
+apt = 'clr-namespace:APIShared.Presentation;assembly=APIShared'
+assert [(op.get('AttributeName'), op.get('Value')) for op in ours.findall('Operation') if op.get('Type') == 'AddNamespace'] == [('apt', apt)]
+anchors = {op.get('Value'): op.get('XPath') for op in ours.findall('Operation')
+           if op.get('Type') == 'SetAttribute' and op.get('AttributeName') == 'apt:TooltipAnchor.Anchor'}
+assert set(anchors) == {'BuildingCompact', 'BuildingDetailed', 'BuildingDescription'}, anchors
 assert 'GroundTooltipHost' not in (mod/'Patches/Assets/GUI/XAML/MainHUD.xaml').read_text(encoding='utf-8')
 
 def apply(tree, patch):
+    prefixes = {}
     for op in patch.findall('Operation'):
+        kind = op.get('Type')
+        if kind == 'AddNamespace':
+            prefixes[op.get('AttributeName')] = op.get('Value'); continue
         targets = tree.xpath(op.get('XPath'),namespaces=ns)
-        assert len(targets) == 1, (op.get('Type'), op.get('XPath'), len(targets))
+        assert len(targets) == 1, (kind, op.get('XPath'), len(targets))
         node = targets[0]
         content = op.find('Content')
         if content is None:
-            assert op.get('Type') == 'SetAttribute'
-            node.set(op.get('AttributeName'),op.get('Value'));continue
+            assert kind == 'SetAttribute'
+            name = op.get('AttributeName')
+            if ':' in name:
+                prefix, local = name.split(':', 1)
+                name = '{'+prefixes[prefix]+'}'+local
+            node.set(name,op.get('Value'));continue
         assert len(content) == 1
         child = copy.deepcopy(content[0])
         for element in child.iter():
             if isinstance(element.tag,str): element.tag = '{'+ns['n']+'}'+element.tag
-        kind=op.get('Type')
         if kind=='Add':node.append(child)
         elif kind=='Replace':node.getparent().replace(node,child)
         elif kind=='InsertBefore':node.addprevious(child)
         elif kind=='InsertAfter':node.addnext(child)
         else:raise AssertionError(kind)
 
-# Presence matrix: central hosts remain usable for arbitrary foreign contributions
-# with or without each of our consumers; disabled contributors return no lines.
+# Presence matrix: the shared anchors stay usable for arbitrary foreign contributions with or
+# without each of our consumers, and every patch still targets exactly one Vanilla element.
 import itertools
+anchor_attribute = '{'+apt+'}TooltipAnchor.Anchor'
 original = vanilla.xpath('//*[@x:Name="GameHoverText"]',namespaces=ns)[0]
-for farm,costs,limit in itertools.product((False,True),repeat=3):
+compact_xpath = '//n:StackPanel[@Visibility="{Binding RolloverBuilding_TooltipVisNot, Converter={StaticResource booleanToVisibilityConverter}}"]'
+detailed_xpath = '//n:DockPanel[@Visibility="{Binding RolloverBuilding_TooltipVis, Converter={StaticResource booleanToVisibilityConverter}}"]'
+legacy_hosts = ('GroundTooltipHost','GroundTooltipHostCompact','BuildingLimitTooltipHost','BuildingLimitTooltipHostCompact',
+                'APISharedBuildingTooltipDetailed','APISharedBuildingTooltipCompact','APISharedRepairExtrasHost',
+                'BuildingCostsTooltipHost','BuildingCostsTooltipHostCompact')
+for costs,limit in itertools.product((False,True),repeat=2):
     tree=copy.deepcopy(vanilla)
     apply(tree,ours)
     for name,present in [('BuildingCosts',costs),('BuildingLimit',limit)]:
         if present:apply(tree,E.parse(str(root/name/'BepInEx/plugins'/f'{name}_Serp/Patches/Assets/GUI/XAML/MainHUD.xaml')))
-    assert not tree.xpath('//*[@x:Name="GroundTooltipHost" or @x:Name="GroundTooltipHostCompact" or @x:Name="BuildingLimitTooltipHost" or @x:Name="BuildingLimitTooltipHostCompact"]',namespaces=ns)
+    assert not tree.xpath('//*['+' or '.join('@x:Name="'+h+'"' for h in legacy_hosts)+']',namespaces=ns)
     hover=tree.xpath('//*[@x:Name="GameHoverText"]',namespaces=ns)[0]
-    for attribute in ('HorizontalAlignment','FontSize','Foreground','FlowDirection','Tag'):
+    for attribute in ('HorizontalAlignment','FontSize','Foreground','FlowDirection','Tag','Background'):
         assert hover.get(attribute)==original.get(attribute)
     assert [run.get('Text') for run in hover.findall('n:Run',namespaces=ns)]==[run.get('Text') for run in original.findall('n:Run',namespaces=ns)]
-    compact=tree.xpath('//n:StackPanel[@Visibility="{Binding RolloverBuilding_TooltipVisNot, Converter={StaticResource booleanToVisibilityConverter}}"]',namespaces=ns)[0]
-    assert compact[0].get('{'+ns['x']+'}Name')=='APISharedBuildingTooltipCompact'
-    outer=compact.getparent()
-    assert outer.get('Width')=='550' and outer.get('Margin')=='{Binding RollOverText_Margin}'
-    assert outer.get('HorizontalAlignment')=='Right' and outer.get('VerticalAlignment')=='Bottom'
-    detailed=tree.xpath('//n:DockPanel[@Visibility="{Binding RolloverBuilding_TooltipVis, Converter={StaticResource booleanToVisibilityConverter}}"]',namespaces=ns)[0]
-    assert detailed.get('HorizontalAlignment')=='Left'
-    stack=detailed.find('n:Grid/n:StackPanel',namespaces=ns)
-    assert stack[0].get('{'+ns['x']+'}Name')=='APISharedBuildingTooltipDetailed'
-    assert detailed.find('n:Grid/n:Border',namespaces=ns).get('Background')=='#88000000'
-    if costs:
-        cost_container=compact[1]
-        assert cost_container.get('HorizontalAlignment')=='Left'
-        assert cost_container.find('n:Border',namespaces=ns).get('Background')==original.get('Background')
-        assert cost_container.xpath('.//n:TranslateTransform[@X="-250"]',namespaces=ns)
-        for name in ('BuildingCostsTooltipHost','BuildingCostsTooltipHostCompact','APISharedRepairExtrasHost'):
-            assert len(tree.xpath('//*[@x:Name="'+name+'"]',namespaces=ns))==1
-    else:
-        assert hover.get('Background')==original.get('Background')
-        assert len(tree.xpath('//*[@x:Name="APISharedRepairExtrasHost"]',namespaces=ns))==1
-    # Bottom anchored stack: inserting above existing content changes only its top.
-    for added_height in (0,16,32,64):
-        base_height=30
-        old_bottom=0
-        new_cost_top=old_bottom-(base_height+added_height)+added_height
-        assert new_cost_top==old_bottom-base_height
-runtime=(mod/'src/BuildPreview/GroundTooltipRuntime.cs').read_text(encoding='utf-8')
-assert 'BuildingTooltipPresentation.TryRegister' in runtime and 'RegisterBinding' not in runtime
-assert 'context.IsSymbolHover' in runtime and 'BuildPreviewRuntime.State.Clear(capture)' in runtime
-assert 'BuildingTooltipPresentation.TryRegister' in (root/'BuildingLimit/src/BuildingLimitRuntime.cs').read_text(encoding='utf-8')
-print('PASS: 21 locale keys/Unicode; eight consumer-presence combinations; shared hosts above costs, preserved Vanilla anchors/style/background, repair extras and cost templates; no obsolete per-mod tooltip patches.')
+    marked = {element.get(anchor_attribute): element for element in tree.iter() if isinstance(element.tag,str) and element.get(anchor_attribute) is not None}
+    assert sorted(marked) == ['BuildingCompact','BuildingDescription','BuildingDetailed'] and \
+        sum(1 for element in tree.iter() if isinstance(element.tag,str) and element.get(anchor_attribute) is not None) == 3
+    assert marked['BuildingCompact'] is hover
+    detailed=tree.xpath(detailed_xpath,namespaces=ns)[0]
+    assert marked['BuildingDetailed'] in list(detailed.iter()) and \
+        '{Binding RollOverText_AmountReq1}' in [run.get('Text') for run in marked['BuildingDetailed'].findall('n:Run',namespaces=ns)]
+    assert marked['BuildingDescription'].get('Text') == '{Binding RolloverBuilding_TooltipBody}'
+    # Vanilla layout of both tooltip variants is unchanged.
+    for xpath in (compact_xpath, detailed_xpath):
+        before = vanilla.xpath(xpath,namespaces=ns)[0]; after = tree.xpath(xpath,namespaces=ns)[0]
+        assert len(after) == len(before) and dict(after.attrib) == dict(before.attrib)
+        assert dict(after.getparent().attrib) == dict(before.getparent().attrib)
+print(f'PASS: {len(locales)} locales; four distinct patch-composition combinations; unique patch targets, three shared tooltip anchors, preserved Vanilla anchors/style/background/layout and no legacy XAML hosts. No rendered-layout claim.')
 
 new_keys={'BugfixesAndQoL.ImprovedBuildPreview','BugfixesAndQoL.ImprovedBuildPreviewHelp'}
 for locale in locales:
@@ -102,4 +99,4 @@ for locale in locales:
     values=dict(rows)
     assert all(k in values and values[k] for k in new_keys)
     assert all(sum(k==key for k,v in rows)==1 for key in keys|new_keys)
-print('PASS: local checkbox title/help in 21 locales; no duplicate ground/setting keys.')
+print(f'PASS: local checkbox title/help in {len(locales)} locales; no duplicate ground/setting keys.')

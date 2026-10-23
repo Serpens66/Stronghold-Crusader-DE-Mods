@@ -1,7 +1,14 @@
 $ErrorActionPreference = 'Stop'
 $modDir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 [xml]$project = [IO.File]::ReadAllText((Join-Path $modDir 'MoatMove.csproj'))
-$runtimePaths = @($project.Project.ItemGroup.Compile | Where-Object { $_.Include } | ForEach-Object { [IO.Path]::GetFullPath((Join-Path $modDir $_.Include)) })
+$runtimePaths = @($project.Project.ItemGroup.Compile | Where-Object { $_.Include } | ForEach-Object {
+    $target = Join-Path $modDir $_.Include
+    if ($target.Contains('*')) {
+        # .NET Framework rejects wildcards in GetFullPath; resolve only the directory.
+        $base = [IO.Path]::GetFullPath($target.Substring(0, $target.IndexOf('*')).TrimEnd('\','/'))
+        [IO.Directory]::GetFiles($base, [IO.Path]::GetFileName($target), [IO.SearchOption]::TopDirectoryOnly)
+    } else { [IO.Path]::GetFullPath($target) }
+})
 $forbidden = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization|OnDestroy\s*\(|OnDisable\s*\(|OnApplicationQuit\s*\(|\b(?:Update|LateUpdate|FixedUpdate)\s*\(|StartCoroutine\s*\('
 foreach ($file in @($runtimePaths) + @(Join-Path $modDir 'MoatMove.csproj')) {
     $text = [IO.File]::ReadAllText($file)

@@ -1,0 +1,714 @@
+{
+  "observedDate": "2026-10-22",
+  "source": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\managed\\BC8B6A39\\decompiled\\CustomisationFileManager.cs",
+  "fields": [
+    {
+      "name": "opponent_type",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0000"
+    },
+    {
+      "name": "opponent_type_for_speech",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0004"
+    },
+    {
+      "name": "lord_gfx_type",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0008"
+    },
+    {
+      "name": "flag_type",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x000C"
+    },
+    {
+      "name": "use_of_religion",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0010"
+    },
+    {
+      "name": "use_of_ale",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0014"
+    },
+    {
+      "name": "vlow_popularity",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0018"
+    },
+    {
+      "name": "low_popularity",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x001C"
+    },
+    {
+      "name": "high_popularity",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0020"
+    },
+    {
+      "name": "min_tax",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0024"
+    },
+    {
+      "name": "max_tax",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0028"
+    },
+    {
+      "name": "farm_types",
+      "type": "Int32[8]",
+      "initializer": "new int[8]",
+      "offset": "0x002C"
+    },
+    {
+      "name": "people_to_farm_ratio",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x004C"
+    },
+    {
+      "name": "extract_wood_ratio",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0050"
+    },
+    {
+      "name": "extract_stone_ratio",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0054"
+    },
+    {
+      "name": "extract_iron_ratio",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0058"
+    },
+    {
+      "name": "extract_pitch_ratio",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x005C"
+    },
+    {
+      "name": "max_quarries",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0060"
+    },
+    {
+      "name": "max_mines",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0064"
+    },
+    {
+      "name": "max_woodcutters",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0068"
+    },
+    {
+      "name": "max_pitch_dugouts",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x006C"
+    },
+    {
+      "name": "max_farms",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0070"
+    },
+    {
+      "name": "build_rate",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0074"
+    },
+    {
+      "name": "crushed_building_delay",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0078"
+    },
+    {
+      "name": "sell_food_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x007C"
+    },
+    {
+      "name": "buy_apples_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0080"
+    },
+    {
+      "name": "buy_cheese_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0084"
+    },
+    {
+      "name": "buy_bread_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0088"
+    },
+    {
+      "name": "buy_wheat_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x008C"
+    },
+    {
+      "name": "buy_hops_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0090"
+    },
+    {
+      "name": "buy_food_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0094"
+    },
+    {
+      "name": "buy_weapons",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0098"
+    },
+    {
+      "name": "pester_for_goods_delay",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x009C"
+    },
+    {
+      "name": "send_goods_margin",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00A0"
+    },
+    {
+      "name": "ration_boost",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00A4"
+    },
+    {
+      "name": "trade_wood_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00A8"
+    },
+    {
+      "name": "trade_stone_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00AC"
+    },
+    {
+      "name": "trade_resources_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00B0"
+    },
+    {
+      "name": "trade_flour_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00B4"
+    },
+    {
+      "name": "trade_weapons_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00B8"
+    },
+    {
+      "name": "trade_ale_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00BC"
+    },
+    {
+      "name": "trade_pitch_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00C0"
+    },
+    {
+      "name": "trade_minimum",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00C4"
+    },
+    {
+      "name": "base_gold_reserves",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00C8"
+    },
+    {
+      "name": "blacksmiths_make",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00CC"
+    },
+    {
+      "name": "fletchers_make",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00D0"
+    },
+    {
+      "name": "poleturners_make",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x00D4"
+    },
+    {
+      "name": "sell_all",
+      "type": "Int32[15]",
+      "initializer": "new int[15]",
+      "offset": "0x00D8"
+    },
+    {
+      "name": "move_mobile_defenders",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0114"
+    },
+    {
+      "name": "max_mobile_groups",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0118"
+    },
+    {
+      "name": "buy_defense_machines_at",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x011C"
+    },
+    {
+      "name": "buy_defense_machines_delay",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0120"
+    },
+    {
+      "name": "dog_release_timing",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0124"
+    },
+    {
+      "name": "dog_points_count",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0128"
+    },
+    {
+      "name": "chance_of_defensive",
+      "type": "Int32[3]",
+      "initializer": "new int[3]",
+      "offset": "0x012C"
+    },
+    {
+      "name": "chance_of_harrasment",
+      "type": "Int32[3]",
+      "initializer": "new int[3]",
+      "offset": "0x0138"
+    },
+    {
+      "name": "chance_of_seiging",
+      "type": "Int32[3]",
+      "initializer": "new int[3]",
+      "offset": "0x0144"
+    },
+    {
+      "name": "economy_protection_number",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0150"
+    },
+    {
+      "name": "economy_protection_type",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0154"
+    },
+    {
+      "name": "bodyguard_number",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0158"
+    },
+    {
+      "name": "bodyguard_type",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x015C"
+    },
+    {
+      "name": "moat_diggers",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0160"
+    },
+    {
+      "name": "moat_digger_type",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0164"
+    },
+    {
+      "name": "troop_production_rate",
+      "type": "Int32[3]",
+      "initializer": "new int[3]",
+      "offset": "0x0168"
+    },
+    {
+      "name": "defense_patrol_trigger_level",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0174"
+    },
+    {
+      "name": "defense_patrols",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0178"
+    },
+    {
+      "name": "defense_patrol_style",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x017C"
+    },
+    {
+      "name": "defense_patrol_delay",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0180"
+    },
+    {
+      "name": "defensive_trigger_level",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0184"
+    },
+    {
+      "name": "defensive_troops",
+      "type": "Int32[8]",
+      "initializer": "new int[8]",
+      "offset": "0x0188"
+    },
+    {
+      "name": "harrasment_trigger_level",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x01A8"
+    },
+    {
+      "name": "harrasment_trigger_variance",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x01AC"
+    },
+    {
+      "name": "harrasment_troops",
+      "type": "Int32[8]",
+      "initializer": "new int[8]",
+      "offset": "0x01B0"
+    },
+    {
+      "name": "harrasment_machines",
+      "type": "Int32[8]",
+      "initializer": "new int[8]",
+      "offset": "0x01D0"
+    },
+    {
+      "name": "max_harrasment_machines",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x01F0"
+    },
+    {
+      "name": "harrass_delay",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x01F4"
+    },
+    {
+      "name": "siege_trigger_level",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x01F8"
+    },
+    {
+      "name": "siege_trigger_variance",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x01FC"
+    },
+    {
+      "name": "siege_troops_before_will_come_to_rescue",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0200"
+    },
+    {
+      "name": "siege_troops_on_site_percent",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0204"
+    },
+    {
+      "name": "siege_troops_at_home_percent",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0208"
+    },
+    {
+      "name": "siege_soften_up_delay",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x020C"
+    },
+    {
+      "name": "siege_victory_delay",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0210"
+    },
+    {
+      "name": "percent_chance_waiting_for_joint_attack",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0214"
+    },
+    {
+      "name": "siege_machines",
+      "type": "Int32[8]",
+      "initializer": "new int[8]",
+      "offset": "0x0218"
+    },
+    {
+      "name": "siege_cow_timer",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0238"
+    },
+    {
+      "name": "siege_eng_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x023C"
+    },
+    {
+      "name": "siege_moat_troop",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0240"
+    },
+    {
+      "name": "siege_moat_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0244"
+    },
+    {
+      "name": "siege_herring_troop",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0248"
+    },
+    {
+      "name": "siege_herring_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x024C"
+    },
+    {
+      "name": "siege_assasin_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0250"
+    },
+    {
+      "name": "siege_ladder_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0254"
+    },
+    {
+      "name": "siege_tunnel_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0258"
+    },
+    {
+      "name": "siege_storm_troop",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x025C"
+    },
+    {
+      "name": "siege_storm_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0260"
+    },
+    {
+      "name": "siege_storm_tribes",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0264"
+    },
+    {
+      "name": "siege_cover_troop",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0268"
+    },
+    {
+      "name": "siege_cover_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x026C"
+    },
+    {
+      "name": "siege_cover_tribes",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0270"
+    },
+    {
+      "name": "siege_shock_troop",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0274"
+    },
+    {
+      "name": "siege_shock_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0278"
+    },
+    {
+      "name": "siege_reserve_troop",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x027C"
+    },
+    {
+      "name": "siege_reserve_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0280"
+    },
+    {
+      "name": "siege_reserve_tribes",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0284"
+    },
+    {
+      "name": "siege_wall_troops",
+      "type": "Int32[24]",
+      "initializer": "new int[24]",
+      "offset": "0x0288"
+    },
+    {
+      "name": "siege_wall_amount",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x02E8"
+    },
+    {
+      "name": "siege_wall_tribes",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x02EC"
+    },
+    {
+      "name": "who_to_pick_on",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x02F0"
+    },
+    {
+      "name": "use_improved_sieging",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x02F4"
+    },
+    {
+      "name": "starting_troops_normal",
+      "type": "Int32[28]",
+      "initializer": "new int[28]",
+      "offset": "0x02F8"
+    },
+    {
+      "name": "starting_troops_deathmatch",
+      "type": "Int32[28]",
+      "initializer": "new int[28]",
+      "offset": "0x0368"
+    },
+    {
+      "name": "starting_troops_crusader",
+      "type": "Int32[28]",
+      "initializer": "new int[28]",
+      "offset": "0x03D8"
+    },
+    {
+      "name": "lord_power_display_level",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x0448"
+    },
+    {
+      "name": "lord_hps_percent",
+      "type": "Int32",
+      "initializer": null,
+      "offset": "0x044C"
+    },
+    {
+      "name": "siege_max_troops",
+      "type": "Int32",
+      "initializer": "200",
+      "offset": "0x0454"
+    },
+    {
+      "name": "siege_normal_wave_multiplier",
+      "type": "Int32",
+      "initializer": "5",
+      "offset": "0x0458"
+    },
+    {
+      "name": "siege_high_gold_wave_multiplier",
+      "type": "Int32",
+      "initializer": "7",
+      "offset": "0x045C"
+    }
+  ]
+}

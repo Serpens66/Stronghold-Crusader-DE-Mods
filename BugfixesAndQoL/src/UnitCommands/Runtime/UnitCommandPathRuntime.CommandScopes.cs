@@ -47,8 +47,14 @@ namespace BugfixesAndQoL.UnitCommands
         internal sealed class MoveCommandScope
         {
             internal const int MaximumDiagnosticDetailsPerStage = 3;
+#if SERP_DEVDIAG
+#if SERP_DEVDIAG
             internal readonly Dictionary<string, int> retainedDiagnosticsByStage =
                 new Dictionary<string, int>(StringComparer.Ordinal);
+#endif
+
+#endif
+
             internal readonly MovementOptionsSnapshot Options;
             internal readonly RequiredRouteMetrics Required;
             internal readonly RequiredRouteCache RequiredCache;
@@ -78,7 +84,7 @@ namespace BugfixesAndQoL.UnitCommands
                 MoveType = moveType;
                 ParentAttackCommandSequence = parentAttackCommandSequence;
                 ParentAttackCommand = parentAttackCommand;
-                StartTimestamp = Stopwatch.GetTimestamp();
+                StartTimestamp = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             }
 
             public int Sequence { get; }
@@ -155,8 +161,10 @@ namespace BugfixesAndQoL.UnitCommands
             public NativeWaypointQueueSnapshot QueuePostSnapshot { get; set; }
             public int DiagnosticMessages { get; internal set; }
             public int DiagnosticCharacters { get; internal set; }
+#if SERP_DEVDIAG
             public Dictionary<string, int> SuppressedDiagnostics { get; } =
                 new Dictionary<string, int>(StringComparer.Ordinal);
+
             public List<string> Diagnostics { get; } = new List<string>();
 
             public void BufferDiagnostic(string message)
@@ -175,6 +183,8 @@ namespace BugfixesAndQoL.UnitCommands
                 SuppressedDiagnostics.TryGetValue(stage, out int suppressed);
                 SuppressedDiagnostics[stage] = suppressed + 1;
             }
+#endif
+
         }
 
         internal readonly struct RouteDecisionKey : IEquatable<RouteDecisionKey>

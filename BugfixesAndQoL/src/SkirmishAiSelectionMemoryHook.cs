@@ -178,17 +178,20 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                () =>
-                    $"Bugfixes and QoL AI selection memory hooks installed. memoryEnabled={IsMemoryActive()}, " +
-                    $"storePath={storePath}");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    () =>
+                        $"Bugfixes and QoL AI selection memory hooks installed. memoryEnabled={IsMemoryActive()}, " +
+                        $"storePath={storePath}");
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        private bool RandomEnhancementsEnabled => settings.EnableMod && settings.EnableRandomOpponentSelectionEnhancements;
+
         public Noesis.Visibility RandomLordFiltersVisibility =>
-            settings.EnableMod ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
+            RandomEnhancementsEnabled ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
 
         public string BuiltInLordFilterHelp =>
             SerpLocalization.Get("BugfixesAndQoL.RandomLordBuiltInHelp");
@@ -289,7 +292,7 @@ namespace BugfixesAndQoL
 
         private void ShowSkirmishRandomAiSetterHook(MainViewModel self, bool value)
         {
-            if (!value && settings.EnableMod && IsEditableHostLobby(self))
+            if (!value && RandomEnhancementsEnabled && IsEditableHostLobby(self))
                 value = true;
 
             showSkirmishRandomAiSetterTrampoline(self, value);
@@ -298,7 +301,7 @@ namespace BugfixesAndQoL
         private void UpdateRandomAiButtonsHook(FRONT_Multiplayer self)
         {
             multiplayerUpdateRandomAiButtonsTrampoline(self);
-            if (!settings.EnableMod || self?.currentLobby == null)
+            if (!RandomEnhancementsEnabled || self?.currentLobby == null)
                 return;
 
             int maximumAiCount = 0;
@@ -321,7 +324,7 @@ namespace BugfixesAndQoL
             if (!IsEditableHostLobby(viewModel))
                 return;
 
-            if (settings.EnableMod)
+            if (RandomEnhancementsEnabled)
                 viewModel.Show_SkirmishRandomAI = true;
 
             MultiplayerUpdateRandomAiButtonsMethod.Invoke(viewModel.FRONTMultiplayer, null);
@@ -392,7 +395,7 @@ namespace BugfixesAndQoL
             bool memoryActiveBefore = IsMemoryActive();
             Dictionary<int, string> before = memoryActiveBefore ? CaptureAiSlotKeys(self) : null;
             bool protectedRandomCommand =
-                settings.EnableMod && RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out _);
+                RandomEnhancementsEnabled && RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out _);
 
             bool handled = false;
             try
@@ -441,7 +444,7 @@ namespace BugfixesAndQoL
         private bool TryCreateFilteredRandomAi(FRONT_Multiplayer self, string param)
         {
             if (!RandomOpponentLobbyPolicy.TryGetRandomOpponentCount(param, out int requestedCount) ||
-                !settings.EnableMod)
+                !RandomEnhancementsEnabled)
                 return false;
 
             if (self?.currentLobby == null)
@@ -537,12 +540,24 @@ namespace BugfixesAndQoL
             }
 
             bool humansUnchanged = VerifyHumanMembers(self, humans, "after adding new random opponents");
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:552", () =>
-                    $"Bugfixes and QoL created protected random opponents. lobby={GetLobbyKind(self)}, " +
-                    $"requested={requestedCount}, maximum={maximumAiCount}, removed={removedCount}, added={addedCount}, " +
-                    $"humans={humans.Count}, humansUnchanged={humansUnchanged}, " +
-                    $"candidates={candidates.Count}, builtIn={includeBuiltInLords}, local={includeLocalCustomLords}, " +
-                    $"workshop={includeWorkshopCustomLords}");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticSelf = @self;
+                var diagnosticRequestedCount = @requestedCount;
+                var diagnosticMaximumAiCount = @maximumAiCount;
+                var diagnosticRemovedCount = @removedCount;
+                var diagnosticAddedCount = @addedCount;
+                var diagnosticHumans = @humans;
+                var diagnosticHumansUnchanged = @humansUnchanged;
+                var diagnosticCandidates = @candidates;
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:552", () =>
+                        $"Bugfixes and QoL created protected random opponents. lobby={GetLobbyKind(diagnosticSelf)}, " +
+                        $"requested={diagnosticRequestedCount}, maximum={diagnosticMaximumAiCount}, removed={diagnosticRemovedCount}, added={diagnosticAddedCount}, " +
+                        $"humans={diagnosticHumans.Count}, humansUnchanged={diagnosticHumansUnchanged}, " +
+                        $"candidates={diagnosticCandidates.Count}, builtIn={includeBuiltInLords}, local={includeLocalCustomLords}, " +
+                        $"workshop={includeWorkshopCustomLords}");
+            }
             return true;
         }
 
@@ -1045,9 +1060,17 @@ namespace BugfixesAndQoL
 
             storedSelections[key] = encoded;
             SaveStore();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1080", () =>
-                    $"Bugfixes and QoL saved AI AIV/AIC selection: key={key}, hadExisting={hadExisting}, " +
-                    $"{BuildInfoSummary(info)}, encodedLength={encoded.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticKey = @key;
+                var diagnosticHadExisting = @hadExisting;
+                var diagnosticInfo = @info;
+                var diagnosticEncoded = @encoded;
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1080", () =>
+                        $"Bugfixes and QoL saved AI AIV/AIC selection: key={diagnosticKey}, hadExisting={diagnosticHadExisting}, " +
+                        $"{BuildInfoSummary(diagnosticInfo)}, encodedLength={diagnosticEncoded.Length}.");
+            }
         }
 
         private bool ApplyStoredSelectionsToNewAiSlots(
@@ -1130,9 +1153,18 @@ namespace BugfixesAndQoL
                         "to Vanilla's built-in AIV so the skirmish remains startable.");
                 }
                 applied = true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1175", () =>
-                        $"Bugfixes and QoL restored shared AI AIV/AIC selection: reason={reason}, key={key}, " +
-                        $"player={playerId}, loadedAivs={result.LoadedAivs}, {BuildInfoSummary(target)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticReason = @reason;
+                    var diagnosticKeyValue = @key;
+                    var diagnosticPlayerId = @playerId;
+                    var diagnosticResult = @result;
+                    var diagnosticTarget = @target;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1175", () =>
+                            $"Bugfixes and QoL restored shared AI AIV/AIC selection: reason={diagnosticReason}, key={diagnosticKeyValue}, " +
+                            $"player={diagnosticPlayerId}, loadedAivs={diagnosticResult.LoadedAivs}, {BuildInfoSummary(diagnosticTarget)}.");
+                }
             }
 
             return applied;
@@ -1244,12 +1276,18 @@ namespace BugfixesAndQoL
                 $"lordMode={lordMode}, lordConfig={info.lordConfig?.name ?? string.Empty}";
         }
 
+        // Set when an existing store could not be read. The next save keeps a backup of the
+        // unreadable file instead of silently replacing every remembered selection.
+        private bool storeUnreadable;
+
         private void LoadStore()
         {
             storedSelections.Clear();
+            storeUnreadable = false;
             if (!File.Exists(storePath))
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1296", () => $"Bugfixes and QoL shared AI AIV/AIC selection file not found: {storePath}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1296", () => $"Bugfixes and QoL shared AI AIV/AIC selection file not found: {storePath}");
                 return;
             }
 
@@ -1260,6 +1298,7 @@ namespace BugfixesAndQoL
                 {
                     Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1307", $"Bugfixes and QoL ignored oversized AI selection store: path={storePath}, " +
                         $"size={fileInfo.Length}, maximum={MaxStoreFileBytes}.");
+                    storeUnreadable = true;
                     return;
                 }
 
@@ -1295,11 +1334,14 @@ namespace BugfixesAndQoL
                     Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1347", () => "Bugfixes and QoL migrated AI AIV/AIC selection memory to file references.");
                 }
 
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1352", () =>
-                        $"Bugfixes and QoL loaded {storedSelections.Count} shared AI AIV/AIC selections from {storePath}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1352", () =>
+                            $"Bugfixes and QoL loaded {storedSelections.Count} shared AI AIV/AIC selections from {storePath}.");
             }
             catch (Exception ex)
             {
+                storedSelections.Clear();
+                storeUnreadable = true;
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1359", $"Bugfixes and QoL could not load AI selection store from {storePath}: {ex.Message}");
             }
         }
@@ -1309,10 +1351,25 @@ namespace BugfixesAndQoL
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(storePath));
+                if (storeUnreadable && File.Exists(storePath))
+                {
+                    string backupPath = storePath + ".unreadable-" +
+                        DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture) + ".bak";
+                    File.Copy(storePath, backupPath, overwrite: false);
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1385", $"Bugfixes and QoL kept the unreadable AI selection store as {backupPath} before writing a new one.");
+                }
+                storeUnreadable = false;
+                // Write a complete temporary file first, so a crash during saving cannot
+                // leave a truncated store behind.
+                string temporaryPath = storePath + ".tmp";
                 File.WriteAllText(
-                    storePath,
+                    temporaryPath,
                     SerializeJsonObject(storedSelections),
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                if (File.Exists(storePath))
+                    File.Replace(temporaryPath, storePath, null);
+                else
+                    File.Move(temporaryPath, storePath);
             }
             catch (Exception ex)
             {

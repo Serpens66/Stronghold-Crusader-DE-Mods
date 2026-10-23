@@ -28,9 +28,7 @@ namespace BugfixesAndQoL.UnitCommands
         internal const int MoatRecordTileIdOffset = 0x00;
         internal const int MoatRecordXOffset = 0x04;
         internal const int MoatRecordYOffset = 0x06;
-        internal const int MoatRecordReservationOffset = 0x0F;
         internal const int MaximumMoatRecordId = 63999;
-        internal const byte MoatReservationStep = 20;
         internal static bool IsValidMoatRecordId(int id, int count) =>
             id > 0 && id <= MaximumMoatRecordId && count > 0 && count <= MaximumMoatRecordId + 1 && id < count;
         internal const uint MovementBlockedLowTileFlagMask = 0x00000030;
@@ -74,7 +72,10 @@ namespace BugfixesAndQoL.UnitCommands
         internal HookTransaction moatWorkHookTransaction;
         internal readonly Dictionary<int, string> lastMoatWorkSelectionByUnit =
             new Dictionary<int, string>();
+#if SERP_DEVDIAG
         internal readonly Dictionary<int, string> lastMoatWorkApproachByUnit =
             new Dictionary<int, string>();
+#endif
+
     }
 }

@@ -16,10 +16,18 @@ string RuntimeSource(string name)
 {
     string sharedName = name.Replace("FriendlyMoatMovementRuntime", "UnitCommandPathRuntime");
     string commandRoot = Path.Combine(root, "BugfixesAndQoL", "src", "UnitCommands");
-    string[] files = sharedName == "UnitCommandPathRuntime.cs"
+    // src/Moved holds the friendly-moat command logic moved from BugfixesAndQoL (2026-10-22);
+    // it merges into the same runtime class like the other provider files.
+    string[] files = name.StartsWith("Moved/", StringComparison.Ordinal)
+        ? new[] { Path.Combine(sourceDir, "Moved", name.Substring("Moved/".Length)) }
+        : sharedName == "UnitCommandPathRuntime.cs"
         ? Directory.GetFiles(commandRoot, "UnitCommandPathRuntime.*.cs", SearchOption.AllDirectories)
         : Directory.GetFiles(commandRoot, sharedName, SearchOption.AllDirectories);
     if (files.Length == 0) files = new[] { Path.Combine(sourceDir, name) };
+    // The friendly-moat part of a split file is compiled wherever its remaining part is.
+    string movedPart = Path.Combine(sourceDir, "Moved", "Moved." + name);
+    if (!name.StartsWith("Moved/", StringComparison.Ordinal) && File.Exists(movedPart))
+        files = files.Append(movedPart).ToArray();
     var units = files.OrderBy(p => p, StringComparer.Ordinal).Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p).Replace("BugfixesRuntime::", "")).GetCompilationUnitRoot()).ToArray();
     string text = (string.Join("\n", units.SelectMany(u => u.Usings).Select(u => u.ToFullString()).Distinct()) +
         "\n" + string.Join("\n", units.SelectMany(u => u.Members).Select(m => m.ToFullString())))
@@ -80,7 +88,7 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FastIntegration.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -89,6 +97,9 @@ string[] runtimeSourceNames =
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs"
 };
+runtimeSourceNames = runtimeSourceNames.Concat(Directory.GetFiles(Path.Combine(sourceDir, "Moved"), "Moved.*.cs")
+    .Where(path => !runtimeSourceNames.Contains(Path.GetFileName(path).Substring("Moved.".Length)))
+    .Select(path => "Moved/" + Path.GetFileName(path)).OrderBy(name => name, StringComparer.Ordinal)).ToArray();
 var trees = runtimeSourceNames.Select(name => CSharpSyntaxTree.ParseText(RuntimeSource(name), path: name)).ToArray();
 var syntaxErrors = trees.SelectMany(t => t.GetDiagnostics())
     .Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
@@ -100,6 +111,7 @@ ValidateDetailedDiagnostics();
 SplitContracts.Validate(root);
 
 var methods = new HashSet<string>(new[] {
+    "TryAllowDigWorkRegionPair", "TryAllowDigWorkRegionSearch",
     "EmitSelectionCallAdapter",
     "LogDetailedInfo",
     "EnsureMoveCommandGroupSummary",
@@ -113,7 +125,7 @@ var methods = new HashSet<string>(new[] {
     "RentBuildingFallbackWorkBuffers", "ReturnBuildingFallbackWorkBuffers", "BuildPathWithCompletedMoatRouteVariantWithMoat", "ObserveUnitMoveOrder", "GetCurrentUnitMoveFrame", "AbandonUnitMoveFrame", "ClearUnitMoveFrames",
     "GetUnitMovePlan", "CopyMovementPlan", "GetNativeMovementStart", "TryAuditFallbackPath", "TryAuditFallbackPathCore", "IsCompletedEnemyMoatForPlayer",
     "DescribeFallbackContractFailure",
-    "EnableCompletedMoatModeForScopedMovement", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication",
+    "EnableCompletedMoatModeForScopedMovement", "ResolveScopedCompletedMoatMode", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication",
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
     "CaptureAttackApproachState",
     "TryHandleVanillaLadderRegionPair", "RestoreVanillaLadderBuildingCandidates", "GetBuildingApproachPairKey",
@@ -143,27 +155,57 @@ var constants = new HashSet<string>(new[] {
     "MovementBlockedLowTileFlagMask", "CompletedMoatTileFlag", "CursorSpecialStructureTileFlagMask", "PathManagerOutputBufferOffset",
     "PathManagerOutputLengthOffset", "NativeUnitPathBufferOffset", "NativeUnitPathBufferStride",
     "PathManagerRouteVariantOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
-    , "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive", "attackQualificationTimingDepth", "requiredPublicationTimingDepth"
+    , "FastSearchNodeBudget", "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive", "attackQualificationTimingDepth", "requiredPublicationTimingDepth"
 });
 var selected = new List<MemberDeclarationSyntax>();
+// Members the harness stubs deliberately (state, diagnostics, qualification) keep their stub,
+// exactly as before they moved from BugfixesAndQoL to src/Moved.
+var harnessMembers = new HashSet<string>(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RuntimeHarness.cs")))
+    .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Where(c => c.Identifier.Text == "FriendlyMoatMovementRuntime")
+    .SelectMany(c => c.Members).SelectMany(member => member switch {
+        MethodDeclarationSyntax method => new[] { method.Identifier.Text },
+        PropertyDeclarationSyntax property => new[] { property.Identifier.Text },
+        FieldDeclarationSyntax field => field.Declaration.Variables.Select(v => v.Identifier.Text).ToArray(),
+        BaseTypeDeclarationSyntax type => new[] { type.Identifier.Text },
+        _ => Array.Empty<string>() }), StringComparer.Ordinal);
+bool HarnessStubbed(MemberDeclarationSyntax member) => member switch {
+    MethodDeclarationSyntax method => harnessMembers.Contains(method.Identifier.Text),
+    PropertyDeclarationSyntax property => harnessMembers.Contains(property.Identifier.Text),
+    FieldDeclarationSyntax field => field.Declaration.Variables.Any(v => harnessMembers.Contains(v.Identifier.Text)),
+    BaseTypeDeclarationSyntax type => harnessMembers.Contains(type.Identifier.Text),
+    _ => false };
 foreach (var tree in trees)
 foreach (var cls in tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
     .Where(c => c.Identifier.Text == "FriendlyMoatMovementRuntime"))
 foreach (var member in cls.Members)
 {
-    if (member is MethodDeclarationSyntax m && methods.Contains(m.Identifier.Text) ||
+    // Include the complete addon work policy. Its private helper names and method
+    // split are not a test contract; only the resulting work behavior is.
+    if (tree.FilePath == "DigWorkFallback.cs" ||
+        member is MethodDeclarationSyntax m && methods.Contains(m.Identifier.Text) ||
         member is BaseTypeDeclarationSyntax t && types.Contains(t.Identifier.Text) ||
         member is PropertyDeclarationSyntax p && properties.Contains(p.Identifier.Text) ||
         member is FieldDeclarationSyntax f && f.Declaration.Variables.Any(v => constants.Contains(v.Identifier.Text)))
         selected.Add(member);
 }
+// A "...Traversal" entry was cut out of a selected BugfixesAndQoL hook body and moved to
+// src/Moved; select it whenever its selected caller still calls it, as its body was before.
+// Files the compilation below includes completely already carry their entries.
+var wholeFiles = new HashSet<string>(new[] { "CursorConnectivity.cs", "MoatPlacement.cs", "FillWeightedRoutes.cs",
+    "NativeFormationSlots.cs", "MoatPlacementSearch.cs", "CursorRegionGraph.cs", "WeightedMoatRoutePlanner.cs" }, StringComparer.Ordinal);
+string selectedText = string.Join("\n", selected.Select(m => m.ToFullString()));
+foreach (var tree in trees.Where(t => !wholeFiles.Contains(t.FilePath) && !t.FilePath.StartsWith("Fast", StringComparison.Ordinal)))
+foreach (var method in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+    if (method.Identifier.Text.EndsWith("Traversal", StringComparison.Ordinal) && !HarnessStubbed(method) &&
+        !selected.Contains(method) && selectedText.Contains("." + method.Identifier.Text + "(", StringComparison.Ordinal))
+        selected.Add(method);
 foreach (string name in methods)
     if (!selected.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == name))
         throw new Exception("Missing runtime method: " + name);
 string extracted = "using APIShared; using Iced.Intel; using static Iced.Intel.AssemblerRegisters; using RedBird.Abstractions.Hooks; using RedBird.Abstractions.Hooks.Transaction; using RedBird.X64.Hooks.Transaction; using System; using System.Collections.Generic; using System.Diagnostics; " +
     "using System.Runtime.InteropServices; namespace MoatMove { " +
     "internal sealed unsafe partial class FriendlyMoatMovementRuntime {\n" +
-    string.Join("\n", selected.Select(m => m.ToFullString())) + "\n} }";
+    string.Join("\n", selected.Select(m => BalancedDirectives(m.ToFullString()))) + "\n} }";
 string installedExtender = Path.Combine(
     @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
     "BepInEx", "plugins", "000shcdese");
@@ -214,6 +256,10 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
         "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>()
         .Single(n => n.Identifier.Text == "AssassinTransitionKind") + "}"),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinRouteHandoff.cs"))),
+    // The production BeginRouteOutput entry over the real handoff; the rest of AssassinPathAPI needs native hooks.
+    CSharpSyntaxTree.ParseText("using System; namespace APIShared { public static partial class AssassinPathAPI {" +
+        CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinPathAPI.cs")))
+            .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "BeginRouteOutput") + "} }"),
     referenceTree,
     comparisonTree,
     comparisonPlannerTree,
@@ -250,6 +296,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FormationBoundaryFixture.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "DigWorkFallbackTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "SearchKernelTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RuntimeHarness.cs")), path: "RuntimeHarness.cs")
 }, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));
@@ -279,6 +326,23 @@ catch (TargetInvocationException ex)
 }
 Console.WriteLine($"PASS: syntax of {trees.Length} runtime files; {selected.Count} actual runtime members compiled and exercised.");
 
+// A member split by "#if/#else ... #endif" (e.g. DetailedDiagnosticsEnabled) owns the
+// opening directives, while the closing one is leading trivia of whichever member follows.
+string BalancedDirectives(string member)
+{
+    var lines = new List<string>(); int depth = 0;
+    foreach (string line in member.Split('\n'))
+    {
+        string directive = line.TrimStart();
+        if (directive.StartsWith("#if", StringComparison.Ordinal)) depth++;
+        else if (directive.StartsWith("#endif", StringComparison.Ordinal)) { if (depth == 0) continue; depth--; }
+        else if ((directive.StartsWith("#else", StringComparison.Ordinal) || directive.StartsWith("#elif", StringComparison.Ordinal)) && depth == 0) continue;
+        lines.Add(line);
+    }
+    while (depth-- > 0) lines.Add("#endif");
+    return string.Join("\n", lines);
+}
+
 void ValidateDetailedDiagnostics()
 {
     var moveMoatClasses = trees.SelectMany(tree => tree.GetRoot().DescendantNodes()
@@ -289,7 +353,9 @@ void ValidateDetailedDiagnostics()
             variable.Identifier.Text == "DetailedDiagnosticsEnabled"));
     var variable = field.Declaration.Variables.Single(item =>
         item.Identifier.Text == "DetailedDiagnosticsEnabled");
-    if (!field.Modifiers.Any(SyntaxKind.ReadOnlyKeyword) ||
+    // Parsed without SERP_DEVDIAG, i.e. the production branch: since 2026-10-21 BugfixesAndQoL
+    // declares it there as "const bool ... = false" (DEVDIAG builds use a property instead).
+    if (!(field.Modifiers.Any(SyntaxKind.ReadOnlyKeyword) || field.Modifiers.Any(SyntaxKind.ConstKeyword)) ||
         variable.Initializer?.Value.IsKind(SyntaxKind.FalseLiteralExpression) != true)
         throw new Exception("DetailedDiagnosticsEnabled must remain disabled for production logging.");
 

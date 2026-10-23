@@ -114,10 +114,8 @@
     </Compile>
     <Compile Include="src\ActiveSiegeTentCache.cs" />
     <Compile Include="src\ActiveUnitCache.cs" />
-    <Compile Include="src\CreateTroopHoverHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\RecruitmentAvailabilityUiHook.cs" />
-    <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitLimitRuntime.cs" />
     <Compile Include="src\UnitLimitRuntime.Integration.cs" />
     <Compile Include="src\UnitLimitRuntime.RecruitmentAvailability.cs" />
@@ -131,7 +129,6 @@
     <Compile Include="src\UnitLimitRuntime.UnitLimits.cs" />
     <Compile Include="src\UnitLimitRuntime.Notifications.cs" />
     <Compile Include="src\LimitNotificationViewModel.cs" />
-    <Compile Include="src\UnitLimitTooltipViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>

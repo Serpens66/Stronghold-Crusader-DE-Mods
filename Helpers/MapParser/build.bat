@@ -1,11 +1,24 @@
 @echo off
 setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Helpers/MapParser/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
 set "BUILD_DRIVER_NOPAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START MapParser
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -26,7 +39,7 @@ set "PROJECT_DIR=%~dp0"
 set "PARSER_EXE=%PROJECT_DIR%MapParser.Cli\bin\Release\net10.0\MapParser.exe"
 
 where dotnet >nul 2>nul
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Das .NET SDK wurde nicht gefunden.
   echo Installiere das .NET 10 SDK und starte build.bat danach erneut.
   exit /b 1
@@ -37,7 +50,7 @@ pushd "%PROJECT_DIR%"
 echo Baue MapParser in der Release-Konfiguration...
 echo [%date% %time%] Compile projects
 dotnet build "MapParser.sln" -c Release
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   popd
   echo.
   echo Build fehlgeschlagen.

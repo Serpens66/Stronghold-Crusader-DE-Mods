@@ -153,15 +153,26 @@ namespace BugfixesAndQoL.GateRouting
     // player mask for the duration of a complete query; eleven movement adapters and
     // three tactical-target adapters AND that mask into Vanilla's own edge checks
     // without changing the global grid.
-    internal sealed unsafe class SamePclGateRouteRuntime : IEnemyGatePathPolicy,
-        IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, IEnemyGateRoutePolicyProvider, ITemporaryAssassinGateObserver
+    // TEMP_GATE_MIGRATION_DIAGNOSTICS: optional observers attach through the partial Diag* methods
+    // implemented in SamePclGateRouteRuntime.DevDiag.cs (SERP_DEVDIAG builds only).
+    internal sealed unsafe partial class SamePclGateRouteRuntime : IEnemyGatePathPolicy, IEnemyGateRoutePolicyProvider
+#if SERP_DEVDIAG
+        , IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, ITemporaryAssassinGateObserver
+#endif
     {
+        private long integrityRevision;
+        internal long SupportIntegrityRevision => Interlocked.Read(ref integrityRevision);
+        private long CountIntegrityError(ref long counter)
+        {
+            long value = Interlocked.Increment(ref counter);
+            Interlocked.Increment(ref integrityRevision);
+            return value;
+        }
         private readonly GateRoutingNativeHooks nativeHooks;
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
         private static readonly long CursorRefreshInterval = Math.Max(
             1L, Stopwatch.Frequency / 5L);
-
 
         private sealed class PlayerKindSnapshot
         {
@@ -183,6 +194,15 @@ namespace BugfixesAndQoL.GateRouting
                 ? owners[tribeId] : -1;
             internal uint Global(int tribeId) => tribeId > 0 && tribeId < globals.Length
                 ? globals[tribeId] : 0;
+            // Allocation-free per-tick freshness check against the live native tribe slots.
+            internal bool Matches(Span<GameTribe> tribes)
+            {
+                if (owners.Length != tribes.Length) return false;
+                for (int tribeId = 1; tribeId < tribes.Length; tribeId++)
+                    if (owners[tribeId] != tribes[tribeId].r_PlayerIdOwner ||
+                        globals[tribeId] != tribes[tribeId].r_GlobalId) return false;
+                return true;
+            }
         }
 
         private sealed class NativeMaskSnapshot
@@ -198,7 +218,7 @@ namespace BugfixesAndQoL.GateRouting
             {
                 if (!allocate) return;
                 storage = Marshal.AllocHGlobal(checked(
-                    EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive * 8));
+                    GateRoutingNativeLayout.MaximumTileIdExclusive * 8));
             }
             internal void Fill(RouteTilePolicySnapshot source)
             {
@@ -208,7 +228,7 @@ namespace BugfixesAndQoL.GateRouting
                     byte[] mask = source?.DirectionMasks != null &&
                         player < source.DirectionMasks.Length ? source.DirectionMasks[player] : null;
                     if (mask == null || mask.Length !=
-                        EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive) continue;
+                        GateRoutingNativeLayout.MaximumTileIdExclusive) continue;
                     IntPtr target = IntPtr.Add(storage, checked((player - 1) * mask.Length));
                     Marshal.Copy(mask, 0, target, mask.Length);
                     PlayerMasks[player] = target;
@@ -218,7 +238,7 @@ namespace BugfixesAndQoL.GateRouting
         }
 
         private readonly ManualLogSource log;
-        private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
+
         private readonly IntPtr threadSlots;
         private readonly IntPtr tacticalThreadSlots;
         private readonly ScanRegion region;
@@ -233,9 +253,11 @@ namespace BugfixesAndQoL.GateRouting
         private volatile PlayerKindSnapshot playerKinds = PlayerKindSnapshot.Empty;
         private volatile TribePlayerSnapshot tribePlayers = TribePlayerSnapshot.Empty;
         private readonly bool ownerConflict;
-        private BuildingConsumerDelegate originalAlternateConsumer;
-        private CandidateSearchDelegate originalCandidateSearch;
-        private AiTacticalTargetDelegate originalAiTacticalTarget;
+        // APIShared publishes originals before any patch. Read them directly: a native call can
+        // arrive before InstallMovement returns and before this provider can copy its results.
+        private BuildingConsumerDelegate originalAlternateConsumer => nativeHooks.OriginalAlternateConsumer;
+        private CandidateSearchDelegate originalCandidateSearch => nativeHooks.OriginalCandidateSearch;
+        private AiTacticalTargetDelegate originalAiTacticalTarget => nativeHooks.OriginalAiTacticalTarget;
         private readonly DirectTileSearchDelegate originalDirectTileSearch;
         private readonly PclReachabilityDelegate originalPclReachability;
         private long queries, preserved, rejectedEdges, successWithRejectedEdges, negativeWithRejectedEdges;
@@ -286,57 +308,64 @@ namespace BugfixesAndQoL.GateRouting
 
         private readonly IEnemyGatePathPolicy registeredProvider;
         private readonly DeferredGateDiagnosticErrors deferredErrors;
-        private bool DetailedDiagnostics => attackOrderDiagnostics != null;
-        // TEMP_MACEMEN_GATE_DIAGNOSTICS: no optional API observer interface is exposed.
-        internal MacemenCommandDiagnostics MacemenDiagnostics;
+        private bool DetailedDiagnostics { get { bool detailed = false; DiagIsDetailed(ref detailed); return detailed; } }
 
         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
             ScanRegion region, ulong libraryBase, bool existingHookOwner,
-            AttackOrderCorrelationDiagnostics attackOrderDiagnostics, GateRoutingNativeHooks nativeHooks, DeferredGateDiagnosticErrors deferredErrors = null)
+            object diagnostics, GateRoutingNativeHooks nativeHooks, DeferredGateDiagnosticErrors deferredErrors = null)
         {
             this.nativeHooks = nativeHooks;
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.region = region;
             this.libraryBase = libraryBase;
-            this.attackOrderDiagnostics = attackOrderDiagnostics;
+            DiagInitialize(diagnostics);
             this.deferredErrors = deferredErrors;
             registeredProvider = DetailedDiagnostics ? (IEnemyGatePathPolicy)this : new FunctionalGatePolicyAdapter(this, this);
             ownerConflict = existingHookOwner;
             maskPool = new NativeMaskSnapshot[NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)
                 maskPool[index] = new NativeMaskSnapshot(true);
-            EnemyGatePathfindingNativeDefinition.ValidateSamePclNativeFilterContracts(
+            GateRoutingNativeLayout.ValidateMovementSites(
                 memory, existingHookOwner);
             originalDirectTileSearch = Marshal.GetDelegateForFunctionPointer<DirectTileSearchDelegate>(
                 new IntPtr(unchecked((long)(libraryBase +
-                    EnemyGatePathfindingNativeDefinition.DirectTileSearchRva))));
+                    (ulong)GateRoutingNativeLayout.DirectTileSearchRva))));
             originalPclReachability = Marshal.GetDelegateForFunctionPointer<PclReachabilityDelegate>(
                 new IntPtr(unchecked((long)(libraryBase +
-                    EnemyGatePathfindingNativeDefinition.PclReachabilityRva))));
-            threadSlots = GateNativeSearchScopes.Allocate(DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride);
-            tacticalThreadSlots = GateNativeSearchScopes.Allocate(AiTacticalTargetAdapterEmitter.ThreadSlotCount * AiTacticalTargetAdapterEmitter.ThreadSlotStride);
+                    (ulong)GateRoutingNativeLayout.PclReachabilityRva))));
+            threadSlots = GateNativeSearchScopes.Allocate(GateNativeSearchScopes.GenericSlotCount * ThreadSlotStride);
+            tacticalThreadSlots = GateNativeSearchScopes.Allocate(GateNativeSearchScopes.TacticalSlotCount * GateNativeSearchScopes.TacticalSlotStride);
         }
 
         private void InstallHooks()
         {
             nativeHooks.InstallMovement(threadSlots,tacticalThreadSlots,FilterAlternateConsumer,
                 FilterCandidateSearch,FilterAiTacticalTarget,FilterDirectCursorSearch,FilterCursorPclDecision);
-            originalAlternateConsumer=nativeHooks.OriginalAlternateConsumer;
-            originalCandidateSearch=nativeHooks.OriginalCandidateSearch;
-            originalAiTacticalTarget=nativeHooks.OriginalAiTacticalTarget;
             hooksInstalled=true;
         }
 
         internal bool Installed => hooksInstalled;
 
+        // Installs the movement hooks during plugin initialization instead of on the first non-empty
+        // gate mask: that first mask arrives in the first simulation tick of a map, and installing
+        // there froze the map start for ~230 ms (user decision 2026-10-20: longer game start rather
+        // than map-start lags). Same single attempt as before; empty masks keep every filter on the
+        // Vanilla result.
+        internal void InstallHooksEagerly()
+        {
+            if (Installed || Interlocked.CompareExchange(ref installAttempted, 1, 0) != 0) return;
+            InstallHooks();
+        }
+
         bool IEnemyGatePathPolicy.HasPublishedMask =>
             publishedPolicy.NonEmptyPlayerMaskCount != 0;
-
+#if SERP_DEVDIAG
         void IEnemyGateRegionPairObserver.ObserveRegionPair(int playerId,
             int sourceComponentId, int destinationComponentId, int queryMode,
             int vanillaResult, int effectiveResult, string source) =>
-            attackOrderDiagnostics?.ObserveRegionPair(playerId, sourceComponentId,
+            DiagRegionPair(playerId, sourceComponentId,
                 destinationComponentId, queryMode, vanillaResult, effectiveResult, source);
+#endif
 
         bool IEnemyGateRoutePolicyProvider.TryCaptureRoutePolicy(int playerId,
             out IEnemyGateRoutePolicySnapshot snapshot) =>
@@ -346,11 +375,17 @@ namespace BugfixesAndQoL.GateRouting
             publishedPolicy.IsDirectionAllowed(playerId, tileId, direction);
         // TEMP_GATE_ROUTE_ACCEPTANCE: read-only publication identity.
         // TEMP_GATE_ROUTE_ACCEPTANCE: retains gate geometry even when all player masks are empty.
+#if SERP_DEVDIAG
         private RouteTilePolicySnapshot temporaryPublishedPolicy = RouteTilePolicySnapshot.Empty;
+
         internal Action<RouteTilePolicySnapshot, int> TemporaryPolicyPublished;
+
         internal RouteTilePolicySnapshot TemporaryAcceptanceSnapshot => temporaryPublishedPolicy;
+#endif
+
         // TEMP_MACEMEN_GATE_DIAGNOSTICS: functional publication exists in every mode.
         internal RouteTilePolicySnapshot MacemenDiagnosticSnapshot => publishedPolicy;
+#if SERP_DEVDIAG
         private void NotifyTemporaryPublication(RouteTilePolicySnapshot policy, int generation)
         {
             if (!DetailedDiagnostics) return;
@@ -358,41 +393,41 @@ namespace BugfixesAndQoL.GateRouting
             try { TemporaryPolicyPublished?.Invoke(temporaryPublishedPolicy, generation); }
             catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("capture-policy-publication", error); }
         }
+#endif
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: remove optional forwarding after acceptance.
+#if SERP_DEVDIAG
         void ITemporaryAssassinGateObserver.ObserveAssassinStage(object token, int player, string stage, string result, string detail) =>
-            attackOrderDiagnostics?.ObserveTemporaryAssassinStage(token, player, stage, result, detail);
+            DiagAssassinStage(token, player, stage, result, detail);
+
         void ITemporaryAssassinGateObserver.ObserveAssassinDecision(object token, int player, int from, int to, int direction,
             bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence) =>
-            attackOrderDiagnostics?.ObserveTemporaryAssassinDecision(token, player, from, to, direction, prepared, movement, allowed, gate, global, evidence);
+            DiagAssassinDecision(token, player, from, to, direction, prepared, movement, allowed, gate, global, evidence);
 
         object IEnemyGateAssassinObserver.BeginAssassinSearch(int startX, int startY,
             int targetX, int targetY, int maximumNodes, int continuation, string nativeState)
         {
-            object token = attackOrderDiagnostics?.BeginAssassinSearch(publishedPolicy, startX, startY,
-                targetX, targetY, maximumNodes, continuation, nativeState);
-            // TEMP_GATE_ROUTE_ACCEPTANCE: generation of the existing published mask, not a game query.
-            attackOrderDiagnostics?.ObserveTemporaryAssassinStage(token, 0, "policy-entry", "captured",
-                "policyGeneration=" + policyGeneration);
+            object token = null;
+            DiagBeginAssassinSearch(ref token, startX, startY, targetX, targetY, maximumNodes, continuation, nativeState);
             return token;
         }
 
         void IEnemyGateAssassinObserver.ObserveAssassinEdge(object token, int playerId,
             int fromTile, int toTile, int direction, bool climb) =>
-            attackOrderDiagnostics?.ObserveAssassinEdge(token, playerId, fromTile, toTile, direction, climb);
+            DiagAssassinEdge(token, playerId, fromTile, toTile, direction, climb);
 
         void IEnemyGateAssassinObserver.ObserveAssassinPolicyFiltering(object token, int playerId,
             long ground, long climb) =>
-            attackOrderDiagnostics?.ObserveAssassinPolicyFiltering(token, playerId, ground, climb);
+            DiagAssassinPolicyFiltering(token, playerId, ground, climb);
 
         void IEnemyGateAssassinObserver.ObserveAssassinBuildingSearch(int tribeId,
             int buildingId, int sourceRegion, int rawSearchPlayer) =>
-            attackOrderDiagnostics?.ObserveAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer);
+            DiagAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer);
 
         void IEnemyGateAssassinObserver.EndAssassinSearch(object token, int playerId,
             int vanillaResult, int effectiveResult, string outcome, bool cacheHit, int routeLength) =>
-            attackOrderDiagnostics?.EndAssassinSearch(token, publishedPolicy, playerId,
-                vanillaResult, effectiveResult, outcome, cacheHit, routeLength);
+            DiagEndAssassinSearch(token, playerId, vanillaResult, effectiveResult, outcome, cacheHit, routeLength);
+#endif
 
         int IEnemyGatePathPolicy.ResolveTribePlayer(int tribeId) =>
             tribePlayers.Resolve(tribeId);
@@ -432,16 +467,14 @@ namespace BugfixesAndQoL.GateRouting
                 var context = new BuildingSearchPlayerContext(rawSearchArgument, tribeId,
                     snapshot.Resolve(tribeId), snapshot.Global(tribeId), liveOwner, liveGlobal,
                     leaderId, leaderGlobal, control, planning, buildingMapEditor);
-                if (context.Failure != null) Interlocked.Increment(ref scopeMismatches);
-                try { attackOrderDiagnostics?.ObserveBuildingContext(context); }
-                catch { Interlocked.Increment(ref exceptions); }
+                if (context.Failure != null) CountIntegrityError(ref scopeMismatches);
+                DiagBuildingContext(context);
                 return context.MovementPlayer;
             }
             catch (Exception ex)
             {
-                Interlocked.Increment(ref exceptions);
-                try { attackOrderDiagnostics?.ObserveBuildingException(rawSearchArgument, tribeId, ex.GetType().Name); }
-                catch { /* The failed context remains open even if diagnostics also fail. */ }
+                CountIntegrityError(ref exceptions);
+                DiagBuildingException(rawSearchArgument, tribeId, ex);
                 return -1;
             }
         }
@@ -449,48 +482,41 @@ namespace BugfixesAndQoL.GateRouting
         int IEnemyGatePathPolicy.ResolveCursorPlayer(int tribeId)
         {
             int nativePlayer = *(int*)(libraryBase +
-                EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+                (ulong)GateRoutingNativeLayout.ActivePlayerIdRva);
             return ValidateExplicitPlayer(nativePlayer, tribePlayers.Resolve(tribeId), "shared-cursor");
         }
 
         object IEnemyGatePathPolicy.EnterNativeSearch(int playerId, EnemyGateSearchKind kind)
         {
+            Shared.DevDiag.Count("gate.search.scoped");
             QueryKind localKind = SharedKind(kind, playerId);
             CaptureScopeSample(localKind, playerId, playerId, -1, playerId);
             CountSharedSearch(kind, localKind);
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             QueryScope scope = Enter(playerId, diagnosticKind: localKind);
-            MacemenDiagnostics?.BeginSearch(playerId, (int)kind);
-            try { attackOrderDiagnostics?.BeginNativeSearch(kind.ToString(), playerId); }
-            catch { Interlocked.Increment(ref exceptions); }
-            if (kind == EnemyGateSearchKind.Builder)
-            {
-                try { attackOrderDiagnostics?.BeginBuilder(); }
-                catch { Interlocked.Increment(ref exceptions); }
-            }
-            return scope;
+            Shared.DevDiag.StopSpike(ref measured, "gate.search.enter", 10000);
+            DiagBeginSharedSearch(playerId, kind);
+            return ScopeBox.Rent(scope);
         }
 
         void IEnemyGatePathPolicy.ExitNativeSearch(
             object scope, EnemyGateSearchKind kind, bool completed, bool success)
         {
-            if (!(scope is QueryScope query)) return;
+            if (!(scope is ScopeBox box) || !ScopeBox.TryTake(box, out QueryScope query)) return;
             try
             {
                 QueryKind localKind = query.Diagnostic.Kind;
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
                 long touched = Complete(query, localKind,
                     kind == EnemyGateSearchKind.Builder, success, completed);
-                MacemenDiagnostics?.EndSearch(completed, success, touched);
-                if (kind == EnemyGateSearchKind.Builder)
-                {
-                    try { attackOrderDiagnostics?.ObserveBuilder(
-                        query.PlayerId, query.Diagnostic, completed, success, touched, query.Snapshot.Fingerprint); }
-                    catch { Interlocked.Increment(ref exceptions); }
-                }
+                Shared.DevDiag.StopSpike(ref measured, "gate.search.complete", 10000);
+                DiagCompleteSharedSearch(kind, query.PlayerId, query.Diagnostic, completed, success, touched, query.Snapshot.Fingerprint);
             }
             finally
             {
-                try { attackOrderDiagnostics?.EndNativeSearch(kind.ToString(), completed, success); }
-                catch { Interlocked.Increment(ref exceptions); }
+                DiagEndNativeSearch(kind, completed, success);
             }
         }
 
@@ -526,7 +552,6 @@ namespace BugfixesAndQoL.GateRouting
             }
         }
 
-
         internal void UpdatePolicy(RouteTilePolicySnapshot policy)
         {
             if (policy == null || policy.NonEmptyPlayerMaskCount == 0)
@@ -538,7 +563,10 @@ namespace BugfixesAndQoL.GateRouting
                     currentMasks = NativeMaskSnapshot.Empty;
                     publishedPolicy = RouteTilePolicySnapshot.Empty;
                     routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
+#if SERP_DEVDIAG
                     NotifyTemporaryPublication(policy, policyGeneration);
+#endif
+
                 }
                 return;
             }
@@ -552,7 +580,7 @@ namespace BugfixesAndQoL.GateRouting
             }
             catch (Exception ex)
             {
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref exceptions);
                 if (deferredErrors != null) deferredErrors.Record("Native gate-mask publication failed open / " + ex.GetType().Name, ex.Message);
                 else Shared.DebugLogHelper.LogWarning(log,
                     $"Native gate-mask publication failed open: {ex.GetType().Name}: {ex.Message}");
@@ -567,12 +595,20 @@ namespace BugfixesAndQoL.GateRouting
                 currentMasks = NativeMaskSnapshot.Empty;
                 publishedPolicy = RouteTilePolicySnapshot.Empty;
                 routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
+#if SERP_DEVDIAG
                 NotifyTemporaryPublication(RouteTilePolicySnapshot.Empty, generation);
+#endif
+
             }
             TryPublishPending(policy, generation);
         }
 
-        internal void ProcessDeferred()
+        // Runs once per simulation tick (render frame only in the map editor). The tribe
+        // ownership snapshot feeds gameplay masks on every peer, so it is refreshed in the
+        // same tick as any tribe change instead of on a wall-clock interval.
+        private const long PlayerKindRefreshIntervalTicks = 40;
+
+        internal void ProcessTick(long now)
         {
             RouteTilePolicySnapshot retry;
             int generation;
@@ -582,14 +618,11 @@ namespace BugfixesAndQoL.GateRouting
                 generation = policyGeneration;
             }
             if (retry != null) TryPublishPending(retry, generation);
-            long now = Stopwatch.GetTimestamp();
-            if (now < Volatile.Read(ref nextPlayerRefresh)) return;
-            Volatile.Write(ref nextPlayerRefresh, now + Stopwatch.Frequency);
-            var ai = new bool[9];
-            for (int player = 1; player <= 8; player++)
-                ai[player] = GamePlayerManagerAPI.Instance.IsAIPlayer(player);
-            playerKinds = new PlayerKindSnapshot(ai);
             Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
+            if (tribePlayers.Matches(tribes)) { RefreshPlayerKindsIfDue(now); return; }
+            // Allocates two arrays of the tribe span; measured to decide whether reuse is worth it.
+            Shared.DevDiag.Count("gate.tribes.rebuild");
+            Shared.DevDiag.Count("gate.tribes.rebuild.slots", tribes.Length);
             var owners = new int[tribes.Length];
             var globals = new uint[tribes.Length];
             // Script Extender 2.7 exposes the complete native tribe-slot span.
@@ -600,6 +633,18 @@ namespace BugfixesAndQoL.GateRouting
                 globals[tribeId] = tribes[tribeId].r_GlobalId;
             }
             tribePlayers = new TribePlayerSnapshot(owners, globals);
+            RefreshPlayerKindsIfDue(now);
+        }
+
+        // AI/human classification only selects diagnostic query counters.
+        private void RefreshPlayerKindsIfDue(long now)
+        {
+            if (now < Volatile.Read(ref nextPlayerRefresh)) return;
+            Volatile.Write(ref nextPlayerRefresh, now + PlayerKindRefreshIntervalTicks);
+            var ai = new bool[9];
+            for (int player = 1; player <= 8; player++)
+                ai[player] = GamePlayerManagerAPI.Instance.IsAIPlayer(player);
+            playerKinds = new PlayerKindSnapshot(ai);
         }
 
         private int FilterCursorPclDecision(IntPtr manager, int player,
@@ -622,20 +667,20 @@ namespace BugfixesAndQoL.GateRouting
                     else Interlocked.Increment(ref cursorDifferentPclEligible);
                     NativeMaskSnapshot snapshot = currentMasks;
                     int tileBefore = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileIdRva);
                     int targetX = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileXRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileXRva);
                     int targetY = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileYRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileYRva);
                     int tileAfter = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva);
+                        (ulong)GateRoutingNativeLayout.CursorMouseTileIdRva);
                     bool valid = player > 0 && player <= 8 && unitId > 0 &&
                         snapshot.Fingerprint != 0 &&
                         snapshot.PlayerMasks[player] != IntPtr.Zero &&
                         tileBefore == tileAfter && targetX >= 0 && targetX < 800 &&
                         targetY >= 0 && targetY < 800 && tileAfter >= 0 &&
-                        tileAfter < EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive &&
-                        *(int*)(libraryBase + EnemyGatePathfindingNativeDefinition.TileRowStartRva +
+                        tileAfter < GateRoutingNativeLayout.MaximumTileIdExclusive &&
+                        *(int*)(libraryBase + (ulong)GateRoutingNativeLayout.TileRowStartRva +
                             unchecked((ulong)(targetY * 12))) + targetX == tileAfter;
                     if (valid)
                     {
@@ -662,7 +707,7 @@ namespace BugfixesAndQoL.GateRouting
             }
             catch
             {
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref exceptions);
                 finalResult = vanillaResult;
             }
             CaptureCursorDecisionSample(player, unitId, targetPcl, sourcePcl,
@@ -685,12 +730,12 @@ namespace BugfixesAndQoL.GateRouting
             {
                 uint thread = GetCurrentThreadId();
                 byte* activeSlot = (byte*)threadSlots + ((thread &
-                    (DirectionFilterAdapterEmitter.ThreadSlotCount - 1)) * ThreadSlotStride);
+                    (GateNativeSearchScopes.GenericSlotCount - 1)) * ThreadSlotStride);
                 byte* tacticalSlot = (byte*)tacticalThreadSlots + ((thread &
-                    (AiTacticalTargetAdapterEmitter.ThreadSlotCount - 1)) *
-                    AiTacticalTargetAdapterEmitter.ThreadSlotStride);
-                if (Volatile.Read(ref *(int*)(activeSlot + DirectionFilterAdapterEmitter.SlotDepthOffset)) != 0 ||
-                    Volatile.Read(ref *(int*)(tacticalSlot + AiTacticalTargetAdapterEmitter.SlotDepthOffset)) != 0)
+                    (GateNativeSearchScopes.TacticalSlotCount - 1)) *
+                    GateNativeSearchScopes.TacticalSlotStride);
+                if (Volatile.Read(ref *(int*)(activeSlot + GateNativeSearchScopes.GenericSlotDepthOffset)) != 0 ||
+                    Volatile.Read(ref *(int*)(tacticalSlot + GateNativeSearchScopes.TacticalSlotDepthOffset)) != 0)
                 {
                     Interlocked.Increment(ref cursorValidationDeferrals);
                     return false;
@@ -714,8 +759,8 @@ namespace BugfixesAndQoL.GateRouting
                 if (startX < 0 || startY < 0 || startX >= 800 || startY >= 800 ||
                     targetX < 0 || targetX >= 800 || targetY < 0 || targetY >= 800 ||
                     targetTile < 0 ||
-                    targetTile >= EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive ||
-                    *(int*)(libraryBase + EnemyGatePathfindingNativeDefinition.TileRowStartRva +
+                    targetTile >= GateRoutingNativeLayout.MaximumTileIdExclusive ||
+                    *(int*)(libraryBase + (ulong)GateRoutingNativeLayout.TileRowStartRva +
                         unchecked((ulong)(targetY * 12))) + targetX != targetTile) return false;
 
                 CursorPreviewCache.Key key = new CursorPreviewCache.Key(player, unitId,
@@ -733,7 +778,7 @@ namespace BugfixesAndQoL.GateRouting
                 int filteredResult = 0;
                 long touched = 0;
                 IntPtr manager = new IntPtr(unchecked((long)(libraryBase +
-                    EnemyGatePathfindingNativeDefinition.NativePathManagerRva)));
+                    (ulong)GateRoutingNativeLayout.NativePathManagerRva)));
                 QueryScope referenceScope = Enter(player, true);
                 if (referenceScope.Slot == null ||
                     !ReferenceEquals(referenceScope.Snapshot, snapshot))
@@ -745,11 +790,11 @@ namespace BugfixesAndQoL.GateRouting
                 {
                     referenceResult = originalDirectTileSearch(manager,
                         startX, startY, targetX, targetY,
-                        EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit);
+                        GateRoutingNativeLayout.DirectCursorSearchNodeLimit);
                 }
                 catch
                 {
-                    Interlocked.Increment(ref exceptions);
+                    CountIntegrityError(ref exceptions);
                     return false;
                 }
                 finally
@@ -774,11 +819,11 @@ namespace BugfixesAndQoL.GateRouting
                     {
                         filteredResult = originalDirectTileSearch(manager,
                             startX, startY, targetX, targetY,
-                            EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit);
+                            GateRoutingNativeLayout.DirectCursorSearchNodeLimit);
                     }
                     catch
                     {
-                        Interlocked.Increment(ref exceptions);
+                        CountIntegrityError(ref exceptions);
                         return false;
                     }
                     finally
@@ -869,7 +914,7 @@ namespace BugfixesAndQoL.GateRouting
             if (slot == null)
             {
                 if (Interlocked.Exchange(ref lastPoolExhaustionGeneration, generation) != generation)
-                    Interlocked.Increment(ref poolExhaustions);
+                    CountIntegrityError(ref poolExhaustions);
                 return;
             }
             try
@@ -884,13 +929,16 @@ namespace BugfixesAndQoL.GateRouting
                     publishedPolicy = policy;
                     routePolicySource.Publish(policy);
                     pendingPolicy = null;
+#if SERP_DEVDIAG
                     NotifyTemporaryPublication(policy, generation);
+#endif
+
                 }
             }
             catch (Exception ex)
             {
                 lock (maskGate) slot.Filling = false;
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref exceptions);
                 if (deferredErrors != null) deferredErrors.Record("Native gate-mask slot fill failed open / " + ex.GetType().Name, ex.Message);
                 else Shared.DebugLogHelper.LogWarning(log,
                     $"Native gate-mask slot fill failed open: {ex.GetType().Name}: {ex.Message}");
@@ -966,10 +1014,6 @@ namespace BugfixesAndQoL.GateRouting
                 Volatile.Write(ref tacticalEdgeSampleState[index], 0);
         }
 
-
-
-
-
         private void FilterAlternateConsumer(IntPtr tribeManager, int tribe, int variant)
         {
             if (!GateRoutingFeature.IsActive) { originalAlternateConsumer(tribeManager,tribe,variant);return; }
@@ -979,17 +1023,15 @@ namespace BugfixesAndQoL.GateRouting
             QueryScope scope = Enter(player);
             bool completed = false;
             // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
-            try { attackOrderDiagnostics?.BeginNativeSearch("AlternateBuildingConsumer", player); }
-            catch { Interlocked.Increment(ref exceptions); }
+            DiagBeginAlternateConsumer(player);
             try { originalAlternateConsumer(tribeManager, tribe, variant); completed = true; }
-            catch { Interlocked.Increment(ref exceptions); throw; }
+            catch { CountIntegrityError(ref exceptions); throw; }
             finally
             {
                 try { Complete(scope, QueryKind.AlternateBuildingApproach, false, false, completed); }
                 finally
                 {
-                    try { attackOrderDiagnostics?.EndNativeSearch("AlternateBuildingConsumer", completed, false); }
-                    catch { Interlocked.Increment(ref exceptions); }
+                    DiagEndAlternateConsumer(completed);
                 }
             }
         }
@@ -1003,7 +1045,7 @@ namespace BugfixesAndQoL.GateRouting
             bool completed = false;
             try { originalCandidateSearch(manager, startTileId, count,
                     targetPcl, player, mode, candidateClass); completed = true; }
-            catch { Interlocked.Increment(ref exceptions); throw; }
+            catch { CountIntegrityError(ref exceptions); throw; }
             finally { Complete(scope, QueryKind.CandidateSearch, false, false, completed); }
         }
         private void FilterAiTacticalTarget(IntPtr tribeManager, int tribe)
@@ -1016,35 +1058,34 @@ namespace BugfixesAndQoL.GateRouting
             if (tribeManager != IntPtr.Zero && snapshotPlayer > 0 && snapshotPlayer <= 8)
             {
                 nativePlayer = *(int*)((byte*)tribeManager +
-                    tribe * EnemyGatePathfindingNativeDefinition.NativeTribeRecordStride +
-                    EnemyGatePathfindingNativeDefinition.NativeTribePlayerIdOffset);
+                    tribe * GateRoutingNativeLayout.NativeTribeRecordStride +
+                    GateRoutingNativeLayout.NativeTribePlayerIdOffset);
                 if (nativePlayer > 0 && nativePlayer <= 8)
                 {
                     if (nativePlayer == snapshotPlayer) player = nativePlayer;
-                    else Interlocked.Increment(ref aiTacticalScopeConflicts);
+                    else CountIntegrityError(ref aiTacticalScopeConflicts);
                 }
             }
-            if (player < 1) Interlocked.Increment(ref aiTacticalInvalidPlayers);
+            if (player < 1) CountIntegrityError(ref aiTacticalInvalidPlayers);
             CaptureScopeSample(QueryKind.AiTacticalTarget, snapshotPlayer,
                 nativePlayer, snapshotPlayer, player);
             TacticalQueryScope scope = EnterTactical(player);
             try { originalAiTacticalTarget(tribeManager, tribe); }
             catch
             {
-                Interlocked.Increment(ref aiTacticalExceptions);
-                Interlocked.Increment(ref exceptions);
+                CountIntegrityError(ref aiTacticalExceptions);
+                CountIntegrityError(ref exceptions);
                 throw;
             }
             finally { CompleteTactical(scope); }
         }
-
 
         private int FilterDirectCursorSearch(IntPtr manager, int x, int y,
             int argument4, int argument5, int argument6)
         {
             if (!GateRoutingFeature.IsActive) { return originalDirectTileSearch(manager,x,y,argument4,argument5,argument6); }
             int player = *(int*)(libraryBase +
-                EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+                (ulong)GateRoutingNativeLayout.ActivePlayerIdRva);
             CaptureScopeSample(QueryKind.DirectCursor, player, player, -1, player);
             Interlocked.Increment(ref directCursorQueries);
             QueryScope scope = Enter(player); int result = 0; bool completed = false;
@@ -1054,7 +1095,7 @@ namespace BugfixesAndQoL.GateRouting
                 completed = true;
                 return result;
             }
-            catch { Interlocked.Increment(ref exceptions); throw; }
+            catch { CountIntegrityError(ref exceptions); throw; }
             finally { Complete(scope, QueryKind.DirectCursor, true, result > 0, completed); }
         }
         private int ResolveTribePlayer(int tribeId) => tribePlayers.Resolve(tribeId);
@@ -1065,9 +1106,8 @@ namespace BugfixesAndQoL.GateRouting
                 return -1;
             if (nativePlayer != tribePlayer)
             {
-                Interlocked.Increment(ref scopeMismatches);
-                try { attackOrderDiagnostics?.ObserveScopeMismatch(source, nativePlayer, tribePlayer); }
-                catch { Interlocked.Increment(ref exceptions); }
+                CountIntegrityError(ref scopeMismatches);
+                DiagScopeMismatch(source, nativePlayer, tribePlayer);
                 return -1;
             }
             return nativePlayer;
@@ -1161,12 +1201,12 @@ namespace BugfixesAndQoL.GateRouting
             }
             if (player <= 0 || player >= snapshot.PlayerMasks.Length)
             {
-                Interlocked.Increment(ref invalidPlayers);
+                CountIntegrityError(ref invalidPlayers);
                 Interlocked.Increment(ref missingContexts);
             }
             byte* slot=GateNativeSearchScopes.Enter(threadSlots,mask,out IntPtr previous,out long previousTouched);
             if(slot==null) {
-                Interlocked.Increment(ref slotConflicts);return new QueryScope(snapshot,null,IntPtr.Zero,0,player,diagnosticKind,
+                CountIntegrityError(ref slotConflicts);return new QueryScope(snapshot,null,IntPtr.Zero,0,player,diagnosticKind,
                     routePolicySource.Enter(player,unmasked,false,routePublication));
             }
             return new QueryScope(snapshot, slot, previous, previousTouched, player, diagnosticKind,
@@ -1185,7 +1225,7 @@ namespace BugfixesAndQoL.GateRouting
                     ? snapshot.PlayerMasks[player] : IntPtr.Zero;
             }
             byte* slot = GateNativeSearchScopes.EnterTactical(tacticalThreadSlots, mask);
-            if (slot == null) { Interlocked.Increment(ref aiTacticalScopeConflicts); return new TacticalQueryScope(snapshot, null); }
+            if (slot == null) { CountIntegrityError(ref aiTacticalScopeConflicts); return new TacticalQueryScope(snapshot, null); }
             return new TacticalQueryScope(snapshot, slot);
         }
 
@@ -1194,34 +1234,34 @@ namespace BugfixesAndQoL.GateRouting
             if (scope.Slot != null)
             {
                 long building = *(long*)(scope.Slot +
-                    AiTacticalTargetAdapterEmitter.SlotBuildingTouchedOffset);
+                    GateNativeSearchScopes.TacticalSlotBuildingTouchedOffset);
                 long unit = *(long*)(scope.Slot +
-                    AiTacticalTargetAdapterEmitter.SlotUnitTouchedOffset);
+                    GateNativeSearchScopes.TacticalSlotUnitTouchedOffset);
                 long fallback = *(long*)(scope.Slot +
-                    AiTacticalTargetAdapterEmitter.SlotFallbackTouchedOffset);
+                    GateNativeSearchScopes.TacticalSlotFallbackTouchedOffset);
                 if (building != 0)
                 {
                     Interlocked.Add(ref aiTacticalBuildingEdges, building);
                     CaptureTacticalEdgeSample(0, scope.Slot,
-                        AiTacticalTargetAdapterEmitter.SlotBuildingSourceOffset,
-                        AiTacticalTargetAdapterEmitter.SlotBuildingTargetOffset,
-                        AiTacticalTargetAdapterEmitter.SlotBuildingDirectionOffset);
+                        GateNativeSearchScopes.TacticalSlotBuildingSourceOffset,
+                        GateNativeSearchScopes.TacticalSlotBuildingTargetOffset,
+                        GateNativeSearchScopes.TacticalSlotBuildingDirectionOffset);
                 }
                 if (unit != 0)
                 {
                     Interlocked.Add(ref aiTacticalUnitEdges, unit);
                     CaptureTacticalEdgeSample(1, scope.Slot,
-                        AiTacticalTargetAdapterEmitter.SlotUnitSourceOffset,
-                        AiTacticalTargetAdapterEmitter.SlotUnitTargetOffset,
-                        AiTacticalTargetAdapterEmitter.SlotUnitDirectionOffset);
+                        GateNativeSearchScopes.TacticalSlotUnitSourceOffset,
+                        GateNativeSearchScopes.TacticalSlotUnitTargetOffset,
+                        GateNativeSearchScopes.TacticalSlotUnitDirectionOffset);
                 }
                 if (fallback != 0)
                 {
                     Interlocked.Add(ref aiTacticalFallbackEdges, fallback);
                     CaptureTacticalEdgeSample(2, scope.Slot,
-                        AiTacticalTargetAdapterEmitter.SlotFallbackSourceOffset,
-                        AiTacticalTargetAdapterEmitter.SlotFallbackTargetOffset,
-                        AiTacticalTargetAdapterEmitter.SlotFallbackDirectionOffset);
+                        GateNativeSearchScopes.TacticalSlotFallbackSourceOffset,
+                        GateNativeSearchScopes.TacticalSlotFallbackTargetOffset,
+                        GateNativeSearchScopes.TacticalSlotFallbackDirectionOffset);
                 }
                 GateNativeSearchScopes.LeaveTactical(scope.Slot);
             }
@@ -1247,8 +1287,7 @@ namespace BugfixesAndQoL.GateRouting
             routePolicySource.Leave(scope.RouteQuery);
             if (kind != QueryKind.CursorPreview)
             {
-                try { attackOrderDiagnostics?.ObserveScopeResult(scope.PlayerId, kind.ToString(), hasResultContract, completed, success, touched); }
-                catch { Interlocked.Increment(ref exceptions); }
+                DiagScopeResult(scope.PlayerId, kind, hasResultContract, completed, success, touched);
             }
             // Reference/preview calls have their own proof counters. Void calls have no route verdict.
             if (hasResultContract && kind != QueryKind.CursorPreview)
@@ -1318,6 +1357,64 @@ namespace BugfixesAndQoL.GateRouting
             internal SearchDiagnosticContext Diagnostic { get; }
             internal GateRoutePolicySource.Query RouteQuery { get; }
         }
+
+        // The APIShared search contract carries the scope as object. Reusing per-thread
+        // boxes avoids one heap allocation per native search; the box is private to this
+        // provider and returned exactly once by the paired exit call.
+        private sealed class ScopeBox
+        {
+            [ThreadStatic] private static ScopeBox free;
+            private ScopeBox next;
+            private QueryScope value;
+            private bool rented;
+            internal static ScopeBox Rent(QueryScope value)
+            {
+                ScopeBox box = free;
+                if (box != null) free = box.next;
+                else box = new ScopeBox();
+                box.next = null;
+                box.value = value;
+                box.rented = true;
+                return box;
+            }
+            // A repeated exit for the same token is ignored, exactly like a foreign token.
+            internal static bool TryTake(ScopeBox box, out QueryScope value)
+            {
+                value = box.value;
+                if (!box.rented) return false;
+                box.rented = false;
+                box.value = default;
+                box.next = free;
+                free = box;
+                return true;
+            }
+        }
+
+        // TEMP_GATE_MIGRATION_DIAGNOSTICS: implemented only in SamePclGateRouteRuntime.DevDiag.cs.
+        partial void DiagInitialize(object diagnostics);
+        partial void DiagIsDetailed(ref bool detailed);
+        partial void DiagRegionPair(int playerId, int sourceComponentId, int destinationComponentId,
+            int queryMode, int vanillaResult, int effectiveResult, string source);
+        partial void DiagAssassinStage(object token, int player, string stage, string result, string detail);
+        partial void DiagAssassinDecision(object token, int player, int from, int to, int direction,
+            bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence);
+        partial void DiagBeginAssassinSearch(ref object token, int startX, int startY, int targetX, int targetY,
+            int maximumNodes, int continuation, string nativeState);
+        partial void DiagAssassinEdge(object token, int playerId, int fromTile, int toTile, int direction, bool climb);
+        partial void DiagAssassinPolicyFiltering(object token, int playerId, long ground, long climb);
+        partial void DiagAssassinBuildingSearch(int tribeId, int buildingId, int sourceRegion, int rawSearchPlayer);
+        partial void DiagEndAssassinSearch(object token, int playerId, int vanillaResult, int effectiveResult,
+            string outcome, bool cacheHit, int routeLength);
+        partial void DiagBuildingContext(BuildingSearchPlayerContext context);
+        partial void DiagBuildingException(int rawSearchArgument, int tribeId, Exception error);
+        partial void DiagBeginSharedSearch(int playerId, EnemyGateSearchKind kind);
+        partial void DiagCompleteSharedSearch(EnemyGateSearchKind kind, int playerId, SearchDiagnosticContext diagnostic,
+            bool completed, bool success, long touched, ulong fingerprint);
+        partial void DiagEndNativeSearch(EnemyGateSearchKind kind, bool completed, bool success);
+        partial void DiagBeginAlternateConsumer(int player);
+        partial void DiagEndAlternateConsumer(bool completed);
+        partial void DiagScopeMismatch(string source, int nativePlayer, int tribePlayer);
+        partial void DiagScopeResult(int playerId, QueryKind kind, bool hasResultContract, bool completed, bool success, long touched);
 
         private readonly struct TacticalQueryScope
         {

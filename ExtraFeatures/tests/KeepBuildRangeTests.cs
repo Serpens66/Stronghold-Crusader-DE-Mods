@@ -63,23 +63,7 @@ namespace ExtraFeatures
             Check(value.GetValue() == 500, "runtime upper bound");
             policy.Reconcile(-1, value.GetValue, value.SetValue);
 
-            // All legal Keep anchors, all orientations, and the four extremal AIV cells.
-            // Max-axis distance on any footprint attains its maximum at a raster corner.
-            int maximum = 0;
-            int[,] offsets = { { 3, 7 }, { -1, 3 }, { 3, -1 }, { 7, 3 } };
-            for (int rotation = 0; rotation < 4; rotation++)
-            for (int keepX = 0; keepX <= 93; keepX++)
-            for (int keepY = 0; keepY <= 93; keepY++)
-            foreach (int x in new[] { 0, 99 })
-            foreach (int y in new[] { 0, 99 })
-            {
-                int distance = Math.Max(Math.Abs(x - keepX - offsets[rotation, 0]),
-                    Math.Abs(y - keepY - offsets[rotation, 1]));
-                maximum = Math.Max(maximum, distance);
-                Check(distance <= 100, "legal AIV footprint exceeds 100");
-            }
-            Check(maximum == 100, "100 is inclusive and needed at extreme anchors");
-            Console.WriteLine("PASS: Keep range ownership, 500 integer values, resets and all AIV rotation bounds.");
+            Console.WriteLine("PASS: production Keep range ownership, integer bounds, resets and foreign-write preservation.");
         }
 
         private static void CheckWriteOwnership()

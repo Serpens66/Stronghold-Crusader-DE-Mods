@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$ModDirectory)
+param([string]$ModDirectory, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $unitAccessWatch = [Diagnostics.Stopwatch]::StartNew()
 Write-Host '[Preflight] Building and running production UnitAccess contract tests...'
@@ -12,7 +12,9 @@ $scanArguments = @('--scan')
 if ($ModDirectory) { $scanArguments += @('--mod-directory', $ModDirectory) }
 & dotnet run --no-build --project $project -- @scanArguments
 if ($LASTEXITCODE -ne 0) { throw 'Workspace UnitAccess regression failed.' }
-& (Join-Path $PSScriptRoot 'Test-PermanentNativeRuntimePatches.ps1')
-if (-not $?) { throw 'Workspace permanent runtime-hook regression failed.' }
+if (-not $SkipPermanentHooks) {
+    & (Join-Path $PSScriptRoot 'Test-PermanentNativeRuntimePatches.ps1') -ModDirectory $ModDirectory
+    if (-not $?) { throw 'Workspace permanent runtime-hook regression failed.' }
+}
 $unitAccessWatch.Stop()
 Write-Host ('[Preflight] UnitAccess checks completed in {0:N1}s.' -f $unitAccessWatch.Elapsed.TotalSeconds)

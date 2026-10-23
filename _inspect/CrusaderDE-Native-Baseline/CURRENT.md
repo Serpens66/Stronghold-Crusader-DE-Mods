@@ -1,5 +1,43 @@
 # Current CrusaderDE Native Baseline
 
+- [Foreign troop HUD skins](./sem/FBCB9319/knowledge/FOREIGN_TROOP_SKINS.md): current unit material, Monk/Temple Guard render flow, colored portrait variants and isolated view regression coverage; in-game visual acceptance remains separate.
+
+- [Weighted Assassin search cost](./sem/FBCB9319/knowledge/ASSASSIN_WEIGHTED_SEARCH_COST.md): D9C40 depth limit 800 and climb-fallback rules, the post-load AI target burst with whole-component searches toward unreachable targets, and the exact backward unreachability proof; runtime evidence on the 8-lord stress save.
+
+- [Gatehouse query pass](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md): DLL_RunTick → game tick → building dispatcher → gatehouse handler chain, one query pass per gate and engine run without native writes between queries, conditional Extender tick; confirmed by disassembly.
+
+- [Engine presentation bridge](./sem/FBCB9319/knowledge/ENGINE_PRESENTATION_BRIDGE.md): Merit snapshot ownership, achievement/save ordering, managed run lock scopes and direction-filter register/flag liveness; fixture evidence, in-game acceptance pending.
+
+- [Move-stager data anchors](./sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md): code anchors with second evidence for Chore staging globals, tribe/unit/path/sound/dialogue managers, strides and speech call targets; confirmed-static, derivation blocked until the shared command runtime gets an update fallback.
+
+- [AI negative sell thresholds](./sem/FBCB9319/knowledge/AI_SELL_THRESHOLDS.md): phantom-credit cause, all eight categories, native decision/transaction guards and original-function execution evidence; in-game acceptance pending.
+
+- [Coop Trail Customize presentation](./sem/FBCB9319/knowledge/COOP_TRAIL_CUSTOMIZE_PRESENTATION.md): managed team-shield/radar refresh, setup metadata and input-callback suppression; static/member checks and pending visual acceptance.
+
+- [Assassin reconstruction repair](./sem/FBCB9319/knowledge/ASSASSIN_RECONSTRUCTION_REPAIR.md): E1640 mode-3 one-way connection failure, per-unit full-map repair cost and the APIShared 0xE19C0 correction; confirmed by runtime replay and executed fixture.
+
+- [Pause and zoom automation boundaries](./sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md): native versus managed pause, multiplayer transport asymmetry, public camera methods and static validation limits.
+
+- [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; generated baseline remains on its recorded 2.14.2 provenance.
+
+- [Minimap last-frame HD speech wait](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, archived HD last-frame/20-second bound, managed completion safeguards and isolated regression limits.
+
+- [Foreign troop HUD player colors](./sem/FBCB9319/knowledge/FOREIGN_TROOP_PLAYER_COLORS.md): current owner mapping, loaded-player remapping, material tint versus UI portrait order, and pending in-game acceptance.
+
+- [Script Extender 2.14.2 source compatibility review](../../Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.review.md): music-only managed change; source baseline refresh, installed extender remains 2.14.1; runtime acceptance pending.
+
+- [Fixes wheat-sale startup correction](./sem/FBCB9319/knowledge/FIXES_WHEAT_STARTUP.md): confirmed wrong player stack slot, second-start crash evidence, synchronous startup/engine-lock limits and pending runtime acceptance.
+
+- [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
+
+- [Offline AI test tools](./sem/FBCB9319/knowledge/SPECTATOR_TEST_TOOLS.md): full ally-order request path, exact Extender acceptance-event parameters, scoped forced acceptance, delivery reserves and private native-call monitor; static evidence with in-game acceptance still outstanding.
+
+- [Crenelated wall construction](./sem/FBCB9319/knowledge/CRENELATED_WALLS.md): complete human/AI placement and redraw flow, sticky high pieces, read-only native availability, ownership decoding and corrected current Chore-25 field contract.
+
+- [Savegame modsettings load boundaries](./sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md): multiplayer map-load routing, installed archive-context mismatch, Solo/Coop boundaries and readiness validation limits.
+
+- [Opt-in pathfinding table replacements](./sem/FBCB9319/knowledge/PATHFINDING_TABLE_REPLACEMENTS.md): native 90-slot rows, installed SE 89-stride counterexample, additive APIShared replacement and runtime acceptance limits.
+
 - [Gatehouse damage and drawbridge destruction](./sem/FBCB9319/knowledge/DRAWBRIDGE_DESTRUCTION.md): native bridge damage immunity, premature direct-hit removal, lethal/demolition paths and pending standalone fix acceptance.
 
 Current canonical DLL SHA-256:
@@ -9,6 +47,8 @@ Current canonical DLL SHA-256:
 Start with the [scan report](./FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/SCAN_INFO.md).
 
 Primary reusable artifacts:
+
+- [Lobby save loading and Skirmish load-button visibility](./sem/FBCB9319/knowledge/LOBBY_SAVE_LOADING.md): solo-host eligibility, absent-human removal, persistent frontend path and consumer acceptance limits.
 
 - [Rizin 0.8.1 `aaa` project](./FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/rizin/CrusaderDE-rizin-0.8.1-aaa.rzdb)
 - [Ghidra 12.1.3 project](./FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/ghidra/CrusaderDE-Ghidra-12.1.3.gpr)
@@ -93,3 +133,17 @@ For future chats, link this file and require the DLL hash to be checked before u
 - [Drawbridge stored-route contracts](./sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md): packed Unit path origin/cursor, existing movement publisher and passive route evidence; full installed-hash evidence under EnemyGateBuildingContextAudit/bridge-stored-path-evidence.txt.
 
 - [Situational unit audio](./sem/FBCB9319/knowledge/SITUATIONAL_UNIT_AUDIO.md): complete Arabian idle sword-draw production, buffer transport, per-play volume and permanent hook contracts.
+
+- [Plague cloud height and damage](./sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md): explicit wall/roof immunity, standing-height contracts and standalone PlagueHeightTest native fixture evidence.
+
+## Offline machine and data-flow analysis
+
+The Analysis stage adds hash-bound instruction facts, conservative liveness, selected High P-code, feature dossiers and installed-backend hook checks. See [operation and limitations](./tools/semantic/ANALYSIS.md). Queries: `instructions`, `flow`, `trace`, `global`, `feature`, `hookcheck`, `coverage`. The current database manifest selects the published schema-6 analysis generation; failed flows and unresolved audit boundaries remain explicit.
+
+Published coverage: 4,478 native functions, 436,211 independently verified instructions, 2,601 complete selected High P-code flows and 69 existing audit dossiers. Three decompiler failures remain explicit; 1,874 functions have no selected deep flow. [Acceptance record](./sem/FBCB9319/analysis/g1E2FBFF53E33/acceptance.json) confirms fresh Windows PowerShell queries, unchanged reference projects and exact schema-6 analysis reconstruction.
+
+Additional offline queries: `slice`, `memory`, `switch`, `summary`, `type` and `changes`. They expose bounded value slices, 76,794 reconstructed memory accesses, 788 recovered layouts and 3,818 historical function comparisons. Reconstruction and audited contracts remain separate; partial flows, aliasing and decompiler diagnostics are explicit. See [usage and limits](./tools/semantic/ANALYSIS.md).
+
+Mod sources are mutable integration snapshots. Later edits do not invalidate Vanilla machine facts or block feature and summary queries. Hook checks retain machine evidence but report incomplete current ownership when the source inventory has changed. Concurrent baseline knowledge is preserved by publication guards.
+
+- [Savegame metadata without the original map](./sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md): confirmed Vanilla map-availability rejection, embedded Lord presentation, safe serialization boundary and desktop-tested managed testmod.

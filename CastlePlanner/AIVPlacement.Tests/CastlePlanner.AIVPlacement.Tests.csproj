@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <GameDir Condition="'$(GameDir)' == ''">$(SHCDE_GAME_DIR)</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
@@ -23,19 +25,23 @@
     <Compile Include="..\src\BlueprintBuildingIconCatalog.cs" Link="Blueprint\BlueprintBuildingIconCatalog.cs" />
     <Compile Include="..\src\CastleRotationOptions.cs" Link="Protocol\CastleRotationOptions.cs" />
     <Compile Include="..\src\CoalescedSynchronizationContextQueue.cs" Link="Protocol\CoalescedSynchronizationContextQueue.cs" />
+    <Compile Include="..\src\SupplementalPrefabSpawner.cs" />
+    <Compile Include="..\src\SupplementalPlacementPolicy.cs" />
+    <Compile Include="..\..\AIVPlacement\AIVPlacement.Core\AivTerrainPlacementRules.cs" Link="SpawnPlan\AivTerrainPlacementRules.cs" />
     <Compile Include="..\src\DecorationVerificationPolicy.cs" Link="SpawnPlan\DecorationVerificationPolicy.cs" />
     <Compile Include="..\src\FreeCastleProtocol.cs" Link="Protocol\FreeCastleProtocol.cs" />
+    <Compile Include="..\src\FreeCastleIdentityReadiness.cs" Link="Protocol\FreeCastleIdentityReadiness.cs" />
     <Compile Include="..\src\MultiplayerLoadingWarningGate.cs" Link="Protocol\MultiplayerLoadingWarningGate.cs" />
     <Reference Include="SHCDESE">
-      <HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath>
+      <HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="MessagePack">
-      <HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\MessagePack.dll</HintPath>
+      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="MessagePack.Annotations">
-      <HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\MessagePack.Annotations.dll</HintPath>
+      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>

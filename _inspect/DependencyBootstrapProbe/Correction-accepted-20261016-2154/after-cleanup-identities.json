@@ -1,0 +1,42 @@
+[
+  {
+    "Path": "BepInEx\\core\\BepInEx.dll",
+    "SHA256": "8255b28902886085c578b9e427d3073c97002db85176d2090cdeda90ef14ce70",
+    "Unchanged": true
+  },
+  {
+    "Path": "BepInEx\\plugins\\000shcdese\\SHCDESE.dll",
+    "SHA256": "e5d78fdf2ea9701336c398f7d29410f206d141fc01aa8099f30c824e6ab8a0b3",
+    "Unchanged": true
+  },
+  {
+    "Path": "BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+    "SHA256": "4ef262a5f69f16ef6b6e5238606f5013b6400b83d2f8c354e5c53f4efdd52bc1",
+    "Unchanged": true
+  },
+  {
+    "Path": "BepInEx\\patchers\\DependencyBootstrapProbe.Patcher.dll",
+    "SHA256": "859a0f9a2aa63ce89cdbd8d7ae3c0a3ac56810cb3b8a19a20eba9bd188ae1839",
+    "Unchanged": true
+  },
+  {
+    "Path": "BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\DependencyBootstrapProbe.dll",
+    "SHA256": "c44e1b8e00976a5c458394513d6de41970f6aa111916e76275f0f5473919f6b6",
+    "Unchanged": true
+  },
+  {
+    "Path": "BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\info.json",
+    "SHA256": "bf34b371448a19f32ada63a456813fdf6ffe6fd2b1637a437ba1769ac65c3021",
+    "Unchanged": true
+  },
+  {
+    "Path": "BepInEx\\config\\DependencyBootstrapProbe.active",
+    "SHA256": "55901f6d7dfc628f1f192edcaccb5d5b0c6237c1373de165bc5ad29afc6f17b6",
+    "Unchanged": true
+  },
+  {
+    "Path": "BepInEx\\config\\DependencyBootstrapProbe.correct",
+    "SHA256": "55901f6d7dfc628f1f192edcaccb5d5b0c6237c1373de165bc5ad29afc6f17b6",
+    "Unchanged": true
+  }
+]

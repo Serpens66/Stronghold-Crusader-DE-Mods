@@ -45,7 +45,10 @@ namespace BuildingLimit
                 throw;
             }
 
-            LogDebug("BuildingLimit/src/BuildingLimitRuntime.TowerSiege.cs:48", "EngineInterface.PlaceMapperItem tower-siege hook installed");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.TowerSiege.cs:48", "EngineInterface.PlaceMapperItem tower-siege hook installed");
+            }
         }
 
         private void PlaceMapperItemHookImpl(

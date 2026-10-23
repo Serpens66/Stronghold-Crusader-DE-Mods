@@ -23,10 +23,25 @@ namespace ExtendedData
             IDictionary<int, Candidate> resolvedSources = null,
             ISet<int> includedPlayerIds = null)
         {
-            if (restart?.aivs == null)
-                throw new InvalidDataException("The Trail has no saved Lord data.");
             var fixes = new FixesLordPreferencesBridge();
             var result = new List<TrailLordSlot>();
+            foreach (int playerId in CustomLordPlayerIds(restart, includedPlayerIds))
+            {
+                FRONT_Multiplayer.MPAIVInfo info = restart.aivs[playerId - 1];
+                result.Add(CaptureSlot(info, playerId, fixes, out Candidate source));
+                if (resolvedSources != null) resolvedSources[playerId] = source;
+            }
+            return result;
+        }
+
+        // Saved Custom-AIC slots in original 1-based player IDs. Built-in AICs carry no
+        // installation-dependent values and are never part of the requirements.
+        internal static IReadOnlyList<int> CustomLordPlayerIds(
+            HUD_IngameMenu.RestartSkirmishMapInfo restart, ISet<int> includedPlayerIds)
+        {
+            if (restart?.aivs == null)
+                throw new InvalidDataException("The Trail has no saved Lord data.");
+            var result = new List<int>();
             for (int index = 0; index < Math.Min(8, restart.aivs.Length); index++)
             {
                 if (includedPlayerIds != null && !includedPlayerIds.Contains(index + 1))
@@ -37,28 +52,50 @@ namespace ExtendedData
                 FRONT_Multiplayer.MPAIVInfo info = restart.aivs[index];
                 if (info == null || info.builtInLord || info.lordConfig == null)
                     continue;
-                string checksum = info.lordConfig.checksum.ToString();
-                Candidate source = ResolveAuthorSource(info, index + 1);
-                if (resolvedSources != null) resolvedSources[index + 1] = source;
-                LordPackageFileState package = LordPackageFingerprint.Capture(source.Config.path, source.Config.name);
-                string sidecar = Path.Combine(source.Config.path, source.Config.name + ".modlord.json");
-                string modJson = File.Exists(sidecar) ? LordDataSnapshot.ReadModLordFile(sidecar) : null;
-                result.Add(new TrailLordSlot
-                {
-                    PlayerId = index + 1,
-                    LordType = source.Config.lordType,
-                    LordName = source.Name,
-                    ConfigName = info.lordConfig.name,
-                    ConfigChecksum = checksum,
-                    AivChecksums = (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
-                        .Select(aiv => aiv.checksum.ToString()).ToArray(),
-                    RequiresInstalledPackage = package.HasUnsupportedGameplayFiles,
-                    PackageDigest = package.HasUnsupportedGameplayFiles ? package.Digest : null,
-                    ModLordJson = modJson,
-                    FixesJson = fixes.Capture(source.Name, source.Config.lordType),
-                });
+                result.Add(index + 1);
             }
             return result;
+        }
+
+        // The identity stored in the Trail itself; needs no installation.
+        internal static TrailLordSlot SavedIdentity(FRONT_Multiplayer.MPAIVInfo info, int playerId)
+        {
+            return new TrailLordSlot
+            {
+                PlayerId = playerId,
+                LordType = info.lordConfig.lordType,
+                LordName = TrailLordSourceSelector.ResolveLordName(info.lordName,
+                    info.lordType, ConfigSettings.extendedLordPaths),
+                ConfigName = info.lordConfig.name,
+                ConfigChecksum = info.lordConfig.checksum.ToString(),
+                AivChecksums = (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
+                    .Select(aiv => aiv.checksum.ToString()).ToArray(),
+            };
+        }
+
+        internal static TrailLordSlot CaptureSlot(FRONT_Multiplayer.MPAIVInfo info, int playerId,
+            FixesLordPreferencesBridge fixes, out Candidate source)
+        {
+            string checksum = info.lordConfig.checksum.ToString();
+            source = ResolveAuthorSource(info, playerId);
+            LordPackageFileState package = LordPackageFingerprint.Capture(source.Config.path, source.Config.name);
+            string sidecar = Path.Combine(source.Config.path, source.Config.name + ".modlord.json");
+            string modJson = File.Exists(sidecar) ? LordDataSnapshot.ReadModLordFile(sidecar) : null;
+            return new TrailLordSlot
+            {
+                PlayerId = playerId,
+                LordType = source.Config.lordType,
+                LordName = source.Name,
+                ConfigName = info.lordConfig.name,
+                ConfigChecksum = checksum,
+                AivChecksums = (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
+                    .Select(aiv => aiv.checksum.ToString()).ToArray(),
+                RequiresInstalledPackage = package.HasUnsupportedGameplayFiles,
+                PackageDigest = package.HasUnsupportedGameplayFiles ? package.Digest : null,
+                ModLordJson = modJson,
+                FixesJson = fixes.Capture(source.Name, source.Config.lordType),
+                FixesSources = fixes.CaptureSources(source.Name, source.Config.lordType, source.Config.lordData.opponent_type),
+            };
         }
 
         internal static Candidate ResolveAuthorSource(FRONT_Multiplayer.MPAIVInfo info, int playerId)
@@ -108,7 +145,11 @@ namespace ExtendedData
                             string.Equals(LordPackageFingerprint.Capture(item.Config.path,
                                 item.Config.name).Digest, slot.PackageDigest, StringComparison.Ordinal);
                     }
-                    catch { return false; }
+                    catch (Exception ex) {
+                        Shared.RuntimeHealth.Report("required-lord-package-fingerprint", false,
+                            "Required package could not be verified; candidate rejected: " + ex);
+                        return false;
+                    }
                 }).ToArray();
                 if (candidates.Length == 0)
                 {
@@ -197,7 +238,11 @@ namespace ExtendedData
                     out string registered) && string.Equals(Path.GetFullPath(registered).TrimEnd('\\', '/'),
                         Path.GetFullPath(donor.Config.path).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
             }
-            catch { return false; }
+            catch (Exception ex) {
+                Shared.RuntimeHealth.Report("lord-package-manifest", false,
+                    "Existing package metadata could not be read; candidate rejected: " + ex);
+                return false;
+            }
         }
     }
 }

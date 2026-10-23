@@ -3,13 +3,27 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.36",
+  "Version": "1.0.38",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.38",
+      "Changes": [
+        "Render supplementary recruitment and siege costs through the common APIShared tooltip service, retaining resource symbols, available stocks and recruitment quantities."
+      ]
+    },
+    {
+      "Version": "1.0.37",
+      "Changes": [
+        "Track owned gold, siege-tent and material-cost overrides independently; restore only values still owned by this mod so later changes are preserved.",
+        "Use shared APIShared recruitment availability instead of redundant button scans, preserving Vanilla and other-mod disabled states.",
+        "Avoid disabled support-log preparation and cache repeated failure hashes without changing configured costs."
+      ]
+    },
     {
       "Version": "1.0.36",
       "Changes": [
@@ -201,7 +215,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.6.0"
+      "MinimumVersion": "0.13.0"
     }
   ]
 }

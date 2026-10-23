@@ -1,0 +1,120 @@
+namespace BugfixesAndQoL
+{
+    public sealed partial class ModSettingsPresentation
+    {
+        // Full editorial table approved by Serp on 2026-10-23. Pure view metadata;
+        // no locale lookup at plugin startup and no runtime Markdown parsing.
+        private void ApplyApprovedRecommendations()
+        {
+            options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
+            options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");
+            options["EnableVanillaPerformanceOptimizations"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations");
+            // Added 2026-10-23 with the minimap throttle (default on, requested by Serp).
+            options["EnableMinimapRefreshThrottle"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMinimapRefreshThrottle");
+            options["SpriteSheetMergeModeIndex"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex");
+            options["EnableCompleteNotificationSkipOnClick"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCompleteNotificationSkipOnClick");
+            options["ShowSelectedUnitHealth"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowSelectedUnitHealth");
+            options["ShowForeignTroopHud"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowForeignTroopHud");
+            options["EnableDamagedHealthBars"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableDamagedHealthBars");
+            options["ShowCountdownTimers"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowCountdownTimers");
+            options["StatisticsTeamBadgeMode"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.StatisticsTeamBadgeMode");
+            options["EnableNotificationLastFrame"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableNotificationLastFrame");
+            options["ArabianIdleSoundVolumePercent"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ArabianIdleSoundVolumePercent");
+            options["EnableMinimapCursorFollowFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMinimapCursorFollowFix");
+            options["EnableDisbandedUnitControlGroupCleanup"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableDisbandedUnitControlGroupCleanup");
+            options["EnableEnemyProximityBulldozeCursorFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableEnemyProximityBulldozeCursorFix");
+            options["EnableImprovedBuildPreview"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedBuildPreview");
+            options["EnableTroopHudMiddleClickCameraJump"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTroopHudMiddleClickCameraJump");
+            options["AllowMinimapWhilePlacingBuilding"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowMinimapWhilePlacingBuilding");
+            options["PreventMoveOrderOnPlacementCancel"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreventMoveOrderOnPlacementCancel");
+            options["AllowCameraMovementWithModifiers"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowCameraMovementWithModifiers");
+            options["EnableResolutionAwareExtendedZoom"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableResolutionAwareExtendedZoom");
+            options["EnableCustomTrailExtremeGoldFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableCustomTrailExtremeGoldFix");
+            options["ShowLoadSaveDialogControls"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowLoadSaveDialogControls");
+            options["EnableSoloMultiplayerSaveLoading"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSoloMultiplayerSaveLoading");
+            options["FixSkirmishLoadButtonVisibility"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixSkirmishLoadButtonVisibility");
+            options["ImproveYellowLobbyContrast"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ImproveYellowLobbyContrast");
+            options["EnableBriefingNoStartingGoldFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableBriefingNoStartingGoldFix");
+            options["EnableIngameSteamInvitePrompt"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableIngameSteamInvitePrompt");
+            options["EnableWorkshopUploadLordSelectionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableWorkshopUploadLordSelectionFix");
+            options["EnableLordAndMapListEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableLordAndMapListEnhancements");
+            options["EnableMissingMapSaveRecovery"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMissingMapSaveRecovery");
+            options["EnableMarketKeyMainMenuFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMarketKeyMainMenuFix");
+            options["EnableAutoTradeSellZeroFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAutoTradeSellZeroFix");
+            options["EnableAllyGoodsAmountModifiers"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAllyGoodsAmountModifiers");
+            options["HdMarketView"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.HdMarketView");
+            options["EnableAbruptHostMigrationFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAbruptHostMigrationFix");
+            options["EnableConnectionRecoverySave"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableConnectionRecoverySave");
+            options["EnableResyncHostKick"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableResyncHostKick");
+            options["EnableCorruptLordDataSpawnFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableCorruptLordDataSpawnFix");
+            options["EnableMultiplayerStartupStateFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMultiplayerStartupStateFix");
+            options["EnablePeaceTimeGameplayFixes"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePeaceTimeGameplayFixes");
+            options["ShowMpAdvancedSettingsInSingleplayer"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowMpAdvancedSettingsInSingleplayer");
+            options["EnableCustomLordListEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCustomLordListEnhancements");
+            options["EnableTrailCustomizationButtons"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTrailCustomizationButtons");
+            options["AllowFullAiMultiplayerLobby"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowFullAiMultiplayerLobby");
+            options["EnableReturnToMultiplayerLobby"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableReturnToMultiplayerLobby");
+            options["MultiplayerTimeControlPermissionIndex"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerTimeControlPermissionIndex");
+            options["MultiplayerGameSpeedMaximum"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerGameSpeedMaximum");
+            options["EnableShiftGameSpeedSteps"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableShiftGameSpeedSteps");
+            options["EnableSurrenderAndStatistics"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSurrenderAndStatistics");
+            options["EnableEliminatedPlayersBecomeSpectators"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableEliminatedPlayersBecomeSpectators");
+            options["EnableSpectatorPerspective"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSpectatorPerspective");
+            options["EnableRandomOpponentSelectionEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableRandomOpponentSelectionEnhancements");
+            options["EnableAiStoneReserveFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiStoneReserveFix");
+            options["EnableAiDefensePatrolFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiDefensePatrolFix");
+            options["EnableAiWallTargetingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiWallTargetingFix");
+            options["EnablePrebuiltAiWorkshopBothFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiWorkshopBothFix");
+            options["EnableAivDefenderPositionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAivDefenderPositionFix");
+            options["FixAIPreplacedMapBuildings"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAIPreplacedMapBuildings");
+            options["FixAITowerRepair"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAITowerRepair");
+            options["BetterAIOverbuildRules"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.BetterAIOverbuildRules");
+            options["PreventAIPause"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreventAIPause");
+            options["PreventEmergencyDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreventEmergencyDemolition");
+            options["PreventHovelDeletion"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreventHovelDeletion");
+            options["InaccessibleAIBuildingDemolitionProtection"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.InaccessibleAIBuildingDemolitionProtection");
+            options["RememberAiAivSettings"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RememberAiAivSettings");
+            options["EnableAIQuarryPileTowardsKeep"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAIQuarryPileTowardsKeep");
+            options["RemoveAIKeepRangeLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RemoveAIKeepRangeLimit");
+            options["EnableAiSellThresholdFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiSellThresholdFix");
+            options["EnableTroopMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTroopMovementFix");
+            options["EnableMountedStockpileMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMountedStockpileMovementFix");
+            options["EnableHealerAttackCommandFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableHealerAttackCommandFix");
+            options["EnableAssassinCombatResumeFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinCombatResumeFix");
+            options["EnableAssemblyPointPlacementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssemblyPointPlacementFix");
+            options["EnableExtendedShiftCommandQueue"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableExtendedShiftCommandQueue");
+            options["EnableFastRecruitRallyMovement"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableFastRecruitRallyMovement");
+            options["EnableRallyTerrainSlowdownFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableRallyTerrainSlowdownFix");
+            options["EnableLordUnitControls"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableLordUnitControls");
+            options["EnableKeepFlagRotationFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableKeepFlagRotationFix");
+            options["EnableTanneryAnimationFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTanneryAnimationFix");
+            options["EnablePlaguePopularityFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePlaguePopularityFix");
+            options["EnablePlagueCloudRemovalFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePlagueCloudRemovalFix");
+            options["EnableStuckApothecaryFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableStuckApothecaryFix");
+            options["EnablePlagueTargetReservationFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePlagueTargetReservationFix");
+            options["EnableSingleBuildingPause"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSingleBuildingPause");
+            options["EnableNearestWaterboyTargeting"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableNearestWaterboyTargeting");
+            options["EnableShiftRepairAllBuildings"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableShiftRepairAllBuildings");
+            options["EnableQuarryPileRelocation"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableQuarryPileRelocation");
+            options["EnableCtrlSingleMarketTrade"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCtrlSingleMarketTrade");
+            options["EnableBakerMillerBreaks"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableBakerMillerBreaks");
+            options["EnableWorkshopIdleDelayFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableWorkshopIdleDelayFix");
+            options["EnableGatehouseLivingCaptureFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseLivingCaptureFix");
+            options["EnableDrawbridgeDestructionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableDrawbridgeDestructionFix");
+            options["EnableAssassinGatehouseClimbFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinGatehouseClimbFix");
+            options["EnableTunnelPlacementDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTunnelPlacementDistanceFix");
+            options["EnableCenteredGatehouseDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCenteredGatehouseDistanceFix");
+            options["EnableFairSiegeAmmoRestock"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableFairSiegeAmmoRestock");
+            options["EnableAssassinCapturedGateProtectionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinCapturedGateProtectionFix");
+            options["EnableEnemyGatePathfindingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableEnemyGatePathfindingFix");
+            options["EnableAiRaidRetargetFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAiRaidRetargetFix");
+            options["EnableLadderAttackPathfindingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableLadderAttackPathfindingFix");
+            options["EnableImprovedAssassinPathfinding"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedAssassinPathfinding");
+            options["EnableImprovedAssassinPathfindingAI"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedAssassinPathfindingAI");
+            options["EnableMoveFormationEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoveFormationEnhancements");
+            options["EnableImprovedManualUnitCommands"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedManualUnitCommands");
+            options["EnableImprovedMoatFilling"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedMoatFilling");
+            options["RequireReachableEnemyForAutomaticGateClosing"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RequireReachableEnemyForAutomaticGateClosing");
+        }
+    }
+}

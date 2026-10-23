@@ -9,7 +9,7 @@ $projects = if ($ProjectFiles) { @($ProjectFiles | ForEach-Object { Get-Item -Li
     @(Get-ChildItem -LiteralPath $Workspace -Recurse -File -Filter '*.csproj')
 }
 foreach ($project in $projects | Where-Object {
-    $_.FullName -notmatch '[\\/](shcde-script-extender|tests|bin|obj|BepInEx|\.local|\.tools|\.inspect|_inspect|\.native-analysis|\.release-output|before)[\\/]'
+     ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](shcde-script-extender|tests|bin|obj|BepInEx|\.local|\.tools|\.inspect|_inspect|\.native-analysis|\.work|\.release-output|before)[\\/]'
 }) {
     $manifestPath = Join-Path $project.Directory.FullName 'info.json'
     if (-not (Test-Path -LiteralPath $manifestPath)) {
@@ -19,15 +19,15 @@ foreach ($project in $projects | Where-Object {
         $manifestPath = $infos[0].FullName
     }
     $sourceFiles = @(Get-ChildItem -LiteralPath $project.Directory.FullName -Recurse -File -Filter '*.cs' | Where-Object {
-        $_.FullName -notmatch '[\\/](tests|examples|bin|obj|BepInEx|\.local)[\\/]'
+         ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](tests|examples|bin|obj|BepInEx|\.local|\.work|\.release-output)[\\/]'
     })
     $source = ($sourceFiles | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join [Environment]::NewLine
     if ($source -notmatch '\[BepInPlugin\(') { continue }
     $manifest = [IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
     # The diagnostic bootstrap must load without APIShared; info.json remains hard.
     if ($project.BaseName -eq 'SerpsModsHost') {
-        if ($source -notmatch 'dependency\["MinimumVersion"\]' -or $source -notmatch 'ApiSharedDependencyPolicy\.IsSatisfied' -or
-            $source -notmatch 'APIShared_Serp", BepInDependency\.DependencyFlags\.SoftDependency') { throw 'Host dependency gate is missing.' }
+        # Compiled soft-dependency metadata and bootstrap loading are checked by
+        # SerpsModsHostDuplicateTests after compilation; source spelling is not a contract.
         $apiDependencies = @($manifest.Dependencies | Where-Object { $_.GUID -eq 'APIShared_Serp' })
         $minimum = $null
         if ($apiDependencies.Count -ne 1 -or -not [version]::TryParse([string]$apiDependencies[0].MinimumVersion, [ref]$minimum)) { throw 'Host info.json must retain exactly one valid required APIShared minimum.' }

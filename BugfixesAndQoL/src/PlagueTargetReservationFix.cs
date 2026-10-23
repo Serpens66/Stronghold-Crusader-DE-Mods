@@ -116,11 +116,12 @@ namespace BugfixesAndQoL
                 if (!commitResult.IsCompleteSuccess || !diseaseSearchHook.Success || !healerExitHook.Success)
                     throw new InvalidOperationException("The plague target-reservation hooks were not installed.");
 
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL plague target-reservation fix initialized from unique " +
-                    "disease-search and healer-update-exit signatures; radius=<7, " +
-                    "stationaryTimeoutGameMs=10000.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "Bugfixes and QoL plague target-reservation fix initialized from unique " +
+                        "disease-search and healer-update-exit signatures; radius=<7, " +
+                        "stationaryTimeoutGameMs=10000.");
             }
             catch
             {
@@ -159,6 +160,15 @@ namespace BugfixesAndQoL
             {
                 DisableCorrection("treatment cleanup failed", ex);
             }
+        }
+
+        // Reservations and a local fail-closed decision only live for one gameplay session,
+        // so stale GlobalIds cannot mask clouds in the next map and every peer starts equal.
+        public void ResetForMap()
+        {
+            ClearReservations("map ended", logRelease: false);
+            if (!disposed)
+                correctionAvailable = true;
         }
 
         public void Dispose()
@@ -319,9 +329,15 @@ namespace BugfixesAndQoL
 
             var reserved = new List<DiseaseIdentity>();
             Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
-            for (int projectileId = 1; projectileId < projectiles.Length; projectileId++)
+            // Resolve live projectile IDs through the shared Extender-layout adapter instead of
+            // assuming span index == native ID and reading past the native projectile bound.
+            if (!Shared.GameProjectileSlotPolicy.TryResolve(projectiles, out Shared.GameProjectileSlotLayout layout))
+                throw new InvalidOperationException("The projectile slot layout could not be resolved.");
+            for (int projectileId = 1; projectileId < layout.ExclusiveUpperBound; projectileId++)
             {
-                ref GameProjectile projectile = ref projectiles[projectileId];
+                if (!layout.TryGetSpanIndex(projectileId, out int spanIndex))
+                    continue;
+                ref GameProjectile projectile = ref projectiles[spanIndex];
                 if (projectile.r_AliveState != AliveState.IsAlive ||
                     projectile.r_ProjectileType != ProjectileType.Disease ||
                     projectile.r_Unknown4 > MaximumSelectablePhase ||
@@ -504,7 +520,7 @@ namespace BugfixesAndQoL
 
             correctionAvailable = false;
             ClearReservations("feature disabled", logRelease: false);
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:509", $"Bugfixes and QoL plague target-reservation fix disabled for this process because " +
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:509", $"Bugfixes and QoL plague target-reservation fix disabled for this map because" +
                 $"{reason}; other plague fixes remain active: {ex}");
         }
 
@@ -513,15 +529,17 @@ namespace BugfixesAndQoL
             if (detailedLogCount < MaximumDetailedLogs)
             {
                 detailedLogCount++;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:520", $"Bugfixes and QoL {message}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:520", $"Bugfixes and QoL {message}");
                 return;
             }
             if (detailLimitLogged)
                 return;
 
             detailLimitLogged = true;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:527", $"Bugfixes and QoL plague reservation detailed-log limit of " +
-                $"{MaximumDetailedLogs} reached; repeated details are suppressed.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:527", $"Bugfixes and QoL plague reservation detailed-log limit of " +
+                    $"{MaximumDetailedLogs} reached; repeated details are suppressed.");
         }
 
         private bool IsEnabled => settings.EnableMod && settings.EnablePlagueTargetReservationFix;

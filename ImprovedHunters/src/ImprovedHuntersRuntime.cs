@@ -232,7 +232,8 @@ namespace ImprovedHunters
         public unsafe void RunNativeScan(bool force = false)
         {
             long timestamp = Stopwatch.GetTimestamp();
-            if (!applied || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || (!force && timestamp < nextNativeScanTimestamp))
+            // Triggered by every unit movement/visual event; the throttle test comes before the settings read.
+            if (!applied || (!force && timestamp < nextNativeScanTimestamp) || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             nextNativeScanTimestamp = timestamp + NativeScanInterval;

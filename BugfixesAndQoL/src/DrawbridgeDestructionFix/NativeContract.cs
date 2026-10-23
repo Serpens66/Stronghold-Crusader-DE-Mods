@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using static Iced.Intel.AssemblerRegisters;
 
 namespace BugfixesAndQoL.DrawbridgeDestructionFix
@@ -67,12 +66,12 @@ namespace BugfixesAndQoL.DrawbridgeDestructionFix
             return found;
         }
 
-        internal static byte[] ReadReferenceFunction(string path)
+        // fileSha256 is the caller's uppercase SHA-256 of the file at path (the runtime passes the
+        // process-wide cached hash instead of hashing the 3.4 MB DLL again).
+        internal static byte[] ReadReferenceFunction(string path, string fileSha256)
         {
-            using (var stream = File.OpenRead(path))
-            using (var sha = SHA256.Create())
-                if (!string.Equals(BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", ""), Hash, StringComparison.Ordinal))
-                    throw new InvalidOperationException("Unknown native hash; fixed structure offsets are hash-bound.");
+            if (!string.Equals(fileSha256, Hash, StringComparison.Ordinal))
+                throw new InvalidOperationException("Unknown native hash; fixed structure offsets are hash-bound.");
             byte[] raw = File.ReadAllBytes(path);
             int pe = BitConverter.ToInt32(raw, 0x3C);
             int table = pe + 24 + BitConverter.ToUInt16(raw, pe + 20);

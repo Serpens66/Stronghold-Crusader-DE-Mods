@@ -30,7 +30,8 @@ if($ResumeFixture){
     }finally{$lock.Dispose()}
 }
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $workspace ('.inspect/workshop-output-retention-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopOutputRetention'
 [void][IO.Directory]::CreateDirectory($fixture)
 function New-Case([string]$Name,[string]$Key='APIShared',[bool]$Test=$false){
     $root=Join-Path $fixture $Name
@@ -58,7 +59,13 @@ function New-Contents([string]$Path,$Target,[string]$Version,[switch]$Legacy){
     }
 }
 function Proof($Case,[string]$Version='1.0.1'){
-    if($Case.Target.Key -ceq 'SerpsMods'){Put (Join-Path $Case.State 'references/SerpsMods.provenance.json') '{"Commit":"fixture"}'}
+    if($Case.Target.Key -ceq 'SerpsMods'){
+        # Preparation records the SDK identity from the modpack provenance (ApiSharedSdkPolicy.ps1).
+        $apiCommit='c7b210f007035ff8edaf4d359a21f7bfbcbe479d'
+        $apiTag=if($Case.Test){'APIShared/test/v0.9.2-'+$apiCommit.Substring(0,12)}else{'APIShared/v0.9.2'}
+        $provenance=[ordered]@{Commit='fixture';ApiSharedCommit=$apiCommit;ApiSharedMainCommit=$apiCommit;Infrastructure=@(@{Guid='APIShared_Serp';Version='0.9.2';SourceCommit=$apiCommit;ReleaseTag=$apiTag;PackageSha256=('a'*64)})}
+        Put (Join-Path $Case.State 'references/SerpsMods.provenance.json') ($provenance|ConvertTo-Json -Depth 5)
+    }
     $null=Write-WorkshopPreparation $Case.Config $Case.Target $Case.Test $Version ('a'*40) 'fixture'
 }
 function Backup($Case,[string]$Version='1.0.0',[switch]$Legacy){

@@ -30,6 +30,7 @@ try {
         GitCleanAtManifest = ($status.Output.Count -eq 0)
         GitStatus = @($status.Output | ForEach-Object { [string]$_ })
         Mod = $ModName
+        TestMode = $(if ($ModName -eq 'BugfixesAndQoL') { $env:BUILD_TEST_MODE } else { $null })
         PluginGuid = [string]$metadata.Manifest.GUID
         Version = $metadata.Version
         CreatedUtc = [DateTime]::UtcNow.ToString('o')

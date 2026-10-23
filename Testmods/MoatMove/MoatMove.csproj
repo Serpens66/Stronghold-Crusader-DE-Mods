@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\FastIntegration.cs" />
+    <Compile Include="src\DigWorkFallback.cs" />
     <Compile Include="src\FastRouteField.cs" />
     <Compile Include="src\IFastRouteField.cs" />
     <Compile Include="src\FastNativeKernel.cs" />
@@ -54,6 +55,7 @@
     <Compile Include="src\MoatSearchKernel.cs" />
     <Compile Include="src\MoatMovePlugin.cs" /><Compile Include="src\MoatMoveOptions.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
     <Compile Include="..\..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
@@ -62,6 +64,8 @@
   <ItemGroup><Compile Include="src\FriendlyMoatTraversalProvider.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\TraversalCommandState.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\ProviderImports.cs" /></ItemGroup>
+  <!-- Friendly-moat command logic moved from BugfixesAndQoL (it runs only with this provider). -->
+  <ItemGroup><Compile Include="src\Moved\*.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateMoatMove" BeforeTargets="BeforeBuild">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tests\Test-Preflight.ps1&quot;" />

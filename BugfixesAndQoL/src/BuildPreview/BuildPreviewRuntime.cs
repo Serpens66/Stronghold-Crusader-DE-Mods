@@ -5,7 +5,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Threading;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
@@ -48,10 +47,8 @@ namespace BugfixesAndQoL.BuildPreview
             {
                 string path = Path.Combine(Paths.GameRootPath,
                     "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-                using (var stream = File.OpenRead(path))
-                using (var sha = SHA256.Create())
-                    if (BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "") != PreviewNativeContract.NativeHash)
-                        throw new InvalidOperationException("Unreviewed native hash; building preview remains Vanilla.");
+                if (Shared.DebugLogHelper.GetFileSha256(path) != PreviewNativeContract.NativeHash)
+                    throw new InvalidOperationException("Unreviewed native hash; building preview remains Vanilla.");
                 var resolution = Shared.NativePatternResolver.ResolveUnique(context.Memory,
                     PreviewNativeContract.Signature, PreviewNativeContract.PreviewRva, true, Name);
                 if (resolution.Rva != PreviewNativeContract.PreviewRva)
@@ -63,7 +60,7 @@ namespace BugfixesAndQoL.BuildPreview
                 {
                     Name = Name, TargetAddress = target, Callback = callback
                 };
-                candidate = (NativeDetour<PreviewNativeContract.PreviewDelegate>)PreviewNativeContract.Backend().CreateDetour(in request);
+                candidate = (NativeDetour<PreviewNativeContract.PreviewDelegate>)HookInstallPhase.Backend(PreviewNativeContract.Backend()).CreateDetour(in request);
                 PreviewNativeContract.Validate(candidate, target, false);
                 // The inactive wrapper can safely call Original even during installation.
                 permanentHook = candidate;
@@ -115,7 +112,7 @@ namespace BugfixesAndQoL.BuildPreview
             try
             {
                 if (eligible && Volatile.Read(ref confirmed) == 0 && Interlocked.CompareExchange(ref confirmed, 1, 0) == 0)
-                    persistentLog.LogDebug($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] BUILD_PREVIEW_RUNTIME_CONFIRMED native preview after startup cleanup.");
+                    Shared.DebugLogHelper.LogDebug(persistentLog, "BUILD_PREVIEW_RUNTIME_CONFIRMED native preview after startup cleanup.");
                 if (eligible && State.IsCurrent(capture))
                 {
                     MarkResult result = FootprintMarker.Apply(imageBase, manager, x, y, scale, (eMappers)mapper, blocked);

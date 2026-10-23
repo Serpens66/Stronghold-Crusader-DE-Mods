@@ -182,8 +182,9 @@ namespace CastlePlanner.AIVPlacement
                 bool featureEnabled = isEnabled();
                 if (!lobbySetupObserved || lastLobbyFeatureEnabled != featureEnabled)
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:185", $"AIV lobby placement: active={featureEnabled}, " +
-                        $"host={self?.currentLobby?.isHost == true}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:185", $"AIV lobby placement: active={featureEnabled}, " +
+                            $"host={self?.currentLobby?.isHost == true}.");
                     lobbySetupObserved = true;
                     lastLobbyFeatureEnabled = featureEnabled;
                 }
@@ -533,7 +534,8 @@ namespace CastlePlanner.AIVPlacement
             // Superseded generations are expected and must not become UI failures.
             if (completed.IsCanceled)
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:538", $"AIV evaluation canceled: generation={batch.Generation}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:538", $"AIV evaluation canceled: generation={batch.Generation}.");
                 return;
             }
 
@@ -549,8 +551,9 @@ namespace CastlePlanner.AIVPlacement
                 return;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:555", $"AIV evaluation completed: generation={batch.Generation}, " +
-                $"current={generations.IsCurrent(batch.Generation)}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:555", $"AIV evaluation completed: generation={batch.Generation}, " +
+                    $"current={generations.IsCurrent(batch.Generation)}.");
 
             try
             {
@@ -672,8 +675,9 @@ namespace CastlePlanner.AIVPlacement
                 }
                 if (!generations.IsCurrent(result.Generation))
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:679", $"AIV evaluation discarded: generation={result.Generation}, " +
-                        $"playerId={result.PlayerId}, currentGeneration={activeGeneration}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:679", $"AIV evaluation discarded: generation={result.Generation}, " +
+                            $"playerId={result.PlayerId}, currentGeneration={activeGeneration}.");
                     continue;
                 }
 
@@ -688,7 +692,10 @@ namespace CastlePlanner.AIVPlacement
                 currentResults[result.PlayerId] = result;
                 selectionDialog.Publish(result);
                 if (pendingPlayerIds.Count == 0)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:696", $"AIV evaluation published: generation={result.Generation}, all players complete.");
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:696", $"AIV evaluation published: generation={result.Generation}, all players complete.");
+                    }
                 int evaluableCandidates = result.Candidates.Count(candidate =>
                     candidate.Status != AivPlacementStatus.NotEvaluable);
                 IReadOnlyList<NativeAivAutoDecision> possible =
@@ -708,15 +715,16 @@ namespace CastlePlanner.AIVPlacement
                             ? candidate.Selection.Variants[outcome.RotationIndex].Rotation.ToString()
                             : "none";
                     }).Distinct());
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:717", $"AIV lobby placement result: generation={result.Generation}, " +
-                    $"playerId={result.PlayerId}, preBuild={result.PreBuildSetting}, " +
-                    $"status={result.Status}, " +
-                    $"evaluableCandidates={evaluableCandidates}/{result.Candidates.Count}, " +
-                    $"selectedCandidate={result.SelectedCandidate?.CandidateId.ToString() ?? "none"}, " +
-                    $"rotation={result.SelectedVariant?.Rotation.ToString() ?? "unknown"}, " +
-                    $"possibleCandidates={possibleCandidates}, " +
-                    $"possibleRotations={possibleRotations}, " +
-                    $"reason={result.FailureKind}: {result.FailureMessage}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:717", $"AIV lobby placement result: generation={result.Generation}, " +
+                        $"playerId={result.PlayerId}, preBuild={result.PreBuildSetting}, " +
+                        $"status={result.Status}, " +
+                        $"evaluableCandidates={evaluableCandidates}/{result.Candidates.Count}, " +
+                        $"selectedCandidate={result.SelectedCandidate?.CandidateId.ToString() ?? "none"}, " +
+                        $"rotation={result.SelectedVariant?.Rotation.ToString() ?? "unknown"}, " +
+                        $"possibleCandidates={possibleCandidates}, " +
+                        $"possibleRotations={possibleRotations}, " +
+                        $"reason={result.FailureKind}: {result.FailureMessage}.");
             }
             while (completedPractice.TryDequeue(out AivPracticeBatch practice))
                 if (generations.IsCurrent(practice.Generation))
@@ -837,8 +845,9 @@ namespace CastlePlanner.AIVPlacement
             evaluationCancellation = new CancellationTokenSource();
             activeGeneration = batch.Generation;
             lastEvaluationActivityTimestamp = Stopwatch.GetTimestamp();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:849", $"AIV evaluation started: generation={batch.Generation}, players={batch.Requests.Count}, " +
-                $"trailMaker={frontend?.trailMakerMode == true}, retry={stalledRetries}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:849", $"AIV evaluation started: generation={batch.Generation}, players={batch.Requests.Count}, " +
+                    $"trailMaker={frontend?.trailMakerMode == true}, retry={stalledRetries}.");
             currentResults.Clear();
             pendingPlayerIds.Clear();
             while (candidateProgress.TryDequeue(out _))
@@ -896,8 +905,9 @@ namespace CastlePlanner.AIVPlacement
             if (!lobbyContextActive)
                 return;
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:909", $"AIV evaluation reset: generation={activeGeneration}, reason={reason}, " +
-                $"pendingPlayers={pendingPlayerIds.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivPlacementRuntime.cs:909", $"AIV evaluation reset: generation={activeGeneration}, reason={reason}, " +
+                    $"pendingPlayers={pendingPlayerIds.Count}.");
             lobbyContextActive = false;
             activeLobby = null;
             activeGeneration = 0;

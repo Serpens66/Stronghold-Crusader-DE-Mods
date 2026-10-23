@@ -40,8 +40,9 @@ namespace BugfixesAndQoL
             if (!referenceHashMatches)
                 throw new InvalidOperationException("The AI wall-targeting fix requires the audited CrusaderDE.dll hash.");
 
-            int patternRva = Shared.NativePatternResolver.FindUniquePattern(
-                memory, ContextPattern, "AI wall-target reservation rejection branch");
+            // The audited hash is required above, so the reference bytes are checked without a scan.
+            int patternRva = Shared.NativePatternResolver.ResolveUnique(
+                memory, ContextPattern, ReferencePatternRva, true, "AI wall-target reservation rejection branch").Rva;
             int patchRva = checked(patternRva + ReservationRejectJumpOffset);
             if (patternRva != ReferencePatternRva || patchRva != ReferenceReservationRejectJumpRva ||
                 patchRva < 0 || patchRva + OriginalReservationRejectJump.Length > memory.Length ||
@@ -58,9 +59,10 @@ namespace BugfixesAndQoL
                     ExpectedDisplacedByteCount,
                     1,
                     "AI wall-target reservation rejection"));
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"AI wall-targeting permanent hook installed: rva=0x{patchRva:X}, displaced={ExpectedDisplacedByteCount}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AI wall-targeting permanent hook installed: rva=0x{patchRva:X}, displaced={ExpectedDisplacedByteCount}.");
         }
 
         public void ApplySetting()

@@ -1,0 +1,652 @@
+BuildingLimit\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+BuildingLimit\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+BuildingLimit\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+BuildingLimit\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+BuildingLimit\build.bat:62:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+BuildingLimit\build.bat:63:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+BuildingLimit\build.bat:64:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+BuildingLimit\build.bat:101:"%MSBUILD%" BuildingLimit.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+BuildingLimit\build.bat:112:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+BuildingLimit\build.bat:113:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+BuildingLimit\build.bat:114:  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+BuildingLimit\build.bat:119:    goto copy_failed
+BuildingLimit\build.bat:125:        rmdir /S /Q "%%~fD"
+BuildingLimit\build.bat:126:        if errorlevel 1 goto copy_failed
+BuildingLimit\build.bat:132:          del /F /Q "%%~fF"
+BuildingLimit\build.bat:133:          if errorlevel 1 goto copy_failed
+BuildingLimit\build.bat:139:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+BuildingLimit\build.bat:140:  if errorlevel 1 goto copy_failed
+BuildingLimit\build.bat:142:    rem Remove legacy packaged files but retain any player-created lobby settings.
+BuildingLimit\build.bat:145:        rmdir /S /Q "%%~fD"
+BuildingLimit\build.bat:146:        if errorlevel 1 goto copy_failed
+BuildingLimit\build.bat:151:        del /F /Q "%%~fF"
+BuildingLimit\build.bat:152:        if errorlevel 1 goto copy_failed
+BuildingLimit\build.bat:158:  if errorlevel 1 goto copy_failed
+BuildingLimit\build.bat:166::copy_failed
+BuildingCosts\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+BuildingCosts\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+BuildingCosts\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+BuildingCosts\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+BuildingCosts\build.bat:62:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+BuildingCosts\build.bat:63:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+BuildingCosts\build.bat:64:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+BuildingCosts\build.bat:101:"%MSBUILD%" BuildingCosts.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+BuildingCosts\build.bat:112:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+BuildingCosts\build.bat:113:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+BuildingCosts\build.bat:114:  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+BuildingCosts\build.bat:119:    goto copy_failed
+BuildingCosts\build.bat:125:        rmdir /S /Q "%%~fD"
+BuildingCosts\build.bat:126:        if errorlevel 1 goto copy_failed
+BuildingCosts\build.bat:132:          del /F /Q "%%~fF"
+BuildingCosts\build.bat:133:          if errorlevel 1 goto copy_failed
+BuildingCosts\build.bat:139:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+BuildingCosts\build.bat:140:  if errorlevel 1 goto copy_failed
+BuildingCosts\build.bat:142:    rem Remove legacy packaged files but retain any player-created lobby settings.
+BuildingCosts\build.bat:145:        rmdir /S /Q "%%~fD"
+BuildingCosts\build.bat:146:        if errorlevel 1 goto copy_failed
+BuildingCosts\build.bat:151:        del /F /Q "%%~fF"
+BuildingCosts\build.bat:152:        if errorlevel 1 goto copy_failed
+BuildingCosts\build.bat:159:  if errorlevel 1 goto copy_failed
+BuildingCosts\build.bat:168::copy_failed
+CastlePlanner\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+CastlePlanner\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+CastlePlanner\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+CastlePlanner\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+CastlePlanner\build.bat:38:set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+CastlePlanner\build.bat:39:set "LOCAL_API_SHARED_DIR=%PROJECT_DIR%..\APIShared\BepInEx\plugins\APIShared_Serp"
+CastlePlanner\build.bat:72:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+CastlePlanner\build.bat:73:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+CastlePlanner\build.bat:74:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+CastlePlanner\build.bat:138:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp"
+CastlePlanner\build.bat:144:"%MSBUILD%" CastlePlanner.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+CastlePlanner\build.bat:148:  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp" -ValidateOnly
+CastlePlanner\build.bat:159:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+CastlePlanner\build.bat:160:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+CastlePlanner\build.bat:165:    goto copy_failed
+CastlePlanner\build.bat:168:  rem Remove the superseded patch so upgrades cannot leave a second HUD behind.
+CastlePlanner\build.bat:171:    del /Q "!LEGACY_MAIN_HUD_PATCH!"
+CastlePlanner\build.bat:172:    if exist "!LEGACY_MAIN_HUD_PATCH!" goto copy_failed
+CastlePlanner\build.bat:177:  if errorlevel 1 goto copy_failed
+CastlePlanner\build.bat:181:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
+CastlePlanner\build.bat:182:  if errorlevel 1 goto copy_failed
+CastlePlanner\build.bat:185:  if errorlevel 1 goto copy_failed
+CastlePlanner\build.bat:199::copy_failed
+ExtendedData\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+ExtendedData\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+ExtendedData\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+ExtendedData\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+ExtendedData\build.bat:42:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\ExtendedData_Serp"
+ExtendedData\build.bat:43:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtendedData_Serp"
+ExtendedData\build.bat:44:set "STAGED_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\.ExtendedData_Serp.build"
+ExtendedData\build.bat:45:set "LEGACY_TRAIL_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomCustomTrail_Serp"
+ExtendedData\build.bat:46:set "LEGACY_LORD_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomLordUpload_Serp"
+ExtendedData\build.bat:47:set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+ExtendedData\build.bat:50:set "PACK_PLUGIN_ROOT=%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp"
+ExtendedData\build.bat:81:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+ExtendedData\build.bat:82:  echo BepInEx wurde nicht gefunden: !GAME_DIR!\BepInEx\core\BepInEx.dll
+ExtendedData\build.bat:115:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1" -GameDir "%GAME_DIR%"
+ExtendedData\build.bat:121:"%MSBUILD%" ExtendedData.Upload.Tests\ExtendedData.Upload.Tests.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
+ExtendedData\build.bat:132:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+ExtendedData\build.bat:136:"%MSBUILD%" ExtendedData.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+ExtendedData\build.bat:141:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+ExtendedData\build.bat:144:xcopy "%PROJECT_DIR%Examples" "%LOCAL_PLUGIN_DIR%\Examples\" /E /I /Q /Y
+ExtendedData\build.bat:158:if exist "%STAGED_GAME_PLUGIN_DIR%\" rmdir /S /Q "%STAGED_GAME_PLUGIN_DIR%"
+ExtendedData\build.bat:159:if errorlevel 1 goto copy_failed
+ExtendedData\build.bat:161:xcopy "%LOCAL_PLUGIN_DIR%" "%STAGED_GAME_PLUGIN_DIR%\" /E /I /Q /Y
+ExtendedData\build.bat:162:if errorlevel 1 goto copy_failed
+ExtendedData\build.bat:166:  xcopy "%GAME_PLUGIN_DIR%\LobbyModSettings" "%STAGED_GAME_PLUGIN_DIR%\LobbyModSettings\" /E /I /Q /Y
+ExtendedData\build.bat:167:  if errorlevel 1 goto copy_failed
+ExtendedData\build.bat:169:if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
+ExtendedData\build.bat:170:if errorlevel 1 goto copy_failed
+ExtendedData\build.bat:171:move /Y "%STAGED_GAME_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%" >nul
+ExtendedData\build.bat:172:if errorlevel 1 goto copy_failed
+ExtendedData\build.bat:173:if exist "%LEGACY_TRAIL_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_TRAIL_PLUGIN_DIR%"
+ExtendedData\build.bat:174:if errorlevel 1 goto copy_failed
+ExtendedData\build.bat:175:if exist "%LEGACY_LORD_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_LORD_PLUGIN_DIR%"
+ExtendedData\build.bat:176:if errorlevel 1 goto copy_failed
+ExtendedData\build.bat:204::copy_failed
+SerpPresets\build.bat:26:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+SerpPresets\build.bat:27:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SerpPresets_Serp"
+SerpPresets\build.bat:38:if not exist "%GAME_DIR%\BepInEx\plugins\000shcdese\SHCDESE.dll" (
+SerpPresets\build.bat:50:copy /Y "%PROJECT_DIR%info.json" "%GAME_PLUGIN_DIR%\info.json" >nul
+SerpPresets\build.bat:53:xcopy "%PROJECT_DIR%Override" "%GAME_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+ExtraFeatures\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+ExtraFeatures\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+ExtraFeatures\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+ExtraFeatures\build.bat:35:set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+ExtraFeatures\build.bat:47:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+ExtraFeatures\build.bat:48:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+ExtraFeatures\build.bat:74:"%MSBUILD%" "%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\ExtraFeaturesNativeTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%"
+ExtraFeatures\build.bat:80:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+ExtraFeatures\build.bat:83:"%MSBUILD%" ExtraFeatures.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+ExtraFeatures\build.bat:88:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+ExtraFeatures\build.bat:90:xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+ExtraFeatures\build.bat:99:      rmdir /S /Q "%%~fD"
+ExtraFeatures\build.bat:100:      if errorlevel 1 goto copy_failed
+ExtraFeatures\build.bat:105:      del /F /Q "%%~fF"
+ExtraFeatures\build.bat:106:      if errorlevel 1 goto copy_failed
+ExtraFeatures\build.bat:111:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+ExtraFeatures\build.bat:112:if errorlevel 1 goto copy_failed
+ExtraFeatures\build.bat:128::copy_failed
+UnitLimit\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+UnitLimit\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+UnitLimit\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+UnitLimit\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+UnitLimit\build.bat:62:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+UnitLimit\build.bat:63:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+UnitLimit\build.bat:64:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+UnitLimit\build.bat:101:"%MSBUILD%" UnitLimit.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+UnitLimit\build.bat:112:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+UnitLimit\build.bat:113:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+UnitLimit\build.bat:114:  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+UnitLimit\build.bat:119:    goto copy_failed
+UnitLimit\build.bat:125:        rmdir /S /Q "%%~fD"
+UnitLimit\build.bat:126:        if errorlevel 1 goto copy_failed
+UnitLimit\build.bat:132:          del /F /Q "%%~fF"
+UnitLimit\build.bat:133:          if errorlevel 1 goto copy_failed
+UnitLimit\build.bat:139:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+UnitLimit\build.bat:140:  if errorlevel 1 goto copy_failed
+UnitLimit\build.bat:142:    rem Remove legacy packaged files but retain any player-created lobby settings.
+UnitLimit\build.bat:145:        rmdir /S /Q "%%~fD"
+UnitLimit\build.bat:146:        if errorlevel 1 goto copy_failed
+UnitLimit\build.bat:151:        del /F /Q "%%~fF"
+UnitLimit\build.bat:152:        if errorlevel 1 goto copy_failed
+UnitLimit\build.bat:158:  if errorlevel 1 goto copy_failed
+UnitLimit\build.bat:166::copy_failed
+ImprovedHunters\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+ImprovedHunters\build.bat:33:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+ImprovedHunters\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+ImprovedHunters\build.bat:42:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+ImprovedHunters\build.bat:61:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+ImprovedHunters\build.bat:62:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+ImprovedHunters\build.bat:63:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+ImprovedHunters\build.bat:100:"%MSBUILD%" ImprovedHunters.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+ImprovedHunters\build.bat:114:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+ImprovedHunters\build.bat:115:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+ImprovedHunters\build.bat:116:  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+ImprovedHunters\build.bat:121:    goto copy_failed
+ImprovedHunters\build.bat:128:        rmdir /S /Q "%%~fD"
+ImprovedHunters\build.bat:129:        if errorlevel 1 goto copy_failed
+ImprovedHunters\build.bat:134:        del /F /Q "%%~fF"
+ImprovedHunters\build.bat:135:        if errorlevel 1 goto copy_failed
+ImprovedHunters\build.bat:141:    rem Remove legacy packaged files but retain any player-created lobby settings.
+ImprovedHunters\build.bat:144:        rmdir /S /Q "%%~fD"
+ImprovedHunters\build.bat:145:        if errorlevel 1 goto copy_failed
+ImprovedHunters\build.bat:150:        del /F /Q "%%~fF"
+ImprovedHunters\build.bat:151:        if errorlevel 1 goto copy_failed
+ImprovedHunters\build.bat:157:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+ImprovedHunters\build.bat:158:  if errorlevel 1 goto copy_failed
+ImprovedHunters\build.bat:161:  if errorlevel 1 goto copy_failed
+ImprovedHunters\build.bat:169::copy_failed
+StartConditions\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+StartConditions\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+StartConditions\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+StartConditions\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+StartConditions\build.bat:38:set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+StartConditions\build.bat:39:set "LOCAL_API_SHARED_DIR=%PROJECT_DIR%..\APIShared\BepInEx\plugins\APIShared_Serp"
+StartConditions\build.bat:72:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+StartConditions\build.bat:73:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+StartConditions\build.bat:74:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+StartConditions\build.bat:120:"%MSBUILD%" StartConditions.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+StartConditions\build.bat:131:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+StartConditions\build.bat:132:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+StartConditions\build.bat:133:  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+StartConditions\build.bat:139:    goto copy_failed
+StartConditions\build.bat:145:        rmdir /S /Q "%%~fD"
+StartConditions\build.bat:146:        if errorlevel 1 goto copy_failed
+StartConditions\build.bat:152:          del /F /Q "%%~fF"
+StartConditions\build.bat:153:          if errorlevel 1 goto copy_failed
+StartConditions\build.bat:159:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+StartConditions\build.bat:160:  if errorlevel 1 goto copy_failed
+StartConditions\build.bat:162:    echo Installierte StartConditions.dll wurde nach xcopy nicht gefunden:
+StartConditions\build.bat:164:    goto copy_failed
+StartConditions\build.bat:167:    rem Remove legacy packaged files but retain any player-created lobby settings.
+StartConditions\build.bat:170:        rmdir /S /Q "%%~fD"
+StartConditions\build.bat:171:        if errorlevel 1 goto copy_failed
+StartConditions\build.bat:176:        del /F /Q "%%~fF"
+StartConditions\build.bat:177:        if errorlevel 1 goto copy_failed
+StartConditions\build.bat:183:  if errorlevel 1 goto copy_failed
+StartConditions\build.bat:191::copy_failed
+RandomEvents\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+RandomEvents\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+RandomEvents\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+RandomEvents\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+RandomEvents\build.bat:43:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+RandomEvents\build.bat:44:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+RandomEvents\build.bat:63:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+RandomEvents\build.bat:66:"%MSBUILD%" RandomEvents.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+RandomEvents\build.bat:71:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+RandomEvents\build.bat:73:xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+RandomEvents\build.bat:80:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+RandomEvents\build.bat:81:if errorlevel 1 goto copy_failed
+RandomEvents\build.bat:82:if not exist "%GAME_PLUGIN_DIR%\RandomEvents.dll" goto copy_verification_failed
+RandomEvents\build.bat:83:if not exist "%GAME_PLUGIN_DIR%\info.json" goto copy_verification_failed
+RandomEvents\build.bat:84:if not exist "%GAME_PLUGIN_DIR%\Override\ScriptExtenderUI\RandomEventsSettings.xaml" goto copy_verification_failed
+RandomEvents\build.bat:86:if errorlevel 1 goto copy_verification_failed
+RandomEvents\build.bat:88:if errorlevel 1 goto copy_verification_failed
+RandomEvents\build.bat:100::copy_verification_failed
+RandomEvents\build.bat:111::copy_failed
+CheatMod\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+CheatMod\build.bat:33:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+CheatMod\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+CheatMod\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+CheatMod\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+CheatMod\build.bat:60:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+CheatMod\build.bat:63:"%MSBUILD%" CheatMod.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+CheatMod\build.bat:68:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+CheatMod\build.bat:70:xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+CheatMod\build.bat:76:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+CheatMod\build.bat:77:if errorlevel 1 goto copy_failed
+CheatMod\build.bat:78:if not exist "%GAME_PLUGIN_DIR%\CheatMod.dll" goto copy_verification_failed
+CheatMod\build.bat:79:if not exist "%GAME_PLUGIN_DIR%\info.json" goto copy_verification_failed
+CheatMod\build.bat:80:if not exist "%GAME_PLUGIN_DIR%\Override\ScriptExtenderUI\CheatModSettings.xaml" goto copy_verification_failed
+CheatMod\build.bat:82:if errorlevel 1 goto copy_verification_failed
+CheatMod\build.bat:84:if errorlevel 1 goto copy_verification_failed
+CheatMod\build.bat:97::copy_verification_failed
+CheatMod\build.bat:111::copy_failed
+ExtremePowers\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+ExtremePowers\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+ExtremePowers\build.bat:51:"%MSBUILD%" ExtremePowers.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+ExtremePowers\build.bat:56:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\ExtremePowers_Serp"
+ExtremePowers\build.bat:57:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtremePowers_Serp"
+ExtremePowers\build.bat:65:if exist "%LOCAL_PLUGIN_DIR%" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+ExtremePowers\build.bat:69:copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.API.dll" "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.dll" >nul
+ExtremePowers\build.bat:72:copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.API.pdb" "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.pdb" >nul
+ExtremePowers\build.bat:75:copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.dll" "%LOCAL_PLUGIN_DIR%\ExtremePowers.dll" >nul
+ExtremePowers\build.bat:78:copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.pdb" "%LOCAL_PLUGIN_DIR%\ExtremePowers.pdb" >nul
+ExtremePowers\build.bat:81:copy /Y "%LOCAL_BUILD_DIR%\info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+ExtremePowers\build.bat:84:xcopy "%LOCAL_BUILD_DIR%\Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Y >nul
+ExtremePowers\build.bat:87:xcopy "%LOCAL_BUILD_DIR%\Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Y >nul
+ExtremePowers\build.bat:90:xcopy "%LOCAL_BUILD_DIR%\Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Y >nul
+ExtremePowers\build.bat:98:            rmdir /S /Q "%%~fD"
+ExtremePowers\build.bat:104:            del /F /Q "%%~fF"
+ExtremePowers\build.bat:111:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Y >nul
+ExtremePowers\build.bat:129:if exist "%SETTINGS_STATE_BEFORE%" del /F /Q "%SETTINGS_STATE_BEFORE%" >nul 2>&1
+ExtremePowers\build.bat:130:if exist "%SETTINGS_STATE_AFTER%" del /F /Q "%SETTINGS_STATE_AFTER%" >nul 2>&1
+UnitCosts\build.bat:31:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+UnitCosts\build.bat:33:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+UnitCosts\build.bat:36:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+UnitCosts\build.bat:37:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+UnitCosts\build.bat:62:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+UnitCosts\build.bat:63:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+UnitCosts\build.bat:64:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+UnitCosts\build.bat:101:"%MSBUILD%" UnitCosts.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+UnitCosts\build.bat:112:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+UnitCosts\build.bat:113:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+UnitCosts\build.bat:114:  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+UnitCosts\build.bat:119:    goto copy_failed
+UnitCosts\build.bat:125:        rmdir /S /Q "%%~fD"
+UnitCosts\build.bat:126:        if errorlevel 1 goto copy_failed
+UnitCosts\build.bat:132:          del /F /Q "%%~fF"
+UnitCosts\build.bat:133:          if errorlevel 1 goto copy_failed
+UnitCosts\build.bat:139:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+UnitCosts\build.bat:140:  if errorlevel 1 goto copy_failed
+UnitCosts\build.bat:142:    rem Remove legacy packaged files but retain any player-created lobby settings.
+UnitCosts\build.bat:145:        rmdir /S /Q "%%~fD"
+UnitCosts\build.bat:146:        if errorlevel 1 goto copy_failed
+UnitCosts\build.bat:151:        del /F /Q "%%~fF"
+UnitCosts\build.bat:152:        if errorlevel 1 goto copy_failed
+UnitCosts\build.bat:158:  if errorlevel 1 goto copy_failed
+UnitCosts\build.bat:166::copy_failed
+Helpers\HunterQueryTargetDiagnostic\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Helpers\HunterQueryTargetDiagnostic\build.bat:32:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+Helpers\HunterQueryTargetDiagnostic\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Helpers\HunterQueryTargetDiagnostic\build.bat:37:set "API_SHARED_DIR=%PROJECT_DIR%..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Helpers\HunterQueryTargetDiagnostic\build.bat:41:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Helpers\HunterQueryTargetDiagnostic\build.bat:42:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Helpers\HunterQueryTargetDiagnostic\build.bat:46:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Helpers\HunterQueryTargetDiagnostic\build.bat:70:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Helpers\HunterQueryTargetDiagnostic\build.bat:73:"%MSBUILD%" HunterQueryTargetDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Helpers\HunterQueryTargetDiagnostic\build.bat:78:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Helpers\HunterQueryTargetDiagnostic\build.bat:90:      rmdir /S /Q "%%~fD"
+Helpers\HunterQueryTargetDiagnostic\build.bat:91:      if errorlevel 1 goto copy_failed
+Helpers\HunterQueryTargetDiagnostic\build.bat:96:      del /F /Q "%%~fF"
+Helpers\HunterQueryTargetDiagnostic\build.bat:97:      if errorlevel 1 goto copy_failed
+Helpers\HunterQueryTargetDiagnostic\build.bat:102:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Helpers\HunterQueryTargetDiagnostic\build.bat:103:if errorlevel 1 goto copy_failed
+Helpers\HunterQueryTargetDiagnostic\build.bat:118::copy_failed
+Helpers\VanillaAICExporter\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Helpers\VanillaAICExporter\build.bat:33:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+Helpers\VanillaAICExporter\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Helpers\VanillaAICExporter\build.bat:58:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+Helpers\VanillaAICExporter\build.bat:59:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+Helpers\VanillaAICExporter\build.bat:60:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+Helpers\VanillaAICExporter\build.bat:83:"%MSBUILD%" VanillaAICExporter.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Helpers\VanillaAICExporter\build.bat:89:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Helpers\VanillaAICExporter\build.bat:90:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Helpers\VanillaAICExporter\build.bat:96:      rmdir /S /Q "%%~fD"
+Helpers\VanillaAICExporter\build.bat:97:      if errorlevel 1 goto copy_failed
+Helpers\VanillaAICExporter\build.bat:102:      del /F /Q "%%~fF"
+Helpers\VanillaAICExporter\build.bat:103:      if errorlevel 1 goto copy_failed
+Helpers\VanillaAICExporter\build.bat:108:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Y
+Helpers\VanillaAICExporter\build.bat:109:if errorlevel 1 goto copy_failed
+Helpers\VanillaAICExporter\build.bat:116::copy_failed
+SerpsModsHost\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+SerpsModsHost\build.bat:33:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+SerpsModsHost\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+SerpsModsHost\build.bat:35:set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+SerpsModsHost\build.bat:48:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+SerpsModsHost\build.bat:49:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+SerpsModsHost\build.bat:54:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+SerpsModsHost\build.bat:82:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+SerpsModsHost\build.bat:90:"%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+SerpsModsHost\build.bat:92:"%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe" "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" "%GAME_DIR%"
+SerpsModsHost\build.bat:97:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+SerpsModsHost\build.bat:99:copy /Y "%PROJECT_DIR%serps-modpack.json" "%LOCAL_PLUGIN_DIR%\serps-modpack.json" >nul
+SerpsModsHost\build.bat:101:xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+SerpsModsHost\build.bat:103:xcopy "%PROJECT_DIR%Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Q /Y >nul
+SerpsModsHost\build.bat:116:      rmdir /S /Q "%%~fD"
+SerpsModsHost\build.bat:117:      if errorlevel 1 goto copy_failed
+SerpsModsHost\build.bat:122:      del /F /Q "%%~fF"
+SerpsModsHost\build.bat:123:      if errorlevel 1 goto copy_failed
+SerpsModsHost\build.bat:128:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+SerpsModsHost\build.bat:129:if errorlevel 1 goto copy_failed
+SerpsModsHost\build.bat:141::copy_failed
+BugfixesAndQoL\build.bat:37:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+BugfixesAndQoL\build.bat:39:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+BugfixesAndQoL\build.bat:42:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+BugfixesAndQoL\build.bat:43:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+BugfixesAndQoL\build.bat:44:set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+BugfixesAndQoL\build.bat:45:set "LOCAL_API_SHARED_DIR=%PROJECT_DIR%..\APIShared\BepInEx\plugins\APIShared_Serp"
+BugfixesAndQoL\build.bat:59:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+BugfixesAndQoL\build.bat:60:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+BugfixesAndQoL\build.bat:105:"%PROJECT_DIR%tests\BuildPreview.Tests\bin\BuildPreview.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+BugfixesAndQoL\build.bat:116:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-AIKeepRangePreflight.ps1" -GameDir "%GAME_DIR%" -ExtenderDir "%EXTENDER_DIR%" -ApiSharedDir "%API_SHARED_DIR%"
+BugfixesAndQoL\build.bat:146:"%MSBUILD%" "%PROJECT_DIR%tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+BugfixesAndQoL\build.bat:148:"%PROJECT_DIR%tests\ArabianIdleSound.Tests\bin\ArabianIdleSoundVolume.Tests.exe" "%GAME_DIR%" "%PROJECT_DIR%.."
+BugfixesAndQoL\build.bat:179:"%MSBUILD%" tests\WorkshopIdleDelay.Tests\WorkshopIdleDelay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+BugfixesAndQoL\build.bat:181:"%PROJECT_DIR%tests\WorkshopIdleDelay.Tests\bin\WorkshopIdleDelay.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+BugfixesAndQoL\build.bat:184:"%MSBUILD%" tests\WorkerBreakPause.Tests\WorkerBreakPause.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+BugfixesAndQoL\build.bat:186:"%PROJECT_DIR%tests\WorkerBreakPause.Tests\bin\WorkerBreakPause.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+BugfixesAndQoL\build.bat:224:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+BugfixesAndQoL\build.bat:227:"%MSBUILD%" BugfixesAndQoL.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+BugfixesAndQoL\build.bat:232:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+BugfixesAndQoL\build.bat:234:xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+BugfixesAndQoL\build.bat:236:xcopy "%PROJECT_DIR%Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Q /Y >nul
+BugfixesAndQoL\build.bat:241:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Disable-LegacyGateTest.ps1" -GameDirectory "%GAME_DIR%"
+BugfixesAndQoL\build.bat:242:if errorlevel 1 goto copy_failed
+BugfixesAndQoL\build.bat:247:      rmdir /S /Q "%%~fD"
+BugfixesAndQoL\build.bat:248:      if errorlevel 1 goto copy_failed
+BugfixesAndQoL\build.bat:253:      del /F /Q "%%~fF"
+BugfixesAndQoL\build.bat:254:      if errorlevel 1 goto copy_failed
+BugfixesAndQoL\build.bat:259:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+BugfixesAndQoL\build.bat:260:if errorlevel 1 goto copy_failed
+BugfixesAndQoL\build.bat:275::copy_failed
+Helpers\ActiveAIVDetector\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Helpers\ActiveAIVDetector\build.bat:31:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Helpers\ActiveAIVDetector\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Helpers\ActiveAIVDetector\build.bat:66:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+Helpers\ActiveAIVDetector\build.bat:67:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+Helpers\ActiveAIVDetector\build.bat:68:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+Helpers\ActiveAIVDetector\build.bat:93:"%MSBUILD%" ActiveAIVDetector.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Helpers\ActiveAIVDetector\build.bat:101:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+Helpers\ActiveAIVDetector\build.bat:102:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+Helpers\ActiveAIVDetector\build.bat:108:    goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:114:    goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:121:    goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:126:    goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:131:  if exist "!LOCAL_PLUGIN_DIR!\VanillaAIC\" rmdir /S /Q "!LOCAL_PLUGIN_DIR!\VanillaAIC"
+Helpers\ActiveAIVDetector\build.bat:132:  if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:134:  xcopy "!VANILLA_EXPORT_DIR!" "!LOCAL_PLUGIN_DIR!\VanillaAIC\" /E /I /Q /Y
+Helpers\ActiveAIVDetector\build.bat:135:  if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:140:    if exist "!LOCAL_PLUGIN_DIR!\VanillaAIV\" rmdir /S /Q "!LOCAL_PLUGIN_DIR!\VanillaAIV"
+Helpers\ActiveAIVDetector\build.bat:141:    if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:143:    xcopy "!EDITOR_VANILLA_AIV_DIR!\*.aivjson" "!LOCAL_PLUGIN_DIR!\VanillaAIV\" /I /Q /Y
+Helpers\ActiveAIVDetector\build.bat:144:    if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:149:      goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:158:        rmdir /S /Q "%%~fD"
+Helpers\ActiveAIVDetector\build.bat:159:        if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:162:        rmdir /S /Q "%%~fD"
+Helpers\ActiveAIVDetector\build.bat:163:        if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:168:        del /F /Q "%%~fF"
+Helpers\ActiveAIVDetector\build.bat:169:        if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:174:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
+Helpers\ActiveAIVDetector\build.bat:175:  if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:182:      goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:186:    copy /Y "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
+Helpers\ActiveAIVDetector\build.bat:187:    if errorlevel 1 goto copy_failed
+Helpers\ActiveAIVDetector\build.bat:197::copy_failed
+Testmods\AIDefenseTest\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\AIDefenseTest\build.bat:33:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+Testmods\AIDefenseTest\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\AIDefenseTest\build.bat:42:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\AIDefenseTest\build.bat:61:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
+Testmods\AIDefenseTest\build.bat:62:  echo BepInEx.dll wurde im Spielordner nicht gefunden:
+Testmods\AIDefenseTest\build.bat:63:  echo !GAME_DIR!\BepInEx\core\BepInEx.dll
+Testmods\AIDefenseTest\build.bat:100:"%MSBUILD%" AIDefenseTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\AIDefenseTest\build.bat:115:  set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
+Testmods\AIDefenseTest\build.bat:116:  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+Testmods\AIDefenseTest\build.bat:117:  set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+Testmods\AIDefenseTest\build.bat:122:    goto copy_failed
+Testmods\AIDefenseTest\build.bat:128:        rmdir /S /Q "%%~fD"
+Testmods\AIDefenseTest\build.bat:129:        if errorlevel 1 goto copy_failed
+Testmods\AIDefenseTest\build.bat:135:          del /F /Q "%%~fF"
+Testmods\AIDefenseTest\build.bat:136:          if errorlevel 1 goto copy_failed
+Testmods\AIDefenseTest\build.bat:142:  xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
+Testmods\AIDefenseTest\build.bat:143:  if errorlevel 1 goto copy_failed
+Testmods\AIDefenseTest\build.bat:145:    rem Remove legacy packaged files but retain any player-created lobby settings.
+Testmods\AIDefenseTest\build.bat:148:        rmdir /S /Q "%%~fD"
+Testmods\AIDefenseTest\build.bat:149:        if errorlevel 1 goto copy_failed
+Testmods\AIDefenseTest\build.bat:154:        del /F /Q "%%~fF"
+Testmods\AIDefenseTest\build.bat:155:        if errorlevel 1 goto copy_failed
+Testmods\AIDefenseTest\build.bat:167::copy_failed
+Testmods\AICoarsePathComponentFixTest\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\AICoarsePathComponentFixTest\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\AICoarsePathComponentFixTest\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\AICoarsePathComponentFixTest\build.bat:39:set "BUGFIX_DIR=%GAME_DIR%\BepInEx\plugins\BugfixesAndQoL_Serp"
+Testmods\AICoarsePathComponentFixTest\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\AICoarsePathComponentFixTest_Serp"
+Testmods\AICoarsePathComponentFixTest\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\AICoarsePathComponentFixTest_Serp"
+Testmods\AICoarsePathComponentFixTest\build.bat:45:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\AICoarsePathComponentFixTest\build.bat:60:"%MSBUILD%" AICoarsePathComponentFixTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /p:BugfixDir="%BUGFIX_DIR%"
+Testmods\AICoarsePathComponentFixTest\build.bat:64:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\AICoarsePathComponentFixTest\build.bat:71:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\AIAttackTest\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\AIAttackTest\build.bat:31:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\AIAttackTest\build.bat:35:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\AIAttackTest\build.bat:36:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\AIAttackTest\build.bat:41:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\AIAttackTest\build.bat:62:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Testmods\AIAttackTest\build.bat:75:"%MSBUILD%" AIAttackTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\AIAttackTest\build.bat:80:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\AIAttackTest\build.bat:82:xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+Testmods\AIAttackTest\build.bat:91:    rmdir /S /Q "%%~fD"
+Testmods\AIAttackTest\build.bat:92:    if errorlevel 1 goto copy_failed
+Testmods\AIAttackTest\build.bat:96:      del /F /Q "%%~fF"
+Testmods\AIAttackTest\build.bat:97:      if errorlevel 1 goto copy_failed
+Testmods\AIAttackTest\build.bat:102:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\AIAttackTest\build.bat:103:if errorlevel 1 goto copy_failed
+Testmods\AIAttackTest\build.bat:131::copy_failed
+Testmods\AIBuildDiagnoseTest\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\AIBuildDiagnoseTest\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\AIBuildDiagnoseTest\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\AIBuildDiagnoseTest\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\AIBuildDiagnoseTest\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\AIBuildDiagnoseTest\build.bat:45:set "SHCDE_GAME_DIR=%GAME_DIR%"
+Testmods\AIBuildDiagnoseTest\build.bat:47:dotnet test "%PROJECT_DIR%tests\Diagnostics.Tests\Diagnostics.Tests.csproj" --configuration Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" --logger trx --results-directory "%PROJECT_DIR%tests\Diagnostics.Tests\TestResults"
+Testmods\AIBuildDiagnoseTest\build.bat:61:"%MSBUILD%" AIBuildDiagnoseTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\AIBuildDiagnoseTest\build.bat:65:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\AIBuildDiagnoseTest\build.bat:68:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\EnemyGatePathfindingTest\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\EnemyGatePathfindingTest\build.bat:31:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\EnemyGatePathfindingTest\build.bat:35:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\EnemyGatePathfindingTest\build.bat:36:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\EnemyGatePathfindingTest\build.bat:37:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\EnemyGatePathfindingTest\build.bat:48:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\EnemyGatePathfindingTest\build.bat:74:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Testmods\EnemyGatePathfindingTest\build.bat:83:"%MSBUILD%" EnemyGatePathfindingTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\EnemyGatePathfindingTest\build.bat:88:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\EnemyGatePathfindingTest\build.bat:95:    rmdir /S /Q "%%~fD"
+Testmods\EnemyGatePathfindingTest\build.bat:96:    if errorlevel 1 goto copy_failed
+Testmods\EnemyGatePathfindingTest\build.bat:100:      del /F /Q "%%~fF"
+Testmods\EnemyGatePathfindingTest\build.bat:101:      if errorlevel 1 goto copy_failed
+Testmods\EnemyGatePathfindingTest\build.bat:106:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\EnemyGatePathfindingTest\build.bat:107:if errorlevel 1 goto copy_failed
+Testmods\EnemyGatePathfindingTest\build.bat:136::copy_failed
+Testmods\AivLobbyPresetTest\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\AivLobbyPresetTest\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\AivLobbyPresetTest\build.bat:31:set "OUTPUT=%PROJECT_DIR%BepInEx\plugins\AivLobbyPresetTest_Serp"
+Testmods\AivLobbyPresetTest\build.bat:32:set "INSTALL=%GAME_DIR%\BepInEx\plugins\AivLobbyPresetTest_Serp"
+Testmods\AivLobbyPresetTest\build.bat:50:"%MSBUILD%" "%PROJECT_DIR%AivLobbyPresetTest.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\AivLobbyPresetTest\build.bat:55:copy /Y "%OUTPUT%\AivLobbyPresetTest.dll" "%INSTALL%\AivLobbyPresetTest.dll" >nul
+Testmods\AivLobbyPresetTest\build.bat:58:copy /Y "%OUTPUT%\CraterLakePreset.json" "%INSTALL%\CraterLakePreset.json" >nul
+Testmods\AivLobbyPresetTest\build.bat:61:copy /Y "%OUTPUT%\AivLobbyTestSeries.json" "%INSTALL%\AivLobbyTestSeries.json" >nul
+Testmods\AivLobbyPresetTest\build.bat:64:copy /Y "%OUTPUT%\info.json" "%INSTALL%\info.json" >nul
+Testmods\CanarariWoodTest\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\CanarariWoodTest\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\CanarariWoodTest\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\CanarariWoodTest\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\CanarariWoodTest\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\CanarariWoodTest\build.bat:45:set "SHCDE_GAME_DIR=%GAME_DIR%"
+Testmods\CanarariWoodTest\build.bat:47:dotnet test "%PROJECT_DIR%..\AIBuildDiagnoseTest\tests\Diagnostics.Tests\Diagnostics.Tests.csproj" --configuration Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" --logger trx --results-directory "%PROJECT_DIR%..\AIBuildDiagnoseTest\tests\Diagnostics.Tests\TestResults"
+Testmods\CanarariWoodTest\build.bat:61:"%MSBUILD%" CanarariWoodTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\CanarariWoodTest\build.bat:65:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\CanarariWoodTest\build.bat:68:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\VirtualUnitsPrototype\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\VirtualUnitsPrototype\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\VirtualUnitsPrototype\build.bat:34:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\VirtualUnitsPrototype\build.bat:53:if exist "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp\" rmdir /S /Q "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp"
+Testmods\VirtualUnitsPrototype\build.bat:55:"%MSBUILD%" VirtualUnitsPrototype.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\VirtualUnitsPrototype\build.bat:60:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp"
+Testmods\VirtualUnitsPrototype\build.bat:61:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\VirtualUnitsPrototype_Serp"
+Testmods\VirtualUnitsPrototype\build.bat:67:if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
+Testmods\VirtualUnitsPrototype\build.bat:69:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y
+Testmods\ArabianIdleSoundTest\build.bat:17:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\ArabianIdleSoundTest\build.bat:27:set "LOCAL_PLUGIN_DIR=%~dp0BepInEx\plugins\ArabianIdleSoundTest_Serp"
+Testmods\ArabianIdleSoundTest\build.bat:28:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ArabianIdleSoundTest_Serp"
+Testmods\ArabianIdleSoundTest\build.bat:29:copy /Y "%~dp0info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\ArabianIdleSoundTest\build.bat:34:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\EnemyBridgePathTest\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\EnemyBridgePathTest\build.bat:31:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\EnemyBridgePathTest\build.bat:35:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\EnemyBridgePathTest\build.bat:36:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\EnemyBridgePathTest\build.bat:37:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\EnemyBridgePathTest\build.bat:48:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\EnemyBridgePathTest\build.bat:81:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Testmods\EnemyBridgePathTest\build.bat:90:"%MSBUILD%" EnemyBridgePathTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\EnemyBridgePathTest\build.bat:95:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\EnemyBridgePathTest\build.bat:102:    rmdir /S /Q "%%~fD"
+Testmods\EnemyBridgePathTest\build.bat:103:    if errorlevel 1 goto copy_failed
+Testmods\EnemyBridgePathTest\build.bat:107:      del /F /Q "%%~fF"
+Testmods\EnemyBridgePathTest\build.bat:108:      if errorlevel 1 goto copy_failed
+Testmods\EnemyBridgePathTest\build.bat:113:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\EnemyBridgePathTest\build.bat:114:if errorlevel 1 goto copy_failed
+Testmods\EnemyBridgePathTest\build.bat:143::copy_failed
+Testmods\CrenelatedWallTest\build.bat:22:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\CrenelatedWallTest\build.bat:28:copy /Y "%~dp0info.json" "%~dp0BepInEx\plugins\CrenelatedWallTest_Serp\info.json" >nul
+Testmods\CrenelatedWallTest\build.bat:30:xcopy "%~dp0BepInEx\plugins\CrenelatedWallTest_Serp" "%GAME_DIR%\BepInEx\plugins\CrenelatedWallTest_Serp\" /E /I /Q /Y
+Testmods\AIMarketOverbuyDiagnostic\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\AIMarketOverbuyDiagnostic\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\AIMarketOverbuyDiagnostic\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\AIMarketOverbuyDiagnostic\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\AIMarketOverbuyDiagnostic\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\AIMarketOverbuyDiagnostic\build.bat:57:"%MSBUILD%" AIMarketOverbuyDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\AIMarketOverbuyDiagnostic\build.bat:62:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\AIMarketOverbuyDiagnostic\build.bat:66:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\EngineerSiegeFixTest\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\EngineerSiegeFixTest\build.bat:32:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+Testmods\EngineerSiegeFixTest\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\EngineerSiegeFixTest\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\EngineerSiegeFixTest\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\EngineerSiegeFixTest\build.bat:64:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Testmods\EngineerSiegeFixTest\build.bat:67:"%MSBUILD%" EngineerSiegeFixTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\EngineerSiegeFixTest\build.bat:72:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\EngineerSiegeFixTest\build.bat:78:    rmdir /S /Q "%%~fD"
+Testmods\EngineerSiegeFixTest\build.bat:79:    if errorlevel 1 goto copy_failed
+Testmods\EngineerSiegeFixTest\build.bat:83:      del /F /Q "%%~fF"
+Testmods\EngineerSiegeFixTest\build.bat:84:      if errorlevel 1 goto copy_failed
+Testmods\EngineerSiegeFixTest\build.bat:89:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\EngineerSiegeFixTest\build.bat:90:if errorlevel 1 goto copy_failed
+Testmods\EngineerSiegeFixTest\build.bat:105::copy_failed
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:57:"%MSBUILD%" PrebuiltWorkshopBothFixTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:61:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\PrebuiltWorkshopBothFixTest\build.bat:65:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\MainViewModelInitProbe\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\MainViewModelInitProbe\build.bat:31:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\MainViewModelInitProbe\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\MainViewModelInitProbe\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\MainViewModelInitProbe\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\MainViewModelInitProbe\build.bat:56:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Testmods\MainViewModelInitProbe\build.bat:59:"%MSBUILD%" MainViewModelInitProbe.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\MainViewModelInitProbe\build.bat:64:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\MainViewModelInitProbe\build.bat:70:if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
+Testmods\MainViewModelInitProbe\build.bat:72:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\MainViewModelInitProbe\build.bat:73:if errorlevel 1 goto copy_failed
+Testmods\MainViewModelInitProbe\build.bat:74:echo MainViewModel Init Probe built and installed successfully.
+Testmods\MainViewModelInitProbe\build.bat:91::copy_failed
+Testmods\MoatMove\build.bat:32:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\MoatMove\build.bat:33:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\MoatMove\build.bat:38:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\MoatMove\build.bat:54:"%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
+Testmods\MoatMove\build.bat:58:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Install-Package.ps1" -GameDir "%GAME_DIR%"
+Testmods\SavegameMissingMapFixTest\build.bat:12:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\SavegameMissingMapFixTest\build.bat:13:set "SHCDE_API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+Testmods\SavegameMissingMapFixTest\build.bat:21:copy /Y "%~dp0info.json" "%~dp0BepInEx\plugins\SavegameMissingMapFixTest_Serp\info.json" >nul
+Testmods\SavegameMissingMapFixTest\build.bat:23:xcopy "%~dp0BepInEx\plugins\SavegameMissingMapFixTest_Serp" "%GAME_DIR%\BepInEx\plugins\SavegameMissingMapFixTest_Serp\" /E /I /Q /Y
+Testmods\SpectatorEditorBuildTest\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\SpectatorEditorBuildTest\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\SpectatorEditorBuildTest\build.bat:32:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\SpectatorEditorBuildTest\build.bat:44:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\SpectatorEditorBuildTest\build.bat:45:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\SpectatorEditorBuildTest\build.bat:61:"%MSBUILD%" SpectatorEditorBuildTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\SpectatorEditorBuildTest\build.bat:66:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\SpectatorEditorBuildTest\build.bat:69:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\StockpileAccessFixTest\build.bat:30:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\StockpileAccessFixTest\build.bat:32:set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
+Testmods\StockpileAccessFixTest\build.bat:34:set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\StockpileAccessFixTest\build.bat:40:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\StockpileAccessFixTest\build.bat:41:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\StockpileAccessFixTest\build.bat:45:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\StockpileAccessFixTest\build.bat:66:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Testmods\StockpileAccessFixTest\build.bat:69:"%MSBUILD%" StockpileAccessFixTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\StockpileAccessFixTest\build.bat:74:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\StockpileAccessFixTest\build.bat:85:    rmdir /S /Q "%%~fD"
+Testmods\StockpileAccessFixTest\build.bat:86:    if errorlevel 1 goto copy_failed
+Testmods\StockpileAccessFixTest\build.bat:90:      del /F /Q "%%~fF"
+Testmods\StockpileAccessFixTest\build.bat:91:      if errorlevel 1 goto copy_failed
+Testmods\StockpileAccessFixTest\build.bat:96:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\StockpileAccessFixTest\build.bat:97:if errorlevel 1 goto copy_failed
+Testmods\StockpileAccessFixTest\build.bat:112::copy_failed
+Testmods\DependencyBootstrapProbe\build.bat:8:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "PROBE_NOINSTALL=-NoInstall"
+Testmods\SkinTest\build.bat:29:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\SkinTest\build.bat:30:set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+Testmods\SkinTest\build.bat:31:set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+Testmods\SkinTest\build.bat:42:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\SkinTest\build.bat:61:"%MSBUILD%" tests\SkinTest.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+Testmods\SkinTest\build.bat:67:"%MSBUILD%" SkinTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+Testmods\SkinTest\build.bat:69:if "%BUILD_EXIT_CODE%"=="0" "%PROJECT_DIR%tests\bin\SkinTest.Tests.exe" --runtime-assembly "%PROJECT_DIR%BepInEx\plugins\SkinTest_Serp\SkinTest.dll"
+Testmods\SkinTest\build.bat:74:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\SkinTest_Serp"
+Testmods\SkinTest\build.bat:75:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SkinTest_Serp"
+Testmods\SkinTest\build.bat:79:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y
+Testmods\StartupPerformanceDiagnostic\build.bat:27:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\StartupPerformanceDiagnostic\build.bat:30:set "LOCAL_PATCHER_DIR=%PROJECT_DIR%BepInEx\patchers"
+Testmods\StartupPerformanceDiagnostic\build.bat:31:set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\StartupPerformanceDiagnostic\build.bat:32:set "GAME_PATCHER=%GAME_DIR%\BepInEx\patchers\%PATCHER_NAME%"
+Testmods\StartupPerformanceDiagnostic\build.bat:33:set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+Testmods\StartupPerformanceDiagnostic\build.bat:37:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+Testmods\StartupPerformanceDiagnostic\build.bat:47:if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" goto references_missing
+Testmods\StartupPerformanceDiagnostic\build.bat:48:if not exist "%GAME_DIR%\BepInEx\core\Mono.Cecil.dll" goto references_missing
+Testmods\StartupPerformanceDiagnostic\build.bat:49:if not exist "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll" goto references_missing
+Testmods\StartupPerformanceDiagnostic\build.bat:56:if exist "%LOCAL_PATCHER_DIR%\" rmdir /S /Q "%LOCAL_PATCHER_DIR%"
+Testmods\StartupPerformanceDiagnostic\build.bat:57:if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+Testmods\StartupPerformanceDiagnostic\build.bat:58:if exist "%PROJECT_DIR%tests\bin\" rmdir /S /Q "%PROJECT_DIR%tests\bin"
+Testmods\StartupPerformanceDiagnostic\build.bat:62:"%MSBUILD%" StartupPerformanceDiagnostic.Patcher.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
+Testmods\StartupPerformanceDiagnostic\build.bat:65:"%MSBUILD%" StartupPerformanceDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
+Testmods\StartupPerformanceDiagnostic\build.bat:76:copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+Testmods\StartupPerformanceDiagnostic\build.bat:83:if not exist "%GAME_DIR%\BepInEx\patchers\" mkdir "%GAME_DIR%\BepInEx\patchers"
+Testmods\StartupPerformanceDiagnostic\build.bat:85:copy /Y "%LOCAL_PATCHER_DIR%\%PATCHER_NAME%" "%GAME_PATCHER%" >nul
+Testmods\StartupPerformanceDiagnostic\build.bat:86:if errorlevel 1 goto copy_failed
+Testmods\StartupPerformanceDiagnostic\build.bat:87:if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
+Testmods\StartupPerformanceDiagnostic\build.bat:89:xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+Testmods\StartupPerformanceDiagnostic\build.bat:90:if errorlevel 1 goto copy_failed
+Testmods\StartupPerformanceDiagnostic\build.bat:109:echo Required BepInEx or game reference was not found.
+Testmods\StartupPerformanceDiagnostic\build.bat:117::copy_failed
+Testmods\PopularityTest\build.bat:23:copy /Y "%~dp0info.json" "%~dp0BepInEx\plugins\PopularityTest_Serp\info.json" >nul
+Testmods\OutpostTest\build.bat:30:for %%A in (%*) do if /I "%%~A"=="/noinstall" set "INSTALL_ARGUMENT=-NoInstall"
+Testmods\PlagueHeightTest\build.bat:22:set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+Testmods\PlagueHeightTest\build.bat:28:copy /Y "%~dp0info.json" "%~dp0BepInEx\plugins\PlagueHeightTest_Serp\info.json" >nul
+Testmods\PlagueHeightTest\build.bat:30:xcopy "%~dp0BepInEx\plugins\PlagueHeightTest_Serp" "%GAME_DIR%\BepInEx\plugins\PlagueHeightTest_Serp\" /E /I /Q /Y

@@ -11,12 +11,14 @@ foreach ($required in @('herds.ReconcilePlayer(playerId, isLivingProjectile)',
     'herds.ReconcileDeletedSlot(args.ProjectileId, isLivingProjectile)',
     'herds.ReconcileAll(isLivingProjectile)', 'herds.ToSaveRecords()', 'herds.Load(state.Herds)',
     'AddDelayedAction(', 'CancelDiagnostic(playerId)', 'diagnosticGeneration != generation',
+    # Wiring guardrail: the runtime behavior fixture verifies player/revision isolation and cancellation.
+    'PlayerR3EventHooks.OnPlayerCalculatePopularity.Observable', '.Subscribe(OnPopularityCalculation)',
     'private volatile bool correctionEnabled', 'settings.SettingChanged += OnSettingChanged',
     'serp-plague-popularity-v1', '*popularityAccumulator = correctedPopularity;')) {
     if (-not $plague.Contains($required)) { throw "Missing plague performance/compatibility contract: $required" }
 }
 $callback = $plague.Substring($plague.IndexOf('private void CorrectPlaguePopularity'))
-$callback = $callback.Substring(0, $callback.IndexOf('private byte[] SaveState'))
+$callback = $callback.Substring(0, $callback.IndexOf('private PlaguePopularitySaveState CaptureSaveState'))
 if ($callback.IndexOf('if (!correctionEnabled') -gt $callback.IndexOf('context.Pointer') -or
     $callback.Contains('PlaguePopularitySaveLimitPolicy.GetCurrent()')) {
     throw 'Disabled popularity path reads native context, or active path allocates save-limit snapshots.'

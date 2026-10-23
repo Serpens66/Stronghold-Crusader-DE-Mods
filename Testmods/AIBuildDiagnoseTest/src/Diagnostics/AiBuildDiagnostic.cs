@@ -95,7 +95,7 @@ namespace AIBuildDiagnoseTest
             out string error)
         {
             error = null;
-            if (ownerGuid != "AIBuildDiagnoseTest_Serp" || gate == null)
+            if (ownerGuid != "CanarariWoodTest_Serp" || gate == null)
             { error = "Invalid wood-build test gate owner or callback."; return false; }
             lock (Sync)
             {
@@ -125,12 +125,12 @@ namespace AIBuildDiagnoseTest
             }
         }
 
-        /// <summary>Registers the optional copy-only wood-nearby data overlay owned by AIBuildDiagnoseTest.</summary>
+        /// <summary>Registers the optional copy-only wood-nearby data overlay owned by CanarariWoodTest.</summary>
         public static bool TryRegisterNearbyWoodOverlay(string ownerGuid,
             Func<ulong, int, int, int, Action> begin, out string error)
         {
             error = null;
-            if (ownerGuid != "AIBuildDiagnoseTest_Serp" || begin == null)
+            if (ownerGuid != "CanarariWoodTest_Serp" || begin == null)
             { error = "Invalid nearby diagnostic owner or callback."; return false; }
             lock (Sync)
             {
@@ -271,9 +271,25 @@ namespace AIBuildDiagnoseTest
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI economy grid observer failed: " + ex); }
         }
 
-        /// <summary>Copies one monitored coarse cell; intended for the diagnostic tick publisher.</summary>
+        /// <summary>Copies the shared native search-origin cell, not a fixed scenario target.
+        /// The origin is shared last-search state and does not attribute a player or prove a final site.</summary>
         public static AiEconomyGridEvidence CaptureEconomyGridEvidence(ulong state, int mode)
-            => CaptureEconomyGridEvidence(state, mode, 69, 97);
+        {
+            if (!HasObserver || state == 0 || moduleBase == 0)
+                return new AiEconomyGridEvidence("unavailable", state, mode, -1, -1, -1, -1, -1, null);
+            try
+            {
+                // Same hash-bound AIV fields already used by LogFirstSearchOrigin and the wood replay.
+                int x = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x18783C)));
+                int y = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x1A083C)));
+                return CaptureEconomyGridEvidence(state, mode, x, y);
+            }
+            catch (Exception ex)
+            {
+                return new AiEconomyGridEvidence("search-origin-unavailable:" + ex.GetType().Name,
+                    state, mode, -1, -1, -1, -1, -1, null);
+            }
+        }
 
         /// <summary>Diagnostic-only snapshot of a selected coarse cell in the current AIV system.</summary>
         public static unsafe AiEconomyGridEvidence CaptureEconomyGridEvidence(int coarseX, int coarseY)

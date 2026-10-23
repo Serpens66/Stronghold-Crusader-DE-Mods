@@ -2,18 +2,19 @@
   "GUID": "SpectatorEditorBuildTest_Serp",
   "Author": "Serpens66",
   "Name": "Spectator Editor Build Test",
-  "Description": "Tests free editor-style building and unit placement for a selected AI while spectating a singleplayer skirmish.",
-  "Version": "0.1.1",
+  "Description": "Offline AI test tools: free unit/building placement, goods and gold grants, and attack/protection orders with optional forced acceptance. Includes spectator and map-editor support.",
+  "Version": "0.1.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.4.7"
+      "MinimumVersion": "0.9.2"
     },
     {
-      "GUID": "BugfixesAndQoL_Serp"
+      "GUID": "BugfixesAndQoL_Serp",
+      "MinimumVersion": "1.0.192"
     }
   ],
   "Manifest": 1,
@@ -22,6 +23,12 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Passive resource-check observations for AIBuildDiagnoseTest; distinguish native results from spectator overrides."
+      ]
+    },
     {
       "Version": "0.1.1",
       "Changes": [

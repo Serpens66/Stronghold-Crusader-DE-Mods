@@ -46,10 +46,30 @@ namespace BugfixesAndQoL.UnitCommands
         private FastAppendDelegate traversalAppendProvider;
         private FastChoreDelegate traversalTargetProvider;
         private FastPlayerMoveDelegate nativePlayerMove, traversalMoveProvider;
+        // Native detour barriers: providers may come from other assemblies. An exception
+        // never unwinds into CrusaderDE; Vanilla runs once unless a provider already reached it.
+        [ThreadStatic] private static long playerMoveEntries, appendEntries, targetEntries;
+        private static FastPlayerMoveDelegate CountPlayerMove(FastPlayerMoveDelegate native) =>
+            (manager, tribe, x, y, patrol, flags) => { playerMoveEntries++; native(manager, tribe, x, y, patrol, flags); };
+        private static FastAppendDelegate CountAppend(FastAppendDelegate native) =>
+            (manager, tribe, x, y, index, mode) => { appendEntries++; native(manager, tribe, x, y, index, mode); };
+        private static FastChoreDelegate CountTarget(FastChoreDelegate native) =>
+            () => { targetEntries++; native(); };
         private void DispatchPlayerMove(IntPtr manager, int tribe, int x, int y, int patrol, int flags)
         {
-            if (TraversalEnabled && traversalMoveProvider != null) traversalMoveProvider(manager, tribe, x, y, patrol, flags);
-            else nativePlayerMove(manager, tribe, x, y, patrol, flags);
+            long entries = playerMoveEntries;
+            try
+            {
+                if (TraversalEnabled && traversalMoveProvider != null) traversalMoveProvider(manager, tribe, x, y, patrol, flags);
+                else nativePlayerMove(manager, tribe, x, y, patrol, flags);
+            }
+            catch (Exception ex)
+            {
+                ReportNativeDetourBarrier("196100-player-move", ex);
+                if (playerMoveEntries != entries) return;
+                try { nativePlayerMove(manager, tribe, x, y, patrol, flags); }
+                catch (Exception fallback) { ReportNativeDetourBarrier("196100-player-move-fallback", fallback); }
+            }
         }
         private FastAppendDelegate nativeAppend;
         private FastChoreDelegate nativeTarget;
@@ -139,8 +159,19 @@ namespace BugfixesAndQoL.UnitCommands
         }
         private void DispatchAppend(IntPtr manager, int tribe, ushort x, ushort y, int index, short mode)
         {
-            if (queueAppendProvider != null) queueAppendProvider(manager, tribe, x, y, index, mode);
-            else ContinueQueueAppend(manager, tribe, x, y, index, mode);
+            long entries = appendEntries;
+            try
+            {
+                if (queueAppendProvider != null) queueAppendProvider(manager, tribe, x, y, index, mode);
+                else ContinueQueueAppend(manager, tribe, x, y, index, mode);
+            }
+            catch (Exception ex)
+            {
+                ReportNativeDetourBarrier("11C3A0-queue-append", ex);
+                if (appendEntries != entries) return;
+                try { nativeAppend(manager, tribe, x, y, index, mode); }
+                catch (Exception fallback) { ReportNativeDetourBarrier("11C3A0-queue-append-fallback", fallback); }
+            }
         }
         internal void ContinueQueueAppend(IntPtr manager, int tribe, ushort x, ushort y, int index, short mode)
         {
@@ -149,8 +180,19 @@ namespace BugfixesAndQoL.UnitCommands
         }
         private void DispatchTarget()
         {
-            if (traversalTargetProvider != null) traversalTargetProvider();
-            else ContinueTraversalTarget();
+            long entries = targetEntries;
+            try
+            {
+                if (traversalTargetProvider != null) traversalTargetProvider();
+                else ContinueTraversalTarget();
+            }
+            catch (Exception ex)
+            {
+                ReportNativeDetourBarrier("12BF0-target-chore", ex);
+                if (targetEntries != entries) return;
+                try { nativeTarget(); }
+                catch (Exception fallback) { ReportNativeDetourBarrier("12BF0-target-chore-fallback", fallback); }
+            }
         }
         private void ContinueTraversalTarget()
         {
@@ -169,8 +211,8 @@ namespace BugfixesAndQoL.UnitCommands
                 var appendHook = InstallConnectivityObserver(candidate, memory, libraryBase, 0x11C3A0,
                     "4C 63 5C 24 28 4C 63 D2 49 69 C2 88 06 00 00 49 69 D2 A2 01 00 00", (FastAppendDelegate)DispatchAppend);
                 CommitResult result = CommitPermanentHooks(candidate);
-                nativeTarget = targetHook.Original;
-                nativeAppend = appendHook.Original;
+                nativeTarget = CountTarget(targetHook.Original);
+                nativeAppend = CountAppend(appendHook.Original);
                 ValidatePublishedCommandHooks(candidate);
                 if (!result.IsCompleteSuccess || !targetHook.Committed || !appendHook.Committed)
                     throw new InvalidOperationException("Shared queue hooks failed their publication contract.");
@@ -192,9 +234,9 @@ namespace BugfixesAndQoL.UnitCommands
                 var moveHook = InstallConnectivityObserver(candidate, memory, libraryBase, 0x196100,
                     "48 83 EC 48 48 63 C2 4C 8D 1D 12 06 B3 07", (FastPlayerMoveDelegate)DispatchPlayerMove);
                 CommitResult result = CommitPermanentHooks(candidate);
-                nativePlayerMove = moveHook.Original;
+                nativePlayerMove = CountPlayerMove(moveHook.Original);
                 var originals = new TraversalCommandHooks {
-                    Move = moveHook.Original, Target = ContinueTraversalTarget, Append = nativeAppend };
+                    Move = nativePlayerMove, Target = ContinueTraversalTarget, Append = nativeAppend };
                 traversalCommandHooks = originals;
                 ValidatePublishedCommandHooks(candidate);
                 if (!result.IsCompleteSuccess || !moveHook.Committed)

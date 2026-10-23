@@ -16,6 +16,7 @@ namespace BugfixesAndQoL.GateRouting
             try
             {
                 assertions += SharedTests.CaptureRefreshTests.Run();
+                assertions += IntegrityErrorFlushTests.Run();
                 assertions += LargeGateFootprintTests.Run();
                 assertions += NativeAssassinTraceTests.Run();
                 assertions += NativeTraceContractTests.Run();
@@ -40,6 +41,7 @@ namespace BugfixesAndQoL.GateRouting
                 CaptureTransitionCoverageIsDeterministic();
                 CapturerComparisonAndFlagRestorationAreExact();
                 CapturerAdapterMachineTests.Run();
+                DemandGatedContextHookTests.Run();
                 NativeContractIncludesDrawbridgePclAndExactFilterSite();
                 CapturerHooksCoverBothNativeSitesAtomically();
                 SnapshotRefreshPathsAreSeparatedAndBounded();
@@ -59,6 +61,7 @@ namespace BugfixesAndQoL.GateRouting
                 DirectionAdapterTileRegistersMatchNativeDataFlow();
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
+                DirectionAdapterExecutionTests.Run();
                 BaselinePlayerScopesUseNativeArguments();
                 BuildingSearchContextsSeparateVanillaAndMovement();
                 DirectCursorCallsiteContractIsExact();
@@ -339,8 +342,12 @@ namespace BugfixesAndQoL.GateRouting
             string runtimeSource = MigrationSources.Read(
                 Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             Assert(runtimeSource.IndexOf(
-                    "GetUnitTypePathfindingConnectionClasses()", StringComparison.Ordinal) >= 0,
-                "startup comparison consumes the public Script Extender connection-class span");
+                    "GetUnitTypePathfindingConnectionClasses()", StringComparison.Ordinal) >= 0 &&
+                runtimeSource.Contains("using CorrectedPathing = APIShared.ScriptExtenderReplacements.GamePathingManagerAPI;") &&
+                runtimeSource.Contains("CorrectedPathing pathing = CorrectedPathing.Instance;") &&
+                runtimeSource.Contains("if (!pathing.IsAvailable)") &&
+                runtimeSource.Contains("pathing.UnavailabilityReason"),
+                "startup comparison consumes the complete replacement span and reports unavailable access");
             Assert(runtimeSource.IndexOf(
                     "PathfindingConnectionPermissionTableRva", StringComparison.Ordinal) < 0 &&
                 runtimeSource.IndexOf("new ReadOnlySpan<int>(", StringComparison.Ordinal) < 0,
@@ -737,7 +744,7 @@ namespace BugfixesAndQoL.GateRouting
                 "PCL-graph filter is registered");
             Assert(hooks.IndexOf("builderPrecheckCapturedByFilterHook,", StringComparison.Ordinal) >= 0,
                 "builder-precheck filter is registered");
-            Assert(hooks.IndexOf("OwnsHooks = false", StringComparison.Ordinal) >= 0,
+            Assert(hooks.IndexOf("OwnsHooks = true", StringComparison.Ordinal) >= 0,
                 "process-lifetime hook ownership is explicit");
             Assert(hooks.IndexOf("commitResult.IsCompleteSuccess", StringComparison.Ordinal) >= 0,
                 "transaction commit result is checked");
@@ -748,15 +755,9 @@ namespace BugfixesAndQoL.GateRouting
                 "RedBird spans are probed before publication");
             Assert(hooks.IndexOf("DisplacedByteCount", StringComparison.Ordinal) >= 0,
                 "committed RedBird spans are checked");
-            Assert(hooks.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) >= 0,
-                "unexpected committed spans roll back before publication");
-            Assert(runtimeSource.IndexOf("typeof(X64InlineHook).Assembly.GetName().Version",
-                    StringComparison.Ordinal) >= 0 &&
-                    runtimeSource.IndexOf("new Version(1, 1, 0, 0)",
-                        StringComparison.Ordinal) < 0 &&
-                    runtimeSource.IndexOf("is not the audited 1.1.0 implementation",
-                        StringComparison.Ordinal) < 0,
-                "RedBird version is diagnostic while concrete hook contracts remain authoritative");
+            Assert(hooks.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) < 0 &&
+                    hooks.IndexOf("ValidateMovement(false)", StringComparison.Ordinal) < hooks.IndexOf("NativeHookPublication.Enable(transaction, result", StringComparison.Ordinal),
+                "prepared spans are checked before publication without unpatching live hooks");
             Assert(sharedBody.IndexOf("originalZeroKnown", StringComparison.Ordinal) >= 0 &&
                     sharedBody.IndexOf("registers->Rflags", StringComparison.Ordinal) < 0 &&
                     sharedBody.IndexOf("originalZero ? 0UL : 1UL", StringComparison.Ordinal) >= 0,
@@ -895,12 +896,18 @@ namespace BugfixesAndQoL.GateRouting
                 "deferred work uses the bounded access refresh gate");
             Assert(topologyCall > accessCall,
                 "deferred work retains separately throttled topology rebuilding");
-            Assert(source.IndexOf("TopologySafetyInterval = Math.Max(1, Stopwatch.Frequency)",
+            Assert(source.IndexOf("TopologySafetyIntervalTicks = 40",
                     StringComparison.Ordinal) >= 0,
-                "expensive topology safety rebuild is capped at one per second");
-            Assert(source.IndexOf("AccessSafetyInterval = Math.Max(1, Stopwatch.Frequency)",
+                "expensive topology safety rebuild is capped at one per game second");
+            Assert(source.IndexOf("AccessSafetyIntervalTicks = 40",
                     StringComparison.Ordinal) >= 0,
-                "access safety scans are capped at one per second");
+                "access safety scans are capped at one per game second");
+            Assert(source.IndexOf("Stopwatch", StringComparison.Ordinal) < 0,
+                "gate policy refresh never depends on wall-clock time");
+            string feature = MigrationSources.Read(Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
+            Assert(feature.IndexOf("runtime?.OnGameTick();if(!editor)runtime?.ProcessGatePolicies(tick);",
+                    StringComparison.Ordinal) >= 0,
+                "gate policies are republished in the same simulation tick after the freshness probe");
             string access = ExtractMethodBody(source, "RefreshGateAccess");
             Assert(access.IndexOf("ComputeGateAccessFingerprint", StringComparison.Ordinal) >= 0,
                 "access refresh probes a fingerprint before publishing");
@@ -1416,7 +1423,7 @@ namespace BugfixesAndQoL.GateRouting
             Assert(gates.Length == 100 && count == 1000, "more than 32 gate combinations remain exact and compact");
             string provider = MigrationSources.Read(Path.Combine("src", "GateTopologySnapshotProvider.cs"));
             int begin = provider.IndexOf("internal GateLiveStateObservation[] CaptureGateStates", StringComparison.Ordinal);
-            int end = provider.IndexOf("internal void ProcessDeferred()", begin, StringComparison.Ordinal);
+            int end = provider.IndexOf("internal void ProcessTick(long now)", begin, StringComparison.Ordinal);
             string live = provider.Substring(begin, end - begin);
             Assert(!live.Contains("UnrelatedByPlayer") && live.Contains("!observed.Add(info.GateId)"),
                 "all gate roles included once, even with multiple or no bridges");
@@ -1434,7 +1441,32 @@ namespace BugfixesAndQoL.GateRouting
                 records[1] = new NativeGateAccessRecord(true, owner, capture, 2, 4, 32);
                 return new NativeGateAccessSnapshot(records, 77, new uint[] { 0, global }, epoch, generation);
             }
+            Assert(CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 1, 1, 1, 1234, 1, 2),
+                "functional refresh qualifies without diagnostic history");
+            Assert(!CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 2, 1, 1, 1234, 1, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 2), 1, 1, 1, 1234, 1, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 1, 1, 1, 999, 1, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(0, 1), 1, 1, 1, 1234, 3, 2) &&
+                !CaptureSnapshotMismatch.RequiresRefresh(Publication(2, 1), 1, 1, 1, 1234, 1, 2),
+                "foreign session, unpublished generation, reused identity, owner change and unchanged capturer do not request refresh");
             var requests = new DeferredCaptureRefreshRequest();
+            requests.Begin(1);
+            requests.Reset();
+            Assert(!requests.Request(1) && !requests.Consume(1), "inactive session refuses delayed work");
+            requests.Begin(2);
+            Assert(!requests.Request(1), "old callback cannot repopulate a new session");
+            Assert(requests.Request(2) && !requests.Consume(1) && requests.Consume(2),
+                "old consumer cannot clear a new session request");
+            requests.Begin(1);
+            int diagnosticFailures = 0;
+            Assert(requests.RequestWithDiagnostics(1, () => { throw new InvalidOperationException("diagnostic fixture"); },
+                () => diagnosticFailures++) && requests.Consume(1) && diagnosticFailures == 1,
+                "diagnostic failure cannot block the functional refresh");
+            Assert(requests.RequestWithDiagnostics(1, () => { throw new InvalidOperationException("diagnostic fixture"); },
+                () => { throw new InvalidOperationException("diagnostic logger fixture"); }) && requests.Consume(1),
+                "failure of diagnostic error reporting cannot block the functional refresh");
+            Assert(!requests.RequestWithDiagnostics(2, () => diagnosticFailures++, null) && diagnosticFailures == 1,
+                "foreign-session callbacks perform neither recovery nor diagnostic work");
             var recovery = new CaptureTransitionDiagnostics();
             recovery.Reset(1);
             NativeGateAccessSnapshot source = Publication(0, 1);
@@ -1445,11 +1477,11 @@ namespace BugfixesAndQoL.GateRouting
             for (int i = 0; i < 43; i++)
             {
                 Assert(recovery.Observe(source, 1, 1234, 1, 2), "verified capture observation counted");
-                requests.Request();
+                requests.Request(1);
             }
-            Assert(requests.Consume() && !requests.Consume(), "43 callbacks request one deferred refresh");
-            requests.Request();
-            Assert(requests.Consume(), "request after consumption survives for next deferred pass");
+            Assert(requests.Consume(1) && !requests.Consume(1), "43 callbacks request one deferred refresh");
+            requests.Request(1);
+            Assert(requests.Consume(1), "request after consumption survives for next deferred pass");
             string[] pending = recovery.DrainChanges();
             Assert(pending.Length == 1 && pending[0].Contains("unresolved=43"), "repetitions compact, none lost");
             Assert(recovery.UnresolvedDetails().Length == 1 && recovery.UnresolvedDetails()[0].Contains("unresolved=43"),
@@ -1511,7 +1543,7 @@ namespace BugfixesAndQoL.GateRouting
             Assert(oldSnapshot.PolicyEquals(stamped) && oldSnapshot.TopologyFingerprint == stamped.TopologyFingerprint &&
                 oldSnapshot.Evaluate(5, 1, 1, 0) == stamped.Evaluate(5, 1, 1, 0),
                 "diagnostic generation never changes the access policy");
-            requests.Request(); requests.Reset(); Assert(!requests.Consume(), "map clear drops stale refresh request");
+            requests.Request(1); requests.Reset(); Assert(!requests.Consume(1), "map clear drops stale refresh request");
         }
 
         private static void AiTacticalTargetContractsAreAtomicAndExecutable()
@@ -1581,16 +1613,16 @@ namespace BugfixesAndQoL.GateRouting
                     !AiTacticalTargetAdapterEmitter.IsTileIndexInRange(320800) &&
                     AiTacticalTargetAdapterEmitter.IsTileIndexInRange(320799),
                 "AI tactical adapters fail open outside the native tile capacity");
-            Assert((0xFF & 0x04) != 0 && (0xFB & 0x04) == 0,
-                "the immutable direction mask leaves ordinary edges visible and hides only cleared gate edges");
 
             string runtime = MigrationSources.Read(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string hooks = MigrationSources.Read("GateRoutingNativeHooks.cs");
             Assert(hooks.IndexOf("aiTacticalTarget = AddDetour", StringComparison.Ordinal) >= 0 &&
                     hooks.IndexOf("for (int index = 0; index < tacticalEdgeHooks.Length; index++)",
-                        StringComparison.Ordinal) >= 0 &&
-                    hooks.IndexOf("!aiTacticalTarget.Committed", StringComparison.Ordinal) >= 0,
-                "AI tactical scope and all three adapters are members of the atomic hook transaction");
+                        StringComparison.Ordinal) >= 0,
+                "AI tactical scope/adapters remain registered (source guard only)");
+            // Private validation helper names do not prove atomic publication.
+            // GateNativeDetourTests executes the actual ABI/state contract; the
+            // selected SDK's publication fixtures cover failed/partial writes.
             string filter = ExtractMethodBody(runtime, "FilterAiTacticalTarget");
             Assert(filter.IndexOf("NativeTribeRecordStride", StringComparison.Ordinal) >= 0 &&
                     filter.IndexOf("NativeTribePlayerIdOffset", StringComparison.Ordinal) >= 0 &&

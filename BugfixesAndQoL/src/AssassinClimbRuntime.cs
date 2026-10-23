@@ -94,6 +94,7 @@ namespace BugfixesAndQoL
     internal sealed unsafe class AssassinClimbRuntime : IDisposable
     {
         private const int ChoreProtocolVersion = 1;
+        private const string SaveDataIdentifier = "BugfixesAndQoL-AssassinClimb";
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
@@ -102,6 +103,7 @@ namespace BugfixesAndQoL
         private readonly int[] lastOperationIds = new int[9];
         private R3PacketEventHook<AssassinClimbStatePacket> packetHook;
         private IDisposable packetSubscription;
+        private SessionSaveRecordSlot<AssassinClimbSaveState> saveSlot;
         private bool initialized;
         private bool networkInitialized;
         private bool renderStateKnown;
@@ -148,7 +150,8 @@ namespace BugfixesAndQoL
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<AssassinClimbStatePacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
             networkInitialized = true;
-            LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
         }
 
         public void Initialize()
@@ -179,11 +182,44 @@ namespace BugfixesAndQoL
             buttonViewModel.Hide();
         }
 
-        public void BeginMap()
+        // The per-player mode steers Assassin pathfinding, so a loaded game must continue with the
+        // saved modes on every peer. Chore operation IDs restart at zero on all peers.
+        public void InitializeSaveData()
+        {
+            if (saveSlot != null)
+                return;
+
+            saveSlot = SessionSaveRecordSlot<AssassinClimbSaveState>.Register(
+                log,
+                SaveDataIdentifier,
+                CaptureSaveState,
+                state => MessagePack.MessagePackSerializer.Serialize(state),
+                bytes => MessagePack.MessagePackSerializer.Deserialize<AssassinClimbSaveState>(bytes));
+        }
+
+        public void BeginMap(Shared.GameplaySessionStartedContext context)
         {
             ResetPlayerStates();
+            if (saveSlot != null && saveSlot.TryTake(context, out AssassinClimbSaveState state))
+            {
+                foreach (int playerId in state.ForbiddenPlayerIds)
+                    climbingAllowed[playerId] = false;
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Assassin climb modes restored from save: forbiddenPlayers={string.Join(",", state.ForbiddenPlayerIds)}.");
+            }
             InvalidateRenderState();
             RefreshButtonVisibility();
+        }
+
+        private AssassinClimbSaveState CaptureSaveState()
+        {
+            var forbidden = new System.Collections.Generic.List<int>();
+            for (int playerId = 1; playerId < climbingAllowed.Length; playerId++)
+            {
+                if (!climbingAllowed[playerId])
+                    forbidden.Add(playerId);
+            }
+            return new AssassinClimbSaveState { ForbiddenPlayerIds = forbidden.ToArray() };
         }
 
         public void EndMap()
@@ -199,7 +235,7 @@ namespace BugfixesAndQoL
             HUD_Troops troopPanel = null;
             TryGetHudTroopPanel(out troopPanel);
             RefreshButtonVisibilityCore(troopPanel, force: true);
-            Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
+            APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
         }
 
         internal void RefreshButtonVisibility(HUD_Troops troopPanel)
@@ -279,7 +315,7 @@ namespace BugfixesAndQoL
             HUD_Troops troopPanel = null;
             TryGetHudTroopPanel(out troopPanel);
             if (RefreshButtonVisibilityCore(troopPanel, force: false))
-                Shared.TroopActionButtonLayout.Reflow(troopPanel, log);
+                APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
         }
 
         private void OnToggleCommand()
@@ -340,7 +376,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + body.Length}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + body.Length}.");
             return true;
         }
 
@@ -368,7 +405,8 @@ namespace BugfixesAndQoL
 
             lastOperationIds[playerId] = operationId;
             climbingAllowed[playerId] = allowClimbing;
-            LogDebug($"Assassin climbing {(allowClimbing ? "enabled" : "disabled")}: source={source}, playerId={playerId}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climbing {(allowClimbing ? "enabled" : "disabled")}: source={source}, playerId={playerId}.");
         }
 
         private bool IsFeatureActive()

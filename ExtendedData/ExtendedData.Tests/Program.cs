@@ -9,14 +9,28 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Coop Customize drafts survive ready, repeated start, rejection and mission replacement", CoopDraftTests.Run),
+    ("Maker embedded maps retain original data and publish validated immutable cache entries", TrailMakerEmbeddedMapTests.Run),
+    ("Trail reset sources retain authored rules and replace or clear mission identity", TrailSetupTests.Sources),
+    ("Coop Customize refreshes setup, map, team and radar presentation on hosts and clients", TrailSetupTests.Presentation),
+    ("legacy mission-settings adapter preserves aliases, mutation and wire contracts", MissionSettingsAdapterTests.Run),
+    ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
+    ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),
     ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
+    ("Extended map defaults verify live sources, absence and Trail media remapping", FixesBridgeTests.MapDefaultSources),
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
     ("Custom Coop Trail preview separates displayed teams", TestCoopTrailPreviewTeams),
-    ("Custom Coop Trail team display hooks all four Vanilla pages", TestCoopTrailPreviewTeamIntegration),
     ("Coop publication preserves old data across failures", TrailRuntimeRegressionTests.Publication),
     ("portable Lord resolution keeps installations optional", TrailRuntimeRegressionTests.PortableLords),
     ("Coop capture resolves only remaining AI sources", TrailRuntimeRegressionTests.CaptureSelection),
+    ("stored Lord requirements survive re-saves and need a decision when unverifiable", TrailRuntimeRegressionTests.RequirementSourceReusesStoredValues),
+    ("Lord requirements bind authored identity and the embedded-only decision", CustomTrailFixTests.RequirementsBindIdentityAndDecision),
+    ("embedded Trail Lords are selected by configuration identity", CustomTrailFixTests.ConfigurationIdentitySelectsEmbeddedSlots),
+    ("Coop remapping keeps Maker slot IDs", CustomTrailFixTests.CoopRemapLeavesMakerSlotsUnchanged),
+    ("schema 5 embedded Trail references are validated and schema 4 stays readable", CustomTrailFixTests.SchemaFiveEmbeddedReferences),
+    ("Coop publication replaces Maker sources together with the missions", CustomTrailFixTests.PublicationReplacesMakerSourcesAtomically),
+    ("the original map reference is read from the Trail restart block", CustomTrailFixTests.RestartMapReferenceIsReadWithoutTheOriginalMap),
     ("bundled mission loads", TestBundledMission),
     ("Coop mission modsettings use an optional sidecar", TestCoopMissionModSettingsSidecar),
     ("path escape rejected", TestPathEscape),
@@ -51,36 +65,27 @@ var tests = new (string Name, Action Run)[]
     ("coop mission schema evolution keeps only current settings", TestCoopSettingsSchemaEvolution),
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
-    ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
     ("mission preset lifecycle preserves only expected replacements", TestMissionPresetLifecycleState),
-    ("Trail Maker authoring preset survives test returns", TestTrailMakerAuthoringSessionIntegration),
-    ("BugfixesAndQoL Customize button delegation is optional", TestCustomizeButtonDelegation),
-    ("customized launch origin is persisted and fail-closed", TestCustomizedLaunchOriginIntegration),
+    ("customized launch origin public contract remains read-only", TestCustomizedLaunchOriginPublicContract),
     ("customized launch origin save roundtrip", TestCustomizedLaunchOriginRoundtrip),
     ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
     ("Map mod-settings packet roundtrip", TestMapModSettingsPacketRoundtrip),
-    ("Map mod-settings runtime integration is fail-closed", TestMapModSettingsRuntimeIntegration),
-    ("lobby packets retain main-thread ordering", TestLobbyPacketThreadMarshalling),
-    ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
-    ("local activation setting gates the complete runtime", TestLocalActivationSetting),
     ("Script Extender manifest range contract is explicit", TestScriptExtenderManifestRangeContract),
-    ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
-    ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
     ("Workshop Trail staging includes nested JSON", TestWorkshopTrailSidecars),
     ("Workshop Trail staging preserves existing JSON", TestWorkshopTrailJsonConflict),
     ("Workshop Trail staging rejects overlapping roots", TestWorkshopTrailJsonUnsafeRoots),
-    ("Workshop upload checkbox is unified", TestWorkshopUploadCheckbox),
-    ("editor saves require an explicit modsettings decision", TestEditorSaveModSettingsOptions),
     ("mod-data namespaces are isolated and immutable", TestModDataNamespaces),
+    ("legacy mod-data adapter preserves Content results and identities", TestModDataAdapter),
     ("invalid mod-data containers fail closed", TestInvalidModDataContainers),
     ("map mod-data API distinguishes file and namespace absence", TestMapModDataApi),
     ("Custom Lord mod-data API supports paths and configs", TestLordModDataApi),
     ("selected Lord data uses host snapshots without local files", TestSelectedLordDataSnapshot),
     ("Lord data rejects altered and oversized snapshots", TestInvalidLordDataSnapshot),
     ("Lord mod data validates local limits and UTF-8", TestLordModDataLimits),
-    ("Lord snapshot version 3 holds six mods across eight slots", TestLargeLordDataSnapshot),
+    ("current Lord snapshot holds six mods across eight slots", TestLargeLordDataSnapshot),
     ("Lord snapshot version 1 remains readable", TestLegacyLordDataSnapshot),
+    ("Fixes source formats retain history and require complete package proof", FixesSourceFormatTests.Run),
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
     ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
@@ -89,16 +94,18 @@ var tests = new (string Name, Action Run)[]
     ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
     ("Trail Lord requirements bind the mission and survive optional-media changes", TestTrailLordRequirements),
     ("Trail Lord selection distinguishes embedded, replaced Custom, and Vanilla Lords", TestTrailLordSelection),
-    ("Custom Trail launch prepares Lord values and Workshop media on both paths", TestCustomTrailLordLaunchIntegration),
     ("Lord Workshop metadata never requires local multiplayer files", TestLordWorkshopMetadataFingerprint),
     ("selected Lord package manifest binds identities and mode", TestLordPackageManifest),
 };
 
+// Execute production behavior and published data/API contracts; internal source layout is unconstrained.
 int failed = 0;
 foreach ((string name, Action run) in tests)
 {
     try
     {
+        // Simulate the runtime's explicit provider publication, with isolated state per case.
+        ExtendedDataModDataApi.InitializeSource();
         run();
         Console.WriteLine("PASS " + name);
     }
@@ -107,6 +114,7 @@ foreach ((string name, Action run) in tests)
         failed++;
         Console.Error.WriteLine("FAIL " + name + ": " + ex);
     }
+    finally { ExtendedDataModDataApi.UnregisterSource(); }
 }
 
 Console.WriteLine($"{tests.Length - failed}/{tests.Length} tests passed.");
@@ -178,24 +186,20 @@ static void TestCoopTrailPreviewTeams()
     Assert(8 * 28 - 3 + 7 * 8 <= 310, "eight rows and seven compact dividers exceed the list height");
 }
 
-static void TestCoopTrailPreviewTeamIntegration()
+static void TestModDataAdapter()
 {
-    string root = FindProjectRoot();
-    string runtime = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataRuntime.cs"));
-    for (int page = 1; page <= 4; page++)
+    Assert(typeof(ExtendedDataModDataReadResult).Assembly.GetName().Name == "ExtendedData.Core", "legacy assembly identity changed");
+    foreach (string json in new[] { "{}", "{", "[]", "{\"author.mod\":1}", "{\"Author.Mod\":{},\"author.mod\":{}}",
+        "\uFEFF{\"Author.Mod\":{\"x\":[1,true,null,{\"nested\":2}]}}" })
     {
-        Assert(runtime.Contains("CoopTrail" + page + "RowHook("),
-            "preview update hook missing for Coop page " + page);
-        Assert(runtime.Contains("typeof(FRONT_CoopTrail" + page + ".PlayerRow)"),
-            "preview hook does not target the selected page's player rows");
+        var legacy = ModDataNamespaceReader.Read(json, "author.mod", "memory");
+        var shared = APIShared.ModData.ModDataNamespaceReader.Read(json, "author.mod", "memory");
+        Assert(legacy.Status.ToString() == shared.Status.ToString(), "status mapping changed");
+        Assert(legacy.Success == shared.Success && legacy.Json == shared.Json && legacy.ModGuid == shared.ModGuid &&
+            legacy.Source == shared.Source && legacy.Diagnostic == shared.Diagnostic, "adapter changed result metadata");
     }
-    Assert(runtime.Contains("coopTrailGame == true") &&
-        runtime.Contains("selected.Loaded.TrailNumber == parent.currentLobby.coopTrailID + 1") &&
-        runtime.Contains("selected.Loaded.MissionNumber == parent.currentLobby.coopSelectedMission"),
-        "preview team replacement is not limited to the selected Custom Coop mission");
-    Assert(runtime.Contains("vanillaSword.Visibility = customMission ? Visibility.Collapsed : vanillaSwordVisibility") &&
-        runtime.Contains("stack.Children.Count != 9"),
-        "the fixed sword is not restored or the Vanilla list shape is unchecked");
+    foreach (ExtendedDataModDataReadStatus status in Enum.GetValues<ExtendedDataModDataReadStatus>())
+        Assert(status.ToString() == ((APIShared.ModData.ModDataReadStatus)(int)status).ToString(), "enum identity mapping changed");
 }
 
 static void TestModDataNamespaces()
@@ -458,9 +462,9 @@ static void TestLargeLordDataSnapshot()
     var envelope = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(created.WireJson);
     var payload = (Dictionary<string, object>)envelope["payload"];
     var firstSlot = (Dictionary<string, object>)((List<object>)payload["slots"])[0];
-    Assert(payload["version"] is int version && version == 3 &&
+    Assert(payload["version"] is int version && version == LordDataSnapshot.ProtocolVersion &&
         firstSlot["modLordData"] is Dictionary<string, object>,
-        "version 3 still embeds escaped mod-data JSON");
+        "current snapshots must embed mod-data objects rather than escaped JSON");
     LordDataSnapshot restored = LordDataSnapshot.Parse(created.WireJson);
     ExtendedDataModDataApi.SetNetworkSnapshot(restored, true);
     try
@@ -943,57 +947,6 @@ static void TestTrailLordSelection()
         "3693412090\\Local Lord"), "an unverified media alias was accepted as the original Lord");
 }
 
-static void TestCustomTrailLordLaunchIntegration()
-{
-    string root = FindProjectRoot();
-    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    string lordData = File.ReadAllText(Path.Combine(root, "src", "LordDataSyncCoordinator.cs"));
-    string resolver = File.ReadAllText(Path.Combine(root, "src", "TrailLordPackageRuntime.cs"));
-    string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
-    Assert(exporter.Contains("TrailLordPackageRuntime.Capture(restart, lordSources,") &&
-        exporter.Contains("Name = authorSource.Name") && exporter.Contains("authorSource?.Config.path") &&
-        !exporter.Contains("ResolveLordConfigFile("), "Lord files and metadata must share the validated source");
-    int exportStart = coordinator.IndexOf("private void ExportHook(", StringComparison.Ordinal);
-    string exportHook = coordinator.Substring(exportStart,
-        coordinator.IndexOf("private void ExportSidecars(", exportStart, StringComparison.Ordinal) - exportStart);
-    Assert(exportHook.Split("ShowExportFailure();").Length == 3 &&
-        coordinator.Contains("MainViewModel.Instance.Show_HUD_Confirmation = false;") &&
-        coordinator.Contains("MainViewModel.Instance.Show_HUD_ConfirmationMP = true;") &&
-        coordinator.Contains("Could not display the Trail export error popup:"),
-        "both export error paths must use the MP OK popup");
-    string direct = coordinator.Substring(coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal),
-        coordinator.IndexOf("private void LaunchCustomTrailHook", StringComparison.Ordinal) -
-        coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal));
-    string customized = coordinator.Substring(coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal),
-        coordinator.IndexOf("private void FrontendOpenCustomTrailHook", StringComparison.Ordinal) -
-        coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal));
-    Assert(direct.IndexOf("SetEmbeddedTrailSlots(", StringComparison.Ordinal) >= 0 &&
-        direct.IndexOf("SetEmbeddedTrailSlots(", StringComparison.Ordinal) <
-        direct.IndexOf("PrepareCustomTrailLords(requirements", StringComparison.Ordinal),
-        "direct Custom Trail starts do not select embedded Lord slots before preparation");
-    Assert(customized.Contains("customTrailRestartInfo.importAIVs(self.AIVs)") &&
-        customized.IndexOf("customTrailRestartInfo.importAIVs(self.AIVs)", StringComparison.Ordinal) <
-        customized.IndexOf("TrailLordRequirements.Read(lordHeader.filePath)", StringComparison.Ordinal) &&
-        customized.Contains("TrailLordSelectionPolicy.UsesEmbeddedLord(slot,") &&
-        customized.Contains("PrepareCustomTrailLords(requirements, infos, true)") &&
-        customized.IndexOf("LordDataCoordinator.RemapTrailMedia(infos)", StringComparison.Ordinal) <
-        customized.LastIndexOf("startSkirmishGameOriginal(self, customTrailRestartInfo)", StringComparison.Ordinal),
-        "Customize or restart launches do not validate the chosen Lord and remap media before Vanilla starts");
-    Assert(coordinator.Contains("LordDataCoordinator?.RemapTrailMedia(ToLordInfoMap(restartInfo?.aivs))") &&
-        lordData.Contains("pendingTrailMediaNames = names") &&
-        lordData.Contains("info.lordName = item.Value") &&
-        resolver.Contains("internalName = mediaDonors[0].Name") &&
-        resolver.Contains("IsSupportedCustomLord(donor.Name)") &&
-        resolver.Contains("slot.ConfigChecksum, slot.AivChecksums"),
-        "a matching subscribed Workshop Lord cannot supply its registered internal media name");
-    Assert(customized.Contains("LordDataCoordinator?.SetEmbeddedTrailSlots(null)") &&
-        direct.Contains("LordDataCoordinator?.SetEmbeddedTrailSlots(null)") &&
-        lordData.Contains("Optional Custom Trail Lord media unavailable for slot") &&
-        lordData.Contains("SetEmbeddedTrailSlots(null);") &&
-        lordData.Contains("fixes.Restore();") && lordData.Contains("fixes.Apply(pendingTrail);"),
-        "legacy Trails, optional-media diagnostics, or Trail Fixes apply/restore regressed");
-}
-
 static void TestLordPackageManifest()
 {
     LordPackageManifest first = LordPackageManifest.Create("session-a", false, new[]
@@ -1181,38 +1134,6 @@ static void TestWorkshopTrailJsonUnsafeRoots()
     {
         Directory.Delete(root, true);
     }
-}
-
-static void TestWorkshopUploadCheckbox()
-{
-    string root = FindProjectRoot();
-    string xaml = File.ReadAllText(Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_EditorSetup.xaml"));
-    string viewModel = File.ReadAllText(Path.Combine(root, "src", "TrailWorkshopUploadOptionsViewModel.cs"));
-    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    Assert(xaml.Contains("IsChecked=\"{Binding IncludeExtendedData, Mode=TwoWay}\"", StringComparison.Ordinal) &&
-        !xaml.Contains("CanChangeOption", StringComparison.Ordinal),
-        "Workshop modsettings checkbox is not uniformly editable");
-    Assert(xaml.Contains("Foreground=\"Black\"", StringComparison.Ordinal) &&
-        xaml.Contains("ToolTipService.ShowDuration=\"60000\"", StringComparison.Ordinal) &&
-        xaml.Contains("seui:ToolTipResolutionScale.Enabled=\"True\"", StringComparison.Ordinal) &&
-        xaml.Contains("FontSize=\"{TemplateBinding FontSize}\"", StringComparison.Ordinal) &&
-        xaml.Contains("MaxWidth=\"{TemplateBinding MaxWidth}\"", StringComparison.Ordinal) &&
-        xaml.Contains("Padding=\"{TemplateBinding Padding}\"", StringComparison.Ordinal),
-        "Workshop checkbox presentation does not match the required tooltip style");
-    Assert(viewModel.Contains("WorkshopUpload.IncludeModSettings", StringComparison.Ordinal) &&
-        viewModel.Contains("WorkshopUpload.IncludeAdditionalFiles", StringComparison.Ordinal) &&
-        viewModel.Contains("includeExtendedData = true", StringComparison.Ordinal) &&
-        !viewModel.Contains("coopPackage", StringComparison.Ordinal),
-        "Workshop checkbox model does not expose the contextual Trail/Lord choice");
-    Assert(coordinator.Contains("UploadCoopTrailPackage(self, selectedRow.trail, uploadOptions.IncludeExtendedData)", StringComparison.Ordinal) &&
-        coordinator.Contains("CoopWorkshopPackageStaging.Stage", StringComparison.Ordinal),
-        "Coop upload does not honor the unified modsettings choice");
-    Assert(coordinator.Contains("ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeExtendedData)", StringComparison.Ordinal) &&
-        coordinator.Contains("decision?.IncludeExtendedData == true", StringComparison.Ordinal) &&
-        coordinator.Contains("requirementsOnly: true", StringComparison.Ordinal) &&
-        coordinator.Contains("Action terminalSuccess = WrapTerminalCallback", StringComparison.Ordinal) &&
-        coordinator.Contains("Action terminalFailure = WrapTerminalCallback", StringComparison.Ordinal),
-        "the upload choice is not retained through Vanilla's recursive retry until a terminal callback");
 }
 
 static void TestModSettingsRegistry()
@@ -1421,137 +1342,6 @@ static void TestAtomicSidecarWrite()
     }
 }
 
-static void TestCoordinatorOwnership()
-{
-    string projectRoot = FindProjectRoot();
-    string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ?? throw new InvalidOperationException("workspace root missing");
-    string[] mods = { "BuildingCosts", "BuildingLimit", "ExtraFeatures", "RandomEvents", "StartConditions", "UnitCosts", "UnitLimit" };
-    foreach (string mod in mods)
-    {
-        string project = File.ReadAllText(Path.Combine(workspaceRoot, mod, mod + ".csproj"));
-        Assert(!project.Contains("TrailModSettings") && !project.Contains("ModSettingsJson"), mod + " still compiles Trail runtime code");
-    }
-
-    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
-    string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
-    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "GameModes", "MissionModePolicy.cs"));
-    Assert(CountOccurrences(coordinator, "InjectCoopCustomizeButton(pages[index]);") == 1,
-        "Coop Trail button registration is not centralized and singular");
-    Assert(CountOccurrences(coordinator, "nameof(Platform_Workshop.UploadWorkshopMap)") == 1 &&
-        CountOccurrences(coordinator, "typeof(FRONT_EditorSetup).GetMethod") == 1 &&
-        !File.Exists(Path.Combine(projectRoot, "src", "LordUpload", "CustomLordUploadHook.cs")),
-        "Workshop uploads are not owned by exactly one editor hook and one upload hook");
-    Assert(coordinator.Contains("Margin = new Thickness(0, 0, 0, -30)"),
-        "Coop Customize is not positioned below the Vanilla kick button");
-    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
-    string obsoleteBridgeName = "TrailModSettings" + "Bridge";
-    Assert(!runtime.Contains("SerializeModSettings") && !runtime.Contains(obsoleteBridgeName), "Coop settings still use the old bridge roundtrip");
-    Assert(runtime.Contains("missionSettingsCoordinator?.ExitContext(force: true)"), "map unload does not leave the mission preset context");
-    Assert(coordinator.Contains("document = CaptureDocument();") &&
-        !coordinator.Contains("requireLoadedEndpoints") &&
-        coordinator.Contains("TrailModCompatibilityContract.Evaluate"),
-        "Trail saves do not use validated synchronous settings capture");
-    Assert(coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
-        coordinator.Contains("preserveCurrentValues || materializeCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null") &&
-        coordinator.Contains("? Array.Empty<string>()") &&
-        coordinator.Contains(": entry.PlayerSettings)") &&
-        coordinator.Contains("Fixed Trail values have final precedence") &&
-        coordinator.Contains("RemoveUnknownSettings"),
-        "Trail loading does not preserve editor values while retaining playable Trail precedence and schema cleanup");
-    int defaultLayer = coordinator.IndexOf("System_CreateDisabledMissionPresetSnapshot", StringComparison.Ordinal);
-    int playerLayer = coordinator.IndexOf(": entry.PlayerSettings)", defaultLayer, StringComparison.Ordinal);
-    int fixedLayer = coordinator.IndexOf("foreach (KeyValuePair<string, object> setting in entry.Overrides)", playerLayer, StringComparison.Ordinal);
-    Assert(defaultLayer >= 0 && playerLayer > defaultLayer && fixedLayer > playerLayer &&
-        coordinator.Contains("foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)"),
-        "Trail setting source precedence or the all-participant baseline changed");
-    Assert(sharedPresetSystem.Contains("CopyProperties(defaults, hostProperties)") &&
-        sharedPresetSystem.Contains("defaults.TryGetValue(property.Name, out bytes)"),
-        "the shared mission preset no longer supplies defaults for missing current host settings");
-    Assert(sharedPresetSystem.Contains("class PerPlayerLobbySettingsCoordinator") &&
-        sharedPresetSystem.Contains("FinalizeRosterForMapTransition") &&
-        sharedPresetSystem.Contains("TryGetLobbyState") &&
-        sharedPresetSystem.Contains("API_SHARED_LOBBY_OBSERVER") &&
-        !sharedPresetSystem.Contains("Application.onBeforeRender") &&
-        !sharedPresetSystem.Contains("PerPlayerIdentityHookAnchor") &&
-        !sharedPresetSystem.Contains("ScriptExtenderMultiplayerSyncWorkaround") &&
-        !sharedPresetSystem.Contains("EnsureInstalled"),
-        "shared per-player convergence does not exclusively consume the process-wide APIShared observer");
-    Assert(sharedGameMode.Contains("bool realMultiplayer = realMultiplayerOverride;") &&
-        sharedGameMode.Contains("APIShared.MissionLifecycleService.Snapshot") &&
-        !sharedGameMode.Contains("multiplayerSave ||"),
-        "mission network identity must come from the common operation, without stale roster fallback");
-    Assert(!coordinator.Contains("pendingTrailMakerSaveDocument"),
-        "Trail saves still retain a snapshot for the next save operation");
-    Assert(coordinator.Contains("!openingCustomTrailSetup") &&
-        coordinator.Contains("openingCustomTrailSetup = true") &&
-        coordinator.Contains("openingCustomTrailSetup = false"),
-        "Custom Trail setup does not suppress transient selection-sidecar loads");
-    Assert(!coordinator.Contains("all Trail mods will be disabled"),
-        "capture failures can still overwrite a sidecar with an all-disabled fallback");
-}
-
-static void TestTrailMakerAuthoringSessionIntegration()
-{
-    string projectRoot = FindProjectRoot();
-    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
-    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
-
-    Assert(coordinator.Contains("private ModSettingsDefinition trailMakerWorkingDocument;") &&
-        coordinator.Contains("private string pendingTrailMakerTrailPath;") &&
-        coordinator.Contains("private bool pendingTrailMakerLoad;") &&
-        coordinator.Contains("private bool trailMakerAuthoringActive;") &&
-        coordinator.Contains("MissionPresetLifecycleState missionPresetLifecycle") &&
-        !coordinator.Contains("trailMakerTransitionPending") &&
-        !coordinator.Contains("trailMakerResumePending"),
-        "Trail Maker authoring state is incomplete");
-    Assert(coordinator.Contains("pendingTrailMakerTrailPath = loadedHeader?.filePath;") &&
-        coordinator.Contains("ActivateTrailMakerLobby(restartInfo);") &&
-        coordinator.Contains("EnterSidecar(requestedTrailPath, editable: true)"),
-        "loaded Trail Maker missions are not activated from their selected sidecar exactly at lobby entry");
-    Assert(coordinator.Contains("trailMakerWorkingDocument ??") &&
-        coordinator.Contains("ModSettingsDefinition.CreateModDefaults();") &&
-        coordinator.Contains("startingSnapshots: trailMakerWorkingSnapshots") &&
-        coordinator.Contains("preserveCurrentValues: editable") &&
-        coordinator.Contains("preserveCurrentValues: true") &&
-        coordinator.Contains("trailMakerWorkingSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());") &&
-        coordinator.Contains("snapshot[property.Name] = MessagePackSerializer.Serialize(") &&
-        coordinator.Contains("property.PropertyType, property.GetValue(participant.Value)") &&
-        coordinator.Contains("\"new mission defaults\""),
-        "Trail Maker authoring does not preserve current settings across new missions, sidecar loads, and test returns");
-
-    int startIndex = coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal);
-    int frontendOpenIndex = coordinator.IndexOf("private void FrontendOpenCustomTrailHook", startIndex, StringComparison.Ordinal);
-    Assert(startIndex >= 0 && frontendOpenIndex > startIndex, "Trail Maker launch hook could not be isolated");
-    string startHook = coordinator.Substring(startIndex, frontendOpenIndex - startIndex);
-    int vanillaStartIndex = startHook.LastIndexOf("startSkirmishGameOriginal(self, customTrailRestartInfo);", StringComparison.Ordinal);
-    Assert(startHook.Contains("self?.trailMakerMode == true") &&
-        startHook.Contains("PrepareTrailMakerTestLaunch()") && vanillaStartIndex >= 0 &&
-        coordinator.Contains("CaptureTrailMakerWorkingDocument(\"test launch\")") &&
-        coordinator.Contains("MissionPresetLaunchKind.TrailMakerTest") &&
-        coordinator.Contains("ApplyDocument("),
-        "the editable Trail Maker draft is not captured before Vanilla starts a test mission");
-    Assert(runtime.Contains("string.Equals(command, \"TMTest\"") &&
-        runtime.Contains("PrepareTrailMakerTestLaunch()"),
-        "Trail Maker test launch is not armed before the lifecycle replacement can fire");
-
-    Assert(runtime.Contains("MissionEvents.Ended.Subscribe(OnMissionEnded)") &&
-        runtime.Contains("missionSettingsCoordinator?.HandleMissionEnded(notification)") &&
-        coordinator.Contains("Suspended the Trail Maker mission preset") &&
-        coordinator.Contains("restartInfo?.customTestMission == true") &&
-        coordinator.Contains("\"test return draft\""),
-        "mission end and test return do not preserve and reactivate the Trail Maker draft");
-    Assert(coordinator.Contains("UpdateTrailMakerWorkingDocument(document, trailPath);") &&
-        coordinator.Contains("Saved Trail mod settings") &&
-        coordinator.Contains("ClearTrailMakerAuthoringState();") &&
-        coordinator.Contains("if (!trailMaker)") &&
-        coordinator.Contains("ExitContext(force: true);"),
-        "saving does not refresh the draft or genuine context exits do not discard it");
-    Assert(coordinator.Contains("applying editable defaults") &&
-        coordinator.Contains("fail-closed defaults") &&
-        coordinator.Contains("Could not fully clean up the failed Trail Maker context"),
-        "Trail Maker restoration failures are not fail-closed and diagnosable");
-}
-
 static void TestMissionPresetLifecycleState()
 {
     var state = new MissionPresetLifecycleState();
@@ -1596,21 +1386,9 @@ static void TestMissionPresetLifecycleState()
         "a failed Coop restart retained its preset");
 }
 
-static void TestCustomizedLaunchOriginIntegration()
+static void TestCustomizedLaunchOriginPublicContract()
 {
-    string projectRoot = FindProjectRoot();
-    string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ??
-        throw new InvalidOperationException("workspace root missing");
-    string api = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataLaunchOriginApi.cs"));
-    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
-    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
-    string originPacket = File.ReadAllText(Path.Combine(projectRoot, "src", "BuiltInCustomizeOriginPacket.cs"));
-    string registration = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataOriginRegistration.cs"));
-    string project = File.ReadAllText(Path.Combine(projectRoot, "ExtendedData.csproj"));
-
-    Assert(project.Contains("ExtendedDataLaunchOriginApi.cs") &&
-        project.Contains("BuiltInCustomizeOriginPacket.cs"),
-        "the runtime project does not compile the public origin API");
+    // Published read-only API shape is a compatibility contract, not a source layout.
     var originType = typeof(ExtendedDataLaunchOriginApi);
     foreach (var contract in new[] {
         ("Origin", typeof(ExtendedDataLaunchOriginKind)),
@@ -1623,119 +1401,6 @@ static void TestCustomizedLaunchOriginIntegration()
             property.GetMethod?.IsPublic == true && property.SetMethod == null,
             "the read-only origin contract is incomplete: " + contract.Item1);
     }
-    Assert(api.Contains("RegisterModDataHandler") &&
-        api.Contains("MessagePackSerializer.Serialize") &&
-        api.Contains("MessagePackSerializer.Deserialize") &&
-        api.Contains("!context.IsSaveFile || context.IsMapEditorSave"),
-        "customized launch origin is not restricted to versioned save-file data");
-    Assert(api.Contains("LegacyApiVersion") &&
-        api.Contains("Ignored invalid Custom Trail launch-origin save data") &&
-        api.Contains("Ignored unreadable Custom Trail launch-origin save data"),
-        "missing or corrupt saved origin does not fail closed");
-    Assert(api.Contains("if (launchPending)") &&
-        api.Contains("MarkMapStarted") &&
-        api.Contains("MarkRestartPending") &&
-        runtime.Contains("ExtendedDataLaunchOriginApi.MarkMapStarted()"),
-        "launch or restart unload can clear the origin before map start");
-    Assert(coordinator.Contains("SetCustomizedCustomTrail(trailId, missionId)") &&
-        coordinator.Contains("SetCustomizedCoopTrail(trailId, mission)") &&
-        coordinator.Contains("SetCustomizedVanillaTrail") &&
-        coordinator.Contains("SetCustomizedSandsOfTime") &&
-        runtime.Contains("SetCustomizedCoopTrail(trailId, missionId)"),
-        "host/client Customize transitions do not establish the origin");
-    int multiplayerOpenHookIndex = coordinator.IndexOf("private void MultiplayerOpenHook", StringComparison.Ordinal);
-    int startSkirmishHookIndex = coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal);
-    Assert(multiplayerOpenHookIndex >= 0 && startSkirmishHookIndex > multiplayerOpenHookIndex,
-        "the multiplayer-open hook could not be isolated");
-    string multiplayerOpenHook = coordinator.Substring(
-        multiplayerOpenHookIndex,
-        startSkirmishHookIndex - multiplayerOpenHookIndex);
-    Assert(coordinator.Contains("fromNew && skirmishSetup && restartInfo == null && !coopSetup && !trailMaker") &&
-        multiplayerOpenHook.IndexOf("multiplayerOpenOriginal(", StringComparison.Ordinal) <
-            multiplayerOpenHook.IndexOf("CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId)", StringComparison.Ordinal) &&
-        multiplayerOpenHook.IndexOf("CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId)", StringComparison.Ordinal) <
-            multiplayerOpenHook.IndexOf("if (!enabled)", StringComparison.Ordinal) &&
-        coordinator.Contains("FRONT_Multiplayer.customizedTrail") &&
-        coordinator.Contains("FRONT_Multiplayer.customizedTrailType == trailType") &&
-        coordinator.Contains("FRONT_Multiplayer.customizedTrailID == missionId") &&
-        coordinator.Contains("ReferenceEquals(Platform_Multiplayer.Instance?.activeLobby, self.currentLobby)") &&
-        coordinator.Contains("MainViewModel.Instance?.Show_MultiplayerSetup == true") &&
-        coordinator.Split(new[] { "CaptureBuiltInCustomizeOrigin(" }, StringSplitOptions.None).Length == 4,
-        "built-in Customize origin is not captured independently after a confirmed doOpen transition");
-    Assert(coordinator.Contains("IsBuiltInTrailOpenCommand(command)") &&
-        coordinator.Contains("string.Equals(command, \"Trail\"") &&
-        coordinator.Contains("string.Equals(command, \"Sands8\"") &&
-        coordinator.Contains("BroadcastBuiltInCustomizeOrigin(self)") &&
-        coordinator.Contains("GetPacketEventFor<BuiltInCustomizeOriginPacket>") &&
-        coordinator.Contains("OnBuiltInCustomizeOriginPacket") &&
-        coordinator.Contains("senderSteamId != host.Value") &&
-        coordinator.Contains("ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId))") &&
-        coordinator.Contains("GameNetworkAPI.SendPacketToAllLobby") &&
-        originPacket.Contains("IMessagePackFormatter<BuiltInCustomizeOriginPacket>"),
-        "Built-in Customize back-navigation cleanup or authenticated host/client origin synchronization is missing");
-    Assert(coordinator.Contains("if (!preserveContextForLaunch)") &&
-        coordinator.Contains("restartInfo.customTrailLevel == missionId") &&
-        coordinator.Contains("ExtendedDataLaunchOriginApi.MarkRestartPending()") &&
-        coordinator.Contains("ExtendedDataLaunchOriginApi.Clear()"),
-        "direct follow-up and restarted Custom Trails do not separate stale from active origin");
-    int customTrailHookIndex = coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal);
-    int multiplayerOpenIndex = coordinator.IndexOf("private void MultiplayerOpenHook", StringComparison.Ordinal);
-    Assert(customTrailHookIndex >= 0 && multiplayerOpenIndex > customTrailHookIndex,
-        "the direct Custom Trail hook could not be isolated");
-    string customTrailHook = coordinator.Substring(
-        customTrailHookIndex,
-        multiplayerOpenIndex - customTrailHookIndex);
-    int validSidecarIndex = customTrailHook.IndexOf("bool validSidecar = EnterSidecar", StringComparison.Ordinal);
-    int directOriginIndex = customTrailHook.IndexOf(
-        "ExtendedDataLaunchOriginApi.SetCustomizedCustomTrail(",
-        validSidecarIndex,
-        StringComparison.Ordinal);
-    int vanillaStartIndex = customTrailHook.LastIndexOf(
-        "startCustomTrailOriginal(self, trailName, missionId, difficulty);",
-        StringComparison.Ordinal);
-    Assert(validSidecarIndex >= 0 &&
-        customTrailHook.Contains("ResolveCustomTrailHeader(trailName, missionId)") &&
-        customTrailHook.Contains("EnterSidecar(header.filePath, editable: false)") &&
-        customTrailHook.Contains("if (validSidecar && !customizedRestart)") &&
-        customTrailHook.Contains("FrontendMenus.CurrentSelectedTrail") &&
-        directOriginIndex > validSidecarIndex &&
-        vanillaStartIndex > directOriginIndex,
-        "a verified direct Custom Trail sidecar does not establish its origin before Vanilla starts");
-    int directCatchIndex = customTrailHook.IndexOf("catch (Exception exception)", validSidecarIndex, StringComparison.Ordinal);
-    int failClosedClearIndex = customTrailHook.IndexOf(
-        "ExtendedDataLaunchOriginApi.Clear();",
-        directCatchIndex,
-        StringComparison.Ordinal);
-    int failClosedDefaultsIndex = customTrailHook.IndexOf(
-        "ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);",
-        directCatchIndex,
-        StringComparison.Ordinal);
-    Assert(directCatchIndex > validSidecarIndex &&
-        failClosedClearIndex > directCatchIndex &&
-        failClosedDefaultsIndex > failClosedClearIndex,
-        "an invalid direct Custom Trail sidecar does not clear its origin before applying defaults");
-    Assert(coordinator.Contains("private static FileHeader ResolveCustomTrailHeader") &&
-        coordinator.Contains("missionId <= 0") &&
-        coordinator.Contains("IOPath.GetExtension(trailPath), \".trail\"") &&
-        coordinator.Contains("!File.Exists(trailPath)"),
-        "direct Custom Trail starts do not validate their name, 1-based mission number, and .trail path");
-    int enterSidecarIndex = coordinator.IndexOf("private bool EnterSidecar", StringComparison.Ordinal);
-    int captureDocumentIndex = coordinator.IndexOf("private ModSettingsDefinition CaptureDocument", StringComparison.Ordinal);
-    Assert(enterSidecarIndex >= 0 && captureDocumentIndex > enterSidecarIndex,
-        "the sidecar loader could not be isolated");
-    string enterSidecar = coordinator.Substring(
-        enterSidecarIndex,
-        captureDocumentIndex - enterSidecarIndex);
-    Assert(enterSidecar.Contains("bool exists = File.Exists(sidecar);") &&
-        enterSidecar.Split(new[] { "return exists;" }, StringSplitOptions.None).Length == 3,
-        "fresh and cached sidecar loads do not report the same validated existence status");
-    // Registry conflict, invalid-data and callback-failure behavior is exercised by
-    // APIShared's CustomizedLaunchOriginTests. Here verify the consumer adapter wiring.
-    Assert(registration.Contains("CustomizedLaunchOrigins.Register(ExtendedDataPlugin.PluginGuid, CaptureModeOrigin)") &&
-        runtime.Contains("ExtendedDataLaunchOriginApi.Initialize(log)") &&
-        File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataPlugin.cs"))
-            .Contains("ExtendedDataLaunchOriginApi.RegisterModeProvider()"),
-        "the launch-origin adapter is not registered under its owning plugin GUID");
 }
 
 static void TestBuiltInCustomizeOriginPacketRoundtrip()
@@ -1792,197 +1457,6 @@ static void TestMapModSettingsPacketRoundtrip()
         "Map mod-settings packet changed during MessagePack roundtrip");
 }
 
-static void TestMapModSettingsRuntimeIntegration()
-{
-    string projectRoot = FindProjectRoot();
-    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "MapModSettingsCoordinator.cs"));
-    string trailCoordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
-    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
-    string oldMapButtonXaml = Path.Combine(projectRoot, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_Multiplayer.xaml");
-
-    Assert(coordinator.Contains("SaveDataIdentifier = \"ExtendedData-MapModSettings\"") &&
-        coordinator.Contains("context.IsMapEditorSave") && coordinator.Contains("context.IsSaveFile") &&
-        coordinator.Contains("pendingMapSavePayload == null") && coordinator.Contains("return null;"),
-        "Map archive capture is not restricted to successful editor map captures");
-    Assert(coordinator.Contains("new UTF8Encoding(false, true)") &&
-        coordinator.Contains("MapArchive.TryLoad(header.filePath") &&
-        coordinator.Contains("ModSettingsJson.ParseObject") &&
-        coordinator.Contains("EnterStrict("),
-        "Map archive loading is not strict and transactional");
-    Assert(coordinator.Contains("GetHostSteamId") &&
-        coordinator.Contains("sender != host.Value") &&
-        coordinator.Contains("MatchesLobby(packet, lobby)") &&
-        coordinator.Contains("ProtocolVersion != MapModSettingsPacket.CurrentProtocolVersion"),
-        "Map packets are not authenticated and bound to the selected map");
-    Assert(coordinator.Contains("mapList.SelectionChanged += OnMapListSelectionChanged") &&
-        coordinator.Contains("selected != null && !MatchesActiveMap(selected)") &&
-        coordinator.Contains("LeaveLobbyHook") && coordinator.Contains("StartSkirmishGameHook") &&
-        coordinator.Contains("!launchInProgress && !mapMissionActive") &&
-        coordinator.Contains("MissionEvents.Ended") &&
-        coordinator.Contains("BroadcastCurrentState(apply: true)"),
-        "Map preset cleanup or late-join convergence is incomplete");
-    Assert(coordinator.Contains("!MatchesLobby(packet, lobby) && !MatchesActiveContext(packet)") &&
-        coordinator.Contains("UnregisterModDataHandler(SaveDataIdentifier)") &&
-        coordinator.Contains("payload.Length > MaxPayloadBytes"),
-        "Map clear ordering, initialization rollback, or capture size validation is incomplete");
-    int mapContractResolution = coordinator.IndexOf("MethodInfo saveMethod = RequireInstanceMethod(", StringComparison.Ordinal);
-    int mapHandlerRegistration = coordinator.IndexOf("RegisterModDataHandler(", StringComparison.Ordinal);
-    Assert(mapContractResolution >= 0 && mapContractResolution < mapHandlerRegistration &&
-        coordinator.Contains("BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic") &&
-        coordinator.Contains("\"LeaveLobby\",\r\n                typeof(bool), typeof(bool)") &&
-        coordinator.Contains("\"StartSkirmishGame\",\r\n                typeof(HUD_IngameMenu.RestartSkirmishMapInfo)") &&
-        !coordinator.Contains("BindingFlags.Instance | BindingFlags.Public,\r\n                null,\r\n                new[] { typeof(bool), typeof(bool) }"),
-        "Map hook contracts are not resolved exactly before initialization side effects");
-    Assert(runtime.Contains("RequireMethod(\"UpdateHostInfo\", typeof(bool))") &&
-        runtime.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false })") &&
-        !runtime.Contains("UpdateHostInfoMethod?.Invoke"),
-        "UpdateHostInfo(bool) is not treated as a required exact runtime contract");
-    Assert(trailCoordinator.Contains("EnterStrict") &&
-        trailCoordinator.Contains("internal ModSettingsDefinition ValidateStrict") &&
-        trailCoordinator.Contains("ValidateDocumentValues") &&
-        trailCoordinator.Contains("sourceEndpoint.System_SetExplicitMissionSettings(item.Item4)") &&
-        trailCoordinator.Contains("item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable)"),
-        "the shared Trail/Map preset service does not validate or expose contextual labels");
-    Assert(!runtime.Contains("mapSettingsCoordinator?.TryHandleCommand") &&
-        runtime.Contains("ActivateSelectedMissionSettingsUnlessMap") &&
-        runtime.Contains("mapSettingsCoordinator?.IsActiveForLobby(lobby) == true") &&
-        coordinator.Contains("settingsCoordinator.ValidateStrict(document, \"embedded Map\")") &&
-        coordinator.Contains("SetMapSourceDocument(document, selected.filePath)") &&
-        coordinator.Contains("SetMapSourceDocument(document, packet.MapFileName + \":\" + packet.MapCrc)") &&
-        coordinator.Contains("editable: true") &&
-        coordinator.Contains("CaptureCurrentDocument()") &&
-        !File.Exists(oldMapButtonXaml) &&
-        !coordinator.Contains("ExtendedDataUseMapModSettings"),
-        "Map settings must use the common source selector, remain editable in Customize, and lock the materialized copy at launch");
-    Assert(trailCoordinator.Contains("presetLabel: \"Trail\", materializeCurrentValues: true") &&
-        coordinator.Contains("materializeCurrentValues: true") &&
-        trailCoordinator.Contains("if (entry != null && !materializeCurrentValues)") &&
-        trailCoordinator.Contains("if (!materializeCurrentValues) snapshot = ModSettingsApplication.ResumeSnapshot") &&
-        trailCoordinator.Contains("? model.System_CreateCurrentWorkingSnapshot()"),
-        "Customize launch must freeze desired values, including provider-local values, without reapplying creator modes or old preparations");
-    string settingsXaml = File.ReadAllText(Path.Combine(projectRoot, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
-    Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"580\"") &&
-        settingsXaml.Contains("Width=\"580\" HorizontalAlignment=\"Left\"") &&
-        settingsXaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
-        settingsXaml.Contains("<ComboBox Grid.Column=\"1\"") &&
-        settingsXaml.Contains("<ToggleButton Grid.Column=\"2\"") &&
-        settingsXaml.Contains("Width=\"530\" HorizontalAlignment=\"Left\"") &&
-        settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"") &&
-        !settingsXaml.Contains("Width=\"723\""),
-        "Map/Trail controls should fit normally while allowing long names to scroll horizontally");
-    Assert(!coordinator.Contains("modmap.json", StringComparison.OrdinalIgnoreCase),
-        "Map presets were mixed into modmap.json");
-    string[] mapLocaleKeys =
-    {
-        "ExtendedData.MapModSettingsErrorTitle=",
-        "ExtendedData.MapModSettingsUnavailable=",
-        "ExtendedData.MapModSettingsMissingTitle=",
-        "ExtendedData.MapModSettingsMissing=",
-    };
-    foreach (string localePath in Directory.GetFiles(Path.Combine(projectRoot, "Locales"), "*.txt"))
-    {
-        string locale = File.ReadAllText(localePath);
-        string localeName = Path.GetFileName(localePath);
-        foreach (string key in mapLocaleKeys)
-        {
-            Assert(CountOccurrences(locale, key) == 1,
-                localeName + " does not define exactly one " + key);
-        }
-
-        Assert(!locale.Contains("ExtendedData.UseMapModSettings=") &&
-            !locale.Contains("ExtendedData.UseMapModSettingsHelp=") &&
-            !locale.Contains("ExtendedData.MapModSettingsActive="),
-            localeName + " still contains labels for the removed separate Map button");
-    }
-}
-
-static void TestEditorSaveModSettingsOptions()
-{
-    string root = FindProjectRoot();
-    string mapCoordinator = File.ReadAllText(Path.Combine(root, "src", "MapModSettingsCoordinator.cs"));
-    string trailCoordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    string viewModel = File.ReadAllText(Path.Combine(root, "src", "EditorModSettingsSaveOptionsViewModel.cs"));
-    string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
-    string mapXamlPath = Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "HUD_LoadSaveRequester.xaml");
-    string trailXamlPath = Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_ManageTrail.xaml");
-    string mapXaml = File.ReadAllText(mapXamlPath);
-    string trailXaml = File.ReadAllText(trailXamlPath);
-
-    Assert(mapCoordinator.Contains("requesterType != Enums.RequesterTypes.SaveEditorMap") &&
-        mapCoordinator.Contains("ArmMapEditorSave(") &&
-        mapCoordinator.Contains("pendingMapSaveDecision") &&
-        mapCoordinator.Contains("pendingMapSaveIncludesSettings") &&
-        mapCoordinator.Contains("string.Equals(pendingMapSavePath, normalizedPath, StringComparison.OrdinalIgnoreCase)") &&
-        mapCoordinator.Contains("VerifySavedMapSettings(") &&
-        mapCoordinator.Contains("RemoveActiveMapSettingsEntry(") &&
-        mapCoordinator.Contains("TryRollbackMapFile("),
-        "Map Editor saves are not explicitly armed, path-bound, verified, and rollback-safe");
-    Assert(mapCoordinator.Contains("TryReadBinaryFile(ArchiveEntryName, ignoreCase: true) != null") &&
-        viewModel.Contains("IncludeMapModSettings = hasExistingEntry") &&
-        viewModel.Contains("includeTrailModSettings = true"),
-        "Map/Trail checkbox defaults do not match existing-source and Trail authoring rules");
-    Assert(trailCoordinator.Contains("editorSaveOptions.IncludeTrailModSettings") &&
-        trailCoordinator.Contains("ModSettingsJson.WriteAtomic(sidecar, document)") &&
-        trailCoordinator.Contains("File.Delete(sidecar)") &&
-        trailCoordinator.Contains("trailSourceDocument = null"),
-        "Trail Maker save does not explicitly write or remove only its sidecar");
-    Assert(project.Contains("Patches\\Assets\\GUI\\XAMLResources\\HUD_LoadSaveRequester.xaml") &&
-        project.Contains("Patches\\Assets\\GUI\\XAMLResources\\FRONT_ManageTrail.xaml"),
-        "Editor save-option XAML patches are not included in the distributable ExtendedData package");
-    Assert(mapXaml.Contains("ExtendedDataMapEditorSaveOptionsHost") &&
-        mapXaml.Contains("IncludeMapModSettings, Mode=TwoWay") &&
-        mapXaml.Contains("MapHelpText") &&
-        mapXaml.Contains("Width=\"220\"") &&
-        mapXaml.Contains("Height=\"23\"") &&
-        mapXaml.Contains("Margin=\"45,360,0,0\"") &&
-        mapXaml.Contains("<CheckBox HorizontalAlignment=\"Center\"") &&
-        trailXaml.Contains("ExtendedDataTrailMakerSaveOptionsHost") &&
-        trailXaml.Contains("IncludeTrailModSettings, Mode=TwoWay") &&
-        trailXaml.Contains("TrailHelpText") &&
-        trailXaml.Contains("Width=\"300\"") &&
-        trailXaml.Contains("Height=\"23\"") &&
-        trailXaml.Contains("Margin=\"350,130,0,0\"") &&
-        trailXaml.Contains("<CheckBox HorizontalAlignment=\"Center\""),
-        "editor save checkboxes, their explanatory tooltips, or their collision-free positions are missing");
-
-    foreach (string xamlPath in new[] { mapXamlPath, trailXamlPath })
-    {
-        System.Xml.Linq.XDocument document = System.Xml.Linq.XDocument.Load(xamlPath);
-        foreach (System.Xml.Linq.XElement content in document.Descendants().Where(element => element.Name.LocalName == "Content"))
-            Assert(content.Elements().Count() == 1, Path.GetFileName(xamlPath) + " has a Content operation without exactly one root");
-    }
-
-    string[] keys =
-    {
-        "EditorSave.IncludeModSettings=",
-        "EditorSave.IncludeMapModSettingsHelp=",
-        "EditorSave.IncludeTrailModSettingsHelp=",
-        "EditorSave.ModSettingsSaveFailedTitle=",
-        "EditorSave.ModSettingsSaveFailed=",
-    };
-    foreach (string localePath in Directory.GetFiles(Path.Combine(root, "Locales"), "*.txt"))
-    {
-        string locale = File.ReadAllText(localePath);
-        foreach (string key in keys)
-            Assert(CountOccurrences(locale, key) == 1, Path.GetFileName(localePath) + " does not define exactly one " + key);
-    }
-}
-
-static void TestLobbyPacketThreadMarshalling()
-{
-    string root = FindProjectRoot();
-    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
-    Assert(coordinator.Contains("new CoopCustomizePacket", StringComparison.Ordinal) &&
-        coordinator.Contains("new BuiltInCustomizeOriginPacket", StringComparison.Ordinal) &&
-        coordinator.Contains("UnityMainThreadDispatch.TryRunInlineOrEnqueue", StringComparison.Ordinal) &&
-        coordinator.Contains("ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId))", StringComparison.Ordinal) &&
-        coordinator.Contains("ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId))", StringComparison.Ordinal),
-        "lobby packet callbacks do not copy and conditionally dispatch before UI/lobby access");
-    Assert(project.Contains("Shared\\Runtime\\Threading\\UnityMainThreadDispatch.cs", StringComparison.Ordinal),
-        "ExtendedData does not source-link the validated main-thread dispatcher");
-}
-
 static void TestCustomizedLaunchOriginRoundtrip()
 {
     SHCDESE.API.ModSaveDataAPI saveApi = SHCDESE.API.ModSaveDataAPI.Instance;
@@ -2016,6 +1490,22 @@ static void TestCustomizedLaunchOriginRoundtrip()
         ExtendedData.ExtendedDataLaunchOriginKind.None,
         "launch origin was cleared between unload and map-start events");
     ExtendedData.ExtendedDataLaunchOriginApi.MarkMapStarted();
+    for (int restart = 0; restart < 3; restart++)
+    {
+        ExtendedData.ExtendedDataLaunchOriginApi.MarkRestartPending();
+        saveApi.OnUnloadCallback();
+        saveApi.OnUnloadCallback();
+        Assert(ExtendedData.ExtendedDataLaunchOriginApi.Origin ==
+                ExtendedData.ExtendedDataLaunchOriginKind.CustomizedCustomTrail &&
+            ExtendedData.ExtendedDataLaunchOriginApi.TrailId == 90 &&
+            ExtendedData.ExtendedDataLaunchOriginApi.MissionId == 3 &&
+            ExtendedData.ExtendedDataLaunchOriginApi.RestoredFromSave &&
+            ExtendedData.ExtendedDataLaunchOriginApi.LaunchPending,
+            "restart unload lost the active origin, saved provenance or pending state");
+        ExtendedData.ExtendedDataLaunchOriginApi.MarkMapStarted();
+        Assert(!ExtendedData.ExtendedDataLaunchOriginApi.LaunchPending,
+            "completed restart left an origin launch pending");
+    }
     saveApi.OnUnloadCallback();
     Assert(ExtendedData.ExtendedDataLaunchOriginApi.Origin ==
         ExtendedData.ExtendedDataLaunchOriginKind.None,
@@ -2098,441 +1588,16 @@ static void TestCustomizedLaunchOriginRoundtrip()
         "invalid Sands Customize Trail type became active");
 }
 
-static void TestSteamWorkshopReadinessGate()
-{
-    string projectRoot = FindProjectRoot();
-    string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ??
-        throw new InvalidOperationException("workspace root missing");
-    string workshopPaths = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "Runtime", "Workshop", "WorkshopContentPaths.cs"));
-    string castleSettings = File.ReadAllText(Path.Combine(
-        workspaceRoot,
-        "CastlePlanner",
-        "src",
-        "CastlePlannerSettingsViewModel.cs"));
-
-    int readinessGate = workshopPaths.IndexOf("if (!IsSteamworksReady())", StringComparison.Ordinal);
-    int workshopCall = workshopPaths.IndexOf(
-        "Platform_Workshop.Instance.GetListOfSubscribedItemsPaths()",
-        StringComparison.Ordinal);
-    Assert(readinessGate >= 0 && workshopCall > readinessGate,
-        "Workshop enumeration can still call Steam before the readiness gate");
-    Assert(workshopPaths.Contains("SteamManagerInstanceField?.GetValue(null)") &&
-        workshopPaths.Contains("SteamManagerInitializedField?.GetValue(instance)"),
-        "Steam readiness no longer inspects Vanilla's existing manager without creating one");
-    Assert(castleSettings.Contains("Shared.WorkshopContentPaths.IsSteamworksReady()") &&
-        castleSettings.Contains("return candidate;"),
-        "CastlePlanner can discard a saved Workshop AIV before the deferred refresh");
-}
-
-static void TestLocalActivationSetting()
-{
-    string root = FindProjectRoot();
-    string viewModel = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataSettingsViewModel.cs"));
-    string plugin = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataPlugin.cs"));
-    string runtime = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataRuntime.cs"));
-    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    string compatibilityContract = File.ReadAllText(Path.Combine(root, "ExtendedData.Core", "TrailModCompatibilityContract.cs"));
-    string workspaceRoot = Directory.GetParent(root)?.FullName ?? throw new InvalidOperationException("workspace root missing");
-    string hostPlugin = File.ReadAllText(Path.Combine(workspaceRoot, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
-    string xaml = File.ReadAllText(Path.Combine(root, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
-
-    Assert(viewModel.Contains("[APIShared.ModSettings.PresetLocal]") && viewModel.Contains("public bool EnableClientFeatures"),
-        "local activation setting is not preset-local");
-    Assert(viewModel.Contains("[SyncHostOnly]") && viewModel.Contains("public bool EnableMod"),
-        "host activation setting is not host-synchronised");
-    Assert(viewModel.Contains("[SyncHostOnly]") && viewModel.Contains("ActiveCoopPackageId"), "package selection is not host-synchronised");
-    Assert(viewModel.Contains("[SyncPerPlayer, DoNotPersist]") && viewModel.Contains("CoopPackageStatusData"), "package validation is not reported per player");
-    Assert(plugin.Contains("Settings.RuntimeActivationChanged += runtime.SetEnabled"), "runtime does not observe effective activation changes");
-    Assert(runtime.Contains("settings.IsRuntimeEnabled"), "runtime does not combine local and host activation");
-    Assert(runtime.Contains("RestoreVanillaMissions()"), "disabling cannot restore replaced Vanilla Coop slots");
-    Assert(runtime.Contains("RefreshVisibleCoopMissionAfterPackageChange") &&
-        runtime.Contains("self.CoopMissionChanged(trailId, missionId, false)"),
-        "late host package settings do not refresh the already selected Vanilla Coop mission");
-    Assert(runtime.Contains("ShowLocalPackageBlockAfterSync") &&
-        runtime.Contains("lastShownLocalBlockSignature"),
-        "clients do not receive a deduplicated package failure popup immediately after settings sync");
-    Assert(viewModel.Contains("MissingStatus = \"ERROR|MISSING\"") &&
-        viewModel.Contains("MismatchStatus = \"ERROR|MISMATCH\"") &&
-        runtime.Contains("ErrorParticipantsMissing") && runtime.Contains("ErrorParticipantsMismatch"),
-        "host package validation cannot distinguish missing and mismatching participant packages");
-    Assert(viewModel.Contains("ActiveCoopPackageDescriptor") &&
-        runtime.Contains("ExpectedPackageDescriptor()") &&
-        runtime.Contains("!string.Equals(settings.ActiveCoopPackageDescriptor, ExpectedPackageDescriptor()"),
-        "independently synchronized package fields can be validated before one coherent host descriptor arrives");
-    Assert(coordinator.Contains("if (!enabled)"), "sidecar/customization hooks are not activation-gated");
-    Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
-    Assert(xaml.Contains("x:Key=\"ModSettingsToolTipStyle\"") &&
-        xaml.Contains("Style=\"{StaticResource ModSettingsToolTipStyle}\"") &&
-        xaml.Contains("Content=\"{Binding HelpText}\"") &&
-        xaml.Contains("SelectedIndex=\"{Binding SelectedModeIndex, Mode=TwoWay}\"") &&
-        xaml.Contains("ItemsSource=\"{Binding Settings}\""),
-        "dynamic mode selectors do not use the shared modsettings tooltip design");
-    Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("ExtendedData.PracticalEffects"),
-        "player-facing practical-effects text is not bound below the activation setting");
-    int descriptionPosition = xaml.IndexOf("PracticalEffectsText", StringComparison.Ordinal);
-    int guidePosition = xaml.IndexOf("OpenCompatibilityGuideCommand", StringComparison.Ordinal);
-    int hostOptionsPosition = xaml.IndexOf("HostOptionsText", StringComparison.Ordinal);
-    int modSelectionPosition = xaml.IndexOf("SupportedTrailSettingsTitle", StringComparison.Ordinal);
-    Assert(descriptionPosition >= 0 && descriptionPosition < guidePosition &&
-        guidePosition < modSelectionPosition &&
-        modSelectionPosition < hostOptionsPosition,
-        "the ExtendedData guide or local Trail settings are not shown in the intended order");
-    Assert(viewModel.Contains("https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main/Guides/ExtendedData") &&
-        !viewModel.Contains("Mod%20Compatibilty%20ExtendedData.md"),
-        "the settings guide link does not target the canonical ExtendedData guide");
-    foreach (string localePath in Directory.GetFiles(Path.Combine(root, "Locales"), "*.txt"))
-    {
-        string locale = File.ReadAllText(localePath);
-        bool isGerman = string.Equals(Path.GetFileName(localePath), "de-DE.txt", StringComparison.Ordinal);
-        string customLordText = isGerman
-            ? "lädt beim Hochladen von Custom Lords auch deren Custom Data hoch"
-            : "uploads custom data together with Custom Lords";
-        string guideText = isGerman
-            ? "ExtendedData-Guide öffnen"
-            : "Open the ExtendedData guide";
-        Assert(locale.Contains(customLordText, StringComparison.Ordinal) &&
-            locale.Contains("ExtendedData.CompatibilityGuide=" + guideText + "\r\n", StringComparison.Ordinal),
-            Path.GetFileName(localePath) + " does not describe Custom Lord data uploads or link the guide clearly");
-        Assert(!locale.Contains("ExtendedData.TrailSettingModeSummary=", StringComparison.Ordinal) &&
-            !locale.Contains("Fixed Trail value", StringComparison.Ordinal) &&
-            !locale.Contains("Fester Trailwert", StringComparison.Ordinal),
-            Path.GetFileName(localePath) + " retains obsolete Trail-only mode text or a removed counter.");
-    }
-    Assert(xaml.Contains("CompatibleTrailMods") && xaml.Contains("IncompatibleTrailModsText") &&
-        viewModel.Contains("PlayerTrailPropertyIds") &&
-        viewModel.Contains("FixedTrailPropertyIds") &&
-        viewModel.Contains("TrailSettingMode.ModDefault") &&
-        viewModel.Contains("TrailSettingMode.Player") &&
-        viewModel.Contains("TrailSettingMode.Fixed") &&
-        runtime.Contains("DiscoverModCompatibility()"),
-        "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
-    Assert(viewModel.Contains("useFixedDefaultsForNewProperties") &&
-        viewModel.Contains("initializedTrailPropertyIds.Add(id)") &&
-        viewModel.Contains("SetModDefaultValue(nameof(PlayerTrailPropertyIds), Array.Empty<string>())") &&
-        viewModel.Contains("SetModDefaultValue(nameof(FixedTrailPropertyIds), fixedDefaults)") &&
-        coordinator.Contains("useFixedDefaults: !exists && editable") &&
-        coordinator.Contains("applyEditorModes?.Invoke(document, useFixedDefaults)"),
-        "new and reset Map/Trail settings must default to Fixed without reinterpreting loaded documents.");
-    Assert(xaml.Contains("Width=\"580\" HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
-        xaml.Contains("<ComboBox Grid.Column=\"1\"") &&
-        xaml.Contains("<ToggleButton Grid.Column=\"2\"") &&
-        !xaml.Contains("<Grid.RowDefinitions><RowDefinition Height=\"Auto\"/><RowDefinition Height=\"Auto\"/></Grid.RowDefinitions>") &&
-        xaml.Contains("Width=\"530\" HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"175\"/>") &&
-        xaml.Contains("HorizontalScrollBarVisibility=\"Auto\"") &&
-        !xaml.Contains("{Binding SummaryText}"),
-        "Trail mod and feature selectors are not arranged as a compact left-aligned table");
-    Assert(coordinator.Contains("getPropertyMode(participant.Key, property.Name)") &&
-        coordinator.Contains("TrailSettingMode.Player") &&
-        coordinator.Contains("TrailSettingMode.Fixed") &&
-        coordinator.Contains("entry.Overrides") &&
-        compatibilityContract.Contains("DoNotPersistAttribute") &&
-        compatibilityContract.Contains("deserializationProbe"),
-        "dynamic Trail compatibility does not enforce the safe mission-preset contract");
-    Assert(coordinator.Contains("GetRegistrationGroups()") && coordinator.Contains("group.Skip(1).Any()"),
-        "duplicate mod-settings registrations are not rejected per plugin GUID");
-    Assert(coordinator.Contains("IsPreferred = true") &&
-        coordinator.Contains("IsPreferred = trailSourceDocument == null") &&
-        coordinator.Contains("PreferenceContextId = workingSourceContextId") &&
-        coordinator.Contains("workingSourceContextId = \"trail:\" + IOPath.GetFullPath(sidecar)"),
-        "Trail and Map sources do not expose the required Trail-first mission-context preference");
-    Assert(coordinator.Contains("DebugLogHelper.LogDebug(") &&
-        coordinator.Contains("are not included in creator presets") &&
-        !coordinator.Contains("Trail mod-settings compatibility rejected"),
-        "unsupported Map/Trail settings are not reported as debug exclusions");
-    Assert(plugin.Contains("ScheduleDeferredCompatibilityRefresh()") &&
-        plugin.Contains("Application.onBeforeRender += RefreshCompatibilityAfterRegistrations") &&
-        plugin.Contains("Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations"),
-        "Trail compatibility is not refreshed once after all LibraryLoaded registrations");
-    Assert(coordinator.Contains("IsRegistrationGroupOptedOut(group)") &&
-        plugin.Contains("public const bool ExtendedDataModSettingsOptOut = true;") &&
-        hostPlugin.Contains("public const bool ExtendedDataModSettingsOptOut = true;"),
-        "explicit opt-out is not applied to discovery, ExtendedData, and SerpsModsHost");
-    Assert(coordinator.Contains("ExitActiveParticipants") &&
-        coordinator.Contains("activeParticipantIds.Add(item.Item1)"),
-        "Trail lifecycle is not limited to participants whose preset entry completed");
-    Assert(xaml.Contains("System_OpenPresetLoadCommand") &&
-        xaml.Contains("System_OpenPresetSaveCommand") &&
-        xaml.Contains("System_PresetLoadEntries") &&
-        !xaml.Contains("{Binding SelectedPreset") && !xaml.Contains("{Binding PresetOptions") &&
-        plugin.Contains("LobbyModSettingsPresetRegistration.Register"),
-        "shared preset UI or registration is missing");
-    Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");
-    Assert(xaml.Contains("SelectedItem=\"{Binding SelectedCoopPackage, Mode=TwoWay}\"") &&
-        !xaml.Contains("SelectedCoopPackageIndex"),
-        "Coop package dropdown does not use the stable CastlePlanner-style SelectedItem binding");
-    Assert(viewModel.Contains("coopPackageIds = new[] { string.Empty }") &&
-        viewModel.Contains("ExtendedData.VanillaPackage"),
-        "Coop package dropdown does not initialize with Vanilla");
-    Assert(!viewModel.Contains("PackagesRefreshRequested?.Invoke()") &&
-        viewModel.Contains("if (unchanged)"),
-        "Coop package dropdown still replaces its ItemsSource reentrantly");
-}
-
 static void TestScriptExtenderManifestRangeContract()
 {
-    string root = FindProjectRoot();
-    string workspaceRoot = Directory.GetParent(root)?.FullName ??
-        throw new InvalidOperationException("workspace root missing");
-    string plugin = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataPlugin.cs"));
-    string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
-    string info = File.ReadAllText(Path.Combine(root, "info.json"));
-    string sharedPreset = string.Join("\n", Directory.GetFiles(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
-    using JsonDocument manifestJson = JsonDocument.Parse(info);
-    string minimumExtenderVersion = manifestJson.RootElement
-        .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;
-    string maximumExtenderVersion = manifestJson.RootElement
-        .GetProperty("MaximumScriptExtenderVersion").GetString() ?? string.Empty;
-
-    Assert(Version.TryParse(minimumExtenderVersion, out Version minimum),
-        "Manifest minimum Script Extender version is invalid");
-    Assert(string.IsNullOrEmpty(maximumExtenderVersion) ||
-        (Version.TryParse(maximumExtenderVersion, out Version maximum) && maximum >= minimum),
-        "Manifest maximum Script Extender version is invalid or below the minimum");
-    Assert(plugin.Contains($"[BepInDependency(\"000shcdese\", \"{minimumExtenderVersion}\")]"),
-        "SHCDESE minimum dependency does not match the manifest");
-    Assert(plugin.Contains("OnLibraryLoaded(CrusaderLibraryLoadContext context)") &&
-        !plugin.Contains("OnLibraryLoaded(IntPtr") &&
-        !plugin.Contains("ReadOnlySpan<byte> memory"),
-        "LibraryLoaded handler does not use the Script Extender load context");
-    Assert(!project.Contains("Zhuqiaomon", StringComparison.OrdinalIgnoreCase),
-        "ExtendedData retains a stale Zhuqiaomon project reference");
-    Assert(info.Contains("\"NetworkMode\": 1"),
-        "ExtendedData does not explicitly declare gameplay NetworkMode 1");
-    Assert(!sharedPreset.Contains("ScriptExtenderMultiplayerSyncWorkaround") &&
-        !sharedPreset.Contains("EnsureInstalled"),
-        "obsolete shared Script Extender settings workaround remains active");
-}
-
-static void TestCoopExporterIntegration()
-{
-    string root = FindProjectRoot();
-    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
-    string runtime = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataRuntime.cs"));
-    string lordDataCoordinator = File.ReadAllText(Path.Combine(root, "src", "LordDataSyncCoordinator.cs"));
-    string viewModel = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataSettingsViewModel.cs"));
-    string packet = File.ReadAllText(Path.Combine(root, "src", "CoopCustomizePacket.cs"));
-    string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
-    Assert(exporter.Contains("Path.GetFileName(lordSource)") &&
-        exporter.Contains("Path.GetFileName(aivSource)") &&
-        exporter.Contains("ToMissionRelative(lordTarget, missionsRoot)") &&
-        exporter.Contains("ToMissionRelative(aivTarget, missionsRoot)") &&
-        !exporter.Contains("\"lord-\" + playerNumber") &&
-        !exporter.Contains("\"aiv-\" + playerNumber"),
-        "Coop export no longer preserves the source names used by Vanilla Lord and AIV checksums");
-    Assert(coordinator.Contains("ExtendedDataCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
-    Assert(coordinator.Contains("Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, 0, 0, 0))"),
-        "Trail Maker Coop checkbox text is not black");
-    Assert(coordinator.Contains("Orientation = Orientation.Horizontal") && coordinator.Contains("host.Children.Remove(anchor)"),
-        "Trail Maker Coop and Backup options are not arranged side by side");
-    Assert(coordinator.Contains("prepared.Publish(destination)") && coordinator.IndexOf("Prepare(", StringComparison.Ordinal) < coordinator.IndexOf("prepared.Publish(destination)", StringComparison.Ordinal),
-        "Coop package is not validated before publication");
-    Assert(coordinator.Contains("exportOriginal(self, trailMakerSource)") &&
-        coordinator.Contains("RemoveNormalTrailFiles(destination)") &&
-        coordinator.Contains("importOriginal(self, vanillaImportFolder)") &&
-        !coordinator.Contains("CopyTrailFiles("),
-        "Coop export is still visible as a normal Custom Trail or cannot be reimported into the Trail Maker");
-    Assert(coordinator.Contains("CopySidecars(trailSource, ConfigSettings.GetUserTrailMakerPath(), overwrite: false)"),
-        "Coop import can overwrite existing Trail mod-settings sidecars");
-    Assert(coordinator.Contains("capturedDocumentsByTrailPath") &&
-        coordinator.Contains("ReadModSettingsForExport") &&
-        coordinator.Contains("TryReadModSettingsForExport(sourceTrail") &&
-        coordinator.Contains("new CoopTrailPackageExporter().Prepare(") &&
-        coordinator.Contains("ReadModSettingsForExport);") &&
-        coordinator.Contains("ModSettingsPresetJson.ConvertValue(value, targetType)") &&
-        coordinator.Contains("ModSettingsJson.IsSupportedValue(value)") &&
-        coordinator.Contains("MessagePackSerializer.Serialize(propertyType, value)") &&
-        coordinator.Contains("participant.Value.System_CreateDisabledMissionPresetSnapshot()"),
-        "normal and Coop exports do not share the synchronously captured mod-settings source");
-    Assert(coordinator.Contains("AddCoopImportRows(self)") &&
-        coordinator.Contains("GetImportableCoopSources(includeWorkshop: true).Any()") &&
-        coordinator.Contains("Shared.WorkshopContentPaths.GetSubscribedItemRoots") &&
-        coordinator.Contains("mappedImport") && coordinator.Contains("? trailSource") &&
-        coordinator.Contains("ObservableCollection<FileRow>"),
-        "local and Workshop Coop packages are not routed through Vanilla's safe in-game Trail import path");
-    Assert(coordinator.Contains("AddCoopExportRows(self)") &&
-        coordinator.Contains("GetImportableCoopSources(includeWorkshop: false)"),
-        "local Coop packages are not added to Vanilla's in-game Trail export list or Workshop folders became writable destinations");
-    Assert(coordinator.Contains("AddCoopWorkshopRows(self)") &&
-        coordinator.Contains("UploadCoopTrailPackage(self, selectedRow.trail, uploadOptions.IncludeExtendedData)") &&
-        coordinator.Contains("CoopWorkshopPackageStaging.Stage(") &&
-        coordinator.Contains("CoopTrailPackageCatalog.Load(source)"),
-        "Coop packages are not validated, listed, and staged through the unified Workshop uploader");
-    Assert(exporter.Contains("ordinal < 40") &&
-        exporter.Contains("CoopTrailSlotSelection.GetActiveSlots(restart.lordTypes)") &&
-        exporter.IndexOf("GetActiveSlots(restart.lordTypes)", StringComparison.Ordinal) <
-            exporter.IndexOf("TrailLordPackageRuntime.Capture(restart, lordSources,", StringComparison.Ordinal) &&
-        coordinator.Contains("ExportLordRequirements(trailMakerSource, coopMakerSource: true)") &&
-        coordinator.Contains("includedPlayerIds: includedPlayerIds"),
-        "Coop slot selection is not applied before capture in both export paths");
-    Assert(exporter.Contains("MissionProjection.Create(definition)") &&
-        exporter.Contains("Colour = Math.Max(1, Math.Min(8, colour))") &&
-        exporter.Contains("NativePreferredAiv = restart.MPsetupData.preferredAIVs[slot]") &&
-        exporter.Contains("MultiplayerSetup = new MultiplayerSetupSettings"),
-        "Coop export does not preserve normalized teams, colours, preferred AIVs, and complete setup data");
-    Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") &&
-        exporter.Contains("ModSettingsJson.WriteAtomic(MissionLoader.GetModSettingsPath(jsonPath), modSettings)") &&
-        !File.ReadAllText(Path.Combine(root, "ExtendedData.Core", "MissionDefinitionJson.cs")).Contains("[\"modSettings\"]"),
-        "Coop mission modsettings are not stored exclusively in sidecars");
-    Assert(exporter.Contains("restart.selectedHeader.display_filename") && runtime.Contains("CoopMissionTitle = selected.Loaded.Definition.DisplayName"),
-        "exported map names are not shown as Coop mission titles");
-    Assert(coordinator.Contains("SetCoopPackagePresentation") && coordinator.Contains("TEXT_COOP_0"),
-        "package display names do not replace occupied Vanilla Coop Trail headings");
-    Assert(coordinator.Contains("UpdateCoopSelectionTitles") && coordinator.Contains("FindDescendantButton") &&
-        coordinator.Contains("\"Coop\", \"Coop2\", \"Coop3\", \"Coop4\"") &&
-        coordinator.Contains("PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName :") &&
-        coordinator.Contains("ExtendedData.NoCustomCoopMissions") &&
-        coordinator.Contains("button.IsEnabled = (!packageSelected || packageOccupiesTrail)") &&
-        coordinator.Contains("UpdateCoopSelectionTitles(null)") &&
-        !coordinator.Contains("UpdateCoopSelectionTitles(MainViewModel.Instance"),
-        "package display names do not replace occupied entries in the Coop Trail selection menu");
-    Assert(coordinator.Contains("typeof(FRONT_CoopTrail1).GetConstructor(Type.EmptyTypes)") &&
-        coordinator.Contains("typeof(FRONT_CoopTrail4).GetConstructor(Type.EmptyTypes)"),
-        "Coop page presentation is not tied to Vanilla's completed page construction");
-    Assert(coordinator.Contains("InitializeCoopPage(self, 0)") &&
-        coordinator.Contains("InitializeCoopPage(self, 3)"),
-        "Coop page initialization does not cover all four Trails");
-    Assert(coordinator.Contains("LogicalTreeHelper.GetChildren(parent)") &&
-        coordinator.Contains("BindingOperations.ClearBinding(title, TextBlock.TextProperty)"),
-        "the unnameable Noesis title is not resolved through the logical tree and detached from its stale binding");
-    Assert(!coordinator.Contains("UpdateCoopTrailTranslationTitles") &&
-        !coordinator.Contains("LogCoopTitleState") &&
-        !coordinator.Contains("FindDescendantTextBlock"),
-        "obsolete title-source mutation, temporary diagnostics, or failed Visual Tree search remain");
-    Assert(!coordinator.Contains("QueueDeferredCoopPageRefresh") &&
-        !coordinator.Contains("Deferred first-visit Coop Trail title refresh"),
-        "the ineffective timing-based first-visit refresh still exists");
-    Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
-        "Ready/Play/COOP_START package validation is missing");
-    string buttonHook = runtime.Substring(runtime.IndexOf("private void ButtonClickedHook(", StringComparison.Ordinal),
-        runtime.IndexOf("private void UpdateHostInfoHook(", StringComparison.Ordinal) -
-        runtime.IndexOf("private void ButtonClickedHook(", StringComparison.Ordinal));
-    Assert(buttonHook.Contains("if (IsStartCommand(command))") &&
-        runtime.Contains("ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(") &&
-        runtime.IndexOf("ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(", StringComparison.Ordinal) <
-            runtime.LastIndexOf("buttonTrampoline(self, command)", StringComparison.Ordinal) &&
-        runtime.Contains("ApplyMultiplayerSetup(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup)") &&
-        !buttonHook.Contains("ApplySelectedMission(self, false)"),
-        "direct Coop start does not retain the edited setup and establish its launch origin before Vanilla starts");
-    Assert(runtime.Contains("self.currentLobby.AIVDataChecksum()") &&
-        runtime.Contains("Lord media selection changed; wait for the updated lobby selection") &&
-        runtime.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false })"),
-        "Coop readiness does not follow Vanilla's transmitted Lord selection after media remapping");
-    Assert(runtime.Contains("aiMember.customLordName = entry.Value.lordName") &&
-        runtime.Contains("UpdateCustomLordNamesHook(FRONT_Multiplayer self)") &&
-        runtime.Contains("CombinedNameHook(Platform_Multiplayer.MPLobbyMember member)") &&
-        runtime.Contains("CoopTrailPreviewNamePolicy.Resolve(") &&
-        runtime.Contains("MapFileManager.SplitCustomTrailName(name)") &&
-        runtime.Contains("return combinedNameTrampoline(member)"),
-        "embedded Coop Lords do not reach the actual Coop Trail preview name getter");
-    Assert(runtime.Contains("selectedInfo.lordConfig = transmitted.lordConfig") &&
-        runtime.Contains("PreparedTrailMediaAlias(selected.Loaded.LordRequirements") &&
-        runtime.Contains("lordDataCoordinator.RemapTrailMedia(localInfos)") &&
-        runtime.Contains("settings.LordPackageManifestChanged += OnLordPackageManifestChangedForSelection") &&
-        lordDataCoordinator.Contains("ConfigChecksum = infos[slot.PlayerId].lordConfig.checksum.ToString()") &&
-        !lordDataCoordinator.Contains("SequenceEqual(slot.AivChecksums)"),
-        "same-Lord configuration changes are not preserved with Trail values on both players");
-    Assert(runtime.Contains("PlayerIdentityHelper.TryCaptureHumanRoster") &&
-        runtime.Contains("requireAuthoritativeLobbyRoster: true") &&
-        runtime.Contains("PlayerIdentityHelper.ResolvePlayerIdForSteamId") &&
-        runtime.Contains("preferInGameRoster: false") &&
-        !runtime.Contains("GameNetworkAPI.GetPlayerIdForSteamId(member.id)") &&
-        runtime.Contains("member.dummyToBeKicked") &&
-        runtime.Contains("!member.SkirmishHumanMember && member.SkirmishMember") &&
-        runtime.Contains("GetHumanPackageStates") &&
-        runtime.Contains("ErrorParticipantsMissing") &&
-        runtime.Contains("ErrorParticipantsMismatch") &&
-        runtime.Contains("ErrorParticipantsNotReady") &&
-        !runtime.Contains("SerpLocalization.Get(\"ExtendedData.ErrorParticipantNotReady\")"),
-        "participant package validation does not use SyncPerPlayer identities or distinguish failure reasons");
-    Assert(viewModel.Contains("ConfigurePerPlayerLobbySettings") &&
-        viewModel.Contains("RequireReport(") &&
-        viewModel.Contains("private string coopPackageStatus = string.Empty") &&
-        viewModel.Contains("get => coopPackageStatus") &&
-        !viewModel.Contains("Math.Max(1, GameNetworkAPI.GetLocalPlayerId())") &&
-        runtime.Contains("System_RequestPerPlayerSettingsPublish()") &&
-        runtime.Contains("System_ArePerPlayerSettingsReady("),
-        "client package readiness does not use Shared publication and fail-closed completeness validation");
-    Assert(runtime.Contains("MainViewModelInstanceField") &&
-        runtime.Contains("GetExistingMainViewModel()?.FRONTMultiplayer") &&
-        !runtime.Contains("MainViewModel.Instance?.FRONTMultiplayer"),
-        "early package refresh can still construct Vanilla's MainViewModel before the UI is ready");
-    Assert(coordinator.Contains("CoopSetupOpened?.Invoke()") &&
-        runtime.Contains("CoopSetupOpened += OnCoopSetupOpened") &&
-        runtime.Contains("source: \"custom Coop mission setup\"") &&
-        runtime.Contains("ActivateSelectedMissionSettingsUnlessMap("),
-        "Coop Customize does not reapply the mission Trail preset after rebuilding the setup UI");
-    Assert(coordinator.Contains("GetPacketEventFor<CoopCustomizePacket>") &&
-        coordinator.Contains("GameNetworkAPI.GetHostSteamId()") &&
-        coordinator.Contains("senderSteamId != host.Value") &&
-        coordinator.Contains("ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId))") &&
-        coordinator.Contains("BroadcastCoopCustomize(trailId, mission)") &&
-        coordinator.Contains("BroadcastCoopLaunch") &&
-        coordinator.Contains("CoopLaunchReceived?.Invoke") &&
-        coordinator.Contains("source: \"authenticated host packet\"") &&
-        packet.Contains("IMessagePackFormatter<CoopCustomizePacket>") &&
-        packet.Contains("[Key(0)]") && packet.Contains("[Key(3)]") &&
-        project.Contains("src\\CoopCustomizePacket.cs"),
-        "Coop setup/launch transitions are not synchronized from the authenticated lobby host to clients");
-    Assert(runtime.Contains("RequireMethod(\"InitCoopMissions\")") &&
-        runtime.Contains("selected != null && IsLaunchCommand(command)") &&
-        runtime.Contains("source: \"custom Coop mission \" + command") &&
-        runtime.Contains("ActivateSelectedMissionSettingsUnlessMap(") &&
-        runtime.Contains("CoopLaunchReceived += OnCoopLaunchReceived") &&
-        runtime.Contains("source: \"authenticated host Coop launch\"") &&
-        runtime.Contains("coopLaunchPending") && runtime.Contains("OnMapStarted()") &&
-        runtime.Contains("OnMissionEnded(MissionLifecycleNotification notification)"),
-        "direct Coop launch does not retain the shared Trail preset across the map transition");
-    Assert(runtime.Contains("if (coopLaunchPending)") && runtime.Contains("BlockLaunch(command") &&
-        coordinator.Contains("MpLocalReadyField") && coordinator.Contains("MpLocalReadyLockedField") &&
-        coordinator.Contains(".SetValue(self, false)"),
-        "Coop launch refresh retention, visible blocking, or Customize ready-state reset is missing");
-    Assert(coordinator.Contains("SinglePlayerCoopStarting") &&
-        runtime.Contains("PrepareSinglePlayerCoopStart") &&
-        runtime.Contains("packageCatalog.Scan(roots, message => LogInfo(message), message => LogError(message))") &&
-        runtime.Contains("source: \"single-player Coop restart\"") &&
-        runtime.Contains("missionSettingsCoordinator.PrepareCoopMissionLaunch()") &&
-        runtime.Contains("Blocked custom single-player Coop restart"),
-        "single-player Coop restart does not revalidate and reactivate its package mission");
-    Assert(!runtime.Contains("Path.Combine(pluginRoot, \"CoopTrails\")"), "legacy plugin-local package layout is still active");
-}
-
-static void TestCustomizeButtonDelegation()
-{
-    string root = FindProjectRoot();
-    string bridge = File.ReadAllText(Path.Combine(root, "src", "BugfixesAndQoLTrailCustomizationBridge.cs"));
-    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    string plugin = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataPlugin.cs"));
-    Assert(bridge.Contains("TrailCustomizationProviderHostApi, BugfixesAndQoL") &&
-        bridge.Contains("typeof(Func<bool>)") && bridge.Contains("TryRegister("),
-        "optional BugfixesAndQoL provider handshake is missing");
-    Assert(coordinator.Contains("externalButtonOwner = customizationBridge.TryRegister(") &&
-        coordinator.Contains("if (!externalButtonOwner &&") &&
-        coordinator.Contains("if (externalButtonOwner)") &&
-        coordinator.Contains("HandleExternalCustomTrailCustomize") &&
-        coordinator.Contains("HandleExternalCoopTrailCustomize"),
-        "ExtendedData does not retain standalone behavior while delegating shared button ownership");
-    Assert(plugin.Contains("[BepInDependency(\"BugfixesAndQoL_Serp\", BepInDependency.DependencyFlags.SoftDependency)]"),
-        "optional button owner is not ordered as a soft dependency");
-}
-
-static void TestDependencyFreeCoopJson()
-{
-    string root = FindProjectRoot();
-    string core = Path.Combine(root, "ExtendedData.Core");
-    string[] offenders = Directory.GetFiles(core, "*.cs", SearchOption.TopDirectoryOnly)
-        .Where(path => File.ReadAllText(path).Contains("System.Runtime.Serialization", StringComparison.Ordinal) ||
-            File.ReadAllText(path).Contains("DataContractJsonSerializer", StringComparison.Ordinal))
-        .ToArray();
-    Assert(offenders.Length == 0, "runtime JSON serializer dependency remains: " + string.Join(", ", offenders.Select(Path.GetFileName)));
-    string modSettingsJson = File.ReadAllText(Path.Combine(core, "ModSettingsJson.cs"));
-    Assert(modSettingsJson.Contains("Shared.DependencyFreeJson.Serialize", StringComparison.Ordinal),
-        "ModSettingsJson does not use the shared serializer");
-    Assert(!modSettingsJson.Contains("class JsonParser", StringComparison.Ordinal) &&
-        !modSettingsJson.Contains("AppendString", StringComparison.Ordinal),
-        "ModSettingsJson still contains a private JSON implementation");
+    using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(FindProjectRoot(), "info.json")));
+    string minimumText = manifest.RootElement.GetProperty("MinimumScriptExtenderVersion").GetString();
+    string maximumText = manifest.RootElement.GetProperty("MaximumScriptExtenderVersion").GetString();
+    Assert(Version.TryParse(minimumText, out Version minimum), "invalid minimum Script Extender version");
+    Assert(string.IsNullOrEmpty(maximumText) ||
+        (Version.TryParse(maximumText, out Version maximum) && maximum >= minimum), "invalid Script Extender range");
+    Assert(manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1,
+        "gameplay mod must participate in multiplayer compatibility checks");
 }
 
 static void TestCoopJsonLineEndings()
@@ -2555,7 +1620,7 @@ static void TestCoopJsonLineEndings()
 
 static string FindProjectRoot()
 {
-    foreach (string seed in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    foreach (string seed in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
     {
         DirectoryInfo directory = new DirectoryInfo(seed);
         while (directory != null)
@@ -2569,14 +1634,6 @@ static string FindProjectRoot()
         }
     }
     throw new DirectoryNotFoundException("ExtendedData project root was not found.");
-}
-
-static int CountOccurrences(string text, string value)
-{
-    int count = 0;
-    for (int index = 0; (index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0; index += value.Length)
-        count++;
-    return count;
 }
 
 static void TestPathEscape()
@@ -3258,8 +2315,15 @@ namespace BepInEx.Logging
 
 namespace Shared
 {
-    internal static class DebugLogHelper
+    // Diagnostic transport is an external boundary of these Lord-package tests.
+    // The actual ledger and listener isolation have separate Shared diagnostics tests.
+    internal static class RuntimeHealth
     {
+        internal static readonly List<string> Reports = new List<string>();
+        internal static void Report(string feature, bool error, string detail = "") => Reports.Add(feature);
+    }
+    internal static class DebugLogHelper
+    { public static bool DiagnosticsEnabled => true;
         internal static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] parts) { LogError(log, System.String.Concat(parts)); } internal static void LogError(BepInEx.Logging.ManualLogSource log, string message)
         {
         }
@@ -3356,5 +2420,6 @@ public sealed partial class CustomisationFileManager
         public string path;
         public int lordType;
         public ulong checksum;
+        public EngineInterface.AILordConfigTransferData lordData;
     }
 }

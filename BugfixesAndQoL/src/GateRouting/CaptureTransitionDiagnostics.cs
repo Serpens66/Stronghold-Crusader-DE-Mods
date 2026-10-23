@@ -1,110 +1,40 @@
-using System;
-using System.Collections.Generic;
 using System.Threading;
 
 namespace BugfixesAndQoL.GateRouting
 {
-    internal sealed class DeferredCaptureRefreshRequest
+    internal sealed partial class DeferredCaptureRefreshRequest
     {
-        private int pending;
-        internal void Request() => Interlocked.Exchange(ref pending, 1);
-        internal bool Consume() => Interlocked.Exchange(ref pending, 0) != 0;
-        internal void Reset() => Interlocked.Exchange(ref pending, 0);
+        // One atomic word contains both session identity and pending work. A delayed
+        // callback from a previous map cannot recreate work after Reset/Begin.
+        private long state = -1;
+        private static long Session(int epoch) => (long)(uint)epoch << 1;
+        internal void Begin(int epoch) => Interlocked.Exchange(ref state, Session(epoch));
+        internal bool Request(int epoch)
+        {
+            long expected = Session(epoch);
+            long previous = Interlocked.CompareExchange(ref state, expected | 1L, expected);
+            return previous == expected || previous == (expected | 1L);
+        }
+        internal bool Consume(int epoch)
+        {
+            long expected = Session(epoch);
+            return Interlocked.CompareExchange(ref state, expected, expected | 1L) == (expected | 1L);
+        }
+        internal void Reset() => Interlocked.Exchange(ref state, -1);
     }
 
-    // Counts observations, not units. Confirmation requires a publication AFTER
-    // registration, the same map/identity/owner and precisely the observed capturer.
-    internal sealed class CaptureTransitionDiagnostics
+    // Functional validation is independent of diagnostic history and cannot allocate.
+    internal static class CaptureSnapshotMismatch
     {
-        private readonly object sync = new object();
-        private readonly Dictionary<string, Row> rows = new Dictionary<string, Row>();
-        private long epoch, publishedGeneration, total, recovered;
-        private sealed class Row
+        internal static bool RequiresRefresh(NativeGateAccessSnapshot source, long epoch, long publishedGeneration,
+            int buildingId, uint globalId, int owner, int nativeCapturer)
         {
-            internal int Building, Owner, Capturer;
-            internal uint Global;
-            internal long SourceGeneration, MinimumGeneration, Count, Pending, Recovered, ProofGeneration;
-            internal long LoggedCount, LoggedRecovered;
-        }
-        internal void Reset(long mapEpoch)
-        {
-            lock (sync) { rows.Clear(); epoch = mapEpoch; publishedGeneration = total = recovered = 0; }
-        }
-        internal bool Observe(NativeGateAccessSnapshot source, int buildingId, uint globalId,
-            int owner, int nativeCapturer)
-        {
-            lock (sync)
-            {
-                if (source == null || source.DiagnosticEpoch != epoch || source.DiagnosticGeneration <= 0 ||
-                    source.DiagnosticGeneration > publishedGeneration ||
-                    !source.MatchesGateIdentity(buildingId, globalId) ||
-                    buildingId >= source.RecordsByBuildingId.Length || owner <= 0 || owner > 8 ||
-                    nativeCapturer < 0 || nativeCapturer > 8) return false;
-                NativeGateAccessRecord old = source.RecordsByBuildingId[buildingId];
-                if (!old.Valid || old.OwnerPlayerId != owner || old.CapturedByPlayerId == nativeCapturer) return false;
-                string key = "epoch=" + epoch + ",generation=" + source.DiagnosticGeneration +
-                    ",building=" + buildingId + ",global=" + globalId + ",owner=" + owner +
-                    ",oldCapturer=" + old.CapturedByPlayerId + ",observedCapturer=" + nativeCapturer;
-                if (!rows.TryGetValue(key, out Row row))
-                {
-                    row = new Row { Building = buildingId, Global = globalId, Owner = owner,
-                        Capturer = nativeCapturer, SourceGeneration = source.DiagnosticGeneration };
-                    rows.Add(key, row);
-                }
-                row.MinimumGeneration = Math.Max(row.MinimumGeneration, publishedGeneration);
-                row.Count++; row.Pending++; total++;
-                return true;
-            }
-        }
-        internal void Publish(NativeGateAccessSnapshot snapshot)
-        {
-            lock (sync)
-            {
-                if (snapshot == null || snapshot.DiagnosticEpoch != epoch || snapshot.DiagnosticGeneration <= publishedGeneration) return;
-                publishedGeneration = snapshot.DiagnosticGeneration;
-                foreach (Row row in rows.Values)
-                {
-                    if (row.Pending == 0 || publishedGeneration <= row.SourceGeneration ||
-                        publishedGeneration <= row.MinimumGeneration ||
-                        !snapshot.MatchesGateIdentity(row.Building, row.Global) ||
-                        row.Building >= snapshot.RecordsByBuildingId.Length) continue;
-                    NativeGateAccessRecord record = snapshot.RecordsByBuildingId[row.Building];
-                    if (!record.Valid || record.OwnerPlayerId != row.Owner || record.CapturedByPlayerId != row.Capturer) continue;
-                    recovered += row.Pending; row.Recovered += row.Pending; row.Pending = 0;
-                    row.ProofGeneration = publishedGeneration;
-                }
-            }
-        }
-        internal long Recovered { get { lock (sync) return recovered; } }
-        internal string Summary { get { lock (sync) return "epoch=" + epoch + ",generation=" + publishedGeneration +
-            ",observed=" + total + ",confirmedRecovered=" + recovered + ",unresolved=" + (total - recovered); } }
-        internal string[] UnresolvedDetails()
-        {
-            lock (sync)
-            {
-                var output = new List<string>();
-                foreach (var pair in rows)
-                    if (pair.Value.Pending > 0) output.Add(pair.Key + ",unresolved=" + pair.Value.Pending);
-                output.Sort(StringComparer.Ordinal);
-                return output.ToArray();
-            }
-        }
-        internal string[] DrainChanges()
-        {
-            lock (sync)
-            {
-                var output = new List<string>();
-                foreach (var pair in rows)
-                {
-                    Row row = pair.Value;
-                    if (row.Count == row.LoggedCount && row.Recovered == row.LoggedRecovered) continue;
-                    output.Add(pair.Key + ",count=" + row.Count + ",confirmedRecovered=" + row.Recovered +
-                        ",unresolved=" + row.Pending + ",proofGeneration=" + row.ProofGeneration);
-                    row.LoggedCount = row.Count; row.LoggedRecovered = row.Recovered;
-                }
-                output.Sort(StringComparer.Ordinal);
-                return output.ToArray();
-            }
+            if (source == null || source.DiagnosticEpoch != epoch || source.DiagnosticGeneration <= 0 ||
+                source.DiagnosticGeneration > publishedGeneration || !source.MatchesGateIdentity(buildingId, globalId) ||
+                buildingId < 0 || buildingId >= source.RecordsByBuildingId.Length || owner <= 0 || owner > 8 ||
+                nativeCapturer < 0 || nativeCapturer > 8) return false;
+            NativeGateAccessRecord old = source.RecordsByBuildingId[buildingId];
+            return old.Valid && old.OwnerPlayerId == owner && old.CapturedByPlayerId != nativeCapturer;
         }
     }
 }

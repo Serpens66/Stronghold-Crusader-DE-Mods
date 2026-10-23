@@ -1,0 +1,726 @@
+{
+  "Schema": 1,
+  "RunId": "a921d3a0265e4cb28daada0c73d3c5b6",
+  "AtUtc": "2026-10-17T14:19:18.250Z",
+  "PatcherSHA256": "09CB29804A9ED6BB6EF48328C2368F11677D8B80EB812C27A14A405E98FA2D72",
+  "PluginSHA256": "C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6",
+  "CoreSHA256": "8255B28902886085C578B9E427D3073C97002DB85176D2090CDEDA90EF14CE70",
+  "ExtenderSHA256": "577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175",
+  "Complete": true,
+  "SubscriptionCompleteness": "Unknown: observed Extender paths, not proof of all Steam subscriptions",
+  "ExternalManagement": "Unverifiable: audited Extender method exposes no authoritative external package-manager ownership",
+  "ExternalManagerLaunchSignal": false,
+  "WorkshopPaths": [
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3818609220",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388942",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817389074",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388847",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388234",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388388",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388762",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388667",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388543",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817387940",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3707345653",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757876",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758705",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758568",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758350",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758183",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757620",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757367",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757223",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779756890",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778614148",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613938",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613845",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613056",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613594",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613349",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613185",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613722",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778610714",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140374",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140170",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140006",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751139682",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140504",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751139027",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751138826",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751138543",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751107204",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749340769",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749340426",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749340232",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339999",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339807",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339528",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339319",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749338992",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749338459",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3808635874",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3788821961",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3791770511",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3659458903",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3769305376",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3693412090",
+    "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3774768801"
+  ],
+  "Maps": [
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3818609220",
+      "Map": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3818609220\\APIShared.map",
+      "Status": "SelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388942",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817389074",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388847",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388234",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388388",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388762",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388667",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817388543",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3817387940",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3707345653",
+      "Map": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3707345653\\Battle Royale.map",
+      "Status": "SelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757876",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758705",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758568",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758350",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779758183",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757620",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757367",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779757223",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3779756890",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778614148",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613938",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613845",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613056",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613594",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613349",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613185",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778613722",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3778610714",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140374",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140170",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140006",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751139682",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751140504",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751139027",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751138826",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751138543",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3751107204",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749340769",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749340426",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749340232",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339999",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339807",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339528",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749339319",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749338992",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3749338459",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3808635874",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3788821961",
+      "Map": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3788821961\\SerpsMods.map",
+      "Status": "SelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3791770511",
+      "Map": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3791770511\\fixes.map",
+      "Status": "SelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3659458903",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3769305376",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3693412090",
+      "Map": "",
+      "Status": "NoMapSelectedByExtender"
+    },
+    {
+      "Folder": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3774768801",
+      "Map": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3774768801\\LorrdyAISharesGold.map",
+      "Status": "SelectedByExtender"
+    }
+  ],
+  "Packages": [
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3818609220\\APIShared.map",
+      "Guid": "APIShared_Serp",
+      "Version": "0.9.2",
+      "Manifest": "BepInEx",
+      "Loaded": true,
+      "Payload": [
+        "BepInEx/plugins/APIShared_Serp/APIShared.dll",
+        "BepInEx/plugins/APIShared_Serp/APIShared.pdb",
+        "BepInEx/plugins/APIShared_Serp/APIShared.xml",
+        "BepInEx/plugins/APIShared_Serp/apishared-workshop-files.json",
+        "BepInEx/plugins/APIShared_Serp/info.json",
+        "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAML/IngameUIScreens.xaml",
+        "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAML/MainHUD.xaml",
+        "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml",
+        "BepInEx/plugins/APIShared_Serp/Patches/Assets/GUI/XAMLResources/HUD_Troops.xaml",
+        "BepInEx/plugins/APIShared_Serp/Workshop/Bootstrap/build.bat.template",
+        "BepInEx/plugins/APIShared_Serp/Workshop/Bootstrap/Build.ps1.template",
+        "BepInEx/plugins/APIShared_Serp/Workshop/Bootstrap/Plugin.cs.template",
+        "BepInEx/plugins/APIShared_Serp/Workshop/workshop-maintenance.ps1",
+        "BepInEx/plugins/APIShared_Serp/Workshop/workshop-maintenance.sh",
+        "BepInEx/plugins/APIShared_Serp/Workshop/workshop-updater.ps1",
+        "BepInEx/plugins/APIShared_Serp/Workshop/workshop-updater.sh",
+        "BepInEx/tools/APISharedWorkshopPublisher/com.rlabrecque.steamworks.net.dll",
+        "BepInEx/tools/APISharedWorkshopPublisher/ICSharpCode.SharpZipLib.dll",
+        "BepInEx/tools/APISharedWorkshopPublisher/publisher-files.json",
+        "BepInEx/tools/APISharedWorkshopPublisher/steam_api64.dll",
+        "BepInEx/tools/APISharedWorkshopPublisher/UnityEngine.CoreModule.dll",
+        "BepInEx/tools/APISharedWorkshopPublisher/UnityEngine.SharedInternalsModule.dll",
+        "BepInEx/tools/APISharedWorkshopPublisher/UploadMod.bat",
+        "BepInEx/tools/APISharedWorkshopPublisher/UploadMod-linux.sh",
+        "BepInEx/tools/APISharedWorkshopPublisher/WorkshopUploader.exe",
+        "BepInEx/tools/APISharedWorkshopPublisher/WorkshopUploader.exe.config"
+      ],
+      "Error": null,
+      "LocalState": "MatchesObservedMetadata",
+      "LocalEvidence": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\APIShared.json"
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3707345653\\Battle Royale.map",
+      "Guid": null,
+      "Version": null,
+      "Manifest": "RejectedByExtender",
+      "Loaded": false,
+      "Payload": [],
+      "Error": null,
+      "LocalState": null,
+      "LocalEvidence": null
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3788821961\\SerpsMods.map",
+      "Guid": "SerpsModsWorkshopBootstrap_Serp",
+      "Version": "1.0.28",
+      "Manifest": "BepInEx",
+      "Loaded": true,
+      "Payload": [
+        "BepInEx/plugins/SerpsModsWorkshopBootstrap_Serp/info.json",
+        "BepInEx/plugins/SerpsModsWorkshopBootstrap_Serp/SerpsModsWorkshopBootstrap_Serp.dll"
+      ],
+      "Error": null,
+      "LocalState": "MatchesObservedMetadata",
+      "LocalEvidence": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\SerpsMods.json"
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3791770511\\fixes.map",
+      "Guid": "fixes",
+      "Version": "1.26.5",
+      "Manifest": "BepInEx",
+      "Loaded": true,
+      "Payload": [
+        "BepInEx/",
+        "BepInEx/config/",
+        "BepInEx/plugins/",
+        "BepInEx/plugins/fixes/Override/Assets/GUI/Sprites/fixes.png",
+        "BepInEx/plugins/fixes/Override/ScriptExtenderUI/FixesSettings.xaml",
+        "BepInEx/plugins/fixes/Override/AIV/SK_WOLF_1.aivjson",
+        "BepInEx/plugins/fixes/Override/AIV/SK_SURGEON_3.aivjson",
+        "BepInEx/plugins/fixes/Override/AIV/SK_SNAKE_4.aivjson",
+        "BepInEx/plugins/fixes/Override/AIV/SK_SHERIFF_7.aivjson",
+        "BepInEx/plugins/fixes/Override/AIV/SK_PHILLIP_7.aivjson",
+        "BepInEx/plugins/fixes/shcdese.manifest.sig",
+        "BepInEx/plugins/fixes/Override/Assets/GUI/Sprites/fixes_option_banner.png",
+        "BepInEx/plugins/fixes/shcdese.manifest.json",
+        "BepInEx/plugins/fixes/info.json",
+        "BepInEx/plugins/fixes/fixes.pdb",
+        "BepInEx/plugins/fixes/fixes.dll",
+        "BepInEx/plugins/fixes/data/hopsFarmWhitelist.json",
+        "BepInEx/plugins/fixes/Override/Assets/GUI/Sprites/fixes_option_vm_bg.png"
+      ],
+      "Error": null,
+      "LocalState": "MatchesObservedMetadata",
+      "LocalEvidence": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\fixes.json"
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3774768801\\LorrdyAISharesGold.map",
+      "Guid": "LorrdyAISharesGold",
+      "Version": "1.0.4",
+      "Manifest": "BepInEx",
+      "Loaded": true,
+      "Payload": [
+        "BepInEx/",
+        "BepInEx/config/",
+        "BepInEx/plugins/",
+        "BepInEx/plugins/LorrdyAISharesGold/info.json",
+        "BepInEx/plugins/LorrdyAISharesGold/LorrdyAISharesGold.dll",
+        "BepInEx/plugins/LorrdyAISharesGold/LorrdyAISharesGold.pdb",
+        "BepInEx/plugins/LorrdyAISharesGold/Override/XAMLResources/LorrdyAISharesGoldSettings.xaml",
+        "BepInEx/plugins/LorrdyAISharesGold/Override/Assets/GUI/Sprites/LorrdyAISharesGold.png"
+      ],
+      "Error": null,
+      "LocalState": "MatchesObservedMetadata",
+      "LocalEvidence": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\LorrdyAISharesGold.json"
+    }
+  ],
+  "Owners": [
+    {
+      "Guid": "000shcdese",
+      "Version": "2.14.2.0",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll",
+      "SHA256": "577F9AAB5DE504BE0BFA2193C7DEB734B26076ECBBAF0A408FC9ABC4CC5E7175",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "uuimgui",
+      "Version": "1.6.7",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\universal-unity-imgui-api.dll",
+      "SHA256": "D98415528BA84F0DFF17F283F72D0003D65ECA8F30993E5BAFE1D425BA8CE9B7",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "APIShared_Serp",
+      "Version": "0.9.2",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+      "SHA256": "4EF262A5F69F16EF6B6E5238606F5013B6400B83D2F8C354E5C53F4EFDD52BC1",
+      "State": "Unique",
+      "Reason": "One observed package claims this path; not an ownership receipt or byte-equivalence proof",
+      "Claims": [
+        "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3818609220\\APIShared.map"
+      ]
+    },
+    {
+      "Guid": "DependencyBootstrapProbe_Serp",
+      "Version": "0.1.0",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\DependencyBootstrapProbe_Serp\\DependencyBootstrapProbe.dll",
+      "SHA256": "C44E1B8E00976A5C458394513D6DE41970F6AA111916E76275F0F5473919F6B6",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "fixes",
+      "Version": "1.26.5.0",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\fixes\\fixes.dll",
+      "SHA256": "47D77AC11585423AA2B054873C11EC3AF888CF92E955A0BA376F24BA1B7ECE2A",
+      "State": "Unique",
+      "Reason": "One observed package claims this path; not an ownership receipt or byte-equivalence proof",
+      "Claims": [
+        "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3791770511\\fixes.map"
+      ]
+    },
+    {
+      "Guid": "PopularityTest_Serp",
+      "Version": "0.1.0",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\PopularityTest_Serp\\PopularityTest.dll",
+      "SHA256": "351072A6B2213A4E5345F2B41A0F01D9ABD14DE6BD87617EBF89BEE00B60F8B4",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "SavegameMissingMapFixTest_Serp",
+      "Version": "0.1.0",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SavegameMissingMapFixTest_Serp\\SavegameMissingMapFixTest.dll",
+      "SHA256": "49C3F2A35176CCF304991A7BFA85297BF2412BA0938D3EF702252401D9E0E458",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "SerpsModsWorkshopBootstrap_Serp",
+      "Version": "1.0.28",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsModsWorkshopBootstrap_Serp\\SerpsModsWorkshopBootstrap_Serp.dll",
+      "SHA256": "94DC8DBC379B6A328B1EC781376427DB73CF4C5F57D30E94ABFB3ECEE134834B",
+      "State": "Unique",
+      "Reason": "One observed package claims this path; not an ownership receipt or byte-equivalence proof",
+      "Claims": [
+        "E:\\ProgrammeE\\Steam\\steamapps\\workshop\\content\\3024040\\3788821961\\SerpsMods.map"
+      ]
+    },
+    {
+      "Guid": "SerpsMods_Serp",
+      "Version": "1.0.28",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\SerpsModsHost.dll",
+      "SHA256": "454709025E0845F4ECA036493E2798CA8078E1272EF99FCA212B34248EC98FD2",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "SpectatorEditorBuildTest_Serp",
+      "Version": "0.1.2",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll",
+      "SHA256": "EFC5C6838A2306FE65A5925C9D963101CA1785076375120D63C1BE598289D2E0",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "BugfixesAndQoL_Serp",
+      "Version": "1.0.192",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+      "SHA256": "A8BD7DA4D053657BF025DFF0041E3EFB9A4821FF985A28C61D03BB673BC55F02",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "BuildingCosts_Serp",
+      "Version": "1.0.114",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingCosts_Serp\\BuildingCosts.dll",
+      "SHA256": "833EBB2BCDCBA9AB3F00F8D6D2D0F48926DD313BFBA861C42AEFB58719A05BCB",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "BuildingLimit_Serp",
+      "Version": "1.0.32",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BuildingLimit_Serp\\BuildingLimit.dll",
+      "SHA256": "420C624AC39EBC3B8B26129B8061DB46614D5801D6BC9010A80B8E0831E33E37",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "CastlePlanner_Serp",
+      "Version": "0.8.41",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\CastlePlanner_Serp\\CastlePlanner.dll",
+      "SHA256": "DCFAECF7DE0B3820AF99D651FFE14049B6FF3A1DB1DC838F8694E50B9950AC32",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "ExtendedData_Serp",
+      "Version": "1.0.12",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtendedData_Serp\\ExtendedData.dll",
+      "SHA256": "50B4C3C74A7862BEFAEA1F3355B662775F6E520FBCB983B552597A6B340A9F77",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "ExtraFeatures_Serp",
+      "Version": "1.0.114",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+      "SHA256": "21E26F297204EC51CE430AA4257FEC4D276FD6942D8FE138E3DA06B9A0CBF517",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "RandomEvents_Serp",
+      "Version": "1.0.52",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\RandomEvents_Serp\\RandomEvents.dll",
+      "SHA256": "C0D47C8881D4C9D4AF072A2C11CA67D4BE5D417C3B9795768DC94009CAE41552",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "StartConditions_Serp",
+      "Version": "1.0.32",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\StartConditions_Serp\\StartConditions.dll",
+      "SHA256": "CED6C5FD959951602018E3C9CD98829DE3574636F660F1D526338AE80D3AFFF8",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "UnitCosts_Serp",
+      "Version": "1.0.36",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitCosts_Serp\\UnitCosts.dll",
+      "SHA256": "D6290A7F8D74BB6B8971263813A5684FC94AD93E5F6599165D34CF2DE786B46C",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    },
+    {
+      "Guid": "UnitLimit_Serp",
+      "Version": "1.0.106",
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\UnitLimit_Serp\\UnitLimit.dll",
+      "SHA256": "E40A14A685BA3A90684D09257D20CC96795C23483B6645F1BA3B646661E0C4F3",
+      "State": "NotFound",
+      "Reason": "No observed package claim; manual installation is possible, absence does not prove unsubscribe",
+      "Claims": []
+    }
+  ],
+  "LocalManifests": [
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\APIShared.json",
+      "SHA256": "F35B3668AF7C064FE9D2CD7B9936EAE4D4A459259E5B9834E86392AF4C68AB5C",
+      "Metadata": {
+        "GUID": "APIShared_Serp",
+        "Author": "Serpens66",
+        "Name": "APIShared",
+        "Description": "Shared typed native infrastructure and extensible lobby ModSettings preset API for Serps and third-party mods.",
+        "Version": "0.9.2",
+        "Dependencies": [],
+        "Website": "https://github.com/SHCDE-APIShared/APIShared",
+        "VersionCheckUrl": "",
+        "WorkshopUrl": "",
+        "Manifest": 1,
+        "AssetMode": "Global",
+        "NetworkMode": 1
+      }
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\fixes.json",
+      "SHA256": "215E002CD202E49DCCBFE0D5C93B6DEA643E3312862E7EE98C5F1623A1E8E91B",
+      "Metadata": {
+        "GUID": "fixes",
+        "Author": "Rawra",
+        "Name": "Fixes",
+        "Description": "This mod attempts to fix misc. issues with the vanilla game. Most of which can be individually toggled, and some of which can even be toggled per-lord",
+        "Version": "1.26.5",
+        "Dependencies": [
+          {
+            "GUID": "000shcdese",
+            "MinimumVersion": "2.14.0",
+            "MaximumVersion": ""
+          }
+        ],
+        "Website": "https://gitlab.com/rawra-stronghold-crusader/shcde-fixes",
+        "VersionCheckUrl": "https://gitlab.com/rawra-stronghold-crusader/shcde-fixes",
+        "WorkshopUrl": "https://steamcommunity.com/sharedfiles/filedetails/?id=3791770511",
+        "Manifest": 1,
+        "AssetMode": "Global",
+        "NetworkMode": 1
+      }
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\LorrdyAISharesGold.json",
+      "SHA256": "B0520551A378A20DBC9ACFF9CAD21F9F50118428279A9CB5EA218F2E9ECA2112",
+      "Metadata": {
+        "GUID": "LorrdyAISharesGold",
+        "Author": "Lorrdy",
+        "Name": "Lorrdy AI Shares Gold",
+        "Description": "Make AI lords share their gold with their allies if they have enough.",
+        "Version": "1.0.4",
+        "Website": "https://github.com/Lorrdy/StrongholdCrusaderDEMods",
+        "VersionCheckUrl": "",
+        "WorkshopUrl": "",
+        "Manifest": 1,
+        "NetworkMode": 0
+      }
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\SerpsMods.json",
+      "SHA256": "B4DD16A4F9789DC2843D5E141B28B32B3D8AE2D9AB59AED6BC83BCD50E4DDF66",
+      "Metadata": {
+        "GUID": "SerpsModsWorkshopBootstrap_Serp",
+        "Author": "Workshop publisher",
+        "Name": "Serps Mods Workshop bootstrap",
+        "Description": null,
+        "Version": "1.0.28",
+        "Dependencies": [],
+        "Website": null,
+        "VersionCheckUrl": "",
+        "WorkshopUrl": "",
+        "Manifest": 1,
+        "AssetMode": "Global",
+        "NetworkMode": 0
+      }
+    }
+  ],
+  "StagedFiles": [],
+  "DeleteManifest": [],
+  "Errors": [],
+  "RemovalAuthorized": false
+}

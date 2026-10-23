@@ -274,7 +274,8 @@ namespace BugfixesAndQoL
                 ? "searchObserved=False,searchAssociation=missingPre,decision=[unavailable]"
                 : pre.Evidence.Describe(pairMatches, snapshot);
             // TEMP_GATE_ROUTE_ACCEPTANCE: already associated decision, never changes classification.
-            if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
+#if SERP_DEVDIAG
+                if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
             {
                 CandidateRecord diagnosticFirst = snapshot.Records.Length == 0 ? default : snapshot.Records[0];
                 APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(raidPlayer, raidGroup, args.TribeId, tribeGlobalId, args.TargetValue1, targetGlobalId,
@@ -284,6 +285,8 @@ namespace BugfixesAndQoL
                 ",candidateApproach=" + diagnosticFirst.ApproachTile + ",candidateBuildingTile=" + diagnosticFirst.BuildingTile +
                 ",candidateIsNotRoute=true," + searchDetails);
             }
+#endif
+
             if (raid && issuingFallback)
             {
                 if (args.TribeId == fallbackTribeId &&
@@ -391,9 +394,21 @@ namespace BugfixesAndQoL
             }
             if (stack.Count != 0 && stack.Peek().Tick != lastTick)
             {
-                LogRepeated($"unpaired:{args.TribeId}/{tribeGlobalId}",
-                    $"AI_RAID_ATTACK_UNPAIRED: session={sessionId}, tick={lastTick}, " +
-                    $"tribe={args.TribeId}/{tribeGlobalId}, discardedPreCalls={stack.Count}.", true);
+                var incomplete = new List<string>();
+                int skipped = 0;
+                foreach (AttackCandidateCapture frame in stack)
+                {
+                    // The final flag belongs to the old publisher invocation. Skipped
+                    // originals intentionally have no Post, even across a tick boundary.
+                    if (frame.PreEvent.SkipOriginalFunction) { skipped++; continue; }
+                    incomplete.Add($"tick={frame.Tick}, tribe={frame.Evidence.TribeId}/{frame.TribeGlobalId}, " +
+                        $"sequence={frame.Evidence.Sequence}, command={frame.Command}, " +
+                        $"target={frame.BuildingId}/{frame.BuildingGlobalId}");
+                }
+                if (incomplete.Count != 0)
+                    LogRepeated("unpaired",
+                        $"AI_RAID_ATTACK_UNPAIRED: session={sessionId}, discardedPreCalls={incomplete.Count}, " +
+                        $"regularlySkippedCalls={skipped}, calls=[{string.Join("; ", incomplete)}].", true);
                 stack.Clear();
             }
             stack.Push(new AttackCandidateCapture(args, lastTick, tribeGlobalId,
@@ -857,10 +872,13 @@ namespace BugfixesAndQoL
             int storedId = 0, uint storedGlobalId = 0)
         {
             // TEMP_GATE_ROUTE_ACCEPTANCE: counts every completion, independent of warning suppression.
-            if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
+#if SERP_DEVDIAG
+                if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
                 APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(retry.PlayerId, retry.Group, retry.TribeId, retry.TribeGlobalId,
                 selectedId, selectedGlobalId, "raid-retarget", outcome.Split(':')[0].Split(';')[0],
                 "original=" + retry.OriginalFailedId + "/" + retry.OriginalFailedGlobalId + ",attempts=" + retry.Attempts.Count + ",reason=" + outcome);
+#endif
+
             retryCount++;
             if (outcome == "selected")
             {
@@ -900,7 +918,8 @@ namespace BugfixesAndQoL
             string[] parts = key.Split(':');
             key = parts[0] + (parts.Length > 1 ? ":" + parts[1] : "") + (parts.Length > 2 ? ":" + parts[2] : "");
             if (!warningReasons.Add(key)) { suppressedMessageCount++; return; }
-            Warn(message);
+            if (warning) Warn(message);
+            else Info(message);
         }
 
         private void LogSummary(string reason)
@@ -925,7 +944,8 @@ namespace BugfixesAndQoL
             nextRejectionCleanupTick = 0;
         }
 
-        private void Info(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, value); } catch { } }
+        private void Info(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                                                                                                                                                                                    Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, value); } catch { } }
         private void Warn(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, value); } catch { } }
         private sealed class AttackCandidateCapture
         {

@@ -17,7 +17,9 @@ namespace BugfixesAndQoL
     {
         internal int Owner;
         internal int Type;
-        internal int ColorId;
+        internal GM Material;
+        internal int ColorId; // UI portrait order, not the material palette or unit sprite slot.
+        internal uint OwnerColorArgb;
         internal int Count;
         internal ulong CurrentHealth;
         internal ulong MaxHealth;
@@ -28,6 +30,7 @@ namespace BugfixesAndQoL
         private static readonly Dictionary<int, ForeignTroopEntry> grouped = new Dictionary<int, ForeignTroopEntry>();
         private static readonly List<ForeignTroopEntry> entries = new List<ForeignTroopEntry>();
         private static readonly List<ForeignTroopEntry> entryPool = new List<ForeignTroopEntry>();
+        private static readonly ForeignTroopPlayerColors playerColors = new ForeignTroopPlayerColors();
         private static ManualLogSource log;
         private static ForeignTroopHudView view;
         private static IMissionLifecycleCapability lifecycle;
@@ -88,7 +91,8 @@ namespace BugfixesAndQoL
             lastSpectatorSelectionKey = null;
             lastCameraErrorKey = null;
             lastHealthErrorKey = null;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:91", () => "FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:91", () => "FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
         private static void OnSessionEnded(MissionLifecycleNotification notification)
@@ -148,6 +152,7 @@ namespace BugfixesAndQoL
                     grouped.Clear();
                     entries.Clear();
                     entryPool.Clear();
+                    playerColors.Reset();
                     view.ResetForMap();
                 }
                 if (surfaces == 0) return;
@@ -164,13 +169,13 @@ namespace BugfixesAndQoL
                 catch (Exception hideError)
                 {
                     string hideKey = "hide:" + hideError.GetType().FullName + ":" + hideError.Message;
-                    if (hideKey != lastHideExceptionKey) log.LogError("FOREIGN_TROOP_HUD_HIDE_ERROR: " + hideError);
+                    if (hideKey != lastHideExceptionKey) Shared.DebugLogHelper.LogError(log, "FOREIGN_TROOP_HUD_HIDE_ERROR: " + hideError);
                     lastHideExceptionKey = hideKey;
                 }
                 health.Hide();
                 if (key == lastExceptionKey) return;
                 lastExceptionKey = key;
-                log.LogError("FOREIGN_TROOP_HUD_ERROR: " + error);
+                Shared.DebugLogHelper.LogError(log, "FOREIGN_TROOP_HUD_ERROR: " + error);
             }
         }
 
@@ -183,7 +188,7 @@ namespace BugfixesAndQoL
                 string key = error.GetType().FullName + ":" + error.Message;
                 if (key == lastHealthErrorKey) return;
                 lastHealthErrorKey = key;
-                log.LogError("SELECTED_UNIT_HEALTH_ERROR: " + error);
+                Shared.DebugLogHelper.LogError(log, "SELECTED_UNIT_HEALTH_ERROR: " + error);
             }
         }
 
@@ -250,6 +255,7 @@ namespace BugfixesAndQoL
             }
             grouped.Clear();
             entries.Clear();
+            playerColors.Reset();
             int usedEntries = 0;
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             bool invalidCachedId = false;
@@ -301,7 +307,11 @@ namespace BugfixesAndQoL
                     entry = entryPool[usedEntries++];
                     entry.Owner = owner;
                     entry.Type = type;
-                    entry.ColorId = (int)unit.r_SpritePlayerColorId;
+                    // The first matching unit represents this owner/type group's actual skin.
+                    entry.Material = unit.r_GameMaterialIndex;
+                    ForeignTroopPlayerColor color = playerColors.Get(owner);
+                    entry.ColorId = color.PortraitColorId;
+                    entry.OwnerColorArgb = color.LabelArgb;
                     entry.Count = 0;
                     entry.CurrentHealth = 0;
                     entry.MaxHealth = 0;
@@ -321,9 +331,10 @@ namespace BugfixesAndQoL
                 if (selectionKey != lastSpectatorSelectionKey)
                 {
                     lastSpectatorSelectionKey = selectionKey;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:324", "FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
-                        ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
-                        ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units, selection));
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:324", "FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
+                            ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
+                            ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units, selection));
                 }
             }
             else lastSpectatorSelectionKey = null;
@@ -348,7 +359,7 @@ namespace BugfixesAndQoL
             if (view.LordIconMissing && !lordIconWarningLogged)
             {
                 lordIconWarningLogged = true;
-                log.LogWarning("FOREIGN_TROOP_HUD_RESOURCE_MISSING: BugfixesAndQoL-LordIcon; Lord entry uses its type label.");
+                Shared.DebugLogHelper.LogWarning(log, "FOREIGN_TROOP_HUD_RESOURCE_MISSING: BugfixesAndQoL-LordIcon; Lord entry uses its type label.");
             }
             if (!main.Show_HUD_Troops)
             {
@@ -416,7 +427,7 @@ namespace BugfixesAndQoL
                 string key = error.GetType().FullName + ":" + error.Message;
                 if (key == lastCameraErrorKey) return;
                 lastCameraErrorKey = key;
-                log.LogError("FOREIGN_TROOP_HUD_CAMERA_ERROR: " + error);
+                Shared.DebugLogHelper.LogError(log, "FOREIGN_TROOP_HUD_CAMERA_ERROR: " + error);
             }
         }
 
@@ -435,6 +446,7 @@ namespace BugfixesAndQoL
             if (Marshal.SizeOf<GameUnit>() != 0x490 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_AliveState)).ToInt32() != 0x88 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitChimp)).ToInt32() != 0x8A ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_GameMaterialIndex)).ToInt32() != 0x08 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpritePlayerColorId)).ToInt32() != 0x0C ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpawnedForPlayerIndex)).ToInt32() != 0x7C ||

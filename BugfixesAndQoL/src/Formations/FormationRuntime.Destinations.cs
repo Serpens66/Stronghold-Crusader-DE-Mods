@@ -171,7 +171,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             int normalizedDensity = FormationModel.NormalizeDensity(density);
             int capacity = Math.Min(components.Length, MapWidth * MapWidth);
-            var visited = new bool[capacity];
+            bool[] visited = RentVisited(capacity);
             var queue = new Queue<VanillaSearchNode>();
             var result = new List<NativeDestination>(requiredCount);
             ushort component = components[anchorTile];
@@ -222,6 +222,7 @@ namespace BugfixesAndQoL.UnitCommands
                 throw new InvalidOperationException(
                     $"Vanilla supplied {result.Count} of {requiredCount} required slots.");
             }
+            ReturnVisited(visited);
             return result.ToArray();
         }
 
@@ -303,7 +304,7 @@ namespace BugfixesAndQoL.UnitCommands
                 return new List<NativeDestination>();
 
             int capacity = Math.Min(components.Length, MapWidth * MapWidth);
-            var visited = new bool[capacity];
+            bool[] visited = RentVisited(capacity);
             var queue = new Queue<NativeDestination>();
             var result = new List<NativeDestination>(requestedCount);
             ushort component = components[anchorTile];
@@ -351,8 +352,27 @@ namespace BugfixesAndQoL.UnitCommands
                 TryEnqueueCandidate(current.X + 1, current.Y + 1, 0x08, mask,
                     component, edges, components, visited, queue);
             }
+            ReturnVisited(visited);
             return result;
         }
+
+        // Preview rebuilds run repeatedly while a formation is dragged; reuse the large visited
+        // array instead of allocating it per build. Only an array of exactly the requested
+        // length is reused, so every visited.Length bound check is unchanged. A nested or
+        // failed build simply allocates its own array.
+        [ThreadStatic] private static bool[] visitedScratch;
+
+        private static bool[] RentVisited(int capacity)
+        {
+            bool[] buffer = visitedScratch;
+            visitedScratch = null;
+            if (buffer == null || buffer.Length != capacity)
+                return new bool[capacity];
+            Array.Clear(buffer, 0, buffer.Length);
+            return buffer;
+        }
+
+        private static void ReturnVisited(bool[] buffer) => visitedScratch = buffer;
 
         private static bool IsAssassinOnly(IReadOnlyList<FormationUnit> units)
         {

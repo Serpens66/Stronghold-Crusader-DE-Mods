@@ -10,7 +10,7 @@ using System.Reflection;
 namespace CastlePlanner
 {
     [BepInDependency(ScriptExtenderGuid, "2.10.4")]
-    [BepInDependency("APIShared_Serp", "0.6.0")]
+    [BepInDependency("APIShared_Serp", "0.11.1")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -23,7 +23,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.8.41";
+        public const string PluginVersion = "0.8.45";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -39,6 +39,7 @@ namespace CastlePlanner
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             if (runtime != null)
                 return;
 
@@ -117,8 +118,9 @@ namespace CastlePlanner
             {
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid, blueprintsRemainAvailable: true);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
-                    this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml",
-                    logRoutineActivity: true, enableScrollDiagnostics: true);
+                    this, Shared.DebugLogHelper.ForExternalCode(Logger), PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled,
+                    enableScrollDiagnostics: Shared.DebugLogHelper.DiagnosticsEnabled);
                 Settings.PumpCastleCatalogLoad();
             }
             catch (Exception ex)

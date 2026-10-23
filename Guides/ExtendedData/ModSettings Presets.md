@@ -21,13 +21,15 @@ The reference below explains mod integration, preset files and modes, and how mi
 
 #### Target-mod integration
 
-1. Reference `APIShared.dll` with `Private=false` and declare matching hard minimum dependencies in BepInEx and `info.json`. These examples target the checked workspace assembly 0.9.0; use a published release containing the APIs before distributing a consumer.
+1. These examples use APIShared 0.12.2. Reference `APIShared.dll` with `Private=false` and declare `APIShared_Serp` version `0.12.2` as the matching hard minimum dependency in BepInEx and `info.json`. Install the complete central APIShared package.
 2. Derive the settings ViewModel from `APIShared.ModSettings.PresetLobbyModSettingsViewModel`.
 3. In every persistent setter, call `CanMutateSetting()` before changing state and `OnPropertyChanged()` afterwards.
 4. Register through `LobbyModSettingsPresetRegistration.Register`.
-5. Import `clr-namespace:APIShared.ModSettings;assembly=APIShared` in XAML. Use the [public settings example](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) and [XAML example](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) for registration and bindings. Retain the model for the process lifetime; registration and UI operations run on Unity.
+5. Import `clr-namespace:APIShared.ModSettings;assembly=APIShared` in XAML. Use the [plugin registration example](../../APIShared/examples/ThirdPartyMod/ExamplePlugin.cs), [settings example](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) and [XAML example](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml). Retain the model for the process lifetime; registration and UI operations run on Unity.
 
 No Shared source links, preset compile symbols, or ExtendedData reference are required.
+
+APIShared provides preset storage, settings roles, participant diagnostics and temporary mission-settings application. ExtendedData provides Map/Trail content and their optional working sources. Consumers that read or create schema-3 mission documents also reference `APIShared.Content.dll` with `Private=false`; see [mission settings integration](../../APIShared/docs/THIRD_PARTY_GUIDE.md#mission-settings-preparation). Personal presets use schema 1 and remain distinct from schema-3 mission documents.
 
 If a persisted property's code default can only be known after dynamic discovery, the derived ViewModel may call `SetModDefaultValue(propertyName, value)` after registration. This updates only APIShared's typed default snapshot; it does not modify the current working value. Optional working-source providers mark the source for their current context with `ModSettingsWorkingSource.IsPreferred`; clients then select it when the context changes without applying it automatically.
 
@@ -133,11 +135,13 @@ Die Referenz unten erklärt die Mod-Integration, Preset-Dateien und Modi sowie d
 
 #### Integration des Ziel-Mods
 
-1. `APIShared.dll` mit `Private=false` referenzieren und übereinstimmende harte Mindestabhängigkeiten in BepInEx und `info.json` angeben. Diese Beispiele richten sich an die geprüfte Workspace-Assembly 0.9.0; vor der Veröffentlichung eines Consumers ein veröffentlichtes Release mit den verwendeten APIs wählen.
+1. Diese Beispiele verwenden APIShared 0.12.2. `APIShared.dll` mit `Private=false` referenzieren und `APIShared_Serp` ab Version `0.12.2` als übereinstimmende harte Mindestabhängigkeit in BepInEx und `info.json` angeben. Das vollständige zentrale APIShared-Paket installieren.
 2. Das Settings-ViewModel von `APIShared.ModSettings.PresetLobbyModSettingsViewModel` ableiten.
 3. In jedem persistenten Setter vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` aufrufen.
 4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
-5. Im XAML `clr-namespace:APIShared.ModSettings;assembly=APIShared` importieren. Das [öffentliche Settings-Beispiel](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) und [XAML-Beispiel](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) zeigen Registrierung und Bindings. Das Modell für die Prozesslebensdauer verwurzeln; Registrierung und UI-Operationen laufen auf Unity.
+5. Im XAML `clr-namespace:APIShared.ModSettings;assembly=APIShared` importieren. Das [Plugin-Beispiel](../../APIShared/examples/ThirdPartyMod/ExamplePlugin.cs), [Settings-Beispiel](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) und [XAML-Beispiel](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) zeigen Registrierung und Bindings. Das Modell für die Prozesslebensdauer verwurzeln; Registrierung und UI-Operationen laufen auf Unity.
+
+APIShared stellt Presetspeicher, Einstellungsrollen, Teilnehmerdiagnose sowie die Anwendung temporärer Missionseinstellungen bereit. ExtendedData liefert Map-/Trail-Inhalte und deren optionale Arbeitsquellen. Verbraucher, die Schema-3-Missionsdokumente lesen oder erstellen, referenzieren zusätzlich `APIShared.Content.dll` mit `Private=false`; siehe [Missionssettings-Integration](../../APIShared/docs/THIRD_PARTY_GUIDE.md#mission-settings-preparation). Persönliche Presets verwenden Schema 1 und sind von Schema-3-Missionsdokumenten getrennt.
 
 Kann der Code-Standard einer persistenten Property erst nach einer dynamischen Erkennung bestimmt werden, darf das abgeleitete ViewModel anschließend `SetModDefaultValue(propertyName, value)` aufrufen. Dadurch wird nur der typisierte APIShared-Default-Snapshot aktualisiert, nicht der aktuelle Arbeitswert. Optionale Quellenprovider kennzeichnen die Quelle ihres aktuellen Kontexts mit `ModSettingsWorkingSource.IsPreferred`; beim Kontextwechsel wird sie vorausgewählt, aber nicht automatisch angewendet.
 

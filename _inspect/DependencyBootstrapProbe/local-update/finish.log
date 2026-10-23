@@ -1,0 +1,9 @@
+PASS: shadow inventory complete; 10 proposed additions; issues 0 -> 0; original index unchanged.
+PASS: correction retained; original results match evaluated requirements.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: lifecycle capture complete and build/run bound; ownership is observation only, never deletion authority.
+PASS: complete package and actual selected provider bound before correction.
+PASS: Active probe markers and exact build identities in latest session.
+Manual acceptance still required: expected dialog and usable main menu; inspect current Unity/BepInEx errors. No gameplay or APIShared integration proof.
+PASS: After exact local update trial; APIShared/updater unchanged; no foreign staging or deletion.
+Only synthetic receipt and local trial request removed; installed B and correction switches retained.

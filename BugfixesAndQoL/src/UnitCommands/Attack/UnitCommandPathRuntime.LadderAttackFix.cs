@@ -318,12 +318,17 @@ namespace BugfixesAndQoL.UnitCommands
             // Call the E2610 trampoline directly: this preserves Vanilla's exact return
             // value and graph-state writes without recursing through the shared detour.
             probe.ModeRetryCount++;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
             int groupModeResult = originalRegionPairReachability(
                 pathManager,
                 playerId,
                 sourceRegion,
                 targetRegion,
                 probe.GroupMovementMode);
+            Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.ladderRetry", 10000, () =>
+                $"player={playerId} regions={sourceRegion}->{targetRegion} " +
+                $"groupMode={probe.GroupMovementMode} result={groupModeResult} retries={probe.ModeRetryCount}");
             probe.LastModeRetryResult = groupModeResult;
             if (groupModeResult == 0)
                 return false;
@@ -462,13 +467,16 @@ namespace BugfixesAndQoL.UnitCommands
             ((ulong)(uint)candidate.ApproachTileId << 32) |
             (uint)candidate.FootprintTileId;
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogVanillaGroupModeResult(
             LadderAttackProbeScope probe,
             AttackApproachState result)
         {
+#if SERP_DEVDIAG
             if (probe.ModeRetryCount == 0)
                 return;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:471", $"Bugfixes and QoL Vanilla ladder attack group-mode result: " +
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:471", $"Bugfixes and QoL Vanilla ladder attack group-mode result: " +
                 $"commandSeq={probe.CommandSequence}, kind={probe.Kind}, " +
                 $"tribe={probe.TribeId}, leadUnitId={probe.LeadUnitId}, " +
                 $"building={probe.BuildingId}, groupMode={probe.GroupMovementMode}, " +
@@ -476,18 +484,23 @@ namespace BugfixesAndQoL.UnitCommands
                 $"positiveModeRetries={probe.PositiveModeRetryCount}, " +
                 $"lastModeResult={probe.LastModeRetryResult}, " +
                 $"results={result.UsableResultCount}.");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogVanillaLadderProbeNotCreated(
             AttackApproachKind kind,
             int tribeId,
             string reason)
         {
+#if SERP_DEVDIAG
             if (!DetailedDiagnosticsEnabled || activeAttackCommand == null)
                 return;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:490", $"Bugfixes and QoL Vanilla ladder attack scope not created: " +
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs:490", $"Bugfixes and QoL Vanilla ladder attack scope not created: " +
                 $"commandSeq={activeAttackCommand.Sequence}, kind={kind}, tribe={tribeId}, " +
                 $"reason={reason}, setting={settings.EnableLadderAttackPathfindingFix}.");
+#endif
         }
     }
 }

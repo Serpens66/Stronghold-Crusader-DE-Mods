@@ -16,14 +16,14 @@ namespace ExtraFeatures
             if (args.ShiftModifier == SingleMarketTradeMode || args.Selling)
                 return;
 
-            string key = BuildResourceEventKey(args.PlayerId, args.Good);
+            long key = ResourceEventKey(args.PlayerId, args.Good);
             if (args.Phase == EventHookPhase.Pre)
             {
                 PruneExpiredResourceGuards();
                 marketBuyResourceGuards[key] = new ResourceEventCountGuard
                 {
                     RemainingAmount = args.ShiftModifier != 0 ? MarketBuyShiftAmount : MarketBuyAmount,
-                    ExpiresAt = DateTime.UtcNow + MarketBuyGuardLifetime
+                    CreatedTick = CurrentGameTick()
                 };
             }
             else if (args.Phase == EventHookPhase.Post)
@@ -34,16 +34,16 @@ namespace ExtraFeatures
 
         internal void BeginSingleMarketBuyGuard(int playerId, eGoods good)
         {
-            string key = BuildResourceEventKey(playerId, good);
+            long key = ResourceEventKey(playerId, good);
             PruneExpiredResourceGuards();
             marketBuyResourceGuards[key] = new ResourceEventCountGuard
             {
                 RemainingAmount = 1,
-                ExpiresAt = DateTime.UtcNow + MarketBuyGuardLifetime
+                CreatedTick = CurrentGameTick()
             };
         }
 
         internal void EndSingleMarketBuyGuard(int playerId, eGoods good) =>
-            marketBuyResourceGuards.Remove(BuildResourceEventKey(playerId, good));
+            marketBuyResourceGuards.Remove(ResourceEventKey(playerId, good));
     }
 }

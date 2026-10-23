@@ -1,3 +1,4 @@
+using APIShared.Presentation;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -13,7 +14,7 @@ using System.Threading;
 
 // TODO
 // sobald im extender ein weg eingebaut wurde die Rekrutierung zu verhinden, dann MakeTroopGameActionHooks dadurch ersetzen
-// anstelle von AliveCount kann für den lokalen Spieler auch das verwendet werden: GameUnitManagerAPI.Instance.GetUnitArmyCount(eChimps chimp) liefert selbe ergebnisse wie alive (also kein pending und keine siege tents)
+// anstelle von AliveCount kann fÃ¼r den lokalen Spieler auch das verwendet werden: GameUnitManagerAPI.Instance.GetUnitArmyCount(eChimps chimp) liefert selbe ergebnisse wie alive (also kein pending und keine siege tents)
 
 namespace UnitLimit
 {
@@ -29,8 +30,6 @@ namespace UnitLimit
         private bool activeUnitCacheAvailable;
         private bool activeSiegeTentCacheAvailable;
         private MakeTroopGameActionHook makeTroopGameActionHook;
-        private CreateTroopHoverHook createTroopHoverHook;
-        private SiegeBuildHoverHook siegeBuildHoverHook;
         private RecruitmentAvailabilityUiHook recruitmentAvailabilityUiHook;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
@@ -42,7 +41,6 @@ namespace UnitLimit
 
         public LimitNotificationViewModel LimitNotification { get; } = new LimitNotificationViewModel();
         public LimitNotificationViewModel SiegeLimitNotification { get; } = new LimitNotificationViewModel();
-        public UnitLimitTooltipViewModel UnitLimitTooltip { get; } = new UnitLimitTooltipViewModel();
 
         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
         {
@@ -99,7 +97,10 @@ namespace UnitLimit
             if (hooksSubscribed)
                 return;
 
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:102", "Installing permanent unit limit runtime hooks");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:102", "Installing permanent unit limit runtime hooks");
+            }
             activeUnitCacheAvailable = TryInitializeFeature("active-unit cache", () =>
             {
                 activeUnitCache.SubscribeHooks();
@@ -129,11 +130,11 @@ namespace UnitLimit
                         DecideMakeTroopGameAction,
                         CompleteMakeTroopGameAction,
                         () => IsEffectsActive));
-                TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip));
-                TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability));
+                TryInitializeFeature("recruitment tooltip", () => RegisterUnitLimitTooltip(TooltipTarget.Recruitment, "RecruitmentLimit"));
+                TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, this));
             }
             if (activeUnitCacheAvailable && activeSiegeTentCacheAvailable)
-                TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip));
+                TryInitializeFeature("siege tooltip", () => RegisterUnitLimitTooltip(TooltipTarget.SiegeConstruction, "SiegeLimit"));
 
             TrySubscribeFeature("gameplay session start", () =>
                 Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
@@ -148,7 +149,10 @@ namespace UnitLimit
                         .Subscribe(OnBuildingPlacementValidation));
             }
 
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:151", "Unit limit permanent runtime hooks installed");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:151", "Unit limit permanent runtime hooks installed");
+            }
             hooksSubscribed = true;
         }
 
@@ -163,7 +167,10 @@ namespace UnitLimit
             ApplyUnitLimits();
             if (EffectsEnabled)
                 Volatile.Write(ref effectsActive, 1);
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:166", "Applied unit limit settings");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:166", "Applied unit limit settings");
+            }
             libraryInitialized = true;
         }
 
@@ -187,14 +194,18 @@ namespace UnitLimit
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:190", "Gameplay session started: " + context.Kind);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug("UnitLimit/src/UnitLimitRuntime.cs:190", "Gameplay session started: " + context.Kind);
             ResetUnitRecruitableTracking();
             ApplyUnitLimits();
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            LogDebug("UnitLimit/src/UnitLimitRuntime.cs:197", "OnUnloadMap");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/UnitLimitRuntime.cs:197", "OnUnloadMap");
+            }
             ClearPendingRecruitments("OnUnloadMap");
             ClearExternalReservations("OnUnloadMap");
             HideLimitMessage();
@@ -230,7 +241,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/UnitLimitRuntime.cs:233", "Unit limit feature failed; independent features continue:", featureName, ex);
+                Shared.RuntimeHealth.Failure(log, featureName, true, $"UnitLimit feature '{featureName}' failed; independent features continue: {ex}");
                 return false;
             }
         }

@@ -1,5 +1,6 @@
 # Upload published bytes independently of the mutable source checkout used to run tools.
 . (Join-Path $PSScriptRoot 'ReleaseAssetCache.ps1')
+. (Join-Path $PSScriptRoot 'ApiSharedSdkPolicy.ps1')
 function Invoke-ModpackReleaseGh([string[]]$Arguments){
     $result=Invoke-ApiRepositoryProcess 'gh' $Arguments
     if($result.ExitCode -ne 0){throw ('GitHub release lookup/download failed: '+$result.Diagnostic)}
@@ -40,10 +41,11 @@ function Assert-PublishedModpackProvenance($Provenance,$Release){
        $Release.Commit -cnotmatch '^[0-9a-f]{40}$' -or
        $Provenance.Pack -cne 'SerpsMods' -or $Provenance.PackGuid -cne 'SerpsMods_Serp' -or
        $Provenance.Version -cne $Release.Version -or $Provenance.Commit -cne $Release.Commit -or
-       $Provenance.ApiSharedCommit -cne 'c7b210f007035ff8edaf4d359a21f7bfbcbe479d' -or
-       $Provenance.ApiSharedMainCommit -cne 'c7b210f007035ff8edaf4d359a21f7bfbcbe479d'){
-        throw 'Published modpack identity, main commit or public APIShared 0.9.2 provenance mismatch.'
+       $Provenance.ApiSharedCommit -cnotmatch '^[0-9a-f]{40}$' -or
+       $Provenance.ApiSharedMainCommit -cnotmatch '^[0-9a-f]{40}$'){
+        throw 'Published modpack identity, main commit or APIShared provenance mismatch.'
     }
+    $null=Get-ModpackApiSharedIdentity $Provenance
     $zip=@($Release.Assets|Where-Object {$_.Name -ceq ('SerpsMods-Workshop-v'+$Release.Version+'.zip')})
     $map=@($Release.Assets|Where-Object {$_.Name -ceq 'SerpsMods.map'})
     if($zip.Count -ne 1 -or $map.Count -ne 1 -or $Provenance.Workshop.File -cne $zip[0].Name -or
@@ -55,7 +57,7 @@ function Assert-PublishedModpackPreparation($Config,$Proof){
     if($Proof.Version -cnotmatch '^\d+\.\d+\.\d+$'){throw 'Invalid published version.'}
     if($Proof.Target -cne 'SerpsMods' -or $Proof.Commit -cne $release.Commit -or $Proof.Version -cne $release.Version -or
        $Proof.ReleaseTag -cne $release.Tag -or -not $Proof.MainSource -or
-       $Proof.MainSource.Commit -cne 'c7b210f007035ff8edaf4d359a21f7bfbcbe479d') {throw 'Published preparation identity mismatch.'}
+       $Proof.MainSource.Commit -cnotmatch '^[0-9a-f]{40}$') {throw 'Published preparation identity mismatch.'}
     $cache=Join-Path (Get-WorkshopStateRoot $Config $false) ('releases/v'+$Proof.Version)
     $required=@('SerpsMods.provenance.json',('SerpsMods-Workshop-v'+$Proof.Version+'.zip'),'SerpsMods.map','SerpsMods.map.sha256')
     if(@($release.Assets).Count -ne $required.Count){throw 'Incomplete published asset inventory.'}
@@ -67,6 +69,8 @@ function Assert-PublishedModpackPreparation($Config,$Proof){
     }
     $provenance=[IO.File]::ReadAllText((Join-Path $cache 'SerpsMods.provenance.json'))|ConvertFrom-Json
     Assert-PublishedModpackProvenance $provenance $release
+    $identity=Get-ModpackApiSharedIdentity $provenance
+    Assert-ModpackApiSharedIdentity $Proof.PublishedSdk $identity
     if((Get-WorkshopFileHash $Proof.ReleaseProvenance) -cne (Get-WorkshopFileHash (Join-Path $cache 'SerpsMods.provenance.json'))){throw 'Prepared provenance differs from published release.'}
 }
 function Prepare-LatestPublishedModpack($Config,[bool]$Test){

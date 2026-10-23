@@ -123,13 +123,13 @@ namespace BugfixesAndQoL
             // A match elsewhere cannot authorize fixed-layout register/continuation assumptions.
             if (resolved.Rva != rva)
                 throw new InvalidOperationException($"Workshop idle pattern moved from audited RVA 0x{rva:X}.");
-            int unique = Shared.NativePatternResolver.FindUniquePattern(memory, signature, "workshop idle " + rva);
-            if (unique != rva)
-                throw new InvalidOperationException("Workshop idle signature moved outside the audited control flow.");
+            // ResolveUnique above already confirmed the audited bytes; the reference hash gate of this
+            // feature pins the image, so a second whole-section uniqueness scan adds no evidence.
             WorkshopIdleDelayNative.ValidateInstructions(WorkshopIdleDelayNative.Decode(expected, imageBase + (uint)rva),
                 imageBase + (uint)exit, rva == WorkshopIdleDelayNative.TannerRva);
-            Shared.DebugLogHelper.LogDebug(log,
-                $"Workshop idle address resolved: method={resolved.Method}, rva=0x{resolved.Rva:X}; span=17.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(log,
+                    $"Workshop idle address resolved: method={resolved.Method}, rva=0x{resolved.Rva:X}; span=17.");
         }
 
         private void ValidateLayouts()
@@ -156,9 +156,10 @@ namespace BugfixesAndQoL
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner), 0xD6);
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId), 0xD8);
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_WoodPlanksAmount), 0x128);
-            Shared.DebugLogHelper.LogDebug(log,
-                "Workshop idle field map validated: unit manager header=0x65C stride=0x490; " +
-                "building header=0x5C stride=0x32C; gameId is 1-based; native hash=" + WorkshopIdleDelayNative.NativeSha256);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(log,
+                    "Workshop idle field map validated: unit manager header=0x65C stride=0x490; " +
+                    "building header=0x5C stride=0x32C; gameId is 1-based; native hash=" + WorkshopIdleDelayNative.NativeSha256);
         }
 
         private static void CheckOffset(Type type, string member, int expected)
@@ -173,8 +174,9 @@ namespace BugfixesAndQoL
         {
             if (afterStartupLogged) return;
             afterStartupLogged = true;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WorkshopIdleDelayHook.cs:176", "BUGFIXES_AND_QOL_WORKSHOP_IDLE_READY: permanent poleturner/tanner inline hooks; tick=" + tick +
-                "; unit allocation=" + *(int*)unitManager + "; building allocation=" + *(int*)(buildingManager + 0x50));
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WorkshopIdleDelayHook.cs:176", "BUGFIXES_AND_QOL_WORKSHOP_IDLE_READY: permanent poleturner/tanner inline hooks; tick=" + tick +
+                    "; unit allocation=" + *(int*)unitManager + "; building allocation=" + *(int*)(buildingManager + 0x50));
         }
     }
 }

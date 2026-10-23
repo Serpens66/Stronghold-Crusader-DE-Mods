@@ -15,10 +15,17 @@ internal static class Program
                 : Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
 
             TestSaveRoundTrip();
+            TestEmptySaveReplacesProtection();
+            TestRestoreFailures();
             TestSaveValidation();
             TestRepairFailureLogState();
-            TestSourceContracts(workspaceRoot);
-            Console.WriteLine("PASS: StartConditions AI start-troop isolation codec and source contracts.");
+            // The legacy source snapshot is a separate opt-in check; current builds exercise
+            // production codec/policy behavior without depending on removed diagnostic sources.
+            bool behaviorOnly = args != null && args.Contains("--behavior-only");
+            if (!behaviorOnly) TestSourceContracts(workspaceRoot);
+            Console.WriteLine(behaviorOnly
+                ? "PASS: StartConditions AI start-troop isolation codec, empty-save replacement and restore validation."
+                : "PASS: StartConditions AI start-troop isolation codec and source contracts.");
             return 0;
         }
         catch (Exception ex)
@@ -58,6 +65,44 @@ internal static class Program
             Require(decoded.Records[index].OwnerPlayerId == records[index].OwnerPlayerId, "owner did not round-trip");
             Require(decoded.Records[index].PrivateTribeGlobalId == records[index].PrivateTribeGlobalId, "tribe global id did not round-trip");
         }
+    }
+
+    private static void TestEmptySaveReplacesProtection()
+    {
+        // Model the Extender archive boundary: null does not overwrite an existing entry.
+        byte[] entry = AIStartTroopIsolationSaveState.Encode(new[] { new AIStartTroopIsolationSaveRecord(98134, 2, 17) });
+        byte[] next = AIStartTroopIsolationSaveState.EncodeForSave(true, Array.Empty<AIStartTroopIsolationSaveRecord>());
+        Require(next != null && next.Length > 0, "an empty save must overwrite the old archive entry");
+        entry = next;
+        Require(AIStartTroopIsolationSaveState.Decode(entry).Records.Length == 0, "old protection survived save/reload");
+        Require(AIStartTroopIsolationSaveState.Decode(AIStartTroopIsolationSaveState.EncodeForSave(true, null)).Records.Length == 0,
+            "inactive protection must publish an empty save envelope");
+        Require(AIStartTroopIsolationSaveState.EncodeForSave(false, null) == null, "map saves must not publish gameplay protection");
+    }
+
+    private static void TestRestoreFailures()
+    {
+        var saved = new AIStartTroopIsolationSaveRecord(98134, 2, 17);
+        foreach (var alive in new[] { SHCDESE.Interop.Enums.AliveState.NeedsInit, SHCDESE.Interop.Enums.AliveState.IsAlive })
+            Require(AIStartTroopRestorePolicy.ValidateUnit(saved, 98134, alive, 2, true, ushort.MaxValue, 0, out _), "valid protection rejected");
+        void Reject(uint global, SHCDESE.Interop.Enums.AliveState alive, int owner, bool ai, ushort marker, ushort related, string code)
+        {
+            Require(!AIStartTroopRestorePolicy.ValidateUnit(saved, global, alive, owner, ai, marker, related, out string reason), code + " was accepted");
+            Require(reason.StartsWith(code, StringComparison.Ordinal), "restore failure lost its exact cause: " + reason);
+        }
+        var active = SHCDESE.Interop.Enums.AliveState.IsAlive;
+        Reject(98135, active, 2, true, ushort.MaxValue, 0, "unit-identity-mismatch");
+        Reject(98134, default, 2, true, ushort.MaxValue, 0, "unit-inactive");
+        Reject(98134, active, 3, true, ushort.MaxValue, 0, "unit-owner-mismatch");
+        Reject(98134, active, 2, false, ushort.MaxValue, 0, "unit-owner-not-ai");
+        Reject(98134, active, 2, true, 0, 0, "unit-isolation-marker-mismatch");
+        Reject(98134, active, 2, true, ushort.MaxValue, 1, "unit-isolation-marker-mismatch");
+        Require(AIStartTroopRestorePolicy.ValidatePrivateTribe(saved, 5, 17, active, 2, 5, out _), "valid private tribe rejected");
+        Require(!AIStartTroopRestorePolicy.ValidatePrivateTribe(saved, 5, 18, active, 2, 5, out _), "reused tribe slot accepted");
+        Require(!AIStartTroopRestorePolicy.ValidatePrivateTribe(saved, 5, 17, default, 2, 5, out _), "inactive private tribe accepted");
+        Require(!AIStartTroopRestorePolicy.ValidatePrivateTribe(saved, 5, 17, active, 3, 5, out _), "foreign-owned private tribe accepted");
+        Require(!AIStartTroopRestorePolicy.ValidatePrivateTribe(saved, 5, 17, active, 2, 6, out string groupReason), "conflicting unit tribe accepted");
+        Require(groupReason.Contains("expectedUnitTribeId=5") && groupReason.Contains("actualUnitTribeId=6"), "tribe diagnostic lost expected/observed IDs");
     }
 
     private static void TestSaveValidation()
@@ -147,8 +192,7 @@ internal static class Program
         RequireContains(startTroops, "bool isolateFromAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);");
         RequireContains(startTroops, "TryProtectSpawnedAIStartTroop(createdId, playerId, unitType)");
         RequireContains(startTroops, "RecordAIStartTroopDiagnosticBatch(");
-        RequireContains(isolation, "private const ushort ProtectedAIBehaviourType = ushort.MaxValue;");
-        RequireContains(isolation, "private const ushort ProtectedAIBehaviourRelatedValue = 0;");
+        // Marker and identity validation are exercised above through the production policy.
         RequireContains(isolation, "GameTribeManagerAPI.Instance.UnassignUnit(tribeId, unitId)");
         RequireContains(isolation, "assignmentIssued = tribeApi.AssignUnit(privateTribeId, protectedTroop.UnitId);");
         RequireContains(isolation, "TribeStance.Aggressive");
@@ -165,8 +209,6 @@ internal static class Program
         RequireContains(isolation, "DoesTribeMembershipIncludeUnit(tribe, unitId)");
         RequireContains(isolation, "tribe->r_UnitsInGroup < membersBefore");
         RequireContains(isolation, "unit->r_AITribeRole != ProtectedAIBehaviourType");
-        RequireContains(isolation, "saved private tribe {saved.PrivateTribeGlobalId} has conflicting live state");
-        RequireContains(isolation, "belongs to conflicting live tribe");
         RequireContains(isolation, "RepairFailureLog.ShouldLog(failureSignature)");
         RequireContains(isolation, "RepairFailureLog.MarkRecovered()");
         RequireContains(diagnostics, "AIStartTroopDiagnosticOffsets = { 0, 1, 10, 250 }");

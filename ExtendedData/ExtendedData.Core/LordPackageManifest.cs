@@ -165,7 +165,9 @@ namespace ExtendedData
         public string FileDigest { get; set; }
         public bool NeedsLocalFiles { get; set; }
         public bool NeedsSnapshot { get; set; }
+        public bool EmbeddedTrail { get; set; }
         public string FixesDigest { get; set; }
+        public string FixesSourcesDigest { get; set; }
     }
 
     public sealed class LordPackageManifest
@@ -187,7 +189,7 @@ namespace ExtendedData
             Validate(ordered);
             string payload = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
             {
-                ["version"] = 1,
+                ["version"] = 2,
                 ["session"] = sessionId,
                 ["local"] = useLocalValues,
                 ["slots"] = ordered.Select(slot => (object)new Dictionary<string, object>
@@ -200,7 +202,9 @@ namespace ExtendedData
                     ["fileDigest"] = slot.FileDigest,
                     ["needsLocalFiles"] = slot.NeedsLocalFiles,
                     ["needsSnapshot"] = slot.NeedsSnapshot,
+                    ["embeddedTrail"] = slot.EmbeddedTrail,
                     ["fixesDigest"] = slot.FixesDigest,
+                    ["fixesSourcesDigest"] = slot.FixesSourcesDigest,
                 }).ToList(),
             });
             string digest = Hash(Encoding.UTF8.GetBytes(payload));
@@ -232,12 +236,15 @@ namespace ExtendedData
                 !string.Equals(Hash(Encoding.UTF8.GetBytes(payload)), digest, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("The Lord package manifest checksum is invalid.");
             var data = Shared.DependencyFreeJson.Parse(payload) as Dictionary<string, object>;
-            if (data == null || Convert.ToInt32(data["version"]) != 1 || !(data["local"] is bool local) ||
+            if (data == null || Convert.ToInt32(data["version"]) < 1 || Convert.ToInt32(data["version"]) > 2 || !(data["local"] is bool local) ||
                 !(data["slots"] is List<object> items))
                 throw new InvalidDataException("The Lord package manifest format is invalid.");
             LordPackageSlot[] slots = items.Select(item =>
             {
                 var row = item as Dictionary<string, object> ?? throw new InvalidDataException("Invalid Lord package slot.");
+                if (row.TryGetValue("embeddedTrail", out object embeddedValue) && !(embeddedValue is bool) ||
+                    row.TryGetValue("fixesSourcesDigest", out object sourcesValue) && sourcesValue != null && !(sourcesValue is string))
+                    throw new InvalidDataException("Invalid Lord package source metadata.");
                 return new LordPackageSlot
                 {
                     PlayerId = Convert.ToInt32(row["playerId"]),
@@ -248,11 +255,46 @@ namespace ExtendedData
                     FileDigest = row["fileDigest"] as string,
                     NeedsLocalFiles = row["needsLocalFiles"] is bool required && required,
                     NeedsSnapshot = row["needsSnapshot"] is bool snapshotRequired && snapshotRequired,
+                    EmbeddedTrail = row.TryGetValue("embeddedTrail", out object embedded) && embedded is bool isEmbedded && isEmbedded,
                     FixesDigest = row["fixesDigest"] as string,
+                    FixesSourcesDigest = row.TryGetValue("fixesSourcesDigest", out object sources) ? sources as string : null,
                 };
             }).ToArray();
             Validate(slots);
-            return Create(data["session"] as string, local, slots);
+            if (!(data.TryGetValue("session", out object session) && session is string sessionId) ||
+                string.IsNullOrWhiteSpace(sessionId))
+                throw new InvalidDataException("A Lord package session ID is required.");
+            // Keep the verified historical envelope until an explicit host migration creates a new one.
+            return new LordPackageManifest { SessionId = sessionId, UseLocalValues = local,
+                Slots = slots, Digest = digest, WireJson = wire };
+        }
+
+        // An old READY acknowledgement is useful only for this manifest's complete value set.
+        public bool MatchesSnapshot(LordDataSnapshot snapshot, Func<string, string> normalizeFixes)
+        {
+            if (snapshot == null || snapshot.SessionId != SessionId || snapshot.Slots.Count != Slots.Count)
+                return false;
+            foreach (LordPackageSlot expected in Slots)
+            {
+                LordDataSlot actual = snapshot.GetSlot(expected.PlayerId);
+                if (actual == null || actual.LordType != expected.LordType ||
+                    !string.Equals(actual.LordName, expected.LordName, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(actual.ConfigName, expected.ConfigName, StringComparison.OrdinalIgnoreCase) ||
+                    actual.ConfigChecksum != expected.ConfigChecksum ||
+                    snapshot.FixesInstalled && actual.FixesSources == null)
+                    return false;
+                string own = normalizeFixes(actual.FixesJson);
+                if (!string.Equals(own == null ? null : Hash(Encoding.UTF8.GetBytes(own)),
+                    expected.FixesDigest, StringComparison.Ordinal)) return false;
+                var sources = actual.FixesSources?.Select(source => new FixesPreferenceSource
+                {
+                    CustomName = source.CustomName, LordType = source.LordType,
+                    Json = normalizeFixes(source.Json),
+                }).ToArray();
+                if (!string.Equals(FixesPreferenceSources.Digest(sources), expected.FixesSourcesDigest,
+                    StringComparison.Ordinal)) return false;
+            }
+            return true;
         }
 
         private static void Validate(LordPackageSlot[] slots)

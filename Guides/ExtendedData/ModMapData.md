@@ -27,7 +27,7 @@ example.map
 
 Place `modmap.json` at the root of the appended archive beside `info.json` and `init.lua`, not merely beside the `.map` file. See the current [Script Extender Map Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/map-creation-guide.md?ref_type=heads) for archive creation and packaging.
 
-The base map can still be opened without ExtendedData; only the supplemental namespaced values are unavailable.
+Map loading uses the Script Extender. APIShared reads the supplemental namespaced values without an ExtendedData dependency.
 
 #### File responsibilities
 
@@ -73,14 +73,14 @@ There is no global schema version. Prefer a stable BepInEx plugin GUID in lowerc
 
 #### Reading a namespace
 
-Reference `ExtendedData.dll` and `ExtendedData.Core.dll`, then request only your namespace:
+Use the complete APIShared 0.12.2 package. Declare `APIShared_Serp` version `0.12.2` as the hard minimum dependency in both BepInEx and `info.json`, and reference `APIShared.dll` and `APIShared.Content.dll` with `Private=false`. The consuming mod does not need ExtendedData. See the [shared mod-data API](../../APIShared/docs/MOD_DATA.md) for source, authority and lifecycle contracts.
 
 ```csharp
 using System.Collections.Generic;
-using ExtendedData;
+using APIShared.ModData;
 
-ExtendedDataModDataReadResult result =
-    ExtendedDataModDataApi.ReadCurrentMapNamespace("author.example-mod");
+ModDataReadResult result =
+    ModDataAccess.ReadCurrentMapNamespace("author.example-mod");
 
 if (result.Success)
 {
@@ -89,7 +89,9 @@ if (result.Success)
 }
 ```
 
-`Data` is a deeply read-only snapshot. Nested objects implement `IReadOnlyDictionary<string, object>` and arrays implement `IReadOnlyList<object>`. `Json` contains only the requested namespace. ExtendedData validates the shared container but leaves `schemaVersion` and all mod-owned fields to the consumer.
+`Data` is a deeply read-only snapshot. Nested objects implement `IReadOnlyDictionary<string, object>` and arrays implement `IReadOnlyList<object>`. `Json` contains only the requested namespace. APIShared validates the shared container but leaves `schemaVersion` and all mod-owned fields to the consumer.
+
+`ExtendedData.ExtendedDataModDataApi.ReadCurrentMapNamespace` is also available to consumers referencing `ExtendedData.dll` and `ExtendedData.Core.dll`. It delegates to the shared reader and returns ExtendedData's public result type.
 
 Possible status values are:
 
@@ -102,7 +104,7 @@ Possible status values are:
 
 Missing files and namespaces mean normal default behavior. For other failures, log `Diagnostic` and disable only the dependent feature.
 
-Call the API after the Script Extender has loaded the Map archive. It reads on demand and does not cache or poll. Retain a validated model only for the lifetime of the corresponding Map.
+Call the API on the Unity thread from a successful APIShared mission-start notification, after the Script Extender has loaded the matching Map archive. The reader includes pending edits in the current in-memory archive, has no document byte limit, and does not cache or poll. Retain a validated model only for the lifetime of the corresponding Map; discard it on mission end or replacement.
 
 #### Authoring and validation
 
@@ -142,7 +144,7 @@ example.map
 
 Lege `modmap.json` an der Wurzel des angehängten Archivs neben `info.json` und `init.lua` ab, nicht lediglich neben der `.map`-Datei. Der aktuelle [Script Extender Map Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/map-creation-guide.md?ref_type=heads) beschreibt Erstellung und Paketierung des Archivs.
 
-Die zugrunde liegende Map kann weiterhin ohne ExtendedData geöffnet werden; lediglich die zusätzlichen Namensraumwerte stehen dann nicht zur Verfügung.
+Das Laden der Map erfolgt über den Script Extender. APIShared liest die zusätzlichen Namensraumwerte ohne Abhängigkeit auf ExtendedData.
 
 #### Aufgaben der Dateien
 
@@ -188,14 +190,14 @@ Es gibt keine globale Schemaversion. Bevorzuge eine stabile BepInEx-Plugin-GUID 
 
 #### Einen Namensraum lesen
 
-Referenziere `ExtendedData.dll` und `ExtendedData.Core.dll` und fordere anschließend ausschließlich deinen Namensraum an:
+Verwende das vollständige APIShared-Paket 0.12.2. Deklariere `APIShared_Serp` ab Version `0.12.2` als harte Mindestabhängigkeit in BepInEx und `info.json` und referenziere `APIShared.dll` sowie `APIShared.Content.dll` mit `Private=false`. Der konsumierende Mod benötigt kein ExtendedData. Die [gemeinsame Moddaten-API](../../APIShared/docs/MOD_DATA.md) beschreibt Quelle, Autorität und Lifecycle.
 
 ```csharp
 using System.Collections.Generic;
-using ExtendedData;
+using APIShared.ModData;
 
-ExtendedDataModDataReadResult result =
-    ExtendedDataModDataApi.ReadCurrentMapNamespace("author.example-mod");
+ModDataReadResult result =
+    ModDataAccess.ReadCurrentMapNamespace("author.example-mod");
 
 if (result.Success)
 {
@@ -204,7 +206,9 @@ if (result.Success)
 }
 ```
 
-`Data` ist eine tief schreibgeschützte Momentaufnahme. Verschachtelte Objekte implementieren `IReadOnlyDictionary<string, object>`, Arrays implementieren `IReadOnlyList<object>`. `Json` enthält ausschließlich den angeforderten Namensraum. ExtendedData validiert den gemeinsamen Container, überlässt `schemaVersion` und alle mod-eigenen Felder jedoch dem Konsumenten.
+`Data` ist eine tief schreibgeschützte Momentaufnahme. Verschachtelte Objekte implementieren `IReadOnlyDictionary<string, object>`, Arrays implementieren `IReadOnlyList<object>`. `Json` enthält ausschließlich den angeforderten Namensraum. APIShared validiert den gemeinsamen Container, überlässt `schemaVersion` und alle mod-eigenen Felder jedoch dem Konsumenten.
+
+Für Verbraucher mit Referenzen auf `ExtendedData.dll` und `ExtendedData.Core.dll` steht außerdem `ExtendedData.ExtendedDataModDataApi.ReadCurrentMapNamespace` bereit. Die Fassade delegiert an den gemeinsamen Leser und liefert ExtendedDatas öffentlichen Ergebnistyp.
 
 Mögliche Statuswerte sind:
 
@@ -217,7 +221,7 @@ Mögliche Statuswerte sind:
 
 Fehlende Dateien und Namensräume bedeuten normales Standardverhalten. Protokolliere bei anderen Fehlern `Diagnostic` und deaktiviere ausschließlich das abhängige Feature.
 
-Rufe die API auf, nachdem der Script Extender das Map-Archiv geladen hat. Sie liest bei Bedarf und verwendet weder Cache noch Polling. Bewahre ein validiertes Modell nur für die Lebensdauer der zugehörigen Map auf.
+Rufe die API auf dem Unity-Thread aus einer erfolgreichen APIShared-Missionsstartmeldung auf, nachdem der Script Extender das passende Map-Archiv geladen hat. Der Leser berücksichtigt ausstehende Änderungen im aktuellen Speicherarchiv, besitzt kein Byte-Limit für das Dokument und verwendet weder Cache noch Polling. Bewahre ein validiertes Modell nur für die Lebensdauer der zugehörigen Map auf und verwerfe es bei Missionsende oder Ersetzung.
 
 #### Erstellung und Validierung
 

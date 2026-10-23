@@ -1,0 +1,60 @@
+[DBP:SESSION] id=synthetic
+[Info:fixture] [DBP:FINISH] mode=Active patcher=8A1C1A2B7B0B2E1131ABA2A65F168FA2141662B0FD5BEE7AAB3103C5E8AD9866
+[Info:fixture] [DBP:MODE] Active
+[Info:fixture] [DBP:LISTENER_ATTACHED] 
+[Info:fixture] [DBP:READY_OBSERVED] mode=Active; fixture
+[Info:fixture] [DBP:CHAIN_PREPARE] 
+[DBP:SHADOW_REQUIRED] stage=2
+[DBP:CORRECTION_MODE] Enabled
+[Info:fixture] [DBP:CORE_BINARY] sha256=A948C81DAC166AB996BA8415146A2556034087EF105058E42883DD772E5DAF12
+[Info:fixture] [DBP:CHAIN_TRANSFORMED] 
+[Info:fixture] [DBP:CHAIN_DELEGATE_BEGIN] 
+[Info:fixture] [DBP:CHAIN_DELEGATE_END] 
+[Info:fixture] [DBP:CHAIN_JIT_BEGIN] 
+[Info:fixture] [DBP:CHAIN_JIT_END] 
+[Info:fixture] [DBP:CHAIN_COPY_COMPILED] 
+[Info:fixture] [DBP:CHAIN_INSTALL] 
+[Info:fixture] [DBP:CHAIN_HOOK_INSTALLED] 
+[Info:fixture] [DBP:CHAIN_ENTER] 
+[DBP:SNAPSHOT] selected=1
+[Info:fixture] [DBP:BEFORE_EXTENDER] snapshot=True type=fixture
+[DBP:LIFECYCLE_PREPARE] binary=D1C8EA2FF82AC84BB867056656E58E2198D8042F6D6DD2920336150F771FEC55
+[DBP:LIFECYCLE_TRANSFORMED] fixture
+[DBP:LIFECYCLE_DELEGATE_BEGIN] fixture
+[DBP:LIFECYCLE_DELEGATE_END] fixture
+[DBP:LIFECYCLE_JIT_BEGIN] fixture
+[DBP:LIFECYCLE_JIT_END] fixture
+[DBP:LIFECYCLE_INSTALL] fixture
+[DBP:LIFECYCLE_HOOK_INSTALLED] fixture
+[Info:fixture] [DBP:SE_BINARY] sha256=D1C8EA2FF82AC84BB867056656E58E2198D8042F6D6DD2920336150F771FEC55
+[Info:fixture] [DBP:SE_PREPARE] 
+[Info:fixture] [DBP:SE_TRANSFORMED] 
+[Info:fixture] [DBP:SE_DELEGATE_BEGIN] 
+[Info:fixture] [DBP:SE_DELEGATE_END] 
+[Info:fixture] [DBP:SE_JIT_BEGIN] 
+[Info:fixture] [DBP:SE_JIT_END] 
+[Info:fixture] [DBP:SE_COPY_COMPILED] 
+[Info:fixture] [DBP:SE_INSTALL] 
+[Info:fixture] [DBP:SE_HOOK_INSTALLED] 
+[Info:fixture] [DBP:COMPATIBILITY_ENTER] count=1
+[DBP:SHADOW_BEGIN] read-only; failures=0
+[DBP:SHADOW_INDEX] {"guid":"root","version":"1.0"}
+[DBP:SHADOW_CANDIDATE] {"guid":"nested","version":"1.0","path":"C:/fixture.dll","state":"Eligible","reason":"fixture"}
+[DBP:SHADOW_DEPENDENCY] {"consumer":"root","dependency":"nested","originalIssue":true,"shadowIssue":false}
+[DBP:SHADOW_DEPENDENCY] {"consumer":"root2","dependency":"nested","originalIssue":true,"shadowIssue":false}
+[DBP:SHADOW_DEPENDENCY] {"consumer":"control","dependency":"missing","originalIssue":true,"shadowIssue":true}
+[DBP:SHADOW_DEPENDENCY] {"consumer":"control","dependency":"nested","originalIssue":true,"shadowIssue":true}
+[DBP:SHADOW_DEPENDENCY] {"consumer":"control","dependency":"nested","originalIssue":true,"shadowIssue":true}
+[DBP:SHADOW_COMPLETE] candidates=1 original=1 added=1 dependencies=5 issuesBefore=5 issuesAfter=3 originalUnchanged=True
+[DBP:CORRECTION_PREPARED] original=1 effective=2 added=1 expectedIssues=3
+[DBP:CORRECTION_APPLIED] effective=2
+[DBP:ORIGINAL_ISSUE] {"consumer":"control","dependency":"missing","reason":"missing"}
+[DBP:ORIGINAL_ISSUE] {"consumer":"control","dependency":"nested","minimum":"2.0","reason":"too old"}
+[DBP:ORIGINAL_ISSUE] {"consumer":"control","dependency":"nested","maximum":"0.0","reason":"too new"}
+[DBP:ORIGINAL_RESULT] issues=3 expected=3 correction=True
+[Info:fixture] [DBP:PLUGIN_AWAKE] plugin=6155F9A44261F7464C96F6AF77A66028A4D0FAE0EC8485391C62BD8A139C63A4 static render observer attached
+[Info:fixture] [DBP:CHAIN_COMPLETE] snapshot=True extender=True checks=1
+[Info:fixture] [DBP:POST_CLEANUP_RENDER] original Unity component destroyed; distinct render frames=120
+[DBP:LIFECYCLE_PATHS] run=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa count=0
+[DBP:LIFECYCLE_STAGED] run=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa before deployment decision
+[DBP:LIFECYCLE_REPORT] run=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa sha256=EC68B00C48CFFD5556A752D6ECBEE072305008100F25DB27E26C84FEDE238906 complete=True

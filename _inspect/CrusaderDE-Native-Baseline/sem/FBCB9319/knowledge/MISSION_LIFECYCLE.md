@@ -35,3 +35,18 @@ Legacy Customize-origin fields retain their provider schema: Custom Trail IDs 81
 The user's prior ElevatedMoat editor test and the last inspected log establish one Created session, one End and one Loaded session in the preceding editor implementation (19:26:24.494, 19:26:40.977, 19:26:44.671). They do not validate this later unified implementation. Two preceding Ally-Goods/ExtendedData errors are outside this lifecycle change.
 
 Automated validation and final build results are recorded in `_inspect/MissionLifecycleValidation/RESULTS.md`. Game validation of the new implementation, particularly real multiplayer host/client and mission-specific features, remains a separate required observation. No live coverage is inferred from state-machine or boundary-double tests.
+
+## Current PlayState readiness (2026-10-21)
+
+For native hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+and rechecked installed managed hash BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789,
+`EngineInterface.CopyPlayStateStruct` constructs a new `PlayState` object;
+`GameMap.processTestMap` passes the copied state to `GameData.setGameState`, which
+replaces `lastGameState`. A managed mission Start notification is not proof that this
+render-buffer publication has happened for that mission. Castle preview captures
+the previous reference at BeforeNativeStart and waits for a nonnull replacement
+before interpreting spectator flags or authorizing a personal selection. This avoids
+classifying a new human game from an earlier spectator save's state. The evidence is
+the hash-bound managed export for those three methods and the current installed
+assembly's public member metadata. The consumer readiness/deadline regression is an
+isolated test; current-game rendering and network timing still require game acceptance.

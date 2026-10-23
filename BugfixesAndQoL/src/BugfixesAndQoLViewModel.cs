@@ -16,17 +16,49 @@ namespace BugfixesAndQoL
 {
     public sealed class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
     {
+        // EnableSpriteSheetMerge (Boolean, unreleased develop) was replaced by SpriteSheetMergeMode.
         protected override bool IsRetiredPresetProperty(string propertyName) =>
-            string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal);
+            string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableSpriteSheetMerge", StringComparison.Ordinal);
 
         public event Action<string> SettingChanged;
 
+        public ModSettingsPresentation SettingsPresentation { get; }
+
+        private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
+                args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
+                args.PropertyName == nameof(System_ModSettingsSearchExactKey))
+                RefreshSettingsPresentation();
+        }
+
+        private void OnSettingsSearchSourceChanged(object owner)
+        {
+            if (!ReferenceEquals(owner, this)) return;
+            SettingsPresentation.RefreshLocalization();
+            RefreshSettingsPresentation();
+        }
+
+        private void RefreshSettingsPresentation()
+        {
+            APIShared.ModSettings.ModSettingsSearchCatalog.TryGetEntries(this, out var entries);
+            SettingsPresentation.RefreshSearch(System_ModSettingsSearchText, System_ModSettingsSearchIncludeToolTips,
+                System_ModSettingsSearchExactKey, entries);
+        }
+
         private bool enableMod = true;
+        private bool enableLordAndMapListEnhancements = true;
+        private bool enableMissingMapSaveRecovery = true;
+        private bool enableRandomOpponentSelectionEnhancements = true;
+        private bool enableMultiplayerStartupStateFix = true;
+        private bool enablePeaceTimeGameplayFixes = true;
         private bool allowFullAiMultiplayerLobby = true;
         private bool showMpAdvancedSettingsInSingleplayer = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiStoneReserveFix = true;
+        private bool enableAiSellThresholdFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableEnemyGatePathfindingFix = true;
@@ -54,6 +86,7 @@ namespace BugfixesAndQoL
         private bool enableFastRecruitRallyMovement = true;
         private bool enableRallyTerrainSlowdownFix = true;
         private bool enableImprovedAssassinPathfinding = true;
+        private bool enableImprovedAssassinPathfindingAI = true;
         private bool enableAssassinCombatResumeFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
@@ -98,9 +131,14 @@ namespace BugfixesAndQoL
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool enableTrailCustomizationButtons = true;
         private bool showLoadSaveDialogControls = true;
+        private bool enableSoloMultiplayerSaveLoading = true;
+        private bool fixSkirmishLoadButtonVisibility = true;
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
         private bool enableGatehouseTargetMarkerHeightFix = true;
+        private bool enableVanillaPerformanceOptimizations = true;
+        private bool enableMinimapRefreshThrottle = true;
+        private SpriteSheetMergeMode spriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
         private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
         private const int HealthBarKeyMask = 0xffff;
@@ -108,7 +146,8 @@ namespace BugfixesAndQoL
         private const int HealthBarControlMask = 1 << 17;
         private const int HealthBarShiftMask = 1 << 18;
         private const int DefaultHealthBarHotkey = (int)KeyCode.H | HealthBarAltMask;
-        private int arabianIdleSoundVolumePercent = 25;
+        private const int DefaultArabianIdleSoundVolumePercent = 25;
+        private int arabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
         private bool enableImprovedBuildPreview = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
@@ -208,6 +247,11 @@ namespace BugfixesAndQoL
         {
             this.steamInviteBlacklist = steamInviteBlacklist ?? throw new ArgumentNullException(nameof(steamInviteBlacklist));
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            SettingsPresentation = new ModSettingsPresentation(CancelHealthBarCapture);
+            // Both publishers and the registered settings model live for the process lifetime.
+            // No component teardown subscription and no per-frame polling are needed.
+            ((System.ComponentModel.INotifyPropertyChanged)this).PropertyChanged += OnSettingsPresentationPropertyChanged;
+            APIShared.ModSettings.ModSettingsSearchCatalog.SourceChanged += OnSettingsSearchSourceChanged;
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
             RestoreHdMarketOrderCommand = new RelayCommand(RestoreHdMarketOrder);
@@ -222,6 +266,51 @@ namespace BugfixesAndQoL
             });
             HealthBarHotkeyInputCommand = new ParameterRelayCommand(CaptureHealthBarHotkey);
             steamInviteBlacklist.Changed += OnSteamInviteBlacklistChanged;
+        }
+
+        public string EnableLordAndMapListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancements");
+        public string EnableLordAndMapListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancementsHelp");
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableLordAndMapListEnhancements
+        {
+            get => enableLordAndMapListEnhancements;
+            set => SetSetting(ref enableLordAndMapListEnhancements, value, nameof(EnableLordAndMapListEnhancements));
+        }
+
+        public string EnableMissingMapSaveRecoveryText => SerpLocalization.Get("BugfixesAndQoL.EnableMissingMapSaveRecovery");
+        public string EnableMissingMapSaveRecoveryHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMissingMapSaveRecoveryHelp");
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableMissingMapSaveRecovery
+        {
+            get => enableMissingMapSaveRecovery;
+            set => SetSetting(ref enableMissingMapSaveRecovery, value, nameof(EnableMissingMapSaveRecovery));
+        }
+
+        public string EnableRandomOpponentSelectionEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableRandomOpponentSelectionEnhancements");
+        public string EnableRandomOpponentSelectionEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableRandomOpponentSelectionEnhancementsHelp");
+        [SyncHostOnly]
+        public bool EnableRandomOpponentSelectionEnhancements
+        {
+            get => enableRandomOpponentSelectionEnhancements;
+            set => SetSetting(ref enableRandomOpponentSelectionEnhancements, value, nameof(EnableRandomOpponentSelectionEnhancements));
+        }
+
+        public string EnableMultiplayerStartupStateFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMultiplayerStartupStateFix");
+        public string EnableMultiplayerStartupStateFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMultiplayerStartupStateFixHelp");
+        [SyncHostOnly]
+        public bool EnableMultiplayerStartupStateFix
+        {
+            get => enableMultiplayerStartupStateFix;
+            set => SetSetting(ref enableMultiplayerStartupStateFix, value, nameof(EnableMultiplayerStartupStateFix));
+        }
+
+        public string EnablePeaceTimeGameplayFixesText => SerpLocalization.Get("BugfixesAndQoL.EnablePeaceTimeGameplayFixes");
+        public string EnablePeaceTimeGameplayFixesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePeaceTimeGameplayFixesHelp");
+        [SyncHostOnly]
+        public bool EnablePeaceTimeGameplayFixes
+        {
+            get => enablePeaceTimeGameplayFixes;
+            set => SetSetting(ref enablePeaceTimeGameplayFixes, value, nameof(EnablePeaceTimeGameplayFixes));
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
@@ -285,6 +374,8 @@ namespace BugfixesAndQoL
             }
         }
         public string EnableAiStoneReserveFixText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFix);
+        public string EnableAiSellThresholdFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFix");
+        public string EnableAiSellThresholdFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFixHelp");
         public string EnableAiStoneReserveFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFixHelp);
         public string EnableEnemyGatePathfindingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFix");
         public string EnableEnemyGatePathfindingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp");
@@ -328,7 +419,7 @@ namespace BugfixesAndQoL
         public string EnableAllyGoodsAmountModifiersHelpText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiersHelp);
         public string EnableMultiplayerGameSpeedChangesText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChanges);
         public string EnableMultiplayerGameSpeedChangesHelpText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChangesHelp);
-        public string MultiplayerGameSpeedMaximumText => SerpLocalization.Get(SerpLocalization.MultiplayerGameSpeedMaximum);
+        public string MultiplayerGameSpeedMaximumText => SerpLocalization.Get("BugfixesAndQoL.SettingsRework.MaximumGameSpeed");
         public string MultiplayerGameSpeedMaximumHelpText => SerpLocalization.Get(SerpLocalization.MultiplayerGameSpeedMaximumHelp);
         public string[] MultiplayerTimeControlPermissionOptions => new[]
         {
@@ -452,12 +543,28 @@ namespace BugfixesAndQoL
         public string EnableTrailCustomizationButtonsHelpText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtonsHelp);
         public string ShowLoadSaveDialogControlsText => SerpLocalization.Get("BugfixesAndQoL.ShowLoadSaveDialogControls");
         public string ShowLoadSaveDialogControlsHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowLoadSaveDialogControlsHelp");
+        public string EnableSoloMultiplayerSaveLoadingText => SerpLocalization.Get("BugfixesAndQoL.EnableSoloMultiplayerSaveLoading");
+        public string EnableSoloMultiplayerSaveLoadingHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSoloMultiplayerSaveLoadingHelp");
+        public string FixSkirmishLoadButtonVisibilityText => SerpLocalization.Get("BugfixesAndQoL.FixSkirmishLoadButtonVisibility");
+        public string FixSkirmishLoadButtonVisibilityHelpText => SerpLocalization.Get("BugfixesAndQoL.FixSkirmishLoadButtonVisibilityHelp");
         public string ShowVanillaMapsInEditorText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditor");
         public string ShowVanillaMapsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditorHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
         public string PreserveDisplayResolutionHelpText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolutionHelp");
         public string EnableGatehouseTargetMarkerHeightFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix");
         public string EnableGatehouseTargetMarkerHeightFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp");
+        public string EnableVanillaPerformanceOptimizationsText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizations");
+        public string EnableVanillaPerformanceOptimizationsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp");
+        public string EnableMinimapRefreshThrottleText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottle");
+        public string EnableMinimapRefreshThrottleHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottleHelp");
+        public string SpriteSheetMergeModeText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeMode");
+        public string SpriteSheetMergeModeHelpText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeHelp");
+        public string[] SpriteSheetMergeModeOptions => new[]
+        {
+            SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeAutomatic"),
+            SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeOn"),
+            SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeOff")
+        };
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string PreventMoveOrderOnPlacementCancelText => SerpLocalization.Get("BugfixesAndQoL.PreventMoveOrderOnPlacementCancel");
@@ -497,6 +604,8 @@ namespace BugfixesAndQoL
         public string EnableAIQuarryPileTowardsKeepHelpText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeepHelp);
         public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
         public string EnableImprovedAssassinPathfindingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingHelp);
+        public string EnableImprovedAssassinPathfindingAIText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingAI);
+        public string EnableImprovedAssassinPathfindingAIHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingAIHelp);
         public string EnableAssassinCombatResumeFixText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFix);
         public string EnableAssassinCombatResumeFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFixHelp);
         public string EnablePlaguePopularityFixText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFix);
@@ -802,6 +911,20 @@ namespace BugfixesAndQoL
         }
 
         [APIShared.ModSettings.PresetLocal]
+        public bool EnableSoloMultiplayerSaveLoading
+        {
+            get => enableSoloMultiplayerSaveLoading;
+            set => SetSetting(ref enableSoloMultiplayerSaveLoading, value, nameof(EnableSoloMultiplayerSaveLoading));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool FixSkirmishLoadButtonVisibility
+        {
+            get => fixSkirmishLoadButtonVisibility;
+            set => SetSetting(ref fixSkirmishLoadButtonVisibility, value, nameof(FixSkirmishLoadButtonVisibility));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
         public bool ShowLoadSaveDialogControls
         {
             get => showLoadSaveDialogControls;
@@ -827,6 +950,45 @@ namespace BugfixesAndQoL
         {
             get => enableGatehouseTargetMarkerHeightFix;
             set => SetSetting(ref enableGatehouseTargetMarkerHeightFix, value, nameof(EnableGatehouseTargetMarkerHeightFix));
+        }
+
+        // Local presentation optimizations (V1/V5); no simulation effect, therefore not synchronized.
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableVanillaPerformanceOptimizations
+        {
+            get => enableVanillaPerformanceOptimizations;
+            set => SetSetting(ref enableVanillaPerformanceOptimizations, value, nameof(EnableVanillaPerformanceOptimizations));
+        }
+
+        // V13 minimap throttle (drawn at most every 100 ms). Presentation only, so a mismatch cannot
+        // desync; it is a host value because a lockstep match runs at the speed of its slowest peer.
+        [SyncHostOnly]
+        public bool EnableMinimapRefreshThrottle
+        {
+            get => enableMinimapRefreshThrottle;
+            set => SetSetting(ref enableMinimapRefreshThrottle, value, nameof(EnableMinimapRefreshThrottle));
+        }
+
+        // Local V7 sprite-sheet merge; read once after Vanilla's sprite loading, so changes need a restart.
+        [APIShared.ModSettings.PresetLocal]
+        public SpriteSheetMergeMode SpriteSheetMergeMode
+        {
+            get => spriteSheetMergeMode;
+            set
+            {
+                if (!SpriteSheetMergePolicy.IsDefinedMode(value)) return;
+                SpriteSheetMergeMode previous = spriteSheetMergeMode;
+                SetSetting(ref spriteSheetMergeMode, value, nameof(SpriteSheetMergeMode));
+                if (previous != spriteSheetMergeMode)
+                    OnPropertyChanged(nameof(SpriteSheetMergeModeIndex));
+            }
+        }
+
+        // The ComboBox index is intentionally transient; the classified enum remains the sole stored value.
+        public int SpriteSheetMergeModeIndex
+        {
+            get => (int)SpriteSheetMergeMode;
+            set => SpriteSheetMergeMode = (SpriteSheetMergeMode)value;
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -945,6 +1107,13 @@ namespace BugfixesAndQoL
         {
             get => enableAiStoneReserveFix;
             set => SetSetting(ref enableAiStoneReserveFix, value, nameof(EnableAiStoneReserveFix));
+        }
+
+        [SyncHostOnly]
+        public bool EnableAiSellThresholdFix
+        {
+            get => enableAiSellThresholdFix;
+            set => SetSetting(ref enableAiSellThresholdFix, value, nameof(EnableAiSellThresholdFix));
         }
 
         [SyncHostOnly]
@@ -1235,6 +1404,15 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableImprovedAssassinPathfinding, value, nameof(EnableImprovedAssassinPathfinding));
         }
 
+        // Same weighted search for the Assassins of AI lords. Separate so that hosts can keep Vanilla
+        // pathfinding for AI lords (lower simulation cost on large maps) without losing it for humans.
+        [SyncHostOnly]
+        public bool EnableImprovedAssassinPathfindingAI
+        {
+            get => enableImprovedAssassinPathfindingAI;
+            set => SetSetting(ref enableImprovedAssassinPathfindingAI, value, nameof(EnableImprovedAssassinPathfindingAI));
+        }
+
         [SyncHostOnly]
         public bool EnableAssassinCombatResumeFix
         {
@@ -1449,9 +1627,13 @@ namespace BugfixesAndQoL
             if (CanEditHostSettings)
             {
                 EnableMod = true;
+                EnableRandomOpponentSelectionEnhancements = true;
+                EnableMultiplayerStartupStateFix = true;
+                EnablePeaceTimeGameplayFixes = true;
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
+                EnableAiSellThresholdFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableEnemyGatePathfindingFix = true;
@@ -1492,6 +1674,7 @@ namespace BugfixesAndQoL
                 InaccessibleAIBuildingDemolitionProtection =
                     TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
                 EnableImprovedAssassinPathfinding = true;
+                EnableImprovedAssassinPathfindingAI = true;
                 EnableAssassinCombatResumeFix = true;
                 EnablePlaguePopularityFix = true;
                 EnablePlagueCloudRemovalFix = true;
@@ -1517,11 +1700,14 @@ namespace BugfixesAndQoL
                 MultiplayerGameSpeedMaximum =
                     MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed;
                 EnableShiftGameSpeedSteps = true;
+                EnableMinimapRefreshThrottle = true;
                 EnableTrailCustomizationButtons = true;
             }
 
             // Every participant resets only their own per-player preferences.
             EnableClientFeatures = true;
+            EnableLordAndMapListEnhancements = true;
+            EnableMissingMapSaveRecovery = true;
             AllowMinimapWhilePlacingBuilding = true;
             PreventMoveOrderOnPlacementCancel = true;
             AllowCameraMovementWithModifiers = true;
@@ -1538,6 +1724,7 @@ namespace BugfixesAndQoL
             ShowSelectedUnitHealth = true;
             ShowForeignTroopHud = true;
             EnableImprovedBuildPreview = true;
+            ArabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;
             ShowCountdownTimers = true;
@@ -1548,9 +1735,13 @@ namespace BugfixesAndQoL
             EnableDisbandedUnitControlGroupCleanup = true;
             EnableCustomTrailExtremeGoldFix = true;
             ShowLoadSaveDialogControls = true;
+            EnableSoloMultiplayerSaveLoading = true;
+            FixSkirmishLoadButtonVisibility = true;
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
             EnableGatehouseTargetMarkerHeightFix = true;
+            EnableVanillaPerformanceOptimizations = true;
+            SpriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
             EnableWorkshopUploadLordSelectionFix = true;
             EnableAllyGoodsAmountModifiers = true;
         }
@@ -1827,11 +2018,18 @@ namespace BugfixesAndQoL
                 if (!marketGoodsVisualsResolvedLogged)
                 {
                     marketGoodsVisualsResolvedLogged = true;
-                    Shared.DebugLogHelper.LogDebug(
-                        marketGoodsLog,
-                        () =>
-                            $"Bugfixes and QoL market-goods visuals resolved: icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
-                            $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}, gameSprites={spriteCount}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    {
+                        // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                        var diagnosticResolvedIconCount = @resolvedIconCount;
+                        var diagnosticResolvedNameCount = @resolvedNameCount;
+                        var diagnosticSpriteCount = @spriteCount;
+                        Shared.DebugLogHelper.LogDebug(
+                            marketGoodsLog,
+                            () =>
+                                $"Bugfixes and QoL market-goods visuals resolved: icons={diagnosticResolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
+                                $"localizedNames={diagnosticResolvedNameCount}/{MarketGoodsOrderDefinition.Count}, gameSprites={diagnosticSpriteCount}.");
+                    }
                 }
 
                 return;
@@ -1855,14 +2053,23 @@ namespace BugfixesAndQoL
                 return;
 
             marketGoodsVisualsDeferredLogged = true;
-            Shared.DebugLogHelper.LogDebug(
-                marketGoodsLog,
-                () =>
-                    $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
-                    $"mainViewModelReady={mainViewModelReady}, gameSprites={spriteCount}, " +
-                    $"icons={resolvedIconCount}/{MarketGoodsOrderDefinition.Count}, " +
-                    $"localizedNames={resolvedNameCount}/{MarketGoodsOrderDefinition.Count}" +
-                    (string.IsNullOrEmpty(detail) ? "." : $", detail={detail}."));
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticMainViewModelReady = @mainViewModelReady;
+                var diagnosticSpriteCountValue = @spriteCount;
+                var diagnosticResolvedIconCountValue = @resolvedIconCount;
+                var diagnosticResolvedNameCountValue = @resolvedNameCount;
+                var diagnosticDetail = @detail;
+                Shared.DebugLogHelper.LogDebug(
+                    marketGoodsLog,
+                    () =>
+                        $"Bugfixes and QoL deferred market-goods visuals until the game UI resources are ready: " +
+                        $"mainViewModelReady={diagnosticMainViewModelReady}, gameSprites={diagnosticSpriteCountValue}, " +
+                        $"icons={diagnosticResolvedIconCountValue}/{MarketGoodsOrderDefinition.Count}, " +
+                        $"localizedNames={diagnosticResolvedNameCountValue}/{MarketGoodsOrderDefinition.Count}" +
+                        (string.IsNullOrEmpty(diagnosticDetail) ? "." : $", detail={diagnosticDetail}."));
+            }
         }
 
         private void MoveMarketGood(int good, int direction)

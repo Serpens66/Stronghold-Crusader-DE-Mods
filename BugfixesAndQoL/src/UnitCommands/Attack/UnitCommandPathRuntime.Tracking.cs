@@ -25,10 +25,12 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime : IDisposable
     {
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void TrackUnitsUpdatedByAttackCommand(
             TribeIssueOrderWithTargetEventArgs args,
             AttackCommandScope scope)
         {
+#if SERP_DEVDIAG
             EnsureAttackCommandCandidates(scope);
             int trackedCount = 0;
             foreach (int unitId in scope.CandidateUnitIds)
@@ -48,6 +50,7 @@ namespace BugfixesAndQoL.UnitCommands
             LogCommandDiagnostic(
                 $"stage=attack-track-start tribe={args.TribeId} command={args.AICommand} " +
                 $"target1={args.TargetValue1} target2={args.TargetValue2} units={trackedCount}");
+#endif
         }
 
         internal void CaptureAttackCommandCandidates(AttackCommandScope scope)
@@ -65,8 +68,10 @@ namespace BugfixesAndQoL.UnitCommands
                     unit->r_TribeId == scope.TribeId)
                 {
                     scope.CandidateUnitIds.Add(unitId);
+#if SERP_DEVDIAG
                     if (scope.PreCandidateSignatures.Count < 24)
                         scope.PreCandidateSignatures[unitId] = GetAttackCandidateSignature(unit);
+#endif
                 }
             }
         }
@@ -77,8 +82,10 @@ namespace BugfixesAndQoL.UnitCommands
                 CaptureAttackCommandCandidates(scope);
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogAttackCommandCandidates(AttackCommandScope scope, string phase)
         {
+#if SERP_DEVDIAG
             if (phase == "pre")
             {
                 LogCommandDiagnostic(
@@ -160,6 +167,7 @@ namespace BugfixesAndQoL.UnitCommands
                         $"{unit->r_PathPlanLength}");
                 }
             }
+#endif
         }
 
         internal static string GetAttackCandidateSignature(GameUnit* unit) =>
@@ -194,13 +202,16 @@ namespace BugfixesAndQoL.UnitCommands
             return tracker;
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void RemoveSynchronousAttackTrackers(AttackCommandScope scope, string reason)
         {
+#if SERP_DEVDIAG
             foreach (int unitId in scope.SynchronousTrackerUnitIds)
             {
                 if (trackedAttackUnits.TryGetValue(unitId, out AttackUnitTracker tracker))
                     EndTrackedAttack(unitId, tracker, reason);
             }
+#endif
         }
 
         internal void ObserveTrackedAttackStates(int tick)
@@ -260,7 +271,7 @@ namespace BugfixesAndQoL.UnitCommands
                 pendingPlan = null;
 
             ObserveNativeWaypointQueues(tick);
-
+#if SERP_DEVDIAG
             if (trackedAttackUnits.Count != 0)
             {
                 try
@@ -317,8 +328,10 @@ namespace BugfixesAndQoL.UnitCommands
             }
 
             ObserveTrackedMoatMoveStates(tick);
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void MarkTrackedAttackPipeline(
             int unitId,
             AttackPipelineStage stage,
@@ -326,6 +339,7 @@ namespace BugfixesAndQoL.UnitCommands
             int targetY,
             bool vanillaModeDetected)
         {
+#if SERP_DEVDIAG
             try
             {
                 if (!trackedAttackUnits.TryGetValue(unitId, out AttackUnitTracker tracker))
@@ -358,10 +372,13 @@ namespace BugfixesAndQoL.UnitCommands
                     // A diagnostic marker must never escape across a native callback.
                 }
             }
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void RemoveTrackedAttacksForTribe(int tribeId, string reason)
         {
+#if SERP_DEVDIAG
             if (trackedAttackUnits.Count == 0)
                 return;
 
@@ -374,15 +391,19 @@ namespace BugfixesAndQoL.UnitCommands
                     EndTrackedAttack(unitId, tracker, reason);
                 }
             }
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void EndTrackedAttack(int unitId, AttackUnitTracker tracker, string reason)
         {
+#if SERP_DEVDIAG
             trackedAttackUnits.Remove(unitId);
             LogDetailedInfo(
                 $"Bugfixes and QoL stage=friendly-moat-movement-attack-state-end unit={unitId} command={tracker.Command} " +
                 $"reason={reason} mode={tracker.ModeObserved} planner={tracker.PlannerObserved} " +
                 $"builder={tracker.BuilderObserved}.");
+#endif
         }
 
         internal bool MatchesAttackTargetContext(
@@ -488,8 +509,13 @@ namespace BugfixesAndQoL.UnitCommands
         internal sealed class AttackCommandScope
         {
             internal const int MaximumDiagnosticDetailsPerStage = 3;
+#if SERP_DEVDIAG
+#if SERP_DEVDIAG
             internal readonly Dictionary<string, int> retainedDiagnosticsByStage =
                 new Dictionary<string, int>(StringComparer.Ordinal);
+#endif
+
+#endif
 
             internal readonly MovementOptionsSnapshot Options;
             internal readonly RequiredRouteMetrics Required = new RequiredRouteMetrics();
@@ -522,11 +548,14 @@ namespace BugfixesAndQoL.UnitCommands
             public int TargetValue1 { get; }
             public int TargetValue2 { get; }
             public int DetailLogs { get; set; }
-            public long StartedTimestamp { get; } = Stopwatch.GetTimestamp();
+            public long StartedTimestamp { get; } = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             public HashSet<int> CandidateUnitIds { get; } = new HashSet<int>();
             public bool CandidatesCaptured { get; set; }
+#if SERP_DEVDIAG
             public Dictionary<int, string> PreCandidateSignatures { get; } =
                 new Dictionary<int, string>();
+#endif
+
             public HashSet<int> SynchronousTrackerUnitIds { get; } = new HashSet<int>();
             public Dictionary<int, string> LastDecisionByUnit { get; } =
                 new Dictionary<int, string>();
@@ -558,9 +587,13 @@ namespace BugfixesAndQoL.UnitCommands
             public double ResidualMilliseconds { get; set; }
             public int DiagnosticMessages { get; internal set; }
             public int DiagnosticCharacters { get; internal set; }
+#if SERP_DEVDIAG
             public List<string> Diagnostics { get; } = new List<string>();
+
             public Dictionary<string, int> SuppressedDiagnostics { get; } =
                 new Dictionary<string, int>(StringComparer.Ordinal);
+#endif
+
             public double DispatchMilliseconds => TicksToMilliseconds(DispatchElapsedTicks);
             public double LogFlushMilliseconds => TicksToMilliseconds(LogFlushTicks);
             public double UnitFloodMilliseconds => TicksToMilliseconds(UnitFloodTicks);
@@ -570,7 +603,7 @@ namespace BugfixesAndQoL.UnitCommands
             public double AuditMilliseconds => TicksToMilliseconds(AuditTicks);
             public double WeightedPhaseMilliseconds => TicksToMilliseconds(WeightedPhaseTicks);
             public double WeightedAuditMilliseconds => TicksToMilliseconds(WeightedAuditTicks);
-
+#if SERP_DEVDIAG
             public void BufferDiagnostic(string message)
             {
                 message = message ?? string.Empty;
@@ -588,6 +621,7 @@ namespace BugfixesAndQoL.UnitCommands
                 SuppressedDiagnostics.TryGetValue(stage, out int suppressed);
                 SuppressedDiagnostics[stage] = suppressed + 1;
             }
+#endif
 
             internal static string GetDiagnosticStage(string message)
             {

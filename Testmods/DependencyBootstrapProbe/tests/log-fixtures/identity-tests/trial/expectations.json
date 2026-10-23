@@ -1,0 +1,15 @@
+{
+    "ControlGuid":  "control",
+    "ManifestSHA256":  "5662E7918B36C1D159102C027FDE2EBEC857EB9DB03D56DA706D2B8DC649D5DA",
+    "MissingGuid":  "missing",
+    "ResolvedPairs":  [
+                          {
+                              "dependency":  "nested",
+                              "consumer":  "root"
+                          },
+                          {
+                              "dependency":  "nested",
+                              "consumer":  "root2"
+                          }
+                      ]
+}

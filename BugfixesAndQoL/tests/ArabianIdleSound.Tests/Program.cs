@@ -109,14 +109,15 @@ namespace BugfixesAndQoL
         {
             string source = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs"));
             // Compile the actual field, property and bounded setter without constructing Noesis.
+            string defaultValue = source.Split(new[] { '\r', '\n' }).Single(x => x.Contains("private const int DefaultArabianIdleSoundVolumePercent"));
             string field = source.Split(new[] { '\r', '\n' }).Single(x => x.Contains("private int arabianIdleSoundVolumePercent"));
             string property = Member(source, "[APIShared.ModSettings.PresetLocal]\r\n        public int ArabianIdleSoundVolumePercent");
             string setter = Member(source, "private void SetBoundedIntSetting(");
-            string fixture = "using System; using System.Collections.Generic; public class Fixture { " + field + property + setter +
+            string fixture = "using System; using System.Collections.Generic; public class Fixture { " + defaultValue + field + property + setter +
                 " public event Action<string> SettingChanged; public string ArabianIdleSoundVolumeValueText => ArabianIdleSoundVolumePercent.ToString();" +
                 " public bool Allowed = true; public int Notifications; bool CanMutateSettingWithDependents(string a,string b) => Allowed;" +
                 " void OnPropertyChanged(string name) { Notifications++; } }";
-            string directory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "setting-fixture");
+            string directory = TestWorkDirectory.New("arabian-setting");
             Directory.CreateDirectory(directory);
             string input = Path.Combine(directory, "Fixture.cs"), output = Path.Combine(directory, "Fixture.dll");
             File.WriteAllText(input, fixture.Replace("\r\n", "\n").Replace("\n", "\r\n"));

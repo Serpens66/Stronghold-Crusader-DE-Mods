@@ -1,6 +1,7 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
-$fixture=Join-Path ([IO.Path]::GetTempPath()) ('Workshop Bootstrap Environment-'+[guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BootstrapEnvironment'
 $savedGame=$env:SHCDE_GAME_DIR; $savedExtender=$env:SHCDESE_EXTENDER_DIR; $savedCompiler=$env:SHCDE_MSBUILD
 function Write-EnvironmentFixture([string]$Path,[string]$Text) {
     [void][IO.Directory]::CreateDirectory((Split-Path -Parent $Path))

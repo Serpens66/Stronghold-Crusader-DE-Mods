@@ -64,9 +64,18 @@ $manifest=[IO.File]::ReadAllText((Join-Path $project 'info.json')) | ConvertFrom
 $pluginVersionSource=[IO.File]::ReadAllText((Join-Path $project 'src\BugfixesAndQoLPlugin.cs'))
 $expectedVersion=[regex]::Match($pluginVersionSource,'PluginVersion\s*=\s*"([^"]+)"').Groups[1].Value
 if(!$expectedVersion -or $manifest.Version -cne $expectedVersion) { throw 'Manifest version mismatch' }
-foreach($path in @('src\BugfixesAndQoLPlugin.cs','src\Properties\AssemblyInfo.cs','BugfixesAndQoL.csproj')) {
- $text=[IO.File]::ReadAllText((Join-Path $project $path))
- if(!$text.Contains($expectedVersion) -or $text.Contains('1.0.173')) { throw "Active version mismatch: $path" }
+$version = [version]$expectedVersion
+$assemblyVersion = '{0}.{1}.{2}.{3}' -f $version.Major, $version.Minor, [Math]::Max(0,$version.Build), [Math]::Max(0,$version.Revision)
+$assemblyInfo = [IO.File]::ReadAllText((Join-Path $project 'src\Properties\AssemblyInfo.cs'))
+foreach ($attribute in @('AssemblyVersion','AssemblyFileVersion','AssemblyInformationalVersion')) {
+ $matches = [regex]::Matches($assemblyInfo, '\[assembly:\s*' + $attribute + '\("([^"]+)"\)\]')
+ $required = if ($attribute -eq 'AssemblyInformationalVersion') { $expectedVersion } else { $assemblyVersion }
+ if ($matches.Count -ne 1 -or $matches[0].Groups[1].Value -cne $required) { throw "Active $attribute mismatch" }
+}
+[xml]$projectXml = [IO.File]::ReadAllText((Join-Path $project 'BugfixesAndQoL.csproj'))
+foreach ($name in @('AssemblyVersion','FileVersion')) {
+ $values = @($projectXml.SelectNodes('//*[local-name()="PropertyGroup"]/*[local-name()="' + $name + '"]'))
+ if ($values.Count -ne 1 -or $values[0].InnerText -cne $assemblyVersion) { throw "Active project $name mismatch" }
 }
 $files=@(Get-ChildItem -LiteralPath $project -File -Recurse | Where-Object {
  $_.FullName -notmatch '\\(?:obj|bin|BepInEx)\\' -and $_.Extension -in '.cs','.csproj','.ps1','.bat','.json','.xaml','.txt','.md','.config'

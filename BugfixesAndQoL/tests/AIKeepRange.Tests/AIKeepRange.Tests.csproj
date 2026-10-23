@@ -95,6 +95,7 @@
     <Compile Include="..\..\src\AIKeepRangeRuntime.cs" />
     <Compile Include="..\..\src\AIKeepRangeDecision.cs" />
     <Compile Include="..\..\src\AIKeepRangeNativeContract.cs" />
+    <Compile Include="..\..\src\HookInstallPhase.cs"><Link>HookInstallPhase.cs</Link></Compile>
     <Compile Include="..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs" />
     <Compile Include="..\..\..\Shared\Runtime\Native\NativePatternResolver.cs" />
   </ItemGroup>

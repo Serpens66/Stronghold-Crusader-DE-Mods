@@ -25,6 +25,7 @@ namespace CheatMod
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new CheatModSettingsViewModel();

@@ -841,11 +841,12 @@ namespace CastlePlanner.AIVPlacement
                     string.Equals(prior, value, StringComparison.Ordinal))
                     continue;
                 publishedUiStates[key] = value;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivSelectionDialogRuntime.cs:844", $"AIV UI published route={uiRoute} player={playerId} candidate={candidateId} " +
-                    $"checksum={aiv.checksum} status={state.Status?.ToString() ?? "Pending"} " +
-                    $"practice={state.PercentageText} " +
-                    $"extraFeaturesAi={ElevatedMoatAiCapability.Current} " +
-                    $"tooltip={tooltip.Replace("\r", "\\r").Replace("\n", "\\n")}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/AIVPlacement/AivSelectionDialogRuntime.cs:844", $"AIV UI published route={uiRoute} player={playerId} candidate={candidateId} " +
+                        $"checksum={aiv.checksum} status={state.Status?.ToString() ?? "Pending"} " +
+                        $"practice={state.PercentageText} " +
+                        $"extraFeaturesAi={ElevatedMoatAiCapability.Current} " +
+                        $"tooltip={tooltip.Replace("\r", "\\r").Replace("\n", "\\n")}");
             }
             foreach (string key in publishedUiStates.Keys.Where(key =>
                 key.StartsWith(playerId + ":", StringComparison.Ordinal) && !current.Contains(key)).ToArray())

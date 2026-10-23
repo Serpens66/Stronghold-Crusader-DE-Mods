@@ -10,7 +10,7 @@ namespace BuildingCosts
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency(CrusaderDeTweakerGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.9.0")]
+    [BepInDependency("APIShared_Serp", "0.13.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BuildingCostsPlugin : BaseUnityPlugin
     {
@@ -19,9 +19,8 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.114";
+        public const string PluginVersion = "1.0.116";
 
-        internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 
         private static BuildingCostsRuntime runtime;
         private int libraryInitializationStarted;
@@ -30,6 +29,7 @@ namespace BuildingCosts
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
 
             Settings = new BuildingCostsLobbyViewModel();
             runtime = new BuildingCostsRuntime(Logger, Settings);
@@ -51,23 +51,17 @@ namespace BuildingCosts
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "BuildingCosts_Serp",
                     Settings,
-                    "ScriptExtenderUI/BuildingCostsSettings.xaml");
+                    "ScriptExtenderUI/BuildingCostsSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:61", $"BuildingCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
-
-            TryInitializeStage("detailed tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingCostsTooltipHost",
-                    BuildingCostTooltipViewModel));
-            TryInitializeStage("compact tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingCostsTooltipHostCompact",
-                    BuildingCostTooltipViewModel));
 
             try
             {
@@ -85,7 +79,7 @@ namespace BuildingCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:88", $"BuildingCosts {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"BuildingCosts {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

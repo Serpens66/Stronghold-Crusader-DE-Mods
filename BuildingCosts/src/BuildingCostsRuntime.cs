@@ -25,8 +25,6 @@ namespace BuildingCosts
         private bool hooksSubscribed;
         private bool libraryInitialized;
         private bool vanillaCostTooltipReadFailureLogged;
-        private FieldInfo hoverStructField;
-        private FieldInfo selectedStructField;
         private int lastTooltipStruct = int.MinValue;
         private int lastLocalPlayerId = int.MinValue;
         private int lastResourceSignature = int.MinValue;
@@ -35,6 +33,7 @@ namespace BuildingCosts
         private string lastVanillaTooltipText;
         private string lastVanillaCostText;
         private bool tooltipIsClear = true;
+        private IReadOnlyList<TooltipLine> tooltipLines = Array.Empty<TooltipLine>();
         private IBuildingRepairCapability repairCapability;
 
         private static readonly Dictionary<eMappers, BuildingCostDefinition> BuildingCostDefinitions = CreateBuildingCostDefinitions();
@@ -87,7 +86,10 @@ namespace BuildingCosts
             }
 
             hooksSubscribed = true;
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:90", "Building cost runtime hooks subscribed");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:90", "Building cost runtime hooks subscribed");
+            }
         }
 
         public void InitializeAfterLibraryLoaded()
@@ -99,7 +101,10 @@ namespace BuildingCosts
             if (!EffectsEnabled)
             {
                 libraryInitialized = true;
-                LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:102", "Building costs disabled; runtime hooks not subscribed");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:102", "Building costs disabled; runtime hooks not subscribed");
+                }
                 return;
             }
 
@@ -108,7 +113,10 @@ namespace BuildingCosts
             TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
             TryRunFeature("building costs", ApplyBuildingCosts);
             libraryInitialized = true;
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:111", "Applied initial building cost settings");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:111", "Applied initial building cost settings");
+            }
         }
 
         private void DeactivateHooks()
@@ -126,7 +134,8 @@ namespace BuildingCosts
                 if (!ApiShared.Current.TryGetBuildingRepair(BuildingCostsPlugin.PluginGuid,
                     out repairCapability, out NativeCapabilityDiagnostic diagnostic))
                 {
-                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:129", "Shared building repair unavailable: " + diagnostic?.Reason);
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:129", "Shared building repair unavailable: " + diagnostic?.Reason);
                     return;
                 }
             }
@@ -135,15 +144,17 @@ namespace BuildingCosts
 
         private void InstallUpdateRolloverHook()
         {
-            hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (hoverStructField == null || selectedStructField == null)
-                throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
+            if (!TooltipPresentation.TryRegisterContent(BuildingCostsPlugin.PluginGuid, "BuildingTooltip",
+                TooltipTarget.BuildingCompact | TooltipTarget.BuildingDetailed, TooltipPlacement.InlineAfterCosts,
+                GetBuildingTooltip, out string reason)) throw new InvalidOperationException(reason);
+        }
 
-            if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, BuildingCostsPlugin.PluginGuid,
-                "BuildingTooltip", null, args => {
-                    if (args.OriginalCompleted) UpdateRolloverHookImpl(args.BuildingHud);
-                }, out string reason)) throw new InvalidOperationException(reason);
+        private IReadOnlyList<TooltipLine> GetBuildingTooltip(TooltipContext context)
+        {
+            if (!EffectsEnabled) { ClearBuildingCostTooltip(); return Array.Empty<TooltipLine>(); }
+            if (!context.IsActive) return Array.Empty<TooltipLine>();
+            UpdateBuildingCostTooltip(context);
+            return tooltipLines;
         }
 
         private void SubscribeSettingsChanges()
@@ -198,7 +209,8 @@ namespace BuildingCosts
             }
             try
             {
-                LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:202", "Gameplay session started: " + context.Kind);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:202", "Gameplay session started: " + context.Kind);
                 ApplyBuildingCosts();
                 ResetTooltipCache();
             }
@@ -273,7 +285,10 @@ namespace BuildingCosts
             {
                 if (!BuildingCostDefinitions.TryGetValue(entry.Key, out BuildingCostDefinition definition))
                 {
-                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:277", "Building cost mapper is not supported:", entry.Key);
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:277", "Building cost mapper is not supported:", entry.Key);
+                    }
                     continue;
                 }
 
@@ -290,7 +305,10 @@ namespace BuildingCosts
                 }
             }
 
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:294", "Applied building cost materials:", changedMaterials);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:294", "Applied building cost materials:", changedMaterials);
+            }
             ResetTooltipCache();
         }
 
@@ -346,7 +364,10 @@ namespace BuildingCosts
             overriddenCostMaterials.Clear();
             foreach (KeyValuePair<eStructs, CostMaterialMask> failed in failedRestores)
                 overriddenCostMaterials[failed.Key] = failed.Value;
-            LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:350", "Restored default building cost materials:", restoredMaterials);
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("BuildingCosts/src/BuildingCostsRuntime.cs:350", "Restored default building cost materials:", restoredMaterials);
+            }
             ResetTooltipCache();
         }
 
@@ -456,18 +477,7 @@ namespace BuildingCosts
             return changed;
         }
 
-        private void UpdateRolloverHookImpl(HUD_Main self)
-        {
-
-            if (!EffectsEnabled)
-            {
-                ClearBuildingCostTooltip();
-                return;
-            }
-            UpdateBuildingCostTooltip(self);
-        }
-
-        private void UpdateBuildingCostTooltip(HUD_Main hud)
+        private void UpdateBuildingCostTooltip(TooltipContext context)
         {
             try
             {
@@ -481,22 +491,9 @@ namespace BuildingCosts
                 }
 
                 MainViewModel vanilla = MainViewModel.Instance;
-                if (repairCapability != null &&
-                    repairCapability.TryGetSelectedQuote(out BuildingRepairQuote repairQuote) &&
-                    repairQuote.CurrentHealth < repairQuote.MaxHealth &&
-                    string.Equals(vanilla.RollOverText?.Trim(),
-                        Translate.Instance.lookUpText(Enums.eTextSections.TEXT_BUBBLE_HELP_TEXT,
-                            Enums.eTextValues.BHELP_TEXT_REPAIR), StringComparison.Ordinal))
-                {
-                    ClearBuildingCostTooltip();
-                    return;
-                }
-
                 bool detailedTooltipVisible = vanilla.RolloverBuilding_TooltipVis;
                 bool compactTooltipVisible = vanilla.RolloverBuilding_TooltipVisNot;
-                int hoverStruct = (int)hoverStructField.GetValue(hud);
-                int selectedStruct = (int)selectedStructField.GetValue(hud);
-                int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
+                int tooltipStruct = context.BuildingType;
 
                 if (tooltipStruct <= 0 || (!detailedTooltipVisible && !compactTooltipVisible))
                 {
@@ -516,7 +513,8 @@ namespace BuildingCosts
                     return;
                 }
 
-                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                int localPlayerId = context.LocalPlayerId;
+                if (localPlayerId <= 0) { ClearBuildingCostTooltip(); return; }
                 int resourceSignature = GetTooltipResourceSignature(localPlayerId);
                 string vanillaCostText = vanilla.RollOverText_AmountReq1 + vanilla.RollOverText_AmountGot1 +
                     vanilla.RollOverText_AmountReq2 + vanilla.RollOverText_AmountGot2;
@@ -541,23 +539,18 @@ namespace BuildingCosts
                 lastVanillaCostText = vanillaCostText;
 
                 List<BuildingCostTooltipEntry> entries = CreateAdditionalTooltipEntries(building, localPlayerId);
-                if (entries.Count > 0)
+                if (entries.Count == 0) tooltipLines = Array.Empty<TooltipLine>();
+                else
                 {
-                    entries.Insert(0, new BuildingCostTooltipEntry
+                    var segments = new List<TooltipSegment>(entries.Count * 3);
+                    foreach (var entry in entries)
                     {
-                        AmountRequired = vanilla.RollOverText_AmountReq2,
-                        AmountAvailable = vanilla.RollOverText_AmountGot2,
-                        Image = vanilla.RollOverText_GoodsImage2
-                    });
-                    entries.Insert(0, new BuildingCostTooltipEntry
-                    {
-                        AmountRequired = vanilla.RollOverText_AmountReq1,
-                        AmountAvailable = vanilla.RollOverText_AmountGot1,
-                        Image = vanilla.RollOverText_GoodsImage1
-                    });
-                    entries.Insert(0, new BuildingCostTooltipEntry { Title = vanilla.RollOverText, IsTitle = true });
+                        segments.Add(new TooltipText(entry.AmountRequired));
+                        segments.Add(new TooltipSymbol(entry.Image));
+                        segments.Add(new TooltipText(entry.AmountAvailable));
+                    }
+                    tooltipLines = new[] { new TooltipLine(segments.ToArray()) };
                 }
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip(entries, entries.Count > 0);
                 tooltipIsClear = false;
             }
             catch (Exception ex)
@@ -573,8 +566,9 @@ namespace BuildingCosts
             if (tooltipIsClear)
                 return;
 
-            BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
+            tooltipLines = Array.Empty<TooltipLine>();
             tooltipIsClear = true;
+            ResetTooltipCache();
         }
 
         private void ResetTooltipCache()
@@ -848,7 +842,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + translationKey + " " + ex.Message);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled) System.Diagnostics.Debug.WriteLine("GameTranslateAPI lookup failed: " + translationKey + " " + ex.Message);
             }
 
             if (CrusaderDE.Translate.Instance?.GameTexts != null &&

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Patch>
-    <Operation 
-        Type="SetAttribute"
-        XPath="//*[@Name='GameSpeedSlider']"
-        AttributeName="Maximum"
-        Value="40" />
-</Patch>

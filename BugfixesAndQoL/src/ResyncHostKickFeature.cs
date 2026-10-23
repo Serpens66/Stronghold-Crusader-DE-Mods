@@ -179,7 +179,8 @@ namespace BugfixesAndQoL
                     SerpLocalization.Get(
                         "BugfixesAndQoL.ResyncKickConfirmationMessage",
                         "PlayerName", playerName));
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:182", $"Displayed resync host-kick confirmation: playerId={playerId}, playerName={playerName}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:182", $"Displayed resync host-kick confirmation: playerId={playerId}, playerName={playerName}.");
             }
             catch (Exception ex)
             {
@@ -202,7 +203,8 @@ namespace BugfixesAndQoL
                 }
 
                 forcedHostKickMethod.Invoke(Platform_Multiplayer.Instance, new object[] { member, true });
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:205", $"Executed authoritative resync host kick: playerId={playerId}, playerName={playerName}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:205", $"Executed authoritative resync host kick: playerId={playerId}, playerName={playerName}.");
                 ClearTarget(clearViewModel: true);
             }
             catch (Exception ex)
@@ -214,7 +216,10 @@ namespace BugfixesAndQoL
         private void CancelKick(long sequence, int playerId, string playerName)
         {
             if (sequence == promptSequence)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:217", $"Cancelled resync host kick: playerId={playerId}, playerName={playerName}.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:217", $"Cancelled resync host kick: playerId={playerId}, playerName={playerName}.");
+                }
         }
 
         private bool TryResolveValidatedTarget(DateTime now, out Platform_Multiplayer.MPGameMember member)

@@ -55,7 +55,10 @@ namespace UnitLimit
                     .Subscribe(OnUnitTransition));
 
                 subscribed = true;
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:58", "ActiveUnitCache hooks subscribed.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:58", "ActiveUnitCache hooks subscribed.");
+                }
             }
             catch
             {
@@ -139,13 +142,16 @@ namespace UnitLimit
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanActiveIds > 0 || humanCountKeys > 0)
             {
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:142",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:142",
                     "ActiveUnitCache ResyncAll:",
                     "raiseEvents", raiseEvents,
                     "scanned", scannedUnits,
                     "alive", aliveUnits,
                     "humanActiveIds", humanActiveIds,
                     "humanCountKeys", humanCountKeys);
+                }
             }
             if (verboseUnitEventLogging)
                 LogAllCounts("ActiveUnitCache ResyncAll count");
@@ -252,9 +258,6 @@ namespace UnitLimit
                         FormatSuppressedWarningSuffix(suppressedWarnings));
                 }
             }
-            else if (verboseUnitEventLogging)
-            {
-            }
 
             UnitSnapshot transitionedSnapshot = new UnitSnapshot(
                 snapshot.AliveState,
@@ -281,11 +284,14 @@ namespace UnitLimit
             {
                 if (ShouldLogCacheChange(fallbackReason, 0))
                 {
-                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:314",
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitLimit/src/ActiveUnitCache.cs:314",
                         "ActiveUnitCache NotifyNativeSnapshotChanged missing snapshot:",
                         "unitId", unitId,
                         "reason", fallbackReason,
                         "preferFallbackReason", preferFallbackReason);
+                    }
                 }
                 RemoveUnit(unitId, fallbackReason);
             }
@@ -304,7 +310,6 @@ namespace UnitLimit
         private void UpdateSnapshot(int unitId, UnitSnapshot snapshot, ActiveUnitChangeReason fallbackReason, bool preferFallbackReason)
         {
             ActiveUnitChangedEventArgs eventArgs = null;
-            bool changed = false;
             lock (syncRoot)
             {
                 bool hadSnapshot = snapshotsById.TryGetValue(unitId, out UnitSnapshot oldSnapshot);
@@ -317,7 +322,6 @@ namespace UnitLimit
                     {
                         eventArgs = CreateEvent(unitId, hadSnapshot ? oldSnapshot : default(UnitSnapshot), snapshot, fallbackReason);
                         ApplyCountDelta(eventArgs);
-                        changed = true;
                     }
                 }
                 else
@@ -328,20 +332,13 @@ namespace UnitLimit
                     {
                         eventArgs = CreateEvent(unitId, hadSnapshot ? oldSnapshot : default(UnitSnapshot), snapshot, fallbackReason);
                         ApplyCountDelta(eventArgs);
-                        changed = true;
                     }
                     else if (TryGetChangeReason(oldSnapshot, snapshot, out ActiveUnitChangeReason reason))
                     {
                         eventArgs = CreateEvent(unitId, oldSnapshot, snapshot, preferFallbackReason ? fallbackReason : reason);
                         ApplyCountDelta(eventArgs);
-                        changed = true;
                     }
                 }
-            }
-
-            if (ShouldLogCacheChange(fallbackReason, snapshot.OwnerId) ||
-                (eventArgs != null && ShouldLogCacheChange(eventArgs.Reason, eventArgs.OldSnapshot.OwnerId)))
-            {
             }
 
             if (eventArgs != null)
@@ -351,7 +348,6 @@ namespace UnitLimit
         private void RemoveUnit(int unitId, ActiveUnitChangeReason reason)
         {
             ActiveUnitChangedEventArgs eventArgs = null;
-            bool removedOrKnown = false;
             UnitSnapshot removedSnapshot = default(UnitSnapshot);
             lock (syncRoot)
             {
@@ -363,10 +359,8 @@ namespace UnitLimit
                 {
                     eventArgs = CreateEvent(unitId, oldSnapshot, default(UnitSnapshot), reason);
                     ApplyCountDelta(eventArgs);
-                    removedOrKnown = true;
                 }
             }
-
 
             if (eventArgs != null)
                 ApplyAndRaiseEvent(eventArgs);
@@ -423,15 +417,16 @@ namespace UnitLimit
 
             if (ShouldLogCacheChange(reason, key.PlayerId))
             {
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:479",
-                    "ActiveUnitCache count changed:",
-                    "player", key.PlayerId,
-                    "type", key.UnitType,
-                    "old", oldCount,
-                    "new", newCount,
-                    "delta", newCount - oldCount,
-                    "unitId", unitId,
-                    "reason", reason);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:479",
+                        "ActiveUnitCache count changed:",
+                        "player", key.PlayerId,
+                        "type", key.UnitType,
+                        "old", oldCount,
+                        "new", newCount,
+                        "delta", newCount - oldCount,
+                        "unitId", unitId,
+                        "reason", reason);
             }
 
             return true;
@@ -467,7 +462,10 @@ namespace UnitLimit
 
             int humanCountKeys = GetHumanCountKeyCount();
             if (humanCountKeys > 0)
-                LogDebug("UnitLimit/src/ActiveUnitCache.cs:523", "ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:523", "ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                }
         }
 
         private int GetHumanActiveUnitIdCount()
@@ -502,21 +500,26 @@ namespace UnitLimit
 
         private void LogAllCounts(string prefix)
         {
-            Shared.DebugLogHelper.LogDebugLimited(log, "UnitLimit/src/ActiveUnitCache.cs.Summary", () =>
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
             {
-                int keys = 0;
-                int total = 0;
-                lock (syncRoot)
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticPrefix = @prefix;
+                Shared.DebugLogHelper.LogDebugLimited(log, "UnitLimit/src/ActiveUnitCache.cs.Summary", () =>
                 {
-                    foreach (KeyValuePair<UnitCountKey, int> pair in countsByOwnerAndType)
+                    int keys = 0;
+                    int total = 0;
+                    lock (syncRoot)
                     {
-                        if (!ShouldLogPlayer(pair.Key.PlayerId)) continue;
-                        keys++;
-                        total += pair.Value;
+                        foreach (KeyValuePair<UnitCountKey, int> pair in countsByOwnerAndType)
+                        {
+                            if (!ShouldLogPlayer(pair.Key.PlayerId)) continue;
+                            keys++;
+                            total += pair.Value;
+                        }
                     }
-                }
-                return prefix + ": humanCountKeys=" + keys + ", aliveTotal=" + total + ".";
-            });
+                    return diagnosticPrefix + ": humanCountKeys=" + keys + ", aliveTotal=" + total + ".";
+                });
+            }
         }
 
         private static void AddUnitEvent(ref List<ActiveUnitChangedEventArgs> events, int unitId, UnitSnapshot oldSnapshot, UnitSnapshot newSnapshot, ActiveUnitChangeReason reason)
@@ -646,7 +649,10 @@ namespace UnitLimit
                     "suppressedOwnerWarnings=" + suppressedOwnerWarnings +
                     ", suppressedTypeWarnings=" + suppressedTypeWarnings + ".");
             }
-            LogDebug("UnitLimit/src/ActiveUnitCache.cs:713", "ActiveUnitCache cleared.");
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:713", "ActiveUnitCache cleared.");
+            }
         }
 
         private void LogDebug(string site, params object[] parts)
@@ -702,7 +708,8 @@ namespace UnitLimit
                 OwnerId = ownerId;
             }
 
-            public static UnitSnapshot From(GameUnit unit)
+            // By reference: GameUnit is >1 KB and ResyncAll reads every slot.
+            public static UnitSnapshot From(in GameUnit unit)
             {
                 return new UnitSnapshot(
                     unit.r_AliveState,
@@ -712,7 +719,8 @@ namespace UnitLimit
             }
         }
 
-        private struct UnitCountKey
+        // IEquatable avoids boxing on every dictionary lookup (per GUI check and unit event).
+        private struct UnitCountKey : IEquatable<UnitCountKey>
         {
             public readonly int PlayerId;
             public readonly eChimps UnitType;
@@ -723,13 +731,9 @@ namespace UnitLimit
                 UnitType = unitType;
             }
 
-            public override bool Equals(object obj)
-            {
-                if (!(obj is UnitCountKey other))
-                    return false;
+            public bool Equals(UnitCountKey other) => PlayerId == other.PlayerId && UnitType == other.UnitType;
 
-                return PlayerId == other.PlayerId && UnitType == other.UnitType;
-            }
+            public override bool Equals(object obj) => obj is UnitCountKey other && Equals(other);
 
             public override int GetHashCode()
             {

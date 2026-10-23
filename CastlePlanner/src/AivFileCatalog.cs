@@ -543,8 +543,10 @@ namespace CastlePlanner
             {
                 files = Directory.GetFiles(root, "*.aivjson", SearchOption.AllDirectories);
             }
-            catch
+            catch (Exception ex)
             {
+                Shared.RuntimeHealth.Report("aiv-catalog-discovery", false,
+                    "Cannot enumerate existing AIV root " + sourceName + ": " + ex.Message + "; this root's entries are unavailable.");
                 return;
             }
 

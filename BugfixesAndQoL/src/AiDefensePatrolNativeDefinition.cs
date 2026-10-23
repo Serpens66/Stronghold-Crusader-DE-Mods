@@ -31,10 +31,13 @@ namespace BugfixesAndQoL
 
         internal static void Validate(ReadOnlySpan<byte> memory)
         {
-            int resolvedRva = Shared.NativePatternResolver.FindUniquePattern(
+            // Known reference build: byte check at the audited RVA only; another build proves uniqueness by scan.
+            int resolvedRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
                 DecisionPattern,
-                "AI defense patrol assignment decision");
+                DecisionHookRva,
+                Shared.DebugLogHelper.IsCurrentNativeLibraryVersion(),
+                "AI defense patrol assignment decision").Rva;
             if (resolvedRva != DecisionHookRva)
             {
                 throw new InvalidOperationException(

@@ -1,0 +1,31 @@
+{
+  "protectedFiles": 971,
+  "changedProtectedFiles": [],
+  "queriesIdentical": false,
+  "statsIdentical": true,
+  "coverageEquivalent": true,
+  "coverageStatusBefore": "stale",
+  "coverageStatusAfter": "stale",
+  "removedCoverageReasons": [
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-4d62c98500fe4ed884ff84660bd2a4c3\\ExampleMod\\source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-4d62c98500fe4ed884ff84660bd2a4c3\\SerpsModsHost\\new-source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-7c3869b41a6e40d69e996b67be420460\\ExampleMod\\source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-7c3869b41a6e40d69e996b67be420460\\SerpsModsHost\\new-source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-a008b12904e14a6dba4f9005f16f37a3\\ExampleMod\\source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-a008b12904e14a6dba4f9005f16f37a3\\SerpsModsHost\\new-source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-fa9bf8607b194e37a60b227fb55d57b8\\ExampleMod\\source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-output-git-fa9bf8607b194e37a60b227fb55d57b8\\SerpsModsHost\\new-source.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-5047a1d9008249c7a9eba9b81a9c65ec\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-5fa2ce20ed804b7da300e2b9aa7bfb7e\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-643858ebb8394a6886bd5588f39b6f48\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-71c92471ee6c428a8101cd27d8779f56\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-9680d335f62f44dc8d19aa2e8893048e\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-9ceb4d0c2e814891a3d8ef55f9122324\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-ae5aaa8aa1a24854a5e774522c3ce567\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-cb61b390abfc496db346e8b1f9249423\\SerpsModsHost\\src\\Host.cs",
+    "source changed: new file D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.inspect\\workshop-workflow-fd2aa98fa75c417b96f11bc90b04929a\\SerpsModsHost\\src\\Host.cs"
+  ],
+  "addedCoverageReasons": [],
+  "remainingFiles": 78693,
+  "remainingBytesExcludingReport": 15010192300
+}

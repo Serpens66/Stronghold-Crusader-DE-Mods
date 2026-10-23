@@ -49,7 +49,8 @@ namespace BugfixesAndQoL
                 blocksLocalStateChanges = snapshot.IsRealMultiplayer;
                 hasMapSnapshot = true;
                 detectionFailureLogged = false;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerFeatureGate.cs:54", $"Bugfixes and QoL multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerFeatureGate.cs:54", $"Bugfixes and QoL multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {

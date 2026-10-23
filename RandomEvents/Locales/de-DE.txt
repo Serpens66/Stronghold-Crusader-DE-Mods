@@ -108,3 +108,6 @@ Common.ModSettingsSearchClearHelp=Leert den Einstellungsfilter.
 Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
 Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewählte Quelle zurück. Eigene Presets bleiben unverändert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurücksetzen.
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
+RandomEvents.ShowEventChatMessages=Ereignisse im Chat anzeigen
+RandomEvents.ShowEventChatMessagesHelp=Zeigt erfolgreich ausgelöste Ereignisse mit dem Namen des betroffenen Lords im lokalen Chat an. Gilt für eigene Ereignisse, andere menschliche Spieler und aktivierte KI-Lords in beiden Würfelmodi. Jeder Spieler kann die Anzeige unabhängig abschalten.
+RandomEvents.ChatPlayerFormat=Spieler {0}

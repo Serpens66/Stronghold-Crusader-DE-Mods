@@ -30,7 +30,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (!Enabled || args == null)
+            if (!LocalInputEnabled || args == null)
                 return;
             try
             {
@@ -68,7 +68,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnKeyHeld(UnityInputEventArgs args)
         {
-            if (!Enabled || args == null)
+            if (!LocalInputEnabled || args == null)
                 return;
             try
             {
@@ -105,7 +105,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnKeyUp(UnityInputEventArgs args)
         {
-            if (!Enabled || args == null)
+            if (!LocalInputEnabled || args == null)
                 return;
             try
             {
@@ -142,8 +142,9 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!releaseObserved)
                     return;
                 ClearPreview();
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs:145", $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
-                    $"thread={Environment.CurrentManagedThreadId}; awaiting native release.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs:145", $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
+                        $"thread={Environment.CurrentManagedThreadId}; awaiting native release.");
             }
             catch (Exception exception)
             {

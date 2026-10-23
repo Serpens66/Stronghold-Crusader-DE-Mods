@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extreme Powers",
   "Description": "Experimental, separately extractable API and test mod for Extreme Powers.",
-  "Version": "0.1.6",
+  "Version": "0.1.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.7",
+      "Changes": [
+        "Avoid unnecessary host-only writes after settings restoration on clients and in read-only mission presets."
+      ]
+    },
     {
       "Version": "0.1.6",
       "Changes": [

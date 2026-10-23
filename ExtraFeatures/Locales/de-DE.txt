@@ -70,12 +70,12 @@ SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unve
 SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
 SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
 SomeSettings.MarketPriceMultipliersTitle=Marktpreise
-SomeSettings.MarketGoodPriceMultipliersHelp=Bei jedem Gut steuert der obere Regler den Kauf und der untere Regler den Verkauf. Jeder einzelne Faktor wird mit dem entsprechenden allgemeinen Faktor multipliziert; 1,0x laesst dieses Gut unveraendert.
+SomeSettings.MarketGoodPriceMultipliersHelp=Der obere Regler steuert den Kauf, der untere den Verkauf. Der individuelle Faktor wird mit dem allgemeinen Faktor multipliziert. Ein Gesamtfaktor von 1,0 lässt aktuelle Preise unverändert. Andere Faktoren skalieren Vanilla-Preise; abweichende direkte Preise anderer Mods haben Vorrang und bleiben erhalten. Zurücksetzen nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketGoodPriceMultiplierHelp={Good} - {Direction}: {Value}. Dieser einzelne Faktor wird mit dem entsprechenden allgemeinen Marktfaktor multipliziert.
 SomeSettings.MarketBuyPriceMultiplier=Kaufpreise
-SomeSettings.MarketBuyPriceMultiplierHelp=Multiplikator fuer alle Markt-Kaufpreise. 1.0 = unveraendert, 0.0 = kostenlos, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketBuyPriceMultiplierHelp=Faktor für Vanilla-Kaufpreise: 1,0 lässt aktuelle Preise unverändert, 0,0 = kostenlos, 5,0 = fünffacher Vanilla-Preis. Wird mit dem individuellen Warenfaktor kombiniert. Abweichende direkte Preise anderer Mods haben Vorrang; Deaktivieren nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketSellPriceMultiplier=Verkaufspreise
-SomeSettings.MarketSellPriceMultiplierHelp=Multiplikator fuer alle Markt-Verkaufspreise. 1.0 = unveraendert, 0.0 = kein Gold durch Verkauf, 5.0 = fuenffacher Vanilla-Preis.
+SomeSettings.MarketSellPriceMultiplierHelp=Faktor für Vanilla-Verkaufspreise: 1,0 lässt aktuelle Preise unverändert, 0,0 = kein Erlös, 5,0 = fünffacher Vanilla-Preis. Wird mit dem individuellen Warenfaktor kombiniert. Abweichende direkte Preise anderer Mods haben Vorrang; Deaktivieren nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketPricesAlsoForAI=Auch fuer KI anwenden
 SomeSettings.MarketPricesAlsoForAIHelp=Wenn aktiviert, verwendet die KI die eingestellten Marktpreise fuer Entscheidungen, Kaeufe und Verkaeufe. Wenn deaktiviert, verwendet die KI Vanilla-Preise. Die eingestellten Marktpreise beeinflussen die Modsetting Wirtschaftsboni unabhaengig von dieser Option.
 SomeSettings.EnableKnightDismount=Ritter auf- und absitzen aktivieren
@@ -165,3 +165,12 @@ SomeSettings.DrawbridgeAutomaticEnabledTooltip=Die automatische Zugbrückensteue
 SomeSettings.DrawbridgeManualOnlyTooltip=Die Zugbrücke wird nur manuell gesteuert. Torhausbefehle werden ignoriert. Klicken, um die automatische Steuerung durch das verbundene Torhaus wieder einzuschalten.
 SomeSettings.KeepBuildRange=Baureichweite vom Keep
 SomeSettings.KeepBuildRangeHelp=Legt die globale Baureichweite für Befestigungen in Feldern für KI und menschliche Spieler fest. -1 und 0 lassen die Standardreichweite unverändert. Vanilla-Kartengröße/Reichweite: 160/45, 200/50, 300/60, 400/70, 500/80, 600/90, 700 und 800/100; andere Größen verwenden 70. Jedes Feld der Gebäudegrundfläche wird anhand des größeren horizontalen/vertikalen Abstands zum Keep-Bezugspunkt geprüft, nicht anhand der diagonalen Entfernung. Verbündete Keeps gewähren die halbe Reichweite. 100 deckt gültige Gebäudegrundflächen in jedem 100x100-AIV-Raster ab. Gelände, Belegung, Gegnernähe, Ressourcen und Erreichbarkeit werden weiterhin geprüft.
+SomeSettings.PlagueDamageSurfaces=Pestwolken verursachen auch Schaden an Einheiten auf:
+SomeSettings.PlagueDamageWalls=Mauern
+SomeSettings.PlagueDamageGates=Tore
+SomeSettings.PlagueDamageTowers=Türme
+SomeSettings.PlagueDamageKeeps=Keep
+SomeSettings.PlagueDamageWallsHelp=Erlaubt Pestschaden an Einheiten auf niedrigen und hohen Mauern sowie deren Treppen. Wolken- und Einheitenstandhöhe dürfen höchstens 20 native Höheneinheiten abweichen. Typimmunität, Schaden und Apotheker-Schutz bleiben unverändert. Aus erhält die Vanilla-Ausschlüsse dieser Kategorie.
+SomeSettings.PlagueDamageGatesHelp=Erlaubt Pestschaden an Einheiten auf begehbaren Torhäusern. Wolken- und Einheitenstandhöhe dürfen höchstens 20 native Höheneinheiten abweichen. Typimmunität, Schaden und Apotheker-Schutz bleiben unverändert. Aus erhält die Vanilla-Ausschlüsse dieser Kategorie.
+SomeSettings.PlagueDamageTowersHelp=Erlaubt Pestschaden an Einheiten auf Verteidigungstürmen. Wolken- und Einheitenstandhöhe dürfen höchstens 20 native Höheneinheiten abweichen. Typimmunität, Schaden und Apotheker-Schutz bleiben unverändert. Aus erhält die Vanilla-Ausschlüsse dieser Kategorie.
+SomeSettings.PlagueDamageKeepsHelp=Erlaubt Pestschaden an Einheiten auf Keep-Plattformen. Wolken- und Einheitenstandhöhe dürfen höchstens 20 native Höheneinheiten abweichen. Typimmunität, Schaden und Apotheker-Schutz bleiben unverändert. Aus erhält die Vanilla-Ausschlüsse dieser Kategorie.

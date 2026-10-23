@@ -1,11 +1,24 @@
 @echo off
 setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Helpers/ActiveAIVDetector/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
 set "BUILD_DRIVER_NOPAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START ActiveAIVDetector
 cd /d "%~dp0"
-if errorlevel 1 goto :build_driver_directory_failed
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
 rem The outer driver owns the pause, including failures before compilation.
 call :build_driver_main %* /nopause
 set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
@@ -22,7 +35,7 @@ exit /b 1
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -35,7 +48,7 @@ if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0..\.." -PackageDirectory "%API_SHARED_DIR%"
-if errorlevel 1 exit /b 1
+if not "%ERRORLEVEL%"=="0" exit /b 1
 set "VANILLA_EXPORT_ROOT=%PROJECT_DIR%..\VanillaAICExporter\Exports"
 set "EDITOR_VANILLA_AIV_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition - Castle & CPU Lord Editor\CrusaderCastleEditorUnity_Data\StreamingAssets\Villages"
 set "CHAT10_TRACE_CONFIG=%PROJECT_DIR%Diagnostics\Chat10-Bow-Ridge-Trace.cfg"
@@ -50,7 +63,7 @@ for %%A in (%*) do (
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
@@ -129,18 +142,22 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Buendle Vanilla-AIC-Export:
   echo !VANILLA_EXPORT_DIR!
   if exist "!LOCAL_PLUGIN_DIR!\VanillaAIC\" rmdir /S /Q "!LOCAL_PLUGIN_DIR!\VanillaAIC"
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
 echo [%date% %time%] Copy package files
   xcopy "!VANILLA_EXPORT_DIR!" "!LOCAL_PLUGIN_DIR!\VanillaAIC\" /E /I /Q /Y
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
 
   if exist "!EDITOR_VANILLA_AIV_DIR!\rat1.aivjson" (
     echo Aktualisiere Vanilla-AIV-Dateien aus dem offiziellen Editor:
     echo !EDITOR_VANILLA_AIV_DIR!
     if exist "!LOCAL_PLUGIN_DIR!\VanillaAIV\" rmdir /S /Q "!LOCAL_PLUGIN_DIR!\VanillaAIV"
+    if not errorlevel 0 cmd /c exit 1
     if errorlevel 1 goto copy_failed
 echo [%date% %time%] Copy package files
     xcopy "!EDITOR_VANILLA_AIV_DIR!\*.aivjson" "!LOCAL_PLUGIN_DIR!\VanillaAIV\" /I /Q /Y
+    if not errorlevel 0 cmd /c exit 1
     if errorlevel 1 goto copy_failed
   ) else (
     echo Offizieller Editor nicht gefunden; verwende bereits gebuendelte Vanilla-AIV-Dateien.
@@ -156,22 +173,26 @@ echo [%date% %time%] Copy package files
     for /D %%D in ("!GAME_PLUGIN_DIR!\*") do (
       if /I "%%~nxD"=="VanillaAIC" (
         rmdir /S /Q "%%~fD"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
       if /I "%%~nxD"=="VanillaAIV" (
         rmdir /S /Q "%%~fD"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )
     for %%F in ("!GAME_PLUGIN_DIR!\*") do (
       if exist "%%~fF" if not exist "%%~fF\" (
         del /F /Q "%%~fF"
+        if not errorlevel 0 cmd /c exit 1
         if errorlevel 1 goto copy_failed
       )
     )
   )
 echo [%date% %time%] Copy package files
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
+  if not errorlevel 0 cmd /c exit 1
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert.
 
@@ -184,6 +205,7 @@ echo [%date% %time%] Copy package files
     echo Installiere explizit aktivierte Chat-10-Prebuild-Trace-Konfiguration...
 echo [%date% %time%] Copy package files
     copy /Y "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
+    if not errorlevel 0 cmd /c exit 1
     if errorlevel 1 goto copy_failed
     echo Chat-10-Prebuild-Trace aktiviert.
   )

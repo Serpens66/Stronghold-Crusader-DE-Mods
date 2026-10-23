@@ -1,0 +1,30 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><AssemblyName>EnginePresentation.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
+    <OutputPath>bin\</OutputPath><IntermediateOutputPath>obj\</IntermediateOutputPath><PlatformTarget>x64</PlatformTarget>
+    <SerpDevDiagnostics Condition="'$(SerpDevDiagnostics)'==''">false</SerpDevDiagnostics>
+    <DefineConstants Condition="'$(SerpDevDiagnostics)'=='true'">$(DefineConstants);SERP_DEVDIAG</DefineConstants>
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/><Reference Include="System.Core"/>
+    <Reference Include="0Harmony"><HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Mono.Cecil"><HintPath>$(GameDir)\BepInEx\core\Mono.Cecil.dll</HintPath><Private>true</Private></Reference>
+    <Compile Include="Program.cs"/>
+    <Compile Include="../../src/VanillaPerformance/EnginePresentationBridge.cs"/>
+    <Compile Include="../../src/VanillaPerformance/EnginePresentationBridge.IL.cs"/>
+    <Compile Include="../../src/SimulationRunScope.cs"/>
+    <Compile Include="../../src/VanillaPerformance/AchievementDataOptimization.cs"/>
+    <Compile Include="../../src/VanillaPerformance/MeritDataLockOptimization.cs"/>
+    <Compile Include="../../src/VanillaPerformance/MeritDataLockOptimization.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
+    <Compile Include="../../../Shared/Runtime/Diagnostics/DevDiag.cs"/>
+    <Compile Include="../../../Testmods/PerfProbe/src/PerfProbeRunTiming.DevDiag.cs"/>
+    <Compile Include="../../../Testmods/PerfProbe/src/PerfProbeLockTiming.DevDiag.cs"/>
+    <Compile Include="../../../Testmods/PerfProbe/src/PerfProbeLockHistory.DevDiag.cs"/>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

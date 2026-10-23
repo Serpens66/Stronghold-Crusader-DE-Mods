@@ -196,36 +196,138 @@ namespace BugfixesAndQoL.UnitCommands
                     result[index] = candidate;
                 }
             }
+            // Remaining slots take the nearest unused candidate. A bucket grid replaces the former scan
+            // over all candidates per slot (up to slots x 8192 distance checks per preview). The order
+            // is unchanged: squared distance, then tile ID, then candidate index (the former loop kept
+            // the first of equal candidates). Rings of buckets are visited until no bucket can hold a
+            // candidate at a distance <= the best one, so the same candidate is found.
+            var grid = new CandidateGrid(candidates, used);
             for (int slotIndex = 0; slotIndex < slots.Count; slotIndex++)
             {
                 if (assigned[slotIndex]) continue;
                 FormationPoint slot = slots[slotIndex];
-                int desiredX = anchorX + slot.X;
-                int desiredY = anchorY + slot.Y;
-                long bestDistance = long.MaxValue;
-                int best = -1;
-                for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
-                {
-                    if (used[candidateIndex])
-                        continue;
-                    FormationPoint candidate = candidates[candidateIndex];
-                    long dx = candidate.X - desiredX;
-                    long dy = candidate.Y - desiredY;
-                    long distance = dx * dx + dy * dy;
-                    if (distance < bestDistance ||
-                        (distance == bestDistance &&
-                         (best < 0 || tileIds[candidateIndex] < tileIds[best])))
-                    {
-                        bestDistance = distance;
-                        best = candidateIndex;
-                    }
-                }
+                int best = grid.TakeNearest(anchorX + slot.X, anchorY + slot.Y, tileIds);
                 if (best < 0)
+                {
                     best = slotIndex % candidates.Count;
+                    grid.Remove(best);
+                }
                 used[best] = true;
                 result[slotIndex] = best;
             }
             return result;
+        }
+
+        private sealed class CandidateGrid
+        {
+            private const int BucketSize = 8;
+            private readonly IReadOnlyList<FormationPoint> candidates;
+            private readonly int minBucketX, minBucketY, width, height;
+            private readonly int[][] buckets;
+            private readonly int[] counts;
+            private readonly int[] bucketOf, positionInBucket;
+
+            internal CandidateGrid(IReadOnlyList<FormationPoint> candidates, bool[] used)
+            {
+                this.candidates = candidates;
+                int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+                foreach (FormationPoint point in candidates)
+                {
+                    int bx = BucketOf(point.X), by = BucketOf(point.Y);
+                    if (bx < minX) minX = bx; if (bx > maxX) maxX = bx;
+                    if (by < minY) minY = by; if (by > maxY) maxY = by;
+                }
+                minBucketX = minX; minBucketY = minY;
+                width = maxX - minX + 1; height = maxY - minY + 1;
+                counts = new int[width * height];
+                bucketOf = new int[candidates.Count];
+                positionInBucket = new int[candidates.Count];
+                for (int index = 0; index < candidates.Count; index++)
+                {
+                    int bucket = (BucketOf(candidates[index].Y) - minBucketY) * width + BucketOf(candidates[index].X) - minBucketX;
+                    bucketOf[index] = bucket;
+                    if (!used[index]) counts[bucket]++;
+                }
+                buckets = new int[counts.Length][];
+                for (int bucket = 0; bucket < counts.Length; bucket++)
+                {
+                    buckets[bucket] = counts[bucket] == 0 ? Array.Empty<int>() : new int[counts[bucket]];
+                    counts[bucket] = 0;
+                }
+                for (int index = 0; index < candidates.Count; index++)
+                {
+                    positionInBucket[index] = -1;
+                    if (used[index]) continue;
+                    int bucket = bucketOf[index];
+                    positionInBucket[index] = counts[bucket];
+                    buckets[bucket][counts[bucket]++] = index;
+                }
+            }
+
+            // Floor division, also for coordinates left of or above the map (candidates and slots may be negative).
+            private static int BucketOf(int coordinate) => coordinate >= 0 ? coordinate / BucketSize : -((-coordinate + BucketSize - 1) / BucketSize);
+
+            internal void Remove(int index)
+            {
+                int position = positionInBucket[index];
+                if (position < 0) return;
+                int bucket = bucketOf[index];
+                int last = buckets[bucket][--counts[bucket]];
+                buckets[bucket][position] = last;
+                positionInBucket[last] = position;
+                positionInBucket[index] = -1;
+            }
+
+            internal int TakeNearest(int x, int y, IReadOnlyList<int> tileIds)
+            {
+                int centerX = BucketOf(x) - minBucketX, centerY = BucketOf(y) - minBucketY;
+                // Ring r holds buckets whose Chebyshev bucket distance to the center bucket is r.
+                int maxRing = Math.Max(Math.Max(Math.Abs(centerX), Math.Abs(width - 1 - centerX)),
+                    Math.Max(Math.Abs(centerY), Math.Abs(height - 1 - centerY)));
+                long bestDistance = long.MaxValue;
+                int best = -1;
+                for (int ring = 0; ring <= maxRing; ring++)
+                {
+                    // Every tile of a ring-r bucket lies at least (r - 1) * BucketSize + 1 tiles away along
+                    // one axis. Equal distances still matter for the tile-ID tie break, so only a strictly
+                    // larger bound ends the search.
+                    if (ring > 0 && best >= 0)
+                    {
+                        long bound = (long)(ring - 1) * BucketSize + 1;
+                        if (bound * bound > bestDistance) break;
+                    }
+                    for (int by = centerY - ring; by <= centerY + ring; by++)
+                    {
+                        if (by < 0 || by >= height) continue;
+                        bool edgeRow = by == centerY - ring || by == centerY + ring;
+                        int step = edgeRow || ring == 0 ? 1 : 2 * ring;
+                        for (int bx = centerX - ring; bx <= centerX + ring; bx += step)
+                        {
+                            if (bx < 0 || bx >= width) continue;
+                            int bucket = by * width + bx;
+                            int[] items = buckets[bucket];
+                            for (int i = 0, count = counts[bucket]; i < count; i++)
+                            {
+                                int candidateIndex = items[i];
+                                FormationPoint candidate = candidates[candidateIndex];
+                                long dx = candidate.X - x;
+                                long dy = candidate.Y - y;
+                                long distance = dx * dx + dy * dy;
+                                if (best < 0 || distance < bestDistance ||
+                                    (distance == bestDistance &&
+                                     (tileIds[candidateIndex] < tileIds[best] ||
+                                      (tileIds[candidateIndex] == tileIds[best] && candidateIndex < best))))
+                                {
+                                    bestDistance = distance;
+                                    best = candidateIndex;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (best >= 0) Remove(best);
+                return best;
+            }
         }
     }
 

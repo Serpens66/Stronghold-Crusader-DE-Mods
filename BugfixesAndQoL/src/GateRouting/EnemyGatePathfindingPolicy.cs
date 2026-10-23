@@ -302,8 +302,8 @@ namespace BugfixesAndQoL.GateRouting
         }
 
         private static bool IsMapCoordinate(int x, int y) =>
-            x >= 0 && x < EnemyGatePathfindingNativeDefinition.MapGridWidth &&
-            y >= 0 && y < EnemyGatePathfindingNativeDefinition.MapGridWidth;
+            x >= 0 && x < GateRoutingNativeLayout.MapGridWidth &&
+            y >= 0 && y < GateRoutingNativeLayout.MapGridWidth;
     }
 
     internal static class EnemyGatePathfindingPolicy

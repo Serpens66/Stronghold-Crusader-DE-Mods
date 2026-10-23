@@ -7,7 +7,7 @@ function Get-ModpackCoordinator([string]$Workspace) {
 function Get-ModpackBranchChoice([string]$Branch,[string]$Selection) {
     if($Branch){if($Branch -notin @('main','develop')){throw 'Unsupported modpack branch.'};return $Branch}
     if(-not $Selection){
-        Write-Host "Modpack-Branch (APIShared bleibt veroeffentlichtes 0.9.2):`r`n1. main - oeffentlicher Release`r`n2. develop - privates Testpaket`r`n0. Abbrechen"
+        Write-Host "Modpack-Branch (APIShared aus geprueftem main-Release):`r`n1. main - oeffentlicher Release`r`n2. develop - privates Testpaket`r`n0. Abbrechen"
         $Selection=Read-Host 'Modpack-Branch'
     }
     switch($Selection){'1'{return 'main'} '2'{return 'develop'} '0'{return 'Cancel'} default{throw 'Invalid modpack branch selection.'}}
@@ -25,6 +25,26 @@ function Assert-ModpackSource([string]$Workspace,$Source,[switch]$Clean) {
     if($Clean -and @(Invoke-ApiRepositoryGit $root @('status','--porcelain','--untracked-files=normal')).Count){throw 'Selected modpack source must be clean; commit or preserve its changes first.'}
     return $root
 }
+# A merge on GitHub must reach the selected local worktree, because publishing requires
+# HEAD == origin/<branch>. Only a clean fast-forward is applied; divergence is never reset.
+function Sync-ModpackBranchFromOrigin([string]$Root,[string]$Branch) {
+    if((Invoke-ApiRepositoryProcess 'git' @('-C',$Root,'remote','get-url','origin')).ExitCode -ne 0){return}
+    Invoke-ApiRepositoryGit $Root @('fetch','--no-tags','origin',("+refs/heads/{0}:refs/remotes/origin/{0}" -f $Branch))|Out-Null
+    $local=((Invoke-ApiRepositoryGit $Root @('rev-parse','HEAD')) -join '').Trim()
+    $upstream=((Invoke-ApiRepositoryGit $Root @('rev-parse',"refs/remotes/origin/$Branch")) -join '').Trim()
+    if($local -ceq $upstream){return}
+    if((Invoke-ApiRepositoryProcess 'git' @('-C',$Root,'merge-base','--is-ancestor',$local,$upstream)).ExitCode -ne 0){
+        # Local commits ahead of origin are left for the publishing check, which requires a push.
+        if((Invoke-ApiRepositoryProcess 'git' @('-C',$Root,'merge-base','--is-ancestor',$upstream,$local)).ExitCode -eq 0){return}
+        throw "Local $Branch diverged from origin/$Branch; resolve it manually in $Root."
+    }
+    if(@(Invoke-ApiRepositoryGit $Root @('status','--porcelain','--untracked-files=normal')).Count){
+        Write-Host "WARNING: local $Branch is behind origin/$Branch, but $Root has changes; it was not updated."
+        return
+    }
+    Invoke-ApiRepositoryGit $Root @('merge','--ff-only',$upstream)|Out-Null
+    Write-Host "Fast-forwarded local $Branch to origin/$Branch ($upstream)."
+}
 function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$AllowGeneratedOutputs) {
     if($Branch -cnotin @('main','develop')){throw 'Unsupported modpack branch.'}
     $root=$null;$candidate=$null
@@ -33,11 +53,13 @@ function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$Allow
         if($line -ceq ('branch refs/heads/'+$Branch)){$root=$candidate}
     }
     if(-not $root){
-        $root=Join-Path (Get-ModpackCoordinator $Workspace) ('.release-output/Modpack/'+$Branch+'/source')
+        $root=New-ShortWorkDirectory -Root (Get-ModpackCoordinator $Workspace) -Kind b -Name ('modpack-'+$Branch) -Identity (((Invoke-ApiRepositoryGit $Workspace @('rev-parse',$Branch))-join '').Trim())
         Assert-ApiMainUnlinkedPath $root
-        if(Test-Path -LiteralPath $root){throw 'Unregistered modpack worktree exists; inspect it before continuing.'}
+        if(@(Get-ChildItem -LiteralPath $root -Force).Count){throw 'Allocated modpack worktree is not empty.'}
         Invoke-ApiRepositoryGit $Workspace @('worktree','add',$root,$Branch)|Out-Null
     }
+    # Only a new preparation follows origin; uploads keep the worktree of their proof.
+    if(-not $AllowGeneratedOutputs){Sync-ModpackBranchFromOrigin $root $Branch}
     $source=[ordered]@{Branch=$Branch;Root=[IO.Path]::GetFullPath($root);Commit=((Invoke-ApiRepositoryGit $root @('rev-parse','HEAD')) -join '').Trim()}
     if($AllowGeneratedOutputs){
         $null=Assert-ModpackSource $Workspace $source
@@ -61,6 +83,20 @@ function Get-PreparedModpackSource([string]$Workspace,[bool]$Test,[string]$Branc
     $root=Assert-ModpackSource $Workspace $source
     Assert-ModpackPreparedOutputs $root $source.GeneratedOutputs
     return $source
+}
+
+# Upload consumes a preparation, never a newly selected release/SDK. Historical released
+# packages remain uploadable through their own immutable PublishedRelease proof.
+function Get-PreparedModpackUploadSource([string]$Workspace,[bool]$Test,[string]$Branch) {
+    $path=Join-Path (Get-ModpackStateRoot $Workspace $Test) 'prepared/SerpsMods.json'
+    if(-not(Test-Path -LiteralPath $path)){throw 'Prepare the modpack before uploading.'}
+    $proof=[IO.File]::ReadAllText($path)|ConvertFrom-Json
+    if($proof.Mode -cne $(if($Test){'Test'}else{'Production'})){throw 'Prepared modpack mode mismatch.'}
+    if($proof.PSObject.Properties['ModpackSource']){return Get-PreparedModpackSource $Workspace $Test $Branch}
+    if(-not $proof.PSObject.Properties['PublishedRelease'] -or ($Branch -and $Branch -cne 'main')){
+        throw 'Prepared modpack has no matching source or historical release proof.'
+    }
+    return Resolve-ModpackSource $Workspace 'main' -AllowGeneratedOutputs
 }
 
 # The host driver refreshes tracked output after the source commit. Freeze only these

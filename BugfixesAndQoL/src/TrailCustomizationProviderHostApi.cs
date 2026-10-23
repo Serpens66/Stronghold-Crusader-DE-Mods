@@ -47,7 +47,8 @@ namespace BugfixesAndQoL
             // Registration is already committed. A presentation refresh must not turn a
             // successful handshake into a false result and make both mods own the buttons.
             try { refresh?.Invoke(); }
-            catch { }
+            catch (Exception ex) { Shared.RuntimeHealth.Report("trail-provider-ui-refresh", true,
+                "Provider registered, but its UI refresh failed: " + ex + "; the handshake remains committed."); }
             return true;
         }
 

@@ -57,3 +57,22 @@ confirmed by semantic decompilation, installed-image disassembly/table inspectio
 and current managed APIs. Generic native role names are not confirmed symbols.
 No gameplay timing, FPS gain or multiplayer acceptance is inferred from this audit.
 The optimization leaves hook addresses, displacement and backend unchanged.
+
+## Watchdog opportunity audit (2026-10-23)
+
+Rechecked against the same installed native SHA256 above. The Extender's existing
+OnPlayerCalculatePopularity Pre publisher replaces the calculation span at
+0xCB16E..0xCB4B5. The native continuation from 0xCB4B5 through the plague branches
+converges at the existing correction boundary 0xCB57C, including the no-plague
+branch. The earlier special-player/mode bypasses do not emit that calculation
+event. This was checked against the complete intervening instruction flow and
+the managed PlayerCalculatePopularityEventArgs/PlayerR3EventHooks contract.
+
+Therefore an observed Pre for the watched player and revision proves a calculation
+opportunity; elapsed simulation time alone does not. A three-second diagnostic
+window with no such event is not evidence of a missing correction. Successful
+correction, replacement revisions, deactivation and session end invalidate the
+watch, including already queued timer callbacks. This diagnostic change adds no
+native hook and does not narrow zero-herd correction eligibility. The isolated
+runtime tests exercise player/revision separation and stale callbacks; actual
+gameplay acceptance remains a separate test.

@@ -8,12 +8,16 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using BugfixesAndQoL.GateRouting;
 using BugfixesAndQoL.UnitCommands;
-namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }
+namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } public void LogMessage(object message) => Shared.DebugLogHelper.Lines.Add(message.ToString()); } }
 namespace BepInEx.Bootstrap { public static class Chainloader { public static readonly Dictionary<string, object> PluginInfos=new Dictionary<string, object>(); } }
 namespace Shared { internal static class DebugLogHelper {
+    internal static bool DiagnosticsEnabled => true;
     internal static readonly List<string> Lines = new List<string>();
     internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) => Lines.Add(text);
-} }
+}
+// Shared.DevDiag is the real Shared/Runtime/Diagnostics/DevDiag.cs (see Program.cs files): this
+// fixture opts into SERP_DEVDIAG to execute the retained diagnostic producers.
+}
 namespace SHCDESE.Interop.Enums {
     public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused }
     public enum eChimps { CHIMP_TYPE_ARAB_ASSASIN = 0x49 }
@@ -71,7 +75,7 @@ namespace SHCDESE.API {
         public bool TryGetBuildingById(int id,out GameBuilding* building) { building=id==579&&Additional!=null&&Additional->r_GlobalId!=0?Additional:id==BuildingId?Building:null;return building!=null; }
     }
 }
-namespace BugfixesAndQoL.GateRouting { internal static class EnemyGatePathfindingNativeDefinition { internal const uint MaximumTileIdExclusive = 320800; } }
+namespace BugfixesAndQoL.GateRouting { internal static class GateRoutingNativeLayout { internal static int MaximumTileIdExclusive => 320800; } }
 namespace BugfixesAndQoL.GateRouting {
     internal sealed class GateOrderEvidence { }
     internal sealed class MacemenCommandDiagnostics {
@@ -97,10 +101,10 @@ namespace BugfixesAndQoL.GateRouting {
 }
 namespace BugfixesAndQoL.GateRouting {
     internal static class GateRoutingFeature { internal static bool IsActive=true; }
-    internal class ActualStandaloneBuildings {
+    internal partial class ActualStandaloneBuildings {
         private enum QueryKind {BuildingApproach,AlternateBuildingApproach}
         private struct QueryScope { }
-        private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions;
+        private long buildingApproachQueries,buildingConsumerQueries,alternateBuildingConsumerQueries,exceptions,integrityRevision;
         private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics=new AttackOrderCorrelationDiagnostics();
         private MacemenCommandDiagnostics MacemenDiagnostics;
         private enum EnemyGateSearchKind { BuildingApproach, BuildingConsumer }
@@ -153,8 +157,9 @@ namespace BugfixesAndQoL {
             internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver; internal Dictionary<int,GateTransitionEvidence> ParentDecisions;
             internal long FilteredGround,FilteredClimb; internal string Outcome="weighted-published",Error; internal bool CacheHit; }
         private class GateTransitionEvidence { }
-        private class Settings { internal bool EnableMod=true,EnableImprovedAssassinPathfinding=true; }
+        private class Settings { internal bool EnableMod=true,EnableImprovedAssassinPathfinding=true,EnableImprovedAssassinPathfindingAI=true; }
         private readonly Settings settings=new Settings();
+        private bool IsWeightedEnabledFor(bool aiPlayer)=>settings.EnableMod&&(aiPlayer?settings.EnableImprovedAssassinPathfindingAI:settings.EnableImprovedAssassinPathfinding);
         internal int Calls; internal Action Nested; internal bool Throw;
         private string DescribeNativeAssassinState(IntPtr context)=>"fixture-state";
         private void LogWarning(string text)=>throw new Exception(text);

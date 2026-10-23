@@ -63,7 +63,8 @@ namespace BugfixesAndQoL
             };
             patch = new PermanentInstructionSkipPatch(region, sites.ToArray());
             patch.SetEnabled(true);
-            Shared.DebugLogHelper.LogDebug(log, $"Assembly-point permanent hooks installed; sites={sites.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(log, $"Assembly-point permanent hooks installed; sites={sites.Count}.");
         }
 
         internal void SetEnabled(bool enabled)

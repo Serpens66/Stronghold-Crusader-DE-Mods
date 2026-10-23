@@ -1,0 +1,233 @@
+[16.10.2026 16:50:33,20] START BugfixesAndQoL
+[16.10.2026 16:50:33,20] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Mod scope: BugfixesAndQoL, APIShared and explicit project/source dependencies.
+[Preflight] Checking 24 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 24 projects, 535 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 2 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Checking centralized UnitAccess contract...
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and allocation-free rejection.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.
+PASS: 643 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 10,6s.
+[Preflight] Completed in 33,1s.
+PASS: 7 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[16.10.2026 16:51:06,48] PowerShell checks / build step
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_UnitChimp type=SHCDESE.Interop.eChimps offset=0x8A width=2 stride=1168
+GameUnit.r_ControllableForPlayerId type=System.UInt16 offset=0x92 width=2 stride=1168
+GameUnit.r_GlobalId type=System.UInt32 offset=0x94 width=4 stride=1168
+GameUnit.r_CurrentTilePositionX type=System.UInt16 offset=0xC0 width=2 stride=1168
+GameUnit.r_CurrentTilePositionY type=System.UInt16 offset=0xC2 width=2 stride=1168
+GameUnit.r_TargetTilePositionX type=System.UInt16 offset=0xC4 width=2 stride=1168
+GameUnit.r_TargetTilePositionY type=System.UInt16 offset=0xC6 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit.r_TribeId type=System.UInt16 offset=0x2D4 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileX type=System.UInt16 offset=0x2D8 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileY type=System.UInt16 offset=0x2DA width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_PlayerIdOwner type=System.UInt16 offset=0x2 width=2 stride=1672
+GameTribe.r_GlobalId type=System.UInt32 offset=0xA width=4 stride=1672
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager.r_IsCursorInGame type=System.UInt32 offset=0x8 width=4 stride=0
+GameCursorManager.r_MouseTileX type=System.UInt32 offset=0x6C width=4 stride=0
+GameCursorManager.r_MouseTileY type=System.UInt32 offset=0x70 width=4 stride=0
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+[16.10.2026 16:51:06,88] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+APIShared verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 215 sources, 0 errors
+BugfixesAndQoL verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+BugfixesAndQoL verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 417 sources, 0 errors
+MoatMove verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+MoatMove verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (658 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+[16.10.2026 16:51:19,40] PowerShell checks / build step
+APIShared: main c7b210f00703 (version 0.9.2) from D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\BepInEx\plugins\APIShared_Serp.
+PASS: verified APIShared consumer package and source inputs.
+[16.10.2026 16:51:24,79] Check that the game is closed
+[16.10.2026 16:51:24,98] Lobby save loading and visibility contracts
+
+  LobbySaveLoading.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\LobbySaveLoading.Tests\bin\LobbySaveLoading.Tests.exe
+
+  UnityMonoHost -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\LobbySaveLoading.Tests\bin\host\UnityMonoHost.exe
+IL fixture: CrusaderDE.FRONT_Multiplayer D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\LobbySaveLoading.Tests\bin\Assembly-CSharp.dll token=6001965 body=True
+PASS: Lobby save loading: 4231 policy, interop and actual Vanilla/SE IL checks. Game UI/loading not executed.
+PASS: lobby save loading settings, localization, tooltips and permanent ownership.
+[16.10.2026 16:51:25,88] Integrated gate routing migration regression
+PASS: 10,000 native trace chains; overwritten outputs, recovery, exact edge correspondence and bounded call-local storage.
+PASS: installed 184FD0 separates roof offset (40) from climb progress (10); synthetic terrain, runtime heights still require observation.
+PASS: real installed closed predicate, 197950 clear and DCE60 descent; functional guard and diagnostics independently on/off; rejection/exception preserves clear; simulated caller restore; 198ED0 unrelated cleanup fixture stubbed.
+PASS: 19 installed native spans, actual RedBird preparation, full stub decoding and all four complete containing bodies/incoming branches.
+PASS: physical execution observer: paired branches, identity/policy changes, nested calls, 100000 events and bounded aggregate history.
+Config fixtures retained: C:\Users\Serpens66\AppData\Local\Temp\gate-config-6fe9e154927e4b42a591d6234f460798
+PASS: Macemen aggregate 200000 observations,64 rows; elapsedMs=25,01
+TEMP_GATE_ROUTE_ACCEPTANCE: 6757 assertions, 576000 events across 120 minute windows
+PASS controlled graph comparison: owner1/capturer3/query2 native=accept, policy=reject; query3=accept. Full AI order not measured.
+PASS controlled builder comparison: owner1/capturer3/query2 native=accept, policy=reject; query3=accept. Full AI order not measured.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: installed RedBird read-only trace stub preserves incoming flags/GPR/XMM/stack; inactive and callback-failure branches.
+PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.
+PASS: migrated NativeX64 Indirect detours: 6/6/10 bytes, pointer slots, prologues, one callback and one original execution.
+IntegratedGatePathfindingPolicy: 157386 assertions passed.
+PASS: 13 actual feature orchestration checks; native runtime/SDK are isolated doubles, no hook execution in this fixture.
+PASS: 13 actual feature orchestration checks; native runtime/SDK are isolated doubles, no hook execution in this fixture.
+PASS: 64 production-reader assertions; native data, SDK fixture boundaries, identities/control/state, owned/captured, maps and synchronous identity changes.
+PASS: 273 actual Raid classifier/retry assertions with final-route observation; native returns/candidate order simulated.
+PASS: 757 actual diagnostic path assertions; no moat-plan helper present in fixture.
+PASS: actual native Observe callback + actual publication observer; ground/climb, secondary overwrite/fallback, nesting, snapshot/failure and different output.
+PASS: actual gate diagnostic, actual packed-publication helper and production weighted-edge loop; isolated SDK fixtures, no game hooks.
+PASS: integrated gate geometry, scopes, adapters, access extensions, route and observation regression.
+[16.10.2026 16:51:32,16] Gatehouse target-marker height contracts
+PASS: 2684 production-prefix native-record cases; bounded logs and permanent lifetime.
+PASS: unknown native build fails open before publication.
+PASS: 2320 marker height cases; real managed member contracts, bounds/IDs, lifetime, setting, XAML and locales.
+[16.10.2026 16:51:34,56] PowerShell checks / build step
+PASS: current native hash; HP/damage tables; 15-byte instruction span; no incoming interior edges; post-damage writer and later lethal branch.
+PASS: drawbridge native/public field/host UI/default/reset/activation/minimal diagnostic contracts.
+
+  PASS: verified APIShared consumer package and source inputs.
+  DrawbridgeDestructionFix.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\DrawbridgeDestructionFix.Tests\bin\DrawbridgeDestructionFix.Tests.exe
+PASS: 150 native execution cases; inactive/non-target/lethal paths match the original registers, flags and branch outcome; real RedBird span=15; resolver absent/ambiguous/mutated cases rejected.
+LIMIT: private native fixture validates the decision and ABI, not complete game removal/rendering; 0/1/2 attached bridges and open/raised states require in-game acceptance.
+PASS: gatehouse host setting/UI/locales, installed API visibility, permanent roots/rollback, minimal logging and CRLF.
+
+  GatehouseLivingCapture.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\GatehouseLivingCapture.Tests\bin\GatehouseLivingCapture.Tests.exe
+PASS: exact native/full-handler hashes, all handler branch boundaries, chain backedge, unique executable signature.
+PASS: feature/main switches, unpublished state, disable and reactivation.
+PASS: 648 native machine cases; callback errors=243
+PASS: installed GameUnit layout, life helper, real RedBird span/patch/JE, registers, XMM, stack, entry/backedge, inactive/invalid/error paths.
+[16.10.2026 16:51:39,94] PowerShell checks / build step
+PASS: real managed hash; 13 fields, four getters, three exact method signatures (no publicized references).
+PASS: hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; function [0x5dd70,0x60cac), 2562 decoded instructions; unique signature; no interior xrefs; square footprint producer confirmed.
+PASS: native resource bits, River exclusion, separate coverage/green increments and final farm thresholds.
+PASS: 21 locale keys/Unicode; eight consumer-presence combinations; shared hosts above costs, preserved Vanilla anchors/style/background, repair extras and cost templates; no obsolete per-mod tooltip patches.
+PASS: local checkbox title/help in 21 locales; no duplicate ground/setting keys.
+PASS: native hash=fbcb93195fc7efca9bdac5204852efdd76f9818f59a6711750d77c9cef2831e2; runtime JSON/lifecycle, permanent hooks, CRLF and complete native incoming-edge audit.
+
+  BuildPreview.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\BuildPreview.Tests\bin\BuildPreview.Tests.exe
+PASS: 1614 assertions; terrain policy, native branches, exact backend and callable trampoline.
+BugfixesAndQoL runtime JSON/lifecycle, XAML, rally terrain flags/settings/localization preflight succeeded.
+[16.10.2026 16:51:43,32] PowerShell checks / build step
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+
+  ModOptions.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ModOptions.Tests\bin\ModOptions.Tests.exe
+PASS: 8063 mod-option/ledger/save/runtime checks (simulated publishers; no in-game FPS claim).
+PASS: mod-option performance source contracts; active HUD cadence and pending lobby/spectator work preserved.
+[16.10.2026 16:51:43,93] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+Public installed member: GameUnit.r_AliveState : SHCDESE.Interop.Enums.AliveState
+Public installed member: GameUnit.r_UnitChimp : SHCDESE.Interop.eChimps
+Public installed member: GameUnit.r_CurrentPositionTileId : System.UInt32
+Public installed member: GameUnit.r_NextPositionTileId2 : System.UInt32
+Public installed member: GameUnit.r_AIState : System.UInt16
+Public installed member: GameUnit.r_GlobalId : System.UInt32
+Public installed member: GameUnit.r_AI_LastIssuedTribeCommand : System.UInt16
+Public installed member: GameUnit.r_ControllableForPlayerId : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_PathPlanStateBitFlags : System.UInt16
+Public installed member: GameUnit.r_MovementSubstep : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionX : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionY : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_IsKilledByProjectile : System.UInt16
+Public installed member: GameUnit.r_CurrentSpeed : System.UInt16
+System.Span`1<SHCDESE.Interop.GameUnit> SHCDESE.API.GameUnitManagerAPI::GetUnitsAsSpan()
+System.Void SHCDESE.API.GameTimeManagerAPI::add_OnTick(System.Action`1<System.Int32>)
+PASS: installed public static AssassinPathAPI.SetDirectGatehouseClimbing(string,bool).
+PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.
+[16.10.2026 16:51:54,72] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.
+PASS: xrefs (including data/function references) enter only at EEF90: [{'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x7A73A', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_18007a3b0'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0xEE611', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_1800ee320'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x88F5680', 'to_rva': '0xEEF90', 'type': 'DATA', 'source_function': None}]
+function sha: 83D062DDDBAFEC9EB33F704FA914609B6761E16DAE351A64F7491319984DF12E
+PASS: executable-section rel32 candidate scan: no incoming interior edge; complete 317-byte body captured for Iced tests.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+  PASS: verified APIShared consumer package and source inputs.
+  AIKeepRange.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe
+PASS: production AI runtime: settings, prebuild/save publishers, mission change, original counts, persistent fail-closed.
+PASS: AI keep range: 113 checks; actual NativeX64 Indirect/10, trampoline execution, AI/human/invalid/disabled forwarding.
+[16.10.2026 16:52:04,69] PowerShell checks / build step
+PASS: installed public API signatures and 6 interop fields; no new private game accesses.
+[16.10.2026 16:52:05,10] PowerShell checks / build step
+PASS: native hash, exact 17-byte span, incoming branches, filter and both gate continuations.
+PASS: AI raid host setting, lifecycle, single classifier, permanent hook, compact logs, bounded retry, versions and CRLF.
+[16.10.2026 16:52:05,77] PowerShell checks / build step
+warning CS1702: Es wird angenommen, dass der von "RedBird.X64" verwendete Assemblyverweis "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.10, Culture=neutral, PublicKeyToken=adb9793829ddae60" mit "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.12, Culture=neutral, PublicKeyToken=adb9793829ddae60" von "Microsoft.Extensions.Logging.Abstractions" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+PASS: 1945 assertions; 1920 detailed retries=1138560 bytes.
+PASS: native search evidence and assembler tests (89 assertions).
+PASS: 15 runtime activation/lifecycle/logging assertions; simulated stream log bytes=440.
+PASS: 35 raid hardening assertions (publication, actual frame helpers, expiration and waiting callbacks).
+[16.10.2026 16:52:06,82] PowerShell checks / build step
+Notification last-frame assembly, Noesis, lifecycle, and Vanilla-fallback preflight succeeded.
+[16.10.2026 16:52:07,15] PowerShell checks / build step
+PASS: spectator-save marker and recognition fixtures.
+BugfixesAndQoL spectator perspective preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root/HUD visibility.
+[16.10.2026 16:52:07,64] PowerShell checks / build step
+Health-bar baseline, runtime, local settings, XAML and CRLF preflight passed.
+[16.10.2026 16:52:07,90] PowerShell checks / build step
+PASS: workshop idle permanent native hook, synchronized default-off setting and locale preflight.
+[16.10.2026 16:52:08,14] PowerShell checks / build step
+Tannery native, settings, locales, lifecycle and CRLF preflight passed.
+[16.10.2026 16:52:08,50] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[16.10.2026 16:52:15,80] Arabian idle volume consumer tests
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 16.10.2026 16:52:15 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" auf Knoten "1" (Standardziele).
+ValidateWorkspaceApiSharedPackage:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods" -PackageDirectory "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\BepInEx\plugins\APIShared_Serp"
+  PASS: verified APIShared consumer package and source inputs.
+GenerateBindingRedirects:
+Das Ziel "GenerateBindingRedirects" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /platform:x64 /warn:4 /highentropyva+ /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\APIShared\main\c7b210f007035ff8edaf4d359a21f7bfbcbe479d\source\BepInEx\plugins\APIShared_Serp\APIShared.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Xml.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Xml.Linq.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\Microsoft.Win32.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\netstandard.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.AppContext.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Concurrent.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.NonGeneric.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Specialized.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Annotations.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.EventBasedAsync.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.TypeConverter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Console.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Data.Common.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Contracts.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Debug.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.FileVersionInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Process.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.StackTrace.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TextWriterTraceListener.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Tools.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TraceSource.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Drawing.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Dynamic.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Calendars.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Compression.ZipFile.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.DriveInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Watcher.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.IsolatedStorage.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.MemoryMappedFiles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Pipes.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.UnmanagedMemoryStream.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Expressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Queryable.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Http.Rtc.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NameResolution.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NetworkInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Ping.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Requests.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Sockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebHeaderCollection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.Client.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ObjectModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.ILGeneration.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.Lightweight.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Reader.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.ResourceManager.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Writer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.CompilerServices.VisualC.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Handles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.RuntimeInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.WindowsRuntime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Numerics.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Formatters.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Json.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Xml.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Claims.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Algorithms.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Csp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.X509Certificates.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Principal.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.SecureString.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Duplex.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Http.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.NetTcp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.RegularExpressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Overlapped.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Thread.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.ThreadPool.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Timer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ValueTuple.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.ReaderWriter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlSerializer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.XDocument.dll" /debug+ /debug:portable /out:obj\Release\ArabianIdleSoundVolume.Tests.exe /subsystemversion:6.00 /target:exe /utf8output /langversion:latest ..\..\src\ArabianIdleSoundRuntime.cs Program.cs Environment.cs "obj\Release\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server - server processed compilation - ArabianIdleSound.Tests
+_CopyAppConfigFile:
+Das Ziel "_CopyAppConfigFile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\obj\Release\ArabianIdleSoundVolume.Tests.exe" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\bin\ArabianIdleSoundVolume.Tests.exe" kopiert.
+  ArabianIdleSound.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\bin\ArabianIdleSoundVolume.Tests.exe
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\obj\Release\ArabianIdleSoundVolume.Tests.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\bin\ArabianIdleSoundVolume.Tests.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:02.47
+System.Exception: tests\ArabianIdleSound.Tests\bin\setting-fixture\Fixture.cs(1,124): error CS0103: Der Name "DefaultArabianIdleSoundVolumePercent" ist im aktuellen Kontext nicht vorhanden.
+
+   bei BugfixesAndQoL.Program.Check(Boolean condition, String message) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\Program.cs:Zeile 36.
+   bei BugfixesAndQoL.Program.TestRealSetting() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\Program.cs:Zeile 131.
+   bei BugfixesAndQoL.Program.Run() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\Program.cs:Zeile 48.
+   bei BugfixesAndQoL.Program.Main(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ArabianIdleSound.Tests\Program.cs:Zeile 19.
+Build fehlgeschlagen.
+[16.10.2026 16:52:18,68] END: exit code 1

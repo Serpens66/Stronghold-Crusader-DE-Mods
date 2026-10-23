@@ -137,7 +137,7 @@ namespace BugfixesAndQoL.UnitCommands
                         }
                     }
                 }
-
+#if SERP_DEVDIAG
                 // Diagnostic deduplication uses numeric fields; format only a new,
                 // bounded detail entry, not every building hover frame.
                 ulong key;
@@ -168,6 +168,7 @@ namespace BugfixesAndQoL.UnitCommands
                         $"vanilla={vanillaResult} effective={effectiveResult} reason={reason}.");
                 }
 
+#endif
                 return effectiveResult;
             }
             catch (Exception ex)
@@ -432,10 +433,6 @@ namespace BugfixesAndQoL.UnitCommands
             // E9D90 probes structure exits; a boolean override violates its contract.
             return originalCursorRegionPrecheck(pathManager, unitId);
         }
-
-
-
-
 
         internal int AllowCursorReachabilityThroughCompletedMoat(
             IntPtr pathManager, int unitId, int targetX, int targetY)

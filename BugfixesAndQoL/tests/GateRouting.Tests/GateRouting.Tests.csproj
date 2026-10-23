@@ -14,6 +14,8 @@
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PlatformTarget>x64</PlatformTarget>
+    <!-- Tests exercise the development-only gate diagnosis (*.DevDiag.cs); never released. -->
+    <SerpDevDiagnostics>true</SerpDevDiagnostics>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''">
     <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
@@ -42,9 +44,12 @@
   </Target>
   <ItemGroup>
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\EnemyGatePathfindingNativeDefinition.cs"><Link>EnemyGatePathfindingNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\GateRoutingNativeLayout.cs"><Link>GateRoutingNativeLayout.cs</Link></Compile>
     <Compile Include="..\..\src\GateRouting\CursorPreviewCache.cs" />
     <Compile Include="..\..\src\GateRouting\FunctionalGatePolicyAdapter.cs" />
     <Compile Include="..\..\src\GateRouting\DeferredGateDiagnosticErrors.cs" />
+    <Compile Include="..\..\src\GateRouting\IntegrityErrorFlushGate.cs" />
+    <Compile Include="IntegrityErrorFlushTests.cs" />
     <Compile Include="..\..\src\GateRouting\BuildingSearchPlayerResolver.cs" />
     <Compile Include="..\..\src\GateRouting\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
     <Compile Include="..\..\src\GateRouting\GatePassageMask.cs" />
@@ -59,11 +64,17 @@
     <Compile Include="..\..\src\GateRouting\PathDecisionAggregate.cs"><Link>AiGateDecisionAggregate.cs</Link></Compile>
     <Compile Include="..\..\src\GateRouting\GateDiagnosticClassification.cs" />
     <Compile Include="..\..\src\GateRouting\CaptureTransitionDiagnostics.cs" />
+    <Compile Include="..\..\src\GateRouting\CaptureTransitionDiagnostics.DevDiag.cs" />
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="CapturerAdapterMachineTests.cs" />
+    <Compile Include="..\..\src\DemandGatedContextHook.cs"><Link>DemandGatedContextHook.cs</Link></Compile>
+    <Compile Include="DemandGatedContextHookTests.cs" />
     <Compile Include="LargeGateFootprintTests.cs" />
-    <Compile Include="Program.cs" /><Compile Include="GateDiagnosticConfigurationTests.cs" /><Compile Include="..\..\src\GateRouting\GateDiagnosticConfiguration.cs" /><Compile Include="CompactDiagnosticTests.cs" /><Compile Include="TemporaryGateAcceptanceTests.cs" /><Compile Include="..\..\src\GateRouting\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
+    <Compile Include="DirectionAdapterExecutionTests.cs" />
+    <!-- Optional immutable pre-change emitter supplied from a test evidence directory. -->
+    <Compile Include="$(DirectionBaselineSource)" Condition="'$(DirectionBaselineSource)' != ''" />
+    <Compile Include="Program.cs" /><Compile Include="GateDiagnosticConfigurationTests.cs" /><Compile Include="..\..\src\GateRouting\GateDiagnosticConfiguration.cs" /><Compile Include="CompactDiagnosticTests.cs" /><Compile Include="TemporaryGateAcceptanceTests.cs" /><Compile Include="..\..\src\GateRouting\TemporaryGateAcceptanceAggregate.DevDiag.cs" /><Compile Include="..\..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
     <Compile Include="GateRoutePolicyTests.cs" />
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\TemporaryGateRouteAcceptanceBridge.cs" />
@@ -72,14 +83,14 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup><Compile Include="..\..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
 <ItemGroup><Compile Include="CaptureRefreshTests.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="..\..\src\GateRouting\TemporaryGateCaptureTimeline.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="..\..\src\GateRouting\MacemenDiagnosticAggregate.cs" /><Compile Include="MacemenDiagnosticTests.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="..\..\src\GateRouting\GateSearchEvidence.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\..\src\GateRouting\TemporaryGateCaptureTimeline.DevDiag.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\..\src\GateRouting\MacemenDiagnosticAggregate.DevDiag.cs" /><Compile Include="MacemenDiagnosticTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\..\src\GateRouting\GateSearchEvidence.cs" /><Compile Include="..\..\src\GateRouting\GateSearchEvidence.DevDiag.cs" /></ItemGroup>
   <ItemGroup><Compile Include="GateEvidenceTests.cs" /></ItemGroup>
-<ItemGroup><Compile Include="..\..\src\GateRouting\NativeAssassinTrace.cs" /><Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\NativeCallbackAdapterEmitter.cs" /><Compile Include="NativeAssassinTraceTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="..\..\src\GateRouting\NativeAssassinTrace.DevDiag.cs" /><Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\NativeCallbackAdapterEmitter.cs" /><Compile Include="NativeAssassinTraceTests.cs" /></ItemGroup>
 <ItemGroup><Compile Include="NativeTraceContractTests.cs" /></ItemGroup>
-<ItemGroup><Compile Include="..\..\src\GateRouting\NativeAssassinMovementDiagnostics.cs" /><Compile Include="NativeMovementTests.cs" /></ItemGroup>
-<ItemGroup><Compile Include="..\..\src\GateRouting\AssassinGateDescentRule.cs" /><Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\AssassinGateDescentAdapter.cs" /></ItemGroup>
+<ItemGroup><Compile Include="..\..\src\GateRouting\NativeAssassinMovementDiagnostics.DevDiag.cs" /><Compile Include="NativeMovementTests.cs" /></ItemGroup>
+<ItemGroup><Compile Include="..\..\src\Assassins\AssassinGateDescentRule.cs" /><Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\AssassinGateDescentAdapter.cs" /></ItemGroup>
 <ItemGroup><Compile Include="MigrationSources.cs"/><Compile Include="MigrationBehaviorTests.cs"/><Compile Include="../../../APIShared/src/Pathfinding/GateRoutes/GateAccessRules.cs"/></ItemGroup>
 <ItemGroup><Compile Include="GateNativeDetourTests.cs"/><Compile Include="../../../APIShared/src/Pathfinding/GateRoutes/Native/GateNativeDetourContract.cs"/></ItemGroup>
 </Project>

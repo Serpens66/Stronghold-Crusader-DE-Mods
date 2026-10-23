@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('search', 'function', 'callers', 'callees', 'managed', 'diff', 'claim', 'hook', 'contract', 'chore', 'gaps', 'stats')]
+    [ValidateSet('instructions', 'flow', 'trace', 'global', 'feature', 'hookcheck', 'coverage', 'slice', 'memory', 'switch', 'summary', 'type', 'changes', 'search', 'function', 'callers', 'callees', 'managed', 'diff', 'claim', 'hook', 'contract', 'chore', 'gaps', 'stats')]
     [string]$Command,
 
     [Parameter(ValueFromRemainingArguments = $true, Position = 1)]

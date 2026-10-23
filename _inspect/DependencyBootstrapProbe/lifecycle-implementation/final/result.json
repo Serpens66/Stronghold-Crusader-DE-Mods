@@ -1,0 +1,419 @@
+{
+    "Schema":  1,
+    "Utc":  "2026-10-17T16:36:55.1908969Z",
+    "Passed":  true,
+    "Failure":  null,
+    "Cases":  [
+                  {
+                      "Case":  "RBP upgrade=False prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RBP upgrade=False prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RBP upgrade=False prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RBP old complete pair",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RBP upgrade=True prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RBP upgrade=True prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RBP upgrade=True prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RPB upgrade=False prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RPB upgrade=False prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RPB upgrade=False prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RPB old complete pair",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RPB upgrade=True prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RPB upgrade=True prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "RPB upgrade=True prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BRP upgrade=False prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BRP upgrade=False prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BRP upgrade=False prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BRP old complete pair",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BRP upgrade=True prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BRP upgrade=True prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BRP upgrade=True prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BPR upgrade=False prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BPR upgrade=False prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BPR upgrade=False prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BPR old complete pair",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BPR upgrade=True prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BPR upgrade=True prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "BPR upgrade=True prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PRB upgrade=False prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PRB upgrade=False prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PRB upgrade=False prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PRB old complete pair",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PRB upgrade=True prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PRB upgrade=True prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PRB upgrade=True prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PBR upgrade=False prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PBR upgrade=False prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PBR upgrade=False prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PBR old complete pair",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PBR upgrade=True prefix=1",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PBR upgrade=True prefix=2",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "PBR upgrade=True prefix=3",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "missing BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "missing BepInEx/plugins/DependencyBootstrapProbe_Serp/dependency-bootstrap-pair.json",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "missing BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "invalid manifest rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "invalid manifest rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "invalid manifest rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "invalid manifest rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "invalid manifest rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "same version different bytes BepInEx/plugins/DependencyBootstrapProbe_Serp/DependencyBootstrapProbe.dll",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "same version different bytes BepInEx/patchers/DependencyBootstrapProbe.Patcher.dll",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "swapped files rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "wrong SelectedGuid",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "wrong SelectedVersion",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "wrong SelectedPath",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "wrong SelectedHash",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "wrong LoadedBootstrapHash",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "duplicate loaded bootstrap",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "other hook owner",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "renamed bootstrap file",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "unrelated patcher allowed",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "receipt requires matching package proof",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "subscribed owner blocks removal",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "preview preserves bootstrap",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "Unknown state rejected at execution",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "Competing state rejected at execution",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "External state rejected at execution",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "Owners state rejected at execution",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "staged replacement blocks deletion",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "changed after receipt protected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "locked bootstrap preserved",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "live origin process blocks deletion",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "exited origin process permits preview",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "fresh worker defaults preview",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "fresh worker refuses stale receipt",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "same-handle deletion verifies digest",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "hash mismatch leaves target present",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "hard-linked bootstrap protected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "hardlink target unchanged",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "fresh post-exit worker removes exact target",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "runtime and foreign patcher preserved",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "repeated removal harmless",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "manual complete restore works",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "manual restore preserves foreign file",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "unknown previous owner cannot create receipt",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "mixed pair cannot create receipt",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "receipt cannot redirect target",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "worker refuses nonfixture root",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "missing package evidence rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "altered evidence package rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "orphan is inactive",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "orphan without current ownership proof preserved",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "orphan removed with retained valid package and ownership proof",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "post-plan reparse replacement preserved",
+                      "Passed":  true
+                  },
+                  {
+                      "Case":  "linked activation path rejected",
+                      "Passed":  true
+                  }
+              ],
+    "Sources":  [
+                    {
+                        "File":  "CONTRACT.md",
+                        "SHA256":  "5967cc6bcd3cc3293630f92b24bcb8ed2a4341bcb87ed9663a257e63473da7b6"
+                    },
+                    {
+                        "File":  "Invoke-PostExitRemoval.ps1",
+                        "SHA256":  "52173564e6a507ec8686a821b55a2109fdbd14f01cab0b6a41cfa1744bf2c79b"
+                    },
+                    {
+                        "File":  "Pair.ps1",
+                        "SHA256":  "5e1d4c570098a3d16769c3b12542354e6fe29dda0692b7caf958f39decbafee5"
+                    },
+                    {
+                        "File":  "Removal.ps1",
+                        "SHA256":  "582270f9d13cbda31944727b1f040485a933871c3342ea4e7f5076fab3c30104"
+                    },
+                    {
+                        "File":  "VerifiedFileDeletion.cs",
+                        "SHA256":  "5584cc200b3f108ac87623dac7b96c6f4a77aa80db557c69a3aea0822295d885"
+                    },
+                    {
+                        "File":  "Test-PackageLifecycle.ps1",
+                        "SHA256":  "d0d5afdb0e969fd546e7eff9068d2ac65798cb71785e6acc7a41baaa76442462"
+                    }
+                ],
+    "Limits":  "Offline fixtures; no Steam/Extender ownership or live updater proof. Assemblies are opaque data, never executed."
+}

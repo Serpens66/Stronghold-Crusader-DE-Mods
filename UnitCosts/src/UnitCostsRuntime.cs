@@ -1,3 +1,4 @@
+using APIShared.Presentation;
 using Shared;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -24,8 +25,6 @@ namespace UnitCosts
         private IDisposable unitTransitionSubscription;
         private readonly Dictionary<eChimps, UnitExtraCostValues> humanExtraCosts = new Dictionary<eChimps, UnitExtraCostValues>();
         private MakeTroopGameActionHook makeTroopGameActionHook;
-        private CreateTroopHoverHook createTroopHoverHook;
-        private SiegeBuildHoverHook siegeBuildHoverHook;
         private RecruitmentAvailabilityUiHook recruitmentAvailabilityUiHook;
         private string materialMessageTimerHandle;
         private DateTime nextSiegeMissingResourcesMessageUtc = DateTime.MinValue;
@@ -54,19 +53,20 @@ namespace UnitCosts
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
         private static readonly string[] MissingGoldSpeechFileNames = { "Units_Warning3.wav", "Units_Warning4.wav" };
         private static readonly Random SpeechRandom = new Random();
-        private const BindingFlags MainViewModelFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private static readonly FieldInfo LastTroopBuildChimpField = typeof(MainViewModel).GetField("lastTroopBuildChimp", MainViewModelFlags);
-        private static readonly PropertyInfo LastTroopBuildChimpProperty = typeof(MainViewModel).GetProperty("lastTroopBuildChimp", MainViewModelFlags);
-        private static readonly FieldInfo LastTroopsAmountToMakeField = typeof(MainViewModel).GetField("lastTroopsAmountToMake", MainViewModelFlags);
-        private static readonly PropertyInfo LastTroopsAmountToMakeProperty = typeof(MainViewModel).GetProperty("lastTroopsAmountToMake", MainViewModelFlags);
+        // Reused per thread: the horse count runs per frame for tooltip/button checks.
+        [ThreadStatic] private static List<int> horseStableIdsBuffer;
         private static readonly UnitGoldCostSnapshot<eChimps> VanillaGoldCosts = new UnitGoldCostSnapshot<eChimps>();
-        private static readonly Dictionary<eChimps, UnitGoodCosts> OriginalEuropeanGoodCosts = new Dictionary<eChimps, UnitGoodCosts>();
-        private static readonly UnitGoodCosts NoWeaponCosts = new UnitGoodCosts(
-            eGoods32.STORED_NULL, eGoods32.STORED_NULL,
-            eGoods32.STORED_NULL, eGoods32.STORED_NULL);
+        private readonly UnitCostOverrides costOverrides = new UnitCostOverrides(
+            unit => GameUnitManagerAPI.Instance.GetUnitGoldCost(unit),
+            (unit, value) => GameUnitManagerAPI.Instance.SetUnitGoldCost(unit, value),
+            tent => GameBuildingManagerAPI.Instance.GetGoldCost(tent),
+            (tent, value) => GameBuildingManagerAPI.Instance.SetGoldCost(tent, value),
+            unit => GameUnitManagerAPI.Instance.GetUnitGoodCosts(unit),
+            (unit, value) => GameUnitManagerAPI.Instance.SetUnitGoodCosts(unit, value));
 
         public UnitCostsNotificationViewModel Notification { get; } = new UnitCostsNotificationViewModel();
-        public UnitRecruitmentCostTooltipViewModel RecruitmentCostTooltip { get; } = new UnitRecruitmentCostTooltipViewModel();
+        private TooltipTarget? currentCostTooltipTarget;
+        private IReadOnlyList<TooltipLine> recruitmentTooltipLines = Array.Empty<TooltipLine>();
 
         public UnitCostsRuntime(ManualLogSource log, UnitCostsLobbyViewModel settings)
         {
@@ -83,7 +83,6 @@ namespace UnitCosts
             SubscribeSettingsChanges();
             TryInitializeFeature("horse-link lifecycle", SubscribeUnitTransition);
             TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
-            TryInitializeFeature("European good-cost capture", CaptureOriginalEuropeanGoodCosts);
             libraryInitialized = true;
             SubscribeHooks();
             if (!EffectsEnabled)
@@ -118,9 +117,8 @@ namespace UnitCosts
                     .Subscribe(OnBuildingSpawn));
 
             TryInitializeFeature("recruitment action enforcement", () => makeTroopGameActionHook = new MakeTroopGameActionHook(log, () => callbacksEnabled && EffectsEnabled, DecideMakeTroopGameAction));
-            TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, () => callbacksEnabled && EffectsEnabled, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip));
-            TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, () => callbacksEnabled && EffectsEnabled, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip));
-            TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, () => callbacksEnabled && EffectsEnabled, IsNoWeaponsUiActive, RefreshRecruitmentUi));
+            TryInitializeFeature("recruitment tooltip", RegisterCostTooltip);
+            TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, () => callbacksEnabled && EffectsEnabled, IsNoWeaponsUiActive, IsRecruitmentAvailabilityActive, IsRecruitmentBlockedByExtraCosts));
 
             hooksSubscribed = true;
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts runtime hooks subscribed");
@@ -166,7 +164,7 @@ namespace UnitCosts
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:169", $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
+                Shared.RuntimeHealth.Failure(log, featureName, true, $"UnitCosts feature '{featureName}' failed; independent features continue: {ex}");
             }
         }
 
@@ -187,7 +185,7 @@ namespace UnitCosts
                 else
                 {
                     callbacksEnabled = false;
-                    RestoreVanillaUnitCosts();
+                    RestoreOwnedUnitCosts();
                     HideMaterialMessage();
                 }
 
@@ -231,6 +229,7 @@ namespace UnitCosts
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
+            RestoreOwnedUnitCosts(endSession: true);
             HideMaterialMessage();
         }
 
@@ -251,7 +250,7 @@ namespace UnitCosts
             else
             {
                 callbacksEnabled = false;
-                RestoreVanillaUnitCosts();
+                RestoreOwnedUnitCosts();
                 HideMaterialMessage();
             }
         }
@@ -264,15 +263,15 @@ namespace UnitCosts
             foreach (KeyValuePair<eChimps, UnitCostValues> entry in parsedCosts)
             {
                 UnitCostValues values = entry.Value;
-                int goldCost = values.Gold;
+                TryInitializeFeature("gold cost for " + entry.Key, () => costOverrides.ApplyGold(entry.Key, values.Gold));
+                if (TryGetSiegeTentStructure(entry.Key, out eStructs tent))
+                    TryInitializeFeature("siege tent cost for " + entry.Key, () => costOverrides.ApplyTentGold(tent, values.Gold));
                 try
                 {
-                    if (goldCost != -1 || VanillaGoldCosts.TryGetValue(entry.Key, out goldCost))
-                        SetUnitGoldCost(entry.Key, goldCost);
                     if (IsEuropeanRecruit(entry.Key))
                     {
-                        ApplyEuropeanGoodCosts(entry.Key, values.NoWeapons);
-                        if (values.NoWeapons && OriginalEuropeanGoodCosts.ContainsKey(entry.Key))
+                        costOverrides.ApplyMaterials(entry.Key, values.NoWeapons);
+                        if (values.NoWeapons)
                             appliedNoWeaponsMask |= 1 << ((int)entry.Key - (int)eChimps.CHIMP_TYPE_ARCHER);
                     }
                     if (values.Gold != -1)
@@ -295,77 +294,20 @@ namespace UnitCosts
                 (noWeaponsUiMask & (1 << index)) != 0;
         }
 
-        private void RestoreVanillaUnitCosts()
+        private void RestoreOwnedUnitCosts(bool endSession = false)
         {
-            int restoredValues = 0;
-            foreach (KeyValuePair<eChimps, int> entry in VanillaGoldCosts.Entries)
-            {
-                try
-                {
-                    SetUnitGoldCost(entry.Key, entry.Value);
-                    restoredValues++;
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:311", $"UnitCosts could not restore {entry.Key}; remaining units continue: {ex}");
-                }
-            }
-
-            foreach (KeyValuePair<eChimps, UnitGoodCosts> entry in OriginalEuropeanGoodCosts)
-            {
-                try
-                {
-                    GameUnitManagerAPI.Instance.SetUnitGoodCosts(entry.Key, entry.Value);
-                    restoredValues++;
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:324", $"UnitCosts could not restore European good costs for {entry.Key}: {ex}");
-                }
-            }
-
+            costOverrides.RestoreAll(ex => Shared.DebugLogHelper.LogErrorLimited(log,
+                "UnitCosts.cost-restoration", $"UnitCosts could not restore an owned cost; independent cells continue: {ex}"), endSession);
+            noWeaponsUiMask = 0;
             humanExtraCosts.Clear();
-            configuredRecruitmentButtons.Clear();
+            hasHumanExtraCosts = false;
             ClearRecruitmentCostTooltip();
-            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:331", "Restored vanilla unit cost values:", restoredValues);
-        }
-
-        private static void SetUnitGoldCost(eChimps unitType, int goldCost)
-        {
-            GameUnitManagerAPI.Instance.SetUnitGoldCost(unitType, goldCost);
-            if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
-                GameBuildingManagerAPI.Instance.SetGoldCost(siegeTentStructure, goldCost);
-        }
-
-        private void CaptureOriginalEuropeanGoodCosts()
-        {
-            foreach (eChimps unitType in GetEuropeanRecruitTypes())
-            {
-                if (OriginalEuropeanGoodCosts.ContainsKey(unitType))
-                    continue;
-
-                try
-                {
-                    OriginalEuropeanGoodCosts.Add(unitType, GameUnitManagerAPI.Instance.GetUnitGoodCosts(unitType));
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:354", $"UnitCosts could not capture European good costs for {unitType}; No Weapons disabled for this unit: {ex}");
-                }
-            }
-        }
-
-        private static void ApplyEuropeanGoodCosts(eChimps unitType, bool noWeapons)
-        {
-            // Restore the captured table row when unchecked, including the knight's horse slot.
-            if (OriginalEuropeanGoodCosts.TryGetValue(unitType, out UnitGoodCosts original))
-                GameUnitManagerAPI.Instance.SetUnitGoodCosts(unitType, noWeapons ? NoWeaponCosts : original);
+            Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts.owned-cost-restoration", "Released UnitCosts-owned cost values.");
         }
 
         private void ApplyHumanExtraUnitCosts()
         {
             humanExtraCosts.Clear();
-            configuredRecruitmentButtons.Clear();
             Dictionary<eChimps, UnitExtraCostValues> parsedCosts = settings.ParseHumanExtraUnitCosts();
             int configuredUnits = 0;
             foreach (KeyValuePair<eChimps, UnitExtraCostValues> entry in parsedCosts)
@@ -375,7 +317,7 @@ namespace UnitCosts
                     configuredUnits++;
             }
 
-            RebuildConfiguredRecruitmentButtons();
+            hasHumanExtraCosts = configuredUnits > 0;
             Shared.DebugLogHelper.LogDebugLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:380", "Applied human extra unit cost rows:", configuredUnits);
             RefreshCurrentRecruitmentCostTooltip();
         }
@@ -486,37 +428,30 @@ namespace UnitCosts
             }
         }
 
-        private void UpdateRecruitmentCostTooltip(MainViewModel mainViewModel)
+        private void RegisterCostTooltip()
         {
-            if (mainViewModel == null)
-            {
-                ClearRecruitmentCostEntries();
-                return;
-            }
-
-            eChimps unitType = GetLastTroopBuildChimp(mainViewModel);
-            int multiplier = GetLastTroopsAmountToMake(mainViewModel);
-            ShowRecruitmentCostTooltip(unitType, multiplier, true);
+            if (!TooltipPresentation.TryRegisterContent(UnitCostsPlugin.PluginGuid, "ExtraCosts",
+                TooltipTarget.Recruitment | TooltipTarget.SiegeConstruction, TooltipPlacement.InlineAfterCosts,
+                GetCostTooltip, out string reason)) throw new InvalidOperationException(reason);
+            if (!TooltipPresentation.TryRegisterText(UnitCostsPlugin.PluginGuid, "SiegeNotification", TooltipTarget.SiegeConstruction,
+                TooltipPlacement.AfterMainLine, context => context.IsActive && EffectsEnabled && Notification.IsVisible ? Notification.Message : null,
+                out reason)) throw new InvalidOperationException(reason);
         }
 
-        private void UpdateSiegeBuildCostTooltip(object parameter)
+        private IReadOnlyList<TooltipLine> GetCostTooltip(TooltipContext context)
         {
-            if (!TryGetSiegeBuildHoverUnit(parameter, out eChimps unitType))
+            if (!callbacksEnabled || !EffectsEnabled || !context.IsActive || !context.UnitType.HasValue)
             {
-                ClearRecruitmentCostEntries();
-                return;
+                if (currentCostTooltipTarget == context.Target) { ClearRecruitmentCostTooltip(); currentCostTooltipTarget = null; }
+                return Array.Empty<TooltipLine>();
             }
-
-            ShowRecruitmentCostTooltip(unitType, 1, false);
-        }
-
-        private void ShowRecruitmentCostTooltip(eChimps unitType, int multiplier, bool useRecruitAmount)
-        {
-            currentTooltipUnitType = unitType;
-            currentTooltipMultiplier = Math.Max(1, multiplier);
-            currentTooltipUsesRecruitAmount = useRecruitAmount;
+            currentCostTooltipTarget = context.Target;
+            currentTooltipUnitType = (eChimps)context.UnitType.Value;
+            currentTooltipMultiplier = context.Quantity;
+            currentTooltipUsesRecruitAmount = context.Target == TooltipTarget.Recruitment;
             hasCurrentTooltipUnitType = true;
             RefreshCurrentRecruitmentCostTooltip();
+            return recruitmentTooltipLines;
         }
 
         private void RefreshCurrentRecruitmentCostTooltip()
@@ -543,13 +478,14 @@ namespace UnitCosts
             if (RecruitmentCostStateMatches(playerId, costs, currentTooltipMultiplier))
                 return;
 
-            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, currentTooltipMultiplier));
-        }
-
-        private void RefreshRecruitmentUi()
-        {
-            RefreshRecruitmentButtonAvailability();
-            RefreshCurrentRecruitmentCostTooltip();
+            var entries = CreateRecruitmentCostEntries(playerId, costs, currentTooltipMultiplier);
+            var segments = new List<TooltipSegment>(entries.Count * 3);
+            foreach (var entry in entries)
+            {
+                segments.Add(new TooltipText(entry.Amount)); segments.Add(new TooltipSymbol(entry.Image));
+                segments.Add(new TooltipText(entry.AmountAvailable));
+            }
+            recruitmentTooltipLines = segments.Count == 0 ? Array.Empty<TooltipLine>() : new[] { new TooltipLine(segments.ToArray()) };
         }
 
         private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(int playerId, UnitExtraCostValues costs, int multiplier)
@@ -646,120 +582,33 @@ namespace UnitCosts
             return Math.Max(0, GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, good));
         }
 
-        private readonly System.Collections.Generic.List<RecruitmentButtonRule> configuredRecruitmentButtons =
-            new System.Collections.Generic.List<RecruitmentButtonRule>();
-        private static readonly RecruitmentButtonRule[] RecruitmentButtonRules =
+        // Set from the parsed human extra-cost rows; the shared recruitment pass stays idle without them.
+        private bool hasHumanExtraCosts;
+
+        // Activity callback of the APIShared recruitment-availability registration.
+        internal bool IsRecruitmentAvailabilityActive() =>
+            hasHumanExtraCosts && EffectsEnabled && IsUnitCostModeAllowed();
+
+        // Queried by APIShared for each still-enabled Vanilla recruit button; side-effect free. Buttons
+        // of one GUI check share context.Sequence, so the stable query is answered once per check.
+        internal bool IsRecruitmentBlockedByExtraCosts(APIShared.Recruitment.RecruitmentAvailabilityContext context, eChimps unitType)
         {
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARCHER, panel => panel.RefRecruitArcherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_SPEARMAN, panel => panel.RefRecruitSpearmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_MACEMAN, panel => panel.RefRecruitMacemanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_XBOWMAN, panel => panel.RefRecruitXBowmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_PIKEMAN, panel => panel.RefRecruitPikemanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_SWORDSMAN, panel => panel.RefRecruitSwordsmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_KNIGHT, panel => panel.RefRecruitKnightButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ENGINEER, panel => panel.RefRecruitEngineerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_LADDERMAN, panel => panel.RefRecruitLaddermanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_TUNNELER, panel => panel.RefRecruitTunellerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_MONK, panel => panel.RefRecruitMonkButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_BOW, panel => panel.RefRecruitArabBowButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SLAVE, panel => panel.RefRecruitArabSlaveButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SLINGER, panel => panel.RefRecruitArabSlingerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_ASSASIN, panel => panel.RefRecruitArabAssassinButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_HORSEMAN, panel => panel.RefRecruitArabHorseArcherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SWORDSMAN, panel => panel.RefRecruitArabSwordsmanButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_GRENADIER, panel => panel.RefRecruitArabGrenadierButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER, panel => panel.RefRecruitBedouinCamelLancerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, panel => panel.RefRecruitBedouinHealerButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, panel => panel.RefRecruitBedouinEunuchButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER, panel => panel.RefRecruitBedouinAmbusherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER, panel => panel.RefRecruitBedouinSkirmisherButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, panel => panel.RefRecruitBedouinHeavyCamelButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_SAPPER, panel => panel.RefRecruitBedouinSapperButton),
-            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER, panel => panel.RefRecruitBedouinDemolisherButton),
-        };
-
-        private readonly struct RecruitmentButtonRule
-        {
-            internal RecruitmentButtonRule(eChimps unitType, System.Func<HUD_Buildings, Noesis.UIElement> getButton)
-            {
-                UnitType = unitType;
-                GetButton = getButton;
-            }
-            internal eChimps UnitType { get; }
-            internal System.Func<HUD_Buildings, Noesis.UIElement> GetButton { get; }
-        }
-
-        private void RebuildConfiguredRecruitmentButtons()
-        {
-            configuredRecruitmentButtons.Clear();
-            foreach (RecruitmentButtonRule rule in RecruitmentButtonRules)
-                if (TryGetHumanExtraCosts(rule.UnitType, out _))
-                    configuredRecruitmentButtons.Add(rule);
-        }
-
-        internal void RefreshRecruitmentButtonAvailability()
-        {
-            if (!IsUnitCostModeAllowed() || !EffectsEnabled || configuredRecruitmentButtons.Count == 0)
-                return;
-
-            int playerId = GetLocalHumanPlayerId();
-            if (playerId <= 0)
-                return;
-
-            MainViewModel mainViewModel = MainViewModel.Instance;
-            if (mainViewModel?.HUDBuildingPanel == null)
-                return;
-
-            eChimps hoveredUnitType = GetLastTroopBuildChimp(mainViewModel);
-            int amount = hoveredUnitType == eChimps.CHIMP_NUM_TYPES ? 1 : GetLastTroopsAmountToMake(mainViewModel);
-            HUD_Buildings panel = mainViewModel.HUDBuildingPanel;
-
-            // Resolve from the current panel; retain Vanilla/other-mod disabled states.
-            foreach (RecruitmentButtonRule rule in configuredRecruitmentButtons)
-                DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, rule.UnitType, rule.GetButton(panel));
-        }
-
-        private void DisableRecruitmentButtonIfMissingExtraCosts(
-            int playerId,
-            int amount,
-            eChimps unitType,
-            Noesis.UIElement button)
-        {
-            if (button == null || !button.IsEnabled)
-                return;
+            if (!context.IsLocalPlayerHuman || context.LocalPlayerId <= 0)
+                return false;
 
             if (!TryGetHumanExtraCosts(unitType, out UnitExtraCostValues costs))
-                return;
+                return false;
 
-            if (!HasEnoughExtraCosts(playerId, costs, amount, out eGoods _, out bool _, out int _, out int _))
-                button.IsEnabled = false;
-        }
-
-        private static bool TryGetSiegeBuildHoverUnit(object parameter, out eChimps unitType)
-        {
-            switch (parameter as string)
+            int amount = context.HoveredUnitType == eChimps.CHIMP_NUM_TYPES ? 1 : Math.Max(1, context.VanillaAmountToMake);
+            long previousScope = horseCountScope;
+            horseCountScope = context.Sequence;
+            try
             {
-                case "UnitBuildCat":
-                    unitType = eChimps.CHIMP_TYPE_CATAPULT;
-                    return true;
-                case "UnitBuildTreb":
-                    unitType = eChimps.CHIMP_TYPE_TREBUCHET;
-                    return true;
-                case "UnitBuildRam":
-                    unitType = eChimps.CHIMP_TYPE_BATTERING_RAM;
-                    return true;
-                case "UnitBuildTower":
-                    unitType = eChimps.CHIMP_TYPE_SIEGE_TOWER;
-                    return true;
-                case "UnitbuildMantlet":
-                    unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
-                    return true;
-                case "UnitbuildArabBallista":
-                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
-                    return true;
-                default:
-                    unitType = eChimps.CHIMP_TYPE_NULL;
-                    return false;
+                return !HasEnoughExtraCosts(context.LocalPlayerId, costs, amount, out eGoods _, out bool _, out int _, out int _);
+            }
+            finally
+            {
+                horseCountScope = previousScope;
             }
         }
 
@@ -805,7 +654,7 @@ namespace UnitCosts
         {
             recruitmentCostSnapshot.Clear();
             recruitmentCostSnapshotValid = false;
-            RecruitmentCostTooltip.Clear();
+            recruitmentTooltipLines = Array.Empty<TooltipLine>();
         }
 
         private readonly struct RecruitmentCostSnapshotEntry
@@ -835,11 +684,12 @@ namespace UnitCosts
                     return;
                 }
 
-                if (!EffectsEnabled || !IsUnitCostModeAllowed())
-                    return;
-
+                // Source test first: most transitions (AI, peasants, upgrades) never reach the mode policy.
                 if (args.Source != UnitTransitionSource.EuropeanBarracks &&
                     args.Source != UnitTransitionSource.MercenaryOutpost)
+                    return;
+
+                if (!EffectsEnabled || !IsUnitCostModeAllowed())
                     return;
 
                 int playerId = args.PlayerOwnerId;
@@ -851,13 +701,14 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(playerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
-                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:859",
-                        "UnitCosts transition extra cost missing:",
-                        "unit", args.NextUnitType,
-                        "player", playerId,
-                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
-                        "required", requiredAmount,
-                        "available", availableAmount);
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:859",
+                            "UnitCosts transition extra cost missing:",
+                            "unit", args.NextUnitType,
+                            "player", playerId,
+                            "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                            "required", requiredAmount,
+                            "available", availableAmount);
                     return;
                 }
 
@@ -870,11 +721,14 @@ namespace UnitCosts
                     if (!TryFindAvailableHorseAllocation(playerId, out horseAllocation) ||
                         !TryLinkStableHorse(horseAllocation, args.UnitId, playerId))
                     {
-                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:878",
+                        {
+                            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:878",
                             "UnitCosts transition horse link failed:",
                             "unit", args.NextUnitType,
                             "unitId", args.UnitId,
                             "player", playerId);
+                        }
                         return;
                     }
 
@@ -919,14 +773,15 @@ namespace UnitCosts
 
                 args.CustomValidationRules = true;
                 args.ForceBlockPlacementState = true;
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:928",
-                    "UnitCosts blocked siege placement:",
-                    "unit", unitType,
-                    "player", args.PlayerId,
-                    "missing", missingHorse ? "HORSE" : missingGood.ToString(),
-                    "required", requiredAmount,
-                    "available", availableAmount,
-                    "mapper", args.Mappers);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:928",
+                        "UnitCosts blocked siege placement:",
+                        "unit", unitType,
+                        "player", args.PlayerId,
+                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                        "required", requiredAmount,
+                        "available", availableAmount,
+                        "mapper", args.Mappers);
                 ShowMissingResourcesMessageThrottledForSiege(missingGood);
             }
             catch (Exception ex)
@@ -953,25 +808,29 @@ namespace UnitCosts
 
                 if (!HasEnoughExtraCosts(args.PlayerId, costs, 1, out eGoods missingGood, out bool missingHorse, out int requiredAmount, out int availableAmount))
                 {
-                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:962",
-                        "UnitCosts siege extra cost skipped after spawn because resources are missing:",
-                        "unit", unitType,
-                        "player", args.PlayerId,
-                        "missing", missingHorse ? "HORSE" : missingGood.ToString(),
-                        "required", requiredAmount,
-                        "available", availableAmount,
-                        "building", args.Building);
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:962",
+                            "UnitCosts siege extra cost skipped after spawn because resources are missing:",
+                            "unit", unitType,
+                            "player", args.PlayerId,
+                            "missing", missingHorse ? "HORSE" : missingGood.ToString(),
+                            "required", requiredAmount,
+                            "available", availableAmount,
+                            "building", args.Building);
                     if (IsLocalPlayer(args.PlayerId))
                         ShowMissingResourcesMessageThrottledForSiege(missingGood);
                     return;
                 }
 
                 ApplyExtraCosts(args.PlayerId, costs, 1);
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:976",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:976",
                     "UnitCosts applied siege extra costs:",
                     "unit", unitType,
                     "player", args.PlayerId,
                     "building", args.Building);
+                }
             }
             catch (Exception ex)
             {
@@ -1108,18 +967,41 @@ namespace UnitCosts
             }
         }
 
+        // Non-zero while answering one shared recruitment-availability check (its Sequence). Nothing
+        // mutates stables between the buttons of one check, so their horse counts can be shared.
+        [ThreadStatic] private static long horseCountScope;
+        [ThreadStatic] private static long horseCountStoredScope;
+        [ThreadStatic] private static int horseCountStoredPlayer;
+        [ThreadStatic] private static int horseCountStoredValue;
+
         private static int CountAvailableHorseSlots(int playerId)
         {
+            if (horseCountScope != 0 && horseCountStoredScope == horseCountScope && horseCountStoredPlayer == playerId)
+                return horseCountStoredValue;
+
+            int count = CountAvailableHorseSlotsUncached(playerId);
+            if (horseCountScope != 0)
+            {
+                horseCountStoredScope = horseCountScope;
+                horseCountStoredPlayer = playerId;
+                horseCountStoredValue = count;
+            }
+            return count;
+        }
+
+        private static int CountAvailableHorseSlotsUncached(int playerId)
+        {
             int count = 0;
-            List<int> stableIds = new List<int>();
+            List<int> stableIds = horseStableIdsBuffer ?? (horseStableIdsBuffer = new List<int>());
+            stableIds.Clear();
             GameBuildingManagerAPI.Instance.GetAllBuildings(
                 stableIds,
                 AliveState.IsAlive,
                 eStructs.STRUCT_STABLES,
                 PlayerRelationship.Self,
                 playerId);
-            stableIds.Sort();
 
+            // A sum is order-independent, so no sort here (allocation keeps its sorted order).
             foreach (int stableId in stableIds)
             {
                 unsafe
@@ -1231,13 +1113,16 @@ namespace UnitCosts
                 unit->r_LinkedStableGlobalId = 0;
             }
 
-            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1240",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1240",
                 "UnitCosts rolled back incomplete stable horse link:",
                 "stableId", allocation.StableId,
                 "slot", allocation.Slot,
                 "unitId", unitId,
                 "slotMatches", slotMatches,
                 "backlinkMatches", backlinkMatches);
+            }
             return false;
         }
 
@@ -1264,10 +1149,13 @@ namespace UnitCosts
                 (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1) != playerId ||
                 unit->r_GlobalId == 0)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1273",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1273",
                     "UnitCosts ignored invalid disband horse-link source:",
                     "unitId", unitId,
                     "player", playerId);
+                }
                 return;
             }
 
@@ -1281,13 +1169,16 @@ namespace UnitCosts
                 !IsUsableStable(stable, playerId) ||
                 stable->r_GlobalId != stableGlobalId)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1290",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1290",
                     "UnitCosts kept inconsistent disband horse link:",
                     "unitId", unitId,
                     "unitGlobalId", unitGlobalId,
                     "stableId", stableId,
                     "stableGlobalId", stableGlobalId,
                     "reason", "stable validation failed");
+                }
                 return;
             }
 
@@ -1302,13 +1193,16 @@ namespace UnitCosts
 
                 if (matchingSlot >= 0)
                 {
-                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1311",
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1311",
                         "UnitCosts kept ambiguous disband horse link:",
                         "unitId", unitId,
                         "unitGlobalId", unitGlobalId,
                         "stableId", stableId,
                         "firstSlot", matchingSlot,
                         "secondSlot", slot);
+                    }
                     return;
                 }
 
@@ -1317,11 +1211,14 @@ namespace UnitCosts
 
             if (matchingSlot < 0)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1326",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1326",
                     "UnitCosts kept unmatched disband horse backlink:",
                     "unitId", unitId,
                     "unitGlobalId", unitGlobalId,
                     "stableId", stableId);
+                }
                 return;
             }
 
@@ -1337,7 +1234,9 @@ namespace UnitCosts
                     usedBefore,
                     out int totalAfter))
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1346",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1346",
                     "UnitCosts kept invalid disband horse accounting:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1345,6 +1244,7 @@ namespace UnitCosts
                     "used", usedBefore,
                     "occupiedSlots", occupiedSlotsBefore,
                     "recharge", rechargeBefore);
+                }
                 return;
             }
 
@@ -1387,7 +1287,9 @@ namespace UnitCosts
                 stable->r_HorseRechargeTimer == rechargeBefore;
             if (!slotCleared || !backlinkCleared || !slotTopologyMatches || !accountingMatches)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1396",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1396",
                     "UnitCosts disband horse consumption verification failed:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1398,6 +1300,7 @@ namespace UnitCosts
                     "occupiedSlotsBefore", occupiedSlotsBefore,
                     "occupiedSlotsAfter", occupiedSlotsAfter,
                     "accountingMatches", accountingMatches);
+                }
                 RollbackDisbandHorseConsumption(
                     stableId,
                     stableGlobalId,
@@ -1441,11 +1344,14 @@ namespace UnitCosts
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit->r_GlobalId != unitGlobalId)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1452",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1452",
                     "UnitCosts could not reacquire disband horse rollback objects:",
                     "unitId", unitId,
                     "stableId", stableId,
                     "slot", slot);
+                }
                 return;
             }
 
@@ -1468,7 +1374,9 @@ namespace UnitCosts
                 !backlinkCanRestore || !totalCanRestore || !vanillaAccountingUnchanged ||
                 !slotTopologyCanRestore)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1479",
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1479",
                     "UnitCosts skipped unsafe disband horse rollback:",
                     "unitId", unitId,
                     "stableId", stableId,
@@ -1480,6 +1388,7 @@ namespace UnitCosts
                     "vanillaAccountingUnchanged", vanillaAccountingUnchanged,
                     "slotTopologyCanRestore", slotTopologyCanRestore,
                     "occupiedSlotsCurrent", occupiedSlotsCurrent);
+                }
                 return;
             }
 
@@ -1503,13 +1412,16 @@ namespace UnitCosts
                 stable->r_HorseRechargeTimer == rechargeBefore &&
                 TryCountOccupiedStableHorseSlots(stable, out int occupiedSlotsRestored) &&
                 occupiedSlotsRestored == occupiedSlotsBefore;
-            LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1514",
+            {
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1514",
                 rollbackMatches
                     ? "UnitCosts rolled back disband horse consumption:"
                     : "UnitCosts disband horse rollback verification failed:",
                 "unitId", unitId,
                 "stableId", stableId,
                 "slot", slot);
+            }
         }
 
         private static unsafe bool TryCountOccupiedStableHorseSlots(
@@ -1620,10 +1532,7 @@ namespace UnitCosts
         }
 
         private static bool IsUnitCostModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                UnitCostsPlugin.PluginGuid,
-                Shared.GameplayFeatureId.UnitCostEnforcement,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(UnitCostsPlugin.PluginGuid, Shared.GameplayFeatureId.UnitCostEnforcement);
 
         private static bool IsHumanPlayer(int playerId)
         {
@@ -1677,7 +1586,10 @@ namespace UnitCosts
                 string speechFileName = missingGood == eGoods.STORED_GOLD
                     ? GetRandomSpeechFileName(MissingGoldSpeechFileNames)
                     : MissingWeaponsSpeechFileName;
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1688", "UnitCosts missing resources speech:", "good", missingGood, "file", speechFileName);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1688", "UnitCosts missing resources speech:", "good", missingGood, "file", speechFileName);
+                }
 
                 SFXManager.instance?.playSpeech(
                     1,
@@ -1686,7 +1598,10 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1697", "Could not play UnitCosts missing resources speech:", ex.Message);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1697", "Could not play UnitCosts missing resources speech:", ex.Message);
+                }
             }
         }
 
@@ -1731,48 +1646,30 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1742", "Could not cancel UnitCosts material message timer:", ex.Message);
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("UnitCosts/src/UnitCostsRuntime.cs:1742", "Could not cancel UnitCosts material message timer:", ex.Message);
+                }
             }
 
             materialMessageTimerHandle = null;
         }
 
+        // Both fields are public in the shipped Assembly-CSharp; typed reads avoid per-frame boxing.
         private static eChimps GetLastTroopBuildChimp(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopBuildChimpField,
-                LastTroopBuildChimpProperty);
-            if (value == null)
+            if (mainViewModel == null)
                 return eChimps.CHIMP_TYPE_ARCHER;
 
-            try
-            {
-                return (eChimps)Convert.ToInt32(value);
-            }
-            catch
-            {
-                return eChimps.CHIMP_TYPE_ARCHER;
-            }
+            return (eChimps)(int)mainViewModel.lastTroopBuildChimp;
         }
 
         private static int GetLastTroopsAmountToMake(MainViewModel mainViewModel)
         {
-            object value = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopsAmountToMakeField,
-                LastTroopsAmountToMakeProperty);
-            if (value == null)
+            if (mainViewModel == null)
                 return 1;
 
-            try
-            {
-                return Math.Max(1, Convert.ToInt32(value));
-            }
-            catch
-            {
-                return 1;
-            }
+            return Math.Max(1, mainViewModel.lastTroopsAmountToMake);
         }
 
         private static bool TryGetCurrentVanillaRecruitAmount(eChimps unitType, out int amount)
@@ -1782,41 +1679,11 @@ namespace UnitCosts
             if (mainViewModel == null)
                 return false;
 
-            object unitValue = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopBuildChimpField,
-                LastTroopBuildChimpProperty);
-            object amountValue = GetMainViewModelMemberValue(
-                mainViewModel,
-                LastTroopsAmountToMakeField,
-                LastTroopsAmountToMakeProperty);
-            if (unitValue == null || amountValue == null)
+            if ((eChimps)(int)mainViewModel.lastTroopBuildChimp != unitType)
                 return false;
 
-            try
-            {
-                if ((eChimps)Convert.ToInt32(unitValue) != unitType)
-                    return false;
-
-                amount = Math.Max(0, Convert.ToInt32(amountValue));
-                return true;
-            }
-            catch
-            {
-                amount = 0;
-                return false;
-            }
-        }
-
-        private static object GetMainViewModelMemberValue(MainViewModel mainViewModel, FieldInfo field, PropertyInfo property)
-        {
-            if (mainViewModel == null)
-                return null;
-
-            if (field != null)
-                return field.GetValue(mainViewModel);
-
-            return property?.GetValue(mainViewModel);
+            amount = Math.Max(0, mainViewModel.lastTroopsAmountToMake);
+            return true;
         }
 
         private static Noesis.ImageSource GetGoodImage(eGoods good)
@@ -1843,7 +1710,7 @@ namespace UnitCosts
                 if (!VanillaGoldCosts.CaptureIfMissing(unitType, () => ReadVanillaUnitGoldCost(unitType), out Exception error))
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "UnitCosts/src/UnitCostsRuntime.cs:1853", $"UnitCosts could not capture the Vanilla gold cost for {unitType}; " +
-                        $"-1 and immediate restoration remain disabled for this unit: {error}");
+                        $"The startup cost tooltip is unavailable for this unit: {error}");
                 }
             }
         }
@@ -1852,17 +1719,6 @@ namespace UnitCosts
         {
             return unitType >= eChimps.CHIMP_TYPE_ARCHER &&
                 unitType <= eChimps.CHIMP_TYPE_KNIGHT;
-        }
-
-        private static IEnumerable<eChimps> GetEuropeanRecruitTypes()
-        {
-            yield return eChimps.CHIMP_TYPE_ARCHER;
-            yield return eChimps.CHIMP_TYPE_XBOWMAN;
-            yield return eChimps.CHIMP_TYPE_SPEARMAN;
-            yield return eChimps.CHIMP_TYPE_PIKEMAN;
-            yield return eChimps.CHIMP_TYPE_MACEMAN;
-            yield return eChimps.CHIMP_TYPE_SWORDSMAN;
-            yield return eChimps.CHIMP_TYPE_KNIGHT;
         }
 
         private static IEnumerable<eChimps> GetRecruitTypes()

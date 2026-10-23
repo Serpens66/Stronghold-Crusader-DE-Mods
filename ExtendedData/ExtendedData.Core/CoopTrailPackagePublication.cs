@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace ExtendedData.Core
@@ -14,6 +15,10 @@ namespace ExtendedData.Core
 
     internal static class CoopTrailPackagePublication
     {
+        internal const string MissionsDirectory = "CoopMissions";
+        // Editable Trail Maker sources, staged beside the missions so both are replaced together.
+        internal const string TrailMakerSourceDirectory = "TrailMakerSource";
+
         private sealed class SystemFiles : ICoopTrailPackageFiles
         {
             public bool DirectoryExists(string path) => Directory.Exists(path);
@@ -24,51 +29,85 @@ namespace ExtendedData.Core
                 CoopTrailPackageManifestJson.WriteAtomic(path, manifest);
         }
 
+        private sealed class Replacement
+        {
+            internal string Target, Backup;
+            internal bool BackedUp, Installed;
+        }
+
         internal static void Publish(string stagingRoot, string destination,
             CoopTrailPackageManifest manifest, ICoopTrailPackageFiles files = null)
         {
             files = files ?? new SystemFiles();
             string targetRoot = Path.GetFullPath(destination);
-            string targetMissions = Path.Combine(targetRoot, "CoopMissions");
-            string backupMissions = Path.Combine(targetRoot, ".CoopMissions.old-" + Guid.NewGuid().ToString("N"));
             files.CreateDirectory(targetRoot);
-            bool backedUp = false;
-            bool newMissionsInstalled = false;
+            var replacements = new List<Replacement>();
+            foreach (string name in new[] { MissionsDirectory, TrailMakerSourceDirectory })
+            {
+                string staged = Path.Combine(stagingRoot, name);
+                // The missions are mandatory; staged Maker sources are optional for older callers.
+                if (name != MissionsDirectory && !files.DirectoryExists(staged))
+                    continue;
+                replacements.Add(new Replacement
+                {
+                    Target = Path.Combine(targetRoot, name),
+                    Backup = Path.Combine(targetRoot, "." + name + ".old-" + Guid.NewGuid().ToString("N")),
+                });
+            }
             try
             {
-                if (files.DirectoryExists(targetMissions))
+                foreach (Replacement replacement in replacements)
                 {
-                    files.MoveDirectory(targetMissions, backupMissions);
-                    backedUp = true;
+                    string staged = Path.Combine(stagingRoot, Path.GetFileName(replacement.Target));
+                    if (files.DirectoryExists(replacement.Target))
+                    {
+                        files.MoveDirectory(replacement.Target, replacement.Backup);
+                        replacement.BackedUp = true;
+                    }
+                    files.MoveDirectory(staged, replacement.Target);
+                    replacement.Installed = true;
                 }
-                files.MoveDirectory(Path.Combine(stagingRoot, "CoopMissions"), targetMissions);
-                newMissionsInstalled = true;
                 files.WriteManifest(Path.Combine(targetRoot, "cooptrail.json"), manifest);
                 // Atomic manifest replacement is the commit point. Cleanup below cannot undo it.
             }
             catch (Exception originalError)
             {
-                try
+                var recoveryErrors = new List<Exception>();
+                for (int index = replacements.Count - 1; index >= 0; index--)
                 {
-                    // A failed backup rename leaves the OLD directory at this path.
-                    // Only this transaction's successfully installed directory may be deleted.
-                    if (newMissionsInstalled && files.DirectoryExists(targetMissions))
-                        files.DeleteDirectory(targetMissions);
-                    if (backedUp)
-                        files.MoveDirectory(backupMissions, targetMissions);
+                    Replacement replacement = replacements[index];
+                    try
+                    {
+                        // A failed backup rename leaves the OLD directory at this path.
+                        // Only this transaction's successfully installed directory may be deleted.
+                        if (replacement.Installed && files.DirectoryExists(replacement.Target))
+                            files.DeleteDirectory(replacement.Target);
+                        if (replacement.BackedUp)
+                            files.MoveDirectory(replacement.Backup, replacement.Target);
+                    }
+                    catch (Exception recoveryError)
+                    {
+                        recoveryErrors.Add(recoveryError);
+                    }
                 }
-                catch (Exception recoveryError)
+                if (recoveryErrors.Count > 0)
                 {
+                    var all = new List<Exception> { originalError };
+                    all.AddRange(recoveryErrors);
+                    var preserved = new List<string>();
+                    foreach (Replacement replacement in replacements)
+                        if (replacement.BackedUp) preserved.Add(replacement.Backup);
                     throw new IOException("Coop Trail publication failed: " + originalError.Message +
-                        ". Recovery failed: " + recoveryError.Message +
-                        ". Preserved recovery directory: [" + backupMissions + "].",
-                        new AggregateException(originalError, recoveryError));
+                        ". Recovery failed: " + recoveryErrors[0].Message +
+                        ". Preserved recovery directory: [" + string.Join("], [", preserved) + "].",
+                        new AggregateException(all));
                 }
                 throw;
             }
-            if (backedUp)
+            foreach (Replacement replacement in replacements)
             {
-                try { files.DeleteDirectory(backupMissions); }
+                if (!replacement.BackedUp) continue;
+                try { files.DeleteDirectory(replacement.Backup); }
                 catch { /* The committed package stays valid; preserve an undeletable backup. */ }
             }
         }

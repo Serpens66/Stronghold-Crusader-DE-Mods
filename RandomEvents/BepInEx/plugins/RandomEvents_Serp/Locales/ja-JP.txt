@@ -108,3 +108,6 @@ Common.ModSettingsSearchClearHelp=Clear the settings filter.
 Common.ModSettingsSearchNoResults=No matching settings found.
 Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
 Common.PresetLoadFailedTitle=Preset load failed
+RandomEvents.ShowEventChatMessages=Show events in chat
+RandomEvents.ShowEventChatMessagesHelp=Shows successfully triggered events with the affected lord's name in your local chat. Includes your own events, other human players and enabled AI lords in both event modes. Each player can disable this independently.
+RandomEvents.ChatPlayerFormat=Player {0}

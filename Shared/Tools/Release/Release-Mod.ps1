@@ -93,7 +93,9 @@ try {
     Push-Location $metadata.ModDir
     $apiSharedEnvironmentWasDefined = Test-Path -LiteralPath 'Env:SHCDE_API_SHARED_DIR'
     $previousApiSharedEnvironment = $env:SHCDE_API_SHARED_DIR
+    $previousBranchPinned = $env:SHCDE_BRANCH_PINNED
     try {
+        $env:SHCDE_BRANCH_PINNED = $commit
         if ($null -ne $apiSharedPackage) {
             $env:SHCDE_API_SHARED_DIR = $apiSharedPackage.Directory
         }
@@ -103,6 +105,7 @@ try {
         $buildOutput = @($buildResult.Output)
         $buildExitCode = $buildResult.ExitCode
     } finally {
+        $env:SHCDE_BRANCH_PINNED = $previousBranchPinned
         if ($apiSharedEnvironmentWasDefined) {
             $env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment
         } else {
@@ -133,6 +136,11 @@ try {
     }
 
     $packageFiles = @(Get-ChildItem -LiteralPath $stagePackage -File -Recurse | Sort-Object FullName)
+    . (Join-Path $PSScriptRoot 'DiagnosticSummary.ps1')
+    Write-PackageDiagnosticSummary -Directory $stagePackage -CecilPath (Join-Path $config.GameDir 'BepInEx/core/Mono.Cecil.dll')
+    # DEVDIAG builds are development-only; this gate blocks the release.
+    . (Join-Path $PSScriptRoot '../Validation/DevDiagnostics.Common.ps1')
+    Assert-NoDevDiagnosticAssemblies -Directory $stagePackage -CecilPath (Join-Path $config.GameDir 'BepInEx/core/Mono.Cecil.dll')
     if ($packageFiles.Count -eq 0) { throw 'The staged plugin package is empty.' }
     $runtimeFiles = @($packageFiles | Where-Object { $_.Extension -in @('.msgpack', '.log', '.tmp') -or $_.FullName -match '\\LobbyModSettings\\' })
     if ($runtimeFiles.Count -gt 0) {

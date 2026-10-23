@@ -36,6 +36,13 @@ namespace StartConditions
         [IgnoreMember]
         internal AIStartTroopIsolationSaveRecord[] Records;
 
+        // ModSaveDataAPI leaves the old archive entry untouched for null/zero bytes.
+        // An explicit empty envelope is required to retire previously saved protection.
+        internal static byte[] EncodeForSave(bool isSaveFile, AIStartTroopIsolationSaveRecord[] records)
+        {
+            return isSaveFile ? Encode(records ?? Array.Empty<AIStartTroopIsolationSaveRecord>()) : null;
+        }
+
         internal static byte[] Encode(AIStartTroopIsolationSaveRecord[] records)
         {
             byte[] bytes = MessagePackSerializer.Serialize(new AIStartTroopIsolationSaveState

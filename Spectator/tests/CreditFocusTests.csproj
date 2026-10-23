@@ -1,0 +1,12 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputType>Library</OutputType>
+    <AssemblyName>CreditFocusTests</AssemblyName><LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/>
+    <Compile Include="CreditFocusTests.cs"/>
+    <Compile Include="..\src\CreditAmountInput.cs"/>
+    <Compile Include="..\src\TestActionPolicy.cs"/>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

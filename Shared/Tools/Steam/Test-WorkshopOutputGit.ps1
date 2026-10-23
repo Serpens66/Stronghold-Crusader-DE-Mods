@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture = Join-Path $workspace ('.inspect/workshop-output-git-' + [guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopOutputGit'
 [void][IO.Directory]::CreateDirectory($fixture)
 $checks = 0
 function Check([bool]$Condition, [string]$Message) {

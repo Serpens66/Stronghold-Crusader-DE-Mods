@@ -17,7 +17,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "1.0.32";
+        public const string PluginVersion = "1.0.33";
 
         private StartConditionsRuntime runtime;
         private int libraryInitializationStarted;
@@ -26,6 +26,7 @@ namespace StartConditions
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             SerpLocalization.SetRoutineLoggingEnabled(false);
             Settings = new StartConditionsLobbyViewModel();
             runtime = new StartConditionsRuntime(Logger, Settings);
@@ -53,7 +54,7 @@ namespace StartConditions
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     "StartConditions_Serp",
                     Settings,
                     "ScriptExtenderUI/StartConditionsSettings.xaml",
@@ -80,7 +81,7 @@ namespace StartConditions
             try { initialize(); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/src/StartConditionsPlugin.cs:83", $"StartConditions {stageName} failed; independent stages continue: {ex}");
+                Shared.RuntimeHealth.Failure(Logger, stageName, true, $"StartConditions {stageName} failed; independent stages continue: {ex}");
             }
         }
     }

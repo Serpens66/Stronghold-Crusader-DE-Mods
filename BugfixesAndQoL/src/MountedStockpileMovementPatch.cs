@@ -189,12 +189,13 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Bugfixes and QoL mounted-stockpile movement hooks installed; " +
-                $"cursor=0x{cursorResolution.Rva + ClassificationHookOffset:X}, " +
-                $"orderFeedback=0x{feedbackResolution.Rva + ClassificationHookOffset:X}, " +
-                $"endpoint=0x{endpointResolution.Rva + MountedEndpointWallGateHookOffset:X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Bugfixes and QoL mounted-stockpile movement hooks installed; " +
+                    $"cursor=0x{cursorResolution.Rva + ClassificationHookOffset:X}, " +
+                    $"orderFeedback=0x{feedbackResolution.Rva + ClassificationHookOffset:X}, " +
+                    $"endpoint=0x{endpointResolution.Rva + MountedEndpointWallGateHookOffset:X}.");
         }
 
         internal void SetEnabled(bool value)

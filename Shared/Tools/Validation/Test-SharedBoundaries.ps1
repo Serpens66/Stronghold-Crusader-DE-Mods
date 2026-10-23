@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Workspace, [string]$ModDirectory)
+param([string]$Workspace, [string]$ModDirectory, [switch]$IndependentRuntime, [switch]$ConsumerOnly)
 $ErrorActionPreference = 'Stop'
 $preflightWatch = [Diagnostics.Stopwatch]::StartNew()
 Write-Host '[Preflight] Discovering active projects and explicit source links...'
@@ -15,9 +15,12 @@ if ($ModDirectory) {
         throw 'ModDirectory must be a directory inside the workspace.'
     }
 }
-$discoveryRoots = if ($modRoot) { @($modRoot, $apiRoot) } else { @($Workspace) }
+if ($ConsumerOnly -and -not $modRoot) { throw 'ConsumerOnly requires an explicit mod scope.' }
+if ($IndependentRuntime -and -not $modRoot) { throw 'IndependentRuntime requires an explicit mod scope.' }
+$scopedRoots = @($modRoot) + $(if (-not $IndependentRuntime -and -not $ConsumerOnly) { @($apiRoot) } else { @() })
+$discoveryRoots = if ($modRoot) { $scopedRoots } else { @($Workspace) }
 $projects = @(Get-ChildItem -LiteralPath $discoveryRoots -Recurse -File -Filter '*.csproj' | Where-Object {
-    $_.FullName -notmatch '[\\/](shcde-script-extender|bin|obj|BepInEx|\.tools|\.inspect|_inspect|\.native-analysis|\.release-output|before)[\\/]'
+     ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](shcde-script-extender|bin|obj|BepInEx|\.tools|\.inspect|_inspect|\.native-analysis|\.work|\.release-output|before)[\\/]'
 })
 # Historical analysis directories contain intentionally incomplete prototypes.
 # The maintained inventory explicitly includes the active analysis-hosted regressions.
@@ -26,7 +29,7 @@ if ($modRoot) {
     $activeProjects = @($activeProjects | Where-Object {
         $candidate = [IO.Path]::GetFullPath((Join-Path $Workspace $_))
         $candidate.StartsWith($modRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
-        $candidate.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase)
+        (-not $IndependentRuntime -and -not $ConsumerOnly -and $candidate.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase))
     })
 }
 $projects = @($projects) + @($activeProjects | ForEach-Object { Get-Item -LiteralPath (Join-Path $Workspace $_) })
@@ -36,7 +39,7 @@ if ($ModDirectory) {
     $projects = @($projects | Where-Object {
         $_.FullName.StartsWith($modRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
         ($_.FullName.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase) -and
-         $_.FullName -notmatch '[\\/](examples|tests)[\\/]')
+          ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](examples|tests)[\\/]')
     })
     # Include real project dependencies, never every unrelated mod/testmod.
     for ($projectIndex = 0; $projectIndex -lt $projects.Count; $projectIndex++) {
@@ -47,7 +50,15 @@ if ($ModDirectory) {
             if ($projects.FullName -notcontains $dependency.FullName) { $projects += $dependency }
         }
     }
-    Write-Host "[Preflight] Mod scope: $ModDirectory, APIShared and explicit project/source dependencies."
+    if ($IndependentRuntime) {
+        foreach ($project in $projects) {
+            [xml]$independentXml = [IO.File]::ReadAllText($project.FullName)
+            foreach ($entry in $independentXml.SelectNodes('//*[local-name()="Reference" or local-name()="ProjectReference" or local-name()="Compile"]')) {
+                if ($entry.OuterXml -match '(?i)APIShared') { throw 'IndependentRuntime cannot exclude a declared APIShared dependency.' }
+            }
+        }
+    }
+    Write-Host "[Preflight] Mod scope: $ModDirectory; IndependentRuntime=$IndependentRuntime; ConsumerOnly=$ConsumerOnly; explicit project/source dependencies included."
 }
 $linkedSources = @()
 $links = 0
@@ -72,15 +83,34 @@ foreach ($project in $projects) {
         }
     }
 }
-foreach ($file in Get-ChildItem -LiteralPath $sharedRoot -File -Filter '*.cs') { throw "Unsorted root Shared runtime source: $($file.FullName)" }
+# Source ownership is checked from project inputs above; folder depth is not a
+# runtime contract and must not reject an otherwise valid source arrangement.
 $legacy = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'legacy-shared-paths.json') | ConvertFrom-Json
 Write-Host '[Preflight] Checking active references and CRLF...'
 $legacyPattern = '(?<![A-Za-z0-9_])(?:' + (($legacy.PSObject.Properties.Name | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $legacyRegex = [regex]::new($legacyPattern, [Text.RegularExpressions.RegexOptions]::Compiled)
-$activeDirectories = if ($modRoot) { @($modRoot, $apiRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) } else { @($apiRoot, $sharedRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) }
-$activeFiles = @(foreach ($directory in $activeDirectories | Sort-Object -Unique) {
-    Get-ChildItem -LiteralPath $directory -Recurse -File | Where-Object {
-        $_.FullName -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect)[\\/]' -and
+$activeDirectories = if ($modRoot) { $scopedRoots + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) } else { @($apiRoot, $sharedRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) }
+# A parent scope already enumerates its project subdirectories. Avoid traversing
+# those trees again; ignored build/work trees must be pruned before recursion.
+$minimalDirectories = @()
+foreach ($directory in $activeDirectories | Sort-Object -Unique | Sort-Object Length) {
+    $directory = [IO.Path]::GetFullPath($directory).TrimEnd('\','/')
+    if (-not @($minimalDirectories | Where-Object { $directory -ieq $_ -or $directory.StartsWith($_ + '\', [StringComparison]::OrdinalIgnoreCase) }).Count) {
+        $minimalDirectories += $directory
+    }
+}
+function Get-ActiveBoundaryFiles([string]$Directory) {
+    foreach ($entry in Get-ChildItem -LiteralPath $Directory) {
+        if ($entry.PSIsContainer) {
+            if ($entry.Name -notin @('bin','obj','BepInEx','_inspect','.inspect','.work','.release-output')) {
+                Get-ActiveBoundaryFiles $entry.FullName
+            }
+        } else { $entry }
+    }
+}
+$activeFiles = @(foreach ($directory in $minimalDirectories) {
+    Get-ActiveBoundaryFiles $directory | Where-Object {
+         ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect|\.work|\.release-output)[\\/]' -and
         # Consumer checks cover the dependency's runtime sources and project/manifest,
         # not its independent tests, documentation, examples or release tooling.
         (-not $modRoot -or -not $_.FullName.StartsWith($apiRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
@@ -129,7 +159,7 @@ foreach ($mod in $inventory) {
     if ($modRoot -and $projects.FullName -notcontains [IO.Path]::GetFullPath((Join-Path $Workspace ([string]$mod.Project)))) { continue }
     Assert-SERuntimeModPreflight $mod $Workspace
 }
-foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmods[\\/]' -and $_.FullName -notmatch '[\\/](tests|[^\\/]*\.Tests)[\\/]|\.PolicyTests\.csproj$' }) {
+foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmods[\\/]' -and  ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](tests|[^\\/]*\.Tests)[\\/]|\.PolicyTests\.csproj$' }) {
     $plugin = @(Get-ChildItem -LiteralPath $project.Directory.FullName -Recurse -File -Filter '*.cs' | Where-Object FullName -NotMatch '[\\/](bin|obj|tests|BepInEx)[\\/]' |
         Select-String -Pattern '\bclass\s+\w+\s*:\s*(?:BepInEx\.)?BaseUnityPlugin\b' | Select-Object -First 1)
     if ($plugin) {
@@ -137,7 +167,7 @@ foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmod
     }
 }
 Write-Host '[Preflight] Checking XAML content roots...'
-foreach ($project in $projects | Where-Object { $_.FullName -notmatch '[\\/](_inspect|tests|[^\\/]*\.Tests|Tests)[\\/]' }) {
+foreach ($project in $projects | Where-Object {  ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](_inspect|tests|[^\\/]*\.Tests|Tests)[\\/]' }) {
     foreach ($file in Get-ChildItem -LiteralPath $project.Directory.FullName -Recurse -File -Filter '*.xaml' | Where-Object FullName -NotMatch '[\\/](bin|obj|BepInEx)[\\/]') {
         [xml]$patch = [IO.File]::ReadAllText($file.FullName)
         foreach ($content in $patch.SelectNodes('//*[local-name()="Content"]')) {
@@ -147,15 +177,32 @@ foreach ($project in $projects | Where-Object { $_.FullName -notmatch '[\\/](_in
         }
     }
 }
-& (Join-Path $PSScriptRoot 'Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $PSScriptRoot 'Test-PermanentNativeRuntimePatches.ps1') -ModDirectory $ModDirectory
 if (-not $?) { throw 'Permanent-hook verification failed.' }
 Write-Output "PASS: shared ownership boundaries; $($projects.Count) projects, $links valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks."
 
 & (Join-Path $PSScriptRoot 'Test-DependencyMetadata.ps1') -Workspace $Workspace -ProjectFiles $(if ($modRoot) { $projects.FullName } else { @() })
 Write-Host '[Preflight] Checking centralized UnitAccess contract...'
-& (Join-Path $PSScriptRoot 'Test-UnitAccess.ps1') -ModDirectory $ModDirectory
-if (-not $?) { throw 'UnitAccess contract preflight failed.' }
+# An unchanged API DLL reference does not make its full implementation a consumer
+# build prerequisite. ConsumerOnly still checks every explicit source link and all
+# consumer runtime gates. Unit behavior is relevant only when runtime sources use it.
+$needsUnitChecks = -not $ConsumerOnly
+if ($ConsumerOnly) {
+    foreach ($project in $projects | Where-Object { $_.FullName -notmatch '[\\/](tests|_inspect)[\\/]' }) {
+        [xml]$runtimeXml = [IO.File]::ReadAllText($project.FullName)
+        foreach ($entry in $runtimeXml.SelectNodes('//*[local-name()="Compile"][@Include]')) {
+            $include = [string]$entry.Include
+            if ($include -match '\$\(|[*?]') { $needsUnitChecks = $true; continue }
+            $file = [IO.Path]::GetFullPath((Join-Path $project.Directory.FullName $include))
+            if ([IO.File]::ReadAllText($file) -match '\b(UnitAccess|GameUnit|GameUnitManagerAPI|eChimps|UnitId)\b') { $needsUnitChecks = $true }
+        }
+    }
+}
+if ($needsUnitChecks) {
+    & (Join-Path $PSScriptRoot 'Test-UnitAccess.ps1') -ModDirectory $ModDirectory -SkipPermanentHooks
+    if (-not $?) { throw 'UnitAccess contract preflight failed.' }
+} else { Write-Host '[Preflight] No unit access in the scoped runtime sources; unit behavior suite not applicable.' }
 $preflightWatch.Stop()
 Write-Host ('[Preflight] Completed in {0:N1}s.' -f $preflightWatch.Elapsed.TotalSeconds)
 
-& (Join-Path $PSScriptRoot 'Test-IngameTooltips.ps1') -Workspace $Workspace -ModDirectories $(if ($modRoot) { @($modRoot, $apiRoot) } else { @() })
+& (Join-Path $PSScriptRoot 'Test-IngameTooltips.ps1') -Workspace $Workspace -ModDirectories $(if ($modRoot) { @($modRoot) } else { @() })

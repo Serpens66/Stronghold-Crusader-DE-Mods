@@ -34,6 +34,8 @@ namespace BugfixesAndQoL
         private volatile bool correctionAvailable = true;
         private bool initialMapSeedCompleted;
         private volatile bool optimizationEnabled;
+        // Settings arrive on the UI thread; the ledger is only touched on the simulation thread.
+        private volatile bool ledgerResetPending;
 
         internal WaterboyTargetReservationRuntime(ManualLogSource log, bool enabled,
             CrusaderLibraryLoadContext context, bool referenceHashMatches)
@@ -64,6 +66,7 @@ namespace BugfixesAndQoL
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     new HookTransactionOptions
                     {
+                        Backend = HookInstallPhase.Backend(),
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
                         OwnsHooks = true
                     });
@@ -99,27 +102,38 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs:102", $"Waterboy QoL hook active: rva=0x{resolution.Rva:X}, " +
-                $"scheme={targetSearchScheme}, displaced={targetSearchDisplacedByteCount}, " +
-                $"span=0x{resolution.Rva:X}-0x{resolution.Rva + targetSearchDisplacedByteCount:X}, " +
-                $"stationaryTimeoutTicks={ReservationLedger.StationaryTimeoutTicks}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs:102", $"Waterboy QoL hook active: rva=0x{resolution.Rva:X}, " +
+                    $"scheme={targetSearchScheme}, displaced={targetSearchDisplacedByteCount}, " +
+                    $"span=0x{resolution.Rva:X}-0x{resolution.Rva + targetSearchDisplacedByteCount:X}, " +
+                    $"stationaryTimeoutTicks={ReservationLedger.StationaryTimeoutTicks}.");
         }
 
         internal void SetEnabled(bool enabled)
         {
             bool changed = optimizationEnabled != enabled;
-            optimizationEnabled = enabled;
             if (!changed)
+                return;
+            // Request the reset before publishing the new state, so a search never uses a
+            // ledger from the previous activation; OnGameTick performs it on the simulation thread.
+            ledgerResetPending = true;
+            optimizationEnabled = enabled;
+        }
+
+        private void ApplyPendingLedgerReset()
+        {
+            if (!ledgerResetPending)
                 return;
             ledger.Clear();
             reservationScratch.Clear();
             maskedFireScratch.Clear();
-            initialMapSeedCompleted = !enabled;
+            initialMapSeedCompleted = false;
+            ledgerResetPending = false;
         }
 
         private int FindNearestEligibleFire(IntPtr buildingManager, int nativeUnitId)
         {
-            if (!correctionAvailable || !optimizationEnabled)
+            if (!correctionAvailable || !optimizationEnabled || ledgerResetPending)
                 return targetSearchHook.Original(buildingManager, nativeUnitId);
 
             NativeIdentity requester;
@@ -230,10 +244,11 @@ namespace BugfixesAndQoL
 
         private void OnGameTick(int currentTick)
         {
-            if (!correctionAvailable || !optimizationEnabled)
-                return;
             try
             {
+                ApplyPendingLedgerReset();
+                if (!correctionAvailable || !optimizationEnabled)
+                    return;
                 if (!initialMapSeedCompleted)
                 {
                     initialMapSeedCompleted = true;
@@ -369,6 +384,10 @@ namespace BugfixesAndQoL
             reservationScratch.Clear();
             maskedFireScratch.Clear();
             initialMapSeedCompleted = false;
+            ledgerResetPending = false;
+            // A local fail-closed decision lasts only for the failed map, so every peer
+            // starts the next map with the same reservation behavior.
+            correctionAvailable = true;
         }
 
         private bool IsOptimizedForPlayer(int playerId)

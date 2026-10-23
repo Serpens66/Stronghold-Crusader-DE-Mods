@@ -17,7 +17,6 @@ using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Threading;
 using UnityEngine;
 
@@ -128,13 +127,9 @@ namespace BugfixesAndQoL
         {
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            using (var sha = SHA256.Create())
-            using (var stream = File.OpenRead(path))
-            {
-                string actual = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
-                if (!string.Equals(actual, HealthBarNativeContract.NativeSha256, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Installed native DLL differs from the audited build: " + actual);
-            }
+            string actual = Shared.DebugLogHelper.GetFileSha256(path);
+            if (!string.Equals(actual, HealthBarNativeContract.NativeSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Installed native DLL differs from the audited build: " + actual);
         }
 
         private static void ValidateInteropLayout()
@@ -189,8 +184,9 @@ namespace BugfixesAndQoL
                     "/" + building.r_MaxHealth + ", type=" + building.r_BuildingType;
                 break;
             }
-            Shared.DebugLogHelper.LogInfo(log, "HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
-                "}, buildingSample={" + buildingSample + "}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(log, "HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
+                    "}, buildingSample={" + buildingSample + "}.");
         }
 
         private static void ProbeGeneratedStubs(ulong imageBase, ulong flagAddress)
@@ -304,15 +300,15 @@ namespace BugfixesAndQoL
             }
         }
 
+        private bool FeatureEnabled => settings.EnableClientFeatures && settings.EnableDamagedHealthBars;
+
         private void OnSettingChanged(string propertyName)
         {
-            if (propertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
-                propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
+            if (propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
                 propertyName != nameof(BugfixesAndQoLViewModel.EnableDamagedHealthBars) &&
                 propertyName != nameof(BugfixesAndQoLViewModel.HealthBarHotkey))
                 return;
-            if (settings.EnableMod && settings.EnableClientFeatures &&
-                settings.EnableDamagedHealthBars &&
+            if (FeatureEnabled &&
                 settings.HealthBarHotkeyKeyCode != KeyCode.None)
                 return;
             if (Volatile.Read(ref installed) == 0 || activeFlag == IntPtr.Zero)
@@ -345,8 +341,7 @@ namespace BugfixesAndQoL
                 if (alt != settings.HealthBarHotkeyAlt ||
                     control != settings.HealthBarHotkeyControl ||
                     shift != settings.HealthBarHotkeyShift ||
-                    !settings.EnableMod || !settings.EnableClientFeatures ||
-                    !settings.EnableDamagedHealthBars)
+                    !FeatureEnabled)
                     return;
                 if (Volatile.Read(ref installed) == 0)
                     return;

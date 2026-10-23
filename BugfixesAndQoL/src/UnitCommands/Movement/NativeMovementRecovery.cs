@@ -178,7 +178,8 @@ namespace BugfixesAndQoL.UnitCommands
             string[] parts = bytes.Split(' '); var expected = new byte[parts.Length];
             for (int i = 0; i < parts.Length; i++) expected[i] = Convert.ToByte(parts[i], 16);
             ValidateExactBytes(memory, rva, expected, "connectivity observer entry");
-            if (APIShared.Internal.NativePatternResolver.FindUniquePattern(memory, bytes, "connectivity observer") != rva)
+            // Known reference build: the exact bytes above suffice; another build proves uniqueness by scan.
+            if (Shared.NativePatternResolver.ResolveUnique(memory, bytes, rva, Shared.DebugLogHelper.IsCurrentNativeLibraryVersion(), "connectivity observer").Rva != rva)
                 throw new InvalidOperationException("Connectivity observer does not match its validated function entry.");
             RedBirdDetour<T> detour = AddDetour(
                 transaction, libraryBase + unchecked((uint)rva), callback);
@@ -300,15 +301,6 @@ namespace BugfixesAndQoL.UnitCommands
             finally { weightedMoatRoutePlanner.EndReachabilityProbe(); }
         }
 
-        internal void ObserveNativeModeEntry(UnitMoveFrame frame, int id)
-        {
-            nativeModeEntries++;
-            if (frame == null || frame.Args.UnitId != id) return;
-            frame.NativeModeReached = true;
-            if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
-                frame.PrePortalRegion = *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset));
-        }
-
         internal void RestoreFailedRecovery(UnitMoveFrame frame, long result)
         {
             if (result > 0 || !frame.RecoveryApplied || frame.Plan == null ||
@@ -318,8 +310,10 @@ namespace BugfixesAndQoL.UnitCommands
             *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset)) = frame.FailedPortalRegion;
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogUnitWithoutBuilder(UnitMoveFrame frame, long result)
         {
+#if SERP_DEVDIAG
             if (result > 0 || noBuilderDetails++ >= 32) return;
             int x = frame.Args.TileX, y = frame.Args.TileY;
             int tile = (uint)x < MapWidth && (uint)y < MapWidth ? GameTileManagerAPI.Instance.GetTileId(x, y) : -1;
@@ -329,6 +323,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"modeReached={frame.NativeModeReached} regionReached={frame.RegionReached} recoveryAttempted={frame.RecoveryAttempted} " +
                 $"availability={(IsValidTileId(tile) ? movementTargetAvailability[y * MapWidth + x] : 0)} " +
                 $"targetFlags={(IsValidTileId(tile) ? tileFlags[tile] : 0):X8} targetRegion={(IsValidTileId(tile) ? pathRegionGrid[tile] : 0)} result={result}.");
+#endif
         }
     }
 }

@@ -7,6 +7,7 @@ using SHCDESE.API.Components.SaveData;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Projectiles;
+using SHCDESE.EventAPI.Player;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -58,11 +59,12 @@ namespace BugfixesAndQoL
         private readonly Dictionary<int, int> loggedDiagnosticRevisions = new Dictionary<int, int>();
         private long diagnosticGeneration;
         private readonly Dictionary<int, string> diagnosticTimers = new Dictionary<int, string>();
+        private readonly Dictionary<int, int> diagnosticOpportunities = new Dictionary<int, int>();
         private HookTransaction transaction;
         private readonly DetourHandle<CreateHerdDelegate> createHerdHook = new DetourHandle<CreateHerdDelegate>();
         private readonly HookHandle<X64InlineHook> popularityExitHook = new HookHandle<X64InlineHook>();
         private volatile HerdCapture currentCapture;
-        private bool saveHandlerRegistered;
+        private SessionSaveRecordSlot<PlaguePopularitySaveState> saveSlot;
         private volatile bool mapActive;
         private volatile bool correctionAvailable = true;
         private bool callbackFailureLogged;
@@ -114,18 +116,23 @@ namespace BugfixesAndQoL
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnProjectileDelete));
+                subscriptions.Add(PlayerR3EventHooks.OnPlayerCalculatePopularity.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(OnPopularityCalculation));
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetMapState));
                 settings.SettingChanged += OnSettingChanged;
 
-                if (!ModSaveDataAPI.Instance.RegisterModDataHandler(
-                        SaveDataIdentifier,
-                        SaveState,
-                        LoadState,
-                        ResetMapState))
-                {
-                    throw new InvalidOperationException("Plague popularity save-data handler registration failed.");
-                }
-                saveHandlerRegistered = true;
+                // Registered last: the slot is a process-lifetime registration and rolls itself
+                // back when it fails, so the rollback below never leaves a handler behind.
+                // Herds are keyed by projectile slot and global ID, which the native save
+                // restores; the record is applied at the loaded session's start, after both
+                // Extender load passes and before the first simulation tick.
+                saveSlot = SessionSaveRecordSlot<PlaguePopularitySaveState>.Register(
+                    log,
+                    SaveDataIdentifier,
+                    CaptureSaveState,
+                    state => MessagePackSerializer.Serialize(state),
+                    DeserializeSaveState);
             }
             catch
             {
@@ -145,11 +152,8 @@ namespace BugfixesAndQoL
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            if (saveHandlerRegistered)
-            {
-                ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
-                saveHandlerRegistered = false;
-            }
+            // A published save slot stays registered; a disposed fix captures nothing, so
+            // later saves write a nil record instead of keeping an older archive entry.
             ResetMapState();
         }
 
@@ -216,14 +220,21 @@ namespace BugfixesAndQoL
                     herds.Add(capture.PlayerId, capture.Members);
                     managedPlayerIds.Add(capture.PlayerId);
                     ArmPopularityDiagnostic(capture.PlayerId);
-                    if (correctionEnabled) LogDebug(
-                        () => $"Plague herd captured: sourceBuildingId={capture.BuildingId}, " +
-                        $"sourceBuildingGlobalId={capture.BuildingGlobalId}, playerId={capture.PlayerId}, " +
-                        $"sourceTile=({capture.TileX},{capture.TileY}), projectileCount={capture.Members.Count}, " +
-                        $"projectiles={DescribeProjectiles(capture.Members)}, " +
-                        $"activeHerdsForPlayer={CountHerds(capture.PlayerId)}, " +
+                    if (correctionEnabled) {
+                                               if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                               {
+                                                   // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                                                   var diagnosticCapture = @capture;
+                                                   LogDebug(
+                        () => $"Plague herd captured: sourceBuildingId={diagnosticCapture.BuildingId}, " +
+                        $"sourceBuildingGlobalId={diagnosticCapture.BuildingGlobalId}, playerId={diagnosticCapture.PlayerId}, " +
+                        $"sourceTile=({diagnosticCapture.TileX},{diagnosticCapture.TileY}), projectileCount={diagnosticCapture.Members.Count}, " +
+                        $"projectiles={DescribeProjectiles(diagnosticCapture.Members)}, " +
+                        $"activeHerdsForPlayer={CountHerds(diagnosticCapture.PlayerId)}, " +
                         $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
                         $"mode={APIShared.GameModes.GameModeHelper.Capture().ToDiagnosticString()}.");
+                                               }
+                                           }
                 }
                 catch (Exception ex)
                 {
@@ -289,10 +300,17 @@ namespace BugfixesAndQoL
             lock (stateGate)
             {
                 mapActive = true;
-                LogDebug(
-                    () => $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
-                    $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
-                    $"source={context.Kind}, mode={context.Mode.ToDiagnosticString()}.");
+                if (saveSlot != null && saveSlot.TryTake(context, out PlaguePopularitySaveState state))
+                    RestoreSaveState(state);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticContext = @context;
+                    LogDebug(
+                        () => $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
+                        $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
+                        $"source={diagnosticContext.Kind}, mode={diagnosticContext.Mode.ToDiagnosticString()}.");
+                }
             }
         }
 
@@ -358,14 +376,26 @@ namespace BugfixesAndQoL
                         GetCount(loggedDiagnosticRevisions, playerId) != diagnosticRevision)
                     {
                         loggedDiagnosticRevisions[playerId] = diagnosticRevision;
-                        LogDebug(
-                            () => $"Plague popularity correction applied: playerId={playerId}, " +
-                            $"diagnosticRevision={diagnosticRevision}, herdCount={herdCount}, " +
-                            $"livingProjectiles={CountProjectiles(playerId)}, vanillaModifier={vanillaModifier}, " +
-                            $"desiredModifier={desiredModifier}, currentPopularity={currentPopularity}, " +
-                            $"accumulatorBefore={accumulatorBefore}, correctedPopularity={correctedPopularity}, " +
-                            $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
-                            $"correctedCallbackCount={GetCount(correctedCallbackCounts, playerId)}.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        {
+                            // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                            var diagnosticPlayerId = @playerId;
+                            var diagnosticDiagnosticRevision = @diagnosticRevision;
+                            var diagnosticHerdCount = @herdCount;
+                            var diagnosticVanillaModifier = @vanillaModifier;
+                            var diagnosticDesiredModifier = @desiredModifier;
+                            var diagnosticCurrentPopularity = @currentPopularity;
+                            var diagnosticAccumulatorBefore = @accumulatorBefore;
+                            var diagnosticCorrectedPopularity = @correctedPopularity;
+                            LogDebug(
+                                () => $"Plague popularity correction applied: playerId={diagnosticPlayerId}, " +
+                                $"diagnosticRevision={diagnosticDiagnosticRevision}, herdCount={diagnosticHerdCount}, " +
+                                $"livingProjectiles={CountProjectiles(diagnosticPlayerId)}, vanillaModifier={diagnosticVanillaModifier}, " +
+                                $"desiredModifier={diagnosticDesiredModifier}, currentPopularity={diagnosticCurrentPopularity}, " +
+                                $"accumulatorBefore={diagnosticAccumulatorBefore}, correctedPopularity={diagnosticCorrectedPopularity}, " +
+                                $"callbackCount={GetCount(popularityCallbackCounts, diagnosticPlayerId)}, " +
+                                $"correctedCallbackCount={GetCount(correctedCallbackCounts, diagnosticPlayerId)}.");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -375,11 +405,13 @@ namespace BugfixesAndQoL
             }
         }
 
-        private byte[] SaveState(SaveContext context)
+        // Returns null (written as MessagePack nil) when this map has no trustworthy ledger.
+        // An empty ledger is still saved, so the loaded save's older record cannot return.
+        private PlaguePopularitySaveState CaptureSaveState()
         {
             lock (stateGate)
             {
-                if (!context.IsSaveFile || !mapActive || !correctionAvailable || managedPlayerIds.Count == 0)
+                if (disposed || !mapActive || !correctionAvailable)
                     return null;
 
                 try
@@ -389,13 +421,13 @@ namespace BugfixesAndQoL
                     managedPlayerIds.CopyTo(players);
                     Array.Sort(players);
 
-                    PlagueHerdSaveRecord[] records = herds.ToSaveRecords();
-
-                    return MessagePackSerializer.Serialize(new PlaguePopularitySaveState
+                    var state = new PlaguePopularitySaveState
                     {
                         ManagedPlayerIds = players,
-                        Herds = records
-                    });
+                        Herds = herds.ToSaveRecords()
+                    };
+                    ValidateSaveState(state);
+                    return state;
                 }
                 catch (Exception ex)
                 {
@@ -405,36 +437,41 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void LoadState(byte[] bytes, LoadContext context)
+        // Runs in the Extender's native-load callbacks; the slot only parks the result.
+        // A nil record decodes to null and leaves the loaded session at its default state.
+        private static PlaguePopularitySaveState DeserializeSaveState(byte[] bytes)
         {
-            lock (stateGate)
+            PlaguePopularitySaveState state = MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(bytes);
+            if (state != null)
+                ValidateSaveState(state);
+            return state;
+        }
+
+        // Runs under stateGate at the loaded session's start; the previous session's End
+        // already reset the ledger and the per-map correction availability.
+        private void RestoreSaveState(PlaguePopularitySaveState state)
+        {
+            if (!correctionAvailable)
+                return;
+
+            try
             {
-                if (!context.IsSaveFile || !correctionAvailable)
-                    return;
-
-                try
-                {
-                    PlaguePopularitySaveState state =
-                        MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(bytes);
-                    ValidateSaveState(state);
-
-                    CancelAllDiagnostics();
-                    herds.Load(state.Herds);
-                    managedPlayerIds.Clear();
-                    foreach (int playerId in state.ManagedPlayerIds)
-                        managedPlayerIds.Add(playerId);
-                    foreach (PlagueHerdSaveRecord record in state.Herds)
-                        managedPlayerIds.Add(record.PlayerId);
-                    foreach (int playerId in managedPlayerIds)
-                        ArmPopularityDiagnostic(playerId);
-                }
-                catch (Exception ex)
-                {
-                    CancelAllDiagnostics();
-                    herds.Clear();
-                    managedPlayerIds.Clear();
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:436", $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
-                }
+                CancelAllDiagnostics();
+                herds.Load(state.Herds);
+                managedPlayerIds.Clear();
+                foreach (int playerId in state.ManagedPlayerIds)
+                    managedPlayerIds.Add(playerId);
+                foreach (PlagueHerdSaveRecord record in state.Herds)
+                    managedPlayerIds.Add(record.PlayerId);
+                foreach (int playerId in managedPlayerIds)
+                    ArmPopularityDiagnostic(playerId);
+            }
+            catch (Exception ex)
+            {
+                CancelAllDiagnostics();
+                herds.Clear();
+                managedPlayerIds.Clear();
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:RestoreSaveState", $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
             }
         }
 
@@ -442,6 +479,13 @@ namespace BugfixesAndQoL
         {
             lock (stateGate)
             {
+                // A local callback failure only reverts the failed map to Vanilla. Every
+                // peer starts the next map or save with the same correction state.
+                if (!disposed)
+                {
+                    correctionAvailable = true;
+                    callbackFailureLogged = false;
+                }
                 mapActive = false;
                 currentCapture = null;
                 herds.Clear();
@@ -466,6 +510,7 @@ namespace BugfixesAndQoL
             CancelDiagnostic(playerId);
             int revision = GetCount(diagnosticRevisions, playerId) + 1;
             diagnosticRevisions[playerId] = revision;
+            diagnosticOpportunities[playerId] = 0;
             long generation = diagnosticGeneration;
             try
             {
@@ -476,12 +521,14 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 // Diagnostics must never disable a working gameplay correction.
+                diagnosticOpportunities.Remove(playerId);
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:481", "Plague callback watchdog could not be armed: " + ex);
             }
         }
 
         private void CancelDiagnostic(int playerId)
         {
+            diagnosticOpportunities.Remove(playerId);
             if (!diagnosticTimers.TryGetValue(playerId, out string handle)) return;
             diagnosticTimers.Remove(playerId);
             GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(handle);
@@ -493,6 +540,20 @@ namespace BugfixesAndQoL
             foreach (string handle in diagnosticTimers.Values)
                 GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(handle);
             diagnosticTimers.Clear();
+            diagnosticOpportunities.Clear();
+        }
+
+        private void OnPopularityCalculation(PlayerCalculatePopularityEventArgs args)
+        {
+            if (!correctionEnabled || !correctionAvailable || !mapActive) return;
+            lock (stateGate)
+            {
+                // The existing Extender Pre lies on the path to our correction hook.
+                // Count only opportunities inside this player's currently watched revision.
+                if (correctionEnabled && correctionAvailable && mapActive &&
+                    diagnosticTimers.ContainsKey(args.PlayerId))
+                    diagnosticOpportunities[args.PlayerId] = 1;
+            }
         }
 
         private void ReportMissingPopularityCallback(int playerId, int revision, long generation)
@@ -500,10 +561,19 @@ namespace BugfixesAndQoL
             lock (stateGate)
             {
                 if (!correctionEnabled || !correctionAvailable || !mapActive ||
-                    diagnosticGeneration != generation || GetCount(diagnosticRevisions, playerId) != revision) return;
+                    diagnosticGeneration != generation || GetCount(diagnosticRevisions, playerId) != revision ||
+                    !diagnosticTimers.ContainsKey(playerId)) return;
+                bool hadOpportunity = GetCount(diagnosticOpportunities, playerId) != 0;
                 diagnosticTimers.Remove(playerId);
+                diagnosticOpportunities.Remove(playerId);
                 if (GetCount(loggedDiagnosticRevisions, playerId) == revision) return;
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:508", $"No plague popularity correction callback was observed within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
+                if (!hadOpportunity)
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug(() => $"Plague callback watchdog expired without a popularity calculation opportunity: playerId={playerId}, diagnosticRevision={revision}.");
+                    return;
+                }
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:508", $"No plague popularity correction callback was observed despite a popularity calculation opportunity within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
                     $"playerId={playerId}, diagnosticRevision={revision}, activeHerds={CountHerds(playerId)}, " +
                     $"livingProjectiles={CountProjectiles(playerId)}, popularityCallbacksObserved={DescribeCallbackCounts()}.");
             }
@@ -600,7 +670,7 @@ namespace BugfixesAndQoL
                 return;
 
             callbackFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:606", $"Plague popularity fix disabled for this process; Vanilla behavior restored because {reason}: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:606", $"Plague popularity fix disabled for this map; Vanilla behavior restored because {reason}: {ex}");
         }
 
         private static bool IsValidPlayerId(int playerId) =>

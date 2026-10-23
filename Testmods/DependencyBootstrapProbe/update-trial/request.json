@@ -1,0 +1,17 @@
+{
+    "Schema":  1,
+    "TrialId":  "9c3e5d4f196046249d850958c5aaa7b3",
+    "MapSHA256":  "4D6C4BC9F84729464561FAC43B71860142851E1A291DD17AD7F23714E45C60B6",
+    "Builds":  [
+                   {
+                       "PatcherSHA256":  "B8D119DF981415EBE8991056D10F8D80C122CBBAC628AAF0DE3A8525C5E9312A",
+                       "Version":  "0.1.1",
+                       "RuntimeSHA256":  "9E200DE767F6F4CE3BC9E9B1BCCBBCD86B0A2787F71F84175E49A226694D7EB3"
+                   },
+                   {
+                       "PatcherSHA256":  "ACCEF411E7C31D82C001E64C671F64179F5ED560E9E78D39A4F06414DA44B824",
+                       "Version":  "0.1.2",
+                       "RuntimeSHA256":  "891CDBC4CA26BE17B43EAFD98DB4956D3362BEF34682924B76C4EC4B3FC0F12C"
+                   }
+               ]
+}

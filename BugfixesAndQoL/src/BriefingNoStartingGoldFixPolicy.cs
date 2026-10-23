@@ -3,10 +3,9 @@ namespace BugfixesAndQoL
     internal static class BriefingNoStartingGoldFixPolicy
     {
         internal static bool IsEnabled(
-            bool enableMod,
             bool enableClientFeatures,
             bool enableFix) =>
-            enableMod && enableClientFeatures && enableFix;
+            enableClientFeatures && enableFix;
 
         internal static int Apply(
             int currentGold,

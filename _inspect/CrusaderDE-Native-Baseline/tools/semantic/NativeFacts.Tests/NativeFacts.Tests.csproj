@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <PropertyGroup><ExtenderDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Text.Json"><HintPath>$(ExtenderDir)\System.Text.Json.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Diagnostics.DiagnosticSource"><HintPath>$(ExtenderDir)\System.Diagnostics.DiagnosticSource.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Text.Encodings.Web"><HintPath>$(ExtenderDir)\System.Text.Encodings.Web.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.IO.Pipelines"><HintPath>$(ExtenderDir)\System.IO.Pipelines.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>

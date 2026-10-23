@@ -15,7 +15,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.52";
+        public const string PluginVersion = "1.0.54";
 
         private RandomEventsRuntime runtime;
 
@@ -23,6 +23,7 @@ namespace RandomEvents
 
         private void Awake()
         {
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Settings = new RandomEventsSettingsViewModel();
             runtime = new RandomEventsRuntime(Logger, Settings);
@@ -46,10 +47,11 @@ namespace RandomEvents
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
-                    Logger,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
                     PluginGuid,
                     Settings,
-                    "ScriptExtenderUI/RandomEventsSettings.xaml");
+                    "ScriptExtenderUI/RandomEventsSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
             }
             catch (Exception ex)
             {

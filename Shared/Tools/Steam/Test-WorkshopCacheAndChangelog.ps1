@@ -22,7 +22,8 @@ function Fail-Pack($Code, $Message) { throw $Message }
 function Write-UploadLog($Message, $Level) { }
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture = Join-Path $root ('.inspect/cache changelog ' + [guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopCacheAndChangelo'
 [void][IO.Directory]::CreateDirectory($fixture)
 $cache = Join-Path $fixture 'cache'
 $script:downloads = 0

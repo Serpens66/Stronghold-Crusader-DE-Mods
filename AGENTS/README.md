@@ -16,6 +16,7 @@ Ergänzungen zur Root-[`AGENTS.md`](../AGENTS.md). Diese Dateien werden nicht au
 | [external-components.md](external-components.md) | Umgang mit Fehlern in Script Extender und Fixes-Mod, Fixes-Kompatibilität |
 | [build-release.md](build-release.md) | Build-Ablauf, CRLF, Hashprüfungen, Versionierung, Steam-Modpack |
 | [shell-windows.md](shell-windows.md) | PowerShell-/CMD-Fallen, Treiberaufrufe, Prüfpfad-Tests, Sandbox |
+| [performance.md](performance.md) | Mess- und Profiling-Werkzeuge, Messverfahren, Sampler-Auswertung, typische Kostenfallen in heißen Pfaden, Fallen der Messwerkzeuge |
 
 ## Pflege
 

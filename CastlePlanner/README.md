@@ -3,6 +3,7 @@
 - Let the host set the real-time castle selection limit from 60 to 600 seconds (default: 120 seconds)
 - Load custom aivjson castles as visible blueprints ingame, so you can copy build your favorite AI castle
 - Select your castle and set blueprint icon size and opacity with the **Blueprints** button in the bottom-left HUD extras area; APIShared coordinates its placement with buttons from other mods
+- Restarting to spawn a completed castle preserves your active mission settings and the Trail author's restrictions
 
 ## AI castle placement checks
 
@@ -14,7 +15,7 @@ Drawbridge images now mirror consistently in composite images, depth fragments, 
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.6.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games. Blueprints remain available during those direct launches.
+This mod requires the Script Extender and **APIShared 0.11.1 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games. Blueprints remain available during those direct launches.
 
 Shared HUD services place the Blueprints button alongside buttons from other mods and coordinate GUI updates and preview pause commands.
 

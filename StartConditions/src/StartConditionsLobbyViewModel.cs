@@ -277,7 +277,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     return;
 
                 startGoodsAI = value;
-                ApplySerializedAmountsToEntries(StartGoodEntries, startGoodsAI, startGoodsHuman);
+                ApplySerializedAmountsToEntries(StartGoodEntries, startGoodsAI, startGoodsHuman, MinimumStartGood);
                 SettingChanged?.Invoke(nameof(StartGoodsAI));
                 OnPropertyChanged(nameof(StartGoodsAI));
             }
@@ -296,7 +296,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     return;
 
                 startGoodsHuman = value;
-                ApplySerializedAmountsToEntries(StartGoodEntries, startGoodsAI, startGoodsHuman);
+                ApplySerializedAmountsToEntries(StartGoodEntries, startGoodsAI, startGoodsHuman, MinimumStartGood);
                 SettingChanged?.Invoke(nameof(StartGoodsHuman));
                 OnPropertyChanged(nameof(StartGoodsHuman));
             }
@@ -315,7 +315,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     return;
 
                 addStartTroopsAI = value;
-                ApplySerializedAmountsToEntries(StartTroopEntries, addStartTroopsAI, addStartTroopsHuman);
+                ApplySerializedAmountsToEntries(StartTroopEntries, addStartTroopsAI, addStartTroopsHuman, MinimumExtraTroop);
                 SettingChanged?.Invoke(nameof(AddStartTroopsAI));
                 OnPropertyChanged(nameof(AddStartTroopsAI));
             }
@@ -334,7 +334,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                     return;
 
                 addStartTroopsHuman = value;
-                ApplySerializedAmountsToEntries(StartTroopEntries, addStartTroopsAI, addStartTroopsHuman);
+                ApplySerializedAmountsToEntries(StartTroopEntries, addStartTroopsAI, addStartTroopsHuman, MinimumExtraTroop);
                 SettingChanged?.Invoke(nameof(AddStartTroopsHuman));
                 OnPropertyChanged(nameof(AddStartTroopsHuman));
             }
@@ -467,7 +467,7 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
             return result;
         }
 
-        private void ApplySerializedAmountsToEntries(IReadOnlyList<AmountEntryViewModel> entries, string aiSerialized, string humanSerialized)
+        private void ApplySerializedAmountsToEntries(IReadOnlyList<AmountEntryViewModel> entries, string aiSerialized, string humanSerialized, int missingAmount)
         {
             if (updatingEntries)
                 return;
@@ -480,8 +480,8 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=0";
                 foreach (AmountEntryViewModel entry in entries)
                 {
                     entry.SetAmountsFromOwner(
-                        GetValueOrDefault(aiValues, entry.Key, entry.AIAmount),
-                        GetValueOrDefault(humanValues, entry.Key, entry.HumanAmount));
+                        GetValueOrDefault(aiValues, entry.Key, missingAmount),
+                        GetValueOrDefault(humanValues, entry.Key, missingAmount));
                 }
             }
             finally

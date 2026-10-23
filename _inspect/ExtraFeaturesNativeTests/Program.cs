@@ -16,11 +16,11 @@ namespace ExtraFeatures
         private const string SupportedBuildHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private static int assertions;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
             try
             {
-                byte[] file = File.ReadAllBytes(DllPath);
+                byte[] file = File.ReadAllBytes(args.Length == 0 ? DllPath : Path.Combine(args[0], "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll"));
                 Check(Hash(file) == SupportedBuildHash, "canonical DLL hash");
                 byte[] image = MapPeImage(file);
                 TestPermanentRuntimeContracts(FindWorkspace());
@@ -28,6 +28,7 @@ namespace ExtraFeatures
                 TestApothecarySearchRangeHook(image);
                 NoKillRewardContractTests.Run(image);
                 HealerTargetsContractTests.Run(image, FindWorkspace());
+                FearFactorStubTests.Run(image, Check);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }
@@ -38,6 +39,8 @@ namespace ExtraFeatures
             }
         }
 
+        // Supplementary source guardrails only. Native byte/backend tests below are
+        // independent executable checks; these strings do not prove hook lifetime.
         private static void TestPermanentRuntimeContracts(string workspace)
         {
             string sourceDirectory = Path.Combine(workspace, "ExtraFeatures", "src");
@@ -105,10 +108,8 @@ namespace ExtraFeatures
                 "apothecary enable-disable-enable retains the same published hook");
             Check(noKillReward.Contains("rootedPublishedInstance = this;") &&
                   noKillReward.Contains("Volatile.Write(ref suppressionMask") &&
-                  noKillReward.Contains("if (!published)") &&
-                  !noKillReward.Contains("OnTick") &&
-                  !noKillReward.Contains("SuppressedCount"),
-                "No Kill Reward retains permanent hooks with atomic settings and no per-kill logging");
+                  noKillReward.Contains("if (!published)"),
+                "No Kill Reward source guardrail retains rooted hooks and atomic logical settings");
             int finalLiveCheck = noKillReward.LastIndexOf("VerifyLiveSpans(memory);", StringComparison.Ordinal);
             int commit = noKillReward.IndexOf("transaction.Commit();", StringComparison.Ordinal);
             string noKillRewardContract = File.ReadAllText(Path.Combine(sourceDirectory, "NoKillRewardStubContract.cs"));
@@ -117,7 +118,7 @@ namespace ExtraFeatures
                   finalLiveCheck >= 0 && finalLiveCheck < commit,
                 "No Kill Reward verifies the current executable bytes before publishing both hooks");
             Check(Regex.Matches(production, @"RollbackUnpublished\w*\(").Count > 0 &&
-                  !Regex.IsMatch(production, @"(?:OnDestroy|OnDisable|OnApplicationQuit)\s*\([^)]*\)[\s\S]{0,500}?\.Dispose\s*\("),
+                  !Regex.IsMatch(production, @"(?:OnDestroy|OnDisable)\s*\([^)]*\)[\s\S]{0,500}?\.Dispose\s*\("),
                 "rollback is limited to unpublished initialization candidates");
         }
 

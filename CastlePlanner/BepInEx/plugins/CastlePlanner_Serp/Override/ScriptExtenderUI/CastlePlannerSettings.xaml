@@ -133,7 +133,7 @@
                Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
     <TextBlock Text="{Binding HelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,0,0,10"/>
     <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
-    <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+    <StackPanel IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
       <StackPanel shared:ModSettingsSearch.SectionKey="castle-planner.section.spawn" shared:ModSettingsSearch.SectionTitle="{Binding TitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding TitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
       <CheckBox
@@ -194,7 +194,7 @@
     </StackPanel>
     <Separator Background="#444466" Margin="0,8"/>
     <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,6"/>
-    <StackPanel IsEnabled="{Binding CanEditClientSettings}">
+    <StackPanel IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="castle-planner.blueprints" shared:ModSettingsSearch.Title="{Binding BlueprintsText}" shared:ModSettingsSearch.ToolTipText="{Binding BlueprintsHelpText}"><CheckBox IsChecked="{Binding Blueprints, Mode=TwoWay}"
                 Content="{Binding BlueprintsText}"
                 ToolTipService.ShowDuration="60000"

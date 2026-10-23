@@ -28,33 +28,10 @@ using IOPath = System.IO.Path;
 
 namespace ExtendedData
 {
-    internal sealed class TrailModCompatibilityInfo
-    {
-        public TrailModCompatibilityInfo(
-            string modId,
-            string displayName,
-            PropertyInfo[] properties,
-            string incompatibilityReason, object endpoint = null)
-        {
-            ModId = modId; Endpoint = endpoint;
-            DisplayName = displayName;
-            Properties = properties ?? Array.Empty<PropertyInfo>();
-            IncompatibilityReason = incompatibilityReason;
-        }
-
-        public object Endpoint { get; }
-        public string ModId { get; }
-        public string DisplayName { get; }
-        public PropertyInfo[] Properties { get; }
-        public string IncompatibilityReason { get; }
-        public bool IsCompatible => string.IsNullOrEmpty(IncompatibilityReason);
-    }
-
     /// <summary>Owns the process-wide Custom Trail settings and customization integration.</summary>
-        internal sealed class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
+    internal sealed class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
         {
             private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
-            private const string EncodedSettingPrefix = "messagepack-base64:";
             private const int CoopCustomizeProtocolVersion = 2;
 
             private static readonly FieldInfo MpLocalReadyField = typeof(FRONT_Multiplayer).GetField(
@@ -80,6 +57,8 @@ namespace ExtendedData
                 Action successAction,
                 Action failAction);
             private delegate void ManageTrailInitDelegate(FRONT_ManageTrail self, bool preserveSelection);
+            private delegate List<FileHeader> MultiplayerMapsDelegate(MapFileManager self, int sortMode,
+                bool ascending, int players, bool builtIn, bool user, bool workshop);
             private delegate void ImportDelegate(FRONT_ManageTrail self, string customFolderName);
             private delegate void ExportDelegate(FRONT_ManageTrail self, string destination);
             private delegate void TwoStringDelegate(FRONT_ManageTrail self, string first, string second);
@@ -115,19 +94,31 @@ namespace ExtendedData
             private readonly Action<string, ModSettingsDefinition> applyEditorModesForMod;
             private readonly EditorModSettingsSaveOptionsViewModel editorSaveOptions;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
-            private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
-                new Dictionary<Type, Dictionary<string, PropertyInfo>>();
             private readonly Dictionary<string, string> lastCompatibilityFailures =
                 new Dictionary<string, string>(StringComparer.Ordinal);
             private readonly Dictionary<string, ModSettingsDefinition> capturedDocumentsByTrailPath =
                 new Dictionary<string, ModSettingsDefinition>(StringComparer.OrdinalIgnoreCase);
-            private readonly HashSet<string> activeParticipantIds = new HashSet<string>(StringComparer.Ordinal);
+            private readonly MissionModSettingsSession settingsSession = new MissionModSettingsSession();
+            private readonly CoopSettingsDraftState coopSettingsDraft = new CoopSettingsDraftState();
+            private Dictionary<string, Dictionary<string, byte[]>> customizeDraftSnapshots;
+            private object coopPacketEpoch = new object();
+            private object coopPacketLobby;
+
+            internal void ObserveCoopLobby(FRONT_Multiplayer self)
+            {
+                object lobby = self?.currentLobby;
+                if (ReferenceEquals(coopPacketLobby, lobby)) return;
+                coopPacketLobby = lobby;
+                System.Threading.Volatile.Write(ref coopPacketEpoch, new object());
+            }
             private readonly MissionPresetLifecycleState missionPresetLifecycle = new MissionPresetLifecycleState();
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
             private EditorSetupButtonDelegate editorSetupButtonOriginal;
             private UploadWorkshopMapDelegate uploadWorkshopMapOriginal;
             private ManageTrailInitDelegate manageTrailInitOriginal;
+            private MultiplayerMapsDelegate multiplayerMapsOriginal;
+            private FileHeader embeddedMakerMapHeader;
             private TwoStringDelegate backupOriginal;
             private ImportDelegate importOriginal;
             private ExportDelegate exportOriginal;
@@ -164,13 +155,18 @@ namespace ExtendedData
             private long activeSidecarWriteTicks;
             private bool activeSidecarEditable;
             private bool activeSidecarPreviewOnly;
+            private bool activeSidecarAuthoring;
             private bool workingContextEditable;
-            private ModSettingsDefinition trailSourceDocument;
+            private readonly TrailSettingsSourceState trailSource = new TrailSettingsSourceState();
             private ModSettingsDefinition activeCreatorDocument;
             private bool launchedThroughCustomize;
             private ModSettingsDefinition mapSourceDocument;
             private string workingSourceContextId = string.Empty;
-            private bool enabled;
+            private ExtendedDataFeatureActivation activation;
+            private bool enabled => activation.MissionModSettings;
+            private bool EditorEnabled => activation.EditorFiles;
+            private bool CoopEnabled => activation.CoopPackages;
+            private bool UploadEnabled => activation.WorkshopUploads;
             private bool externalButtonOwner;
             private readonly List<Button> injectedCoopButtons = new List<Button>();
             private readonly Dictionary<UserControl, TextBlock> coopTrailTitleBlocks =
@@ -205,37 +201,30 @@ namespace ExtendedData
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
                 var result = new List<TrailModCompatibilityInfo>();
-                IReadOnlyDictionary<string, IModSettingsPresetEndpoint> sharedParticipants =
-                    SavegameModSettings.GetCompatibleParticipants();
+                // Consume the same decision and diagnostic as savegame preparation. A
+                // rejected endpoint must not be re-probed through a second contract here.
+                var reports = SavegameModSettings.GetParticipantDiagnostics(ModSettingsParticipantPurpose.MissionAuthoring)
+                    .Where(item => !string.IsNullOrEmpty(item.ModGuid))
+                    .GroupBy(item => item.ModGuid, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key,
+                        group => group.FirstOrDefault(item => item.IsCompatible) ?? group.First(), StringComparer.Ordinal);
                 foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
                 {
-                    if (IsRegistrationGroupOptedOut(group))
-                        continue;
+                    if (IsRegistrationGroupOptedOut(group)) continue;
                     string modId = group.Key;
-                    if (string.Equals(modId, ExtendedDataPlugin.PluginGuid, StringComparison.Ordinal))
-                        continue;
-                    LobbyModSettingsEntry entry = group.First();
-                    string displayName = GetModDisplayName(entry);
-                    bool sharedCompatible = sharedParticipants.ContainsKey(modId);
-                    TrailModCompatibilityResult compatibility = entry == null || group.Skip(1).Any() ||
-                        sharedCompatible
-                        ? null
-                        : GetCompatibility(entry.ViewModel);
-                    string incompatibility = entry == null
-                        ? "missing mod-settings registration"
-                        : group.Skip(1).Any()
-                        ? "multiple mod-settings panels use the same plugin GUID"
-                        : sharedCompatible
-                        ? null
-                        : compatibility.IncompatibilityReason ??
-                          "not accepted by the shared Map/Trail/Savegame settings contract";
-                    result.Add(new TrailModCompatibilityInfo(
-                        modId,
-                        displayName,
-                        sharedCompatible
-                            ? ModSettingsApplication.GetHostProperties(sharedParticipants[modId])
-                            : compatibility?.Properties,
-                        incompatibility, sharedCompatible ? (object)sharedParticipants[modId] : entry?.ViewModel));
+                    if (string.Equals(modId, ExtendedDataPlugin.PluginGuid, StringComparison.Ordinal)) continue;
+                    reports.TryGetValue(modId, out var report);
+                    string reason = null;
+                    if (group.Skip(1).Any())
+                        reason = "multiple mod-settings panels use the same plugin GUID";
+                    else if (report?.IsCompatible != true)
+                        // Provider exception messages may be empty. A rejected status must
+                        // never become compatible through the legacy reason-string adapter.
+                        reason = !string.IsNullOrWhiteSpace(report?.Diagnostic) ? report.Diagnostic
+                            : report == null ? "missing owning plugin GUID or mod-settings registration" : report.Status.ToString();
+                    result.Add(new TrailModCompatibilityInfo(modId, GetModDisplayName(group.First()),
+                        report?.IsCompatible == true ? report.HostProperties.ToArray() : Array.Empty<PropertyInfo>(),
+                        reason, report?.IsCompatible == true ? (object)report.Endpoint : group.First()?.ViewModel));
                 }
                 TrailModCompatibilityInfo[] catalog = result
                     .OrderBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
@@ -254,32 +243,15 @@ namespace ExtendedData
                     if (!lastCompatibilityFailures.TryGetValue(item.ModId, out string previous) ||
                         !string.Equals(previous, item.IncompatibilityReason, StringComparison.Ordinal))
                     {
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:257", $"Map/Trail mod settings [{item.DisplayName}] ({item.ModId}) are not included in creator presets: " +
-                            item.IncompatibilityReason + ".");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:257", $"Map/Trail mod settings [{item.DisplayName}] ({item.ModId}) are not included in creator presets: " +
+                                item.IncompatibilityReason + ".");
                     }
                 }
                 lastCompatibilityFailures.Clear();
                 foreach (KeyValuePair<string, string> item in current)
                     lastCompatibilityFailures[item.Key] = item.Value;
             }
-
-            private TrailModCompatibilityResult GetCompatibility(object viewModel)
-            {
-                if (!(viewModel is IModSettingsPresetEndpoint endpoint))
-                {
-                    return new TrailModCompatibilityResult(
-                        Array.Empty<PropertyInfo>(),
-                        "missing typed APIShared preset endpoint");
-                }
-                return TrailModCompatibilityContract.Evaluate(
-                    viewModel,
-                    endpoint.System_CreateDisabledMissionPresetSnapshot,
-                    (property, value) => MessagePackSerializer.Serialize(property.PropertyType, value),
-                    (type, bytes) => MessagePackSerializer.Deserialize(type, bytes));
-            }
-
-            private string GetIncompatibilityReason(object viewModel) =>
-                GetCompatibility(viewModel).IncompatibilityReason;
 
             private static string GetModId(LobbyModSettingsEntry entry)
             {
@@ -306,14 +278,14 @@ namespace ExtendedData
 
             public TrailMissionSettingsCoordinator(
                 ManualLogSource log,
-                bool enabled,
+                ExtendedDataFeatureActivation activation,
                 Func<string, string, TrailSettingMode> getPropertyMode,
                 Action<ModSettingsDefinition, bool> applyEditorModes,
                 Action<string, ModSettingsDefinition> applyEditorModesForMod,
                 EditorModSettingsSaveOptionsViewModel editorSaveOptions)
             {
                 this.log = log;
-                this.enabled = enabled;
+                this.activation = activation;
                 this.getPropertyMode = getPropertyMode ?? ((_, __) => TrailSettingMode.ModDefault);
                 this.applyEditorModes = applyEditorModes;
                 this.applyEditorModesForMod = applyEditorModesForMod;
@@ -321,22 +293,28 @@ namespace ExtendedData
                 customizationBridge = new BugfixesAndQoLTrailCustomizationBridge(log);
             }
 
-            public void SetEnabled(bool value)
+            internal void SetActivation(ExtendedDataFeatureActivation value)
             {
-                enabled = value;
-                foreach (Button button in injectedCoopButtons)
-                    button.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-                if (coopTrailExportCheckbox != null)
-                    coopTrailExportCheckbox.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-                if (!value)
+                ExtendedDataFeatureActivation previous = activation;
+                activation = value;
+                if (previous.MissionModSettings != value.MissionModSettings)
+                    foreach (Button button in injectedCoopButtons)
+                        button.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+                if (previous.EditorFiles != value.EditorFiles && coopTrailExportCheckbox != null)
+                    coopTrailExportCheckbox.Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed;
+                if (previous.WorkshopUploads && !UploadEnabled)
                 {
                     uploadOptions.Close();
-                    SetCoopPackagePresentation(null, 0);
+                    customLordUploadWorkflow?.InvalidatePending();
+                }
+                if (previous.CoopPackages && !CoopEnabled) SetCoopPackagePresentation(null, 0);
+                if (previous.MissionModSettings && !enabled)
+                {
                     if (MainViewModel.viewModelLoaded && MainViewModel.Instance != null)
                         MainViewModel.Instance.Show_TrailCustomisationButtons = false;
-                    ExitContext(force: true);
+                    if (!trailMakerAuthoringActive) ExitContext(force: true);
                 }
-                if (externalButtonOwner)
+                if (previous.MissionModSettings != value.MissionModSettings && externalButtonOwner)
                     customizationBridge.Refresh();
             }
 
@@ -353,7 +331,7 @@ namespace ExtendedData
                     log,
                     new CustomLordUploadStager(),
                     new CustomLordUploadConfirmation(),
-                    lordRules);
+                    lordRules, () => UploadEnabled);
                 DebugLogHelper.LogDebug(
                     log,
                     "Custom Lord preflight rules: Script Extender=" + lordRules.ExtenderIdentity +
@@ -383,6 +361,9 @@ namespace ExtendedData
                 manageTrailButtonOriginal = InstallHook(
                     typeof(FRONT_ManageTrail).GetMethod("ButtonClicked", BindingFlags.Instance | BindingFlags.Public),
                     (ManageTrailButtonDelegate)ManageTrailButtonHook);
+                multiplayerMapsOriginal = InstallHook(
+                    typeof(MapFileManager).GetMethod(nameof(MapFileManager.GetMultiplayerMaps)),
+                    (MultiplayerMapsDelegate)MultiplayerMapsHook);
                 editorSetupButtonOriginal = InstallHook(
                     typeof(FRONT_EditorSetup).GetMethod("ButtonClicked", BindingFlags.Instance | BindingFlags.Public),
                     (EditorSetupButtonDelegate)EditorSetupButtonHook);
@@ -466,11 +447,14 @@ namespace ExtendedData
 
             public void Dispose()
             {
+                activation = ExtendedDataFeatureActivation.Disabled;
                 ModSettingsWorkingSourceRegistry.Unregister(this);
                 SetCoopPackagePresentation(null, 0);
-                foreach (IDisposable hook in hooks)
-                    hook.Dispose();
-                hooks.Clear();
+                // The list also contains subscriptions. Release those, but retain every
+                // published interception and its trampoline for the lifetime of the process.
+                foreach (IDisposable item in hooks)
+                    if (!(item is Hook)) item.Dispose();
+                hooks.RemoveAll(item => !(item is Hook));
             }
 
             public string[] Enter(ModSettingsDefinition document, bool editable, string source)
@@ -486,12 +470,16 @@ namespace ExtendedData
             {
                 try
                 {
-                    document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
-                    ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
-                    ApplyDocument(document, editable, presetLabel);
-                    activeCreatorDocument = CloneDocument(document);
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:497", $"Loaded {source} mod settings; editable={editable}.");
-                    return GetMissingMentionedMods(document);
+                    return trailSource.Activate(document, source, () =>
+                    {
+                        document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
+                        ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
+                        ApplyDocument(document, editable, presetLabel);
+                        activeCreatorDocument = CloneDocument(document);
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:497", $"Loaded {source} mod settings; editable={editable}.");
+                        return GetMissingMentionedMods(document);
+                    });
                 }
                 catch (Exception exception)
                 {
@@ -501,6 +489,7 @@ namespace ExtendedData
                     activeCreatorDocument = ModSettingsDefinition.CreateModDefaults();
                     return Array.Empty<string>();
                 }
+                finally { SourcesChanged?.Invoke(); }
             }
 
             internal string[] EnterStrict(
@@ -514,7 +503,8 @@ namespace ExtendedData
                 if (string.IsNullOrEmpty(ModSettingsApplication.ContextId)) ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
                 ApplyDocument(document, editable, presetLabel, materializeCurrentValues: materializeCurrentValues);
                 activeCreatorDocument = CloneDocument(document);
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:521", $"Loaded {source} mod settings; editable={editable}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:521", $"Loaded {source} mod settings; editable={editable}.");
                 return GetMissingMentionedMods(document);
             }
 
@@ -527,7 +517,51 @@ namespace ExtendedData
 
             internal ModSettingsDefinition CaptureCurrentDocument() => CaptureDocument();
             internal bool WasLaunchedThroughCustomize() => launchedThroughCustomize;
-            internal void ResetCustomizeForNewCoopSelection() => launchedThroughCustomize = false;
+            internal void ResetCustomizeForNewCoopSelection()
+            {
+                launchedThroughCustomize = false;
+                coopSettingsDraft.Reset();
+                customizeDraftSnapshots = null;
+            }
+
+            internal string[] PrepareCoopSettings(ModSettingsDefinition document, string source,
+                bool editable, bool starting)
+            {
+                if (!trailContext) coopSettingsDraft.Reset();
+                coopSettingsDraft.Prepare(source, launchedThroughCustomize, editable, starting,
+                    () => Enter(document, editable, source),
+                    FreezeWorkingDraft, ReopenWorkingDraft);
+                return GetMissingMentionedMods(document);
+            }
+
+            internal bool HasCustomizeDraft => trailContext && launchedThroughCustomize;
+            internal bool IsCustomizeDraftEditable => HasCustomizeDraft && workingContextEditable;
+
+            internal void RecoverCoopDraft()
+            {
+                coopSettingsDraft.Recover(ReopenWorkingDraft);
+                if (HasCustomizeDraft && !workingContextEditable) ReopenWorkingDraft();
+            }
+
+            private void FreezeWorkingDraft()
+            {
+                customizeDraftSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());
+                try
+                {
+                    ApplyDocument(CaptureDocument(), editable: false,
+                        materializeCurrentValues: true, preserveEditorModes: true);
+                }
+                catch (Exception failure)
+                {
+                    try { ReopenWorkingDraft(); }
+                    catch (Exception recovery) { throw new AggregateException("Draft preparation and recovery failed.", failure, recovery); }
+                    throw;
+                }
+            }
+
+            private void ReopenWorkingDraft() => ApplyDocument(ModSettingsDefinition.CreateModDefaults(),
+                editable: true, preserveCurrentValues: true, startingSnapshots: customizeDraftSnapshots,
+                preserveEditorModes: true);
 
             internal Dictionary<string, Dictionary<string, TrailCreatorRule>> CaptureCreatorRulesForActiveTrail()
             {
@@ -536,36 +570,10 @@ namespace ExtendedData
                 if (document == null || !trailContext) return result;
                 foreach (var participant in FindCompatibleViewModels())
                 {
-                    var rules = new Dictionary<string, TrailCreatorRule>(StringComparer.Ordinal);
                     document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry);
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
-                    foreach (string name in properties.Keys)
-                        rules[name] = new TrailCreatorRule { Mode = 0 };
-                    if (entry == null) { result[participant.Key] = rules; continue; }
-                    foreach (string name in entry.PlayerSettings ?? Array.Empty<string>())
-                        if (properties.ContainsKey(name)) rules[name] = new TrailCreatorRule { Mode = 1 };
-                    foreach (var setting in entry.Overrides)
-                    {
-                        if (!properties.TryGetValue(setting.Key, out PropertyInfo property)) continue;
-                        try
-                        {
-                            object converted = ConvertJsonValue(setting.Value, property.PropertyType);
-                            byte[] fixedValue = MessagePackSerializer.Serialize(property.PropertyType, converted);
-                            if (fixedValue == null || fixedValue.Length > 1024 * 1024)
-                                throw new InvalidDataException("The fixed Trail setting exceeds the savegame property limit.");
-                            rules[setting.Key] = new TrailCreatorRule
-                            {
-                                Mode = 2,
-                                FixedValue = fixedValue,
-                            };
-                        }
-                        catch (Exception error)
-                        {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:568", "Could not capture Trail rule " +
-                                participant.Key + "." + setting.Key + ": " + error.Message);
-                        }
-                    }
-                    result[participant.Key] = rules;
+                    result[participant.Key] = MissionModSettingsCreatorRules.Capture(participant.Value, ToSharedEntry(entry),
+                        (name, error) => Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/trail-rules", "Could not capture Trail rule " +
+                            participant.Key + "." + name + ": " + error.Message));
                 }
                 return result;
             }
@@ -574,7 +582,7 @@ namespace ExtendedData
             {
                 mapSourceDocument = CloneDocument(document);
                 if (document != null) ModSettingsApplication.EnterContext(BuildRestartContext("map:" + (contextId ?? ""), document, File.Exists(contextId) ? contextId : null));
-                if (trailSourceDocument == null)
+                if (!trailSource.IsAvailable)
                     workingSourceContextId = document == null ? string.Empty : "map:" + (contextId ?? string.Empty);
                 SourcesChanged?.Invoke();
             }
@@ -582,10 +590,11 @@ namespace ExtendedData
             public IReadOnlyList<ModSettingsWorkingSource> GetSources(string targetGuid)
             {
                 var result = new List<ModSettingsWorkingSource>();
-                if (trailSourceDocument != null)
-                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings", IsPreferred = true, PreferenceContextId = workingSourceContextId });
+                string preferenceContext = trailSource.IsAvailable ? trailSource.ContextId : workingSourceContextId;
+                if (trailSource.IsAvailable)
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings", IsPreferred = true, PreferenceContextId = preferenceContext });
                 if (mapSourceDocument != null)
-                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings", IsPreferred = trailSourceDocument == null, PreferenceContextId = workingSourceContextId });
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings", IsPreferred = !trailSource.IsAvailable, PreferenceContextId = preferenceContext });
                 return result;
             }
 
@@ -607,7 +616,8 @@ namespace ExtendedData
                         throw new InvalidOperationException("The selected mod does not support editable mission working sources: " + id);
                     workingEndpoints[id] = endpoint;
                     rollback[id] = endpoint.System_CreateCurrentMissionPresetSnapshot();
-                    prepared[id] = MaterializeSource(id, endpoint, source);
+                    prepared[id] = MaterializeSource(id, endpoint, source,
+                        string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal));
                 }
                 ModSettingsDefinition oldModes = CaptureDocument();
                 try
@@ -634,26 +644,26 @@ namespace ExtendedData
             {
                 if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
                     return ModSettingsDefinition.CreateModDefaults();
-                if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) && trailSourceDocument != null)
-                    return CloneDocument(trailSourceDocument);
+                if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) && trailSource.IsAvailable)
+                    return trailSource.Capture();
                 if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) && mapSourceDocument != null)
                     return CloneDocument(mapSourceDocument);
                 throw new InvalidOperationException("The selected reset source is unavailable.");
             }
 
-            private Dictionary<string, byte[]> MaterializeSource(string modId, IModSettingsWorkingCopyEndpoint endpoint, ModSettingsDefinition document)
+            private Dictionary<string, byte[]> MaterializeSource(string modId, IModSettingsWorkingCopyEndpoint endpoint,
+                ModSettingsDefinition document, bool playableBaseline)
             {
-                Dictionary<string, byte[]> snapshot = endpoint.System_CreateModDefaultSnapshot();
-                if (document?.Mods == null || !document.Mods.TryGetValue(modId, out ModSettingsEntry entry) || entry == null)
-                    return snapshot;
-                Dictionary<string, PropertyInfo> properties = GetPersistedProperties(endpoint);
-                Dictionary<string, byte[]> player = endpoint.System_CreatePlayerMissionPresetSnapshot();
-                foreach (string propertyName in entry.PlayerSettings ?? Array.Empty<string>())
-                    if (properties.ContainsKey(propertyName) && player.TryGetValue(propertyName, out byte[] bytes)) snapshot[propertyName] = (byte[])bytes.Clone();
-                foreach (KeyValuePair<string, object> setting in entry.Overrides ?? new Dictionary<string, object>(StringComparer.Ordinal))
-                    if (properties.TryGetValue(setting.Key, out PropertyInfo property)) snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, ConvertJsonValue(setting.Value, property.PropertyType));
-                return snapshot;
+                ModSettingsEntry entry = null;
+                document?.Mods?.TryGetValue(modId, out entry);
+                var resolved = MissionModSettingsPreparation.MaterializeSource(endpoint, ToSharedEntry(entry));
+                if (!playableBaseline) return resolved;
+                return TrailSettingsSourceState.ComposeResetSnapshot(
+                    endpoint.System_CreateDisabledMissionPresetSnapshot(), resolved, entry);
             }
+
+            private static MissionModSettingsEntry ToSharedEntry(ModSettingsEntry entry) => entry == null ? null :
+                new MissionModSettingsEntry { PlayerSettings = entry.PlayerSettings, Overrides = entry.Overrides };
 
             private static string DescribeWorkingSource(string sourceId) =>
                 string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) ? "Trail" :
@@ -672,12 +682,7 @@ namespace ExtendedData
                 {
                     if (!document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry) || entry == null)
                         continue;
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
-                    foreach (KeyValuePair<string, object> setting in entry.Overrides)
-                    {
-                        if (properties.TryGetValue(setting.Key, out PropertyInfo property))
-                            ConvertJsonValue(setting.Value, property.PropertyType);
-                    }
+                    MissionModSettingsPreparation.ValidateEntry(participant.Value, ToSharedEntry(entry));
                 }
             }
 
@@ -704,6 +709,8 @@ namespace ExtendedData
                 }
                 if (!trailContext)
                 {
+                    coopSettingsDraft.Reset();
+                    customizeDraftSnapshots = null;
                     if (ModSettingsApplication.ContextId.Length != 0) ModSettingsApplication.ExitContext();
                     preserveContextForLaunch = false;
                     customTrailLaunchActive = false;
@@ -714,7 +721,7 @@ namespace ExtendedData
                     ClearTrailMakerAuthoringState();
                     missionPresetLifecycle.Reset();
                     workingContextEditable = false;
-                    trailSourceDocument = null;
+                    trailSource.Clear();
                     activeCreatorDocument = null;
                     launchedThroughCustomize = false;
                     mapSourceDocument = null;
@@ -724,6 +731,8 @@ namespace ExtendedData
                 }
 
                 ExitActiveParticipants();
+                coopSettingsDraft.Reset();
+                customizeDraftSnapshots = null;
                 ModSettingsApplication.ExitContext();
                 trailContext = false;
                 workingContextEditable = false;
@@ -735,21 +744,43 @@ namespace ExtendedData
                 ClearActiveSidecar();
                 ClearTrailMakerAuthoringState();
                 missionPresetLifecycle.Reset();
-                trailSourceDocument = null;
+                trailSource.Clear();
                 activeCreatorDocument = null;
                 launchedThroughCustomize = false;
                 mapSourceDocument = null;
                 workingSourceContextId = string.Empty;
                 SourcesChanged?.Invoke();
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:748", "Left " + activeContextLabel + " mod-settings context.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:748", "Left " + activeContextLabel + " mod-settings context.");
                 activeContextLabel = "Trail";
             }
 
             public bool HandleMissionEnded(MissionLifecycleNotification notification)
             {
+                ExtendedDataLaunchOriginApi.OnMissionEnded(notification?.Context?.SessionId ?? 0,
+                    notification?.EndReason ?? MissionEndReason.Unloaded, notification?.HasStarted == true,
+                    notification?.ReplacementContext?.SessionId,
+                    notification?.ReplacementContext != null &&
+                    notification.ReplacementContext.RestartedFromSessionId == notification.Context?.SessionId);
+                if (notification?.ReplacementContext?.RestartedFromSessionId == notification?.Context?.SessionId &&
+                    notification?.ReplacementContext != null)
+                {
+                    ExtendedDataLaunchOriginApi.MarkRestartPending();
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/restart", "Retained mission settings for restart session " + notification.ReplacementContext.SessionId + ".");
+                    return true;
+                }
                 MissionEndReason reason = notification == null
                     ? MissionEndReason.Unloaded
                     : notification.EndReason;
+                if (HasCustomizeDraft && notification?.HasStarted == false &&
+                    (reason == MissionEndReason.Failed || reason == MissionEndReason.Exception))
+                {
+                    missionPresetLifecycle.Reset();
+                    customTrailLaunchActive = false;
+                    RecoverCoopDraft();
+                    return true;
+                }
                 MissionPresetEndAction action = missionPresetLifecycle.End(MapEndKind(reason));
                 if (action == MissionPresetEndAction.Preserve)
                 {
@@ -782,11 +813,17 @@ namespace ExtendedData
 
             public bool HandleMissionStarted(MissionLifecycleNotification notification)
             {
+                if (notification?.Context?.RestartedFromSessionId != null)
+                {
+                    ConfirmStartedSettings(notification);
+                    return true;
+                }
                 MissionPresetLaunchKind pending = missionPresetLifecycle.PendingLaunch;
                 if (pending == MissionPresetLaunchKind.None)
                 {
                     if (notification?.Context?.IsSave == true && ModSettingsApplication.ContextId.StartsWith("save:", StringComparison.Ordinal))
-                        ModSettingsApplication.ConfirmStarted();
+                        ConfirmStartedSettings(notification);
+                    else if (trailContext && notification?.Context != null) settingsSession.ConfirmStarted(notification.Context.SessionId);
                     return true;
                 }
 
@@ -805,9 +842,16 @@ namespace ExtendedData
                     return false;
                 }
 
-                ModSettingsApplication.ConfirmStarted();
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:819", "Confirmed active mission preset: " + pending + ".");
+                ConfirmStartedSettings(notification);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:819", "Confirmed active mission preset: " + pending + ".");
                 return true;
+            }
+
+            private void ConfirmStartedSettings(MissionLifecycleNotification notification)
+            {
+                ModSettingsApplication.ConfirmStarted();
+                if (trailContext && notification?.Context != null) settingsSession.ConfirmStarted(notification.Context.SessionId);
             }
 
             private static string BuildRestartContext(string identity, ModSettingsDefinition document, string contentPath = null)
@@ -835,18 +879,28 @@ namespace ExtendedData
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:845", "Configuration launch preparation failed: " + error);
                     ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), error.GetBaseException().Message);
                 }
+                RecoverCoopDraft();
                 return false;
             }
 
             internal void PrepareCoopMissionLaunch()
             {
+                if (MissionRestart.IsInProgress) return;
                 missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CoopTrail);
             }
 
             internal bool PrepareTrailMakerTestLaunch()
             {
+                if (MissionRestart.IsInProgress) return true;
                 if (!enabled)
-                    return true;
+                {
+                    if (!trailMakerAuthoringActive || !trailContext) return true;
+                    // An editor draft is editable metadata; it must not become active game rules
+                    // when the host has disabled mission-setting application.
+                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                        SerpLocalization.Get("ExtendedData.MissionSettingsRequired"));
+                    return false;
+                }
                 if (missionPresetLifecycle.PendingLaunch == MissionPresetLaunchKind.TrailMakerTest)
                     return true;
                 try
@@ -891,7 +945,7 @@ namespace ExtendedData
                 string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
                     return;
@@ -903,7 +957,8 @@ namespace ExtendedData
                     // Capture synchronously before invoking it so every save uses its own visible values.
                     document = CaptureDocument();
                     string[] mentionedMods = document.Mods.Keys.ToArray();
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:916", "Captured Trail mod settings before save; mentioned=[" + string.Join(", ", mentionedMods) + "].");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:916", "Captured Trail mod settings before save; mentioned=[" + string.Join(", ", mentionedMods) + "].");
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         // Vanilla can enter Trail export before this save call returns. Keep the
@@ -929,13 +984,14 @@ namespace ExtendedData
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         ModSettingsJson.WriteAtomic(sidecar, document);
-                        trailSourceDocument = CloneDocument(document);
+                        workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
+                        trailSource.Set(document, workingSourceContextId);
                     }
                     else
                     {
                         if (File.Exists(sidecar))
                             File.Delete(sidecar);
-                        trailSourceDocument = null;
+                        trailSource.Clear();
                     }
                     SourcesChanged?.Invoke();
                     capturedDocumentsByTrailPath.Remove(IOPath.GetFullPath(trailPath));
@@ -957,7 +1013,7 @@ namespace ExtendedData
                 try
                 {
                     // Keep the just-saved mission editable even if Vanilla rebuilt the UI.
-                    ApplyDocument(document, editable: true);
+                    if (enabled) ApplyDocument(document, editable: true);
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         var info = new FileInfo(sidecar);
@@ -984,7 +1040,7 @@ namespace ExtendedData
 
             private void ManageTrailButtonHook(FRONT_ManageTrail self, string command)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     manageTrailButtonOriginal(self, command);
                     return;
@@ -1009,7 +1065,40 @@ namespace ExtendedData
                 pendingTrailMakerTrailPath = loadedHeader?.filePath;
                 try
                 {
-                    manageTrailButtonOriginal(self, command);
+                    if (pendingTrailMakerLoad)
+                    {
+                        try
+                        {
+                            // The Maker's Vanilla reader rejects absent source maps before Open.
+                            // Decode the portable setup here, preserving its embedded Lord data.
+                            HUD_IngameMenu.RestartSkirmishMapInfo restart;
+                            // Keep both readers on the same source bytes; an external edit or
+                            // replacement must not combine one setup with a different map.
+                            using (var sourceLock = File.OpenRead(pendingTrailMakerTrailPath))
+                            {
+                                FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
+                                    pendingTrailMakerTrailPath, pendingTrailMakerTrailPath, 4, loadRestartInfo: true);
+                                restart = container?.restartSkirmishInfo ??
+                                    throw new InvalidDataException("The Trail mission has no readable saved setup.");
+                                embeddedMakerMapHeader = null;
+                                if (restart.selectedHeader == null)
+                                    restart.selectedHeader = embeddedMakerMapHeader = TrailMakerEmbeddedMap.Prepare(
+                                        pendingTrailMakerTrailPath,
+                                        IOPath.Combine(BepInEx.Paths.CachePath, "ExtendedData", "TrailMaker"),
+                                        ReadEmbeddedMakerMap);
+                            }
+                            FRONT_Multiplayer.Open(skirmishSetup: true, restartInfo: restart, coopSetup: false, trailMaker: true);
+                        }
+                        catch (Exception exception)
+                        {
+                            embeddedMakerMapHeader = null;
+                            Shared.DebugLogHelper.LogErrorLimited(log, "trail-maker-embedded-map",
+                                "Could not open the embedded Trail Maker map: " + exception);
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                                SerpLocalization.Get("ExtendedData.TrailMakerMapUnavailable"));
+                        }
+                    }
+                    else manageTrailButtonOriginal(self, command);
                 }
                 finally
                 {
@@ -1029,11 +1118,18 @@ namespace ExtendedData
 
             private void EditorSetupButtonHook(FRONT_EditorSetup self, string command)
             {
+                if (!UploadEnabled)
+                {
+                    uploadOptions.Close();
+                    editorSetupButtonOriginal(self, command);
+                    return;
+                }
+
                 FileRow selectedRow = (self.FindName("UploadList") as ListView)?.SelectedItem as FileRow;
                 bool doUpload = string.Equals(command, "DoUpload", StringComparison.Ordinal);
                 bool isTrail = selectedRow?.trail != null;
                 bool isCustomLord = selectedRow?.lord != null;
-                if (doUpload && ((enabled && isTrail) || isCustomLord))
+                if (doUpload && ((UploadEnabled && isTrail) || isCustomLord))
                 {
                     string uploadRoot = ConfigSettings.GetWorkshopUploadContentPath();
                     string itemName = isTrail ? selectedRow.trail.Name : selectedRow.lord.lordName;
@@ -1062,14 +1158,14 @@ namespace ExtendedData
                         return;
                     }
 
-                    ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeExtendedData);
+                    PendingUploadDecision attempt = ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeExtendedData);
                     try
                     {
                         editorSetupButtonOriginal(self, command);
                     }
                     catch
                     {
-                        ClearUploadDecision(uploadRoot, itemName);
+                        ClearUploadDecision(attempt);
                         throw;
                     }
                     return;
@@ -1079,12 +1175,12 @@ namespace ExtendedData
 
                 if (string.Equals(command, "UploadTrail", StringComparison.Ordinal))
                 {
-                    if (enabled)
+                    if (UploadEnabled)
                         TryFileOperation("add Coop Trails to Vanilla's Workshop upload list", () => AddCoopWorkshopRows(self));
                 }
                 else if (string.Equals(command, "Upload", StringComparison.Ordinal))
                 {
-                    if (selectedRow?.trail != null && enabled)
+                    if (selectedRow?.trail != null && UploadEnabled)
                         uploadOptions.Open(WorkshopUploadOptionKind.Trail);
                     else if (selectedRow?.lord != null)
                         uploadOptions.Open(WorkshopUploadOptionKind.CustomLord);
@@ -1109,9 +1205,22 @@ namespace ExtendedData
                 Action successAction,
                 Action failAction)
             {
+                if (!UploadEnabled)
+                {
+                    uploadWorkshopMapOriginal(instance, nameMap, mapTitle, description, tags,
+                        publicMap, previewImage, successAction, failAction);
+                    return;
+                }
+
                 PendingUploadDecision decision = GetUploadDecision(nameMap, mapTitle);
-                Action terminalSuccess = WrapTerminalCallback(nameMap, mapTitle, successAction);
-                Action terminalFailure = WrapTerminalCallback(nameMap, mapTitle, failAction);
+                Action terminalSuccess = WrapTerminalCallback(decision, successAction);
+                Action terminalFailure = WrapTerminalCallback(decision, failAction);
+                if (decision != null && !decision.IncludeExtendedData)
+                {
+                    uploadWorkshopMapOriginal(instance, nameMap, mapTitle, description, tags,
+                        publicMap, previewImage, terminalSuccess, terminalFailure);
+                    return;
+                }
                 CustomLordJsonUploadMode lordMode = CustomLordJsonUploadPolicy.Classify(tags);
                 if (lordMode == CustomLordJsonUploadMode.CustomLord)
                 {
@@ -1136,7 +1245,8 @@ namespace ExtendedData
                             request.PublicMap,
                             request.PreviewImage,
                             request.SuccessAction,
-                            request.FailAction));
+                            request.FailAction),
+                        () => IsCurrentUploadDecision(decision));
                     return;
                 }
 
@@ -1168,7 +1278,8 @@ namespace ExtendedData
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1191", $"Extended CPU Lord staging ready for [{mapTitle}]: {copiedFiles} copied, {existingFiles} already present, {packageFiles} package files, {packageBytes} bytes.");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1191", $"Extended CPU Lord staging ready for [{mapTitle}]: {copiedFiles} copied, {existingFiles} already present, {packageFiles} package files, {packageBytes} bytes.");
                     }
                     catch (Exception exception)
                     {
@@ -1197,7 +1308,8 @@ namespace ExtendedData
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1227", $"Added {copiedFiles} Custom Trail JSON file(s) and {requiredFiles} required Lord file(s) to Workshop staging for [{mapTitle}].");
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1227", $"Added {copiedFiles} Custom Trail JSON file(s) and {requiredFiles} required Lord file(s) to Workshop staging for [{mapTitle}].");
                     }
                 }
 
@@ -1228,10 +1340,10 @@ namespace ExtendedData
                 }
             }
 
-            private void ArmUploadDecision(string root, string itemName, bool includeExtendedData)
+            private PendingUploadDecision ArmUploadDecision(string root, string itemName, bool includeExtendedData)
             {
                 lock (uploadDecisionLock)
-                    pendingUploadDecision = new PendingUploadDecision(root, itemName, includeExtendedData);
+                    return pendingUploadDecision = new PendingUploadDecision(root, itemName, includeExtendedData);
             }
 
             private PendingUploadDecision GetUploadDecision(string root, string itemName)
@@ -1244,22 +1356,26 @@ namespace ExtendedData
                 }
             }
 
-            private Action WrapTerminalCallback(string root, string itemName, Action callback)
+            private Action WrapTerminalCallback(PendingUploadDecision decision, Action callback)
             {
                 return () =>
                 {
-                    ClearUploadDecision(root, itemName);
+                    lock (uploadDecisionLock)
+                        if (ReferenceEquals(pendingUploadDecision, decision)) pendingUploadDecision = null;
                     callback?.Invoke();
                 };
             }
 
-            private void ClearUploadDecision(string root, string itemName)
+            private void ClearUploadDecision(PendingUploadDecision attempt)
             {
                 lock (uploadDecisionLock)
-                {
-                    if (pendingUploadDecision?.Matches(root, itemName) == true)
-                        pendingUploadDecision = null;
-                }
+                    if (ReferenceEquals(pendingUploadDecision, attempt)) pendingUploadDecision = null;
+            }
+
+            private bool IsCurrentUploadDecision(PendingUploadDecision attempt)
+            {
+                lock (uploadDecisionLock)
+                    return ReferenceEquals(pendingUploadDecision, attempt);
             }
 
             private static bool TryResolveExtendedLordJsonSource(
@@ -1316,7 +1432,7 @@ namespace ExtendedData
             private void ManageTrailInitHook(FRONT_ManageTrail self, bool preserveSelection)
             {
                 manageTrailInitOriginal(self, preserveSelection);
-                if (!enabled)
+                if (!EditorEnabled)
                     return;
                 EnsureTrailMakerCoopCheckbox(self);
                 EnableImportForCoopPackages(self);
@@ -1422,9 +1538,10 @@ namespace ExtendedData
                     trail.Name + ".data",
                     includeModSettings,
                     out int copiedModSettings);
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1455", $"Prepared Coop Trail Workshop package [{trail.Name}] with " +
-                    $"mod-settings included={includeModSettings}, sidecars={copiedModSettings}, " +
-                    $"fingerprint={stagedPackage.Manifest.ContentFingerprint}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1455", $"Prepared Coop Trail Workshop package [{trail.Name}] with " +
+                        $"mod-settings included={includeModSettings}, sidecars={copiedModSettings}, " +
+                        $"fingerprint={stagedPackage.Manifest.ContentFingerprint}.");
 
                 var tags = new List<string> { "Custom Trail" };
                 string previewName;
@@ -1557,16 +1674,18 @@ namespace ExtendedData
             private void BackupHook(FRONT_ManageTrail self, string source, string destination)
             {
                 backupOriginal(self, source, destination);
-                if (!enabled)
+                if (!EditorEnabled)
                     return;
-                TryFileOperation("back up Trail sidecars", () => CopySidecars(source, destination, overwrite: true));
+                TryFileOperation("back up Trail sidecars", () =>
+                    ReportSkippedSidecars("ExtendedData.BackupSidecarsIncomplete",
+                        CopySidecars(source, destination, overwrite: true)));
                 TryFileOperation("back up the Coop Trail Maker marker", () => CopyCoopMarker(source, destination));
                 TryFileOperation("back up the Coop Trail package", () => CopyCoopPackage(source, destination));
             }
 
             private void ImportHook(FRONT_ManageTrail self, string customFolderName)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     importOriginal(self, customFolderName);
                     return;
@@ -1586,7 +1705,8 @@ namespace ExtendedData
                 // and any name collision aborts before sidecars or the Coop marker are changed.
                 importOriginal(self, vanillaImportFolder);
                 TryFileOperation("import Trail sidecars", () =>
-                    CopySidecars(trailSource, ConfigSettings.GetUserTrailMakerPath(), overwrite: false));
+                    ReportSkippedSidecars("ExtendedData.ImportSidecarsIncomplete",
+                        CopySidecars(trailSource, ConfigSettings.GetUserTrailMakerPath(), overwrite: false)));
                 TryFileOperation("import the Coop Trail Maker state", () =>
                 {
                     SetMakerCoopEnabled(coopPackage);
@@ -1610,39 +1730,56 @@ namespace ExtendedData
 
             private void ExportHook(FRONT_ManageTrail self, string destination)
             {
-                if (!enabled)
+                if (!EditorEnabled)
                 {
                     exportOriginal(self, destination);
                     return;
                 }
-                CoopTrailPackageExporter.PreparedPackage prepared = null;
+                ExportTrail(self, destination, allowEmbeddedValuesOnly: false);
+            }
+
+            // Every mission's Lord requirements and the Coop package are prepared before any destination
+            // file is replaced. The Coop package and its editable Maker sources are published together.
+            private void ExportTrail(FRONT_ManageTrail self, string destination, bool allowEmbeddedValuesOnly)
+            {
+                string makerRoot = ConfigSettings.GetUserTrailMakerPath();
                 bool exportCoop = IsMakerCoopEnabled();
-                if (exportCoop)
+                var makerRequirements = new Dictionary<string, IReadOnlyList<TrailLordSlot>>(StringComparer.OrdinalIgnoreCase);
+                CoopTrailPackageExporter.PreparedPackage prepared = null;
+                try
                 {
-                    try
-                    {
+                    if (exportCoop)
                         prepared = new CoopTrailPackageExporter().Prepare(
-                            ConfigSettings.GetUserTrailMakerPath(),
+                            makerRoot,
                             destination,
-                            ReadModSettingsForExport);
-                    }
-                    catch (Exception exception)
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1663", "Could not prepare Coop Trail export: " + exception);
-                        ShowExportFailure();
-                        return;
-                    }
+                            ReadModSettingsForExport,
+                            (trail, restart, aiPlayerIds) => ResolveMakerRequirements(trail, restart, aiPlayerIds,
+                                allowEmbeddedValuesOnly, makerRequirements));
+                    // Also Maker missions beyond the 40 Coop missions keep bound requirements.
+                    PrepareMakerRequirements(makerRoot, allowEmbeddedValuesOnly, makerRequirements, exportCoop);
+                }
+                catch (Exception exception)
+                {
+                    // A later Maker mission can fail after the Coop package was already staged.
+                    prepared?.Dispose();
+                    TrailLordAuthoringUnavailableException gap = FindAuthoringGap(exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1663", "Could not prepare Trail export: " + exception);
+                    if (gap != null && !allowEmbeddedValuesOnly)
+                        OfferEmbeddedValuesOnlyExport(self, destination, exception as CoopMissionExportException, gap);
+                    else
+                        ShowExportFailure(exception as CoopMissionExportException);
+                    return;
                 }
 
                 try
                 {
                     if (prepared != null)
                     {
-                        string trailMakerSource = IOPath.Combine(destination, CoopTrailMakerSourceDirectory);
+                        string trailMakerSource = prepared.TrailMakerSourceStaging;
                         Directory.CreateDirectory(trailMakerSource);
                         exportOriginal(self, trailMakerSource);
                         ExportSidecars(trailMakerSource);
-                        ExportLordRequirements(trailMakerSource, coopMakerSource: true);
+                        WriteLordRequirements(trailMakerSource, makerRoot, makerRequirements);
                         prepared.Publish(destination);
                         RemoveNormalTrailFiles(destination);
                         DebugLogHelper.LogInfo(log, "Published Coop Trail package [" + prepared.Package.Manifest.DisplayName +
@@ -1653,7 +1790,7 @@ namespace ExtendedData
                     {
                         exportOriginal(self, destination);
                         ExportSidecars(destination);
-                        ExportLordRequirements(destination);
+                        WriteLordRequirements(destination, makerRoot, makerRequirements);
                         RemoveCoopPackage(destination);
                     }
                     CoopPackagesChanged?.Invoke();
@@ -1669,53 +1806,138 @@ namespace ExtendedData
                 }
             }
 
-            private void ExportSidecars(string destination)
+            private IReadOnlyList<TrailLordSlot> ResolveMakerRequirements(string trailPath,
+                HUD_IngameMenu.RestartSkirmishMapInfo restart, ISet<int> includedPlayerIds,
+                bool allowEmbeddedValuesOnly, Dictionary<string, IReadOnlyList<TrailLordSlot>> resolved)
             {
-                TryFileOperation("export Trail sidecars", () =>
-                {
-                    foreach (string stale in Directory.GetFiles(
-                        destination,
-                        "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
-                        File.Delete(stale);
-
-                    string makerRoot = ConfigSettings.GetUserTrailMakerPath();
-                    int outputIndex = 0;
-                    for (int sourceIndex = 0; sourceIndex < 50; sourceIndex++)
-                    {
-                        string sourceTrail = IOPath.Combine(makerRoot, FRONT_ManageTrail.GetMakerFileName(sourceIndex) + ".trail");
-                        if (!File.Exists(sourceTrail))
-                            continue;
-                        if (TryReadModSettingsForExport(sourceTrail, out ModSettingsDefinition document))
-                        {
-                            string target = IOPath.Combine(
-                                destination,
-                                FRONT_ManageTrail.GetMakerFileName(outputIndex) + MissionLoader.ModSettingsFileSuffix);
-                            ModSettingsJson.WriteAtomic(target, document);
-                        }
-                        outputIndex++;
-                    }
-                });
+                TrailLordRequirementSource.Resolution resolution = TrailLordRequirementSource.Resolve(
+                    trailPath, restart, includedPlayerIds, allowEmbeddedValuesOnly);
+                resolved[IOPath.GetFullPath(trailPath)] = resolution.Slots;
+                if (resolution.MigratedFixesSources)
+                    DebugLogHelper.LogInfo(log, "Legacy Trail Fixes inheritance supplemented with current host/author sources; " +
+                        "stored preferences retained: " + IOPath.GetFileName(trailPath));
+                if (resolution.ReusedPlayerIds.Count > 0 || resolution.EmbeddedOnlyPlayerIds.Count > 0)
+                    DebugLogHelper.LogInfo(log, "Trail Lord requirements for [" + IOPath.GetFileName(trailPath) +
+                        "]: stored=[" + string.Join(",", resolution.ReusedPlayerIds) +
+                        "], embeddedOnly=[" + string.Join(",", resolution.EmbeddedOnlyPlayerIds) +
+                        "], captured=[" + string.Join(",", resolution.InstalledSources.Keys) + "].");
+                return resolution.Slots;
             }
 
-            private static void ExportLordRequirements(string destination, bool coopMakerSource = false)
+            // Maker missions keep their original player IDs. Coop Maker sources describe only the slots
+            // that remain AI after the first two occupied slots become host and guest.
+            private void PrepareMakerRequirements(string makerRoot, bool allowEmbeddedValuesOnly,
+                Dictionary<string, IReadOnlyList<TrailLordSlot>> resolved, bool coopMakerSource)
             {
-                foreach (string stale in Directory.GetFiles(destination,
-                    "Trail_Mission_*" + TrailLordRequirements.Suffix))
-                    File.Delete(stale);
-                foreach (string trail in Directory.GetFiles(destination, "Trail_Mission_*.trail"))
+                foreach (string trail in MakerTrailsInExportOrder(makerRoot))
                 {
+                    if (resolved.ContainsKey(IOPath.GetFullPath(trail)))
+                        continue;
                     FileHeader header = MapFileManager.Instance.GetFileInfoFromFileName(
                         trail, trail, 4, loadRestartInfo: true);
                     if (header?.restartSkirmishInfo == null)
-                        throw new InvalidDataException("Exported Trail mission has no Lord data: " + trail);
+                        throw new InvalidDataException("Trail mission has no Lord data: " + trail);
                     ISet<int> includedPlayerIds = coopMakerSource
                         ? CoopTrailSlotSelection.GetAiPlayerIds(
                             CoopTrailSlotSelection.GetActiveSlots(header.restartSkirmishInfo.lordTypes))
                         : null;
-                    // Maker files retain their original slot IDs; only playable Coop JSON is remapped.
-                    TrailLordRequirements.Create(trail,
-                        TrailLordPackageRuntime.Capture(header.restartSkirmishInfo,
-                            includedPlayerIds: includedPlayerIds)).Write(trail);
+                    ResolveMakerRequirements(trail, header.restartSkirmishInfo, includedPlayerIds,
+                        allowEmbeddedValuesOnly, resolved);
+                }
+            }
+
+            // Vanilla's ExportTrailMissions numbers the existing Maker missions consecutively.
+            private static IEnumerable<string> MakerTrailsInExportOrder(string makerRoot)
+            {
+                for (int sourceIndex = 0; sourceIndex < 50; sourceIndex++)
+                {
+                    string sourceTrail = IOPath.Combine(makerRoot, FRONT_ManageTrail.GetMakerFileName(sourceIndex) + ".trail");
+                    if (File.Exists(sourceTrail))
+                        yield return sourceTrail;
+                }
+            }
+
+            private static TrailLordAuthoringUnavailableException FindAuthoringGap(Exception exception)
+            {
+                for (Exception current = exception; current != null; current = current.InnerException)
+                    if (current is TrailLordAuthoringUnavailableException gap)
+                        return gap;
+                return null;
+            }
+
+            // Explicit authoring decision; the default remains to abort. The decision is stored with
+            // the affected slots (embeddedValuesOnly) and is retained by later exports.
+            private void OfferEmbeddedValuesOnlyExport(FRONT_ManageTrail self, string destination,
+                CoopMissionExportException missionFailure, TrailLordAuthoringUnavailableException gap)
+            {
+                try
+                {
+                    string message = SerpLocalization.Get("ExtendedData.ExportEmbeddedOnlyQuestion")
+                        .Replace("{File}", IOPath.GetFileName(gap.TrailPath ?? string.Empty))
+                        .Replace("{Mission}", missionFailure?.Ordinal.ToString() ?? "-")
+                        .Replace("{Lord}", gap.LordName ?? string.Empty)
+                        .Replace("{Player}", gap.PlayerId.ToString())
+                        .Replace("{Reason}", gap.InnerException?.Message ?? gap.Message);
+                    HUD_ConfirmationPopup.ShowConfirmationMessage(
+                        SerpLocalization.Get("ExtendedData.ExportEmbeddedOnlyTitle"),
+                        delegate
+                        {
+                            DebugLogHelper.LogInfo(log, "Trail export continues with embedded AI data only after the author's confirmation: [" +
+                                gap.TrailPath + "], player " + gap.PlayerId + ".");
+                            ExportTrail(self, destination, allowEmbeddedValuesOnly: true);
+                            MapFileManager.Instance.RescanCustomTrailsFolder();
+                        },
+                        delegate { },
+                        message,
+                        MPConf: true,
+                        tall: true);
+                }
+                catch (Exception exception)
+                {
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1790", "Could not show the embedded-data export decision: " + exception);
+                    ShowExportFailure(missionFailure);
+                }
+            }
+
+            private void ExportSidecars(string destination)
+            {
+                foreach (string stale in Directory.GetFiles(
+                    destination,
+                    "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
+                    File.Delete(stale);
+
+                int outputIndex = 0;
+                foreach (string sourceTrail in MakerTrailsInExportOrder(ConfigSettings.GetUserTrailMakerPath()))
+                {
+                    if (TryReadModSettingsForExport(sourceTrail, out ModSettingsDefinition document))
+                    {
+                        string target = IOPath.Combine(
+                            destination,
+                            FRONT_ManageTrail.GetMakerFileName(outputIndex) + MissionLoader.ModSettingsFileSuffix);
+                        ModSettingsJson.WriteAtomic(target, document);
+                    }
+                    outputIndex++;
+                }
+            }
+
+            // Uses the same source-to-output numbering as Vanilla's export and the mod-settings sidecars.
+            // The exported Trail is a byte copy of its Maker source, so the prepared slots bind to it.
+            private static void WriteLordRequirements(string destination, string makerRoot,
+                IReadOnlyDictionary<string, IReadOnlyList<TrailLordSlot>> prepared)
+            {
+                foreach (string stale in Directory.GetFiles(destination,
+                    "Trail_Mission_*" + TrailLordRequirements.Suffix))
+                    File.Delete(stale);
+                int outputIndex = 0;
+                foreach (string sourceTrail in MakerTrailsInExportOrder(makerRoot))
+                {
+                    string target = IOPath.Combine(destination, FRONT_ManageTrail.GetMakerFileName(outputIndex) + ".trail");
+                    outputIndex++;
+                    if (!prepared.TryGetValue(IOPath.GetFullPath(sourceTrail), out IReadOnlyList<TrailLordSlot> slots))
+                        continue;
+                    if (!File.Exists(target))
+                        throw new FileNotFoundException("The exported Trail mission is missing.", target);
+                    TrailLordRequirements.Create(target, slots).Write(target);
                 }
             }
 
@@ -1731,7 +1953,8 @@ namespace ExtendedData
                 string fullTrailPath = IOPath.GetFullPath(trailPath);
                 if (capturedDocumentsByTrailPath.TryGetValue(fullTrailPath, out document))
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1760", $"Using synchronously captured Trail mod settings for export [{fullTrailPath}].");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1760", $"Using synchronously captured Trail mod settings for export [{fullTrailPath}].");
                     return true;
                 }
                 string sidecar = MissionLoader.GetTrailModSettingsPath(fullTrailPath);
@@ -1747,13 +1970,17 @@ namespace ExtendedData
             private void ClearMakerHook(FRONT_ManageTrail self)
             {
                 clearMakerOriginal(self);
-                if (!enabled)
+                if (!EditorEnabled)
                     return;
                 TryFileOperation("clear Trail sidecars", () =>
                 {
                     foreach (string sidecar in Directory.GetFiles(
                         ConfigSettings.GetUserTrailMakerPath(),
                         "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
+                        File.Delete(sidecar);
+                    foreach (string sidecar in Directory.GetFiles(
+                        ConfigSettings.GetUserTrailMakerPath(),
+                        "Trail_Mission_*" + TrailLordRequirements.Suffix))
                         File.Delete(sidecar);
                     SetMakerCoopEnabled(false);
                     RefreshTrailMakerCoopCheckbox();
@@ -1782,13 +2009,14 @@ namespace ExtendedData
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Center,
                     IsChecked = IsMakerCoopEnabled(),
-                    Visibility = enabled ? Visibility.Visible : Visibility.Collapsed,
+                    Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed,
                 };
                 ToolTipService.SetShowDuration(checkbox, 60000);
                 checkbox.Click += (_, __) =>
                 {
                     try
                     {
+                        if (!EditorEnabled) { checkbox.IsChecked = IsMakerCoopEnabled(); return; }
                         SetMakerCoopEnabled(checkbox.IsChecked == true);
                     }
                     catch (Exception exception)
@@ -1874,6 +2102,19 @@ namespace ExtendedData
                     destination,
                     "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
                     File.Delete(sidecar);
+                foreach (string sidecar in Directory.GetFiles(
+                    destination,
+                    "Trail_Mission_*" + TrailLordRequirements.Suffix))
+                    File.Delete(sidecar);
+            }
+
+            // A partial sidecar transfer must not look like a complete import or backup.
+            private void ReportSkippedSidecars(string messageKey, List<string> skipped)
+            {
+                if (skipped == null || skipped.Count == 0)
+                    return;
+                ShowInformation(SerpLocalization.Get("ExtendedData.SidecarsIncompleteTitle"),
+                    SerpLocalization.Get(messageKey).Replace("{Files}", string.Join(", ", skipped)));
             }
 
             private static void CopyDirectory(string source, string destination)
@@ -1899,13 +2140,21 @@ namespace ExtendedData
                     Directory.Delete(trailMakerSource, true);
             }
 
-            private void ShowExportFailure()
+            private void ShowExportFailure(CoopMissionExportException missionFailure = null)
             {
                 try
                 {
+                    // Name the failing mission and its concrete cause; file errors are not
+                    // reported as an unexplained multiplayer incompatibility.
+                    string message = missionFailure == null
+                        ? SerpLocalization.Get("ExtendedData.ExportFailedLog")
+                        : SerpLocalization.Get("ExtendedData.ExportFailedMission")
+                            .Replace("{Mission}", missionFailure.Ordinal.ToString())
+                            .Replace("{File}", IOPath.GetFileName(missionFailure.SourcePath ?? string.Empty))
+                            .Replace("{Reason}", missionFailure.Reason);
                     HUD_ConfirmationPopup.ShowConfirmationOKMessage(
                         SerpLocalization.Get("ExtendedData.ExportFailedTitle"), delegate { },
-                        SerpLocalization.Get("ExtendedData.ExportFailedLog"));
+                        message);
                     MainViewModel.Instance.Show_HUD_Confirmation = false;
                     MainViewModel.Instance.Show_HUD_ConfirmationMP = true;
                     MainViewModel.Instance.FrontEndMenu.UpdateFrontMenuPopupScale();
@@ -1923,7 +2172,7 @@ namespace ExtendedData
             private void StartCustomTrailHook(MainViewModel self, string trailName, int missionId, int difficulty)
             {
                 bool customizedRestart = false;
-                if (!preserveContextForLaunch)
+                if (!preserveContextForLaunch && !MissionRestart.IsInProgress)
                 {
                     HUD_IngameMenu.RestartSkirmishMapInfo restartInfo =
                         MainViewModel.Instance?.HUDIngameMenu?.restartSkirmishMapInfo;
@@ -1938,13 +2187,13 @@ namespace ExtendedData
                     else
                         ExtendedDataLaunchOriginApi.Clear();
                 }
-                if (!enabled)
+                if (!enabled && !activation.LordDataIntegration)
                 {
                     if (!TryPrepareRestartSettings()) return;
                     startCustomTrailOriginal(self, trailName, missionId, difficulty);
                     return;
                 }
-                if (!preserveContextForLaunch)
+                if (enabled && !preserveContextForLaunch && !MissionRestart.IsInProgress)
                 {
                     launchedThroughCustomize = false;
                     try
@@ -1970,11 +2219,11 @@ namespace ExtendedData
                         ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                     }
                 }
-                else if (workingContextEditable)
+                else if (enabled && workingContextEditable && !MissionRestart.IsInProgress)
                 {
                     // Customize is an editable draft. The launched mission receives the
                     // materialized result as a read-only working snapshot.
-                    ApplyDocument(CaptureDocument(), editable: false, presetLabel: "Trail", materializeCurrentValues: true);
+                    FreezeWorkingDraft();
                 }
                 try
                 {
@@ -2002,13 +2251,16 @@ namespace ExtendedData
                     LordDataCoordinator?.PrepareTrail(null, null, false, out _);
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2029", "Blocked Custom Trail launch: " + exception);
                     ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                    RecoverCoopDraft();
                     return;
                 }
                 if (!TryPrepareRestartSettings()) return;
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = true;
-                missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
-                startCustomTrailOriginal(self, trailName, missionId, difficulty);
+                if (!MissionRestart.IsInProgress)
+                    missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
+                try { startCustomTrailOriginal(self, trailName, missionId, difficulty); }
+                catch { RecoverCoopDraft(); throw; }
             }
 
             private void LaunchCustomTrailHook(FRONT_Multiplayer self,
@@ -2048,7 +2300,7 @@ namespace ExtendedData
                 // Origin tracking is shared infrastructure for the other gameplay mods and must
                 // remain active even when ExtendedData's own visible features are disabled.
                 bool preserve = enabled && preserveContextForLaunch;
-                if (enabled && trailMaker && !pendingTrailMakerLoad &&
+                if (EditorEnabled && trailMaker && !pendingTrailMakerLoad &&
                     trailMakerAuthoringActive && trailContext)
                 {
                     CaptureTrailMakerWorkingDocument("lobby rebuild");
@@ -2085,11 +2337,15 @@ namespace ExtendedData
                 {
                     CaptureBuiltInCustomizeOrigin(customiseTrailType, customiseTrailId);
                 }
-                if (!enabled)
+                if (!enabled && !(EditorEnabled && trailMaker))
+                {
+                    ObserveCoopLobby(self);
+                    LobbyOpened?.Invoke(self);
                     return;
+                }
                 if (preserve)
                     preserveContextForLaunch = false;
-                if (trailMaker)
+                if (trailMaker && EditorEnabled)
                 {
                     if (IsConfirmedTrailMakerLobby(self))
                         ActivateTrailMakerLobby(restartInfo);
@@ -2099,7 +2355,32 @@ namespace ExtendedData
                         ExitContext(force: true);
                     }
                 }
+                ObserveCoopLobby(self);
                 LobbyOpened?.Invoke(self);
+            }
+
+            private static FileHeader ReadEmbeddedMakerMap(string path, string label)
+            {
+                FileHeader header = MapFileManager.Instance.GetFileInfoFromFileName(path, path, 0);
+                if (header == null || header.mapType != 1)
+                    throw new InvalidDataException("The embedded Trail map is not a readable multiplayer map.");
+                if (!string.IsNullOrWhiteSpace(label)) header.display_filename = label;
+                return header;
+            }
+
+            private List<FileHeader> MultiplayerMapsHook(MapFileManager self, int sortMode, bool ascending,
+                int players, bool builtIn, bool user, bool workshop)
+            {
+                List<FileHeader> maps = multiplayerMapsOriginal(self, sortMode, ascending, players, builtIn, user, workshop);
+                // populateMapList selects by object identity. Expose the loaded document's map
+                // for this authoring context only, including when normal user maps are filtered.
+                // Do not install it into the user's global map catalog or change their filters.
+                if (EditorEnabled && embeddedMakerMapHeader != null && (pendingTrailMakerLoad || trailMakerAuthoringActive))
+                {
+                    maps = maps == null ? new List<FileHeader>() : new List<FileHeader>(maps);
+                    if (!maps.Contains(embeddedMakerMapHeader)) maps.Insert(0, embeddedMakerMapHeader);
+                }
+                return maps;
             }
 
             private void StartSkirmishGameHook(
@@ -2112,99 +2393,116 @@ namespace ExtendedData
                     ExtendedDataLaunchOriginApi.MarkRestartPending();
                 }
                 BroadcastBuiltInCustomizeOrigin(self);
-                if (!enabled)
+                if (!enabled && !activation.LordDataIntegration && !CoopEnabled)
                 {
                     startSkirmishGameOriginal(self, customTrailRestartInfo);
                     return;
                 }
-                if (self?.trailMakerMode == true)
+                bool startInvoked = false;
+                try
                 {
-                    if (!PrepareTrailMakerTestLaunch())
-                        return;
-                }
-                if (enabled && self?.singlePlayerCoop == true && self.currentLobby?.coopTrailGame == true)
-                {
-                    Func<FRONT_Multiplayer, bool> prepare = SinglePlayerCoopStarting;
-                    if (prepare != null && !prepare(self))
-                        return;
-                }
-                if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
-                {
-                    // Rebuild the embedded restart data from the edited lobby while retaining
-                    // the Custom Trail identity needed by the native mission loader and restart flow.
-                    customTrailRestartInfo = customTrailSetupRestartInfo;
-                    customTrailRestartInfo.MPsetupData = (EngineInterface.MultiplayerSetupData)typeof(FRONT_Multiplayer)
-                        .GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic)
-                        .GetValue(self);
-                    customTrailRestartInfo.importMembers(self.currentLobby);
-                    customTrailRestartInfo.importAIVs(self.AIVs);
-                    // The lobby uses the original map header, while Vanilla's Custom Trail
-                    // launch path requires the .trail container header in the restart payload.
-                    customTrailRestartInfo.selectedHeader = customTrailSetupHeader;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2172", $"Starting customized Custom Trail [{customTrailRestartInfo.customTrailName}] " +
-                        $"mission {customTrailRestartInfo.customTrailLevel}.");
-                }
-
-                if (customTrailRestartInfo?.customTrail == true)
-                {
-                    try
+                    if (self?.trailMakerMode == true)
                     {
-                        FileHeader lordHeader = ResolveCustomTrailHeader(
-                            customTrailRestartInfo.customTrailName,
-                            customTrailRestartInfo.customTrailLevel);
-                        TrailLordRequirements requirements = TrailLordRequirements.Read(lordHeader.filePath);
-                        if (requirements == null)
+                        if (!PrepareTrailMakerTestLaunch())
+                            return;
+                    }
+                    if (CoopEnabled && self?.singlePlayerCoop == true && self.currentLobby?.coopTrailGame == true)
+                    {
+                        Func<FRONT_Multiplayer, bool> prepare = SinglePlayerCoopStarting;
+                        if (prepare != null && !prepare(self))
+                            return;
+                    }
+                    if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
+                    {
+                        // Rebuild the embedded restart data from the edited lobby while retaining
+                        // the Custom Trail identity needed by the native mission loader and restart flow.
+                        customTrailRestartInfo = customTrailSetupRestartInfo;
+                        customTrailRestartInfo.MPsetupData = (EngineInterface.MultiplayerSetupData)typeof(FRONT_Multiplayer)
+                            .GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic)
+                            .GetValue(self);
+                        customTrailRestartInfo.importMembers(self.currentLobby);
+                        customTrailRestartInfo.importAIVs(self.AIVs);
+                        // The lobby uses the original map header, while Vanilla's Custom Trail
+                        // launch path requires the .trail container header in the restart payload.
+                        customTrailRestartInfo.selectedHeader = customTrailSetupHeader;
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2172", $"Starting customized Custom Trail [{customTrailRestartInfo.customTrailName}] " +
+                                $"mission {customTrailRestartInfo.customTrailLevel}.");
+                    }
+
+                    if (customTrailRestartInfo?.customTrail == true)
+                    {
+                        try
+                        {
+                            FileHeader lordHeader = ResolveCustomTrailHeader(
+                                customTrailRestartInfo.customTrailName,
+                                customTrailRestartInfo.customTrailLevel);
+                            TrailLordRequirements requirements = TrailLordRequirements.Read(lordHeader.filePath);
+                            if (requirements == null)
+                            {
+                                LordDataCoordinator?.SetEmbeddedTrailSlots(null);
+                                LordDataCoordinator?.PrepareTrail(null, null, false, out _);
+                            }
+                            else
+                            {
+                                Dictionary<int, FRONT_Multiplayer.MPAIVInfo> infos =
+                                    ToLordInfoMap(customTrailRestartInfo.aivs);
+                                LordDataCoordinator?.SetEmbeddedTrailSlots(requirements.Slots
+                                    .Where(slot => infos.TryGetValue(slot.PlayerId,
+                                        out FRONT_Multiplayer.MPAIVInfo info) && info?.lordConfig != null &&
+                                        TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
+                                            info.builtInLord, info.lordName,
+                                            LordDataCoordinator.PreparedTrailMediaAlias(
+                                                requirements, slot.PlayerId), info.lordType,
+                                            info.lordConfig.lordType, info.lordConfig.name,
+                                            info.lordConfig.checksum.ToString()))
+                                    .Select(slot => slot.PlayerId));
+                                PrepareCustomTrailLords(requirements, infos, true);
+                                LordDataCoordinator.RemapTrailMedia(infos);
+                            }
+                        }
+                        catch (Exception exception)
                         {
                             LordDataCoordinator?.SetEmbeddedTrailSlots(null);
                             LordDataCoordinator?.PrepareTrail(null, null, false, out _);
-                        }
-                        else
-                        {
-                            Dictionary<int, FRONT_Multiplayer.MPAIVInfo> infos =
-                                ToLordInfoMap(customTrailRestartInfo.aivs);
-                            LordDataCoordinator?.SetEmbeddedTrailSlots(requirements.Slots
-                                .Where(slot => infos.TryGetValue(slot.PlayerId,
-                                    out FRONT_Multiplayer.MPAIVInfo info) && info != null &&
-                                    TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
-                                        info.builtInLord, info.lordName,
-                                        LordDataCoordinator.PreparedTrailMediaAlias(
-                                            requirements, slot.PlayerId), info.lordType))
-                                .Select(slot => slot.PlayerId));
-                            PrepareCustomTrailLords(requirements, infos, true);
-                            LordDataCoordinator.RemapTrailMedia(infos);
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2211", "Blocked customized Custom Trail launch: " + exception);
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                                exception.Message);
+                            return;
                         }
                     }
-                    catch (Exception exception)
-                    {
-                        LordDataCoordinator?.SetEmbeddedTrailSlots(null);
-                        LordDataCoordinator?.PrepareTrail(null, null, false, out _);
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2211", "Blocked customized Custom Trail launch: " + exception);
-                        ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
-                            exception.Message);
-                        return;
-                    }
-                }
 
-                if (customTrailRestartInfo != null && customTrailRestartInfo.customTrail)
-                    customTrailLaunchActive = true;
-                if (self?.singlePlayerCoop == true &&
-                    ExtendedDataLaunchOriginApi.Origin == ExtendedDataLaunchOriginKind.CustomizedCoopTrail)
-                {
-                    try
+                    if (customTrailRestartInfo != null && customTrailRestartInfo.customTrail)
+                        customTrailLaunchActive = true;
+                    if (self?.singlePlayerCoop == true &&
+                        ExtendedDataLaunchOriginApi.Origin == ExtendedDataLaunchOriginKind.CustomizedCoopTrail)
                     {
-                        ValidateSinglePlayerCoopAivs(self);
+                        try
+                        {
+                            ValidateSinglePlayerCoopAivs(self);
+                        }
+                        catch (Exception exception)
+                        {
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2229", "Blocked Custom Coop Trail launch: " + exception);
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                            return;
+                        }
                     }
-                    catch (Exception exception)
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2229", "Blocked Custom Coop Trail launch: " + exception);
-                        ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
-                        return;
-                    }
+                    if (enabled && HasCustomizeDraft && workingContextEditable && !MissionRestart.IsInProgress)
+                        FreezeWorkingDraft();
+                    if (!TryPrepareRestartSettings()) return;
+                    startInvoked = true;
+                    try { startSkirmishGameOriginal(self, customTrailRestartInfo); }
+                    catch { RecoverCoopDraft(); throw; }
+                    customTrailSetupRestartInfo = null;
+                    customTrailSetupHeader = null;
                 }
-                if (!TryPrepareRestartSettings()) return;
-                startSkirmishGameOriginal(self, customTrailRestartInfo);
-                customTrailSetupRestartInfo = null;
-                customTrailSetupHeader = null;
+                finally
+                {
+                    // Validation can reject a start without an exception or a lifecycle
+                    // attempt. Release the read-only draft in that path as well.
+                    if (!startInvoked) RecoverCoopDraft();
+                }
             }
 
             private static void ValidateSinglePlayerCoopAivs(FRONT_Multiplayer self)
@@ -2244,7 +2542,7 @@ namespace ExtendedData
             private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
             {
                 int page = FrontendMenus.CurrentSelectedTrail - 21;
-                if (enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                if (CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                     page >= 0 && page < 4 && missionId > 0)
                 {
                     int available = CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, page);
@@ -2270,7 +2568,7 @@ namespace ExtendedData
             private void RefreshCoopMissionSymbols()
             {
                 int page = FrontendMenus.CurrentSelectedTrail - 21;
-                if (!enabled || string.IsNullOrWhiteSpace(coopPackageDisplayName) || page < 0 || page >= 4 ||
+                if (!CoopEnabled || string.IsNullOrWhiteSpace(coopPackageDisplayName) || page < 0 || page >= 4 ||
                     !MainViewModel.viewModelLoaded)
                     return;
                 int available = CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, page);
@@ -2284,12 +2582,12 @@ namespace ExtendedData
                     string.Equals(command, "Coop2", StringComparison.Ordinal) ? 1 :
                     string.Equals(command, "Coop3", StringComparison.Ordinal) ? 2 :
                     string.Equals(command, "Coop4", StringComparison.Ordinal) ? 3 : -1;
-                if (enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) && coopPage >= 0 &&
+                if (CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) && coopPage >= 0 &&
                     CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, coopPage) == 0)
                     return;
                 bool preserveTrailMakerMapEditor = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
                     MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
-                if (!enabled)
+                if (!enabled && !CoopEnabled && !EditorEnabled)
                 {
                     frontendButtonOriginal(self, command);
                     bool disabledContextChange =
@@ -2303,7 +2601,7 @@ namespace ExtendedData
                         ExtendedDataLaunchOriginApi.Clear();
                     return;
                 }
-                if (!externalButtonOwner &&
+                if (enabled && !externalButtonOwner &&
                     string.Equals(command, "Customize", StringComparison.Ordinal) &&
                     FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                 {
@@ -2319,7 +2617,7 @@ namespace ExtendedData
                     }
                     return;
                 }
-                if (preserveTrailMakerMapEditor)
+                if (EditorEnabled && preserveTrailMakerMapEditor)
                 {
                     CaptureTrailMakerWorkingDocument("Map Editor transition");
                     missionPresetLifecycle.AwaitTrailMakerReturn();
@@ -2562,8 +2860,9 @@ namespace ExtendedData
                 // doOpen can trigger unrelated context cleanup; apply the selected mission again
                 // after all lobby view models exist so Trail is visible and selected immediately.
                 EnterSidecar(header.filePath, editable: true);
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2597", $"Opened Custom Trail setup [{menus.CustomTrailName}] mission {missionId}; " +
-                    $"map=[{lobbyMapHeader.display_filename}], path=[{lobbyMapHeader.filePath}].");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2597", $"Opened Custom Trail setup [{menus.CustomTrailName}] mission {missionId}; " +
+                        $"map=[{lobbyMapHeader.display_filename}], path=[{lobbyMapHeader.filePath}].");
             }
 
             private static FileHeader GetSelectedCustomTrailHeader(FrontendMenus menus)
@@ -2658,11 +2957,11 @@ namespace ExtendedData
                     coopTrailTitleBlocks[page] = title;
                 }
 
-                bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                bool packageOccupiesTrail = CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                     coopPackageMissionCount > zeroBasedTrail * 10;
                 title.Text = packageOccupiesTrail
                     ? coopPackageDisplayName
-                    : enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName)
+                    : CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName)
                         ? SerpLocalization.Get("ExtendedData.NoCustomCoopMissions")
                         : vanillaCoopTrailTitles[zeroBasedTrail];
                 UpdateCoopMissionProgress(page, title, zeroBasedTrail);
@@ -2749,9 +3048,9 @@ namespace ExtendedData
                     string vanillaTitle = vanillaCoopTrailTitles[zeroBasedTrail];
                     if (string.IsNullOrEmpty(vanillaTitle))
                         continue;
-                    bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                    bool packageOccupiesTrail = CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                         coopPackageMissionCount > zeroBasedTrail * 10;
-                    bool packageSelected = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName);
+                    bool packageSelected = CoopEnabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName);
                     PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName :
                         packageSelected ? SerpLocalization.Get("ExtendedData.NoCustomCoopMissions") : vanillaTitle);
                     button.IsEnabled = (!packageSelected || packageOccupiesTrail) &&
@@ -2901,9 +3200,6 @@ namespace ExtendedData
                         MainViewModel.Instance.Show_MPIsHost = true;
                         MainViewModel.Instance.Show_MPSteamIdentity = false;
                         showSetup.Invoke(self, null);
-                        typeof(FRONT_Multiplayer).GetMethod("SetupSkirmishModeSettings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
-                        typeof(FRONT_Multiplayer).GetMethod("updateSteamIDMappings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
-                        typeof(FRONT_Multiplayer).GetMethod("UpdateRadarShieldPositions", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(self, null);
                     }
                     else
                     {
@@ -2924,6 +3220,7 @@ namespace ExtendedData
                 MainViewModel.Instance.Show_CoopOptions = false;
                 MainViewModel.Instance.Show_CoopWaiting = false;
                 MainViewModel.Instance.Show_MPSharing = false;
+                Shared.CoopTrailSetupPresentation.Refresh(self, preserveMissionText: trailSource.IsAvailable);
                 MainViewModel.Instance.Show_MultiplayerSetup = true;
                 if (trailId == 0) MainViewModel.Instance.Show_CoopTrail1 = false;
                 if (trailId == 1) MainViewModel.Instance.Show_CoopTrail2 = false;
@@ -2932,7 +3229,8 @@ namespace ExtendedData
                 // ShowSetupScreen rebuilds lobby settings. Reapply the selected mission only
                 // after that transition, matching the working Custom Trail Customize path.
                 CoopSetupOpened?.Invoke();
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2969", $"Opened Coop Trail setup trail={trailId + 1}, mission={mission}, source={source}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2969", $"Opened Coop Trail setup trail={trailId + 1}, mission={mission}, source={source}.");
             }
 
             private void BroadcastCoopCustomize(int trailId, int missionId)
@@ -2972,8 +3270,9 @@ namespace ExtendedData
                     dataLength = bytes.Length,
                     dataOffset = 0,
                 });
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3009", $"Broadcast Built-in Customize launch origin: trailType={packet.TrailType}, " +
-                    $"missionIndex={packet.MissionId}, packetId={builtInCustomizeOriginPacketId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3009", $"Broadcast Built-in Customize launch origin: trailType={packet.TrailType}, " +
+                        $"missionIndex={packet.MissionId}, packetId={builtInCustomizeOriginPacketId}.");
             }
 
             internal void BroadcastCoopLaunch(int trailId, int missionId)
@@ -2998,8 +3297,9 @@ namespace ExtendedData
                     dataLength = bytes.Length,
                     dataOffset = 0,
                 });
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3037", $"Broadcast Coop Trail {(launch ? "launch" : "setup")} transition " +
-                    $"trail={trailId + 1}, mission={missionId}, packetId={coopCustomizePacketId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3037", $"Broadcast Coop Trail {(launch ? "launch" : "setup")} transition " +
+                        $"trail={trailId + 1}, mission={missionId}, packetId={coopCustomizePacketId}.");
             }
 
             private void OnCoopCustomizePacket(ReceiveCustomPacketEventArgs<CoopCustomizePacket> args)
@@ -3015,8 +3315,13 @@ namespace ExtendedData
                     Launch = source.Launch
                 };
                 ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
-                UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                    () => ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId)));
+                object epoch = System.Threading.Volatile.Read(ref coopPacketEpoch);
+                APIShared.ApiShared.ForMod(ExtendedDataPlugin.PluginGuid).Network.TryPostPresentation(
+                    () => {
+                        if (!ReferenceEquals(epoch, coopPacketEpoch) ||
+                            !ReferenceEquals(coopPacketLobby, Platform_Multiplayer.Instance?.activeLobby)) return;
+                        ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId));
+                    });
             }
 
             private void ProcessCoopCustomizePacket(CoopCustomizePacket packet, CSteamID senderSteamId)
@@ -3038,7 +3343,7 @@ namespace ExtendedData
                     }
 
                     FRONT_Multiplayer self = MainViewModel.Instance.FRONTMultiplayer;
-                    if (!enabled || self?.currentLobby == null || self.currentLobby.isHost ||
+                    if ((!enabled && !(packet.Launch && CoopEnabled)) || self?.currentLobby == null || self.currentLobby.isHost ||
                         self.singlePlayerCoop || !self.currentLobby.coopTrailGame)
                     {
                         Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3084", "Ignored Coop Trail transition outside an active client Coop lobby.");
@@ -3077,8 +3382,13 @@ namespace ExtendedData
                     MissionId = source.MissionId
                 };
                 ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
-                UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                    () => ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId)));
+                object epoch = System.Threading.Volatile.Read(ref coopPacketEpoch);
+                APIShared.ApiShared.ForMod(ExtendedDataPlugin.PluginGuid).Network.TryPostPresentation(
+                    () => {
+                        if (!ReferenceEquals(epoch, coopPacketEpoch) ||
+                            !ReferenceEquals(coopPacketLobby, Platform_Multiplayer.Instance?.activeLobby)) return;
+                        ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId));
+                    });
             }
 
             private void ProcessBuiltInCustomizeOriginPacket(
@@ -3110,8 +3420,9 @@ namespace ExtendedData
                     }
 
                     CaptureBuiltInCustomizeOrigin(packet.TrailType, packet.MissionId);
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3157", $"Accepted Built-in Customize launch origin from host: trailType={packet.TrailType}, " +
-                        $"missionIndex={packet.MissionId}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3157", $"Accepted Built-in Customize launch origin from host: trailType={packet.TrailType}, " +
+                            $"missionIndex={packet.MissionId}.");
                 }
                 catch (Exception exception)
                 {
@@ -3143,7 +3454,7 @@ namespace ExtendedData
                 {
                     if (pendingTrailMakerLoad && !string.IsNullOrWhiteSpace(requestedTrailPath))
                     {
-                        bool sidecarExists = EnterSidecar(requestedTrailPath, editable: true);
+                        bool sidecarExists = EnterSidecar(requestedTrailPath, editable: true, authoring: true);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), requestedTrailPath);
                         source = sidecarExists ? "loaded mission sidecar" : "loaded mission defaults";
                     }
@@ -3173,7 +3484,8 @@ namespace ExtendedData
                         source = "new mission defaults";
                     }
                     missionPresetLifecycle.CompleteTrailMakerReturn();
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3222", "Activated editable Trail Maker mod-settings context from " + source + ".");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3222", "Activated editable Trail Maker mod-settings context from " + source + ".");
                 }
                 catch (Exception exception)
                 {
@@ -3212,7 +3524,8 @@ namespace ExtendedData
                         ? CaptureDocument()
                         : trailMakerWorkingDocument ?? ModSettingsDefinition.CreateModDefaults();
                     UpdateTrailMakerWorkingDocument(document, trailMakerTrailPath);
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3271", "Captured editable Trail Maker mod-settings draft before " + transition + ".");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3271", "Captured editable Trail Maker mod-settings draft before " + transition + ".");
                 }
                 catch (Exception exception)
                 {
@@ -3238,6 +3551,7 @@ namespace ExtendedData
 
             private void ClearTrailMakerAuthoringState()
             {
+                embeddedMakerMapHeader = null;
                 trailMakerWorkingDocument = null;
                 trailMakerWorkingSnapshots = null;
                 trailMakerTrailPath = null;
@@ -3247,7 +3561,7 @@ namespace ExtendedData
                 missionPresetLifecycle.Reset();
             }
 
-            private bool EnterSidecar(string trailPath, bool editable, bool previewOnly = false)
+            private bool EnterSidecar(string trailPath, bool editable, bool previewOnly = false, bool authoring = false)
             {
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 bool exists = File.Exists(sidecar);
@@ -3262,6 +3576,7 @@ namespace ExtendedData
 
                 if (trailContext && activeSidecarEditable == editable &&
                     activeSidecarPreviewOnly == previewOnly &&
+                    activeSidecarAuthoring == authoring &&
                     string.Equals(activeSidecarPath, sidecar, StringComparison.OrdinalIgnoreCase) &&
                     activeSidecarLength == length && activeSidecarWriteTicks == writeTicks &&
                     AreAllTrailPresetsActive())
@@ -3269,25 +3584,33 @@ namespace ExtendedData
                     return exists;
                 }
 
-                ModSettingsDefinition document = exists
-                    ? ModSettingsJson.Read(sidecar)
-                    : ModSettingsDefinition.CreateModDefaults();
-                trailSourceDocument = exists ? CloneDocument(document) : null;
-                activeCreatorDocument = CloneDocument(document);
-                workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
-                ModSettingsApplication.EnterContext(BuildRestartContext(workingSourceContextId, document, trailPath));
-                SourcesChanged?.Invoke();
-                ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
-                    previewOnly: previewOnly, preserveCurrentValues: editable);
-                string[] mentionedMods = document.Mods.Keys.ToArray();
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3343", $"Loaded Trail sidecar [{sidecar}]; exists={exists}, editable={editable}, " +
-                    "mentioned=[" + string.Join(", ", mentionedMods) + "].");
-                activeSidecarPath = sidecar;
-                activeSidecarLength = length;
-                activeSidecarWriteTicks = writeTicks;
-                activeSidecarEditable = editable;
-                activeSidecarPreviewOnly = previewOnly;
-                return exists;
+                trailSource.Clear();
+                try
+                {
+                    ModSettingsDefinition document = exists
+                        ? ModSettingsJson.Read(sidecar)
+                        : ModSettingsDefinition.CreateModDefaults();
+                    workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
+                    return trailSource.Activate(exists ? document : null, workingSourceContextId, () =>
+                    {
+                        ModSettingsApplication.EnterContext(BuildRestartContext(workingSourceContextId, document, trailPath));
+                        ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
+                            previewOnly: previewOnly, preserveCurrentValues: editable && authoring);
+                        activeCreatorDocument = CloneDocument(document);
+                        string[] mentionedMods = document.Mods.Keys.ToArray();
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3343", $"Loaded Trail sidecar [{sidecar}]; exists={exists}, editable={editable}, " +
+                                "mentioned=[" + string.Join(", ", mentionedMods) + "].");
+                        activeSidecarPath = sidecar;
+                        activeSidecarLength = length;
+                        activeSidecarWriteTicks = writeTicks;
+                        activeSidecarEditable = editable;
+                        activeSidecarPreviewOnly = previewOnly;
+                        activeSidecarAuthoring = authoring;
+                        return exists;
+                    });
+                }
+                finally { SourcesChanged?.Invoke(); }
             }
 
             private ModSettingsDefinition CaptureDocument()
@@ -3297,26 +3620,13 @@ namespace ExtendedData
 
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
-                    IModSettingsPresetEndpoint viewModel = participant.Value;
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(viewModel);
-                    var target = new ModSettingsEntry();
-                    foreach (PropertyInfo property in properties.Values)
+                    MissionModSettingsEntry captured = MissionModSettingsPreparation.CaptureEntry(participant.Value, name =>
                     {
-                        TrailSettingMode mode = getPropertyMode(participant.Key, property.Name);
-                        if (mode == TrailSettingMode.Player)
-                        {
-                            target.PlayerSettings = target.PlayerSettings
-                                .Concat(new[] { property.Name })
-                                .ToArray();
-                        }
-                        else if (mode == TrailSettingMode.Fixed)
-                        {
-                            object value = property.GetValue(viewModel);
-                            target.Overrides[property.Name] = ModSettingsJson.IsSupportedValue(value)
-                                ? value
-                                : EncodeSettingValue(property.PropertyType, value);
-                        }
-                    }
+                        TrailSettingMode mode = getPropertyMode(participant.Key, name);
+                        return mode == TrailSettingMode.Player ? PublishedPresetValueMode.Player :
+                            mode == TrailSettingMode.Fixed ? PublishedPresetValueMode.Fixed : PublishedPresetValueMode.ModDefault;
+                    });
+                    var target = new ModSettingsEntry { PlayerSettings = captured.PlayerSettings, Overrides = captured.Overrides };
                     if (target.PlayerSettings.Length != 0 || target.Overrides.Count != 0)
                         document.Mods[participant.Key] = target;
                 }
@@ -3331,108 +3641,59 @@ namespace ExtendedData
                 bool previewOnly = false,
                 bool preserveCurrentValues = false,
                 Dictionary<string, Dictionary<string, byte[]>> startingSnapshots = null,
-                bool materializeCurrentValues = false)
+                bool materializeCurrentValues = false,
+                bool preserveEditorModes = false)
             {
                 ClearActiveSidecar();
-                Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
-                foreach (string mentionedMod in document.Mods.Keys)
-                    if (!allParticipants.ContainsKey(mentionedMod))
-                        throw new InvalidDataException("Required Map/Trail settings provider is missing or incompatible: " + mentionedMod);
-                // Capture before leaving the old preset; exiting restores the personal preset.
-                Dictionary<string, Dictionary<string, byte[]>> currentSnapshots =
-                    preserveCurrentValues || materializeCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null;
-                ExitActiveParticipants(allParticipants);
-                var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool>>(allParticipants.Count);
-                foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)
-                {
-                    if (participant.Value is PresetLobbyModSettingsViewModel dynamicParticipant && dynamicParticipant.System_HasApplicationBackend)
-                        dynamicParticipant.System_RefreshOwnConfiguration();
-                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
-                    string[] removedSettings = ModSettingsJson.RemoveUnknownSettings(
-                        document,
-                        participant.Key,
-                        properties.Keys);
-                    if (removedSettings.Length != 0)
-                    {
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3419", $"Ignored obsolete Map/Trail settings for [{participant.Key}]: " +
-                            string.Join(", ", removedSettings) + ". They will be omitted on the next save.");
-                    }
-
-                    document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry);
-                    // A direct Trail selection is only a preview. Mods absent from its
-                    // sidecar keep their editable personal values until launch.
-                    if (previewOnly && entry == null)
-                        continue;
-                    // Editable authoring starts from the current values. A playable Trail
-                    // still uses the participant's disabled baseline for missing values.
-                    Dictionary<string, byte[]> snapshot;
-                    if (preserveCurrentValues || materializeCurrentValues)
-                    {
-                        if (startingSnapshots == null ||
-                            !startingSnapshots.TryGetValue(participant.Key, out snapshot))
-                            snapshot = currentSnapshots[participant.Key];
-                        snapshot = CloneSnapshot(snapshot);
-                    }
-                    else
-                    {
-                        snapshot = participant.Value.System_CreateDisabledMissionPresetSnapshot();
-                    }
-                    if (entry != null && !materializeCurrentValues)
-                    {
-                        // A playable Trail resolves player values from the restored personal
-                        // preset. Authoring already captured the current editable values.
-                        foreach (string propertyName in preserveCurrentValues && !(participant.Value is PresetLobbyModSettingsViewModel dynamicModel && dynamicModel.System_HasApplicationBackend)
-                            ? Array.Empty<string>()
-                            : entry.PlayerSettings)
-                        {
-                            if (!properties.TryGetValue(propertyName, out PropertyInfo property))
-                                continue;
-                            object current = property.GetValue(participant.Value);
-                            snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, current);
-                        }
-                        // Fixed Trail values have final precedence.
-                        foreach (KeyValuePair<string, object> setting in entry.Overrides)
-                        {
-                            if (!properties.TryGetValue(setting.Key, out PropertyInfo property))
-                                continue;
-                            object converted = ConvertJsonValue(setting.Value, property.PropertyType);
-                            snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, converted);
-                        }
-                    }
-                    if (!materializeCurrentValues) snapshot = ModSettingsApplication.ResumeSnapshot(participant.Key) ?? snapshot;
-                    prepared.Add(Tuple.Create(participant.Key, participant.Value, snapshot, entry != null));
-                }
-
-                if (editable)
-                    applyEditorModes?.Invoke(document, useFixedDefaults);
-
+                var shared = new MissionModSettingsDocument {
+                    SchemaVersion = document.SchemaVersion,
+                    Mods = document.Mods.ToDictionary(item => item.Key, item => ToSharedEntry(item.Value), StringComparer.Ordinal)
+                };
+                MissionModSettingsApplicationKind kind = materializeCurrentValues ? MissionModSettingsApplicationKind.Materialized :
+                    preserveCurrentValues ? (editable ? MissionModSettingsApplicationKind.Authoring : MissionModSettingsApplicationKind.AuthoringTest) :
+                    previewOnly ? MissionModSettingsApplicationKind.Preview :
+                    editable ? MissionModSettingsApplicationKind.Editable : MissionModSettingsApplicationKind.Playable;
                 try
                 {
-                    foreach (Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool> item in prepared)
-                    {
-                        if (item.Item2 is IModSettingsMissionSourceEndpoint sourceEndpoint)
-                            sourceEndpoint.System_SetExplicitMissionSettings(item.Item4);
-                        item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable);
-                        ModSettingsApplication.RestorePreparedSources(item.Item1);
-                        activeParticipantIds.Add(item.Item1);
-                    }
+                    var removed = settingsSession.Apply(shared, FindCompatibleViewModels(), kind, presetLabel, startingSnapshots,
+                        prepared =>
+                        {
+                            CopyPreparedEntries(prepared, document);
+                            if (editable && !preserveEditorModes) applyEditorModes?.Invoke(document, useFixedDefaults);
+                        });
+                    foreach (var item in removed)
+                        if (item.Value.Count != 0)
+                            {
+                                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/settings-pruning", "Ignored obsolete Map/Trail settings for [" +
+                                item.Key + "]: " + string.Join(", ", item.Value) + ". They will be omitted on the next save.");
+                            }
                     trailContext = true;
                     workingContextEditable = editable;
+                    if (preserveEditorModes)
+                        foreach (var participant in FindCompatibleViewModels())
+                            if (participant.Value is IModSettingsMissionSourceEndpoint source)
+                                source.System_SetExplicitMissionSettings(activeCreatorDocument?.Mods.ContainsKey(participant.Key) == true);
                     activeContextLabel = string.IsNullOrWhiteSpace(presetLabel) ? "Trail" : presetLabel;
                 }
                 catch
                 {
-                    // Roll back only participants whose entry call actually completed.
-                    try
-                    {
-                        ExitActiveParticipants(allParticipants);
-                    }
-                    catch (Exception rollbackException)
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3496", "Could not fully roll back Map/Trail mod settings: " + rollbackException);
-                    }
-                    trailContext = activeParticipantIds.Count != 0;
+                    trailContext = settingsSession.ActiveModGuids.Count != 0;
                     throw;
+                }
+                finally { CopyPreparedEntries(shared, document); }
+            }
+
+            private static void CopyPreparedEntries(MissionModSettingsDocument source, ModSettingsDefinition target)
+            {
+                foreach (string id in target.Mods.Keys.ToArray())
+                {
+                    if (!source.Mods.TryGetValue(id, out MissionModSettingsEntry entry)) { target.Mods.Remove(id); continue; }
+                    if (entry != null && target.Mods[id] != null)
+                    {
+                        target.Mods[id].PlayerSettings = entry.PlayerSettings;
+                        target.Mods[id].Overrides = entry.Overrides;
+                    }
                 }
             }
 
@@ -3442,41 +3703,14 @@ namespace ExtendedData
                 var snapshots = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal);
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
-                    Dictionary<string, byte[]> snapshot =
-                        participant.Value is PresetLobbyModSettingsViewModel model && model.System_HasApplicationBackend
-                            ? model.System_CreateCurrentWorkingSnapshot()
-                            : participant.Value.System_CreateDisabledMissionPresetSnapshot();
-                    foreach (PropertyInfo property in GetPersistedProperties(participant.Value).Values)
-                        snapshot[property.Name] = MessagePackSerializer.Serialize(
-                            property.PropertyType, property.GetValue(participant.Value));
-                    snapshots[participant.Key] = CloneSnapshot(snapshot);
+                    snapshots[participant.Key] = participant.Value is IModSettingsWorkingCopyEndpoint working
+                        ? working.System_CreateCurrentWorkingSnapshot()
+                        : MissionModSettingsPreparation.CaptureCurrentSnapshot(participant.Value);
                 }
                 return snapshots;
             }
 
-            private static Dictionary<string, byte[]> CloneSnapshot(Dictionary<string, byte[]> source)
-            {
-                var copy = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-                if (source != null)
-                    foreach (KeyValuePair<string, byte[]> item in source)
-                        copy[item.Key] = item.Value == null ? null : (byte[])item.Value.Clone();
-                return copy;
-            }
-
-            private void ExitActiveParticipants(Dictionary<string, IModSettingsPresetEndpoint> participants = null)
-            {
-                participants = participants ?? FindCompatibleViewModels();
-                foreach (string modId in activeParticipantIds.ToArray())
-                {
-                    if (!participants.TryGetValue(modId, out IModSettingsPresetEndpoint viewModel))
-                    {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3537", $"Could not leave missing active Map/Trail settings endpoint [{modId}].");
-                        continue;
-                    }
-                    viewModel.System_ExitMissionPreset();
-                    activeParticipantIds.Remove(modId);
-                }
-            }
+            private void ExitActiveParticipants() => settingsSession.Exit();
 
             private Dictionary<string, IModSettingsPresetEndpoint> FindCompatibleViewModels()
             {
@@ -3484,27 +3718,10 @@ namespace ExtendedData
                     .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
             }
 
-            private Dictionary<string, PropertyInfo> GetPersistedProperties(object viewModel)
-            {
-                // Dynamic accessors capture their provider instance and must never share a type cache.
-                if (viewModel is PresetLobbyModSettingsViewModel dynamicModel && dynamicModel.System_HasDynamicSettings)
-                    return ModSettingsApplication.GetHostProperties(viewModel)
-                        .ToDictionary(property => property.Name, StringComparer.Ordinal);
-                Type type = viewModel.GetType();
-                if (persistedPropertiesByType.TryGetValue(type, out Dictionary<string, PropertyInfo> cached))
-                    return cached;
-                // Trail sidecars define shared match rules only. Personal and transient
-                // properties remain owned by each participant and never enter .modtrail.json.
-                cached = ModSettingsApplication.GetHostProperties(viewModel)
-                    .ToDictionary(property => property.Name, StringComparer.Ordinal);
-                persistedPropertiesByType[type] = cached;
-                return cached;
-            }
-
             private bool AreAllTrailPresetsActive()
             {
                 Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
-                return activeParticipantIds.All(id =>
+                return settingsSession.ActiveModGuids.All(id =>
                 {
                     if (!participants.TryGetValue(id, out IModSettingsPresetEndpoint viewModel))
                         return false;
@@ -3519,30 +3736,59 @@ namespace ExtendedData
                 activeSidecarWriteTicks = 0;
                 activeSidecarEditable = false;
                 activeSidecarPreviewOnly = false;
+                activeSidecarAuthoring = false;
             }
 
-            private static object ConvertJsonValue(object value, Type targetType)
-                => ModSettingsPresetJson.ConvertValue(value, targetType);
 
-            private static string EncodeSettingValue(Type propertyType, object value)
-            {
-                byte[] bytes = MessagePackSerializer.Serialize(propertyType, value);
-                return EncodedSettingPrefix + Convert.ToBase64String(bytes);
-            }
 
-            private void CopySidecars(string source, string destination, bool overwrite)
+            // Sidecars travel with their own Trail only: mod settings and Lord requirements of a mission
+            // whose .trail is not in the source are never copied. Requirements of a re-saved Trail stay
+            // useful (export re-checks each slot's identity); a damaged file is reported and skipped, never
+            // repaired here. Existing targets stay untouched unless overwrite is requested. Returns the
+            // files not copied.
+            private List<string> CopySidecars(string source, string destination, bool overwrite)
             {
+                var skipped = new List<string>();
                 if (!Directory.Exists(source) || !Directory.Exists(destination))
-                    return;
-                foreach (string sidecar in Directory.GetFiles(
-                    source,
-                    "*" + MissionLoader.ModSettingsFileSuffix))
+                    return skipped;
+                foreach (string trail in Directory.GetFiles(source, "*.trail"))
                 {
-                    string target = IOPath.Combine(destination, IOPath.GetFileName(sidecar));
-                    if (!overwrite && File.Exists(target))
-                        continue;
-                    File.Copy(sidecar, target, overwrite);
+                    var sidecars = new List<string> { MissionLoader.GetTrailModSettingsPath(trail) };
+                    string requirements = TrailLordRequirements.SidecarPath(trail);
+                    if (File.Exists(requirements))
+                    {
+                        string problem = null;
+                        try
+                        {
+                            TrailLordRequirements.ReadUnbound(trail, out _);
+                        }
+                        catch (Exception exception)
+                        {
+                            problem = exception.Message;
+                        }
+                        if (problem == null)
+                            sidecars.Add(requirements);
+                        else
+                        {
+                            skipped.Add(IOPath.GetFileName(requirements));
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3395", $"Did not copy Lord requirements [{requirements}]: {problem}.");
+                        }
+                    }
+                    foreach (string sidecar in sidecars)
+                    {
+                        if (!File.Exists(sidecar))
+                            continue;
+                        string target = IOPath.Combine(destination, IOPath.GetFileName(sidecar));
+                        if (!overwrite && File.Exists(target))
+                        {
+                            skipped.Add(IOPath.GetFileName(sidecar));
+                            Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3405", $"Kept existing sidecar [{target}] instead of importing [{sidecar}].");
+                            continue;
+                        }
+                        File.Copy(sidecar, target, overwrite);
+                    }
                 }
+                return skipped;
             }
 
             private void DeleteOrphanMakerSidecars()
@@ -3553,6 +3799,12 @@ namespace ExtendedData
                     "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
                 {
                     if (!File.Exists(MissionLoader.GetTrailPathFromModSettingsPath(sidecar)))
+                        File.Delete(sidecar);
+                }
+                foreach (string sidecar in Directory.GetFiles(root, "Trail_Mission_*" + TrailLordRequirements.Suffix))
+                {
+                    string trail = sidecar.Substring(0, sidecar.Length - TrailLordRequirements.Suffix.Length) + ".trail";
+                    if (!File.Exists(trail))
                         File.Delete(sidecar);
                 }
             }

@@ -1,0 +1,3436 @@
+[
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/advanced.json",
+    "bytes": 17335606,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/advanced.json",
+    "sha256": "4453AFC89383DB6A423C3FB2340315FEBEB0CF2A3540E2C8EB846D81AB0CCFE9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/changes-000.jsonl",
+    "bytes": 33496581,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/changes-000.jsonl",
+    "sha256": "B51B84B6907B88549989531A087DC3B94529DCC3298054CD12DE3F22563425E6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/changes-001.jsonl",
+    "bytes": 22804878,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/changes-001.jsonl",
+    "sha256": "7E31871D84470BC42449BF006143FFAADD4870E0D8BF164EC21FCCCED1797A04"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-000.jsonl",
+    "bytes": 33424867,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-000.jsonl",
+    "sha256": "B22E50565042599F643B323288315E50CF1F0E30C9BE47E0422D93579F51D84F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-001.jsonl",
+    "bytes": 33491697,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-001.jsonl",
+    "sha256": "2BA2761B76A1819F3DC9D0ACDD5558BBC0FF48D4D33BCB67C513405976D446B1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-002.jsonl",
+    "bytes": 33498064,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-002.jsonl",
+    "sha256": "80E9F6E04C2A12B2396526CC55CA5975C1325CE1497073BD2F5B4E01188A3161"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-003.jsonl",
+    "bytes": 33506829,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-003.jsonl",
+    "sha256": "49E829F19D6A58343E27064E12088ED17FDBFB141FE7EA916AE1A055CF03A35B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-004.jsonl",
+    "bytes": 33489168,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-004.jsonl",
+    "sha256": "828BE911ECC6831AF8C8E5B1FE849953E6A9C00264563D66FA891FF92499F49E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-005.jsonl",
+    "bytes": 33428589,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-005.jsonl",
+    "sha256": "DDC507C1D2D17FCC5D00092E9D0090ABB5A964B6D677E439F3FD03CEFC4B3083"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-006.jsonl",
+    "bytes": 33404666,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-006.jsonl",
+    "sha256": "9FD1FA2BDFD83B30B2BA13B1DC41C84FB503589F9CC6B741FD53127F06C6660E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-007.jsonl",
+    "bytes": 33445691,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-007.jsonl",
+    "sha256": "8BD423BA7E49931ADFB9FF8EC4004C2EDA0DA6B5D794247EAAED3F960338F480"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-008.jsonl",
+    "bytes": 33428049,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-008.jsonl",
+    "sha256": "2EEA2C50A7F4E883F7F451D9829ECE227D825E50937F7D9EB8591A93E7D7CF8F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-009.jsonl",
+    "bytes": 33310862,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-009.jsonl",
+    "sha256": "8CDD1B8E12B4AA6AF52C7B9D80AB885436CF9B9D67A76BFEA837FC26CC433730"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-00A.jsonl",
+    "bytes": 33355302,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00A.jsonl",
+    "sha256": "D79F1F8AB601DB740619DE5CF998FE190122225C0E869E33FFB22493884662A4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-00B.jsonl",
+    "bytes": 33436860,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00B.jsonl",
+    "sha256": "9FE9A38B2F6F79629D96F6C265E911ED370FBE4E1760BD65EB5BB04DF40F3D4E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-00C.jsonl",
+    "bytes": 33487889,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00C.jsonl",
+    "sha256": "E6DC2C8FB999B6950B3FB256485FBD43556ACCAB870EEDD24239939229F6D9A9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-00D.jsonl",
+    "bytes": 33552265,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00D.jsonl",
+    "sha256": "8C809A90E53A67CAA6D59E93D93A35D8F9E07CEA7EC7CBF50639F1E4E3F4150F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-00E.jsonl",
+    "bytes": 33410390,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00E.jsonl",
+    "sha256": "7CBC7C1445AB0A402839DADD920E670FA42EA39640E37870EC63BC7B5BFDAA3B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-00F.jsonl",
+    "bytes": 33546687,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00F.jsonl",
+    "sha256": "28D845D41E172B09F6FAD7DFFCCBEE13B4ED16493B6F9953D079424D037469FE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-010.jsonl",
+    "bytes": 33389588,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-010.jsonl",
+    "sha256": "DD2F9B0E8AB9BE898881A0F70AC4F900E35541C968C93250BC695B46E7B02563"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-011.jsonl",
+    "bytes": 33425225,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-011.jsonl",
+    "sha256": "5D211798C45712DDF2E7DB911EDA773FB5F458DAEA090C8FBD79E351163C9F41"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-012.jsonl",
+    "bytes": 33513801,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-012.jsonl",
+    "sha256": "F3181517EF568820EA7DB9FE530AB2AB5A0BF76D566EA8E3244F685E5103B807"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-013.jsonl",
+    "bytes": 33420020,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-013.jsonl",
+    "sha256": "AFF39DE6F084D0050656B8D49A9DC0502479924A6C9D7DDD3818833133D448A2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-014.jsonl",
+    "bytes": 33526145,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-014.jsonl",
+    "sha256": "C08340A7162D69C30A064666CEA85F845387BBCB2FFCAFA81B3C2AF441C29D01"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-015.jsonl",
+    "bytes": 33553110,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-015.jsonl",
+    "sha256": "409CDF265EA5D7546ECCD76C8E0ED767E01C2F5EA5BEBD6CCF7993C9E00DFA36"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-016.jsonl",
+    "bytes": 33453321,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-016.jsonl",
+    "sha256": "34830D05F0C48E2BA8440DF5752192B4A6B6C032F1F0C2650DF9D2361774105A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-017.jsonl",
+    "bytes": 33444586,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-017.jsonl",
+    "sha256": "04DACCFEE2DFF646AE4BF82EBC666C5CF92397ED3221479823E304F1CF71F800"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-018.jsonl",
+    "bytes": 33478980,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-018.jsonl",
+    "sha256": "8FCEF0B9FC84846EF8EA44114478AE7C5864F84644686009E9A770CBA8BCD60F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-019.jsonl",
+    "bytes": 33413477,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-019.jsonl",
+    "sha256": "9A7CA0ADB83AD3EECDF410F724196C83FE3ACADF8BA94B0364E00C2055FD7BD8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-01A.jsonl",
+    "bytes": 33386926,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01A.jsonl",
+    "sha256": "6AC19CB4B53BFC1BD61486FD503881393C0CF56D75633BE02E4CD11A60F06094"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-01B.jsonl",
+    "bytes": 33525569,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01B.jsonl",
+    "sha256": "EA3F6A1BAE79AAA4D55F3C99C832452E25A2586DCF5FDC401395D6D5209D5435"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-01C.jsonl",
+    "bytes": 33520924,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01C.jsonl",
+    "sha256": "112144AEEEB0787E3BC7736A698F0D57B74D6A3D4B5488E638D6AF95D8AEBECB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-01D.jsonl",
+    "bytes": 33492155,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01D.jsonl",
+    "sha256": "0E54499E983B4BD5A513A01EBCF492D5FD4E7A9915BA7AFA1475751FD9BBEB0D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-01E.jsonl",
+    "bytes": 33406517,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01E.jsonl",
+    "sha256": "7D2114BFFA5EA8081D617E072999E0BA92543CE91FC239959420F1C9FA59DD4C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-01F.jsonl",
+    "bytes": 33543315,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01F.jsonl",
+    "sha256": "131116ECC27A0819A495249A3816200C5DF9A6DA53F56EC95EB069A97299428D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-020.jsonl",
+    "bytes": 33430756,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-020.jsonl",
+    "sha256": "C223079607A7C019E22DCFA0599A13CE1842D80381CB35AF844A086BA7F96DBB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-021.jsonl",
+    "bytes": 33497068,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-021.jsonl",
+    "sha256": "DFABAF53F178E0C9C8C6ECA74862AC45913CF875599AC4307CD333FF171F7960"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-022.jsonl",
+    "bytes": 33453969,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-022.jsonl",
+    "sha256": "A87E3C09F708F6288DDA40393C4642D4BF34E99858C164288D7059ADEAA6CA8F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-023.jsonl",
+    "bytes": 33376717,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-023.jsonl",
+    "sha256": "E251F283BA86922A4BA1BEBD35861FC5333B63C6E548A4FD7A06FC17A935821E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-024.jsonl",
+    "bytes": 33376945,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-024.jsonl",
+    "sha256": "9AF089105938ACF1EB66A9D8507F03B42A83FE64C4BB2B9553CE7162190C0EF9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-025.jsonl",
+    "bytes": 33490705,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-025.jsonl",
+    "sha256": "EBBA659B8CA918800CCB305F7791867863DB1CC345A706A7465BF52467547A2F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-026.jsonl",
+    "bytes": 33542990,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-026.jsonl",
+    "sha256": "51976D8EC24A9B6B517A3EB025854745957A60C4C4C7AF5574812A7FCDF01729"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-027.jsonl",
+    "bytes": 33509685,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-027.jsonl",
+    "sha256": "60710548D8BE26F19398CCE3D5887C7F4AF972C5BFD7C9C8F741DB80DFB8E955"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-028.jsonl",
+    "bytes": 33421594,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-028.jsonl",
+    "sha256": "B6D91BE07153D964B8E8F19408822EC465C573D5BDCD14D8A296E331502C322F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-029.jsonl",
+    "bytes": 33538180,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-029.jsonl",
+    "sha256": "412EA7332EBD5B3F9EF932FAE28FF3188B8F0FAB33E4E6266502BDB180522756"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-02A.jsonl",
+    "bytes": 33543465,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02A.jsonl",
+    "sha256": "9C3ECC1E990682AB06499C4D049B399E40DC3DEA1D18F84783CBE7F25F07A0B1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-02B.jsonl",
+    "bytes": 33500216,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02B.jsonl",
+    "sha256": "8C6B9671F427DD2B467E0836587BB16B9AF62044D6A5D3EA7A371226CDD541E9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/facts-02C.jsonl",
+    "bytes": 10898357,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02C.jsonl",
+    "sha256": "C4166C2CDD9B6DDAF9A0AE5B98254567AC2DDD885EA1A19FE7E1F3D8FD821181"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-000.jsonl",
+    "bytes": 33521193,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-000.jsonl",
+    "sha256": "2FA61566560308B71B13CBE832236C277674D377C26093E7009FD777F60C4658"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-001.jsonl",
+    "bytes": 33510586,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-001.jsonl",
+    "sha256": "A7DD6EF5E218E1C9C2AB653500907A9D8835DAEF35399D1EE99F243E992911BD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-002.jsonl",
+    "bytes": 33498980,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-002.jsonl",
+    "sha256": "D81E6B48823FB352D0991CEEE4F2B15A0D51CD745410E7CCBEB7C5716AD50295"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-003.jsonl",
+    "bytes": 33295591,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-003.jsonl",
+    "sha256": "FED7AE5E3FCFDEA1E47AC86AFC60AF99CD15D0E3E87D9403042FE5C0983E1FAC"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-004.jsonl",
+    "bytes": 33545424,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-004.jsonl",
+    "sha256": "86541772004A69E6AD6B7FCCEC5DA99DA7C1DD205E7DDC5AEB28CE40E352F457"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-005.jsonl",
+    "bytes": 33475404,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-005.jsonl",
+    "sha256": "2714B70F2A98F60E3440685480E763D8DDA170BCA24DC9150E4644377E4309BB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-006.jsonl",
+    "bytes": 33502987,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-006.jsonl",
+    "sha256": "F4D44BF444176B00DAFE759F7CCCAD661CD81B393CE71DEB30410F614487EBCB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-007.jsonl",
+    "bytes": 33487923,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-007.jsonl",
+    "sha256": "AF7CDE2BA48E345380F5E7111B283D86F804C72AB85AAA852EAC5218AF4BF10C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-008.jsonl",
+    "bytes": 33486070,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-008.jsonl",
+    "sha256": "8A35DCCD2C8C3D0783D77E7CB298DE6EBAD4F95B310E2F8446762C597E8236B3"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-009.jsonl",
+    "bytes": 33445633,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-009.jsonl",
+    "sha256": "13184BB5DEEC4CE666AC71AFE83531E5B44999C8787BDF81E7DFFC13721C9E2D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-00A.jsonl",
+    "bytes": 33491367,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00A.jsonl",
+    "sha256": "6851B0DA6D357E3A4F6F0FBD3134A90DE98D5D60BDA5C1AB9CECB945DEF2BC81"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-00B.jsonl",
+    "bytes": 33424116,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00B.jsonl",
+    "sha256": "486817A83878F10E6CC001774894ACAB18FCBDEA5F7780836CD392C556433753"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-00C.jsonl",
+    "bytes": 33430213,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00C.jsonl",
+    "sha256": "54298E6CD1514EB28BC2FB198E3401E804CDB78FE2AFC633709CAA43E68F0DC1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-00D.jsonl",
+    "bytes": 33510928,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00D.jsonl",
+    "sha256": "3A97A345BFE0DB58FF65FAA5A8136C5E575271686F51AAE666050D1A9DEAFE14"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-00E.jsonl",
+    "bytes": 33168569,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00E.jsonl",
+    "sha256": "B9B3831B5A46E85F491632E165B560961C1509320EC9B167C9C05E22C9A23EF8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-00F.jsonl",
+    "bytes": 33481496,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00F.jsonl",
+    "sha256": "EF6FEECBE49E23FAF8D2C0AAFAD2512FCE115F4E39EA1E4820DB511971141C89"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-010.jsonl",
+    "bytes": 33552650,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-010.jsonl",
+    "sha256": "EDD7AEAED109500E6F09BD4D5C6A7EFB43F1058F7E3967C9A8B88D3E73A9BA60"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-011.jsonl",
+    "bytes": 33501468,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-011.jsonl",
+    "sha256": "8EA2EA46967BB259D2C42908DF0206FD30B29608AEA2EB9A34DDA8737645A868"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-012.jsonl",
+    "bytes": 33524922,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-012.jsonl",
+    "sha256": "1B387B7071154FBDDD7395153F5D80684183FACBA457544EBDFF7206A3B8A4A6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-013.jsonl",
+    "bytes": 33552665,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-013.jsonl",
+    "sha256": "06BA0B461894C73A884DC5C52F04DAA562B3E4A468EEB00EF5AEC9A4A85FD47F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-014.jsonl",
+    "bytes": 33553761,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-014.jsonl",
+    "sha256": "CDD7BC7A89DB4C2F6DFBE4AF7B963E2A30FA96CFC9094C8E9A7BB82474BCEB6B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-015.jsonl",
+    "bytes": 33537140,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-015.jsonl",
+    "sha256": "A3C2C5AFFA0061F2903971C94D42C35D85E691E073BA94521EAF8A68718EA34D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-016.jsonl",
+    "bytes": 33480649,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-016.jsonl",
+    "sha256": "81C24CCFA193AD94C9DB6820ABAFC0959C654FBBC20D86062FF8874A63A76B8A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-017.jsonl",
+    "bytes": 33492179,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-017.jsonl",
+    "sha256": "6B20C298A77762F88D1109E45BF198E585AE3AD3A7E5FE8184934E119C67D265"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-018.jsonl",
+    "bytes": 33433499,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-018.jsonl",
+    "sha256": "7925BCB6D1BAB2230F6DD3CE07657D88379F404A5B678D9268B285FC5BCC802A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-019.jsonl",
+    "bytes": 33537344,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-019.jsonl",
+    "sha256": "908824CEF9B035CD844E0ABCD748E5A512F7D8327DD2EE90448D701A4AA9CBD6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-01A.jsonl",
+    "bytes": 33479686,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01A.jsonl",
+    "sha256": "16B94BE82BF52001A80359EE58022A3B01B496D01501FB62FA7EB33F0A030B60"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-01B.jsonl",
+    "bytes": 33489566,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01B.jsonl",
+    "sha256": "2F7AEFAA17AAFC97F4308B4FCE59C8D417FCE3DA3B500DABEAEDB22EECFB418F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-01C.jsonl",
+    "bytes": 33437838,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01C.jsonl",
+    "sha256": "D89C87B47068DB6A684640866C2BFF54049FC5836CD789ED5EF879FC0B4CFD00"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-01D.jsonl",
+    "bytes": 33497603,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01D.jsonl",
+    "sha256": "5D4DF1D3D3FC21523A30F82D6F2B34A9CE41353EC4F1AAF08F5B65D2B2FA72B5"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-01E.jsonl",
+    "bytes": 33548847,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01E.jsonl",
+    "sha256": "ADCA5C42473757ACCCDACCE4F440E726AE87DA0FEE450DC66352930B51F4FC75"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-01F.jsonl",
+    "bytes": 33475590,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01F.jsonl",
+    "sha256": "86D48D26DD867586DC5E3B250C4833524336C1494D76A5FA0DFFC831E93FDB59"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-020.jsonl",
+    "bytes": 33416128,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-020.jsonl",
+    "sha256": "573B30871C60C67990DDD91FE0FD0787B72850F4A865C50C775C3F5B5566E562"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-021.jsonl",
+    "bytes": 33511068,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-021.jsonl",
+    "sha256": "1656CC2B91059A785D13395E9F11BCC6537D1E88B0E1B70000FB6CFD0FA2D904"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-022.jsonl",
+    "bytes": 33544264,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-022.jsonl",
+    "sha256": "22FE4F5650AC7E73457F4A0C54D37DE292093696CFC31FCAB885FEEB439677E7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-023.jsonl",
+    "bytes": 33492316,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-023.jsonl",
+    "sha256": "8057E4AA8414C3E9DE47EFD04BAF8D68642550E4429EC062298CFB31FCEA6FCB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-024.jsonl",
+    "bytes": 33517582,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-024.jsonl",
+    "sha256": "036EEF61B9C24E00EE6F0E129AAE1C0BF9E4282C3BA3504DCC401C4FAF59435B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-025.jsonl",
+    "bytes": 33415367,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-025.jsonl",
+    "sha256": "6A2B8104F300B8A79C77E73AF6E7E229F2EADEA8A5234C21A5C946AD25777921"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-026.jsonl",
+    "bytes": 33471390,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-026.jsonl",
+    "sha256": "19B006E0BF9A44A05F4CA08D2B510AE92659EB2EC9AB6EB332F627E1F4837894"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/historical-facts-027.jsonl",
+    "bytes": 26530575,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-027.jsonl",
+    "sha256": "53DA1D2F6576D666866CBD3A9FC67B14E4F7EB11A82C7BCD5AFDF07ADF2A99D5"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/memory-000.jsonl",
+    "bytes": 33553539,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/memory-000.jsonl",
+    "sha256": "9D920478742FCA623A7C6FFEDA6F07CC1C1E7EFF105919F9E26079C01DF0FAFA"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/memory-001.jsonl",
+    "bytes": 33554277,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/memory-001.jsonl",
+    "sha256": "822F73DA4045B17903D73BCC187B4ECF8B168FFFBFA1DC8D82B48CB6924D043B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gEEA67B221E49/memory-002.jsonl",
+    "bytes": 18564556,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/memory-002.jsonl",
+    "sha256": "53025022D0FC01B973E02A03D01129B066B6DABF5DC2CCE1E343D2D10F489CA2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/advanced.json",
+    "bytes": 17335606,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/advanced.json",
+    "sha256": "4453AFC89383DB6A423C3FB2340315FEBEB0CF2A3540E2C8EB846D81AB0CCFE9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/changes-000.jsonl",
+    "bytes": 33496581,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/changes-000.jsonl",
+    "sha256": "B51B84B6907B88549989531A087DC3B94529DCC3298054CD12DE3F22563425E6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/changes-001.jsonl",
+    "bytes": 22804878,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/changes-001.jsonl",
+    "sha256": "7E31871D84470BC42449BF006143FFAADD4870E0D8BF164EC21FCCCED1797A04"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-000.jsonl",
+    "bytes": 33424867,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-000.jsonl",
+    "sha256": "B22E50565042599F643B323288315E50CF1F0E30C9BE47E0422D93579F51D84F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-001.jsonl",
+    "bytes": 33491697,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-001.jsonl",
+    "sha256": "2BA2761B76A1819F3DC9D0ACDD5558BBC0FF48D4D33BCB67C513405976D446B1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-002.jsonl",
+    "bytes": 33498064,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-002.jsonl",
+    "sha256": "80E9F6E04C2A12B2396526CC55CA5975C1325CE1497073BD2F5B4E01188A3161"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-003.jsonl",
+    "bytes": 33506829,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-003.jsonl",
+    "sha256": "49E829F19D6A58343E27064E12088ED17FDBFB141FE7EA916AE1A055CF03A35B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-004.jsonl",
+    "bytes": 33489168,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-004.jsonl",
+    "sha256": "828BE911ECC6831AF8C8E5B1FE849953E6A9C00264563D66FA891FF92499F49E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-005.jsonl",
+    "bytes": 33428589,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-005.jsonl",
+    "sha256": "DDC507C1D2D17FCC5D00092E9D0090ABB5A964B6D677E439F3FD03CEFC4B3083"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-006.jsonl",
+    "bytes": 33404666,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-006.jsonl",
+    "sha256": "9FD1FA2BDFD83B30B2BA13B1DC41C84FB503589F9CC6B741FD53127F06C6660E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-007.jsonl",
+    "bytes": 33445691,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-007.jsonl",
+    "sha256": "8BD423BA7E49931ADFB9FF8EC4004C2EDA0DA6B5D794247EAAED3F960338F480"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-008.jsonl",
+    "bytes": 33428049,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-008.jsonl",
+    "sha256": "2EEA2C50A7F4E883F7F451D9829ECE227D825E50937F7D9EB8591A93E7D7CF8F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-009.jsonl",
+    "bytes": 33310862,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-009.jsonl",
+    "sha256": "8CDD1B8E12B4AA6AF52C7B9D80AB885436CF9B9D67A76BFEA837FC26CC433730"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-00A.jsonl",
+    "bytes": 33355302,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00A.jsonl",
+    "sha256": "D79F1F8AB601DB740619DE5CF998FE190122225C0E869E33FFB22493884662A4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-00B.jsonl",
+    "bytes": 33436860,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00B.jsonl",
+    "sha256": "9FE9A38B2F6F79629D96F6C265E911ED370FBE4E1760BD65EB5BB04DF40F3D4E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-00C.jsonl",
+    "bytes": 33487889,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00C.jsonl",
+    "sha256": "E6DC2C8FB999B6950B3FB256485FBD43556ACCAB870EEDD24239939229F6D9A9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-00D.jsonl",
+    "bytes": 33552265,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00D.jsonl",
+    "sha256": "8C809A90E53A67CAA6D59E93D93A35D8F9E07CEA7EC7CBF50639F1E4E3F4150F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-00E.jsonl",
+    "bytes": 33410390,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00E.jsonl",
+    "sha256": "7CBC7C1445AB0A402839DADD920E670FA42EA39640E37870EC63BC7B5BFDAA3B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-00F.jsonl",
+    "bytes": 33546687,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00F.jsonl",
+    "sha256": "28D845D41E172B09F6FAD7DFFCCBEE13B4ED16493B6F9953D079424D037469FE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-010.jsonl",
+    "bytes": 33389588,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-010.jsonl",
+    "sha256": "DD2F9B0E8AB9BE898881A0F70AC4F900E35541C968C93250BC695B46E7B02563"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-011.jsonl",
+    "bytes": 33425225,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-011.jsonl",
+    "sha256": "5D211798C45712DDF2E7DB911EDA773FB5F458DAEA090C8FBD79E351163C9F41"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-012.jsonl",
+    "bytes": 33513801,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-012.jsonl",
+    "sha256": "F3181517EF568820EA7DB9FE530AB2AB5A0BF76D566EA8E3244F685E5103B807"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-013.jsonl",
+    "bytes": 33420020,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-013.jsonl",
+    "sha256": "AFF39DE6F084D0050656B8D49A9DC0502479924A6C9D7DDD3818833133D448A2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-014.jsonl",
+    "bytes": 33526145,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-014.jsonl",
+    "sha256": "C08340A7162D69C30A064666CEA85F845387BBCB2FFCAFA81B3C2AF441C29D01"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-015.jsonl",
+    "bytes": 33553110,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-015.jsonl",
+    "sha256": "409CDF265EA5D7546ECCD76C8E0ED767E01C2F5EA5BEBD6CCF7993C9E00DFA36"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-016.jsonl",
+    "bytes": 33453321,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-016.jsonl",
+    "sha256": "34830D05F0C48E2BA8440DF5752192B4A6B6C032F1F0C2650DF9D2361774105A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-017.jsonl",
+    "bytes": 33444586,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-017.jsonl",
+    "sha256": "04DACCFEE2DFF646AE4BF82EBC666C5CF92397ED3221479823E304F1CF71F800"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-018.jsonl",
+    "bytes": 33478980,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-018.jsonl",
+    "sha256": "8FCEF0B9FC84846EF8EA44114478AE7C5864F84644686009E9A770CBA8BCD60F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-019.jsonl",
+    "bytes": 33413477,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-019.jsonl",
+    "sha256": "9A7CA0ADB83AD3EECDF410F724196C83FE3ACADF8BA94B0364E00C2055FD7BD8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-01A.jsonl",
+    "bytes": 33386926,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01A.jsonl",
+    "sha256": "6AC19CB4B53BFC1BD61486FD503881393C0CF56D75633BE02E4CD11A60F06094"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-01B.jsonl",
+    "bytes": 33525569,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01B.jsonl",
+    "sha256": "EA3F6A1BAE79AAA4D55F3C99C832452E25A2586DCF5FDC401395D6D5209D5435"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-01C.jsonl",
+    "bytes": 33520924,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01C.jsonl",
+    "sha256": "112144AEEEB0787E3BC7736A698F0D57B74D6A3D4B5488E638D6AF95D8AEBECB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-01D.jsonl",
+    "bytes": 33492155,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01D.jsonl",
+    "sha256": "0E54499E983B4BD5A513A01EBCF492D5FD4E7A9915BA7AFA1475751FD9BBEB0D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-01E.jsonl",
+    "bytes": 33406517,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01E.jsonl",
+    "sha256": "7D2114BFFA5EA8081D617E072999E0BA92543CE91FC239959420F1C9FA59DD4C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-01F.jsonl",
+    "bytes": 33543315,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01F.jsonl",
+    "sha256": "131116ECC27A0819A495249A3816200C5DF9A6DA53F56EC95EB069A97299428D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-020.jsonl",
+    "bytes": 33430756,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-020.jsonl",
+    "sha256": "C223079607A7C019E22DCFA0599A13CE1842D80381CB35AF844A086BA7F96DBB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-021.jsonl",
+    "bytes": 33497068,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-021.jsonl",
+    "sha256": "DFABAF53F178E0C9C8C6ECA74862AC45913CF875599AC4307CD333FF171F7960"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-022.jsonl",
+    "bytes": 33453969,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-022.jsonl",
+    "sha256": "A87E3C09F708F6288DDA40393C4642D4BF34E99858C164288D7059ADEAA6CA8F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-023.jsonl",
+    "bytes": 33376717,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-023.jsonl",
+    "sha256": "E251F283BA86922A4BA1BEBD35861FC5333B63C6E548A4FD7A06FC17A935821E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-024.jsonl",
+    "bytes": 33376945,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-024.jsonl",
+    "sha256": "9AF089105938ACF1EB66A9D8507F03B42A83FE64C4BB2B9553CE7162190C0EF9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-025.jsonl",
+    "bytes": 33490705,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-025.jsonl",
+    "sha256": "EBBA659B8CA918800CCB305F7791867863DB1CC345A706A7465BF52467547A2F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-026.jsonl",
+    "bytes": 33542990,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-026.jsonl",
+    "sha256": "51976D8EC24A9B6B517A3EB025854745957A60C4C4C7AF5574812A7FCDF01729"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-027.jsonl",
+    "bytes": 33509685,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-027.jsonl",
+    "sha256": "60710548D8BE26F19398CCE3D5887C7F4AF972C5BFD7C9C8F741DB80DFB8E955"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-028.jsonl",
+    "bytes": 33421594,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-028.jsonl",
+    "sha256": "B6D91BE07153D964B8E8F19408822EC465C573D5BDCD14D8A296E331502C322F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-029.jsonl",
+    "bytes": 33538180,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-029.jsonl",
+    "sha256": "412EA7332EBD5B3F9EF932FAE28FF3188B8F0FAB33E4E6266502BDB180522756"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-02A.jsonl",
+    "bytes": 33543465,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02A.jsonl",
+    "sha256": "9C3ECC1E990682AB06499C4D049B399E40DC3DEA1D18F84783CBE7F25F07A0B1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-02B.jsonl",
+    "bytes": 33500216,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02B.jsonl",
+    "sha256": "8C6B9671F427DD2B467E0836587BB16B9AF62044D6A5D3EA7A371226CDD541E9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/facts-02C.jsonl",
+    "bytes": 10898357,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02C.jsonl",
+    "sha256": "C4166C2CDD9B6DDAF9A0AE5B98254567AC2DDD885EA1A19FE7E1F3D8FD821181"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-000.jsonl",
+    "bytes": 33521193,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-000.jsonl",
+    "sha256": "2FA61566560308B71B13CBE832236C277674D377C26093E7009FD777F60C4658"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-001.jsonl",
+    "bytes": 33510586,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-001.jsonl",
+    "sha256": "A7DD6EF5E218E1C9C2AB653500907A9D8835DAEF35399D1EE99F243E992911BD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-002.jsonl",
+    "bytes": 33498980,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-002.jsonl",
+    "sha256": "D81E6B48823FB352D0991CEEE4F2B15A0D51CD745410E7CCBEB7C5716AD50295"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-003.jsonl",
+    "bytes": 33295591,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-003.jsonl",
+    "sha256": "FED7AE5E3FCFDEA1E47AC86AFC60AF99CD15D0E3E87D9403042FE5C0983E1FAC"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-004.jsonl",
+    "bytes": 33545424,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-004.jsonl",
+    "sha256": "86541772004A69E6AD6B7FCCEC5DA99DA7C1DD205E7DDC5AEB28CE40E352F457"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-005.jsonl",
+    "bytes": 33475404,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-005.jsonl",
+    "sha256": "2714B70F2A98F60E3440685480E763D8DDA170BCA24DC9150E4644377E4309BB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-006.jsonl",
+    "bytes": 33502987,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-006.jsonl",
+    "sha256": "F4D44BF444176B00DAFE759F7CCCAD661CD81B393CE71DEB30410F614487EBCB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-007.jsonl",
+    "bytes": 33487923,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-007.jsonl",
+    "sha256": "AF7CDE2BA48E345380F5E7111B283D86F804C72AB85AAA852EAC5218AF4BF10C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-008.jsonl",
+    "bytes": 33486070,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-008.jsonl",
+    "sha256": "8A35DCCD2C8C3D0783D77E7CB298DE6EBAD4F95B310E2F8446762C597E8236B3"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-009.jsonl",
+    "bytes": 33445633,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-009.jsonl",
+    "sha256": "13184BB5DEEC4CE666AC71AFE83531E5B44999C8787BDF81E7DFFC13721C9E2D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-00A.jsonl",
+    "bytes": 33491367,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00A.jsonl",
+    "sha256": "6851B0DA6D357E3A4F6F0FBD3134A90DE98D5D60BDA5C1AB9CECB945DEF2BC81"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-00B.jsonl",
+    "bytes": 33424116,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00B.jsonl",
+    "sha256": "486817A83878F10E6CC001774894ACAB18FCBDEA5F7780836CD392C556433753"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-00C.jsonl",
+    "bytes": 33430213,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00C.jsonl",
+    "sha256": "54298E6CD1514EB28BC2FB198E3401E804CDB78FE2AFC633709CAA43E68F0DC1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-00D.jsonl",
+    "bytes": 33510928,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00D.jsonl",
+    "sha256": "3A97A345BFE0DB58FF65FAA5A8136C5E575271686F51AAE666050D1A9DEAFE14"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-00E.jsonl",
+    "bytes": 33168569,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00E.jsonl",
+    "sha256": "B9B3831B5A46E85F491632E165B560961C1509320EC9B167C9C05E22C9A23EF8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-00F.jsonl",
+    "bytes": 33481496,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00F.jsonl",
+    "sha256": "EF6FEECBE49E23FAF8D2C0AAFAD2512FCE115F4E39EA1E4820DB511971141C89"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-010.jsonl",
+    "bytes": 33552650,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-010.jsonl",
+    "sha256": "EDD7AEAED109500E6F09BD4D5C6A7EFB43F1058F7E3967C9A8B88D3E73A9BA60"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-011.jsonl",
+    "bytes": 33501468,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-011.jsonl",
+    "sha256": "8EA2EA46967BB259D2C42908DF0206FD30B29608AEA2EB9A34DDA8737645A868"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-012.jsonl",
+    "bytes": 33524922,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-012.jsonl",
+    "sha256": "1B387B7071154FBDDD7395153F5D80684183FACBA457544EBDFF7206A3B8A4A6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-013.jsonl",
+    "bytes": 33552665,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-013.jsonl",
+    "sha256": "06BA0B461894C73A884DC5C52F04DAA562B3E4A468EEB00EF5AEC9A4A85FD47F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-014.jsonl",
+    "bytes": 33553761,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-014.jsonl",
+    "sha256": "CDD7BC7A89DB4C2F6DFBE4AF7B963E2A30FA96CFC9094C8E9A7BB82474BCEB6B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-015.jsonl",
+    "bytes": 33537140,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-015.jsonl",
+    "sha256": "A3C2C5AFFA0061F2903971C94D42C35D85E691E073BA94521EAF8A68718EA34D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-016.jsonl",
+    "bytes": 33480649,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-016.jsonl",
+    "sha256": "81C24CCFA193AD94C9DB6820ABAFC0959C654FBBC20D86062FF8874A63A76B8A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-017.jsonl",
+    "bytes": 33492179,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-017.jsonl",
+    "sha256": "6B20C298A77762F88D1109E45BF198E585AE3AD3A7E5FE8184934E119C67D265"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-018.jsonl",
+    "bytes": 33433499,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-018.jsonl",
+    "sha256": "7925BCB6D1BAB2230F6DD3CE07657D88379F404A5B678D9268B285FC5BCC802A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-019.jsonl",
+    "bytes": 33537344,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-019.jsonl",
+    "sha256": "908824CEF9B035CD844E0ABCD748E5A512F7D8327DD2EE90448D701A4AA9CBD6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-01A.jsonl",
+    "bytes": 33479686,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01A.jsonl",
+    "sha256": "16B94BE82BF52001A80359EE58022A3B01B496D01501FB62FA7EB33F0A030B60"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-01B.jsonl",
+    "bytes": 33489566,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01B.jsonl",
+    "sha256": "2F7AEFAA17AAFC97F4308B4FCE59C8D417FCE3DA3B500DABEAEDB22EECFB418F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-01C.jsonl",
+    "bytes": 33437838,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01C.jsonl",
+    "sha256": "D89C87B47068DB6A684640866C2BFF54049FC5836CD789ED5EF879FC0B4CFD00"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-01D.jsonl",
+    "bytes": 33497603,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01D.jsonl",
+    "sha256": "5D4DF1D3D3FC21523A30F82D6F2B34A9CE41353EC4F1AAF08F5B65D2B2FA72B5"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-01E.jsonl",
+    "bytes": 33548847,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01E.jsonl",
+    "sha256": "ADCA5C42473757ACCCDACCE4F440E726AE87DA0FEE450DC66352930B51F4FC75"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-01F.jsonl",
+    "bytes": 33475590,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01F.jsonl",
+    "sha256": "86D48D26DD867586DC5E3B250C4833524336C1494D76A5FA0DFFC831E93FDB59"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-020.jsonl",
+    "bytes": 33416128,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-020.jsonl",
+    "sha256": "573B30871C60C67990DDD91FE0FD0787B72850F4A865C50C775C3F5B5566E562"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-021.jsonl",
+    "bytes": 33511068,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-021.jsonl",
+    "sha256": "1656CC2B91059A785D13395E9F11BCC6537D1E88B0E1B70000FB6CFD0FA2D904"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-022.jsonl",
+    "bytes": 33544264,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-022.jsonl",
+    "sha256": "22FE4F5650AC7E73457F4A0C54D37DE292093696CFC31FCAB885FEEB439677E7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-023.jsonl",
+    "bytes": 33492316,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-023.jsonl",
+    "sha256": "8057E4AA8414C3E9DE47EFD04BAF8D68642550E4429EC062298CFB31FCEA6FCB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-024.jsonl",
+    "bytes": 33517582,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-024.jsonl",
+    "sha256": "036EEF61B9C24E00EE6F0E129AAE1C0BF9E4282C3BA3504DCC401C4FAF59435B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-025.jsonl",
+    "bytes": 33415367,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-025.jsonl",
+    "sha256": "6A2B8104F300B8A79C77E73AF6E7E229F2EADEA8A5234C21A5C946AD25777921"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-026.jsonl",
+    "bytes": 33471390,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-026.jsonl",
+    "sha256": "19B006E0BF9A44A05F4CA08D2B510AE92659EB2EC9AB6EB332F627E1F4837894"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/historical-facts-027.jsonl",
+    "bytes": 26530575,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-027.jsonl",
+    "sha256": "53DA1D2F6576D666866CBD3A9FC67B14E4F7EB11A82C7BCD5AFDF07ADF2A99D5"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/memory-000.jsonl",
+    "bytes": 33553539,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/memory-000.jsonl",
+    "sha256": "9D920478742FCA623A7C6FFEDA6F07CC1C1E7EFF105919F9E26079C01DF0FAFA"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/memory-001.jsonl",
+    "bytes": 33554277,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/memory-001.jsonl",
+    "sha256": "822F73DA4045B17903D73BCC187B4ECF8B168FFFBFA1DC8D82B48CB6924D043B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gC811E45209EF/memory-002.jsonl",
+    "bytes": 18564556,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/memory-002.jsonl",
+    "sha256": "53025022D0FC01B973E02A03D01129B066B6DABF5DC2CCE1E343D2D10F489CA2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-000.jsonl",
+    "bytes": 33443922,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F3D8CD12D00A03460BF1E89DAFC0F691118EF90A6AB65194D0D27263798BE803",
+    "sha256": "F3D8CD12D00A03460BF1E89DAFC0F691118EF90A6AB65194D0D27263798BE803"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-001.jsonl",
+    "bytes": 33462043,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/A09E62AC517BBE99AB9C846B1C3DF1E1739EA06BB8196C020B67445AC2F44448",
+    "sha256": "A09E62AC517BBE99AB9C846B1C3DF1E1739EA06BB8196C020B67445AC2F44448"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-002.jsonl",
+    "bytes": 33450671,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/44B1755CA9247C2E33329BA3F17CD698B73E19AF793DE78376A5DF1E5ACCD6F4",
+    "sha256": "44B1755CA9247C2E33329BA3F17CD698B73E19AF793DE78376A5DF1E5ACCD6F4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-003.jsonl",
+    "bytes": 33539705,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F69B075540E92C31D245CF8FA6C75E9F827EAFE4002F317CA1661D02CFE1E593",
+    "sha256": "F69B075540E92C31D245CF8FA6C75E9F827EAFE4002F317CA1661D02CFE1E593"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-004.jsonl",
+    "bytes": 33357355,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1B83D6AFF9F8BB1892A3C438ABB141298943A6F84BEEA2CB056A300A7F5D5EEE",
+    "sha256": "1B83D6AFF9F8BB1892A3C438ABB141298943A6F84BEEA2CB056A300A7F5D5EEE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-005.jsonl",
+    "bytes": 33476924,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F0F2661AFA68E6A414DDE293A5AF8A8B16E1B1CCC333DB8FBBFD14E54A547357",
+    "sha256": "F0F2661AFA68E6A414DDE293A5AF8A8B16E1B1CCC333DB8FBBFD14E54A547357"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-006.jsonl",
+    "bytes": 33502231,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C873D66E5A4E3D67EAACB3E0F8053B6EC222750A47D0694C9946845FA40DC54A",
+    "sha256": "C873D66E5A4E3D67EAACB3E0F8053B6EC222750A47D0694C9946845FA40DC54A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-007.jsonl",
+    "bytes": 33337651,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/65D72ED06318755CD40ACC131CA4921CADC278299168E39CB4F5C798D04DE84D",
+    "sha256": "65D72ED06318755CD40ACC131CA4921CADC278299168E39CB4F5C798D04DE84D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-008.jsonl",
+    "bytes": 33399419,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/9A039F5603AB8D9AB8FB2A872CD0FF4CBB849206462EC116830D67F17B11234E",
+    "sha256": "9A039F5603AB8D9AB8FB2A872CD0FF4CBB849206462EC116830D67F17B11234E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-009.jsonl",
+    "bytes": 33544972,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/248BD3342DC7E0BEC18C5782626FF36FDB1BB78FB42B08F9647BD79583930234",
+    "sha256": "248BD3342DC7E0BEC18C5782626FF36FDB1BB78FB42B08F9647BD79583930234"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-00A.jsonl",
+    "bytes": 33461105,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/5BB9199E81CA6243E07834B17E0E9A3E7B4859C9EDE2EB39519C06DC9C4BFBB4",
+    "sha256": "5BB9199E81CA6243E07834B17E0E9A3E7B4859C9EDE2EB39519C06DC9C4BFBB4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-00B.jsonl",
+    "bytes": 33528548,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/BB76C38750AD745C266039DE52E87FD45FF8727D1D2F5E9A1527E40834067A4D",
+    "sha256": "BB76C38750AD745C266039DE52E87FD45FF8727D1D2F5E9A1527E40834067A4D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-00C.jsonl",
+    "bytes": 33451718,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E52C2E8942A63009404C3ADB8E479A81A8DCE55D45C0BB81E2844DCAC9A0AEBC",
+    "sha256": "E52C2E8942A63009404C3ADB8E479A81A8DCE55D45C0BB81E2844DCAC9A0AEBC"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-00D.jsonl",
+    "bytes": 33453342,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/0CB03D1BCA427226622D80B9D7AFF6B5D4C7C0ABD961BB4B34DFEE80FA253D24",
+    "sha256": "0CB03D1BCA427226622D80B9D7AFF6B5D4C7C0ABD961BB4B34DFEE80FA253D24"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-00E.jsonl",
+    "bytes": 33520129,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E0432B22DBB681F7670E7B7DADDB9E6688490FF810EECBF795341A94D53ECBE8",
+    "sha256": "E0432B22DBB681F7670E7B7DADDB9E6688490FF810EECBF795341A94D53ECBE8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-00F.jsonl",
+    "bytes": 33481936,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6AEDF9AF717A688C4B04017FF1C2416CE8578031A79710ADA2EE4DCA7D0F5B25",
+    "sha256": "6AEDF9AF717A688C4B04017FF1C2416CE8578031A79710ADA2EE4DCA7D0F5B25"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-010.jsonl",
+    "bytes": 33532183,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/13CEB2BD57F326F0452E93A0F017C30AC6049D30DD937377FC1FF0AAB12B965F",
+    "sha256": "13CEB2BD57F326F0452E93A0F017C30AC6049D30DD937377FC1FF0AAB12B965F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-011.jsonl",
+    "bytes": 33466466,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2CEB3411CA800E10FEAC14B4E58920F349A4677C2A7FCE72400241D238D3555F",
+    "sha256": "2CEB3411CA800E10FEAC14B4E58920F349A4677C2A7FCE72400241D238D3555F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-012.jsonl",
+    "bytes": 33498140,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B8055046E965E87C7C4C9EC023F5D046EB808E61932975243A4F4A6511DC7169",
+    "sha256": "B8055046E965E87C7C4C9EC023F5D046EB808E61932975243A4F4A6511DC7169"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-013.jsonl",
+    "bytes": 33506059,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6848D7B365BB12F13B68C332141560DED7C2442F58F22AD2E574BE5CBA95B3F3",
+    "sha256": "6848D7B365BB12F13B68C332141560DED7C2442F58F22AD2E574BE5CBA95B3F3"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-014.jsonl",
+    "bytes": 33463014,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2AFB1E487CAE07B3477E10AC1D4E44FA1D738FD97D852F81398EEDF3D7245AB8",
+    "sha256": "2AFB1E487CAE07B3477E10AC1D4E44FA1D738FD97D852F81398EEDF3D7245AB8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-015.jsonl",
+    "bytes": 33420815,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F0843AE8DF50EF5B522E06A7C6C7F7AE3D1A77F2554ABF26E46101B1DBF23C29",
+    "sha256": "F0843AE8DF50EF5B522E06A7C6C7F7AE3D1A77F2554ABF26E46101B1DBF23C29"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-016.jsonl",
+    "bytes": 33466711,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/78B4CC904C9AAB763EDE91C717CF477ABD9C41E81E079CA7294D554C470824FD",
+    "sha256": "78B4CC904C9AAB763EDE91C717CF477ABD9C41E81E079CA7294D554C470824FD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-017.jsonl",
+    "bytes": 33550709,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B50B26085D223F771B427695629B3A13D81CE10AD71AB2C655850CC9D8F26C18",
+    "sha256": "B50B26085D223F771B427695629B3A13D81CE10AD71AB2C655850CC9D8F26C18"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-018.jsonl",
+    "bytes": 33505975,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/3FF7FD9A1CFA922F2AF417F40B2AAE477931DF7EB18466B80535460A7AF0ACB2",
+    "sha256": "3FF7FD9A1CFA922F2AF417F40B2AAE477931DF7EB18466B80535460A7AF0ACB2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-019.jsonl",
+    "bytes": 33483849,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1C7720A39924410A0331DAD4BF70472739D3BF45974A4461AA079EE70134834C",
+    "sha256": "1C7720A39924410A0331DAD4BF70472739D3BF45974A4461AA079EE70134834C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-01A.jsonl",
+    "bytes": 33501377,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/AB53032BB6060F2EAFC468D3A89D765FA1CEF99592959A06CEF515693F1716B4",
+    "sha256": "AB53032BB6060F2EAFC468D3A89D765FA1CEF99592959A06CEF515693F1716B4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-01B.jsonl",
+    "bytes": 33384360,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B454D69132B99D93830395D19BE1C083A78FA7E9B709C446D07FB6722539232E",
+    "sha256": "B454D69132B99D93830395D19BE1C083A78FA7E9B709C446D07FB6722539232E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-01C.jsonl",
+    "bytes": 33544055,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/97B016CE0D30DB0B744CF031F1A11741787E16D53594662258AE72D5861DFB01",
+    "sha256": "97B016CE0D30DB0B744CF031F1A11741787E16D53594662258AE72D5861DFB01"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-01D.jsonl",
+    "bytes": 33543472,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/790AF16CA4573E6720AE3956A9640F4901B2E2C3CC0328930CD08508F3603135",
+    "sha256": "790AF16CA4573E6720AE3956A9640F4901B2E2C3CC0328930CD08508F3603135"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-01E.jsonl",
+    "bytes": 33278816,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/CAE794B1ED6BBC6FE23D3464D13FA1928802E310E89F09E8D5BDA5F87607606E",
+    "sha256": "CAE794B1ED6BBC6FE23D3464D13FA1928802E310E89F09E8D5BDA5F87607606E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-01F.jsonl",
+    "bytes": 33526058,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2DC5AA44017474496A820DC9F812E79ED40446DD036F8A0BB65FC6109D50EF36",
+    "sha256": "2DC5AA44017474496A820DC9F812E79ED40446DD036F8A0BB65FC6109D50EF36"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-020.jsonl",
+    "bytes": 33498296,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/691D42CE890B58828ED5245DE03AC9E82C28C4E5C78F2990E0674BF1B90E587E",
+    "sha256": "691D42CE890B58828ED5245DE03AC9E82C28C4E5C78F2990E0674BF1B90E587E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-021.jsonl",
+    "bytes": 33474901,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7BC731027919B604F22AE07ED4C4A43DFD96F08D88D2849A14D8F1D2BF3309AD",
+    "sha256": "7BC731027919B604F22AE07ED4C4A43DFD96F08D88D2849A14D8F1D2BF3309AD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-022.jsonl",
+    "bytes": 33499895,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2736C399A30AAEF2D035B40C6EDFE237E1411D0463C36589F3A40C5B4A7AB5C9",
+    "sha256": "2736C399A30AAEF2D035B40C6EDFE237E1411D0463C36589F3A40C5B4A7AB5C9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-023.jsonl",
+    "bytes": 33452400,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C6E8DEBF4E3A34919D386235510E659A243C5539A3573C57CF8B582CA8A153A7",
+    "sha256": "C6E8DEBF4E3A34919D386235510E659A243C5539A3573C57CF8B582CA8A153A7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/gADF6C34DA15D/facts-024.jsonl",
+    "bytes": 13317375,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/FB04911F15A96BF9E3B08CCE9E2B9A4E0D51CADA30B5E0B9277CEAC9334FE611",
+    "sha256": "FB04911F15A96BF9E3B08CCE9E2B9A4E0D51CADA30B5E0B9277CEAC9334FE611"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-000.jsonl",
+    "bytes": 33540696,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C34A7B85D03BB9B0341E3BD7D5C2AC40AA73A4EC4340B787717B718664582121",
+    "sha256": "C34A7B85D03BB9B0341E3BD7D5C2AC40AA73A4EC4340B787717B718664582121"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-001.jsonl",
+    "bytes": 32526442,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/885D3960C0653D8A1EE754C06DABC131CBAE385B189AECA2BD7E71C78FFB473C",
+    "sha256": "885D3960C0653D8A1EE754C06DABC131CBAE385B189AECA2BD7E71C78FFB473C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-002.jsonl",
+    "bytes": 32671622,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/EB4AD5A97837E72479D2F891C2B04DC738A8FA394C38E3D55DA4149733E31015",
+    "sha256": "EB4AD5A97837E72479D2F891C2B04DC738A8FA394C38E3D55DA4149733E31015"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-003.jsonl",
+    "bytes": 32003404,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/89FA5E34A15023C15EE6E8ABDC73C290AEB3939AF46A416920D5F45E372ECF16",
+    "sha256": "89FA5E34A15023C15EE6E8ABDC73C290AEB3939AF46A416920D5F45E372ECF16"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-004.jsonl",
+    "bytes": 31352698,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/D8565518D7EC7BA5420371B64FAA29A4F853C560BCC61EEFED3F7B755B6707AA",
+    "sha256": "D8565518D7EC7BA5420371B64FAA29A4F853C560BCC61EEFED3F7B755B6707AA"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-005.jsonl",
+    "bytes": 32452626,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/29833ECD97198A75CE0A8D4616022C0D7800742EC86466A9B7B274C7144AEC30",
+    "sha256": "29833ECD97198A75CE0A8D4616022C0D7800742EC86466A9B7B274C7144AEC30"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-006.jsonl",
+    "bytes": 32862118,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F9B29EB3511E20655AF886B90DF7D52668551C5595C592323FDCB4B1DDC96A08",
+    "sha256": "F9B29EB3511E20655AF886B90DF7D52668551C5595C592323FDCB4B1DDC96A08"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-007.jsonl",
+    "bytes": 30297761,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/0DD97E6068B3EC9EEF4AB45F2587246D846A04B370BAD7FAD382E76B2FF91949",
+    "sha256": "0DD97E6068B3EC9EEF4AB45F2587246D846A04B370BAD7FAD382E76B2FF91949"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-008.jsonl",
+    "bytes": 29679089,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/56FD8470695015BB9CC9AA9BB6FFC335BF51B000D074B175852B19795AE20E87",
+    "sha256": "56FD8470695015BB9CC9AA9BB6FFC335BF51B000D074B175852B19795AE20E87"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-009.jsonl",
+    "bytes": 24864416,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/D85D853622410D86F0D43BE6F436AB6AB717DA72EC9D262B073CE97DF8692966",
+    "sha256": "D85D853622410D86F0D43BE6F436AB6AB717DA72EC9D262B073CE97DF8692966"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-00A.jsonl",
+    "bytes": 33389459,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/0996917A4914F19D9DF84FE421F7097E77387876AAE59821E0DB40845AAFDE5F",
+    "sha256": "0996917A4914F19D9DF84FE421F7097E77387876AAE59821E0DB40845AAFDE5F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-00B.jsonl",
+    "bytes": 33100663,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/989067A333DAA6CEC6C435CC20A4023114CFB0349A7687499F8ED7E0DFDE89CE",
+    "sha256": "989067A333DAA6CEC6C435CC20A4023114CFB0349A7687499F8ED7E0DFDE89CE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g7CB3EE4E38DD/facts-00C.jsonl",
+    "bytes": 7824644,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/4809044062E5351B9BCDA1D8573BE6166675C6EB563F8C4CAC71C70CC06767DA",
+    "sha256": "4809044062E5351B9BCDA1D8573BE6166675C6EB563F8C4CAC71C70CC06767DA"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-000.jsonl",
+    "bytes": 33443922,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F3D8CD12D00A03460BF1E89DAFC0F691118EF90A6AB65194D0D27263798BE803",
+    "sha256": "F3D8CD12D00A03460BF1E89DAFC0F691118EF90A6AB65194D0D27263798BE803"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-001.jsonl",
+    "bytes": 33462043,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/A09E62AC517BBE99AB9C846B1C3DF1E1739EA06BB8196C020B67445AC2F44448",
+    "sha256": "A09E62AC517BBE99AB9C846B1C3DF1E1739EA06BB8196C020B67445AC2F44448"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-002.jsonl",
+    "bytes": 33450671,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/44B1755CA9247C2E33329BA3F17CD698B73E19AF793DE78376A5DF1E5ACCD6F4",
+    "sha256": "44B1755CA9247C2E33329BA3F17CD698B73E19AF793DE78376A5DF1E5ACCD6F4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-003.jsonl",
+    "bytes": 33539705,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F69B075540E92C31D245CF8FA6C75E9F827EAFE4002F317CA1661D02CFE1E593",
+    "sha256": "F69B075540E92C31D245CF8FA6C75E9F827EAFE4002F317CA1661D02CFE1E593"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-004.jsonl",
+    "bytes": 33357355,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1B83D6AFF9F8BB1892A3C438ABB141298943A6F84BEEA2CB056A300A7F5D5EEE",
+    "sha256": "1B83D6AFF9F8BB1892A3C438ABB141298943A6F84BEEA2CB056A300A7F5D5EEE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-005.jsonl",
+    "bytes": 33476924,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F0F2661AFA68E6A414DDE293A5AF8A8B16E1B1CCC333DB8FBBFD14E54A547357",
+    "sha256": "F0F2661AFA68E6A414DDE293A5AF8A8B16E1B1CCC333DB8FBBFD14E54A547357"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-006.jsonl",
+    "bytes": 33502231,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C873D66E5A4E3D67EAACB3E0F8053B6EC222750A47D0694C9946845FA40DC54A",
+    "sha256": "C873D66E5A4E3D67EAACB3E0F8053B6EC222750A47D0694C9946845FA40DC54A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-007.jsonl",
+    "bytes": 33337651,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/65D72ED06318755CD40ACC131CA4921CADC278299168E39CB4F5C798D04DE84D",
+    "sha256": "65D72ED06318755CD40ACC131CA4921CADC278299168E39CB4F5C798D04DE84D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-008.jsonl",
+    "bytes": 33399419,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/9A039F5603AB8D9AB8FB2A872CD0FF4CBB849206462EC116830D67F17B11234E",
+    "sha256": "9A039F5603AB8D9AB8FB2A872CD0FF4CBB849206462EC116830D67F17B11234E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-009.jsonl",
+    "bytes": 33544972,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/248BD3342DC7E0BEC18C5782626FF36FDB1BB78FB42B08F9647BD79583930234",
+    "sha256": "248BD3342DC7E0BEC18C5782626FF36FDB1BB78FB42B08F9647BD79583930234"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-00A.jsonl",
+    "bytes": 33461105,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/5BB9199E81CA6243E07834B17E0E9A3E7B4859C9EDE2EB39519C06DC9C4BFBB4",
+    "sha256": "5BB9199E81CA6243E07834B17E0E9A3E7B4859C9EDE2EB39519C06DC9C4BFBB4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-00B.jsonl",
+    "bytes": 33528548,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/BB76C38750AD745C266039DE52E87FD45FF8727D1D2F5E9A1527E40834067A4D",
+    "sha256": "BB76C38750AD745C266039DE52E87FD45FF8727D1D2F5E9A1527E40834067A4D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-00C.jsonl",
+    "bytes": 33451718,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E52C2E8942A63009404C3ADB8E479A81A8DCE55D45C0BB81E2844DCAC9A0AEBC",
+    "sha256": "E52C2E8942A63009404C3ADB8E479A81A8DCE55D45C0BB81E2844DCAC9A0AEBC"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-00D.jsonl",
+    "bytes": 33453342,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/0CB03D1BCA427226622D80B9D7AFF6B5D4C7C0ABD961BB4B34DFEE80FA253D24",
+    "sha256": "0CB03D1BCA427226622D80B9D7AFF6B5D4C7C0ABD961BB4B34DFEE80FA253D24"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-00E.jsonl",
+    "bytes": 33520129,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E0432B22DBB681F7670E7B7DADDB9E6688490FF810EECBF795341A94D53ECBE8",
+    "sha256": "E0432B22DBB681F7670E7B7DADDB9E6688490FF810EECBF795341A94D53ECBE8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-00F.jsonl",
+    "bytes": 33481936,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6AEDF9AF717A688C4B04017FF1C2416CE8578031A79710ADA2EE4DCA7D0F5B25",
+    "sha256": "6AEDF9AF717A688C4B04017FF1C2416CE8578031A79710ADA2EE4DCA7D0F5B25"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-010.jsonl",
+    "bytes": 33532183,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/13CEB2BD57F326F0452E93A0F017C30AC6049D30DD937377FC1FF0AAB12B965F",
+    "sha256": "13CEB2BD57F326F0452E93A0F017C30AC6049D30DD937377FC1FF0AAB12B965F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-011.jsonl",
+    "bytes": 33466466,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2CEB3411CA800E10FEAC14B4E58920F349A4677C2A7FCE72400241D238D3555F",
+    "sha256": "2CEB3411CA800E10FEAC14B4E58920F349A4677C2A7FCE72400241D238D3555F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-012.jsonl",
+    "bytes": 33498140,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B8055046E965E87C7C4C9EC023F5D046EB808E61932975243A4F4A6511DC7169",
+    "sha256": "B8055046E965E87C7C4C9EC023F5D046EB808E61932975243A4F4A6511DC7169"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-013.jsonl",
+    "bytes": 33506059,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6848D7B365BB12F13B68C332141560DED7C2442F58F22AD2E574BE5CBA95B3F3",
+    "sha256": "6848D7B365BB12F13B68C332141560DED7C2442F58F22AD2E574BE5CBA95B3F3"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-014.jsonl",
+    "bytes": 33463014,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2AFB1E487CAE07B3477E10AC1D4E44FA1D738FD97D852F81398EEDF3D7245AB8",
+    "sha256": "2AFB1E487CAE07B3477E10AC1D4E44FA1D738FD97D852F81398EEDF3D7245AB8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-015.jsonl",
+    "bytes": 33420815,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F0843AE8DF50EF5B522E06A7C6C7F7AE3D1A77F2554ABF26E46101B1DBF23C29",
+    "sha256": "F0843AE8DF50EF5B522E06A7C6C7F7AE3D1A77F2554ABF26E46101B1DBF23C29"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-016.jsonl",
+    "bytes": 33466711,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/78B4CC904C9AAB763EDE91C717CF477ABD9C41E81E079CA7294D554C470824FD",
+    "sha256": "78B4CC904C9AAB763EDE91C717CF477ABD9C41E81E079CA7294D554C470824FD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-017.jsonl",
+    "bytes": 33550709,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B50B26085D223F771B427695629B3A13D81CE10AD71AB2C655850CC9D8F26C18",
+    "sha256": "B50B26085D223F771B427695629B3A13D81CE10AD71AB2C655850CC9D8F26C18"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-018.jsonl",
+    "bytes": 33505975,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/3FF7FD9A1CFA922F2AF417F40B2AAE477931DF7EB18466B80535460A7AF0ACB2",
+    "sha256": "3FF7FD9A1CFA922F2AF417F40B2AAE477931DF7EB18466B80535460A7AF0ACB2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-019.jsonl",
+    "bytes": 33483849,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1C7720A39924410A0331DAD4BF70472739D3BF45974A4461AA079EE70134834C",
+    "sha256": "1C7720A39924410A0331DAD4BF70472739D3BF45974A4461AA079EE70134834C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-01A.jsonl",
+    "bytes": 33501377,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/AB53032BB6060F2EAFC468D3A89D765FA1CEF99592959A06CEF515693F1716B4",
+    "sha256": "AB53032BB6060F2EAFC468D3A89D765FA1CEF99592959A06CEF515693F1716B4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-01B.jsonl",
+    "bytes": 33384360,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B454D69132B99D93830395D19BE1C083A78FA7E9B709C446D07FB6722539232E",
+    "sha256": "B454D69132B99D93830395D19BE1C083A78FA7E9B709C446D07FB6722539232E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-01C.jsonl",
+    "bytes": 33544055,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/97B016CE0D30DB0B744CF031F1A11741787E16D53594662258AE72D5861DFB01",
+    "sha256": "97B016CE0D30DB0B744CF031F1A11741787E16D53594662258AE72D5861DFB01"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-01D.jsonl",
+    "bytes": 33543472,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/790AF16CA4573E6720AE3956A9640F4901B2E2C3CC0328930CD08508F3603135",
+    "sha256": "790AF16CA4573E6720AE3956A9640F4901B2E2C3CC0328930CD08508F3603135"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-01E.jsonl",
+    "bytes": 33278816,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/CAE794B1ED6BBC6FE23D3464D13FA1928802E310E89F09E8D5BDA5F87607606E",
+    "sha256": "CAE794B1ED6BBC6FE23D3464D13FA1928802E310E89F09E8D5BDA5F87607606E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-01F.jsonl",
+    "bytes": 33526058,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2DC5AA44017474496A820DC9F812E79ED40446DD036F8A0BB65FC6109D50EF36",
+    "sha256": "2DC5AA44017474496A820DC9F812E79ED40446DD036F8A0BB65FC6109D50EF36"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-020.jsonl",
+    "bytes": 33498296,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/691D42CE890B58828ED5245DE03AC9E82C28C4E5C78F2990E0674BF1B90E587E",
+    "sha256": "691D42CE890B58828ED5245DE03AC9E82C28C4E5C78F2990E0674BF1B90E587E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-021.jsonl",
+    "bytes": 33474901,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7BC731027919B604F22AE07ED4C4A43DFD96F08D88D2849A14D8F1D2BF3309AD",
+    "sha256": "7BC731027919B604F22AE07ED4C4A43DFD96F08D88D2849A14D8F1D2BF3309AD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-022.jsonl",
+    "bytes": 33499895,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2736C399A30AAEF2D035B40C6EDFE237E1411D0463C36589F3A40C5B4A7AB5C9",
+    "sha256": "2736C399A30AAEF2D035B40C6EDFE237E1411D0463C36589F3A40C5B4A7AB5C9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-023.jsonl",
+    "bytes": 33452400,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C6E8DEBF4E3A34919D386235510E659A243C5539A3573C57CF8B582CA8A153A7",
+    "sha256": "C6E8DEBF4E3A34919D386235510E659A243C5539A3573C57CF8B582CA8A153A7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g4F7B6F1F0530/facts-024.jsonl",
+    "bytes": 13317375,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/FB04911F15A96BF9E3B08CCE9E2B9A4E0D51CADA30B5E0B9277CEAC9334FE611",
+    "sha256": "FB04911F15A96BF9E3B08CCE9E2B9A4E0D51CADA30B5E0B9277CEAC9334FE611"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/advanced.json",
+    "bytes": 17335606,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/advanced.json",
+    "sha256": "4453AFC89383DB6A423C3FB2340315FEBEB0CF2A3540E2C8EB846D81AB0CCFE9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/changes-000.jsonl",
+    "bytes": 33496581,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/changes-000.jsonl",
+    "sha256": "B51B84B6907B88549989531A087DC3B94529DCC3298054CD12DE3F22563425E6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/changes-001.jsonl",
+    "bytes": 22804878,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/changes-001.jsonl",
+    "sha256": "7E31871D84470BC42449BF006143FFAADD4870E0D8BF164EC21FCCCED1797A04"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-000.jsonl",
+    "bytes": 33424867,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-000.jsonl",
+    "sha256": "B22E50565042599F643B323288315E50CF1F0E30C9BE47E0422D93579F51D84F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-001.jsonl",
+    "bytes": 33491697,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-001.jsonl",
+    "sha256": "2BA2761B76A1819F3DC9D0ACDD5558BBC0FF48D4D33BCB67C513405976D446B1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-002.jsonl",
+    "bytes": 33498064,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-002.jsonl",
+    "sha256": "80E9F6E04C2A12B2396526CC55CA5975C1325CE1497073BD2F5B4E01188A3161"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-003.jsonl",
+    "bytes": 33506829,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-003.jsonl",
+    "sha256": "49E829F19D6A58343E27064E12088ED17FDBFB141FE7EA916AE1A055CF03A35B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-004.jsonl",
+    "bytes": 33489168,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-004.jsonl",
+    "sha256": "828BE911ECC6831AF8C8E5B1FE849953E6A9C00264563D66FA891FF92499F49E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-005.jsonl",
+    "bytes": 33428589,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-005.jsonl",
+    "sha256": "DDC507C1D2D17FCC5D00092E9D0090ABB5A964B6D677E439F3FD03CEFC4B3083"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-006.jsonl",
+    "bytes": 33404666,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-006.jsonl",
+    "sha256": "9FD1FA2BDFD83B30B2BA13B1DC41C84FB503589F9CC6B741FD53127F06C6660E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-007.jsonl",
+    "bytes": 33445691,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-007.jsonl",
+    "sha256": "8BD423BA7E49931ADFB9FF8EC4004C2EDA0DA6B5D794247EAAED3F960338F480"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-008.jsonl",
+    "bytes": 33428049,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-008.jsonl",
+    "sha256": "2EEA2C50A7F4E883F7F451D9829ECE227D825E50937F7D9EB8591A93E7D7CF8F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-009.jsonl",
+    "bytes": 33310862,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-009.jsonl",
+    "sha256": "8CDD1B8E12B4AA6AF52C7B9D80AB885436CF9B9D67A76BFEA837FC26CC433730"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-00A.jsonl",
+    "bytes": 33355302,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00A.jsonl",
+    "sha256": "D79F1F8AB601DB740619DE5CF998FE190122225C0E869E33FFB22493884662A4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-00B.jsonl",
+    "bytes": 33436860,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00B.jsonl",
+    "sha256": "9FE9A38B2F6F79629D96F6C265E911ED370FBE4E1760BD65EB5BB04DF40F3D4E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-00C.jsonl",
+    "bytes": 33487889,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00C.jsonl",
+    "sha256": "E6DC2C8FB999B6950B3FB256485FBD43556ACCAB870EEDD24239939229F6D9A9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-00D.jsonl",
+    "bytes": 33552265,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00D.jsonl",
+    "sha256": "8C809A90E53A67CAA6D59E93D93A35D8F9E07CEA7EC7CBF50639F1E4E3F4150F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-00E.jsonl",
+    "bytes": 33410390,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00E.jsonl",
+    "sha256": "7CBC7C1445AB0A402839DADD920E670FA42EA39640E37870EC63BC7B5BFDAA3B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-00F.jsonl",
+    "bytes": 33546687,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-00F.jsonl",
+    "sha256": "28D845D41E172B09F6FAD7DFFCCBEE13B4ED16493B6F9953D079424D037469FE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-010.jsonl",
+    "bytes": 33389588,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-010.jsonl",
+    "sha256": "DD2F9B0E8AB9BE898881A0F70AC4F900E35541C968C93250BC695B46E7B02563"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-011.jsonl",
+    "bytes": 33425225,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-011.jsonl",
+    "sha256": "5D211798C45712DDF2E7DB911EDA773FB5F458DAEA090C8FBD79E351163C9F41"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-012.jsonl",
+    "bytes": 33513801,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-012.jsonl",
+    "sha256": "F3181517EF568820EA7DB9FE530AB2AB5A0BF76D566EA8E3244F685E5103B807"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-013.jsonl",
+    "bytes": 33420020,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-013.jsonl",
+    "sha256": "AFF39DE6F084D0050656B8D49A9DC0502479924A6C9D7DDD3818833133D448A2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-014.jsonl",
+    "bytes": 33526145,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-014.jsonl",
+    "sha256": "C08340A7162D69C30A064666CEA85F845387BBCB2FFCAFA81B3C2AF441C29D01"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-015.jsonl",
+    "bytes": 33553110,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-015.jsonl",
+    "sha256": "409CDF265EA5D7546ECCD76C8E0ED767E01C2F5EA5BEBD6CCF7993C9E00DFA36"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-016.jsonl",
+    "bytes": 33453321,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-016.jsonl",
+    "sha256": "34830D05F0C48E2BA8440DF5752192B4A6B6C032F1F0C2650DF9D2361774105A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-017.jsonl",
+    "bytes": 33444586,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-017.jsonl",
+    "sha256": "04DACCFEE2DFF646AE4BF82EBC666C5CF92397ED3221479823E304F1CF71F800"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-018.jsonl",
+    "bytes": 33478980,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-018.jsonl",
+    "sha256": "8FCEF0B9FC84846EF8EA44114478AE7C5864F84644686009E9A770CBA8BCD60F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-019.jsonl",
+    "bytes": 33413477,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-019.jsonl",
+    "sha256": "9A7CA0ADB83AD3EECDF410F724196C83FE3ACADF8BA94B0364E00C2055FD7BD8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-01A.jsonl",
+    "bytes": 33386926,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01A.jsonl",
+    "sha256": "6AC19CB4B53BFC1BD61486FD503881393C0CF56D75633BE02E4CD11A60F06094"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-01B.jsonl",
+    "bytes": 33525569,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01B.jsonl",
+    "sha256": "EA3F6A1BAE79AAA4D55F3C99C832452E25A2586DCF5FDC401395D6D5209D5435"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-01C.jsonl",
+    "bytes": 33520924,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01C.jsonl",
+    "sha256": "112144AEEEB0787E3BC7736A698F0D57B74D6A3D4B5488E638D6AF95D8AEBECB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-01D.jsonl",
+    "bytes": 33492155,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01D.jsonl",
+    "sha256": "0E54499E983B4BD5A513A01EBCF492D5FD4E7A9915BA7AFA1475751FD9BBEB0D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-01E.jsonl",
+    "bytes": 33406517,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01E.jsonl",
+    "sha256": "7D2114BFFA5EA8081D617E072999E0BA92543CE91FC239959420F1C9FA59DD4C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-01F.jsonl",
+    "bytes": 33543315,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-01F.jsonl",
+    "sha256": "131116ECC27A0819A495249A3816200C5DF9A6DA53F56EC95EB069A97299428D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-020.jsonl",
+    "bytes": 33430756,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-020.jsonl",
+    "sha256": "C223079607A7C019E22DCFA0599A13CE1842D80381CB35AF844A086BA7F96DBB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-021.jsonl",
+    "bytes": 33497068,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-021.jsonl",
+    "sha256": "DFABAF53F178E0C9C8C6ECA74862AC45913CF875599AC4307CD333FF171F7960"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-022.jsonl",
+    "bytes": 33453969,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-022.jsonl",
+    "sha256": "A87E3C09F708F6288DDA40393C4642D4BF34E99858C164288D7059ADEAA6CA8F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-023.jsonl",
+    "bytes": 33376717,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-023.jsonl",
+    "sha256": "E251F283BA86922A4BA1BEBD35861FC5333B63C6E548A4FD7A06FC17A935821E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-024.jsonl",
+    "bytes": 33376945,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-024.jsonl",
+    "sha256": "9AF089105938ACF1EB66A9D8507F03B42A83FE64C4BB2B9553CE7162190C0EF9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-025.jsonl",
+    "bytes": 33490705,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-025.jsonl",
+    "sha256": "EBBA659B8CA918800CCB305F7791867863DB1CC345A706A7465BF52467547A2F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-026.jsonl",
+    "bytes": 33542990,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-026.jsonl",
+    "sha256": "51976D8EC24A9B6B517A3EB025854745957A60C4C4C7AF5574812A7FCDF01729"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-027.jsonl",
+    "bytes": 33509685,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-027.jsonl",
+    "sha256": "60710548D8BE26F19398CCE3D5887C7F4AF972C5BFD7C9C8F741DB80DFB8E955"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-028.jsonl",
+    "bytes": 33421594,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-028.jsonl",
+    "sha256": "B6D91BE07153D964B8E8F19408822EC465C573D5BDCD14D8A296E331502C322F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-029.jsonl",
+    "bytes": 33538180,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-029.jsonl",
+    "sha256": "412EA7332EBD5B3F9EF932FAE28FF3188B8F0FAB33E4E6266502BDB180522756"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-02A.jsonl",
+    "bytes": 33543465,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02A.jsonl",
+    "sha256": "9C3ECC1E990682AB06499C4D049B399E40DC3DEA1D18F84783CBE7F25F07A0B1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-02B.jsonl",
+    "bytes": 33500216,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02B.jsonl",
+    "sha256": "8C6B9671F427DD2B467E0836587BB16B9AF62044D6A5D3EA7A371226CDD541E9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/facts-02C.jsonl",
+    "bytes": 10898357,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/facts-02C.jsonl",
+    "sha256": "C4166C2CDD9B6DDAF9A0AE5B98254567AC2DDD885EA1A19FE7E1F3D8FD821181"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-000.jsonl",
+    "bytes": 33521193,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-000.jsonl",
+    "sha256": "2FA61566560308B71B13CBE832236C277674D377C26093E7009FD777F60C4658"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-001.jsonl",
+    "bytes": 33510586,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-001.jsonl",
+    "sha256": "A7DD6EF5E218E1C9C2AB653500907A9D8835DAEF35399D1EE99F243E992911BD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-002.jsonl",
+    "bytes": 33498980,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-002.jsonl",
+    "sha256": "D81E6B48823FB352D0991CEEE4F2B15A0D51CD745410E7CCBEB7C5716AD50295"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-003.jsonl",
+    "bytes": 33295591,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-003.jsonl",
+    "sha256": "FED7AE5E3FCFDEA1E47AC86AFC60AF99CD15D0E3E87D9403042FE5C0983E1FAC"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-004.jsonl",
+    "bytes": 33545424,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-004.jsonl",
+    "sha256": "86541772004A69E6AD6B7FCCEC5DA99DA7C1DD205E7DDC5AEB28CE40E352F457"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-005.jsonl",
+    "bytes": 33475404,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-005.jsonl",
+    "sha256": "2714B70F2A98F60E3440685480E763D8DDA170BCA24DC9150E4644377E4309BB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-006.jsonl",
+    "bytes": 33502987,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-006.jsonl",
+    "sha256": "F4D44BF444176B00DAFE759F7CCCAD661CD81B393CE71DEB30410F614487EBCB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-007.jsonl",
+    "bytes": 33487923,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-007.jsonl",
+    "sha256": "AF7CDE2BA48E345380F5E7111B283D86F804C72AB85AAA852EAC5218AF4BF10C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-008.jsonl",
+    "bytes": 33486070,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-008.jsonl",
+    "sha256": "8A35DCCD2C8C3D0783D77E7CB298DE6EBAD4F95B310E2F8446762C597E8236B3"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-009.jsonl",
+    "bytes": 33445633,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-009.jsonl",
+    "sha256": "13184BB5DEEC4CE666AC71AFE83531E5B44999C8787BDF81E7DFFC13721C9E2D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-00A.jsonl",
+    "bytes": 33491367,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00A.jsonl",
+    "sha256": "6851B0DA6D357E3A4F6F0FBD3134A90DE98D5D60BDA5C1AB9CECB945DEF2BC81"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-00B.jsonl",
+    "bytes": 33424116,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00B.jsonl",
+    "sha256": "486817A83878F10E6CC001774894ACAB18FCBDEA5F7780836CD392C556433753"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-00C.jsonl",
+    "bytes": 33430213,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00C.jsonl",
+    "sha256": "54298E6CD1514EB28BC2FB198E3401E804CDB78FE2AFC633709CAA43E68F0DC1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-00D.jsonl",
+    "bytes": 33510928,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00D.jsonl",
+    "sha256": "3A97A345BFE0DB58FF65FAA5A8136C5E575271686F51AAE666050D1A9DEAFE14"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-00E.jsonl",
+    "bytes": 33168569,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00E.jsonl",
+    "sha256": "B9B3831B5A46E85F491632E165B560961C1509320EC9B167C9C05E22C9A23EF8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-00F.jsonl",
+    "bytes": 33481496,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-00F.jsonl",
+    "sha256": "EF6FEECBE49E23FAF8D2C0AAFAD2512FCE115F4E39EA1E4820DB511971141C89"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-010.jsonl",
+    "bytes": 33552650,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-010.jsonl",
+    "sha256": "EDD7AEAED109500E6F09BD4D5C6A7EFB43F1058F7E3967C9A8B88D3E73A9BA60"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-011.jsonl",
+    "bytes": 33501468,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-011.jsonl",
+    "sha256": "8EA2EA46967BB259D2C42908DF0206FD30B29608AEA2EB9A34DDA8737645A868"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-012.jsonl",
+    "bytes": 33524922,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-012.jsonl",
+    "sha256": "1B387B7071154FBDDD7395153F5D80684183FACBA457544EBDFF7206A3B8A4A6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-013.jsonl",
+    "bytes": 33552665,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-013.jsonl",
+    "sha256": "06BA0B461894C73A884DC5C52F04DAA562B3E4A468EEB00EF5AEC9A4A85FD47F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-014.jsonl",
+    "bytes": 33553761,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-014.jsonl",
+    "sha256": "CDD7BC7A89DB4C2F6DFBE4AF7B963E2A30FA96CFC9094C8E9A7BB82474BCEB6B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-015.jsonl",
+    "bytes": 33537140,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-015.jsonl",
+    "sha256": "A3C2C5AFFA0061F2903971C94D42C35D85E691E073BA94521EAF8A68718EA34D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-016.jsonl",
+    "bytes": 33480649,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-016.jsonl",
+    "sha256": "81C24CCFA193AD94C9DB6820ABAFC0959C654FBBC20D86062FF8874A63A76B8A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-017.jsonl",
+    "bytes": 33492179,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-017.jsonl",
+    "sha256": "6B20C298A77762F88D1109E45BF198E585AE3AD3A7E5FE8184934E119C67D265"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-018.jsonl",
+    "bytes": 33433499,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-018.jsonl",
+    "sha256": "7925BCB6D1BAB2230F6DD3CE07657D88379F404A5B678D9268B285FC5BCC802A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-019.jsonl",
+    "bytes": 33537344,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-019.jsonl",
+    "sha256": "908824CEF9B035CD844E0ABCD748E5A512F7D8327DD2EE90448D701A4AA9CBD6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-01A.jsonl",
+    "bytes": 33479686,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01A.jsonl",
+    "sha256": "16B94BE82BF52001A80359EE58022A3B01B496D01501FB62FA7EB33F0A030B60"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-01B.jsonl",
+    "bytes": 33489566,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01B.jsonl",
+    "sha256": "2F7AEFAA17AAFC97F4308B4FCE59C8D417FCE3DA3B500DABEAEDB22EECFB418F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-01C.jsonl",
+    "bytes": 33437838,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01C.jsonl",
+    "sha256": "D89C87B47068DB6A684640866C2BFF54049FC5836CD789ED5EF879FC0B4CFD00"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-01D.jsonl",
+    "bytes": 33497603,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01D.jsonl",
+    "sha256": "5D4DF1D3D3FC21523A30F82D6F2B34A9CE41353EC4F1AAF08F5B65D2B2FA72B5"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-01E.jsonl",
+    "bytes": 33548847,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01E.jsonl",
+    "sha256": "ADCA5C42473757ACCCDACCE4F440E726AE87DA0FEE450DC66352930B51F4FC75"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-01F.jsonl",
+    "bytes": 33475590,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-01F.jsonl",
+    "sha256": "86D48D26DD867586DC5E3B250C4833524336C1494D76A5FA0DFFC831E93FDB59"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-020.jsonl",
+    "bytes": 33416128,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-020.jsonl",
+    "sha256": "573B30871C60C67990DDD91FE0FD0787B72850F4A865C50C775C3F5B5566E562"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-021.jsonl",
+    "bytes": 33511068,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-021.jsonl",
+    "sha256": "1656CC2B91059A785D13395E9F11BCC6537D1E88B0E1B70000FB6CFD0FA2D904"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-022.jsonl",
+    "bytes": 33544264,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-022.jsonl",
+    "sha256": "22FE4F5650AC7E73457F4A0C54D37DE292093696CFC31FCAB885FEEB439677E7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-023.jsonl",
+    "bytes": 33492316,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-023.jsonl",
+    "sha256": "8057E4AA8414C3E9DE47EFD04BAF8D68642550E4429EC062298CFB31FCEA6FCB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-024.jsonl",
+    "bytes": 33517582,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-024.jsonl",
+    "sha256": "036EEF61B9C24E00EE6F0E129AAE1C0BF9E4282C3BA3504DCC401C4FAF59435B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-025.jsonl",
+    "bytes": 33415367,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-025.jsonl",
+    "sha256": "6A2B8104F300B8A79C77E73AF6E7E229F2EADEA8A5234C21A5C946AD25777921"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-026.jsonl",
+    "bytes": 33471390,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-026.jsonl",
+    "sha256": "19B006E0BF9A44A05F4CA08D2B510AE92659EB2EC9AB6EB332F627E1F4837894"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/historical-facts-027.jsonl",
+    "bytes": 26530575,
+    "kind": "current-identical",
+    "path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g1E2FBFF53E33/historical-facts-027.jsonl",
+    "sha256": "53DA1D2F6576D666866CBD3A9FC67B14E4F7EB11A82C7BCD5AFDF07ADF2A99D5"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/memory-000.jsonl",
+    "bytes": 33554218,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1BAA82DD35041C897C482FACBA0C24A88D13434E6BFA41EBF895586B3C4A715C",
+    "sha256": "1BAA82DD35041C897C482FACBA0C24A88D13434E6BFA41EBF895586B3C4A715C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/memory-001.jsonl",
+    "bytes": 33553343,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C9B6FFF29AD2BFDCCB2228B6701464263ED95F5B803C7D8AD46B63F07DEB452F",
+    "sha256": "C9B6FFF29AD2BFDCCB2228B6701464263ED95F5B803C7D8AD46B63F07DEB452F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g3C07E6DB2A62/memory-002.jsonl",
+    "bytes": 16490164,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/9BA85453D7A6DEFD6359FAAFE5F62F7895D097750DA5A119A4C57787D2C4472D",
+    "sha256": "9BA85453D7A6DEFD6359FAAFE5F62F7895D097750DA5A119A4C57787D2C4472D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-00.jsonl",
+    "bytes": 42398114,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7CF4E581CC22EDB9E33858DDFB5C8593EE183BD30DBC523940C3729F64A4F993",
+    "sha256": "7CF4E581CC22EDB9E33858DDFB5C8593EE183BD30DBC523940C3729F64A4F993"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-01.jsonl",
+    "bytes": 28233836,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6272E6D264D8F78742EC4884BB6A1CED25E1BAF229B036A68B9E156B76ACF883",
+    "sha256": "6272E6D264D8F78742EC4884BB6A1CED25E1BAF229B036A68B9E156B76ACF883"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-02.jsonl",
+    "bytes": 32841765,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/72B0AA6DBD9D6939996F9FEA8E93CC971D066FCA049862CAC057CA3E72C94C1F",
+    "sha256": "72B0AA6DBD9D6939996F9FEA8E93CC971D066FCA049862CAC057CA3E72C94C1F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-03.jsonl",
+    "bytes": 13950590,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/FEF508D61D32BD71E1C42D27E6D56652E5900356DED5CDEB93D5AAF20BD2A596",
+    "sha256": "FEF508D61D32BD71E1C42D27E6D56652E5900356DED5CDEB93D5AAF20BD2A596"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-04.jsonl",
+    "bytes": 63111219,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C22A6B0C189EF051794BEFF338C5E765919BD1D5670D9614979E040824118807",
+    "sha256": "C22A6B0C189EF051794BEFF338C5E765919BD1D5670D9614979E040824118807"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-05.jsonl",
+    "bytes": 35652733,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/8D47B82774BFCCF3C80615EE742962E84D5C547B8B478374A82714337651278F",
+    "sha256": "8D47B82774BFCCF3C80615EE742962E84D5C547B8B478374A82714337651278F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-06.jsonl",
+    "bytes": 29324427,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1B1F60849357857E77C72BD4F41A73C1A28CD5FB70ADF16496D2B5795F545E5E",
+    "sha256": "1B1F60849357857E77C72BD4F41A73C1A28CD5FB70ADF16496D2B5795F545E5E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-07.jsonl",
+    "bytes": 24956997,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/CA00AF72C2D03AA2CF3D23AE78C43F4BC8603B7E7E721734005AA005C1AD1E05",
+    "sha256": "CA00AF72C2D03AA2CF3D23AE78C43F4BC8603B7E7E721734005AA005C1AD1E05"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-08.jsonl",
+    "bytes": 73239805,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/5CFA80BF6D8CEB6412F29CA026FD603E4791BF49AF5C81AC51C0A66182DF2700",
+    "sha256": "5CFA80BF6D8CEB6412F29CA026FD603E4791BF49AF5C81AC51C0A66182DF2700"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-09.jsonl",
+    "bytes": 73701737,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/D349A30B8DBE17A912E59F3C264F67F0F339DB9E7A1E0D752492109D05A43CD5",
+    "sha256": "D349A30B8DBE17A912E59F3C264F67F0F339DB9E7A1E0D752492109D05A43CD5"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-0A.jsonl",
+    "bytes": 30141920,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B86EC42551B67E6530D2F4127A3746DBFC4F7C8D46ED3737B12C5D236284BA79",
+    "sha256": "B86EC42551B67E6530D2F4127A3746DBFC4F7C8D46ED3737B12C5D236284BA79"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-0B.jsonl",
+    "bytes": 29157538,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2B0BA632C7AE9E2EB77E13A153000BA79EB26ED3074A04460AA19DF9E42D2D81",
+    "sha256": "2B0BA632C7AE9E2EB77E13A153000BA79EB26ED3074A04460AA19DF9E42D2D81"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-0C.jsonl",
+    "bytes": 28027194,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/68EF0D8EDD59CD00F8C8DB29E15FF419B27A0CAD3ECFFF500D1DDEF9FDA6FA0F",
+    "sha256": "68EF0D8EDD59CD00F8C8DB29E15FF419B27A0CAD3ECFFF500D1DDEF9FDA6FA0F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-0D.jsonl",
+    "bytes": 35303063,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/8E249A53A21713329D542E17F5C96AC3B27B7539844758E1FE0988FBDA3D6600",
+    "sha256": "8E249A53A21713329D542E17F5C96AC3B27B7539844758E1FE0988FBDA3D6600"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-0E.jsonl",
+    "bytes": 33749423,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/D184A40F81BD6A06E8FD0355B9B2624B3C4DC6F5D9CFE2523383D11DE88FA060",
+    "sha256": "D184A40F81BD6A06E8FD0355B9B2624B3C4DC6F5D9CFE2523383D11DE88FA060"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-0F.jsonl",
+    "bytes": 50312674,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/3FCF6727E2E21DEB8E0B604CA162A4C6BAFEE7F1853D6E593B869D6A74CA2450",
+    "sha256": "3FCF6727E2E21DEB8E0B604CA162A4C6BAFEE7F1853D6E593B869D6A74CA2450"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-10.jsonl",
+    "bytes": 44665125,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F7D3869B2BEDB304D4CAB2DE64BCF7F4DF0E30D5A96F40270C2E00A3050907AF",
+    "sha256": "F7D3869B2BEDB304D4CAB2DE64BCF7F4DF0E30D5A96F40270C2E00A3050907AF"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-11.jsonl",
+    "bytes": 32701218,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/90F065C35A2B0123A2F0A0D4E753EB115783AB27D208E97A8AE7088FDCA910CD",
+    "sha256": "90F065C35A2B0123A2F0A0D4E753EB115783AB27D208E97A8AE7088FDCA910CD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-12.jsonl",
+    "bytes": 31639322,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/04DB5C7CADAED2C27BC7AFB012EC75EAE1899FD516E1F9F320979FB5C4397130",
+    "sha256": "04DB5C7CADAED2C27BC7AFB012EC75EAE1899FD516E1F9F320979FB5C4397130"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-13.jsonl",
+    "bytes": 32316798,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/3083BAD7E75B641EB30882ADC5695EA4939B4D54AFDD51537919084526D74E9E",
+    "sha256": "3083BAD7E75B641EB30882ADC5695EA4939B4D54AFDD51537919084526D74E9E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-14.jsonl",
+    "bytes": 33925126,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/28C5796A638687CF2204D36CF5E2E084BAA67594605B897851CB9F16472854C7",
+    "sha256": "28C5796A638687CF2204D36CF5E2E084BAA67594605B897851CB9F16472854C7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-15.jsonl",
+    "bytes": 46190338,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/746492ADBD881528A75B44F0AA71BE31A5E60E3AD88F02153EDA23F012C8A184",
+    "sha256": "746492ADBD881528A75B44F0AA71BE31A5E60E3AD88F02153EDA23F012C8A184"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-16.jsonl",
+    "bytes": 34109891,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/55F1CDD9D367847E21D50344B0621AF3AB1E94D788D3DEFAC0C09D28ADD26663",
+    "sha256": "55F1CDD9D367847E21D50344B0621AF3AB1E94D788D3DEFAC0C09D28ADD26663"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-17.jsonl",
+    "bytes": 37027793,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/9853EECDB712A6D699F826D9870CC9FE9F704BCD86C6A418B1DE67E86D3D9045",
+    "sha256": "9853EECDB712A6D699F826D9870CC9FE9F704BCD86C6A418B1DE67E86D3D9045"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-18.jsonl",
+    "bytes": 52897769,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F12753D95051C74F0B71F988A8EA5C95F0342FD819880621FC79A9C696A5C427",
+    "sha256": "F12753D95051C74F0B71F988A8EA5C95F0342FD819880621FC79A9C696A5C427"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-19.jsonl",
+    "bytes": 112289436,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E7BB8F0D554606395F3EAFFF5648354C8ACC72943C6E6DEE8FFE780D085DC8C7",
+    "sha256": "E7BB8F0D554606395F3EAFFF5648354C8ACC72943C6E6DEE8FFE780D085DC8C7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-1A.jsonl",
+    "bytes": 20923415,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/DF1765049AD71BDA86E7B4802E6936FAB61BD7C5EAE0E3BE9F2FB5C7EE0D1753",
+    "sha256": "DF1765049AD71BDA86E7B4802E6936FAB61BD7C5EAE0E3BE9F2FB5C7EE0D1753"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-1B.jsonl",
+    "bytes": 18368764,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/160954E924AAA7FB61ADA770C6F23E1E30552EF83B1C2278689DF1F20D1DF3D9",
+    "sha256": "160954E924AAA7FB61ADA770C6F23E1E30552EF83B1C2278689DF1F20D1DF3D9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-1C.jsonl",
+    "bytes": 19487187,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/20E14BEA9CDD88E9779E6C8533620508C63C52CA8A038F3F758A3FE88C05A95F",
+    "sha256": "20E14BEA9CDD88E9779E6C8533620508C63C52CA8A038F3F758A3FE88C05A95F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-1D.jsonl",
+    "bytes": 22621140,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2D1C62CBED952E18A705CC9D3A08A8E55DCCC37005A5A0D8F56A63F50070B5B9",
+    "sha256": "2D1C62CBED952E18A705CC9D3A08A8E55DCCC37005A5A0D8F56A63F50070B5B9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-1E.jsonl",
+    "bytes": 19617302,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/DA0AB59F8514F71861937D9B6E54E1D3932CEAA3E444D36A9B5E625A8A1284C2",
+    "sha256": "DA0AB59F8514F71861937D9B6E54E1D3932CEAA3E444D36A9B5E625A8A1284C2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-1F.jsonl",
+    "bytes": 21695563,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7F6193589415A6E98F788203B2A8593A664B0419B2FEE5EDE9569AF42869C2CA",
+    "sha256": "7F6193589415A6E98F788203B2A8593A664B0419B2FEE5EDE9569AF42869C2CA"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g30FEA0A39E6A/facts-20.jsonl",
+    "bytes": 12464228,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/910551038B92E9A9C82AEA5706601EB5CB77AD0F85FC4FA2B6EFDE0748592329",
+    "sha256": "910551038B92E9A9C82AEA5706601EB5CB77AD0F85FC4FA2B6EFDE0748592329"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-00.jsonl",
+    "bytes": 42398095,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/3162C8840AF32ACAB1B42A70920E4B1AB9C0DFD7463218D44A45C2B308F11325",
+    "sha256": "3162C8840AF32ACAB1B42A70920E4B1AB9C0DFD7463218D44A45C2B308F11325"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-01.jsonl",
+    "bytes": 28233836,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/293025C8F9AE0610CBAA1C22A1ACB8997324185C8741F27EA5A6BCBAE9F5FB43",
+    "sha256": "293025C8F9AE0610CBAA1C22A1ACB8997324185C8741F27EA5A6BCBAE9F5FB43"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-02.jsonl",
+    "bytes": 32841765,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/8576377C2C09E7D3ED27EFC8999379C93CD7A66E03448E5E30EB1BAA5890B01D",
+    "sha256": "8576377C2C09E7D3ED27EFC8999379C93CD7A66E03448E5E30EB1BAA5890B01D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-03.jsonl",
+    "bytes": 13950590,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/222E3B290132AF66F388228C0FEE75C249F0BDC0D7E324487EDE6019C0DC97B6",
+    "sha256": "222E3B290132AF66F388228C0FEE75C249F0BDC0D7E324487EDE6019C0DC97B6"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-04.jsonl",
+    "bytes": 63111219,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6FF68C77D0AD8582A7E0CFB13BFB54E38F5C14532CA4055131BDD44BD3F506FD",
+    "sha256": "6FF68C77D0AD8582A7E0CFB13BFB54E38F5C14532CA4055131BDD44BD3F506FD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-05.jsonl",
+    "bytes": 35652733,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/079231DB5EEBEEFA4EB7CB7B89C453636DC07F08F4C2401E9D11345A4EF13D5D",
+    "sha256": "079231DB5EEBEEFA4EB7CB7B89C453636DC07F08F4C2401E9D11345A4EF13D5D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-06.jsonl",
+    "bytes": 29324427,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/D7451009E9A00A3BBBC0FA06BABD49332AE6633DD417775AA3652637CB07A390",
+    "sha256": "D7451009E9A00A3BBBC0FA06BABD49332AE6633DD417775AA3652637CB07A390"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-07.jsonl",
+    "bytes": 24956997,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/4E1714264252F80D386C2D27D8069B2433697C4486CC38BBCCA925B36A78E229",
+    "sha256": "4E1714264252F80D386C2D27D8069B2433697C4486CC38BBCCA925B36A78E229"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-08.jsonl",
+    "bytes": 73239805,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/165509650A920DA9953F03A6361DE83F53AB2571C7F517EA648B9B3B7B071C46",
+    "sha256": "165509650A920DA9953F03A6361DE83F53AB2571C7F517EA648B9B3B7B071C46"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-09.jsonl",
+    "bytes": 73701737,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/A1D0FDA71C91CA6246B7618CF259A9EF89764CAB98D601149A383731F817F1DE",
+    "sha256": "A1D0FDA71C91CA6246B7618CF259A9EF89764CAB98D601149A383731F817F1DE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-0A.jsonl",
+    "bytes": 30141920,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/02DB97E9DF09F183201756781EDBF51A6303596B14ECEDD81D4177D91AC3E707",
+    "sha256": "02DB97E9DF09F183201756781EDBF51A6303596B14ECEDD81D4177D91AC3E707"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-0B.jsonl",
+    "bytes": 29157538,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/40E09DC8F976A559AA740C5404B1F2A1AE245FECB9854209C1AE6A13B9256EA3",
+    "sha256": "40E09DC8F976A559AA740C5404B1F2A1AE245FECB9854209C1AE6A13B9256EA3"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-0C.jsonl",
+    "bytes": 28027194,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E49FA269C3755B187E271410042EDF29453E3BD59EF80D67E93601EBC9E07505",
+    "sha256": "E49FA269C3755B187E271410042EDF29453E3BD59EF80D67E93601EBC9E07505"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-0D.jsonl",
+    "bytes": 35303063,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/A0E0ECCF74106DE230E1217C0E664F8089A58EEFD5E9B527A4EAA77896BBBEF1",
+    "sha256": "A0E0ECCF74106DE230E1217C0E664F8089A58EEFD5E9B527A4EAA77896BBBEF1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-0E.jsonl",
+    "bytes": 33749423,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/0224F9C8AAE222B860D4533657E1D7A11785EF34E334828708681F672D3AD8CE",
+    "sha256": "0224F9C8AAE222B860D4533657E1D7A11785EF34E334828708681F672D3AD8CE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-0F.jsonl",
+    "bytes": 50312674,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/AF7B8B621E071874AF00CA80A747CDB06EEAFCBEB35B3A5402605B42CEEE8413",
+    "sha256": "AF7B8B621E071874AF00CA80A747CDB06EEAFCBEB35B3A5402605B42CEEE8413"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-10.jsonl",
+    "bytes": 44665125,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/5986155B49DC0BE37E14B60B3297614121B0826B30569E809963A9D98444372C",
+    "sha256": "5986155B49DC0BE37E14B60B3297614121B0826B30569E809963A9D98444372C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-11.jsonl",
+    "bytes": 32701218,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F76276B78EE00766B5BEEB747559883CD05790F7B98524FFE8A5AE42C89F3E32",
+    "sha256": "F76276B78EE00766B5BEEB747559883CD05790F7B98524FFE8A5AE42C89F3E32"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-12.jsonl",
+    "bytes": 31639322,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7B91ECE579885DE24FC445517AADFADBA4AB6FF27AA808864A8D5F377F245983",
+    "sha256": "7B91ECE579885DE24FC445517AADFADBA4AB6FF27AA808864A8D5F377F245983"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-13.jsonl",
+    "bytes": 32316798,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/DBDF6FC829519238F132692C3FAD07EEE2D81658EFACBB052DC489B938813B8C",
+    "sha256": "DBDF6FC829519238F132692C3FAD07EEE2D81658EFACBB052DC489B938813B8C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-14.jsonl",
+    "bytes": 33925126,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7738CC69E27BCF0F803E16F07CB16F5C9A0D8BF52D02B8FA6C6B226B88F204DF",
+    "sha256": "7738CC69E27BCF0F803E16F07CB16F5C9A0D8BF52D02B8FA6C6B226B88F204DF"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-15.jsonl",
+    "bytes": 46190338,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/FA6E21B4DB00320231D99DFBA1595DCE4A2969EDC59345042E0F33CB1054B2AC",
+    "sha256": "FA6E21B4DB00320231D99DFBA1595DCE4A2969EDC59345042E0F33CB1054B2AC"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-16.jsonl",
+    "bytes": 34109891,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F6AF8F4ACE3609A3F5DD4D1D75A65088A635B1C901118DAEA41C8C6ABB2DC54B",
+    "sha256": "F6AF8F4ACE3609A3F5DD4D1D75A65088A635B1C901118DAEA41C8C6ABB2DC54B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-17.jsonl",
+    "bytes": 37027793,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/0727301F0503A5ED47F10D84730BE4D648B43026FC3CBFBFAFDE095C55CE1283",
+    "sha256": "0727301F0503A5ED47F10D84730BE4D648B43026FC3CBFBFAFDE095C55CE1283"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-18.jsonl",
+    "bytes": 52829875,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/54C1D0C9A0ADD858217BD1F3D1994662D732B05EF766726ADF663C83110CB0EE",
+    "sha256": "54C1D0C9A0ADD858217BD1F3D1994662D732B05EF766726ADF663C83110CB0EE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-19.jsonl",
+    "bytes": 112289436,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7880FFD9A622BDE882B590ABC9C2E7D92EA7991C784566BF85BEAD96CB8CD796",
+    "sha256": "7880FFD9A622BDE882B590ABC9C2E7D92EA7991C784566BF85BEAD96CB8CD796"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-1A.jsonl",
+    "bytes": 20923415,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/08EADA517699D48A6EFC2C99FDD4C53CD42BFA88F24F32E71B660D74B479C709",
+    "sha256": "08EADA517699D48A6EFC2C99FDD4C53CD42BFA88F24F32E71B660D74B479C709"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-1B.jsonl",
+    "bytes": 18368764,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/A21350B1D27F286886A491A20F987CDCC6CE56709A81B98593413C70446B99F1",
+    "sha256": "A21350B1D27F286886A491A20F987CDCC6CE56709A81B98593413C70446B99F1"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-1C.jsonl",
+    "bytes": 19487187,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/D6838D721B2FDAA8BF155882080715D2C2B9A1E2BA1B254B97C1C51390ACCB5D",
+    "sha256": "D6838D721B2FDAA8BF155882080715D2C2B9A1E2BA1B254B97C1C51390ACCB5D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-1D.jsonl",
+    "bytes": 22621140,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/A8AE1FF1D039612C9768D54F8E24EEC00EB28D3618DB9FD9F214CA844C1706EB",
+    "sha256": "A8AE1FF1D039612C9768D54F8E24EEC00EB28D3618DB9FD9F214CA844C1706EB"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-1E.jsonl",
+    "bytes": 19617302,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/093E4821E1CCF6C072CECF028D8BF8DA4D341698EA55D041E210F9F936301017",
+    "sha256": "093E4821E1CCF6C072CECF028D8BF8DA4D341698EA55D041E210F9F936301017"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-1F.jsonl",
+    "bytes": 21695563,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/71DCCB61762083EEF5E9DC931A1DEB1F7AE091238B27ABFEAD92B1DAD00A550B",
+    "sha256": "71DCCB61762083EEF5E9DC931A1DEB1F7AE091238B27ABFEAD92B1DAD00A550B"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g21F204C92A08/facts-20.jsonl",
+    "bytes": 12464228,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/DBBD4423F3B85CBF1778C0F6DDA4C49FE1C1599C79D819981B7796A3C4EF414A",
+    "sha256": "DBBD4423F3B85CBF1778C0F6DDA4C49FE1C1599C79D819981B7796A3C4EF414A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-000.jsonl",
+    "bytes": 33443922,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F3D8CD12D00A03460BF1E89DAFC0F691118EF90A6AB65194D0D27263798BE803",
+    "sha256": "F3D8CD12D00A03460BF1E89DAFC0F691118EF90A6AB65194D0D27263798BE803"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-001.jsonl",
+    "bytes": 33462043,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/A09E62AC517BBE99AB9C846B1C3DF1E1739EA06BB8196C020B67445AC2F44448",
+    "sha256": "A09E62AC517BBE99AB9C846B1C3DF1E1739EA06BB8196C020B67445AC2F44448"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-002.jsonl",
+    "bytes": 33450671,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/44B1755CA9247C2E33329BA3F17CD698B73E19AF793DE78376A5DF1E5ACCD6F4",
+    "sha256": "44B1755CA9247C2E33329BA3F17CD698B73E19AF793DE78376A5DF1E5ACCD6F4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-003.jsonl",
+    "bytes": 33539705,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F69B075540E92C31D245CF8FA6C75E9F827EAFE4002F317CA1661D02CFE1E593",
+    "sha256": "F69B075540E92C31D245CF8FA6C75E9F827EAFE4002F317CA1661D02CFE1E593"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-004.jsonl",
+    "bytes": 33357355,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1B83D6AFF9F8BB1892A3C438ABB141298943A6F84BEEA2CB056A300A7F5D5EEE",
+    "sha256": "1B83D6AFF9F8BB1892A3C438ABB141298943A6F84BEEA2CB056A300A7F5D5EEE"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-005.jsonl",
+    "bytes": 33476924,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F0F2661AFA68E6A414DDE293A5AF8A8B16E1B1CCC333DB8FBBFD14E54A547357",
+    "sha256": "F0F2661AFA68E6A414DDE293A5AF8A8B16E1B1CCC333DB8FBBFD14E54A547357"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-006.jsonl",
+    "bytes": 33502231,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C873D66E5A4E3D67EAACB3E0F8053B6EC222750A47D0694C9946845FA40DC54A",
+    "sha256": "C873D66E5A4E3D67EAACB3E0F8053B6EC222750A47D0694C9946845FA40DC54A"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-007.jsonl",
+    "bytes": 33337651,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/65D72ED06318755CD40ACC131CA4921CADC278299168E39CB4F5C798D04DE84D",
+    "sha256": "65D72ED06318755CD40ACC131CA4921CADC278299168E39CB4F5C798D04DE84D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-008.jsonl",
+    "bytes": 33399419,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/9A039F5603AB8D9AB8FB2A872CD0FF4CBB849206462EC116830D67F17B11234E",
+    "sha256": "9A039F5603AB8D9AB8FB2A872CD0FF4CBB849206462EC116830D67F17B11234E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-009.jsonl",
+    "bytes": 33544972,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/248BD3342DC7E0BEC18C5782626FF36FDB1BB78FB42B08F9647BD79583930234",
+    "sha256": "248BD3342DC7E0BEC18C5782626FF36FDB1BB78FB42B08F9647BD79583930234"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-00A.jsonl",
+    "bytes": 33461105,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/5BB9199E81CA6243E07834B17E0E9A3E7B4859C9EDE2EB39519C06DC9C4BFBB4",
+    "sha256": "5BB9199E81CA6243E07834B17E0E9A3E7B4859C9EDE2EB39519C06DC9C4BFBB4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-00B.jsonl",
+    "bytes": 33528548,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/BB76C38750AD745C266039DE52E87FD45FF8727D1D2F5E9A1527E40834067A4D",
+    "sha256": "BB76C38750AD745C266039DE52E87FD45FF8727D1D2F5E9A1527E40834067A4D"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-00C.jsonl",
+    "bytes": 33451718,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E52C2E8942A63009404C3ADB8E479A81A8DCE55D45C0BB81E2844DCAC9A0AEBC",
+    "sha256": "E52C2E8942A63009404C3ADB8E479A81A8DCE55D45C0BB81E2844DCAC9A0AEBC"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-00D.jsonl",
+    "bytes": 33453342,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/0CB03D1BCA427226622D80B9D7AFF6B5D4C7C0ABD961BB4B34DFEE80FA253D24",
+    "sha256": "0CB03D1BCA427226622D80B9D7AFF6B5D4C7C0ABD961BB4B34DFEE80FA253D24"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-00E.jsonl",
+    "bytes": 33520129,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/E0432B22DBB681F7670E7B7DADDB9E6688490FF810EECBF795341A94D53ECBE8",
+    "sha256": "E0432B22DBB681F7670E7B7DADDB9E6688490FF810EECBF795341A94D53ECBE8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-00F.jsonl",
+    "bytes": 33481936,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6AEDF9AF717A688C4B04017FF1C2416CE8578031A79710ADA2EE4DCA7D0F5B25",
+    "sha256": "6AEDF9AF717A688C4B04017FF1C2416CE8578031A79710ADA2EE4DCA7D0F5B25"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-010.jsonl",
+    "bytes": 33532183,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/13CEB2BD57F326F0452E93A0F017C30AC6049D30DD937377FC1FF0AAB12B965F",
+    "sha256": "13CEB2BD57F326F0452E93A0F017C30AC6049D30DD937377FC1FF0AAB12B965F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-011.jsonl",
+    "bytes": 33466466,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2CEB3411CA800E10FEAC14B4E58920F349A4677C2A7FCE72400241D238D3555F",
+    "sha256": "2CEB3411CA800E10FEAC14B4E58920F349A4677C2A7FCE72400241D238D3555F"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-012.jsonl",
+    "bytes": 33498140,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B8055046E965E87C7C4C9EC023F5D046EB808E61932975243A4F4A6511DC7169",
+    "sha256": "B8055046E965E87C7C4C9EC023F5D046EB808E61932975243A4F4A6511DC7169"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-013.jsonl",
+    "bytes": 33506059,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/6848D7B365BB12F13B68C332141560DED7C2442F58F22AD2E574BE5CBA95B3F3",
+    "sha256": "6848D7B365BB12F13B68C332141560DED7C2442F58F22AD2E574BE5CBA95B3F3"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-014.jsonl",
+    "bytes": 33463014,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2AFB1E487CAE07B3477E10AC1D4E44FA1D738FD97D852F81398EEDF3D7245AB8",
+    "sha256": "2AFB1E487CAE07B3477E10AC1D4E44FA1D738FD97D852F81398EEDF3D7245AB8"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-015.jsonl",
+    "bytes": 33420815,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/F0843AE8DF50EF5B522E06A7C6C7F7AE3D1A77F2554ABF26E46101B1DBF23C29",
+    "sha256": "F0843AE8DF50EF5B522E06A7C6C7F7AE3D1A77F2554ABF26E46101B1DBF23C29"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-016.jsonl",
+    "bytes": 33466711,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/78B4CC904C9AAB763EDE91C717CF477ABD9C41E81E079CA7294D554C470824FD",
+    "sha256": "78B4CC904C9AAB763EDE91C717CF477ABD9C41E81E079CA7294D554C470824FD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-017.jsonl",
+    "bytes": 33550709,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B50B26085D223F771B427695629B3A13D81CE10AD71AB2C655850CC9D8F26C18",
+    "sha256": "B50B26085D223F771B427695629B3A13D81CE10AD71AB2C655850CC9D8F26C18"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-018.jsonl",
+    "bytes": 33505975,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/3FF7FD9A1CFA922F2AF417F40B2AAE477931DF7EB18466B80535460A7AF0ACB2",
+    "sha256": "3FF7FD9A1CFA922F2AF417F40B2AAE477931DF7EB18466B80535460A7AF0ACB2"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-019.jsonl",
+    "bytes": 33483849,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/1C7720A39924410A0331DAD4BF70472739D3BF45974A4461AA079EE70134834C",
+    "sha256": "1C7720A39924410A0331DAD4BF70472739D3BF45974A4461AA079EE70134834C"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-01A.jsonl",
+    "bytes": 33501377,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/AB53032BB6060F2EAFC468D3A89D765FA1CEF99592959A06CEF515693F1716B4",
+    "sha256": "AB53032BB6060F2EAFC468D3A89D765FA1CEF99592959A06CEF515693F1716B4"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-01B.jsonl",
+    "bytes": 33384360,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/B454D69132B99D93830395D19BE1C083A78FA7E9B709C446D07FB6722539232E",
+    "sha256": "B454D69132B99D93830395D19BE1C083A78FA7E9B709C446D07FB6722539232E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-01C.jsonl",
+    "bytes": 33544055,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/97B016CE0D30DB0B744CF031F1A11741787E16D53594662258AE72D5861DFB01",
+    "sha256": "97B016CE0D30DB0B744CF031F1A11741787E16D53594662258AE72D5861DFB01"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-01D.jsonl",
+    "bytes": 33543472,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/790AF16CA4573E6720AE3956A9640F4901B2E2C3CC0328930CD08508F3603135",
+    "sha256": "790AF16CA4573E6720AE3956A9640F4901B2E2C3CC0328930CD08508F3603135"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-01E.jsonl",
+    "bytes": 33278816,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/CAE794B1ED6BBC6FE23D3464D13FA1928802E310E89F09E8D5BDA5F87607606E",
+    "sha256": "CAE794B1ED6BBC6FE23D3464D13FA1928802E310E89F09E8D5BDA5F87607606E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-01F.jsonl",
+    "bytes": 33526058,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2DC5AA44017474496A820DC9F812E79ED40446DD036F8A0BB65FC6109D50EF36",
+    "sha256": "2DC5AA44017474496A820DC9F812E79ED40446DD036F8A0BB65FC6109D50EF36"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-020.jsonl",
+    "bytes": 33498296,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/691D42CE890B58828ED5245DE03AC9E82C28C4E5C78F2990E0674BF1B90E587E",
+    "sha256": "691D42CE890B58828ED5245DE03AC9E82C28C4E5C78F2990E0674BF1B90E587E"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-021.jsonl",
+    "bytes": 33474901,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/7BC731027919B604F22AE07ED4C4A43DFD96F08D88D2849A14D8F1D2BF3309AD",
+    "sha256": "7BC731027919B604F22AE07ED4C4A43DFD96F08D88D2849A14D8F1D2BF3309AD"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-022.jsonl",
+    "bytes": 33499895,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/2736C399A30AAEF2D035B40C6EDFE237E1411D0463C36589F3A40C5B4A7AB5C9",
+    "sha256": "2736C399A30AAEF2D035B40C6EDFE237E1411D0463C36589F3A40C5B4A7AB5C9"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-023.jsonl",
+    "bytes": 33452400,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/C6E8DEBF4E3A34919D386235510E659A243C5539A3573C57CF8B582CA8A153A7",
+    "sha256": "C6E8DEBF4E3A34919D386235510E659A243C5539A3573C57CF8B582CA8A153A7"
+  },
+  {
+    "originalPath": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/analysis/g0CD52D98D9DE/facts-024.jsonl",
+    "bytes": 13317375,
+    "kind": "archive",
+    "path": "_inspect/Cleanup-20261017/historical-analysis-objects.zip",
+    "entry": "objects/FB04911F15A96BF9E3B08CCE9E2B9A4E0D51CADA30B5E0B9277CEAC9334FE611",
+    "sha256": "FB04911F15A96BF9E3B08CCE9E2B9A4E0D51CADA30B5E0B9277CEAC9334FE611"
+  }
+]

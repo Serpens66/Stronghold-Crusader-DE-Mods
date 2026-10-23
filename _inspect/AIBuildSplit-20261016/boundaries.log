@@ -1,0 +1,14 @@
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 115 projects and source ownership...
+Missing source/project link: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj -> D:\CDesktopLink\Unterlagen\Mods\Stronghold 
+Crusader DE\Meine Mods\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\Shared\Tools\Validation\Test-SharedBoundaries.ps1:62 Zeichen:69
++ ... pe Leaf)) { throw "Missing source/project link: $($project.FullName)  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Missing source/...ettingsPaths.cs:String) [], RuntimeException
+    + FullyQualifiedErrorId : Missing source/project link: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Mein 
+   e Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj -> D:\CDesktopLink\Unterlagen\Mods\Stronghold C  
+  rusader DE\Meine Mods\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs
+ 

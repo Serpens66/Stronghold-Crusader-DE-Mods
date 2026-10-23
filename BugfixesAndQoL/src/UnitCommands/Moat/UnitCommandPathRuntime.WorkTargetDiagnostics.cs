@@ -11,11 +11,13 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogMoatWorkSelection(MoatWorkSelectionScope scope)
         {
-            double elapsedMilliseconds = (Stopwatch.GetTimestamp() - scope.StartTimestamp) *
+#if SERP_DEVDIAG
+            double elapsedMilliseconds = ((DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - scope.StartTimestamp) *
                 1000.0 / Stopwatch.Frequency;
-            if (scope.DigFallbackEvaluations == 0 && scope.FillFallbackEvaluations == 0 &&
+            if (scope.FillFallbackEvaluations == 0 &&
                 elapsedMilliseconds < 50.0)
                 return;
             bool selectedByFallback = false;
@@ -26,12 +28,8 @@ namespace BugfixesAndQoL.UnitCommands
                     out int selectedTileId, out _, out _))
             {
                 selectedRegion = pathRegionGrid[selectedTileId];
-                selectedByFallback = scope.RelationshipMode == 1
-                    ? scope.RegionDecisions.TryGetValue(selectedRegion, out bool allowed) && allowed
-                    : scope.FillApproaches.ContainsKey(scope.SelectedMoatId);
-                if (scope.RelationshipMode == 1)
-                    scope.RegionSummaries.TryGetValue(selectedRegion, out selectedRoute);
-                else if (scope.FillApproaches.TryGetValue(
+                selectedByFallback = scope.FillApproaches.ContainsKey(scope.SelectedMoatId);
+                if (scope.FillApproaches.TryGetValue(
                     scope.SelectedMoatId, out MoatWorkApproach selectedApproach))
                 {
                     selectedRoute = selectedApproach.Summary;
@@ -40,7 +38,6 @@ namespace BugfixesAndQoL.UnitCommands
             string kind = scope.RelationshipMode == 1 ? "dig" : "fill";
             string signature =
                 $"{mapEpoch}:{kind}:{scope.StartTileId}:{scope.SelectedMoatId}:" +
-                $"{scope.DigFallbackEvaluations}:{scope.DigFallbackAllowed}:" +
                 $"{scope.FillFallbackEvaluations}:{scope.FillFallbackAllowed}:" +
                 $"{scope.CheckedApproachTiles}:{scope.FillFriendlyMoatEndpoints}:" +
                 $"{scope.FillInvalidTileRejected}:{scope.FillHeightRejected}:" +
@@ -59,10 +56,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"player={scope.PlayerId} start=({scope.StartX},{scope.StartY})/" +
                 $"region={scope.StartRegion} selectedMoat={scope.SelectedMoatId} " +
                 $"selectedRegion={selectedRegion} selectedByFallback={selectedByFallback} " +
-                $"digRegions={scope.DigFallbackAllowed}/{scope.DigFallbackEvaluations} " +
                 $"fillApproaches={scope.FillFallbackAllowed}/{scope.FillFallbackEvaluations} " +
-                $"regionHelper={scope.LastRegionHelper ?? "none"} " +
-                $"movementProfile={scope.LastMovementProfile} " +
                 $"checkedApproachTiles={scope.CheckedApproachTiles} " +
                 $"friendlyMoatEndpoints={scope.FillFriendlyMoatEndpoints} " +
                 $"rejectedInvalid={scope.FillInvalidTileRejected} " +
@@ -76,10 +70,13 @@ namespace BugfixesAndQoL.UnitCommands
                 $"searchMs={scope.SearchMilliseconds:F3} elapsedMs={elapsedMilliseconds:F3} " +
                 $"selectedRoute=[{selectedRoute.ToLogFields()}] " +
                 $"observedRoutes=[{scope.Route.ToLogFields()}].");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogResolvedFillMoatApproach(PendingFillMoatApproach pending)
         {
+#if SERP_DEVDIAG
             MoatWorkApproach approach = pending.Approach;
             string signature =
                 $"{mapEpoch}:{pending.MoatId}:{approach.MoatTileId}:{approach.TileId}:" +
@@ -98,10 +95,13 @@ namespace BugfixesAndQoL.UnitCommands
                 $"approach=({approach.X},{approach.Y})/{approach.TileId} " +
                 $"nativeOrder={approach.NativeOrder} handoff=owner-qualified-plan " +
                 $"{approach.Summary.ToLogFields()}.");
+#endif
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogResolvedDigMoatTarget(PendingDigMoatTarget pending)
         {
+#if SERP_DEVDIAG
             string signature =
                 $"{mapEpoch}:dig:{pending.MoatId}:{pending.TileId}:" +
                 $"{pending.X}:{pending.Y}:{pending.Summary.ObservedOwnerMask}";
@@ -118,6 +118,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"approach=({pending.X},{pending.Y})/{pending.TileId} " +
                 $"selectedRegion={pending.TargetRegion} handoff=owner-qualified-plan " +
                 $"{pending.Summary.ToLogFields()}.");
+#endif
         }
     }
 }

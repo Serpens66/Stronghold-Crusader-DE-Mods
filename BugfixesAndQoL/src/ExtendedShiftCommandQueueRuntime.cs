@@ -136,6 +136,7 @@ namespace BugfixesAndQoL
         private IntPtr choreCommandOrTileXPointer;
         private IntPtr choreTileYPointer;
         private IntPtr choreMoveTypePointer;
+        private IntPtr chorePatrolModePointer;
         private bool installed;
         private bool multiplayerSynchronizationReady;
         private bool multiplayerMarkerFailureLogged;
@@ -332,19 +333,20 @@ namespace BugfixesAndQoL
 
             installed = true;
             ApplySetting();
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
-                $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
-                $"overlayRenderRva=0x{overlayRenderResolution.Rva:X}, " +
-                "tribeUnassign=SHCDESE-2.3.0-wrapper, " +
-                $"drawFilterInstalled={drawFilterInstalled}, " +
-                $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
-                $"largeMoveMarkerOverflowAvailable={largeMoveTargets.MarkerReplacementAvailable}, " +
-                $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
-                $"GameTribeSize=0x{actualTribeSize:X}, " +
-                $"queueLimit={MaximumPendingCommands}, " +
-                $"featureEnabled={FeatureEnabled}. Command capture no longer depends on an OnStartMap event.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
+                    $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
+                    $"overlayRenderRva=0x{overlayRenderResolution.Rva:X}, " +
+                    "tribeUnassign=SHCDESE-2.3.0-wrapper, " +
+                    $"drawFilterInstalled={drawFilterInstalled}, " +
+                    $"targetMarkerProjectionAvailable={targetMarkerProjectionAvailable}, " +
+                    $"largeMoveMarkerOverflowAvailable={largeMoveTargets.MarkerReplacementAvailable}, " +
+                    $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
+                    $"GameTribeSize=0x{actualTribeSize:X}, " +
+                    $"queueLimit={MaximumPendingCommands}, " +
+                    $"featureEnabled={FeatureEnabled}. Command capture no longer depends on an OnStartMap event.");
         }
 
         public void ApplySetting()
@@ -358,7 +360,12 @@ namespace BugfixesAndQoL
             if (!enabled)
                 ResetMapState();
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:364", () => $"Extended Shift command queue setting applied: enabled={enabled}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticEnabled = @enabled;
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:364", () => $"Extended Shift command queue setting applied: enabled={diagnosticEnabled}.");
+            }
         }
 
         private void InstallMultiplayerSynchronization(
@@ -394,6 +401,7 @@ namespace BugfixesAndQoL
                 choreCommandOrTileXPointer = libraryHandle + QueueNativeContract.ChoreCommandOrTileXRva;
                 choreTileYPointer = libraryHandle + QueueNativeContract.ChoreTileYRva;
                 choreMoveTypePointer = libraryHandle + QueueNativeContract.ChoreMoveTypeRva;
+                chorePatrolModePointer = libraryHandle + QueueNativeContract.ChorePatrolModeRva;
 
                 multiplayerTransaction = new HookTransaction(
                     context.Region,
@@ -447,7 +455,8 @@ namespace BugfixesAndQoL
                 int observedTribeId = Marshal.ReadInt32(choreTribeIdPointer);
                 originalMoveType = Marshal.ReadInt32(choreMoveTypePointer);
                 int markedMoveType = originalMoveType;
-                if (ShouldMarkOutgoingMultiplayerOrder())
+                if (ShouldMarkOutgoingMultiplayerOrder() &&
+                    Marshal.ReadInt32(chorePatrolModePointer) != (int)TribePatrolMode.PatrolInfinite)
                 {
                     int tribeId = observedTribeId;
                     if (IsLocalSelectedTribe(tribeId, out _) &&
@@ -668,15 +677,24 @@ namespace BugfixesAndQoL
             if (!installed || internalDispatch)
                 return;
 
+            int commandValue = (int)args.AICommand;
+            bool realMultiplayer = IsRealMultiplayer();
             // AI orders can never originate from Shift input and must not touch queue state.
-            if (IsAiOwnedAliveTribe(args.TribeId))
+            bool aiOwned = IsAiOwnedAliveTribe(args.TribeId);
+            // A peer that cannot queue this order (tribe AI-owned here, or the local Chore
+            // hook unavailable) still strips another peer's private marker, so Vanilla
+            // never executes a target command carrying the queue bit.
+            if (realMultiplayer && (aiOwned || !multiplayerSynchronizationReady))
+            {
+                if (QueueNativeContract.TryDecodeQueuedTargetCommand(commandValue, out int strippedCommand))
+                    args.AICommand = (TribeAICommand)strippedCommand;
+                return;
+            }
+            if (aiOwned)
                 return;
 
-            int commandValue = (int)args.AICommand;
-            if (IsRealMultiplayer())
+            if (realMultiplayer)
             {
-                if (!multiplayerSynchronizationReady)
-                    return;
 
                 if (QueueNativeContract.TryDecodeQueuedTargetCommand(
                         commandValue,
@@ -969,13 +987,35 @@ namespace BugfixesAndQoL
                 args.IsPatrolPath == 0 &&
                 args.IsNewOrder &&
                 IsLocalSelectedTribe(args.TribeId, out _);
-            if (internalDispatch || aiOwned)
+            if (internalDispatch)
                 return;
 
-            if (IsRealMultiplayer())
+            bool realMultiplayer = IsRealMultiplayer();
+            // A peer that cannot queue this order (tribe AI-owned here, or the local Chore
+            // hook unavailable) still strips another peer's private marker, so Vanilla
+            // never executes a move type carrying the queue bit.
+            if (realMultiplayer && (aiOwned || !multiplayerSynchronizationReady))
             {
-                if (!multiplayerSynchronizationReady)
-                    return;
+                if (QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out int strippedMoveType))
+                    args.MoveType = (TribeMoveType)strippedMoveType;
+                return;
+            }
+            if (aiOwned)
+                return;
+
+            // The queue cannot represent an infinite patrol. Keep its native mode and points,
+            // and retire old queue work before it can redispatch over the new patrol.
+            if (args.IsPatrolPath == (short)TribePatrolMode.PatrolInfinite)
+            {
+                if (realMultiplayer && QueueNativeContract.TryDecodeQueuedMoveType(
+                        (int)args.MoveType, out int patrolMoveType))
+                    args.MoveType = (TribeMoveType)patrolMoveType;
+                if (FeatureEnabled) CancelQueueForPatrol(args.TribeId);
+                return;
+            }
+
+            if (realMultiplayer)
+            {
 
                 int serializedMoveType = (int)args.MoveType;
                 if (QueueNativeContract.TryDecodeQueuedMoveType(
@@ -1102,6 +1142,12 @@ namespace BugfixesAndQoL
                     // Chore 71 is also emitted for AI movement. It has no Shift semantics.
                     if (IsAiOwnedAliveTribe(tribeId))
                         goto Vanilla;
+
+                    if (moveMode == (short)TribePatrolMode.PatrolInfinite)
+                    {
+                        CancelQueueForPatrol(tribeId);
+                        goto Vanilla;
+                    }
 
                     if (IsRealMultiplayer())
                     {
@@ -1539,7 +1585,14 @@ namespace BugfixesAndQoL
         {
             // The current tick is already attached to meaningful queue records. A scope on
             // every simulation tick used to overwrite the complete 256-entry crash ring.
-            OnTickCore(tick);
+            // An exception must not escape into the shared tick publisher, where it would
+            // skip the remaining OnTick subscribers of this peer.
+            try { OnTickCore(tick); }
+            catch (Exception exception)
+            {
+                try { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1548", $"Extended Shift command queue tick failed: tick={tick}, error={exception}"); }
+                catch { }
+            }
         }
 
         private void OnTickCore(int tick)
@@ -1553,7 +1606,8 @@ namespace BugfixesAndQoL
             if (!runtimeTickLogged)
             {
                 runtimeTickLogged = true;
-                Shared.DebugLogHelper.LogDebug(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebug(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
             }
             // Keep currentTick and the first runtime marker current even while idle.
             if (cohorts.Count == 0 && expectedMoveChores.Count == 0 && expectedMoveEvents.Count == 0)
@@ -1714,10 +1768,16 @@ namespace BugfixesAndQoL
             UnitCommandTraversalProvider traversal = UnitCommandPathAPI.Traversal;
             if (traversal != null)
             {
-                var members = new List<QueueUnitIdentity>();
-                CaptureTribeMembers(tribeId, members);
-                foreach (QueueUnitIdentity member in members)
-                    if (traversal.HasPendingUnit(member.UnitId, member.GlobalId)) return false;
+                // Per tick and waiting cohort: test members during the scan instead of collecting
+                // them first (HasPendingUnit is a pure query, so stopping early is equivalent).
+                Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+                for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+                {
+                    ref GameUnit unit = ref units[spanIndex];
+                    if (APIShared.UnitAccess.IsReallyAlive(in unit) && unit.r_TribeId == tribeId &&
+                        traversal.HasPendingUnit(spanIndex + 1, unit.r_GlobalId))
+                        return false;
+                }
             }
             return ReadMovementMode(tribe) == 0 &&
                 isTribeMovementComplete(tribeManagerPointer, tribeId) == 1;
@@ -1894,6 +1954,14 @@ namespace BugfixesAndQoL
                     pointIndex,
                     completed: pointIndex < currentWaypointIndex);
             }
+        }
+
+        private void CancelQueueForPatrol(int tribeId)
+        {
+            observedAttacks.Remove(tribeId);
+            CancelQueuesForTribeUnits(tribeId);
+            expectedMoveChores.RemoveAll(signal => signal.TribeId == tribeId);
+            expectedMoveEvents.RemoveAll(signal => signal.TribeId == tribeId);
         }
 
         private void CancelQueuesForTribeUnits(int tribeId)
@@ -2456,6 +2524,7 @@ namespace BugfixesAndQoL
         private static HookTransactionOptions CreateTransactionOptions() =>
             new HookTransactionOptions
             {
+                Backend = HookInstallPhase.Backend(),
                 FailureMode = TransactionFailureMode.RollbackAndThrow,
                 // This runtime is process-rooted; startup never tears these hooks down.
                 OwnsHooks = false
@@ -2542,8 +2611,13 @@ namespace BugfixesAndQoL
             if (lastRealMultiplayerMode != realMultiplayer)
             {
                 lastRealMultiplayerMode = realMultiplayer;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2572", () => $"Extended Shift queue mode: realMultiplayer={realMultiplayer}, " +
-                        $"synchronizedQueueing={(realMultiplayer && multiplayerSynchronizationReady)}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticRealMultiplayer = @realMultiplayer;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2572", () => $"Extended Shift queue mode: realMultiplayer={diagnosticRealMultiplayer}, " +
+                            $"synchronizedQueueing={(diagnosticRealMultiplayer && multiplayerSynchronizationReady)}.");
+                }
             }
             return realMultiplayer;
         }

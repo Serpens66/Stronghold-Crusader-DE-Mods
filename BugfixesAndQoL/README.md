@@ -2,6 +2,8 @@
 
 BugfixesAndQoL fixes several problems in Stronghold Crusader Definitive Edition and adds optional quality-of-life improvements. Every fix and feature can be configured in the mod settings.
 
+Settings are grouped into collapsible topics with search and recommendation markers. The host controls gameplay fixes, while each player can independently enable or disable personal interface and control features.
+
 ## Fixes
 
 ### Restore terrain slowdown on the way to rally points
@@ -21,13 +23,13 @@ The enabled-by-default host fix makes the tannery rack animation fade in smoothl
 
 ### Reduce Arabian swordsmen's idle sound
 
-A local slider under **Fixes?** adjusts only the idle sword-draw sound from **0-100%**, defaulting to **25%**. Zero silences it; combat sounds remain unchanged.
+A local slider adjusts only the idle sword-draw sound from **0-100%**, defaulting to **25%**. Zero silences it; combat sounds remain unchanged.
 
 ### Optional baker and miller breaks
-The off-by-default host option under **Fixes?** lets bakers and all three mill workers occasionally take a positive-fear break after delivering bread or flour, even when more ingredients are available. It uses the game's existing break decision and destination. This Vanilla difference may be intentional, so the option is separate from the established fixes. Wheat and hops farmers retain their Vanilla behavior.
+The off-by-default host option lets bakers and all three mill workers occasionally take a positive-fear break after delivering bread or flour, even when more ingredients are available. It uses the game's existing break decision and destination. This Vanilla difference may be intentional, so the option is separate from the established fixes. Wheat and hops farmers retain their Vanilla behavior.
 
 ### Remove poleturner and tanner idle delays
-The optional host setting under **Fixes?** skips the extra waiting animation when a poleturner has wood or a tanner has workshop hides or an eligible cow available. Production times and normal positive-fear breaks remain unchanged. Disabled by default, because it is unknown whether the Vanilla delay is intentional.
+The optional host setting skips the extra waiting animation when a poleturner has wood or a tanner has workshop hides or an eligible cow available. Production times and normal positive-fear breaks remain unchanged. Disabled by default, because it is unknown whether the Vanilla delay is intentional.
 
 ### Correct demolition cursor near enemies
 The demolition cursor now changes to the blocked icon when an enemy is close enough to prevent demolition. This restores the visual feedback known from the HD version, so the game no longer appears to accept an action that it will reject.
@@ -45,7 +47,7 @@ Pressing the market hotkey while a market is already selected returns its interf
 In borderless fullscreen mode, the game can automatically replace the resolution loaded from `settings.cfg` during startup or focus changes. This fix preserves that resolution while still respecting display changes explicitly applied by the user.
 
 ### Fix synchronized movement for mixed troop groups
-With a normal synchronized movement order, every unit in a mixed group now uses the slowest member's maximum speed and a matching animation pace. Units that can all run are no longer incorrectly forced to walk merely because their individual movement speeds differ.
+With a normal synchronized movement order, every unit in a mixed group now uses the slowest member's maximum speed and a matching animation pace. Units that can all run are no longer incorrectly forced to walk merely because their individual movement speeds differ. Synchronized movement is preserved when saving and loading the game.
 
 ### Improve hostile moat filling
 This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle.
@@ -63,10 +65,10 @@ Vanilla can find a route over a wall with a placed ladder for an ordinary moveme
 Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls.
 
 ### Prevent AI Assassins from attacking captured gatehouses
-This enabled-by-default host setting under **Fixes** prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects their next target. It can be disabled independently of Assassin climbing and pathfinding; human commands are unchanged.
+This enabled-by-default host setting prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects their next target. It can be disabled independently of Assassin climbing and pathfinding; human commands are unchanged.
 
 ### Allow Assassins to climb gatehouses directly
-This enabled-by-default host setting lets human players and AI choose direct Assassin climbs onto freestanding gatehouses, using Vanilla's existing climbing execution. Existing player climbing restrictions still apply. Find it under **Fixes**.
+This enabled-by-default host setting lets human players and AI choose direct Assassin climbs onto and down from freestanding gatehouses. Existing player climbing restrictions still apply.
 
 ### Fix plague and apothecary behavior
 Each active plague outbreak now applies exactly one point of negative popularity, which is reliably removed after all associated clouds are gone. Apothecary treatments make every affected cloud fade correctly, while reserving the entire treatment area so other healers choose a different useful target. The intended building-exit transition is also completed when a target is found, preventing apothecaries from becoming stuck inside their buildings.
@@ -111,6 +113,9 @@ Details of the bug: Vanilla gives each AI a basic stone reserve and intends to a
 ### Allow an autotrade sell threshold of zero
 Vanilla does not allow automatic selling when the sell slider is set to zero. The fix makes `Sell > 0` a valid setting, allowing the market to sell a good whenever any amount of it is available.
 
+### Limit AI sales to available stock
+Prevents AI Lords from gaining gold by selling goods they do not own when their sell threshold is negative. This host option is enabled by default.
+
 ### Fix map-origin sorting
 The Origin column in singleplayer and multiplayer map selection now sorts maps like intended.
 
@@ -119,6 +124,12 @@ Classic Stronghold Crusader HD maps now properly display their map size in the m
 
 ### Restore host migration after an abrupt disconnect
 When the host leaves a running two-player match without Vanilla's normal leave packet, for example by using Alt+F4, the sole remaining human player is promoted to host. This allows the match paused by the connection error to continue and leaves Vanilla's normal player-removal flow unchanged.
+
+### Keep the Skirmish Load Game button visible
+Restores the **Load Game** button if it disappears after visiting a multiplayer lobby. This local option is enabled by default.
+
+### Load saves without the original map
+Allows loading a save even when its original map or Trail file is missing. You can continue and save the game again, but restarting the mission is blocked while its original map is unavailable; this local recovery option is enabled by default.
 
 ### Remove disbanded units from control groups
 Fix that immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership.
@@ -129,7 +140,7 @@ This enabled-by-default host fix keeps connected drawbridges intact when a stone
 
 ### Ignore dead units during gatehouse capture
 
-Gatehouses can be captured while dead units are still visible on top. Dead attackers and defenders no longer count; living defenders still block capture. This host setting is enabled by default and can be switched off under Fixes.
+Gatehouses can be captured while dead units are still visible on top. Dead attackers and defenders no longer count; living defenders still block capture. This host setting is enabled by default.
 
 ### Gate distance from center
 Gatehouses now measure the distance to enemy based on their center, not based on on of the gates. It was only noticeable with small closing distance, that the clsing distance was different depending from which side you got closer to the gate.
@@ -149,10 +160,10 @@ The enabled-by-default local **Improve yellow contrast** option gives yellow lob
 Right-click an AI or event notification video to stop its video, audio, and message text and immediately advance to the next queued notification. If the notification has no video, right-click the minimap instead. Left-clicking notification videos and normal minimap use keep their Vanilla behavior. This is an enabled-by-default per-player option.
 
 ### Keep the last video frame during speech
-When a minimap video ends before its voice line, keep its last frame visible until the voice line finishes. Left-click still hides the video; the separate right-click option can stop AI and event messages completely. This local per-player option is disabled by default and applies to all minimap videos.
+When a minimap video ends before its voice line, keep its last frame visible while speech continues, with the HD limit of 20 seconds from the video request. Playing videos and speech are not cut short by this limit; left-click still hides the picture, and this personal option is disabled by default.
 
 ### Pause a single production building
-Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Clicking without Ctrl keeps the normal behavior of changing every building of that type.
+Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Individual pause choices survive saving and loading; clicking without Ctrl still changes every building of that type.
 
 ### Repair all buildings with Shift
 Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts resources separately for every repair, so the sequence stops having an effect when the available resources are no longer sufficient.
@@ -215,11 +226,13 @@ Keyboard scrolling and edge scrolling now continue to move the camera while Ctrl
 Middle-clicking a selected troop-type icon centers the camera on one selected unit of that type.
 
 ### Remember the selected lobby map and sorting
-The shared lobby map list remembers both the last sort column and direction and the last map selected in Skirmish. This behavior is controlled by the existing **Improve selection and sorting lists** setting.
+The shared lobby map list remembers both the last sort column and direction and the last map selected in Skirmish. This behavior is controlled by the local **List search, sorting and selection memory** setting, independently of the host's extended Lord and castle selection.
 
 ### Improve custom-lord and random-opponent selection
 The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. The singleplayer Coop Trail also gains a scrollable AI-partner picker containing both local and Steam Workshop custom lords; all custom-lord partners intentionally share one Coop progress record. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits.  
 In Multiplayer you can fill all 7 slots with AI.
+
+Personal list search and sorting, extended random-opponent selection, and extended Lord and castle selection have separate switches.
 
 ### Include Lord JSON sidecars in Workshop uploads
 While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord also includes every direct `.json` file from that Lord's source folder. This supports metadata such as `info.json` and `lordmeta.json`; Vanilla continues to handle `.lordjson`, `.aivjson`, and the normal Workshop files itself. Useful to add custom descriptions for your lord see: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Guides/ExtendedData/CustomLordExtendedPackages.md
@@ -231,6 +244,15 @@ The local **Keep selected Lord after Workshop upload** option prevents successfu
 
 ### Improve game-speed controls
 Adds Multiplayer game-speed and pause controls. Can be restricted to the host or allowed for everyone. Pressing or holding a speed key changes the speed immediately and repeats every 0.25 seconds; holding Shift changes it by 25 instead of 5 per step. The slider retains its normal 5-point increments.
+
+### Redraw the minimap less often for higher game speed
+Vanilla redraws the whole minimap on every simulation tick, which takes about 40 % of each tick on large maps. The enabled-by-default host option **Redraw the minimap less often** redraws it at most every 0.1 seconds, and immediately when the camera or the minimap size or zoom changes. On a large 8-AI test map, the reachable simulation speed rose from about 85 to about 144 ticks per second. Units on the minimap then move in steps of up to 0.1 seconds; game logic is unchanged. The host decides for all players, because a Multiplayer match runs at the speed of its slowest computer.
+
+### Use extended game options in local Skirmish
+Adds the multiplayer **Game Options** dialog to local Skirmish, including restrictions, advanced rules, presets and **No Dogs**. A separate host option applies peace-time rules correctly outside multiplayer, including the countdown and rules for starting troops and wildlife.
+
+### Load multiplayer saves alone
+A ready host can load a normal multiplayer save without another human player. Missing human players are removed rather than replaced with AI; existing AI players are restored from the save, and this option is enabled by default.
 
 ### Add surrender and spectator features
 Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow. Spectators can open and refresh the current match statistics without leaving or ending the game. Eliminated players can also receive normal spectator vision and AI information.
@@ -257,7 +279,7 @@ The enabled-by-default per-player **Show timer countdowns** option adds remainin
 
 ### Improve and control Assassin climbing
 Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing walls, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours. Wall climbs can now also start and end on walkable reserved building areas, such as barracks forecourts.
-When an owned Assassin is selected, a troop-action button allows or forbids climbing globally for that player's Assassins. The setting affects new path requests only. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb now.
+The host can enable improved pathfinding separately for human and AI Assassins; both options are enabled by default. When an owned Assassin is selected, a troop-action button allows or forbids climbing for that player's Assassins, and this choice survives saving and loading. The setting affects new path requests only. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb now.
 
 ### Control the Lord through the troop HUD
 Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
@@ -276,7 +298,7 @@ Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Al
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.7.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.12.6 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
 Shared hooks coordinate command and HUD integrations with other mods; synchronized multiplayer actions use APIShared transport.
 

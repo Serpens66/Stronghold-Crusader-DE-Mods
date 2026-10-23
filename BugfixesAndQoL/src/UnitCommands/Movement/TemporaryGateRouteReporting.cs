@@ -1,4 +1,5 @@
-// TEMP_GATE_ROUTE_ACCEPTANCE: remove this partial and its builder, building and paired order attachment points after acceptance.
+#if SERP_DEVDIAG
+// TEMP_GATE_ROUTE_ACCEPTANCE: retained acceptance observation, compiled only in the dedicated diagnostic build.
 using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -394,3 +395,4 @@ namespace BugfixesAndQoL.UnitCommands
         }
     }
 }
+#endif

@@ -188,60 +188,9 @@ namespace BugfixesAndQoL.UnitCommands
         internal void BeginDirectFillCommand(TribeIssueOrderWithTargetEventArgs args)
         {
             activeDirectFillCommand = null;
-            if (args.AICommand != TribeAICommand.Unknown7 ||
-                args.TribeId < 0 || args.TribeId >= MaximumTribeCount ||
-                args.TargetValue1 < 0 || args.TargetValue1 >= MapWidth ||
-                args.TargetValue2 < 0 || args.TargetValue2 >= MapWidth ||
-                !TryCaptureOrderedActiveGroupUnits(
-                    nativeTribeManager, args.TribeId, out int[] groupUnitIds))
-            {
-                return;
-            }
-
-            int targetTileId = GameTileManagerAPI.Instance.GetTileId(
-                args.TargetValue1, args.TargetValue2);
-            if (!IsValidTileId(targetTileId) || !IsCompletedMoatTile(targetTileId))
-                return;
-
-            int playerId = -1;
-            var units = new List<DirectFillUnitStart>();
-            foreach (int unitId in groupUnitIds)
-            {
-                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
-                    unit->r_TribeId != args.TribeId || !CanDigMoat(unit))
-                {
-                    continue;
-                }
-                int unitPlayerId = unit->r_ControllableForPlayerId;
-                int startX = unit->r_CurrentTilePositionX;
-                int startY = unit->r_CurrentTilePositionY;
-                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(unitPlayerId) ||
-                    startX < 0 || startX >= MapWidth || startY < 0 || startY >= MapWidth)
-                {
-                    continue;
-                }
-                if (playerId < 0)
-                    playerId = unitPlayerId;
-                if (unitPlayerId != playerId)
-                    continue;
-                int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
-                if (!IsValidTileId(startTileId))
-                    continue;
-                units.Add(new DirectFillUnitStart(
-                    unitId, startX, startY, pathRegionGrid[startTileId]));
-            }
-
-            if (playerId < 0 || units.Count == 0 ||
-                ResolveCompletedMoatRelationship(playerId, targetTileId) !=
-                    CompletedMoatRelationship.Enemy)
-            {
-                return;
-            }
-
-            activeDirectFillCommand = new DirectFillCommandScope(
-                mapEpoch, args.TribeId, playerId, args.TargetValue1, args.TargetValue2,
-                targetTileId, units.ToArray());
+            // A direct fill scope only admits regions reached through a friendly moat (MoatMove).
+            if (TraversalEnabled)
+                activeDirectFillCommand = Traversal.CreateDirectFillCommandScopeTraversal(args);
         }
 
         internal bool TryAllowDirectFillRegionPair(
@@ -259,72 +208,16 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 return false;
             }
-
-            string key = $"{candidateRegion}:{startRegion}";
-            if (scope.RegionDecisions.TryGetValue(key, out bool cached))
-                return cached;
-
-            bool allowed = false;
-            RouteProbeSummary observed = new RouteProbeSummary(scope.PlayerId);
-            int selectedUnitId = 0;
-            var probedStarts = new HashSet<int>();
-            foreach (DirectFillUnitStart start in scope.Units)
-            {
-                if (start.Region != startRegion)
-                    continue;
-                int startKey = start.Region > 0
-                    ? start.Region
-                    : -GameTileManagerAPI.Instance.GetTileId(start.X, start.Y) - 1;
-                if (!probedStarts.Add(startKey))
-                    continue;
-                EnsureReachabilityMap(scope.PlayerId, start.X, start.Y);
-                RouteProbeSummary summary = GetCachedRouteSummaryForRegion(candidateRegion);
-                observed.MergeObservations(summary);
-                if (summary.ReachedWithMoat && !summary.ReachedWithoutMoat &&
-                    summary.FriendlyMoatTiles > 0)
-                {
-                    allowed = true;
-                    selectedUnitId = start.UnitId;
-                    break;
-                }
-            }
-            scope.RegionDecisions[key] = allowed;
-            scope.RegionFallbackEvaluations++;
-            if (allowed)
-            {
-                scope.RegionFallbackAllowed++;
-                scope.SelectedUnitId = selectedUnitId;
-                scope.Route.MergeObservations(observed);
-            }
-            return allowed;
+            // A direct fill scope exists only with the friendly-moat provider (MoatMove).
+            return Traversal.TryAllowDirectFillRegionPairTraversal(scope, candidateRegion, startRegion);
         }
 
         internal void EndDirectFillCommand(TribeIssueOrderWithTargetEventArgs args)
         {
             DirectFillCommandScope scope = activeDirectFillCommand;
             activeDirectFillCommand = null;
-            if (scope == null)
-                return;
-            try
-            {
-                string signature = $"{scope.MapEpoch}:{scope.TribeId}:{scope.TargetTileId}:" +
-                    $"{scope.RegionFallbackAllowed}:{scope.RegionFallbackEvaluations}:" +
-                    $"{scope.SelectedUnitId}:{args.ReturnValue}";
-                if (string.Equals(signature, lastDirectFillDecision, StringComparison.Ordinal))
-                    return;
-                lastDirectFillDecision = signature;
-                LogDetailedInfo(
-                    $"Bugfixes and QoL stage=friendly-moat-movement-direct-fill-command tribe={scope.TribeId} " +
-                    $"player={scope.PlayerId} target=({scope.TargetX},{scope.TargetY})/" +
-                    $"{scope.TargetTileId} diggers={scope.Units.Length} " +
-                    $"regionFallbacks={scope.RegionFallbackAllowed}/" +
-                    $"{scope.RegionFallbackEvaluations} selectedUnit={scope.SelectedUnitId} " +
-                    $"return={args.ReturnValue} {scope.Route.ToLogFields()}.");
-            }
-            catch
-            {
-                // The synchronous scope is already cleared; diagnostics must not affect dispatch.
-            }
+            if (scope != null)
+                Traversal.LogDirectFillCommandTraversal(scope, args);
         }
 
         internal void ClearIncompleteDirectFillScopeAtTick()
@@ -346,8 +239,10 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         internal void LogDirectCursorMove(DirectCursorMoveScope scope)
         {
+#if SERP_DEVDIAG
             string signature = $"{scope.MapEpoch}:{scope.TribeId}:{scope.TargetTileId}:" +
                 $"{scope.QualifyingUnitIds.Length}:{scope.RegionFallbackCalls}";
             if (string.Equals(signature, lastDirectCursorMoveDecision, StringComparison.Ordinal))
@@ -361,6 +256,7 @@ namespace BugfixesAndQoL.UnitCommands
                 $"regionFallbackCalls={scope.RegionFallbackCalls} " +
                 $"terrainUnchanged=True feedbackOnly=True " +
                 $"{scope.Route.ToLogFields()}.");
+#endif
         }
 
         internal void ResetDirectMoatCommandScopes()

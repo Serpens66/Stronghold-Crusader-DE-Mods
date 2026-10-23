@@ -2,9 +2,11 @@
 
 Gilt für alle Coding-Agenten (z. B. ChatGPT Codex, Claude Code). Von diesen Regeln darf nur mit ausdrücklicher Erlaubnis des Nutzers abgewichen werden. Diese Datei enthält, was immer gilt; Spezialthemen stehen in [`AGENTS/`](AGENTS/README.md).
 
+Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlungen und Standardverhalten, keine unveränderlichen Buildregeln. Der ausdrückliche Nutzerauftrag bestimmt Quellstand, Branch, SDK, Prüfungsumfang, Buildweg und Installation. Auftragsbezogene Einschränkungen nie als allgemeine Verbote übernehmen. Technische Voraussetzungen und gültige Pfade bleiben erforderlich.
+
 ## 1. Themendateien: Pflichtlektüre nach Auslöser
 
-Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen Vorschlag, Codeeingriff, Build oder Test vollständig lesen; ihre Regeln sind dann genauso verbindlich wie diese Datei. Mehrere Auslöser → mehrere Dateien. Im Zweifel lieber lesen.
+Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen Vorschlag, Codeeingriff, Build oder Test vollständig lesen; ihre Regeln sind dann genauso verbindlich wie diese Datei. Mehrere Auslöser → mehrere Dateien. Im Zweifel lieber lesen. Das Lesen einer Themendatei macht nicht automatisch sämtliche darin genannten Tests erforderlich; für alle Mods gilt die [Auswahl nach Relevanz](AGENTS/build-release.md#auswahl-der-prüfungen).
 
 | Auslöser | Pflichtlektüre |
 |---|---|
@@ -20,6 +22,7 @@ Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen 
 | Fehler in Script Extender oder Fixes-Mod; Fixes-bezogene Präferenzen, Presets, Belagerung | [AGENTS/external-components.md](AGENTS/external-components.md) |
 | Build, CRLF-Konvertierung, Versionsänderung, Release, Steam-Modpack | [AGENTS/build-release.md](AGENTS/build-release.md) |
 | PowerShell-/CMD-/BAT-Befehle oder -Skripte, Sandbox-/Berechtigungsfehler | [AGENTS/shell-windows.md](AGENTS/shell-windows.md) |
+| FPS-/Lag-/Startzeit-/Effizienz-Untersuchung, Performance-Messung, neue Hooks/Callbacks/Suchen in heißen Pfaden (pro Tick, Frame, Einheit, Kachel) | [AGENTS/performance.md](AGENTS/performance.md) |
 
 Verschachtelte `AGENTS.md` (z. B. `APIShared/`, `Shared/Tools/ScriptExtenderUpdate/`) gelten zusätzlich in ihrem Ordner.
 
@@ -33,9 +36,10 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - **Publicized Assembly:** neue Spielmember vor dem Build gegen die echte `Assembly-CSharp.dll` auf Sichtbarkeit prüfen; ein erfolgreicher Build beweist nichts.
 - **Hooks:** veröffentlichte Hooks nie zurück- oder umpatchen; Aktivierung nur logisch → [native-hooks.md](AGENTS/native-hooks.md).
 - **XAML-Patches:** `<Content>` mit genau einem Wurzelelement.
+- **Entwicklungsdiagnose:** neue, vor dem Release zu entfernende Diagnose nur über `Shared.DevDiag` und `build.bat /devdiag`; nie über Laufzeitschalter oder Release-Builds → [build-release.md](AGENTS/build-release.md#entwicklungsdiagnose-devdiag).
 - **Events statt Polling:** immer prüfen, ob ein passendes Event existiert (z. B. `OnKeyDown` statt `onBeforeRender`).
 - **Kompatibilität:** Jeder neue Code muss mit dem Script Extender und dem Fixes-Mod kompatibel sein (lokaler Klon zuerst, siehe §6); nach dem Fixes-Mod zu laden ist eine erlaubte Lösung.
-- **Pflichtprüfungen vor jedem Runtime-Build:** `Shared/Tools/Validation/Test-SharedBoundaries.ps1` sowie die Prüfungen der zutreffenden Themendateien.
+- **Empfohlene Prüfungen vor Runtime-Builds:** `Shared/Tools/Validation/Test-SharedBoundaries.ps1` auf den zu bauenden Mod und seine relevanten Quellen begrenzen; weitere Prüfungen nach [Relevanz](AGENTS/build-release.md#auswahl-der-prüfungen) und den konkreten Auslösern der Themendateien auswählen.
 
 ## 3. Kommunikation und Entscheidungen
 
@@ -50,11 +54,14 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 
 - `README.md`-Dateien nur auf ausdrückliche Bitte ändern. Bekommt ein Mod ein neues Feature, fragen, ob es nach Fertigstellung in die README soll.
 - Bestehende Nutzeränderungen erhalten; keine sachfremden Dateien ändern; Dateien gezielt bearbeiten.
+- **Neue Tests nur bei konkretem Nutzen:** Neue Tests und Prüfscripte nur erstellen, wenn sie eine relevante, bislang nicht ausreichend abgesicherte Fehlerklasse oder einen verbindlichen Vertrag prüfen und ihr Nutzen den zusätzlichen Wartungsaufwand rechtfertigt. Nicht jede Codeänderung benötigt einen neuen Test. Bei einfachen, risikoarmen Aufräumarbeiten wie dem Entfernen erledigter Diagnose genügen in der Regel die vorhandenen relevanten Tests und eine gezielte Kontrolle der Änderung; keine neuen Tests allein zum Nachweis der Entfernung anlegen. Details: [build-release.md](AGENTS/build-release.md#belastbare-tests-und-zustandsnachweise).
+- **Vorhandene Tests aktuell halten:** Bei jeder Codeänderung im selben Arbeitsgang alle Tests suchen, die den geänderten Code prüfen, und soweit betroffen anpassen. Dazu gehören auch Quelltext- und Strukturprüfungen, die Dateien, Member- oder Aufrufnamen per Text suchen (z. B. `File.ReadAllText` in `tests/Program.cs`), sowie Fixtures, `verify.ps1`-Skripte und die Tests im Buildskript. Weiterhin geltende Garantien erhalten; eine Erwartung nie nur ändern, damit sie besteht ([build-release.md](AGENTS/build-release.md#auswahl-der-prüfungen)). Entfällt das geprüfte Verhalten absichtlich, die dadurch überflüssigen Tests und Aufrufe entfernen. Vor dem Abschluss die betroffenen Tests oder den Build des Mods laufen lassen. Ein Test, den die eigene Änderung rot macht, gehört zur eigenen Arbeit, nicht zu „fremden“ Fehlern.
+- Für bereits Git-getrackte Dateien keine zusätzlichen Sicherungskopien anlegen; die versionierte Historie genügt. Noch nicht committete Nutzeränderungen sind dadurch nicht gesichert und müssen weiterhin erhalten bleiben.
 - Analysewerkzeuge und Artefakte in `.inspect`, `.tools`, `.native-analysis` u. ä. nicht anschließend löschen.
 - Textdateien verwenden CRLF (außer ausdrücklich für Linux); sicheres Konvertierungsverfahren → [build-release.md](AGENTS/build-release.md).
 - Ersetzt neuer Code alten Code oder Dateien, keinen Fallback oder veraltete Version ungefragt parallel behalten; vorher fragen.
-- Build: erst **alle** Prüfungen und Codekontrollen abschließen, dann einmal die passende `build.bat` direkt mit erhöhten Rechten und `/nopause` ausführen; nicht selbst bauen oder kopieren. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
-- APIShared-Branch: Vor jedem Build eines APIShared-Verbrauchers immer mit dem Nutzer abklären, gegen welche APIShared-Branch gebaut wird (`build.bat /apishared:main` = Release-Branch, `/apishared:dev` = lokaler Entwicklungs-Checkout), sofern er das für die aktuelle Aufgabe nicht bereits festgelegt hat → [build-release.md](AGENTS/build-release.md).
+- Empfohlener Buildablauf: relevante Prüfungen gemäß [Prüfauswahl](AGENTS/build-release.md#auswahl-der-prüfungen), danach die passende `build.bat` mit `/nopause` und bei Bedarf erhöhten Rechten. Buildweg, Prüfungsumfang, Quellstand, SDK und Installation richten sich nach dem konkreten Nutzerauftrag; das ist keine allgemeine Einschränkung anderer Buildwege.
+- Buildskripte bieten Standardabläufe; ausdrückliche Nutzerwünsche bestimmen Quellstand (einschließlich Arbeitsstand), Branch und SDK. Keine allgemeine Commit- oder Branchpflicht für Builds → [build-release.md](AGENTS/build-release.md).
 - Versionen erst ändern, wenn ein Feature fertig oder ein Bug final behoben ist (im Zweifel fragen); dann modweit atomar und mit Konsistenzprüfung → [build-release.md](AGENTS/build-release.md).
 - Commits und Veröffentlichungen nur auf ausdrücklichen Nutzerauftrag.
 
@@ -84,3 +91,22 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - **SHC-HD-Quellen:** https://github.com/sourcehold, https://github.com/UnofficialCrusaderPatch (teils lokal unter `D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\HD sources\UCP`), https://github.com/gynt?tab=repositories&type=source, `D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\HD sources\Stronghold Crusader HD reversed`.
 - **KI-Lords:** `C:\Users\Serpens66\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\CustomLords` und `ExtendedLords` enthalten `.lordjson` (AIC: grobes KI-Verhalten wie Wirtschaft und Militär) und `.aivjson` (AIV: Burgaufbau, Mauern, Gebäudeplatzierung). Editor: `E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition - Castle & CPU Lord Editor`.
 - **Werkzeuge:** `git` (unter `C:/Program Files/Git/mingw64/libexec/git-core`), `dotnet`, `ilspycmd`; weitere Reverse-Engineering-Werkzeuge in `.tools` und `.native-analysis`.
+- **Python:** nicht im PATH (`python`/`python3` schlagen fehl); portables WinPython unter `D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe` direkt aufrufen.
+
+## Verträge, veränderliche Strukturen und Momentaufnahmen
+
+Code, Tests und Dokumentation sollen sich auf ausdrücklich definierte Verträge und überprüfbare Eigenschaften stützen. Veränderliche Implementierungsdetails, Verzeichnisstrukturen, Namen, Versionen und Arbeitszustände dürfen nicht unbegründet als dauerhaft vorausgesetzt werden. Situative Aussagen müssen als Momentaufnahme mit Zeitpunkt, Bezug und Verifikationsweg erkennbar sein; sie dürfen spätere Arbeit nicht durch veraltete Bedingungen blockieren. Exakte Erwartungen sind zulässig, wenn gerade diese Eigenschaft Prüfgegenstand oder Bestandteil eines verbindlichen Vertrags ist. Den Grund dafür ausdrücklich dokumentieren.
+
+Verbindliche Sicherheitsgrenzen, veröffentlichte Identitäten und hashgebundene native Verträge bleiben maßgeblich. Diese Regel erlaubt weder das Abschwächen notwendiger Prüfungen noch das Aktualisieren einer Erwartung allein, damit ein fehlgeschlagener Test besteht. Dauerhafte Arbeitsregeln von datierten Zustandsberichten trennen; historische Nachweise unverändert erhalten.
+
+## Kurze Pfade und Long-Path-Unterstützung
+
+Pfade möglichst kurz und übersichtlich halten, insbesondere für Build-, Test-, Analyse- und temporäre Arbeitsverzeichnisse. Unnötige Verschachtelung sowie lange Hashes oder GUIDs in Verzeichnisnamen vermeiden; vollständige Identitäten bei Bedarf in Metadaten speichern. Eigener Code und eigene Werkzeuge sollen lange Pfade unterstützen, soweit die verwendete Plattform dies ermöglicht. Kurze Pfade und Long-Path-Unterstützung ergänzen einander. Bei Pfadänderungen alle aktiven Referenzen, Prüfungen und Konfigurationen gemeinsam aktualisieren; historische Nachweise unverändert erhalten.
+
+### Orientierung in `.work` für neue Chats
+
+- `.work/b/<branch>/<laufnummer>` enthält Build-Arbeitskopien, `.work/t/<suite>/<laufnummer>` Test-Fixtures und `.work/a/<thema>/<laufnummer>` Analysen oder ausdrücklich angelegte Entwicklungsarbeitskopien. Die Laufnummer ist keine Commit- oder Versionskennung. `.work/c/apishared-<branch>` ist der jederzeit neu erzeugbare SDK-Cache der Buildtreiber (siehe [build-release.md](AGENTS/build-release.md#short-development-paths)).
+- Beim Fortsetzen vorhandener Arbeit zuerst den lokalen Index `.work/INDEX.json` lesen, sofern vorhanden. Er benennt geschützte Entwicklungsarbeitskopien und zugehörige Nachweise. Aktiven Entwicklungsstand, Artefakte und abgeschlossene Nachweise unterscheiden; „Git-ignoriert“ bedeutet nicht „entbehrlich“.
+- Identitäten aus benachbarten `*.run.json`, `*.build.json`, SDK-Auswahlnachweisen und Git bestimmen; nie aus der kurzen Ordnerbezeichnung raten. Vor Änderungen oder Bereinigung zusätzlich `git worktree list --porcelain`, Branch/HEAD und `git status --short` im betroffenen Repository prüfen. Indexangaben sind datierte Beobachtungen und können veralten; sie ersetzen diese Prüfungen nicht. Angaben wie „uncommitted“, „detached“ oder ein Buildfehler niemals als unveränderliche Voraussetzung behandeln. Veraltete Angaben nach Prüfung berichtigen, ohne historische Nachweise umzuschreiben.
+- Neue Verzeichnisse mit den vorhandenen WorkPaths-/TestWorkDirectory-Helfern vergeben; keine Laufnummer selbst auswählen. Bei neuen geschützten Entwicklungsarbeitskopien oder deren Übergabe den lokalen Index aktualisieren. Vorhandene Ordner nicht für einen neuen Lauf wiederverwenden.
+- `.work` niemals pauschal löschen. Uncommittete Quellen und Nachweise erhalten; registrierte Git-Worktrees ausschließlich über Git bzw. die zuständige Worktree-Verwaltung entfernen. Fehlende Metadaten sind keine Löschfreigabe. Ein inzwischen sauberer Arbeitsbaum beweist allein nicht, dass Arbeit integriert oder entbehrlich ist: auch noch nicht integrierte oder nicht übertragene Commits und benötigte Nachweise berücksichtigen. Schutzvermerke nach belegter Sicherung bzw. Integration und im Rahmen des autorisierten Auftrags überprüfen und aktualisieren; sie behaupten keinen dauerhaft unveränderten Git-Zustand.

@@ -14,18 +14,20 @@ namespace Shared
 {
     internal readonly struct PlayerIdentityResolution
     {
-        internal PlayerIdentityResolution(int playerId, bool isResolved, string error, string diagnostic)
+        internal PlayerIdentityResolution(int playerId, bool isResolved, string error, string diagnostic, bool isConflict = false)
         {
             PlayerId = playerId;
             IsResolved = isResolved;
             Error = error ?? string.Empty;
             Diagnostic = diagnostic ?? string.Empty;
+            IsConflict = isConflict;
         }
 
         internal int PlayerId { get; }
         internal bool IsResolved { get; }
         internal string Error { get; }
         internal string Diagnostic { get; }
+        internal bool IsConflict { get; }
     }
 
     internal static class PlayerIdentityHelper
@@ -54,7 +56,7 @@ namespace Shared
                 {
                     return Failure(
                         $"Authoritative local player ID mismatch: native={nativePlayerId}, gameMember={gameMemberPlayerId}, " +
-                        $"lobby={lobbyPlayerId}.");
+                        $"lobby={lobbyPlayerId}.", isConflict: true);
                 }
 
                 int authoritative = nativeValid ? nativePlayerId : gameMemberPlayerId;
@@ -68,7 +70,7 @@ namespace Shared
                 {
                     return Failure(
                         $"Final lobby mapping disagrees with the authoritative local player ID: " +
-                        $"authoritative={authoritative}, lobby={lobbyPlayerId}.");
+                        $"authoritative={authoritative}, lobby={lobbyPlayerId}.", isConflict: true);
                 }
 
                 return Success(authoritative, string.Empty);
@@ -87,7 +89,7 @@ namespace Shared
                 return Success(gameMemberPlayerId, string.Empty);
             if (lobbyValid)
                 return Success(lobbyPlayerId, string.Empty);
-            return Failure("No valid local player ID is available.");
+            return Failure($"No valid local player ID is available: native={nativePlayerId}, gameMember={gameMemberPlayerId}, lobby={lobbyPlayerId}.");
         }
 
         internal static PlayerIdentityResolution ResolvePlayerIdForSteamId(
@@ -314,7 +316,18 @@ namespace Shared
             out Dictionary<int, ulong> playersById,
             out string error,
             out string diagnostic)
+            => TryCaptureHumanRoster(preferInGameRoster, requireAuthoritativeLobbyRoster,
+                out playersById, out error, out diagnostic, out _);
+
+        internal static bool TryCaptureHumanRoster(
+            bool preferInGameRoster,
+            bool requireAuthoritativeLobbyRoster,
+            out Dictionary<int, ulong> playersById,
+            out string error,
+            out string diagnostic,
+            out bool isConflict)
         {
+            isConflict = false;
             playersById = new Dictionary<int, ulong>();
             diagnostic = string.Empty;
             Platform_Multiplayer platform = Platform_Multiplayer.Instance;
@@ -331,7 +344,10 @@ namespace Shared
                 foreach (Platform_Multiplayer.MPGameMember member in humanGameMembers)
                 {
                     if (!TryAddPlayer(playersById, member.playerID, member.steamID, out error))
+                    {
+                        isConflict = IsValidPlayerId(member.playerID) && member.steamID != 0;
                         return false;
+                    }
                 }
                 error = string.Empty;
                 return true;
@@ -376,7 +392,10 @@ namespace Shared
                         $"steamId={steamId}: only provisional networkLobby={networkLobbyPlayerId} is available");
                 }
                 if (!TryAddPlayer(playersById, playerId, steamId, out error))
+                {
+                    isConflict = IsValidPlayerId(playerId) && steamId != 0;
                     return false;
+                }
             }
 
             if (playersById.Count == 0)
@@ -421,8 +440,8 @@ namespace Shared
         private static PlayerIdentityResolution Success(int playerId, string diagnostic) =>
             new PlayerIdentityResolution(playerId, true, string.Empty, diagnostic);
 
-        private static PlayerIdentityResolution Failure(string error) =>
-            new PlayerIdentityResolution(0, false, error, string.Empty);
+        private static PlayerIdentityResolution Failure(string error, bool isConflict = false) =>
+            new PlayerIdentityResolution(0, false, error, string.Empty, isConflict);
 
         private static bool IsValidPlayerId(int playerId) =>
             playerId >= FirstPlayerId && playerId <= LastPlayerId;

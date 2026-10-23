@@ -12,10 +12,11 @@ namespace ExtraFeatures
         private static readonly object ProcessPatchSync = new object();
         private static ElevatedMoatPatch processPatch;
         private static bool processPatchUnavailable;
+        // Reported once, and only when the feature is enabled; a disabled feature stays silent.
+        private static Exception installFailure;
 
         private readonly ManualLogSource log;
         private CrusaderLibraryLoadContext context;
-        private bool referenceHashMatches;
 
         internal ElevatedMoatRuntime(ManualLogSource log)
         {
@@ -25,7 +26,27 @@ namespace ExtraFeatures
         internal void InitializeNative(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
-            this.referenceHashMatches = referenceHashMatches;
+
+            // Installed in the LibraryLoaded window, where it costs almost nothing, instead of
+            // during the first map load with the feature enabled. The hooks start logically
+            // disabled; Reconcile only switches their native and managed flags.
+            lock (ProcessPatchSync)
+            {
+                if (processPatch != null || processPatchUnavailable)
+                    return;
+                try
+                {
+                    if (Chainloader.PluginInfos.ContainsKey(RetiredTestPluginGuid))
+                        throw new InvalidOperationException(
+                            "ElevatedMoatTest is still loaded. Remove the retired test mod and restart to avoid overlapping native hooks.");
+                    processPatch = new ElevatedMoatPatch(log, context, referenceHashMatches);
+                }
+                catch (Exception ex)
+                {
+                    processPatchUnavailable = true;
+                    installFailure = ex;
+                }
+            }
         }
 
         internal void Reconcile(bool allowAIPlacement, bool allowHumanPlacement)
@@ -38,11 +59,6 @@ namespace ExtraFeatures
 
             lock (ProcessPatchSync)
             {
-                if (processPatchUnavailable)
-                {
-                    ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
-                    return;
-                }
                 if (processPatch != null)
                 {
                     processPatch.UpdateSettings(allowAIPlacement, allowHumanPlacement);
@@ -50,37 +66,16 @@ namespace ExtraFeatures
                         ? ElevatedMoatAiState.Enabled : ElevatedMoatAiState.Disabled);
                     return;
                 }
-                if (!allowAIPlacement && !allowHumanPlacement)
-                {
-                    ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
-                    return;
-                }
 
-                if (Chainloader.PluginInfos.ContainsKey(RetiredTestPluginGuid))
+                ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
+                if ((allowAIPlacement || allowHumanPlacement) && installFailure != null)
                 {
-                    processPatchUnavailable = true;
+                    Exception failure = installFailure;
+                    installFailure = null;
                     throw new InvalidOperationException(
-                        "ElevatedMoatTest is still loaded. Remove the retired test mod and restart to avoid overlapping native hooks.");
+                        "Elevated moat is unavailable for this process; its native hooks were not installed at startup.",
+                        failure);
                 }
-
-                try
-                {
-                    var candidate = new ElevatedMoatPatch(
-                        log,
-                        context,
-                        referenceHashMatches,
-                        allowAIPlacement,
-                        allowHumanPlacement);
-                    processPatch = candidate;
-                }
-                catch
-                {
-                    processPatchUnavailable = true;
-                    ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
-                    throw;
-                }
-                ElevatedMoatAiCapability.Publish(processPatch.IsAiEnabled
-                    ? ElevatedMoatAiState.Enabled : ElevatedMoatAiState.Disabled);
             }
         }
 

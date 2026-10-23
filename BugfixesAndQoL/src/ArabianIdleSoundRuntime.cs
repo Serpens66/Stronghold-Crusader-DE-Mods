@@ -11,6 +11,8 @@ namespace BugfixesAndQoL
     internal static class ArabianIdleSoundRuntime
     {
         private const int SwordDrawEffectId = 180;
+        // APIShared catalog key of the confirmed Arabian idle sword-draw call site.
+        private const string SwordDrawSourceKey = "Unit75.Source04";
         private static readonly Action<SoundPreEventArgs> callback = Apply;
         private static SoundRegistration registration;
         private static BugfixesAndQoLViewModel settings;
@@ -25,15 +27,17 @@ namespace BugfixesAndQoL
             settings.SettingChanged += OnSettingChanged;
             try
             {
-                if (!SoundEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "ArabianIdleSoundVolume",
-                    callback, null, out registration, out string reason))
+                // Only the confirmed draw source: every other soldier sound stays in native code.
+                if (!SoundSourceSelection.TryCreate(new[] { SwordDrawSourceKey }, null, out var sources, out string reason) ||
+                    !SoundEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "ArabianIdleSoundVolume",
+                        callback, null, sources, out registration, out reason))
                     throw new InvalidOperationException(reason);
                 RefreshActivation();
                 try
                 {
-                    Shared.DebugLogHelper.LogInfo(persistentLog,
-                        "ARABIAN_IDLE_VOLUME_REGISTERED: percent=" + settings.ArabianIdleSoundVolumePercent +
-                        "; enabled=" + registration.Enabled + "; context=" + SoundEvents.ContextDiagnostic);
+                        Shared.DebugLogHelper.LogInfo(persistentLog,
+                            "ARABIAN_IDLE_VOLUME_REGISTERED: percent=" + settings.ArabianIdleSoundVolumePercent +
+                            "; enabled=" + registration.Enabled + "; context=" + SoundEvents.ContextDiagnostic);
                 }
                 catch { }
             }
@@ -71,9 +75,9 @@ namespace BugfixesAndQoL
             if (Volatile.Read(ref confirmed) == 0 && Interlocked.Exchange(ref confirmed, 1) == 0)
                 try
                 {
-                    Shared.DebugLogHelper.LogInfo(persistentLog,
-                        "ARABIAN_IDLE_VOLUME_APPLIED: permanent callback after startup; percent=" + percent +
-                        "; source=" + args.Context.SourceKey + "; request changed, audibility not confirmed.");
+                        Shared.DebugLogHelper.LogInfo(persistentLog,
+                            "ARABIAN_IDLE_VOLUME_APPLIED: permanent callback after startup; percent=" + percent +
+                            "; source=" + args.Context.SourceKey + "; request changed, audibility not confirmed.");
                 }
                 catch { } // Diagnostics must never affect playback or callback rollback.
         }

@@ -1,0 +1,8 @@
+PASS: unchanged/live/restart/mixed settings, atomic rejection, personal preservation and runtime-capability upgrade
+PASS: durable restart recovery, failed replacement rollback, changed content, missing provider and corrupt preparation
+PASS: personal versus desired sources, unchanged personal persistence and network-owned client admission
+PASS: optional discovery, delayed readiness, real prepared registration, opt-in rejection, uncertain activation, UI isolation and provider-independent discard
+PASS: real Tweaker adapter and shared reset preserve typed defaults, mixed modes, restart isolation and failed replacements
+PASS: actual Tweaker adapter initializes once, validates changes, refreshes personal values and exposes live metadata at 4233/12000/16384 options
+PASS: dynamic 12000-option catalog, shared JSON, mixed modes, successive presets and atomic rejection
+PASS: Documents storage, pre-binding registration, presets, authority and external configuration providers.

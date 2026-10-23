@@ -1,0 +1,197 @@
+using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+using SHCDESE.API;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
+namespace CrusaderDE { }
+public static class EngineInterface { private static object threadLock=new();internal static object Lock=>threadLock; }
+namespace SHCDESE.Interop.Enums { public enum AliveState { IsAlive=2 } }
+namespace SHCDESE.Interop {
+ public struct GameUnit { public bool Alive;public ushort r_ControllableForPlayerId,r_TribeId,r_CurrentTilePositionX,r_CurrentTilePositionY,N000000C4;public uint r_CurrentPositionTileId;public eChimps r_UnitChimp; }
+ public struct GameTribe { public ushort r_PlayerIdOwner,r_LeaderUnitId;public uint r_GlobalId;public AliveState r_AliveState; }
+}
+namespace SHCDESE.API {
+ public unsafe class GameTribeManagerAPI {
+  public static GameTribeManagerAPI Instance=new(); public GameTribe* Tribe;
+  public bool TryGetTribeById(int id,out GameTribe* tribe) { tribe=Tribe;return id==2&&tribe!=null; }
+ }
+ public class GamePlayerManagerAPI { public static GamePlayerManagerAPI Instance=new(); public int Player=1;public int GetLocalPlayerId()=>Player; }
+ public unsafe class GameTileManagerAPI {
+  public static GameTileManagerAPI Instance=new();public Tiles TileManager=new();
+  public int GetTileId(int x,int y)=>x+y*800;
+  public class Tiles { public int[] LogicGrid=new int[800*800]; }
+ }
+}
+namespace APIShared {
+ public static unsafe class UnitAccess {
+  public static GameUnit* Units;
+  public static bool TryGetById(int id,out GameUnit* unit,out int index) { index=id-1;unit=id>=1&&id<=2?Units+index:null;return unit!=null; }
+  public static bool IsReallyAlive(GameUnit* unit)=>unit->Alive;
+ }
+}
+namespace APIShared.Internal {
+ public enum GroundMovePreviewRejection { None,Other }
+ public static class DebugLogHelper { public static void LogInfo(object log,string message) {} }
+}
+namespace Shared { public static class DebugLogHelper {
+ public static int Errors;
+ public static bool DiagnosticsEnabled => false;
+ public static void LogInfo(object log,string message) {}
+ public static void LogErrorLimited(object log,string key,string message) { Errors++; }
+ public static void LogWarningLimited(object log,string key,string message) {}
+} }
+namespace BugfixesAndQoL.UnitCommands {
+ public class EditorDirector {
+  public static EditorDirector instance=new(); public bool Consumed;
+  public void clearMouseStateForEngine() { Consumed=true; }
+ }
+ internal struct FormationMouseState {}
+ internal static class FormationReleaseStateModel {
+  internal static bool HasCommandRelease(FormationMouseState state,int button)=>true;
+  internal static FormationMouseState Consume()=>new();
+ }
+ internal class NativeContext { public IntPtr ModuleHandle;public byte[] Memory=Array.Empty<byte>(); }
+ internal class Commands { public int mapEpoch=4; }
+ internal class Gate { public bool TryClaimVanillaRelease(FormationMouseState state)=>true; }
+ internal class Authorization { public bool IsConfirmed=true; }
+ internal class Target { public int NativeX=10,NativeY=10; }
+ internal class ActiveDrag {
+  public int TribeId=2,MapEpoch=4,PlayerId=1,CommandButton=1,Kind,Density=1,PlacementMode;
+  public Gate ReleaseGate=new();public Authorization Authorization=new();public Target Target=new();
+ }
+ internal class FormationOrderPacket { public int OperationId=1; }
+ internal enum DispatchDisposition { Accepted,Rejected }
+ internal class ReleaseConsumptionWatch { public ReleaseConsumptionWatch(int a,int b,int c,int d) {} }
+ internal static class FormationModel { internal static int NormalizeDensity(int n)=>n;internal static int NormalizePlacementMode(int n)=>n; }
+ internal class Config { public int Value; }
+ internal sealed class Renderer {
+  internal Action NativeFrameCompleted { private get; set; }
+  internal class Hook { public Action<IntPtr> Original; }
+  internal Hook resetDrawListHook=new();internal object log;
+  internal int resets,failures;
+  internal Renderer() { resetDrawListHook.Original=_=>resets++; }
+  private void OnVanillaDrawListReset() {}
+  private void FailOpen(Exception e) { failures++; }
+  public void Render()=>ResetDrawList(IntPtr.Zero);
+  __RENDERER__
+ }
+ internal class FakeNative : IFormationSpeechNative {
+  public int Emitted, Captured;public bool ThrowCapture,ThrowAudio,Busy;
+  public FormationSpeechRequest Last;public eChimps Voice=eChimps.CHIMP_TYPE_SWORDSMAN;
+  public int CaptureVoice(IntPtr manager,int tribe) { Captured++;if(ThrowCapture)throw new Exception("capture");return (int)Voice; }
+  public int CaptureRepresentative()=>1;
+  public void Emit(FormationSpeechRequest request) { if(ThrowAudio)throw new Exception("audio");if(!Busy){Emitted++;Last=request;} }
+ }
+ internal sealed unsafe partial class FormationRuntime {
+  private readonly object stateSync=new();private object log;
+  private bool initialized=true,startupConfirmed=true,localFailed,enabled=true,mapValid=true,accept=true,buffer=true;
+  private bool LocalInputEnabled=>enabled&&!localFailed;
+  private bool Enabled=>enabled;
+  private long nativeFeedbackGeneration,nativeFeedbackRunGeneration;
+  private bool nativeFeedbackRunActive;
+  private int mainThreadId=Environment.CurrentManagedThreadId,originalRuns,moves;
+  private Commands commandRuntime=new();private Renderer markerRenderer=new();private NativeContext libraryContext=new();
+  private IntPtr nativeTribeManager;
+  private ActiveDrag drag=new(); private ReleaseConsumptionWatch releaseConsumptionWatch;
+  private Config formationConfig=new(),densityConfig=new(),placementModeConfig=new();
+  private Func<bool,int> engineRunOriginal;
+  private bool HasValidMap()=>mapValid;
+  private void LogDebugNoThrow(string m) {} private void LogWarningNoThrow(string m) {}
+  private void ResetTransientState() { speechQueue.Clear();drag=null; }
+  private void AbortDrag(string m) { drag=null; }
+  private void FailOpen(string contract,Exception e) { localFailed=true; }
+  private void AgeReleaseConsumptionWatch() {}
+  private FormationMouseState CaptureMouseState(EditorDirector director)=>new();
+  private void ApplyMouseState(EditorDirector director,FormationMouseState state) { director.Consumed=true; }
+  private APIShared.Internal.GroundMovePreviewRejection EvaluateCommandMode()=>APIShared.Internal.GroundMovePreviewRejection.None;
+  private APIShared.Internal.GroundMovePreviewRejection EvaluateFormationTargetBounds(Target target)=>APIShared.Internal.GroundMovePreviewRejection.None;
+  private string ToRejectionReason(APIShared.Internal.GroundMovePreviewRejection reason)=>reason.ToString();
+  private bool ValidateActiveDrag(ActiveDrag state)=>state!=null;
+  private void ClearPreview() {}
+  private bool TryCreatePacket(ActiveDrag state,out FormationOrderPacket packet) { packet=new();return true; }
+  private DispatchDisposition TryDispatch(FormationOrderPacket packet,out string rejection) {
+   moves++;rejection="rejected";
+   // Mutating the leader after dispatch must not change the captured near response.
+   APIShared.UnitAccess.Units->r_CurrentTilePositionX=700;
+   return accept?DispatchDisposition.Accepted:DispatchDisposition.Rejected;
+  }
+  __ENGINE__
+  private FakeNative Setup() {
+   GameTribeManagerAPI.Instance.Tribe=(GameTribe*)Marshal.AllocHGlobal(sizeof(GameTribe));
+   *GameTribeManagerAPI.Instance.Tribe=new GameTribe{r_PlayerIdOwner=1,r_GlobalId=3,r_LeaderUnitId=1,r_AliveState=AliveState.IsAlive};
+   APIShared.UnitAccess.Units=(GameUnit*)Marshal.AllocHGlobal(sizeof(GameUnit)*2);
+   for(int i=0;i<2;i++) APIShared.UnitAccess.Units[i]=new GameUnit{Alive=true,r_ControllableForPlayerId=1,r_TribeId=2,r_UnitChimp=eChimps.CHIMP_TYPE_SWORDSMAN};
+   GamePlayerManagerAPI.Instance.Player=1;EditorDirector.instance=new();
+   GameTileManagerAPI.Instance.TileManager.LogicGrid[0]=0;
+   var native=new FakeNative();speechNative=native;
+   speechEngineLock=EngineInterface.Lock;
+   markerRenderer.NativeFrameCompleted=OnSpeechNativeFrame;
+   engineRunOriginal=_=> { originalRuns++;if(buffer)lock(speechEngineLock)markerRenderer.Render();return buffer?1:0; };
+   return native;
+  }
+  private void Free() { Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe);Marshal.FreeHGlobal((IntPtr)APIShared.UnitAccess.Units); }
+  static void Check(bool b,string m) { if(!b)throw new Exception(m); }
+  public static void Run() {
+   foreach(int button in new[]{0,1}) {
+    var r=new FormationRuntime();var n=r.Setup();try {
+     r.drag.CommandButton=button;r.EngineRunHook(false);
+     Check(n.Captured==1&&n.Emitted==1&&n.Last.Response==6,"Captured pre-dispatch near voice");
+     Check(r.moves==1&&r.originalRuns==1&&EditorDirector.instance.Consumed,"Exactly one move and consumed release");
+     r.EngineRunHook(false);Check(n.Emitted==1&&r.moves==1&&r.originalRuns==2,"Next run cannot repeat accepted order");
+     Check(r.markerRenderer.failures==0,"Marker renderer remains active");
+    } finally { r.Free(); }
+   }
+   foreach(string scenario in new[]{"rejected","capture-error","audio-error","busy","no-buffer","map-change","disabled","remote-player","reused-group","native-outside-run","engineer","embedded","excluded","far","successive"}) {
+    var r=new FormationRuntime();var n=r.Setup();try {
+     if(scenario=="rejected")r.accept=false;
+     if(scenario=="capture-error")n.ThrowCapture=true;
+     if(scenario=="audio-error")n.ThrowAudio=true;
+     if(scenario=="busy")n.Busy=true;
+     if(scenario=="excluded")n.Voice=eChimps.CHIMP_TYPE_CATAPULT;
+     if(scenario=="engineer") { APIShared.UnitAccess.Units->r_UnitChimp=eChimps.CHIMP_TYPE_ENGINEER;APIShared.UnitAccess.Units->N000000C4=1; }
+     if(scenario=="embedded")GameTileManagerAPI.Instance.TileManager.LogicGrid[0]=0x40000000;
+     if(scenario=="far")r.drag.Target.NativeX=73;
+     bool delayed=scenario=="no-buffer"||scenario=="map-change"||scenario=="disabled"||scenario=="remote-player"||scenario=="reused-group"||scenario=="native-outside-run";
+     if(delayed)r.buffer=false;
+     r.EngineRunHook(false);
+     Check(r.moves==1&&r.originalRuns==1&&!r.localFailed,scenario+": failure isolated from engine/movement");
+     if(scenario=="rejected")Check(!EditorDirector.instance.Consumed&&n.Emitted==0,"Rejected input left to Vanilla");
+     else Check(EditorDirector.instance.Consumed,"Accepted input remains consumed");
+     if(delayed) {
+      Check(n.Emitted==0,"No-buffer retained");
+      if(scenario=="map-change")r.commandRuntime.mapEpoch++;
+      if(scenario=="disabled")r.enabled=false;
+      if(scenario=="remote-player")GamePlayerManagerAPI.Instance.Player=2;
+      if(scenario=="reused-group")GameTribeManagerAPI.Instance.Tribe->r_GlobalId++;
+      if(scenario=="native-outside-run") { r.markerRenderer.Render();Check(n.Emitted==0,"Unrelated render cannot consume feedback"); }
+      r.buffer=true;r.EngineRunHook(false);
+      Check(n.Emitted==((scenario=="no-buffer"||scenario=="native-outside-run")?1:0),scenario+": context gate");
+     }
+     if(scenario=="busy") { n.Busy=false;r.EngineRunHook(false);Check(n.Emitted==0,"Suppression not replayed"); }
+     if(scenario=="audio-error")Check(r.speechNative==null&&r.markerRenderer.failures==0,"Audio-only disable");
+     if(scenario=="far")Check(n.Last.Response==10&&n.Last.TargetTileId==0,"Far voice");
+     if(scenario=="successive") { r.drag=new ActiveDrag();r.EngineRunHook(false);Check(r.moves==2&&n.Emitted==2,"Two gestures, two responses"); }
+     if(scenario=="engineer"||scenario=="embedded"||scenario=="excluded"||scenario=="capture-error")Check(n.Emitted==0,scenario+": exclusion");
+    } finally { r.Free(); }
+   }
+   // Received simulation orders never pass the local release handoff.
+   var remote=new FormationRuntime();var rn=remote.Setup();try { remote.TryDispatch(new(),out _);remote.drag=null;remote.EngineRunHook(false);Check(rn.Emitted==0,"Remote execution has no local feedback"); } finally {remote.Free();}
+   var locked=new FormationRuntime();var ln=locked.Setup();try {
+    using var entered=new ManualResetEventSlim();using var release=new ManualResetEventSlim();
+    var worker=new Thread(()=> { lock(locked.speechEngineLock){entered.Set();release.Wait();} });worker.Start();entered.Wait();
+    try { Check(locked.CaptureSpeech(locked.drag)==null&&ln.Captured==0,"Busy engine skips native query without blocking"); }
+    finally { release.Set();worker.Join(); }
+    locked.speechQueue.Enqueue(locked.CaptureSpeech(locked.drag));locked.nativeFeedbackRunActive=true;
+    locked.markerRenderer.Render();Check(ln.Emitted==0,"Unprotected native callback cannot emit");
+    lock(locked.speechEngineLock)locked.markerRenderer.Render();Check(ln.Emitted==1,"Protected native callback emits once");
+   } finally { locked.Free(); }
+   var unavailable=new FormationRuntime();unavailable.Setup();try {
+    unavailable.InitializeSpeech();Check(unavailable.speechNative==null&&!unavailable.localFailed,"Adapter init failure is audio-only");
+    unavailable.EngineRunHook(false);Check(unavailable.moves==1&&unavailable.originalRuns==1&&unavailable.markerRenderer.failures==0,"Formation survives unavailable adapter");
+   } finally { unavailable.Free(); }
+   var renderer=new Renderer();renderer.NativeFrameCompleted=()=>throw new Exception("unexpected callback failure");
+   renderer.Render();Check(renderer.resets==1&&renderer.failures==0,"Unexpected feedback exception cannot repeat reset or disable markers");
+  }
+ }
+}

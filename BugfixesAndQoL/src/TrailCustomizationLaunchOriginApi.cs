@@ -87,7 +87,10 @@ namespace BugfixesAndQoL
                 launchPending = false;
             }
             if (previous != TrailCustomizationLaunchOriginKind.None)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:92", $"Cleared Trail customization origin: previous={previous}.");
+                {
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:92", $"Cleared Trail customization origin: previous={previous}.");
+                }
         }
 
         internal static void MarkMapStarted()
@@ -177,8 +180,9 @@ namespace BugfixesAndQoL
                 restoredFromSave = restored;
                 launchPending = true;
             }
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:184", $"Set Trail customization origin: origin={value}, trailId={selectedTrailId}, " +
-                $"missionId={selectedMissionId}, restored={restored}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:184", $"Set Trail customization origin: origin={value}, trailId={selectedTrailId}, " +
+                    $"missionId={selectedMissionId}, restored={restored}.");
         }
 
         [MessagePackObject]

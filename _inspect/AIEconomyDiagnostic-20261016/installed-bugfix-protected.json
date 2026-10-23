@@ -1,0 +1,210 @@
+[
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+    "Hash": "A8BD7DA4D053657BF025DFF0041E3EFB9A4821FF985A28C61D03BB673BC55F02"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\BugfixesAndQoL.pdb",
+    "Hash": "2D7FC34BF3AD7B6B1FE6B788F18E3B3B136EDA225A782B71BD6C07A4A83966D1"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\info.json",
+    "Hash": "8AAD5702B8F6B82DA2ED6C6E422B626BCCDA0B551A3646B2CF486BB4FFE281D1"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\LobbyModSettings\\AiAivSelectionMemory.json",
+    "Hash": "E58B6155FE2EF760FF3EE1B1034F31FB00EDD822EC3EB819CE306597F5D33220"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\LobbyModSettings\\BugfixesAndQoL_Serp.msgpack",
+    "Hash": "EE6706003F61B6CBC2ADA1C9DEA795B0B015021731327F076DA8BC72FBAE6416"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\LobbyModSettings\\LobbyMapSelectionMemory.json",
+    "Hash": "A7614425EAB85C7706B98DEF7C005BE5205CA6EF9B8BE42AA3349F52975FE97D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\ar.txt",
+    "Hash": "CEA26DEBF22DEDD8F6B49681CC1FB89728BE83431CA6AAF8F041BCA882D91621"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\cs-CZ.txt",
+    "Hash": "FCC6777FCE076279EEBBF57EE3DF0873554BA264FF435F5039ACFD7C16AF0C3A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\de-DE.txt",
+    "Hash": "A981A117A00B9AB9ABF42A7513850C86A429177C4DD144D845652D9811F5D9F0"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\el-GR.txt",
+    "Hash": "EB5CD3BFA5B893ACA751CF3F0C9CEE394208F1EBE174A2D2B6B73CD5CFEDC0AF"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\en-US.txt",
+    "Hash": "A3F97E69253CBF9ABBB863AF09B1E4A3676CD28843D81515F0B4600CCC63EDBE"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\es-ES.txt",
+    "Hash": "7ED51DDE53DED8ED5F5AEA7A8F3A6F066B5AB78A949E3755FE2CE1594DD875BA"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\fr-FR.txt",
+    "Hash": "FBADA9CB13A21ADFF9FDF043E40BF81B165C88822ED0C6DF37CC4081E4DA4958"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\hu-HU.txt",
+    "Hash": "D67A4DA45B5815EF7E2FECE92D27FC5C24799952903179E7BD20B867D009BDDE"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\it-IT.txt",
+    "Hash": "013C584C6BCDD4C0F9E23E694A3B3374A0C6B72AD1DFD6380A657734BB2C5A47"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\ja-JP.txt",
+    "Hash": "0888E6DDD781428310327D05197FD76B37C43C953FDC362AC5ADD23D194603B5"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\ko-KR.txt",
+    "Hash": "16B7AF3C80D350052A1D9927FC18784E343C319639C9E8374A4570D3748BBCCE"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\nl-NL.txt",
+    "Hash": "8411EB2D9236CA3D2F3FC100172E6B77188702AB078A3A779FA6F8BFDA39FFC1"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\pl-PL.txt",
+    "Hash": "5AFBC83305ED1160777D85A240A52ADC35420E62C548C6366212FE43242190FB"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\pt-BR.txt",
+    "Hash": "8D244860F4442E81016C37252034966451A6DA5BC4A49A3C86FE0F09CDE3F70D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\ru-RU.txt",
+    "Hash": "AF7AF064295D3364A5D13D82AA61A202604343FA7DC9E2BFEE5F3EA2175C621D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\sv-SE.txt",
+    "Hash": "D31400A38A8BC4DCF72AA099325816E4200F53C9F63DD218136F6466F7C2FD04"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\th-TH.txt",
+    "Hash": "23B71097B276F0D5D1812435810669E91E28280DB09B8A303D3465ED64092EED"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\tr-TR.txt",
+    "Hash": "5D020CD900672A44A4CD818006A7A0391A5E80D63471BBC10C06D6719BE7AB40"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\uk-UA.txt",
+    "Hash": "8C5E0C1BEBAFD4AB60FCAD50A317CCAAF7460D6255BAC80F4BE54B4496534CD1"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\zh-CN.txt",
+    "Hash": "4FBB6E107166A48A129E5CFD9DEA62656C3608D2677DBDA6E349B61595FF6E9E"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Locales\\zh-HK.txt",
+    "Hash": "AAA9D408BABE07FBC87C07A234CDF62A9C61EC2339243426E02F662176F51F18"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Override\\Assets\\GUI\\Sprites\\BugfixesAndQoL-LobbyGoldShields.png",
+    "Hash": "368E9D7D268DA7D2EE8340FAEC4FC51D7D2E146164025000FA039C6ABC233269"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Override\\Assets\\GUI\\Sprites\\BugfixesAndQoL-Lord.png",
+    "Hash": "AE353606A5F6C0F21BAD85F02BB2B2D2793ACB969572B755C11BF861484FF80E"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Override\\ScriptExtenderUI\\BugfixesAndQoLSettings.xaml",
+    "Hash": "D7242353D2E39972B315F1A7547C3F77CB29910420585E520583CD2691711B4C"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\Sprites\\UI-MasterAtlas.xaml",
+    "Hash": "726B2BA1F5147863069B99D5FB5170D3955DE6376D02F31406C9BE72418A4ED2"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAML\\IngameUIScreens.xaml",
+    "Hash": "3AE15164EEE7FFC36EE654A457A432AE1BFCF1A3A70F6633F4EBD1690F8283FD"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAML\\MainHUD.xaml",
+    "Hash": "6A1868C36D2CB08D543714CAFD764D9A3062574E06FFE92B0CA92FF5D3032A17"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail1.xaml",
+    "Hash": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail2.xaml",
+    "Hash": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail3.xaml",
+    "Hash": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail4.xaml",
+    "Hash": "23BD622D282F559D2B29AAA465EED53793ED2A8DF4AACF0EBCF31567728F6835"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_ManageTrail.xaml",
+    "Hash": "8D0ED99E6BEA2A6A842844342566122F5EEB48404496B01AE57AAA99A97D5142"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_AISettings.xaml",
+    "Hash": "72BF69FB16E1EAEA8D41BF29364DB3B584BC7B553FBFCCD1230F150BDC3C3D33"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_Setup.xaml",
+    "Hash": "22D90C80882E85EFA02A1048C2C6BA0B818A060076820552BFA3C3A2330C70BE"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer.xaml",
+    "Hash": "AFFCD1B46DAA8DE7F53EF63FF8D06CF4A3A9AC7306AEF03A34FE9CD7F662A09A"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_AlliesPanel.xaml",
+    "Hash": "258CB8083F3704EE4B732091F3A2070F115A3E41924E4C43F531DD571B8AF63F"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Briefing.xaml",
+    "Hash": "4780F1F4BDAB83DE8778014EF60100F100CFDBD101D4BACB7599892C924EC99D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Buildings.xaml",
+    "Hash": "092691D1B3018980367995C75E602811FF5BBF7C681FD7B39D05ECEB51CDC1D5"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_ControlGroups.xaml",
+    "Hash": "D7E7CD36CD6E9B103B8259BFCFF5DF5E6A546FFF46819B75A96780EE96A71DA4"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_IngameMenu.xaml",
+    "Hash": "697ECDE589F03298EA6248AFE51861F8B9814811F97ED12E257369BF95E0172B"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_LoadSaveRequester.xaml",
+    "Hash": "1A64EC7094D52C7A4E17D758E61A13961EF6C2CD380FF39BC976B80B3F532151"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_MissionOver.xaml",
+    "Hash": "182C89DFCC7BA6E355334BB3D45F1A367FF6ACB328AEDEEF6889724449DA540D"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_MPResync.xaml",
+    "Hash": "D03EC5E41609210901F3C804D876077F96E716C6455FF7BD175E340B0976B432"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Objectives.xaml",
+    "Hash": "6A2389E622C6C9F89C049876B64A5B32D4A2A147282A7F1BF43E7208E662F690"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Troops.xaml",
+    "Hash": "B89D14A233354D96B00C9068A7F2780A9F1208AD1FF5FD98071EEA20176B032C"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp\\Patches\\Assets\\GUI\\XAMLResources\\OST_StartingGoods.xaml",
+    "Hash": "7D96DE46CCAA4978A9A77C0B9DA08881A2BC74AA8BAE3FF9540560148A23EC4F"
+  }
+]

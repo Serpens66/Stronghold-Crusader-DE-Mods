@@ -79,12 +79,14 @@ namespace CastlePlanner
         private readonly ObservableCollection<string> rotations;
         private readonly MultiplayerLoadingWarningGate loadingWarningGate =
             new MultiplayerLoadingWarningGate();
+        private readonly FreeCastleIdentityReadiness identityReadiness = new FreeCastleIdentityReadiness();
 
         private R3PacketEventHook<FreeCastlePacket> packetHook;
         private CoalescedSynchronizationContextQueue<QueuedPacket> packetDispatchQueue;
         private SynchronizationContext unitySynchronizationContext;
         private IDisposable packetSubscription;
         private IDisposable mapStartSubscription;
+        private IDisposable mapReadySubscription;
         private IDisposable mapUnloadSubscription;
         private Hook leaveLobbyHook;
         private Hook startGameHook;
@@ -102,6 +104,7 @@ namespace CastlePlanner
         private int operationId;
         private int unityMainThreadId;
         private int localPlayerId;
+        private EngineInterface.PlayState playStateBeforeStart;
         private int activeTimeoutSeconds =
             FreeCastleProtocol.DefaultPreviewTimeoutSeconds;
         private bool realMultiplayer;
@@ -214,7 +217,8 @@ namespace CastlePlanner
                 if (selectedRotation == normalized)
                     return;
                 selectedRotation = normalized;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:217", $"Free-castle rotation changed: ui={selectedRotation}, native={SelectedNativeRotation}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:217", $"Free-castle rotation changed: ui={selectedRotation}, native={SelectedNativeRotation}.");
                 Notify(nameof(SelectedRotation));
                 Notify(nameof(SelectedNativeRotation));
                 SelectionVisualChanged?.Invoke();
@@ -252,6 +256,7 @@ namespace CastlePlanner
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacket);
             // SaveLifecycle: NewMapOnly - preview pause must surround a newly committed launch.
             mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(OnStartMap);
+            mapReadySubscription = Shared.MissionEvents.Started.Subscribe(OnMissionReady);
             mapUnloadSubscription = Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap);
 
@@ -294,15 +299,16 @@ namespace CastlePlanner
                 delayShowDisconnect,
                 (DelayShowDisconnectDelegate)DelayShowDisconnectHook);
             Application.onBeforeRender += OnBeforeRender;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Free-castle preview initialized: packetId={packetHook.GetPacketId()}, " +
-                $"defaultTimeout={FreeCastleProtocol.DefaultPreviewTimeoutSeconds}s, " +
-                $"timeoutRange={FreeCastleProtocol.MinimumPreviewTimeoutSeconds}-" +
-                $"{FreeCastleProtocol.MaximumPreviewTimeoutSeconds}s, " +
-                $"mainThread={unityMainThreadId}, " +
-                $"synchronizationContext={unitySynchronizationContext.GetType().FullName}, " +
-                "loadingWarningGuard=managed-generation.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Free-castle preview initialized: packetId={packetHook.GetPacketId()}, " +
+                    $"defaultTimeout={FreeCastleProtocol.DefaultPreviewTimeoutSeconds}s, " +
+                    $"timeoutRange={FreeCastleProtocol.MinimumPreviewTimeoutSeconds}-" +
+                    $"{FreeCastleProtocol.MaximumPreviewTimeoutSeconds}s, " +
+                    $"mainThread={unityMainThreadId}, " +
+                    $"synchronizationContext={unitySynchronizationContext.GetType().FullName}, " +
+                    "loadingWarningGuard=managed-generation.");
         }
 
         public bool TryGetCommittedSelections(out List<FreeCastleSelection> selections)
@@ -393,8 +399,9 @@ namespace CastlePlanner
 
         private void BeforeGameAction(GameActionPreEventArgs args)
         {
-            if (IsFeatureModeAllowed() && !bypassPauseHook && IsPreviewPendingOrActive &&
-                args.Command == Enums.GameActionCommand.Game_Paused && args.ActionState == 0)
+            // Cheap command test first: this runs for every game action.
+            if (args.Command == Enums.GameActionCommand.Game_Paused && args.ActionState == 0 &&
+                !bypassPauseHook && IsPreviewPendingOrActive && IsFeatureModeAllowed())
             {
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:401", "Unpause command suppressed during castle selection.");
                 args.SkipOriginalFunction = true;
@@ -430,32 +437,24 @@ namespace CastlePlanner
                     return;
 
                 ResetPreview();
+                identityReadiness.Begin(args.Context.SessionId);
+                playStateBeforeStart = GameData.Instance?.lastGameState;
                 state = PreviewState.AwaitingGameplay;
                 activeTimeoutSeconds =
                     FreeCastleProtocol.NormalizePreviewTimeoutSeconds(
                         settings.CastleSelectionTimeoutSeconds);
                 operationId = unchecked((int)DateTime.UtcNow.Ticks) & int.MaxValue;
                 realMultiplayer = Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer;
-                localPlayerId = ResolveLocalPlayerId(out string identityError);
-                BuildRoster(out string rosterError);
                 bool livenessReady = TryArmMultiplayerLivenessGuard(out string livenessError);
                 if (livenessReady)
                     ApplyPause(true);
                 NotifyAll();
                 if (livenessReady)
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:449", $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:449", $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
                 }
-                if (!string.IsNullOrEmpty(identityError) ||
-                    !string.IsNullOrEmpty(rosterError) ||
-                    !string.IsNullOrEmpty(livenessError))
-                {
-                    FailBeforeCommit(!string.IsNullOrEmpty(identityError)
-                        ? identityError
-                        : !string.IsNullOrEmpty(rosterError)
-                            ? rosterError
-                            : livenessError);
-                }
+                if (!livenessReady) FailBeforeCommit(livenessError);
                 return;
             }
 
@@ -466,6 +465,57 @@ namespace CastlePlanner
                 settings.PumpCastleCatalogLoad();
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:471", "Castle selection is waiting for Vanilla's start-situation screen to close.");
             }
+        }
+
+        private void OnMissionReady(APIShared.MissionLifecycleNotification args)
+        {
+            if (args.IsReplay || state != PreviewState.AwaitingGameplay) return;
+            identityReadiness.MarkStarted(args.Context.SessionId, MonotonicSeconds());
+            TryResolvePreviewIdentity();
+        }
+
+        private static double MonotonicSeconds() => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
+
+        private bool TryResolvePreviewIdentity()
+        {
+            if (identityReadiness.IsReady) return true;
+            if (!identityReadiness.HasStarted) return false;
+            // A report viewpoint can point at an AI. Only an actual spectator state permits skipping.
+            EngineInterface.PlayState playState = GameData.Instance?.lastGameState;
+            // Vanilla publishes a new PlayState object for each copied render buffer.
+            // A previous spectator save must not classify a newly starting human game.
+            if (playState == null || ReferenceEquals(playState, playStateBeforeStart))
+            {
+                if (identityReadiness.Evaluate(MonotonicSeconds(), false, false, false, false, currentPlayState: false)
+                    == FreeCastleIdentityStatus.TimedOut)
+                    FailBeforeCommit("Current mission PlayState did not become ready within 30 seconds.");
+                return false;
+            }
+            if (!realMultiplayer && playState.spectatorMode != 0)
+            {
+                // Local spectator games have no personal decision. Network participants
+                // always retain the synchronized authority/abort path.
+                bool spectator = APIShared.PlayerPerspectiveAPI.GetControlledPlayerId() < 1;
+                FreeCastleIdentityStatus spectatorStatus = identityReadiness.Evaluate(MonotonicSeconds(), false, false, spectator, false);
+                if (spectatorStatus == FreeCastleIdentityStatus.Spectator)
+                    ContinueCurrentGame();
+                else if (spectatorStatus == FreeCastleIdentityStatus.TimedOut)
+                    FailBeforeCommit("Spectator control identity did not settle within 30 seconds.");
+                return false;
+            }
+            Shared.PlayerIdentityResolution identity = Shared.PlayerIdentityHelper.CaptureLocalPlayerId(realMultiplayer, preferInGameRoster: true);
+            localPlayerId = identity.PlayerId;
+            BuildRoster(out string rosterError, out bool rosterConflict);
+            FreeCastleIdentityStatus status = identityReadiness.Evaluate(MonotonicSeconds(),
+                identity.IsResolved, identity.IsConflict || rosterConflict, false, string.IsNullOrEmpty(rosterError));
+            if (status == FreeCastleIdentityStatus.Conflict || status == FreeCastleIdentityStatus.TimedOut)
+            {
+                string reason = identity.IsConflict ? identity.Error : rosterConflict ? rosterError :
+                    !identity.IsResolved ? identity.Error : rosterError;
+                FailBeforeCommit(status == FreeCastleIdentityStatus.TimedOut
+                    ? "Player identity did not become ready within 30 seconds: " + reason : reason);
+            }
+            return status == FreeCastleIdentityStatus.Ready;
         }
 
         private bool ShouldStartPreview(APIShared.MissionLifecycleNotification args)
@@ -517,7 +567,8 @@ namespace CastlePlanner
 
         private void TryBeginSelectionAsHost()
         {
-            if (!roster.All(readyPlayers.Contains))
+            if (!identityReadiness.IsReady || state != PreviewState.Loading ||
+                !readyPlayers.Contains(localPlayerId) || !roster.All(readyPlayers.Contains))
                 return;
             countdownStarted = Stopwatch.GetTimestamp();
             BeginSelection();
@@ -526,6 +577,8 @@ namespace CastlePlanner
 
         private void BeginSelection()
         {
+            if (!identityReadiness.IsReady)
+                throw new InvalidOperationException("Castle selection cannot start before player identity is ready.");
             state = PreviewState.Selecting;
             if (countdownStarted == 0)
                 countdownStarted = Stopwatch.GetTimestamp();
@@ -540,9 +593,10 @@ namespace CastlePlanner
                 return;
             try
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:549", $"Free-castle confirmation requested: playerId={localPlayerId}, " +
-                    $"choice='{SelectedChoice}', uiRotation={SelectedRotation}, " +
-                    $"nativeRotation={SelectedNativeRotation}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:549", $"Free-castle confirmation requested: playerId={localPlayerId}, " +
+                        $"choice='{SelectedChoice}', uiRotation={SelectedRotation}, " +
+                        $"nativeRotation={SelectedNativeRotation}.");
                 FreeCastleSelection selection;
                 if (string.Equals(SelectedChoice, NothingText, StringComparison.Ordinal))
                 {
@@ -816,12 +870,13 @@ namespace CastlePlanner
         private void HandleHostPacket(FreeCastlePacket packet, ulong sender, FreeCastlePacketKind kind)
         {
             int senderPlayer = PlayerIdForSteam(sender);
-            if (senderPlayer < 1 || packet.PlayerId != senderPlayer)
+            if (!FreeCastlePacketRouting.IsAuthenticatedParticipantPacket(kind, senderPlayer, packet.PlayerId))
                 throw new InvalidOperationException("Packet player is not authenticated by its transport sender.");
             if (kind == FreeCastlePacketKind.AbortRequest)
             {
                 FailBeforeCommit(
-                    $"Player {senderPlayer} requested a synchronized castle-preview abort: " +
+                    $"Authenticated player {senderPlayer} requested a synchronized castle-preview abort " +
+                    $"(reportedPlayerId={packet.PlayerId}): " +
                     (packet.Message ?? string.Empty));
             }
             else if (kind == FreeCastlePacketKind.PreviewReady &&
@@ -855,6 +910,8 @@ namespace CastlePlanner
         {
             if (kind == FreeCastlePacketKind.PreviewBegin)
             {
+                if (!identityReadiness.IsReady || !localCatalogReady)
+                    throw new InvalidOperationException("Host started castle selection before local readiness.");
                 if (!FreeCastleProtocol.IsValidPreviewTimeoutSeconds(
                         packet.TimeoutSeconds))
                 {
@@ -982,6 +1039,7 @@ namespace CastlePlanner
             }
             if (state == PreviewState.AwaitingGameplay)
             {
+                if (!TryResolvePreviewIdentity()) return;
                 TryBeginSelectionAfterVanillaStartScreen();
                 return;
             }
@@ -1061,7 +1119,8 @@ namespace CastlePlanner
 
             RebuildChoices();
             localCatalogReady = true;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1084", $"Castle selection catalog is ready; choices={castleChoices.Count}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1084", $"Castle selection catalog is ready; choices={castleChoices.Count}.");
             MarkLocalReady();
         }
 
@@ -1071,57 +1130,65 @@ namespace CastlePlanner
             {
                 state = PreviewState.RestartCommitted;
                 NotifyAll();
-                if (realMultiplayer)
-                {
-                    if (capturedSetup == null || capturedMap == null)
-                        throw new InvalidOperationException("The multiplayer restart context is unavailable.");
-                    Platform_Multiplayer platform = Platform_Multiplayer.Instance ??
-                        throw new InvalidOperationException("The multiplayer platform is unavailable.");
-
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1103", $"Free-castle multiplayer restart reset beginning: " +
-                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
-                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
-                    Director.instance.stopSimThread();
-                    // This is Vanilla's complete follow-on reset. initFast clears
-                    // seed/queue state; initFastFollowOn closes the old sessions,
-                    // clears the old roster and resets MPGameActive before StartGame
-                    // reconstructs both for the new map.
-                    initFastMethod.Invoke(platform, null);
-                    platform.initFastFollowOn();
-                    RelinquishMultiplayerLivenessGuardAfterVanillaReset();
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1116", $"Free-castle multiplayer restart reset completed: " +
-                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
-                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
-                    try
-                    {
-                        bypassStartCapture = true;
-                        startGameTrampoline(
-                            platform,
-                            capturedSetup,
-                            capturedMap,
-                            capturedCoopTrailId,
-                            capturedCoopMissionId);
-                    }
-                    finally
-                    {
-                        bypassStartCapture = false;
-                    }
-                    // Platform.StartGame only loads the map and arms its host/client
-                    // seed handshake. Vanilla always follows it with this Director
-                    // activation so messages and host acknowledgements are processed.
-                    Director.instance.StartMultiplayerGame();
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1139", $"Free-castle multiplayer restart handshake activated: " +
-                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
-                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
-                }
-                else
-                {
-                    RestartSingleplayer();
-                }
+                APIShared.MissionRestart.Run(CastlePlannerPlugin.PluginGuid, CommitRestartCore);
             }
             catch (Exception ex)
             {
                 FailAfterCommit(ex);
+            }
+        }
+
+        private void CommitRestartCore()
+        {
+            if (realMultiplayer)
+            {
+                if (capturedSetup == null || capturedMap == null)
+                    throw new InvalidOperationException("The multiplayer restart context is unavailable.");
+                Platform_Multiplayer platform = Platform_Multiplayer.Instance ??
+                    throw new InvalidOperationException("The multiplayer platform is unavailable.");
+
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1103", $"Free-castle multiplayer restart reset beginning: " +
+                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
+                Director.instance.stopSimThread();
+                // This is Vanilla's complete follow-on reset. initFast clears
+                // seed/queue state; initFastFollowOn closes the old sessions,
+                // clears the old roster and resets MPGameActive before StartGame
+                // reconstructs both for the new map.
+                initFastMethod.Invoke(platform, null);
+                platform.initFastFollowOn();
+                RelinquishMultiplayerLivenessGuardAfterVanillaReset();
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1116", $"Free-castle multiplayer restart reset completed: " +
+                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
+                try
+                {
+                    bypassStartCapture = true;
+                    startGameTrampoline(
+                        platform,
+                        capturedSetup,
+                        capturedMap,
+                        capturedCoopTrailId,
+                        capturedCoopMissionId);
+                }
+                finally
+                {
+                    bypassStartCapture = false;
+                }
+                // Platform.StartGame only loads the map and arms its host/client
+                // seed handshake. Vanilla always follows it with this Director
+                // activation so messages and host acknowledgements are processed.
+                Director.instance.StartMultiplayerGame();
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1139", $"Free-castle multiplayer restart handshake activated: " +
+                        $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
+                        $"gameMembers={platform.gameMembers?.Count ?? 0}.");
+            }
+            else
+            {
+                RestartSingleplayer();
             }
         }
 
@@ -1192,7 +1259,11 @@ namespace CastlePlanner
             string normalizedReason = string.IsNullOrWhiteSpace(reason)
                 ? "Unknown castle-preview protocol error."
                 : reason.Trim();
-            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1223", $"Free-castle preview requires a synchronized abort before commit: {normalizedReason}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1223",
+                $"CASTLE_PREVIEW_ABORT: session={identityReadiness.SessionId}, operation={operationId}, state={state}, " +
+                $"multiplayer={realMultiplayer}, missionReady={identityReadiness.HasStarted}, identityReady={identityReadiness.IsReady}, " +
+                $"localPlayerId={localPlayerId}, roster=[{string.Join(",", roster.OrderBy(id => id))}], reason={normalizedReason}; " +
+                (realMultiplayer ? "requesting synchronized abort." : "continuing the current game without a castle preview."));
             if (!realMultiplayer)
             {
                 ContinueCurrentGame();
@@ -1295,9 +1366,10 @@ namespace CastlePlanner
             previousResyncingOrSaving = platform.resyncingOrSaving;
             platform.resyncingOrSaving = true;
             multiplayerLivenessGuardArmed = true;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1334", $"Castle-preview multiplayer liveness guard armed: operation={operationId}, " +
-                $"previousResyncingOrSaving={previousResyncingOrSaving}, " +
-                $"mpGameActive={Platform_Multiplayer.MPGameActive}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1334", $"Castle-preview multiplayer liveness guard armed: operation={operationId}, " +
+                    $"previousResyncingOrSaving={previousResyncingOrSaving}, " +
+                    $"mpGameActive={Platform_Multiplayer.MPGameActive}.");
             return true;
         }
 
@@ -1343,9 +1415,10 @@ namespace CastlePlanner
                 }
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1384", $"Castle-preview multiplayer liveness guard released: operation={operationId}, " +
-                $"reason={reason}, restoredResyncingOrSaving={restoreValue}, " +
-                $"refreshedRemoteHumans={refreshedPlayers}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1384", $"Castle-preview multiplayer liveness guard released: operation={operationId}, " +
+                    $"reason={reason}, restoredResyncingOrSaving={restoreValue}, " +
+                    $"refreshedRemoteHumans={refreshedPlayers}.");
         }
 
         private void RelinquishMultiplayerLivenessGuardAfterVanillaReset()
@@ -1355,36 +1428,30 @@ namespace CastlePlanner
 
             multiplayerLivenessGuardArmed = false;
             previousResyncingOrSaving = false;
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1398", $"Castle-preview multiplayer liveness guard ownership relinquished after Vanilla reset: operation={operationId}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1398", $"Castle-preview multiplayer liveness guard ownership relinquished after Vanilla reset: operation={operationId}.");
         }
 
-        private void BuildRoster(out string error)
+        private void BuildRoster(out string error, out bool isConflict)
         {
             roster.Clear();
             error = string.Empty;
+            isConflict = false;
             if (realMultiplayer)
             {
                 if (!Shared.PlayerIdentityHelper.TryCaptureHumanRoster(
                     preferInGameRoster: true,
+                    requireAuthoritativeLobbyRoster: false,
                     out Dictionary<int, ulong> players,
-                    out error))
+                    out error, out _, out isConflict))
                     return;
                 foreach (int playerId in players.Keys)
                     roster.Add(playerId);
+                if (localPlayerId >= 1 && !roster.Contains(localPlayerId))
+                    error = "The resolved local player is not yet present in the human roster.";
             }
             if (roster.Count == 0 && localPlayerId >= 1)
                 roster.Add(localPlayerId);
-        }
-
-        private int ResolveLocalPlayerId(out string identityError)
-        {
-            Shared.PlayerIdentityResolution identity =
-                Shared.PlayerIdentityHelper.CaptureLocalPlayerId(
-                    preferInGameRoster: true);
-            identityError = identity.IsResolved ? null : identity.Error;
-            if (!string.IsNullOrEmpty(identity.Diagnostic))
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1428", identity.Diagnostic);
-            return identity.PlayerId;
         }
 
         private int PlayerIdForSteam(ulong steamId)
@@ -1484,10 +1551,7 @@ namespace CastlePlanner
         }
 
         private static bool IsFeatureModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                CastlePlannerPlugin.PluginGuid,
-                Shared.GameplayFeatureId.FreeCastlePreview,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayModActivationGate.IsFeatureAllowed(CastlePlannerPlugin.PluginGuid, Shared.GameplayFeatureId.FreeCastlePreview);
 
         private void ResetPreview()
         {
@@ -1496,6 +1560,9 @@ namespace CastlePlanner
                 reason: "preview-reset");
             state = PreviewState.Inactive;
             roster.Clear();
+            identityReadiness.Begin(0);
+            localPlayerId = 0;
+            playStateBeforeStart = null;
             readyPlayers.Clear();
             decisions.Clear();
             noneDecisions.Clear();

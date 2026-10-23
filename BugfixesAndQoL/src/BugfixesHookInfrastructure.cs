@@ -1,3 +1,5 @@
+using System;
+using Microsoft.Extensions.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -19,8 +21,20 @@ namespace BugfixesAndQoL
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     // Ownership is retained for process lifetime after publication. Disposal is
                     // reserved for rolling back an unpublished initialization candidate.
-                    OwnsHooks = true
+                    OwnsHooks = true,
+                    Backend = HookInstallPhase.Backend()
                 });
+
+        // See DemandGatedContextHook: hot-loop context hook behind a native demand byte.
+        internal static X64InlineHook CreateDemandGatedContextHook(
+            ulong address,
+            int minimumHookSize,
+            ContextHookDelegate callback,
+            ContextHookOptions options,
+            IntPtr demand,
+            string name) =>
+            DemandGatedContextHook.Create(address, minimumHookSize, callback, options, demand, name,
+                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory.CreateLogger(name));
 
         internal static void AddContextHook(
             HookTransaction transaction,

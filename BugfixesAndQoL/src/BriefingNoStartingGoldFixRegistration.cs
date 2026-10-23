@@ -43,7 +43,6 @@ namespace BugfixesAndQoL
         private int Adjust(BriefingGoldContext context)
         {
             if (!BriefingNoStartingGoldFixPolicy.IsEnabled(
-                    settings.EnableMod,
                     settings.EnableClientFeatures,
                     settings.EnableBriefingNoStartingGoldFix))
             {

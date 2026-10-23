@@ -58,7 +58,7 @@ namespace ExtendedData
         {
             get
             {
-                var watch = Stopwatch.StartNew(); int before = page.CreatedRows;
+                var watch = diagnostics != null ? Stopwatch.StartNew() : null; int before = page.CreatedRows;
                 var rows = page.Rows;
                 if (page.CreatedRows != before) diagnostics?.Invoke("[PresetPerf] visible rows: mod=" + ModId + ", created=" + (page.CreatedRows - before) + ", total=" + page.Count + ", ms=" + watch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
                 return rows;

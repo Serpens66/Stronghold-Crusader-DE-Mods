@@ -83,6 +83,9 @@ namespace BugfixesAndQoL
         private const int VanillaCandidateOffsetY = 0x31B7D4;
         private const int ChoreProtocolVersion = 1;
         private const double AIQuarryReadinessTimeoutSeconds = 10.0;
+        // Simulation ticks (40 per game second): pausing or slow game speed must not let a
+        // wall-clock deadline expire before the quarry had game time to become ready.
+        private const int AIQuarryReadinessTimeoutTicks = 400;
 
         // CrusaderDE setupBuildingEntrancesOffset. This is the native helper used by
         // findQuarryPileLocation to turn (buildingSize, pileSize, perimeterIndex, try)
@@ -160,7 +163,10 @@ namespace BugfixesAndQoL
                 if (!referenceHashMatches)
                 {
                     setupBuildingEntrancesOffset = null;
-                    LogInfo("quarry-pile relocation disabled because the native DLL hash is not audited.");
+                    {
+                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                            LogInfo("quarry-pile relocation disabled because the native DLL hash is not audited.");
+                    }
                     return;
                 }
 
@@ -197,7 +203,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogInfo($"validated Vanilla GameBuilding structure-group layout: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}, nativeGroupOffset=0x{Shared.NativeBuildingCompoundGroup.GroupOffset:X}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"validated Vanilla GameBuilding structure-group layout: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}, nativeGroupOffset=0x{Shared.NativeBuildingCompoundGroup.GroupOffset:X}.");
             return true;
         }
 
@@ -228,7 +235,8 @@ namespace BugfixesAndQoL
                 setUpInbuildingHook = installedHook;
                 initialized = true;
                 buttonViewModel.Hide();
-                LogInfo($"runtime initialized: mode=Vanilla-clockwise-prefab-spawn-and-structure-group, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"runtime initialized: mode=Vanilla-clockwise-prefab-spawn-and-structure-group, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}, subscriptions={subscriptions.Count}, setUpInbuildingHookInstalled={setUpInbuildingHook != null}.");
             }
             catch
             {
@@ -254,7 +262,8 @@ namespace BugfixesAndQoL
 
         public void ApplySetting()
         {
-            LogInfo($"setting applied: EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}, EnableAIQuarryPileTowardsKeep={settings.EnableAIQuarryPileTowardsKeep}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"setting applied: EnableMod={settings.EnableMod}, EnableQuarryPileRelocation={settings.EnableQuarryPileRelocation}, EnableAIQuarryPileTowardsKeep={settings.EnableAIQuarryPileTowardsKeep}.");
             if (!IsAIAutomationActive())
                 pendingAIQuarriesByGlobalId.Clear();
 
@@ -520,16 +529,15 @@ namespace BugfixesAndQoL
             if (pendingAIQuarriesByGlobalId.ContainsKey(quarryGlobalId))
                 return;
 
-            long timeoutTicks = checked((long)Math.Ceiling(
-                AIQuarryReadinessTimeoutSeconds * Stopwatch.Frequency));
+            // The deadline starts at the first queue tick that processes this entry.
             pendingAIQuarriesByGlobalId.Add(
                 quarryGlobalId,
                 new PendingAIQuarry(
                     quarryId,
                     quarryGlobalId,
-                    args.PlayerId,
-                    Stopwatch.GetTimestamp() + timeoutTicks));
-            LogInfo($"AI quarry queued for Keep-facing pile placement: playerId={args.PlayerId}, quarryId={quarryId}, quarryGlobalId={quarryGlobalId}, timeoutSeconds={AIQuarryReadinessTimeoutSeconds:0.#}.");
+                    args.PlayerId));
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"AI quarry queued for Keep-facing pile placement: playerId={args.PlayerId}, quarryId={quarryId}, quarryGlobalId={quarryGlobalId}, timeoutSeconds={AIQuarryReadinessTimeoutSeconds:0.#}.");
         }
 
         private void OnGameTick(int tick)
@@ -537,7 +545,8 @@ namespace BugfixesAndQoL
             if (mapActive && !aiSpawnObservationArmed)
             {
                 aiSpawnObservationArmed = true;
-                LogInfo($"AI quarry spawn observation armed after map/load initialization: tick={tick}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"AI quarry spawn observation armed after map/load initialization: tick={tick}.");
             }
 
             if (pendingAIQuarriesByGlobalId.Count == 0)
@@ -593,7 +602,9 @@ namespace BugfixesAndQoL
             if (!pendingAIQuarriesByGlobalId.TryGetValue(quarryGlobalId, out PendingAIQuarry pending))
                 return;
 
-            if (Stopwatch.GetTimestamp() >= pending.DeadlineTimestamp)
+            if (pending.DeadlineTick == null)
+                pending.DeadlineTick = (long)tick + AIQuarryReadinessTimeoutTicks;
+            if (tick >= pending.DeadlineTick.Value)
             {
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:613", $"Bugfixes and QoL AI quarry-pile placement timed out; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
@@ -667,7 +678,8 @@ namespace BugfixesAndQoL
             pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
             if (currentPositionIsBest)
             {
-                LogInfo($"AI quarry pile already occupies the valid position nearest to its Keep: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}, target={target.X},{target.Y}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"AI quarry pile already occupies the valid position nearest to its Keep: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}, target={target.X},{target.Y}.");
                 return;
             }
 
@@ -750,7 +762,8 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            LogInfo($"rotation Chore queued: operationId={operation.OperationId}, packetId={packetId}, payloadBytes={sizeof(short) + body.Length}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, target={operation.TargetTileX},{operation.TargetTileY}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"rotation Chore queued: operationId={operation.OperationId}, packetId={packetId}, payloadBytes={sizeof(short) + body.Length}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, target={operation.TargetTileX},{operation.TargetTileY}.");
             return true;
         }
 
@@ -794,7 +807,8 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                LogInfo($"rotation Chore executed successfully: operationId={operation.OperationId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"rotation Chore executed successfully: operationId={operation.OperationId}.");
             }
             catch (Exception ex)
             {
@@ -857,7 +871,8 @@ namespace BugfixesAndQoL
             if (groupResolution.RepairsPileGroup)
             {
                 Shared.NativeBuildingCompoundGroup.Write(oldPile, groupResolution.GroupId);
-                LogInfo($"repaired missing Vanilla structure group before relocation: operationId={operation.OperationId}, quarryId={quarryId}, pileId={oldPileId}, groupId={groupResolution.GroupId}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"repaired missing Vanilla structure group before relocation: operationId={operation.OperationId}, quarryId={quarryId}, pileId={oldPileId}, groupId={groupResolution.GroupId}.");
             }
 
             PileContentSnapshot content = PileContentSnapshot.Capture(oldPile);
@@ -919,9 +934,10 @@ namespace BugfixesAndQoL
             }
 
             ClearFailedRotationTargets(operation.QuarryGlobalId);
-            LogInfo(
-                $"rotation completed: reason={reason}, playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, " +
-                $"newPileGlobalId={newPileGlobalId}, vanillaGroupId={groupResolution.GroupId}, target={expectedTarget.X},{expectedTarget.Y}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo(
+                    $"rotation completed: reason={reason}, playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, " +
+                    $"newPileGlobalId={newPileGlobalId}, vanillaGroupId={groupResolution.GroupId}, target={expectedTarget.X},{expectedTarget.Y}.");
             return true;
         }
 
@@ -1069,17 +1085,19 @@ namespace BugfixesAndQoL
             {
                 target = currentPosition;
                 currentPositionIsBest = true;
-                LogInfo(
-                    $"AI Keep-facing pile remains unchanged: playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
-                    $"reason=no-valid-placementTry-{VanillaMinimumPlacementTry}-position.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo(
+                        $"AI Keep-facing pile remains unchanged: playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
+                        $"reason=no-valid-placementTry-{VanillaMinimumPlacementTry}-position.");
                 return true;
             }
 
             target = new PlacementPosition(selected.X, selected.Y);
             currentPositionIsBest = selected.IsCurrentPosition;
-            LogInfo(
-                $"AI Keep-facing target selected: playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
-                $"target={selected.X},{selected.Y}, vanillaTry={selected.PlacementTry}, candidateIndex={selected.CandidateIndex}, currentPositionIsBest={currentPositionIsBest}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo(
+                    $"AI Keep-facing target selected: playerId={playerId}, quarryGlobalId={quarry->r_GlobalId}, " +
+                    $"target={selected.X},{selected.Y}, vanillaTry={selected.PlacementTry}, candidateIndex={selected.CandidateIndex}, currentPositionIsBest={currentPositionIsBest}.");
             return true;
         }
 
@@ -1719,11 +1737,12 @@ namespace BugfixesAndQoL
                 }
             }
 
-            LogInfo(
-                $"loaded Vanilla structure-group repair completed: candidates={candidates.Count}, validPairs={summary.ValidPairs}, " +
-                $"alreadyValid={summary.AlreadyValid}, plannedRepairs={summary.PlannedRepairs}, groupIdsCorrected={groupIdsCorrected}, " +
-                $"legacyReverseLinksCleared={legacyReverseLinksCleared}, invalid={summary.InvalidCandidates}, " +
-                $"ambiguous={summary.AmbiguousPiles}, rejectedGroups={summary.RejectedGroups}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo(
+                    $"loaded Vanilla structure-group repair completed: candidates={candidates.Count}, validPairs={summary.ValidPairs}, " +
+                    $"alreadyValid={summary.AlreadyValid}, plannedRepairs={summary.PlannedRepairs}, groupIdsCorrected={groupIdsCorrected}, " +
+                    $"legacyReverseLinksCleared={legacyReverseLinksCleared}, invalid={summary.InvalidCandidates}, " +
+                    $"ambiguous={summary.AmbiguousPiles}, rejectedGroups={summary.RejectedGroups}.");
         }
 
         private void EndMapState()
@@ -1798,19 +1817,17 @@ namespace BugfixesAndQoL
             public PendingAIQuarry(
                 int quarryId,
                 int quarryGlobalId,
-                int playerId,
-                long deadlineTimestamp)
+                int playerId)
             {
                 QuarryId = quarryId;
                 QuarryGlobalId = quarryGlobalId;
                 PlayerId = playerId;
-                DeadlineTimestamp = deadlineTimestamp;
             }
 
             public int QuarryId { get; }
             public int QuarryGlobalId { get; }
             public int PlayerId { get; }
-            public long DeadlineTimestamp { get; }
+            public long? DeadlineTick { get; set; }
         }
 
         private sealed class PrefabSpawnCapture

@@ -7,6 +7,9 @@ namespace UnitLimit
     {
         private static readonly object SyncRoot = new object();
         private static readonly List<Action> StateChangedCallbacks = new List<Action>();
+        // Immutable snapshot published on registration; notifications fire on every local recruit
+        // and death and must not copy the list each time.
+        private static Action[] stateChangedSnapshot = Array.Empty<Action>();
         private static UnitLimitRuntime runtime;
 
         internal static void Attach(UnitLimitRuntime value)
@@ -84,20 +87,25 @@ namespace UnitLimit
             lock (SyncRoot)
             {
                 if (!StateChangedCallbacks.Contains(callback))
+                {
                     StateChangedCallbacks.Add(callback);
+                    System.Threading.Volatile.Write(ref stateChangedSnapshot, StateChangedCallbacks.ToArray());
+                }
             }
         }
 
         internal static void NotifyStateChanged()
         {
-            Action[] callbacks;
-            lock (SyncRoot)
-                callbacks = StateChangedCallbacks.ToArray();
+            Action[] callbacks = System.Threading.Volatile.Read(ref stateChangedSnapshot);
 
             for (int index = 0; index < callbacks.Length; index++)
             {
                 try { callbacks[index](); }
-                catch { }
+                catch (Exception ex)
+                {
+                    Shared.RuntimeHealth.Report("external-capacity-notification", true,
+                        "State-change subscriber failed; independent subscribers continue: " + ex);
+                }
             }
         }
     }

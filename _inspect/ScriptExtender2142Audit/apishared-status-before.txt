@@ -1,0 +1,19 @@
+ M ARCHITECTURE.md
+ M docs/API_CATALOG.md
+ M docs/THIRD_PARTY_GUIDE.md
+ M src/Workshop/WorkshopMapPackage.cs
+ M tests/APISharedTests/RuntimeTestSupport.cs
+ M tools/Build.ps1
+ M tools/BuildProof.ps1
+ M tools/Release/Release.ps1
+ M tools/Validation/Test-BuildProof.ps1
+ M tools/Validation/Test-PermanentHooks.ps1
+ M tools/WorkshopPackage.ps1
+?? bootstrap/
+?? docs/DEPENDENCY_BOOTSTRAP.md
+?? tests/Core.Tests/DependencyBootstrapMapTests.cs
+?? tests/DependencyBootstrap.Tests/
+?? tools/DependencyBootstrapPackage.ps1
+?? tools/Remove-DependencyBootstrap.ps1
+?? tools/Validation/Test-DependencyBootstrap.ps1
+?? tools/Validation/Test-DependencyBootstrapPackage.ps1

@@ -110,13 +110,16 @@ namespace ExtremePowers.Settings
         protected override void OnSettingsSnapshotApplied()
         {
             base.OnSettingsSnapshotApplied();
+            // Snapshot completion runs outside the authorised write scope; only the editable host may migrate values.
+            if (!CanEditHostSettings) return;
             // The initial unpublished demo stored type 2 (Burning Man). Keep the preset, but migrate unsafe UI choices.
             if (IndexOfUnit(SpearmenType) < 0) SpearmenType = 24;
             if (IndexOfUnit(EngineersType) < 0) EngineersType = 30;
             if (IndexOfUnit(MacemenType) < 0) MacemenType = 26;
             if (IndexOfUnit(KnightsType) < 0) KnightsType = 28;
             if (IndexOfUnit(DemoUnitType) < 0) DemoUnitType = 24;
-            DemoOwner = DemoUnitType == 44 ? 0 : Clamp(DemoOwner, -1, 8);
+            int normalizedOwner = DemoUnitType == 44 ? 0 : Clamp(DemoOwner, -1, 8);
+            if (DemoOwner != normalizedOwner) DemoOwner = normalizedOwner;
             if (IndexOfSprite(DemoSprite) < 0) DemoSprite = "extreme power 3";
         }
         public int ResolveDemoOwner(int activatingPlayerId) => DemoUnitType == 44 ? 0 : DemoOwner < 0 ? activatingPlayerId : DemoOwner;

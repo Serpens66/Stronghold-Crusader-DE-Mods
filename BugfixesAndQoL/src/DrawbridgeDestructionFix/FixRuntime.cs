@@ -36,8 +36,9 @@ namespace BugfixesAndQoL.DrawbridgeDestructionFix
         {
             if (context == null || context.ModuleHandle == IntPtr.Zero) throw new InvalidOperationException("Native context unavailable.");
             NativeContract.ValidateLayouts();
-            byte[] reference = NativeContract.ReadReferenceFunction(Path.Combine(Paths.GameRootPath,
-                "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll"));
+            string dllPath = Path.Combine(Paths.GameRootPath,
+                "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
+            byte[] reference = NativeContract.ReadReferenceFunction(dllPath, Shared.DebugLogHelper.GetFileSha256(dllPath));
             string pattern = BitConverter.ToString(NativeContract.Signature).Replace('-', ' ');
             var resolution = Shared.NativePatternResolver.ResolveUnique(context.Memory, pattern, NativeContract.HookRva,
                 true, "drawbridge nonlethal gatehouse damage", log);
@@ -98,6 +99,7 @@ namespace BugfixesAndQoL.DrawbridgeDestructionFix
         private void OnDamage(BuildingTileTakeDamageEventArgs args)
         {
             // After the one confirmation, no stack, SDK lookup or formatting occurs on this observer path.
+            Shared.DevDiag.Count("drawbridge.damageEvents");
             if (!published || Volatile.Read(ref confirmed) != 0) return;
             if (args.Phase == EventHookPhase.Pre)
             {

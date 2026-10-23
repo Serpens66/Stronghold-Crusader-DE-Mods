@@ -411,7 +411,7 @@ function Get-PublishedApiSharedRelease {
         [Parameter(Mandatory)]$Package
     )
     $tag = "APIShared/v$([string]$Package.Version)"
-    $testRelease = $env:SHCDE_WORKSHOP_TEST -eq '1' -and $env:SHCDE_API_SHARED_PUBLISHED_092 -ne '1'
+    $testRelease = $env:SHCDE_WORKSHOP_TEST -eq '1'
     if ($testRelease) { $tag = "APIShared/test/v$([string]$Package.Version)-$(([string]$Package.Commit).Substring(0,12))" }
     $assetName = "APIShared-v$([string]$Package.Version).zip"
     $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(

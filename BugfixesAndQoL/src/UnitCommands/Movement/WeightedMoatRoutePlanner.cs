@@ -517,10 +517,11 @@ namespace BugfixesAndQoL.UnitCommands
         internal bool TryBuildImprovement(int playerId, int startX, int startY, int endX, int endY,
             WeightedMovementCostProfile profile, bool reservedTarget, MoatSearchLimit[] limits,
             out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route,
-            bool requireMoat = true, int maximumEdges = MaximumRouteEdges)
+            bool requireMoat = true, int maximumEdges = MaximumRouteEdges,
+            MoatTraversalPolicy policy = MoatTraversalPolicy.FriendlyOnly)
         {
             return TryBuildCore(playerId, startX, startY, endX, endY, profile, reservedTarget, true,
-                MoatTraversalPolicy.FriendlyOnly, out summary, out route, limits, true,
+                policy, out summary, out route, limits, true,
                 requireMoat: requireMoat, maximumEdges: maximumEdges);
         }
 
@@ -534,9 +535,9 @@ namespace BugfixesAndQoL.UnitCommands
         {
             // These events describe the additional preference search, not Vanilla orders
             // or topological reachability queries already supplied by Script Extender.
-            APIShared.Pathfinding.RouteSearchEventRegistry.Invocation invocation = null;
+            APIShared.Pathfinding.RouteSearchOperation invocation = null;
             if (!reachability && !string.IsNullOrWhiteSpace(PublisherGuid) &&
-                APIShared.Pathfinding.RouteSearchEvents.Registry.HasObservers)
+                APIShared.Pathfinding.RouteSearchEvents.HasObservers)
             {
                 int edgeLimit = captureEncodedRoute || maximumExpanded != int.MaxValue
                     ? Math.Min(MaximumRouteEdges, maximumEdges) : int.MaxValue;
@@ -548,7 +549,7 @@ namespace BugfixesAndQoL.UnitCommands
                 var context = new APIShared.Pathfinding.RouteSearchContext(PublisherGuid, playerId,
                     startX, startY, requestedTargetX, requestedTargetY, terrain, edgeLimit,
                     long.MaxValue / ((long)MapWidth * MapWidth) / 8L);
-                invocation = APIShared.Pathfinding.RouteSearchEvents.Registry.Begin(context,
+                invocation = APIShared.Pathfinding.RouteSearchEvents.BeginSearch(context,
                     costProfile.GetEdgeFixedCost(false), costProfile.GetEdgeFixedCost(true));
                 if (invocation?.Pre.SkipOriginalFunction == true)
                 {
@@ -573,7 +574,11 @@ namespace BugfixesAndQoL.UnitCommands
             bool requireMoat = true, int maximumEdges = MaximumRouteEdges,
             int maximumExpanded = int.MaxValue, long? groundPreferenceCost = null, long? moatPreferenceCost = null)
         {
+#if SERP_DEVDIAG
             Stopwatch stopwatch = Stopwatch.StartNew();
+#else
+            Stopwatch stopwatch = null;
+#endif
             summary = default; encodedRoute = default;
             if (searchSession == null || searchPlayer != playerId)
                 SetSearchSession(null, playerId, searchEpoch, searchTick);
@@ -603,7 +608,7 @@ namespace BugfixesAndQoL.UnitCommands
                 summary = WeightedMoatRouteSummary.Failed(
                     kernel.LastSearchBudgetExceeded ? "search-budget-exceeded" :
                     improvement ? "no-publishable-improvement" : captureEncodedRoute ? "no-encodable-route" : "unreachable",
-                    stopwatch.Elapsed.TotalMilliseconds, expanded);
+                    (stopwatch?.Elapsed.TotalMilliseconds ?? 0.0), expanded);
                 return false;
             }
             int ground = 0, moatEdges = 0, structures = 0, diagonal = 0, changes = 0, previous = -1;
@@ -616,7 +621,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!TryGetEdge(playerId, from % MapWidth, from / MapWidth, GetTileId(from % MapWidth, from / MapWidth),
                     to % MapWidth, to / MapWidth, GetTileId(to % MapWidth, to / MapWidth), direction,
                     i == nodes.Length - 1, allowReservedTarget, traversalPolicy, out bool wet, out bool structure))
-                { summary = WeightedMoatRouteSummary.Failed("live-edge-changed", stopwatch.Elapsed.TotalMilliseconds, expanded); return false; }
+                { summary = WeightedMoatRouteSummary.Failed("live-edge-changed", (stopwatch?.Elapsed.TotalMilliseconds ?? 0.0), expanded); return false; }
                 if (wet) moatEdges++; else ground++;
                 if (structure) structures++;
                 if ((direction & 1) != 0) diagonal++;
@@ -625,7 +630,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (bytes != null) bytes[(i - 1) >> 1] |= (byte)(direction << (((i - 1) & 1) * 4));
             }
             summary = WeightedMoatRouteSummary.Succeeded(nodes.Length - 1, ground, moatEdges, structures, diagonal,
-                changes, fingerprint, costProfile.EstimateRouteTicks(ground, moatEdges), stopwatch.Elapsed.TotalMilliseconds, expanded);
+                changes, fingerprint, costProfile.EstimateRouteTicks(ground, moatEdges), (stopwatch?.Elapsed.TotalMilliseconds ?? 0.0), expanded);
             if (bytes != null) encodedRoute = new WeightedMoatEncodedRoute(bytes, nodes.Length - 1);
             return true;
         }

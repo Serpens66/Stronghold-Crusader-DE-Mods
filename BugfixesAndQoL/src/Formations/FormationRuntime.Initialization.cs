@@ -126,8 +126,9 @@ namespace BugfixesAndQoL.UnitCommands
                 pendingKeyUp = null;
                 commandRuntime.formationRuntime = this;
                 initialized = true;
+                InitializeSpeech();
 
-                APIShared.Internal.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogInfo(
                     log,
                     "BugfixesAndQoL Formation active: synchronized Chore packet, mouse gesture hooks, " +
                     $"mainThread={mainThreadId}, " +

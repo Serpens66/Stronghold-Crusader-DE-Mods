@@ -29,7 +29,6 @@ internal static class Program
         CheckFirstShiftMoveTakeover();
         CheckGroundMovePreviewEligibility();
         CheckGroundMoveAuthorization();
-        CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
     }
@@ -839,169 +838,11 @@ internal static class Program
 
     }
 
-    private static void CheckMigrationSourceContracts()
-    {
-        string workspace = FindWorkspace();
-        string bugfixesPlugin = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs");
-        string bugfixesMinimum = ReadManifestMinimum(workspace, "BugfixesAndQoL");
-        string queueRuntime = Read(workspace, "BugfixesAndQoL", "src", "ExtendedShiftCommandQueueRuntime.cs");
-        string largeMoveRuntime = Read(workspace, "BugfixesAndQoL", "src", "LargeMoveTargetMarkerRuntime.cs");
-        string largeMoveRenderer = Read(workspace, "BugfixesAndQoL", "src", "Formations", "Markers", "LargeMoveTargetMarkerRenderer.cs");
-        string sharedProject = Read(workspace, "APIShared", "APIShared.csproj");
-        string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
-        string settingsXaml = Read(workspace, "BugfixesAndQoL", "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml");
-        string bugfixesRuntime = string.Join("\n", Directory.GetFiles(Path.Combine(workspace, "BugfixesAndQoL", "src"), "*.cs").Select(File.ReadAllText));
-        string bugfixesProject = Read(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj");
-        Check(bugfixesMinimum.Length == 0 ||
-            bugfixesPlugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{bugfixesMinimum}\")"),
-            "integrated queue dependency matches the manifest minimum");
-        Check(bugfixesRuntime.Contains("InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated)"),
-            "integrated queue consumes the validated Script Extender load context");
-        Check(queueRuntime.Contains("APIShared.LocalSelectionSnapshot selectedUnits") &&
-            !queueRuntime.Contains("GetSelectedChimps("),
-            "integrated queue consumes the shared selected-unit contract");
-        Check(CountText(queueRuntime, "new DetourHandle<") == 3,
-            "integrated queue owns three exclusive detours; append and target dispatch belong to APIShared");
-        Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 3,
-            "integrated queue registers three exclusive native targets");
-        Check(CountText(queueRuntime, ".Original(") == 3 &&
-            CountText(queueRuntime, "InvokeOriginalMoveChore(") == 3 &&
-            CountText(queueRuntime, "InvokeOriginalTribeOverlay(") == 5,
-            "integrated queue preserves every original-call path through typed handles and the observed overlay wrapper");
-        Check(CountText(queueRuntime, ".IsCompleteSuccess") == 3,
-            "integrated queue checks all three transaction commits");
-        Check(queueRuntime.Contains("largeMoveTargets.TryCaptureOverflowCandidate(") &&
-            !queueRuntime.Contains("ObserveAndShouldSuppressMarker(") &&
-            CountText(queueRuntime, "new DetourHandle<") == 3,
-            "large Move markers reuse the existing draw hook without overlapping detours");
-        Check(queueRuntime.Contains("args.Phase == EventHookPhase.Post") &&
-            queueRuntime.Contains("args.IsNewOrder") &&
-            queueRuntime.Contains("IsLocalSelectedTribe(args.TribeId, out _)") &&
-            !queueRuntime.Contains("localMoveChoreDepth"),
-            "local direct and executed Extended Shift Moves share formation handling without Chore nesting");
-        Check(!queueRuntime.Contains("GameNetworkAPI.GetLocalPlayerId()") &&
-            queueRuntime.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId()") &&
-            queueRuntime.Contains("IsAiOwnedAliveTribe(args.TribeId)") &&
-            queueRuntime.Contains("IsAiOwnedAliveTribe(tribeId)") &&
-            queueRuntime.Contains("cachedRealMultiplayerMode") &&
-            queueRuntime.Contains("if (args.Context.IsSave) RefreshMapContext(); else OnMapStart();") &&
-            queueRuntime.Contains(".Subscribe(args => ResetMapState())") &&
-            queueRuntime.Contains("private void RefreshMapContext()") &&
-            CountText(queueRuntime, "cachedRealMultiplayerMode = null;") >= 2,
-            "AI orders bypass Shift queue work and map-scoped context uses the native in-game player ID");
-        Check(largeMoveRenderer.Contains("VisibleTileHookRva = 0x436DE") &&
-            largeMoveRenderer.Contains("ResetDrawListRva = 0x41D10") &&
-            largeMoveRenderer.Contains("VisibleTileRendererRva = 0x41D60") &&
-            largeMoveRenderer.Contains("SpriteBuilderRva = 0x1A13C0") &&
-            largeMoveRenderer.Contains("candidate.AddContextHook(") &&
-            largeMoveRenderer.Contains("candidate.AddDetour(") &&
-            largeMoveRenderer.Contains("resetDrawListHook.Original(drawManager)") &&
-            largeMoveRenderer.Contains("!featureEnabled()") &&
-            largeMoveRenderer.Contains("0x6B") && largeMoveRenderer.Contains("0x52 + frame") &&
-            largeMoveRenderer.Contains("0xC") &&
-            !largeMoveRenderer.Contains("Application.onBeforeRender") &&
-            !largeMoveRenderer.Contains("Texture2D") &&
-            !largeMoveRenderer.Contains("Mesh"),
-            "large Move renderer injects real Vanilla sprites in the visible-tile pass");
-        Check(largeMoveRenderer.Contains("LargeMoveTargetOverflowBuffer firstBuffer") &&
-            largeMoveRenderer.Contains("LargeMoveTargetOverflowBuffer secondBuffer") &&
-            largeMoveRenderer.Contains("publishedOverflow") &&
-            largeMoveRenderer.Contains("private readonly object stateRoot") &&
-            largeMoveRenderer.Contains("SetPreviewMarkerTiles(IEnumerable<int> tileIds, Func<bool> authorization)") &&
-            largeMoveRenderer.Contains("ClearPreviewMarkerTiles()") &&
-            largeMoveRenderer.Contains("TryAddOverflowMarker(") &&
-            largeMoveRenderer.Contains("NativeContainsDuplicate(drawManager, tileId, category, spriteId)") &&
-            largeMoveRenderer.Contains("DrawRecordBaseOffset = 0x6206F0") &&
-            largeMoveRenderer.Contains("DrawRecordNextOffset = 0x18") &&
-            largeMoveRenderer.Contains("TileDrawHeadRva = 0x47BDD30") &&
-            largeMoveRenderer.Contains("OnVanillaDrawListReset()") &&
-            largeMoveRenderer.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
-            largeMoveRenderer.Contains("renderingActive = shouldBeActive") &&
-            !largeMoveRenderer.Contains("visibleTileHook.Hook.Enable()") &&
-            !largeMoveRenderer.Contains("visibleTileHook.Hook.Disable()") &&
-            largeMoveRenderer.Contains("record.Flags >> 16") &&
-            !largeMoveRenderer.Contains("new Dictionary<int, int>(stableIdentityByTile)") &&
-            !largeMoveRenderer.Contains("public void Shutdown()") &&
-            CountText(largeMoveRenderer, ".Dispose()") == 1 &&
-            largeMoveRenderer.Contains("candidate.Dispose()") &&
-            !largeMoveRenderer.Contains(".Sort(") &&
-            largeMoveRenderer.Contains("MOVE_TARGET_MARKER_RENDER_FAIL_OPEN"),
-            "large Move renderer uses reset-bound reusable overflow buffers and activity windows");
-        Check(queueRuntime.Contains("OwnsHooks = false"),
-            "integrated queue declares process-lifetime hook ownership");
-        Check(queueRuntime.Contains("OnTribeAssignUnit.Observable") &&
-            queueRuntime.Contains("OnTribeCreate.Observable") &&
-            queueRuntime.Contains("private void MirrorTransientTribeState(") &&
-            queueRuntime.Contains("targetTribe->r_UnitsInGroup != 0") &&
-            queueRuntime.Contains("sourceTribe->r_PlayerIdOwner == targetTribe->r_PlayerIdOwner") &&
-            queueRuntime.Contains("pendingSource.MemberGlobalIds.TryGetValue(") &&
-            queueRuntime.Contains("ReferenceEquals(target.Command, source.Command)") &&
-            queueRuntime.Contains("target.ExpiresAfterTick == source.ExpiresAfterTick"),
-            "Fixes-style empty-tribe splits preserve attack and Move deduplication state idempotently");
-        Check(!queueRuntime.Contains("CrashBreadcrumbDiagnostics.Enter(") &&
-            !queueRuntime.Contains("\"ShiftQueueTick\"") &&
-            !queueRuntime.Contains("\"ShiftQueueMoveOrder\"") &&
-            !queueRuntime.Contains("\"ShiftQueueTargetOrder\"") &&
-            !queueRuntime.Contains("\"ShiftQueueWaypoint\"") &&
-            queueRuntime.Contains("\"ShiftQueueEnqueue\"") &&
-            queueRuntime.Contains("\"ShiftQueueDispatch\"") &&
-            queueRuntime.Contains("\"ShiftQueueCancel\""),
-            "crash breadcrumbs retain queue transitions without recording routine ticks or global hook traffic");
-        Check(!queueRuntime.Contains("TOPOLOGY_") &&
-            CountText(queueRuntime, "LogCommandFailureOnce(") == 3 &&
-            queueRuntime.Contains("ShouldLogUnexpectedOnce(diagnosticOperation)") &&
-            queueRuntime.Contains("loggedUnexpectedFailures.Add(normalized)") &&
-            !queueRuntime.Contains("loggedUnsupportedCommands.Clear()") &&
-            queueRuntime.Contains("Further occurrences are aggregated by crash diagnostics."),
-            "Shift queue topology stays in diagnostics and repeated warnings are logged once per process session");
-        Check(!queueRuntime.Contains("Zhuqiaomon") && !queueRuntime.Contains("HookRef<") &&
-            !queueRuntime.Contains(".Hook.Trampoline"), "integrated queue has no legacy hook API");
-        Check(bugfixesProject.Contains("RedBird.Abstractions.dll") &&
-            bugfixesProject.Contains("RedBird.Core.dll") && bugfixesProject.Contains("RedBird.X64.dll"),
-            "integrated queue uses the RedBird assemblies already owned by BugfixesAndQoL");
-        Check(queueRuntime.Contains("GameTribeManagerAPI.Instance.UnassignUnit(tribeId, member.UnitId)") &&
-            !queueRuntime.Contains("RemoveUnitFromTribeRva") &&
-            !queueRuntime.Contains("removeUnitFromTribe("),
-            "integrated queue uses the corrected public UnassignUnit wrapper");
-        Check(viewModel.Contains("[SyncHostOnly]\n        public bool EnableExtendedShiftCommandQueue") ||
-              viewModel.Contains("[SyncHostOnly]\r\n        public bool EnableExtendedShiftCommandQueue"),
-            "extended queue is classified as a synchronized host setting");
-        Check(viewModel.Contains("private bool enableExtendedShiftCommandQueue = true;") &&
-              viewModel.Contains("EnableExtendedShiftCommandQueue = true;"),
-            "extended queue is enabled by default and by preset reset");
-        Check(queueRuntime.Contains("settings.EnableMod && settings.EnableExtendedShiftCommandQueue") &&
-              (queueRuntime.Contains("if (!enabled)\n                ResetMapState();") ||
-               queueRuntime.Contains("if (!enabled)\r\n                ResetMapState();")),
-            "master and host settings gate the queue and disable transitions clear managed state");
-        Check(queueRuntime.Contains("args.AICommand = (TribeAICommand)decodedCommand;") &&
-              queueRuntime.Contains("args.MoveType = (TribeMoveType)decodedMoveType;") &&
-              queueRuntime.Contains("if (!FeatureEnabled)"),
-            "marked commands are decoded safely across setting transitions");
-        Check(settingsXaml.Contains("EnableExtendedShiftCommandQueue, Mode=TwoWay"),
-            "host settings UI exposes the extended queue option");
-        Check(bugfixesPlugin.Contains("BepInIncompatibility(LegacyQueueTestGuid)") &&
-              bugfixesPlugin.Contains("LegacyQueueTestGuid = \"QueueTest_Serp\""),
-            "standalone QueueTest is explicitly incompatible");
-        Check(!Directory.Exists(Path.Combine(workspace, "QueueTest")),
-            "standalone QueueTest project has been removed after integration");
-        Check((bugfixesMinimum.Length == 0 ||
-               bugfixesPlugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{bugfixesMinimum}\")")) &&
-            bugfixesPlugin.Contains("BepInIncompatibility(LegacyMoveMoatGuid)"),
-            "BugfixesAndQoL owns the migrated moat runtime on its manifest-selected Script Extender");
-        Check(bugfixesRuntime.Contains("new HookHandle<X64InlineHook>") &&
-            bugfixesRuntime.Contains("new DetourHandle<") &&
-            bugfixesRuntime.Contains("HookTarget.FromAddress("),
-            "integrated moat runtime retains typed RedBird hooks");
-        Check(!bugfixesRuntime.Contains("Zhuqiaomon") && !bugfixesRuntime.Contains("PolyHook") &&
-            !bugfixesRuntime.Contains(".Hook.Trampoline"), "integrated moat runtime has no legacy hook API");
-        Check(bugfixesProject.Contains("RedBird.Abstractions.dll") && bugfixesProject.Contains("RedBird.Core.dll") &&
-            bugfixesProject.Contains("RedBird.X64.dll") && !bugfixesProject.Contains("Zhuqiaomon.dll"),
-            "BugfixesAndQoL project carries the integrated RedBird hook references");
-        Check(!Directory.Exists(Path.Combine(workspace, "MoatCommandTest")),
-            "standalone MoatCommandTest project has been removed after integration");
-        Check(!queueRuntime.Contains("MoveFormationCommandContext") && !queueRuntime.Contains("ShouldMarkOutgoingFormationOrder"),
-            "queue no longer transports obsolete density bits");
-    }
+    // Production queue models and native bytes are exercised below and above.
+    // Runtime dispatch is executed by Issue6.Tests and FriendlyMoatMovement.Tests.
+    // Former migration checks counted private calls and matched diagnostics/comments;
+    // they could neither prove dispatch nor hook lifetime. The build's scoped
+    // compiler, dependency and permanent-hook checks retain the structural guardrails.
 
     private static string FindWorkspace()
     {

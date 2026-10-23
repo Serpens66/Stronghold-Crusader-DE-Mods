@@ -8,26 +8,27 @@ internal static partial class Program
     private static void TestActualPublication(string[] args)
     {
         string root = Path.GetFullPath(args[0]);
+        var developmentOptions = CSharpParseOptions.Default.WithPreprocessorSymbols("SERP_DEVDIAG");
         var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs")));
+            "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs")), developmentOptions);
         string[] names = { "BuildPathWithCompletedMoatRouteVariant", "BeginAssassinRoutePublication" };
         string methods = string.Join("\n", tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Where(m => names.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
+            .Where(m => names.Contains(m.Identifier.Text)).Select(m => ActiveDiagnosticFixtureCode(m)));
         var movement = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
             "BugfixesAndQoL/src/UnitCommands/Movement/UnitMovementContext.cs")));
         methods += movement.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "GetNativeMovementStart").ToFullString();
         var reporting = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs")));
+            "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs")), developmentOptions);
         methods += reporting.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Single(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").ToFullString();
+            .Where(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").Select(ActiveDiagnosticFixtureCode).Single();
         string fixture = """
 using System;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using APIShared;
-namespace Shared { static class DebugLogHelper { internal static void LogDebugLimited(object log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } internal static void LogDebug(object log,string text) {} } }
+namespace Shared { static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  internal static void LogDebugLimited(object log, string site, params object[] parts) { LogDebug(log, System.String.Concat(parts)); } internal static void LogDebug(object log,string text) {} } }
 namespace BugfixesAndQoL.UnitCommands {
 enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
 unsafe struct GameUnit { public uint r_GlobalId; public eChimps r_UnitChimp; public ushort r_ControllableForPlayerId; public int r_CurrentSpeed; public bool Alive; public int r_CurrentTilePositionX,r_CurrentTilePositionY,r_NextTilePositionX2,r_NextTilePositionY2,r_PathPlanStateBitFlags,r_MovementSubstep; }
@@ -38,6 +39,8 @@ unsafe static class UnitAccess {
 }
 enum EnemyGateSearchKind { Builder }
 static class EnemyBridgeDiagnosticBridge { internal static object BeginSearch(string s,int p)=>null; internal static void EndSearch(object s,bool b,int r){} }
+// Mirrors the public AssassinPathAPI.BeginRouteOutput: one frame around the real compiled handoff.
+static class AssassinPathAPI { internal static AssassinRouteOutputFrame BeginRouteOutput(IntPtr c,int sx,int sy,int tx,int ty,int p,Func<bool> v,Func<byte[],int,int> pub,int cp=-1,int sd=-1,Action<string,string,string> r=null)=>new AssassinRouteOutputFrame(new AssassinRouteHandoff(c,sx,sy,tx,ty,p,v,pub,cp,sd,r)); }
 unsafe partial class UnitCommandPathRuntime {
  const int NativeUnitPathBufferOffset=0xB4FE78, NativeUnitPathBufferStride=1000, MaximumUnitCount=10000;
  const int PathManagerOutputBufferOffset=0x155F60, PathManagerOutputLengthOffset=0x155F68;
@@ -178,7 +181,7 @@ unsafe partial class UnitCommandPathRuntime {
 } }
 """;
         fixture = fixture.Replace("PLACEHOLDER", methods);
-        var sources = new[] { CSharpSyntaxTree.ParseText(fixture), CSharpSyntaxTree.ParseText(
+        var sources = new[] { CSharpSyntaxTree.ParseText(fixture, developmentOptions), CSharpSyntaxTree.ParseText(
             File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Assassin/AssassinRouteHandoff.cs"))),
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs"))),
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs"))) };

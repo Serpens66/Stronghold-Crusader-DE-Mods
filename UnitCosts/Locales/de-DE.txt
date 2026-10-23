@@ -50,9 +50,9 @@ Common.ClientActivationLabel=(Client-Settings)
 Common.HostSettingsActivationHelp=Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.
 Common.ClientSettingsActivationHelp=Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.
 UnitCosts.Title=Grundkosten (Mensch und KI)
-UnitCosts.Help=Gold -1 behält die ursprünglichen Kosten. „No Weapons“ entfernt für Menschen und KI alle vier Anforderungen europäischer Truppen, bei Rittern auch das Pferd.
+UnitCosts.Help=Gold -1 lässt aktuelle Kosten unverändert. Explizite Goldwerte haben beim Anwenden Vorrang. Keine Waffen entfernt alle vier europäischen Materialanforderungen einschließlich des Ritterpferds. Zurücksetzen oder Deaktivieren nimmt nur eigene Änderungen zurück; spätere Änderungen anderer Mods bleiben erhalten.
 UnitCosts.NoWeapons=Keine Waffen
-UnitCosts.NoWeaponsHelp={0}: Entfernt für Menschen und KI alle vier Waffen- und Pferdeanforderungen. Ausschalten stellt die ursprünglichen Anforderungen wieder her.
+UnitCosts.NoWeaponsHelp={0}: Entfernt alle vier Waffen- und Pferdeanforderungen für menschliche Spieler und KI. Abwählen nimmt nur eigene Änderungen zurück; spätere Änderungen anderer Mods bleiben erhalten.
 UnitCosts.ExtraTitle=Zusatzkosten (nur Mensch)
 UnitCosts.ExtraHelp=0 = keine Zusatzkosten. Positive Werte werden zusätzlich abgezogen; negatives Gold wird bis maximal zu den aktuellen Goldkosten erstattet. Ein gesetztes Pferd reserviert für die rekrutierte Einheit ein verfügbares Stallpferd. KI-Spieler ignorieren diese Tabelle.
 UnitCosts.UnitHeader=Einheit

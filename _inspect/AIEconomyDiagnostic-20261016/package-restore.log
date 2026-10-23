@@ -1,0 +1,16 @@
+warning: in the working copy of 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Locales/ar.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Locales/cs-CZ.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Locales/de-DE.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Locales/el-GR.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Locales/en-US.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp/Locales/es-ES.txt', LF will be replaced by CRLF the next time Git touches it
+Traceback (most recent call last):
+  File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\AIEconomyDiagnostic-20261016\restore-local-package.py", line 16, in <module>
+    target.write_bytes(data)
+  File "C:\Users\Serpens66\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1036, in write_bytes
+    with self.open(mode='wb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Serpens66\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 22] Invalid argument: 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BugfixesAndQoL\\BepInEx\\plugins\\BugfixesAndQoL_Serp\\Locales\\es-ES.txt'

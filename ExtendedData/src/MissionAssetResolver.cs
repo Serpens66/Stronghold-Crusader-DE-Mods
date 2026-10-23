@@ -19,20 +19,28 @@ namespace ExtendedData
             CoopMissionDefinition definition = loaded.Definition;
             MissionProjection projection = MissionProjection.Create(definition);
             IReadOnlyList<PlayerDefinition> players = projection.ActivePlayers;
-            FileHeader header = ResolveMap(loaded, definition.Map);
-            if (header == null || header.mapType != 1)
-                throw new InvalidDataException("The selected map is not a multiplayer skirmish map.");
+            FileHeader header = ResolveMap(loaded, definition.Map, definition.DisplayName, out string mapLabel);
+            // mapType 1 is Vanilla's shared skirmish/multiplayer category; a readable map of
+            // another type is a content error, not an unreadable file.
+            if (header.mapType != 1)
+                throw new MissionAssetException(MissionAssetException.MapNotMultiplayer, mapLabel,
+                    "Map [" + mapLabel + "] is not a skirmish/multiplayer map (mapType=" + header.mapType + ").");
             if (header.maxPlayers < players.Count)
-                throw new InvalidDataException("Map supports only " + header.maxPlayers + " players, mission needs " + players.Count + ".");
+                throw new MissionAssetException(MissionAssetException.MapTooFewPlayers, mapLabel,
+                    "Map [" + mapLabel + "] supports only " + header.maxPlayers + " players, mission needs " + players.Count + ".");
 
             var resolved = new ResolvedMission { Loaded = loaded, Header = header };
 
             var aiIds = new List<int>();
             var preferredAivs = new List<int>();
+            var decodedTrails = new Dictionary<string, HUD_IngameMenu.RestartSkirmishMapInfo>(StringComparer.OrdinalIgnoreCase);
             for (int index = 2; index < players.Count; index++)
             {
                 PlayerDefinition player = players[index];
-                FRONT_Multiplayer.MPAIVInfo info = ResolveAi(loaded, player);
+                FRONT_Multiplayer.MPAIVInfo info = string.Equals(player.Lord.Source,
+                        MissionLoader.EmbeddedTrailSource, StringComparison.Ordinal)
+                    ? ResolveEmbedded(loaded, player, decodedTrails)
+                    : ResolveAi(loaded, player);
                 resolved.AiInfoByPlayerIndex[index] = info;
                 aiIds.Add(MissionProjection.GetBaseLordId(player) + 1);
                 int preferredAiv = player.NativePreferredAiv.Value;
@@ -61,14 +69,30 @@ namespace ExtendedData
             return resolved;
         }
 
-        private static FileHeader ResolveMap(LoadedMission loaded, MapReference map)
+        private static FileHeader ResolveMap(LoadedMission loaded, MapReference map, string displayName,
+            out string label)
         {
             if (map.Source == "bundled")
             {
                 string path = MissionLoader.ResolveBundledPath(loaded.MissionRoot, map.File, ".map");
-                return MapFileManager.Instance.GetFileInfoFromFileName(path, Path.GetFileName(path), 0);
+                label = path;
+                // Vanilla opens realFilePath (second argument); a bare file name would be
+                // resolved against the game's working directory instead of the package.
+                FileHeader bundled = MapFileManager.Instance.GetFileInfoFromFileName(path, path, 0);
+                if (bundled == null)
+                    throw new MissionAssetException(MissionAssetException.MapUnreadable, path,
+                        "Bundled map [" + path + "] could not be read; it is damaged, truncated or not a map file.");
+                // Every exported map is stored as map.map; the mission name is the meaningful title.
+                if (!string.IsNullOrWhiteSpace(displayName))
+                    bundled.display_filename = displayName;
+                return bundled;
             }
-            return MapFileManager.Instance.GetHeaderFromFileNameMP(map.Name ?? map.Id?.ToString());
+            label = map.Name ?? map.Id?.ToString();
+            FileHeader installed = MapFileManager.Instance.GetHeaderFromFileNameMP(label);
+            if (installed == null)
+                throw new MissionAssetException(MissionAssetException.MapMissing, label,
+                    "Multiplayer map [" + label + "] is not installed.");
+            return installed;
         }
 
         private static FRONT_Multiplayer.MPAIVInfo ResolveAi(LoadedMission loaded, PlayerDefinition player)
@@ -84,7 +108,8 @@ namespace ExtendedData
                 info.builtInLord = false;
                 info.lordConfig = ResolveLordConfig(loaded, lord, baseLordId);
                 if (info.lordConfig == null)
-                    throw new InvalidDataException("Lord configuration could not be resolved.");
+                    throw new MissionAssetException(MissionAssetException.LordUnresolved,
+                        lord.File ?? lord.Name, "Lord configuration [" + (lord.File ?? lord.Name) + "] could not be resolved.");
             }
 
             var aivs = new List<CustomisationFileManager.CustomAIV>();
@@ -103,7 +128,89 @@ namespace ExtendedData
                 int selectedIndex = player.PreferredAiv >= 0 ? player.PreferredAiv : 0;
                 info.rotation = player.Aivs[selectedIndex].Rotation / 90;
             }
+            else
+            {
+                // Init(nonEmptyName) clears builtIn. Without explicit references the AI uses Vanilla's
+                // standard castles; a custom AIC is handed over separately at start.
+                info.builtIn = true;
+                info.community = false;
+                info.historical = false;
+            }
             return info;
+        }
+
+        // Reads AIC, ordered castle candidates, castle flags, rotation and portrait of one saved slot from
+        // the bundled Trail with Vanilla's own decoder. The original map is not needed. Unity thread only:
+        // the decoder loads portraits into textures.
+        private static FRONT_Multiplayer.MPAIVInfo ResolveEmbedded(LoadedMission loaded, PlayerDefinition player,
+            Dictionary<string, HUD_IngameMenu.RestartSkirmishMapInfo> decoded)
+        {
+            LordReference lord = player.Lord;
+            string path = MissionLoader.ResolveBundledPath(loaded.MissionRoot, lord.File, ".trail");
+            if (!decoded.TryGetValue(path, out HUD_IngameMenu.RestartSkirmishMapInfo restart))
+            {
+                FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(path, path, 4, loadRestartInfo: true);
+                restart = container?.restartSkirmishInfo;
+                if (restart?.aivs == null || restart.lordTypes == null ||
+                    restart.MPsetupData?.preferredAIVs == null || restart.MPsetupData.preferredAIVs.Length != 8)
+                    throw new MissionAssetException(MissionAssetException.EmbeddedTrailUnreadable, path,
+                        "Bundled Trail [" + path + "] has no readable saved Lord setup.");
+                decoded.Add(path, restart);
+            }
+            int slot = lord.SourcePlayerId.Value - 1;
+            FRONT_Multiplayer.MPAIVInfo saved = slot < restart.aivs.Length ? restart.aivs[slot] : null;
+            // importMembers stores -1 for humans and -9999 for empty slots; only AI slots carry a Lord.
+            if (saved == null || slot >= restart.lordTypes.Count || restart.lordTypes[slot] < 0)
+                throw new MissionAssetException(MissionAssetException.EmbeddedSlotInvalid, path,
+                    "Bundled Trail [" + path + "] has no saved AI in player slot " + lord.SourcePlayerId + ".");
+            if (saved.lordType != lord.BaseLordId || restart.MPsetupData.preferredAIVs[slot] != player.NativePreferredAiv)
+                throw new MissionAssetException(MissionAssetException.EmbeddedSlotInvalid, path,
+                    "Player slot " + lord.SourcePlayerId + " of [" + path + "] no longer matches its mission entry.");
+            if (!saved.builtInLord && saved.lordConfig == null)
+                throw new MissionAssetException(MissionAssetException.EmbeddedSlotInvalid, path,
+                    "Player slot " + lord.SourcePlayerId + " of [" + path + "] has a custom AIC without configuration.");
+            return CopyEmbedded(saved);
+        }
+
+        // Independent copy: later lobby changes must never mutate the decoded package data.
+        private static FRONT_Multiplayer.MPAIVInfo CopyEmbedded(FRONT_Multiplayer.MPAIVInfo saved)
+        {
+            var copy = new FRONT_Multiplayer.MPAIVInfo
+            {
+                lordType = saved.lordType,
+                lordName = saved.lordName ?? string.Empty,
+                builtIn = saved.builtIn,
+                community = saved.community,
+                historical = saved.historical,
+                rotation = saved.rotation,
+                builtInLord = saved.builtInLord,
+                lordConfig = saved.lordConfig == null ? null : new CustomisationFileManager.CustomLordConfig
+                {
+                    name = saved.lordConfig.name,
+                    path = saved.lordConfig.path,
+                    lordType = saved.lordConfig.lordType,
+                    checksum = saved.lordConfig.checksum,
+                    workshop = saved.lordConfig.workshop,
+                    workshopUploadInfoAvailable = saved.lordConfig.workshopUploadInfoAvailable,
+                    lordData = saved.lordConfig.lordData,
+                },
+                imageData = (byte[])saved.imageData?.Clone(),
+                image = saved.image,
+            };
+            copy.aivs.Clear();
+            foreach (CustomisationFileManager.CustomAIV aiv in saved.aivs ?? new List<CustomisationFileManager.CustomAIV>())
+                copy.aivs.Add(new CustomisationFileManager.CustomAIV
+                {
+                    lordType = aiv.lordType,
+                    AIVName = aiv.AIVName,
+                    builtIn = aiv.builtIn,
+                    workshopUploadInfoAvailable = aiv.workshopUploadInfoAvailable,
+                    workshop = aiv.workshop,
+                    path = aiv.path,
+                    checksum = aiv.checksum,
+                    data = (short[])aiv.data?.Clone(),
+                });
+            return copy;
         }
 
         private static CustomisationFileManager.CustomLordConfig ResolveLordConfig(LoadedMission loaded, LordReference reference, int baseLordId)

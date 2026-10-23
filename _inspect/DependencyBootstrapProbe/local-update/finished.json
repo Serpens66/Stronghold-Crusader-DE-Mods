@@ -1,0 +1,13 @@
+{
+    "Removed":  [
+                    {
+                        "SHA256":  "C534FA5EBB33A7AD795101EC8D32D15666AA6832CC62501E1C5CCBEF430AE004",
+                        "Path":  "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\_SE\\DependencyBootstrapProbeLocalTrial.json"
+                    },
+                    {
+                        "SHA256":  "6CFC5C0700A0700423D138BEC921065C20AD92460333716918E5E090F8E132FD",
+                        "Path":  "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\config\\DependencyBootstrapProbe.local-update.json"
+                    }
+                ],
+    "AtUtc":  "2026-10-17T15:24:08.8628207Z"
+}

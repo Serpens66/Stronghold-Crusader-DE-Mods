@@ -17,7 +17,6 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
-        private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
         private readonly AssassinClimbRuntime assassinClimbRuntime;
         private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
         private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
@@ -96,11 +95,13 @@ namespace BugfixesAndQoL
         private static GatehouseLivingCapture.CaptureRuntime processGatehouseLivingCaptureRuntime;
         private static bool gatehouseLivingCaptureInitializationAttempted;
         private static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime;
+        private static APIShared.Economy.AiMarketSellRegistration processAiSellThresholdPolicy;
         private static bool aiRaidRetargetInitializationAttempted;
         private static bool workshopIdleTickSubscribed, workshopIdleTickLogged;
         private static NativeTannerFade processNativeTannerFade;
         private static WaterboyTargetReservationRuntime processWaterboyTargetReservationRuntime;
         private static NotificationLastFrameFeature processNotificationLastFrameFeature;
+        private static NotificationSpeechPlayback processNotificationSpeechPlayback;
         private static bool workerBreakTickSubscribed;
         private static bool workerBreakTickLogged;
 
@@ -151,13 +152,11 @@ namespace BugfixesAndQoL
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             troopMovementFixRuntime = new TroopMovementFix3Runtime(log, settings);
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
-            troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
             assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
             assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
             assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
             assassinCombatResumeRuntime = new AssassinCombatResumeRuntime(log, settings);
             assassinCapturedGateProtectionRuntime = new AssassinCapturedGateProtectionRuntime(log, settings);
-            troopActionHudCoordinator.Register(assassinClimbRuntime.RefreshButtonVisibility);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
@@ -179,8 +178,11 @@ namespace BugfixesAndQoL
         public object MultiplayerAivSyncUi => multiplayerAivSyncRuntime;
         public object AssassinClimbButton => assassinClimbRuntime.ButtonViewModel;
 
+        private bool MissingMapRecoveryEnabled => settings.EnableClientFeatures && settings.EnableMissingMapSaveRecovery;
+
         public void InitializeNetwork()
         {
+            SavegameMissingMap.SavegameMissingMapFeature.Initialize(log, () => MissingMapRecoveryEnabled);
             TryInitializePersistentFeature(
                 "placement-cancel move suppression",
                 EnsurePlacementCancelMoveSuppressionFeature);
@@ -199,12 +201,28 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "Assassin climb-state synchronization",
                 assassinClimbRuntime.InitializeNetwork);
+            // Map-scoped fix state that the native save omits. Each record fails independently.
+            TryInitializePersistentFeature(
+                "single-building pause save data",
+                InitializeMovedFeatureSaveData);
+            TryInitializePersistentFeature(
+                "Assassin climb-state save data",
+                assassinClimbRuntime.InitializeSaveData);
+            TryInitializePersistentFeature(
+                "troop movement synchronization save data",
+                troopMovementFixRuntime.InitializeSaveData);
             TryInitializePersistentFeature(
                 "Assassin climb cancellation event",
                 assassinClimbCancellationRuntime.Initialize);
+            // APIShared owns the single troop-action setup hook and lays out every mod's host once.
             TryInitializePersistentFeature(
-                "troop action HUD coordinator",
-                troopActionHudCoordinator.Initialize);
+                "troop action HUD registration",
+                () =>
+                {
+                    if (!APIShared.Presentation.TroopActionHud.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "AssassinClimb",
+                        assassinClimbRuntime.RefreshButtonVisibility, out string reason))
+                        throw new InvalidOperationException(reason);
+                });
             // These registrations serve independent features. Keep each failure isolated so a
             // managed speed-UI hook can never disable Ctrl trading or map-state maintenance.
             TryInitializePersistentFeature(
@@ -255,12 +273,16 @@ namespace BugfixesAndQoL
 
         private void EndGameplaySession()
         {
+            processNotificationSpeechPlayback?.Invalidate();
+            processNotificationLastFrameFeature?.ResetMapState();
             ResetMovedFeatureMapState();
             multiplayerGameSpeedRuntime.ResetMapState();
             abruptHostMigrationFix?.ResetMapState();
             assassinClimbRuntime.EndMap();
             assassinPathfindingRuntime.EndMap();
             assassinCapturedGateProtectionRuntime.EndMap();
+            plagueTargetReservationFix?.ResetForMap();
+            siegeAmmoRestockFeature.ResetForMap();
             multiplayerFeatureGate.Reset();
         }
 
@@ -274,9 +296,11 @@ namespace BugfixesAndQoL
                 TrailCustomizationLaunchOriginApi.MarkMapStarted();
             assassinPathfindingRuntime.BeginMap();
             assassinCapturedGateProtectionRuntime.BeginMap();
-            assassinClimbRuntime.BeginMap();
+            assassinClimbRuntime.BeginMap(context);
+            TryApplyFeature("single-building pause save restore", () => RestoreMovedFeatureSaveState(context));
+            TryApplyFeature("troop movement save restore", () => troopMovementFixRuntime.RestoreSessionState(context));
             multiplayerGameSpeedRuntime.ApplySetting();
-            troopActionHudCoordinator.Refresh();
+            APIShared.Presentation.TroopActionHud.RefreshCurrentPanel();
         }
 
         public void InitializeSelectedUnitHealthFeature()
@@ -344,8 +368,11 @@ namespace BugfixesAndQoL
                     context,
                     isFixedLayoutHashValidated));
             TryInitializePersistentFeature(
+                "notification speech ownership",
+                () => processNotificationSpeechPlayback = NotificationSpeechPlayback.Get(log));
+            TryInitializePersistentFeature(
                 "complete notification skip",
-                () => notificationSkipFeature = new NotificationSkipFeature(
+                () => notificationSkipFeature = notificationSkipFeature ?? new NotificationSkipFeature(
                     log,
                     settings,
                     nativeRegion,
@@ -353,7 +380,7 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "notification last frame",
                 () => processNotificationLastFrameFeature =
-                    new NotificationLastFrameFeature(log, settings));
+                    processNotificationLastFrameFeature ?? new NotificationLastFrameFeature(log, settings));
             tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated(
                 isFixedLayoutHashValidated);
             try
@@ -412,7 +439,7 @@ namespace BugfixesAndQoL
             }
             else
             {
-                if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)
+                if (settings.EnableMod && (settings.EnableImprovedAssassinPathfinding || settings.EnableImprovedAssassinPathfindingAI))
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:423", "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
                 }
@@ -439,6 +466,8 @@ namespace BugfixesAndQoL
             TryInitializeFeature(
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature("Assassin gatehouse descent", () =>
+                GateRouting.AssassinGatehouseDescentFeature.Initialize(context, log, settings, isFixedLayoutHashValidated));
             TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             TryInitializePersistentFeature("enemy gate routing", () => GateRouting.GateRoutingFeature.Initialize(context,isFixedLayoutHashValidated));
             TryInitializePersistentFeature("drawbridge destruction fix", () =>
@@ -466,6 +495,15 @@ namespace BugfixesAndQoL
                 }
                 processAiRaidRetargetFixRuntime = new AiRaidRetargetFixRuntime(log);
                 processAiRaidRetargetFixRuntime.Initialize(context, settings.EnableMod && settings.EnableAiRaidRetargetFix);
+            });
+            TryInitializePersistentFeature("AI sell threshold safety", () =>
+            {
+                if (processAiSellThresholdPolicy == null && !APIShared.Economy.AiMarketSellPolicies.TryRegister(
+                    BugfixesAndQoLPlugin.PluginGuid, "ai-sell-threshold-safety",
+                    APIShared.Economy.AiMarketSellSafety.NonNegativeReserve | APIShared.Economy.AiMarketSellSafety.LimitQuantityToStock,
+                    out processAiSellThresholdPolicy, out string reason))
+                    throw new InvalidOperationException(reason);
+                ApplyAiSellThresholdFix();
             });
             TryInitializeFeature(
                 "Extended Shift command queue",
@@ -514,10 +552,17 @@ namespace BugfixesAndQoL
             if (!nativeLibraryAvailable) return;
             APIShared.AssassinPathAPI.SetDirectGatehouseClimbing(
                 BugfixesAndQoLPlugin.PluginGuid, settings.EnableMod && settings.EnableAssassinGatehouseClimbFix);
+            GateRouting.AssassinGatehouseDescentFeature.Refresh();
         }
+
+        // The synchronized host value is applied on every peer, including editor missions.
+        // APIShared owns the permanent hooks; disabling only withdraws our own request.
+        private void ApplyAiSellThresholdFix() => processAiSellThresholdPolicy?.SetEnabled(
+            settings.EnableMod && settings.EnableAiSellThresholdFix);
 
         public void ApplySettings()
         {
+            TryApplyFeature("AI sell threshold safety", ApplyAiSellThresholdFix);
             TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
@@ -594,17 +639,20 @@ namespace BugfixesAndQoL
                 return;
             if (processUnitCommandPathRuntime == null)
             {
+#if SERP_DEVDIAG
                 UnitCommandPathAPI.AssassinReconstructionRelaxation = () => AssassinPathfindingRuntime.TemporaryReconstructionRelaxation;
+#endif
                 processUnitCommandPathRuntime = UnitCommandPathAPI.RegisterCommands(
                     log, settings, context, referenceHashMatches, BugfixesAndQoLPlugin.PluginGuid);
             }
             friendlyMoatMovementRuntime = processUnitCommandPathRuntime;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL shared unit commands initialized: " +
-                $"manualCommands={settings.EnableImprovedManualUnitCommands}, improvedFill=" +
-                $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, " +
-                $"ladderAttackFix={settings.EnableMod && settings.EnableLadderAttackPathfindingFix}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    "Bugfixes and QoL shared unit commands initialized: " +
+                    $"manualCommands={settings.EnableImprovedManualUnitCommands}, improvedFill=" +
+                    $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, " +
+                    $"ladderAttackFix={settings.EnableMod && settings.EnableLadderAttackPathfindingFix}.");
         }
 
         private void InitializeExtendedShiftCommandQueue(
@@ -742,7 +790,6 @@ namespace BugfixesAndQoL
             plagueApothecaryStateTransitionFix?.Dispose();
             plagueApothecaryStateTransitionFix = null;
             troopMovementFixRuntime.Dispose();
-            troopActionHudCoordinator.Dispose();
             assassinClimbRuntime.Dispose();
             assassinClimbCancellationRuntime.Dispose();
             ctrlMarketTradeHook?.Dispose();
@@ -1043,7 +1090,7 @@ namespace BugfixesAndQoL
         private void TryInitializeFeature(string featureName, Action initialize)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("FeatureInitialize", featureName.GetHashCode()))
+                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("FeatureInitialize", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
             {
                 try
                 {
@@ -1053,11 +1100,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
-                        "initialize:" + featureName + ":" + ex.GetType().FullName))
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1075", $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
-                    }
+                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
                 }
             }
         }
@@ -1065,7 +1108,7 @@ namespace BugfixesAndQoL
         private void TryInitializePersistentFeature(string featureName, Action initialize)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("PersistentInitialize", featureName.GetHashCode()))
+                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("PersistentInitialize", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
             {
                 try
                 {
@@ -1075,11 +1118,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
-                        "persistent-initialize:" + featureName + ":" + ex.GetType().FullName))
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1099", $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
-                    }
+                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
                 }
             }
         }
@@ -1087,7 +1126,7 @@ namespace BugfixesAndQoL
         private void TryApplyFeature(string featureName, Action apply)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter("FeatureApply", featureName.GetHashCode()))
+                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("FeatureApply", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
             {
                 try
                 {
@@ -1097,11 +1136,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
-                        "apply:" + featureName + ":" + ex.GetType().FullName))
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:1123", $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
-                    }
+                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
                 }
             }
         }

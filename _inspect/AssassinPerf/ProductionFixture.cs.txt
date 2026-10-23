@@ -33,9 +33,9 @@ unsafe static class UnitAccess {
  internal static bool IsReallyAlive(GameUnit* unit)=>unit!=null&&IsReallyAlive(in *unit);
  internal static bool IsReallyAlive(in GameUnit unit)=>unit.r_AliveState==AliveState.IsAlive&&(unit.N0000019A&0xffff)==0;
 }
-namespace BepInEx.Logging { sealed class ManualLogSource {} }
-namespace APIShared.Internal { static class DebugLogHelper { internal static void LogDebug(object log,string text){} } }
-namespace Shared { static class DebugLogHelper { internal static void LogInfo(object log,string text){} internal static void LogDebugLimited(object log,string site,params object[] parts){} internal static void LogDebug(object log,string text){} } }
+namespace BepInEx.Logging { sealed class ManualLogSource { public void LogMessage(string text) {} } }
+namespace APIShared.Internal { static class DebugLogHelper { internal static bool DiagnosticsEnabled => true; internal static void LogDebug(object log,string text){} } }
+namespace Shared { static class DebugLogHelper { internal static bool DiagnosticsEnabled => true; internal static void LogInfo(object log,string text){} internal static void LogDebugLimited(object log,string site,params object[] parts){} internal static void LogDebug(object log,string text){} } }
 namespace APIShared {
  unsafe static class AssassinPathAPI {
   static string weightedOwner="fixture"; public static bool IsInstalled=>true;
@@ -91,7 +91,8 @@ namespace BugfixesAndQoL {
   public object EnterNativeSearch(int player,EnemyGateSearchKind kind)=>null;
   public void ExitNativeSearch(object scope,EnemyGateSearchKind kind,bool completed,bool success){}
  }
- sealed class BugfixesAndQoLViewModel { public bool EnableMod=true,EnableImprovedAssassinPathfinding=true; }
+ sealed class BugfixesAndQoLViewModel { public bool EnableMod=true,EnableImprovedAssassinPathfinding=true,EnableImprovedAssassinPathfindingAI=true; }
+ sealed class GamePlayerManagerAPI { public static readonly GamePlayerManagerAPI Instance=new(); public bool AI; public bool IsAIPlayer(int player)=>AI; }
  sealed class AssassinClimbRuntime { public bool Allowed=true;public bool IsClimbingAllowed(int player)=>Allowed; }
  sealed class AssassinPathReconstructionPatch { public bool IsApplied=>true; }
  static class BugfixesAndQoLPlugin { public const string PluginGuid="fixture"; }
@@ -120,6 +121,12 @@ namespace BugfixesAndQoL {
    public int PlayerId=>2;internal bool Current=true,Allowed=true;public bool IsCurrent=>Current;
    public bool IsDirectionAllowed(int tile,int direction)=>Allowed;
   }
+  // Deterministic partial gate mask: blocks a fixed pattern of tile directions.
+  sealed class StripeMask:IEnemyGateRoutePolicySnapshot {
+   public int PlayerId=>2;public bool IsCurrent=>true;
+   public bool IsDirectionAllowed(int tile,int direction)=>(tile*7+direction)%5!=0;
+  }
+#if SERP_DEVDIAG
   public static void VerifyTemporaryRouteValidation() {
    var r=new AssassinPathfindingRuntime("open");var mask=new ValidationMask();
    var key=new RouteCacheKey(5,5,10,5,TileCount,4,2,true,true,mask,true);
@@ -191,8 +198,13 @@ namespace BugfixesAndQoL {
     Assert(sink.Decisions==16,"every masked actual validation is counted, including throwing observer");
    } finally {activeObservation=null;AssassinPathAPI.DirectEndpoint=-1;GameBuildingManagerAPI.Instance.Building=null;runtime.Release();}
   }
+#endif
   RUNTIME_MEMBERS
-  sealed class AssassinObservation { internal object Token;internal int NativeResult,Player,RouteLength;internal string Outcome;internal bool CacheHit;internal long FilteredClimb,FilteredGround;internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int,GateTransitionEvidence> ParentDecisions;internal GateTransitionEvidence LastDecision; }
+  sealed class AssassinObservation { internal object Token;internal int NativeResult,Player,RouteLength;internal string Outcome;internal bool CacheHit;internal long FilteredClimb,FilteredGround;internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;
+#if SERP_DEVDIAG
+internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int,GateTransitionEvidence> ParentDecisions;internal GateTransitionEvidence LastDecision;
+#endif
+ }
   bool IsInstalled=>true;
   void ObservePreparedAssassinRoute(int player,int length){}
   void LogDebug(string message){}
@@ -211,6 +223,7 @@ namespace BugfixesAndQoL {
    nativeDistances=(short*)Allocate(TileCount*2);nativeVisitStamps=(short*)Allocate(TileCount*2);
    directionMasks=(byte*)Allocate(8);
    for(int d=0;d<8;d++)directionMasks[d]=(byte)(1<<d);
+   if(terrain=="castle"){BuildCastle();if(!EnsureCoordinateTileMappingValidated())throw new Exception("mapping");return;}
    for(int y=0;y<48;y++){rowLookup[y*3]=y*64;
     for(int x=0;x<64;x++){validCoordinates[y*800+x]=1;occupancyLayer[y*64+x]=255;}}
    if(terrain=="gate"){
@@ -228,6 +241,50 @@ namespace BugfixesAndQoL {
    }
    // Validate once at setup, matching an already initialized live map.
    if(!EnsureCoordinateTileMappingValidated())throw new Exception("mapping");
+  }
+  // Castle-scale terrain (performance and oracle evidence for realistic search sizes): three
+  // concentric wall rings of descending height, each with one ordinary opening on a different
+  // side. Walls are climbable (physical connections cut at both ends, as on the "gate" terrain).
+  const int CastleSize=320;
+  void BuildCastle(){
+   for(int y=0;y<CastleSize;y++){rowLookup[y*3]=y*CastleSize;
+    for(int x=0;x<CastleSize;x++){validCoordinates[y*800+x]=1;occupancyLayer[y*CastleSize+x]=255;}}
+   int[] margins={40,90,130};byte[] heights={90,60,90};
+   for(int ring=0;ring<margins.Length;ring++){
+    int low=margins[ring],high=CastleSize-1-margins[ring],middle=CastleSize/2;
+    for(int i=low;i<=high;i++)foreach(var (x,y) in new[]{(i,low),(i,high),(low,i),(high,i)}){
+     bool opening=ring switch{0=>y==low&&Math.Abs(x-middle)<=1,1=>x==high&&Math.Abs(y-middle)<=1,_=>y==high&&Math.Abs(x-middle)<=1};
+     if(opening)continue;
+     int tile=y*CastleSize+x;tileFlags[tile]=IsWallFlag;heightLayer[tile]=heights[ring];occupancyLayer[tile]=0;}
+   }
+   for(int y=0;y<CastleSize;y++)for(int x=0;x<CastleSize;x++)for(int d=0;d<8;d++){
+    int nx=x+DirectionX[d],ny=y+DirectionY[d];
+    if(nx>=0&&nx<CastleSize&&ny>=0&&ny<CastleSize&&tileFlags[ny*CastleSize+nx]!=0)
+     occupancyLayer[y*CastleSize+x]&=(byte)~(1<<d);
+   }
+  }
+  // Production A* and the existence search agree with an independent Dijkstra on long castle
+  // routes, with and without climbing, including a gate mask.
+  public static void VerifyCastle(){
+   var r=new AssassinPathfindingRuntime("castle");
+   try{
+    var random=new Random(9131);
+    for(int i=0;i<12;i++){
+     int sx=random.Next(2,35),sy=random.Next(2,35),tx=CastleSize/2+random.Next(-20,21),ty=CastleSize/2+random.Next(-20,21);
+     r.climbRuntime.Allowed=(i%2)==0;
+     int oracle=r.Oracle(sx,sy,tx,ty);
+     bool found=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,r.climbRuntime.Allowed,true,null,null,out var summary);
+     Assert(oracle>=0&&found&&summary.TotalCost==oracle,"castle production A*/Dijkstra");
+     // Undecided means a found route reached the committed-length bound; the caller then runs A*.
+     var existence=r.FindAnyWeightedRoute(sx,sy,tx,ty,4,r.climbRuntime.Allowed,true,null);
+     Assert(existence!=RouteExistence.None,"castle existence search finds the route");
+     IEnemyGateRoutePolicySnapshot gateMask=i%3==0?new ValidationMask{Allowed=false}:new StripeMask();
+     bool maskedFound=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,r.climbRuntime.Allowed,true,null,gateMask,out _);
+     var maskedExistence=r.FindAnyWeightedRoute(sx,sy,tx,ty,4,r.climbRuntime.Allowed,true,gateMask);
+     Assert(maskedExistence==(maskedFound?RouteExistence.Exists:RouteExistence.None)||
+      maskedFound&&maskedExistence==RouteExistence.Undecided,"castle existence search applies the same gate mask");
+    }
+   }finally{r.Release();}
   }
   AssassinCommandScope NewCommand()=>new(null,1,0,0,1,1,0,0,"fixture",true);
   static void Assert(bool value,string message){if(!value)throw new Exception(message);}
@@ -270,6 +327,7 @@ namespace BugfixesAndQoL {
        if(c.RouteCache.ContainsKey(key))
         Assert(r.TryLoadCachedRoute(c,key,out var cached,out _)&&cached.TotalCost==oracle,"validated productive cache");
        else Assert(c.RouteCache.Count==AssassinCommandScope.MaximumCachedRoutes,"unchanged bounded route cache");}
+      VERIFY_EXISTENCE
      }
      if(terrain=="gate"){
       Assert(r.TryBuildWeightedRoute(5,24,55,24,TileCount,4,true,true,null,null,out var entrance)&&entrance.ClimbEdges==0,"cheap open entrance wins");
@@ -298,7 +356,8 @@ namespace BugfixesAndQoL {
     try{
      void Request(int i,bool measured){
       unitId=i%count+1;sx=units[unitId-1].r_CurrentTilePositionX;sy=units[unitId-1].r_CurrentTilePositionY;
-      tx=mode=="different"?40+(i%20):60;ty=mode=="different"?15+(i/20%25):24;
+      if(terrain=="castle"){tx=CastleSize/2-10+(mode=="different"?i%20:0);ty=CastleSize/2-10+(mode=="different"?i/20%20:0);}
+      else{tx=mode=="different"?40+(i%20):60;ty=mode=="different"?15+(i/20%25):24;}
       *(int*)(context+8)=sx;*(int*)(context+12)=sy;*(int*)(context+16)=tx;*(int*)(context+20)=ty;
       *(IntPtr*)(context+0x155F60)=(IntPtr)(manager+0xB4FE78+unitId*1000);*(int*)(context+0x155F68)=0;
       if(independent)r.activeCommand=null;

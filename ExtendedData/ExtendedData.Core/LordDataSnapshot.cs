@@ -17,14 +17,15 @@ namespace ExtendedData
         public string ConfigChecksum { get; set; }
         public string ModLordJson { get; set; }
         public string FixesJson { get; set; }
+        public IReadOnlyList<FixesPreferenceSource> FixesSources { get; set; }
     }
 
     public sealed class LordDataSnapshot
     {
-        public const int MaxSidecarBytes = 64 * 1024;
-        public const int MaxNamespaceBytes = 16 * 1024;
+        public const int MaxSidecarBytes = APIShared.ModData.ModDataDocumentJson.MaximumDocumentBytes;
+        public const int MaxNamespaceBytes = APIShared.ModData.ModDataDocumentJson.MaximumNamespaceBytes;
         public const int MaxSnapshotBytes = 256 * 1024;
-        public const int ProtocolVersion = 3;
+        public const int ProtocolVersion = 4;
 
         public string SessionId { get; private set; }
         public string Digest { get; private set; }
@@ -60,6 +61,7 @@ namespace ExtendedData
                     ["configChecksum"] = item.ConfigChecksum,
                     ["modLordData"] = item.ModLordJson == null ? null : ParseModLord(item.ModLordJson),
                     ["fixesJson"] = item.FixesJson,
+                    ["fixesSources"] = FixesPreferenceSources.Encode(item.FixesSources),
                 }).ToList(),
             };
             string payloadJson = SerializeCompact(payload);
@@ -97,7 +99,7 @@ namespace ExtendedData
             if (!string.Equals(Hash(payloadJson), digest, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("The Lord-data snapshot checksum does not match.");
             int version = Convert.ToInt32(payload["version"]);
-            if (legacy ? version != 1 : version != 2 && version != ProtocolVersion)
+            if (legacy ? version != 1 : version < 2 || version > ProtocolVersion)
                 throw new InvalidDataException("Unsupported Lord-data snapshot version.");
             if (!payload.TryGetValue("fixesInstalled", out object installedValue) || !(installedValue is bool fixesInstalled))
                 throw new InvalidDataException("The Fixes installation marker is invalid.");
@@ -119,6 +121,8 @@ namespace ExtendedData
                             ? SerializeCompact(RequireObject(modData))
                             : null,
                     FixesJson = OptionalString(item, "fixesJson"),
+                    FixesSources = version >= 4 && item.TryGetValue("fixesSources", out object sources)
+                        ? FixesPreferenceSources.Decode(sources) : null,
                 };
             }).ToArray();
             ValidateSlots(slots, fixesInstalled);
@@ -136,41 +140,19 @@ namespace ExtendedData
 
         public static void ValidateModLord(string json)
         {
-            if (json == null)
-                return;
-            if (Encoding.UTF8.GetByteCount(json) > MaxSidecarBytes)
-                throw new InvalidDataException("A selected .modlord.json exceeds 64 KiB.");
-            ParseModLord(json);
+            if (json != null) ParseModLord(json);
         }
 
         public static string ReadModLordFile(string path)
         {
             if (new FileInfo(path).Length > MaxSidecarBytes)
                 throw new InvalidDataException("The .modlord.json exceeds 64 KiB: " + path);
-            byte[] bytes = File.ReadAllBytes(path);
-            if (bytes.Length > MaxSidecarBytes)
-                throw new InvalidDataException("The .modlord.json exceeds 64 KiB: " + path);
-            string json = new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF');
-            ValidateModLord(json);
-            return json;
+            using (var stream = File.OpenRead(path))
+                return APIShared.ModData.ModDataDocumentJson.ReadUtf8(stream);
         }
 
-        private static Dictionary<string, object> ParseModLord(string json)
-        {
-            var root = RequireObject(Shared.DependencyFreeJson.Parse(json));
-            if (root.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != root.Count)
-                throw new InvalidDataException("The .modlord.json contains duplicate GUID namespaces.");
-            foreach (KeyValuePair<string, object> entry in root)
-            {
-                if (string.IsNullOrWhiteSpace(entry.Key) || !(entry.Value is Dictionary<string, object>))
-                    throw new InvalidDataException("Every .modlord.json GUID namespace must be an object.");
-                int namespaceBytes = Encoding.UTF8.GetByteCount(SerializeCompact(entry.Value));
-                if (namespaceBytes > MaxNamespaceBytes)
-                    throw new InvalidDataException("The .modlord.json GUID namespace '" + entry.Key +
-                        "' exceeds 16 KiB.");
-            }
-            return root;
-        }
+        private static Dictionary<string, object> ParseModLord(string json) =>
+            APIShared.ModData.ModDataDocumentJson.Parse(json);
 
         private static string SerializeCompact(object value)
         {
@@ -208,7 +190,8 @@ namespace ExtendedData
             {
                 if (slot.LordType < -1) throw new InvalidDataException("Invalid Lord type identity.");
                 ValidateModLord(slot.ModLordJson);
-                if (!fixesInstalled && slot.FixesJson != null)
+                FixesPreferenceSources.Validate(slot.FixesSources);
+                if (!fixesInstalled && (slot.FixesJson != null || slot.FixesSources != null))
                     throw new InvalidDataException("Fixes preferences were supplied without Fixes.");
             }
         }

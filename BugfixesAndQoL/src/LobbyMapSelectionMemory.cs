@@ -398,10 +398,11 @@ namespace BugfixesAndQoL
                 }
 
                 current = loaded;
-                LogDebug(
-                    $"Bugfixes and QoL loaded lobby map-selection memory: " +
-                    $"column={current.SortColumn}, ascending={current.SortAscending}, " +
-                    $"map={current.Map?.Origin ?? "none"}:{current.Map?.FileName ?? string.Empty}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug(
+                        $"Bugfixes and QoL loaded lobby map-selection memory: " +
+                        $"column={current.SortColumn}, ascending={current.SortAscending}, " +
+                        $"map={current.Map?.Origin ?? "none"}:{current.Map?.FileName ?? string.Empty}.");
             }
             catch (Exception exception)
             {

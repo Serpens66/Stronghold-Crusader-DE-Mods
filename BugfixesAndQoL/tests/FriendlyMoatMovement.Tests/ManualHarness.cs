@@ -217,6 +217,22 @@ namespace CommandFixture
                 Check(ReferenceEquals(activeMoveCommand,parent) && ReferenceEquals(activePlan,plan) &&
                     ReferenceEquals(pendingPlan,plan) && ReferenceEquals(unitMoveFrame,frame) &&
                     ReferenceEquals(activeAttackCommand,attack) && !nativeManualProbe,"all parent contexts restored");
+                // A batch copies the closure once; every probe must still restore it completely,
+                // so a later probe in the same batch starts from the identical native state.
+                byte[] unit2Before=new ReadOnlySpan<byte>(units+2,sizeof(GameUnit)).ToArray();
+                BeginNativeProbeBatch();
+                try
+                {
+                    Check(ProbeNativeManualPath(1,20,20) && ProbeNativeManualPath(2,20,20) && calls==3,
+                        "batched probes each invoke native exactly once");
+                    Check(new ReadOnlySpan<byte>(manager,NativeProbeManagerBytes).SequenceEqual(managerBefore) &&
+                        nativeProbeGrid[NativeProbeGridBytes-1]==0 && nativeProbeRectangle[31]==0 && manager[-8]==0,
+                        "batched probes restore the shared snapshot after every probe");
+                }
+                finally { EndNativeProbeBatch(); }
+                Check(new ReadOnlySpan<byte>(units+1,sizeof(GameUnit)).SequenceEqual(unitBefore) &&
+                    new ReadOnlySpan<byte>(units+2,sizeof(GameUnit)).SequenceEqual(unit2Before) &&
+                    !nativeProbeBatchSnapshot && nativeProbeBatchDepth==0,"batch restores each unit and releases its snapshot");
                 originalCentralMovementPlan=(m,id,x,y)=>throw new InvalidOperationException("native fixture failure");
                 bool threw=false; try{ProbeNativeManualPath(1,20,20);}catch(InvalidOperationException){threw=true;}
                 Check(threw && !nativeManualProbe && ReferenceEquals(activePlan,plan),"failed probe restores contexts");

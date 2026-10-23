@@ -80,6 +80,9 @@ namespace ExtraFeatures
         private readonly IAivBuildStepObserver buildStepObserver;
         private bool initialized;
         private bool nativeInitialized;
+        private bool nativeUnavailable;
+        // Reported only when the feature is enabled; a disabled feature stays silent.
+        private Exception placementInstallFailure;
         private bool mapActive;
         private bool mapPrepared;
         private bool gameModeKnown;
@@ -153,11 +156,72 @@ namespace ExtraFeatures
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
-            if (nativeInitialized || placementHook.Success)
+            if (nativeInitialized || nativeUnavailable)
                 return;
+
+            // The first call comes from the LibraryLoaded window, where the detour costs almost
+            // nothing, instead of from the first map load with the feature enabled. Until the
+            // observer below is registered, the detour is a pure pass-through.
+            if (!placementHook.Success && placementInstallFailure == null)
+            {
+                try
+                {
+                    InstallPlacementHook(libraryHandle, region, memory, referenceHashMatches);
+                }
+                catch (Exception ex)
+                {
+                    placementInstallFailure = ex;
+                }
+            }
             if (!NeedsNativeRebuildHooks)
                 return;
 
+            // This method is retried on every settings reconciliation. Any failure is final
+            // for the process so a half-registered state is never retried and logged again.
+            nativeUnavailable = true;
+            if (!placementHook.Success)
+                throw new InvalidOperationException(
+                    "The AI defense placement hook could not be installed at startup.",
+                    placementInstallFailure);
+
+            IApiShared api = ApiShared.Current;
+            NativeCapabilityDiagnostic failure;
+            if (!api.TryGetAivBuildStep(
+                    ExtraFeaturesPlugin.PluginGuid,
+                    out IAivBuildStepCapability capability,
+                    out failure))
+            {
+                throw new InvalidOperationException(
+                    "APIShared AIV build-step capability unavailable: " +
+                    (failure?.Reason ?? "unknown failure"));
+            }
+
+            // Registered only on demand: without observers APIShared's build-step hook stays a
+            // zero-allocation pass-through. A registration failure leaves the placement detour
+            // a harmless pass-through because nativeInitialized remains false.
+            if (!capability.TryRegisterObserver(
+                    "ai-defense-rebuild",
+                    buildStepObserver,
+                    out failure))
+            {
+                throw new InvalidOperationException(
+                    "APIShared AIV build-step registration failed; the placement hook stays a pass-through: " +
+                    (failure?.Reason ?? "unknown failure"));
+            }
+
+            nativeInitialized = true;
+            nativeUnavailable = false;
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "AI defense rebuild registered through APIShared.");
+        }
+
+        private void InstallPlacementHook(
+            IntPtr libraryHandle,
+            ScanRegion region,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
+        {
             // The placement helper's process-state origin fields are fixed-layout data, not
             // proven by either function signature. Fail closed on an unaudited DLL.
             if (!referenceHashMatches)
@@ -168,26 +232,6 @@ namespace ExtraFeatures
                 memory, PlacementPattern, PlacementRva, referenceHashMatches,
                 "AI AIV placement helper", log);
             ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
-            IApiShared api = ApiShared.Current;
-            NativeCapabilityDiagnostic failure;
-            if (!api.TryGetAivBuildStep(
-                    ExtraFeaturesPlugin.PluginGuid,
-                    out IAivBuildStepCapability capability,
-                    out failure))
-            {
-                throw new InvalidOperationException(
-                    "APIShared AIV build-step registration failed: " +
-                    (failure?.Reason ?? "unknown failure"));
-            }
-            if (!capability.TryRegisterObserver(
-                    "ai-defense-rebuild",
-                    buildStepObserver,
-                    out failure))
-            {
-                throw new InvalidOperationException(
-                    "APIShared AIV build-step registration failed: " +
-                    (failure?.Reason ?? "unknown failure"));
-            }
             try
             {
                 transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
@@ -198,20 +242,20 @@ namespace ExtraFeatures
                 CommitResult commitResult = transaction.Commit();
                 if (!commitResult.IsCompleteSuccess || !placementHook.Success)
                     throw new InvalidOperationException("The AI defense placement hook was not installed.");
-                nativeInitialized = true;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"AI defense rebuild registered through APIShared; placement hook installed at RVA 0x{placement.Rva:X}.");
             }
             catch
             {
-                if (!nativeInitialized && !placementHook.Success)
+                if (!placementHook.Success)
                 {
                     transaction?.Dispose();
                     transaction = null;
                 }
                 throw;
             }
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AI defense placement hook installed as a pass-through at RVA 0x{placement.Rva:X}.");
         }
 
         public void Dispose()
@@ -303,7 +347,8 @@ namespace ExtraFeatures
                     liveDefenseTargets[target] = new LiveDefenseIdentity(spanIndex + 1, building.r_GlobalId);
                     count++;
                 }
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:306", $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:306", $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
             }
             catch (Exception ex)
             {
@@ -329,7 +374,8 @@ namespace ExtraFeatures
                 realMultiplayer = snapshot.IsRealMultiplayer;
                 gameModeKnown = snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
                 gameModeFailureLogged = false;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:333", $"Enemy-proximity runtime captured map mode: {snapshot.ToDiagnosticString()}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:333", $"Enemy-proximity runtime captured map mode: {snapshot.ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {
@@ -431,8 +477,9 @@ namespace ExtraFeatures
             if (destroyedDefenseTicks.ContainsKey(target))
                 return;
             destroyedDefenseTicks[target] = tick;
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:437", $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
-                $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:437", $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
+                    $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
         }
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
@@ -738,6 +785,11 @@ namespace ExtraFeatures
             ulong placementStateAddress, int playerId, int offsetX, int offsetY,
             short mapperValue, int orientation)
         {
+            // The detour is installed at startup even when the feature stays off; keep the
+            // path before observer registration free of breadcrumbs and settings reads.
+            if (!nativeInitialized || !IsConfigured)
+                return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
+
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter(
                     "AiDefensePlacement",
@@ -746,9 +798,6 @@ namespace ExtraFeatures
                     offsetX,
                     offsetY))
             {
-            if (!nativeInitialized || !IsConfigured)
-                return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
-
             BuildStepContext context = activeContext;
             if (context == null || context.PlayerId != playerId || !IsDefenseMapper(mapperValue))
                 return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
@@ -993,8 +1042,9 @@ namespace ExtraFeatures
 
                 state = new RebuildDelayState(firstTick, source);
                 rebuildDelays.Add(target, state);
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1005", $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
-                    $"tick={context.Tick}, startTick={firstTick}, delaySeconds={delaySeconds}, source={source}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1005", $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
+                        $"tick={context.Tick}, startTick={firstTick}, delaySeconds={delaySeconds}, source={source}.");
             }
 
             int elapsed = ElapsedTicks(context.Tick, state.FirstDetectedTick);
@@ -1004,9 +1054,10 @@ namespace ExtraFeatures
                 if (!state.ReleaseLogged)
                 {
                     state.ReleaseLogged = true;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1017", $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
-                        $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
-                        $"source={state.Source}.");
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1017", $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
+                            $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
+                            $"source={state.Source}.");
                 }
                 return;
             }
@@ -1015,9 +1066,10 @@ namespace ExtraFeatures
             if (!state.BlockLogged)
             {
                 state.BlockLogged = true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1029", $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
-                    $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
-                    $"requiredTicks={requiredTicks}.");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1029", $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
+                        $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
+                        $"requiredTicks={requiredTicks}.");
             }
         }
 

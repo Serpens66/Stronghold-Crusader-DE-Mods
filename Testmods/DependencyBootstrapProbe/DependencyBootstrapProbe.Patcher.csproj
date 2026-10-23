@@ -1,0 +1,37 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <OutputType>Library</OutputType><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <AssemblyName>DependencyBootstrapProbe.Patcher</AssemblyName><LangVersion>latest</LangVersion>
+    <OutputPath>BepInEx\patchers\</OutputPath><IntermediateOutputPath>obj\DependencyBootstrapProbe.Patcher\</IntermediateOutputPath>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <WarningLevel>4</WarningLevel><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" /><Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Mono.Cecil"><HintPath>$(GameDir)\BepInEx\core\Mono.Cecil.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
+    <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="ProbeVersion.cs" />
+    <Compile Include="patcher\UpdateTrial\LocalUpdateTrial.cs" />
+    <Compile Include="patcher\ShadowInventory.cs" />
+    <Compile Include="patcher\ShadowRuntime.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="ProbeIdentity.cs" />
+    <Compile Include="ProbeTrace.cs" />
+    <Compile Include="patcher\DependencyBootstrapPatcher.cs" />
+    <Compile Include="patcher\HookRuntime.cs" />
+    <Compile Include="patcher\Package\PairContract.cs" />
+    <Compile Include="patcher\Package\PairActivation.cs" />
+    <Compile Include="patcher\Package\PairDiagnostics.cs" />
+    <Compile Include="patcher\Lifecycle\LifecycleHook.cs" />
+    <Compile Include="patcher\Lifecycle\LifecycleCapture.cs" />
+    <Compile Include="patcher\Lifecycle\LifecycleOwnership.cs" />
+    <Compile Include="patcher\ReadyGate.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
