@@ -11,7 +11,10 @@ param(
     [string]$LaunchArgs = '',
     [int]$TimeoutSeconds = 420,
     # 0 disables the stall watchdog; measurement phases log at least every ~25 s.
-    [int]$StallSeconds = 120
+    [int]$StallSeconds = 120,
+    # Optional processor affinity mask for the game process (e.g. 0xFFFF = first 16 logical CPUs).
+    # Makes runs comparable on CPUs with unequal core complexes (7950X3D: V-cache on one CCD).
+    [long]$AffinityMask = 0
 )
 # Runs one automated PerfFixTest measurement: writes the [Automation]/[Features] config, starts the
 # game through Steam, waits for the automation to quit the game and copies the logs and the
@@ -75,6 +78,10 @@ try {
         if (-not $LaunchArgs -and $retryAt -and (Get-Date) -gt $retryAt) { $retryAt = $null; Start-Process 'steam://rungameid/3024040' }
         Start-Sleep -Seconds 2
     }
+    if ($AffinityMask -ne 0) {
+        foreach ($p in @(Get-Process -Name $process -ErrorAction SilentlyContinue)) { $p.ProcessorAffinity = [IntPtr]$AffinityMask }
+        $affinityApplied = '0x{0:X}' -f (Get-Process -Name $process | Select-Object -First 1).ProcessorAffinity.ToInt64()
+    }
     while (Get-Process -Name $process -ErrorAction SilentlyContinue) {
         if ((Get-Date) -gt $deadline) { throw "Timeout after $TimeoutSeconds s; the game is still running." }
         # A test instance that writes no log line for StallSeconds is hung (e.g. a deadlocked probe):
@@ -111,6 +118,6 @@ $text = Set-Value $text 'RunSeconds' '25'
 
 $gfx = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_Player.log')) -Pattern 'GfxDevice: creating|Version:  Direct3D|Vulkan API|Graphics API' | ForEach-Object { $_.Line.Trim() }
 $markers = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_LogOutput.log')) -Pattern 'AUTOMATION .*(result|framestats|screenshot|probe=|v7 )' | ForEach-Object Line
-"run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + 's' + $(if ($stalled) { " STALLED: no log output for $StallSeconds s, test instance stopped" } else { '' })
+"run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + 's' + $(if ($affinityApplied) { " affinity=$affinityApplied" } else { '' }) + $(if ($stalled) { " STALLED: no log output for $StallSeconds s, test instance stopped" } else { '' })
 $gfx
 $markers

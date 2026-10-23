@@ -165,7 +165,7 @@ Die kurzen FPS-Einbrüche (nur SE: ~80–99 Frames > 50 ms pro Minute) entstehen
 | ~17 % | `0x41D60` | Sichtkachel-Renderer (siehe BFQoL A2). |
 | ~8 % | `0x18C160`, `0x19CBE0`, `0x182B00` | Einheitenlogik, nicht weiter untersucht. |
 
-Eine Optimierung von `0xF5A40` wäre ein Umbau der nativen Render-Exportschleife (siehe „Native Sim-/Renderschleife umschreiben“ unter Verworfen) und wurde nicht begonnen. Fremder Code, der zwischen den nativen Phasen viel Speicher berührt, verlangsamt `0xF5A40` messbar über Cache-Verdrängung (BFQoL-Torhausabfrage vorher: +0,3–0,5 ms pro Tick).
+Machbarkeitsprüfung `0xF5A40` (23.10.2026, statisch): Die Schleifen lesen pro sichtbarer Kachel Einheitenrecords (`+0x67E8AE6`, `+0x67E8D18/E90/E9C`), mehrere kachelgroße Kartenebenen (`0x485A770` … `0x4F64CF0`) und die Diplomatie-Tabelle (`+0x37EDF3C`) und schreiben indexbasierte Int-Tabellen (u. a. `-1`-Füllungen). Die Ausgabe hängt damit vom Zustand jedes Ticks ab; eine Wiederverwendung bei unveränderter Kamera wäre nicht exakt. Übrig bliebe eine byte-genaue Neuimplementierung (vier Rotationsvarianten, speicherbegrenzt, Gewinn unsicher). Eine Optimierung von `0xF5A40` wäre ein Umbau der nativen Render-Exportschleife (siehe „Native Sim-/Renderschleife umschreiben“ unter Verworfen) und wurde nicht begonnen. Fremder Code, der zwischen den nativen Phasen viel Speicher berührt, verlangsamt `0xF5A40` messbar über Cache-Verdrängung (BFQoL-Torhausabfrage vorher: +0,3–0,5 ms pro Tick).
 
 ## Offene Punkte
 
