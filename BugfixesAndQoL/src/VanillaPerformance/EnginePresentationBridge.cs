@@ -72,10 +72,13 @@ namespace BugfixesAndQoL.VanillaPerformance
         }
         private static void EnteredRun()
         {
+            // Independent of the option: other features rely on the scope as a pure marker.
+            SimulationRunScope.Enter();
             if (Active) AchievementDataOptimization.Flush(Current);
         }
         private static void BeforePublish()
         {
+            SimulationRunScope.Exit();
             if (Active) MeritDataLockOptimization.RefreshRequested();
         }
         private static void BeforeSave()

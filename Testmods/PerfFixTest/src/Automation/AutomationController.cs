@@ -283,6 +283,8 @@ namespace PerfFixTest.Automation
             Interlocked.Exchange(ref tickGapsOver100, 0);
             Interlocked.Exchange(ref tickGapsOver50, 0);
             recordTickGaps = true;
+            gcAtRunStart = GC.CollectionCount(0);
+            heapAtRunStart = GC.GetTotalMemory(false);
             Log("nativecounters phase=run-start " + NativePathCounters());
             Enter(Phase.RunHold, "unpaused zoom=" + Zoom());
         }
@@ -304,6 +306,10 @@ namespace PerfFixTest.Automation
                 ranTicks, ranTicks / ran, Interlocked.Read(ref tickGapMaxTicks) * 1000.0 / Stopwatch.Frequency,
                 Interlocked.Read(ref tickGapsOver50), Interlocked.Read(ref tickGapsOver100)));
             Log("nativecounters phase=run-end " + NativePathCounters());
+            // Mono's Boehm collector stops every thread; collections during the run also pause the simulation.
+            Log(string.Format(C, "gcstats phase=run collections={0} perS={1:0.00} heapStartMB={2:0.0} heapEndMB={3:0.0}",
+                GC.CollectionCount(0) - gcAtRunStart, (GC.CollectionCount(0) - gcAtRunStart) / ran,
+                heapAtRunStart / 1048576.0, GC.GetTotalMemory(false) / 1048576.0));
             frames.Clear();
             Log("phase=run-end ran=" + Seconds(phaseStamp).ToString("0.0", C) + "s ticks=" + (Interlocked.Read(ref ticks) - ticksAtPhase) + " zoom=" + Zoom());
             Finish(Phase.Done, "PASS total=" + Seconds(startStamp).ToString("0.0", C) + "s");
@@ -402,7 +408,8 @@ namespace PerfFixTest.Automation
             catch (Exception exception) { PerfFixTestPlugin.Fail("disk log flush failed: " + exception.Message); }
         }
 
-        private static long loadStamp;
+        private static long loadStamp, heapAtRunStart;
+        private static int gcAtRunStart;
         private static bool missionReadyLogged, speedApplied;
         private static int gameSpeed;
 

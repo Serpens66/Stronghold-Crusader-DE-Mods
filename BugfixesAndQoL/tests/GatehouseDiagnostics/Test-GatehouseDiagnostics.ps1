@@ -22,6 +22,7 @@ if($BaselineRef){
     })
 }else{
     $files+='BugfixesAndQoL/src/GatehouseFootprintGeometryCache.cs'
+    $files+='BugfixesAndQoL/src/SimulationRunScope.cs'
     $files+='BugfixesAndQoL/tests/GatehouseDiagnostics/GeometryCacheTests.cs'
     $options+='/define:GEOMETRY_OPTIMIZED'
     $files=@($files|ForEach-Object{Join-Path $root $_})

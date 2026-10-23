@@ -83,7 +83,7 @@ namespace BugfixesAndQoL
 #endif
             try
             {
-                if (!TryGetLiveGatehouse(
+                if (!TryGetPassGatehouse(
                         args.BuildingId,
                         out GameBuilding* building,
                         out PathConnectionRecord* gatehouse))
@@ -112,6 +112,15 @@ namespace BugfixesAndQoL
                     vanillaCandidateCanClose);
                 if (args.ShouldClose != true)
                     return;
+                // Vanilla ignores the answer for units outside its closing range; the
+                // reachability evaluation could not change the gate there.
+                if (!IsWithinVanillaCloseRange(unit, building))
+                {
+#if SERP_DEVDIAG
+                    GatehouseDiagnosticRuntime.Current.RangeSkips++;
+#endif
+                    return;
+                }
 
                 bool evaluationAvailable = TryIsUnitReachableToGate(
                     unitId,
@@ -156,12 +165,8 @@ namespace BugfixesAndQoL
             int sourceTileId = (int)unit->r_CurrentPositionTileId;
             int entryTileId = (int)gatehouse->r_EntryTileId;
             int exitTileId = (int)gatehouse->r_ExitTileId;
-            if (!tileApi.IsValidTileId(sourceTileId) || !tileApi.IsValidTileId(entryTileId) ||
-                !tileApi.IsValidTileId(exitTileId) ||
-                !TryValidateGateEndpoint(gatehouse->r_EntryTilePositionX, gatehouse->r_EntryTilePositionY,
-                    entryTileId, tileApi) ||
-                !TryValidateGateEndpoint(gatehouse->r_ExitTilePositionX, gatehouse->r_ExitTilePositionY,
-                    exitTileId, tileApi))
+            if (!tileApi.IsValidTileId(sourceTileId) ||
+                !HaveValidGateEndpoints(gatehouseBuildingId, gatehouse, entryTileId, exitTileId, tileApi))
             {
                 return false;
             }
@@ -218,7 +223,8 @@ namespace BugfixesAndQoL
                 return true;
             }
 
-            if (!TryCollectSynchronizedDrawbridges(
+            if (!TryGetPassDrawbridges(
+                    gatehouseBuildingId,
                     gatehouseBuilding,
                     tileApi,
                     out IReadOnlyList<SynchronizedDrawbridgeSnapshot> drawbridges,
@@ -265,6 +271,147 @@ namespace BugfixesAndQoL
             return true;
         }
 
+        // Vanilla raises this query for every unit of a player list in one gate pass (0xB73D0
+        // loop; native audit FBCB9319: Native-Baseline knowledge/GATEHOUSE_QUERY_PASS.md):
+        // nothing between two queries of that pass writes buildings, path connection records,
+        // structure or component grids, and inside one EngineInterface.run every gate has at most
+        // one pass. The gatehouse lookup (linear scan of all 199 connection records) and the
+        // drawbridge collection are therefore taken once per gate pass. Outside a marked run
+        // (map loading, editor) every query evaluates freshly as before.
+        private long passRun;
+        private int passBuildingId;
+        private bool passGatehouseFound, passDrawbridgesCollected, passDrawbridgesAvailable;
+        private GameBuilding* passBuilding;
+        private PathConnectionRecord* passGatehouse;
+        private IReadOnlyList<SynchronizedDrawbridgeSnapshot> passDrawbridges =
+            Array.Empty<SynchronizedDrawbridgeSnapshot>();
+        private int passDrawbridgeSignature;
+        private int passEndpoints; // 0 = not evaluated in this pass, 1 = valid, 2 = invalid
+
+        private bool TryGetPassGatehouse(
+            int buildingId,
+            out GameBuilding* building,
+            out PathConnectionRecord* gatehouse)
+        {
+            long run = SimulationRunScope.Current;
+            if (run != 0 && run == passRun && buildingId == passBuildingId)
+            {
+                if (!passGatehouseFound)
+                {
+#if SERP_DEVDIAG
+                    GatehouseDiagnosticRuntime.Current.PassHits++;
+                    if (TryGetLiveGatehouse(buildingId, out _, out _))
+                        GatehouseDiagnosticRuntime.Current.PassMismatches++;
+#endif
+                    building = null;
+                    gatehouse = null;
+                    return false;
+                }
+                // Cheap re-check of the remembered identities; a foreign subscriber that changed
+                // them would get the full lookup again.
+                building = passBuilding;
+                gatehouse = passGatehouse;
+                if (building->r_AliveState == AliveState.IsAlive && gatehouse->r_IsActive != 0 &&
+                    gatehouse->r_BuildingId == buildingId &&
+                    gatehouse->r_SubjectGlobalId == building->r_GlobalId)
+                {
+#if SERP_DEVDIAG
+                    // In-game evidence for the pass contract: the fresh lookup must agree.
+                    GatehouseDiagnosticRuntime.Current.PassHits++;
+                    if (!TryGetLiveGatehouse(buildingId, out GameBuilding* freshBuilding, out PathConnectionRecord* freshGatehouse) ||
+                        freshBuilding != building || freshGatehouse != gatehouse)
+                        GatehouseDiagnosticRuntime.Current.PassMismatches++;
+#endif
+                    return true;
+                }
+            }
+
+            bool found = TryGetLiveGatehouse(buildingId, out building, out gatehouse);
+            // Only the thread inside a marked run owns the pass state; other callers never touch it.
+            if (run == 0)
+                return found;
+            passRun = run;
+            passBuildingId = buildingId;
+            passGatehouseFound = found;
+            passBuilding = found ? building : null;
+            passGatehouse = found ? gatehouse : null;
+            passDrawbridgesCollected = false;
+            passDrawbridges = Array.Empty<SynchronizedDrawbridgeSnapshot>();
+            passEndpoints = 0;
+            return found;
+        }
+
+        // Native gate loop 0xB7B70..0xB7BD7 (FBCB9319): after this query Vanilla closes only for a unit
+        // whose Chebyshev distance max(|8*X - unitX|, |8*Y - unitY|) between the gate origin tile and the
+        // unit's fine world position is below 200 (below 140 when its siege flag is set). The fields
+        // are read as the native signed words; any distance of at least 200 never closes the gate.
+        private const int VanillaMaximumCloseDistance = 200;
+
+        private static bool IsWithinVanillaCloseRange(GameUnit* unit, GameBuilding* gatehouse)
+        {
+            int gateX = (short)gatehouse->r_TilePositionXBegin * 8;
+            int gateY = (short)gatehouse->r_TilePositionYBegin * 8;
+            int unitX = (short)unit->r_CurrentWorldPositionX;
+            int unitY = (short)unit->r_CurrentWorldPositionY;
+            int dx = gateX <= unitX ? unitX - gateX : gateX - unitX;
+            int dy = gateY <= unitY ? unitY - gateY : gateY - unitY;
+            return (dx < dy ? dy : dx) < VanillaMaximumCloseDistance;
+        }
+
+        // Entry/exit validity depends only on the gate record and the map bounds.
+        private bool HaveValidGateEndpoints(int gatehouseBuildingId, PathConnectionRecord* gatehouse,
+            int entryTileId, int exitTileId, GameTileManagerAPI tileApi)
+        {
+            long run = SimulationRunScope.Current;
+            bool pass = run != 0 && run == passRun && gatehouseBuildingId == passBuildingId &&
+                gatehouse == passGatehouse;
+            if (pass && passEndpoints != 0)
+                return passEndpoints == 1;
+            bool valid = tileApi.IsValidTileId(entryTileId) && tileApi.IsValidTileId(exitTileId) &&
+                TryValidateGateEndpoint(gatehouse->r_EntryTilePositionX, gatehouse->r_EntryTilePositionY,
+                    entryTileId, tileApi) &&
+                TryValidateGateEndpoint(gatehouse->r_ExitTilePositionX, gatehouse->r_ExitTilePositionY,
+                    exitTileId, tileApi);
+            if (pass)
+                passEndpoints = valid ? 1 : 2;
+            return valid;
+        }
+
+        private bool TryGetPassDrawbridges(
+            int gatehouseBuildingId,
+            GameBuilding* gatehouseBuilding,
+            GameTileManagerAPI tileApi,
+            out IReadOnlyList<SynchronizedDrawbridgeSnapshot> drawbridges,
+            out int signature)
+        {
+            long run = SimulationRunScope.Current;
+            // TryGetPassGatehouse opened the pass state for exactly this gatehouse in this query.
+            bool pass = run != 0 && run == passRun && gatehouseBuildingId == passBuildingId &&
+                gatehouseBuilding == passBuilding;
+            if (pass && passDrawbridgesCollected)
+            {
+#if SERP_DEVDIAG
+                if (TryCollectSynchronizedDrawbridges(gatehouseBuilding, tileApi, out var freshBridges, out int freshSignature) !=
+                        passDrawbridgesAvailable || freshSignature != passDrawbridgeSignature || freshBridges.Count != passDrawbridges.Count)
+                    GatehouseDiagnosticRuntime.Current.PassMismatches++;
+#endif
+                drawbridges = passDrawbridges;
+                signature = passDrawbridgeSignature;
+                return passDrawbridgesAvailable;
+            }
+
+            bool available = TryCollectSynchronizedDrawbridges(
+                gatehouseBuilding, tileApi, out drawbridges, out signature);
+            if (pass)
+            {
+                passDrawbridgesCollected = true;
+                passDrawbridgesAvailable = available;
+                passDrawbridges = drawbridges;
+                passDrawbridgeSignature = signature;
+            }
+            return available;
+        }
+
         private static bool TryCollectSynchronizedDrawbridges(
             GameBuilding* gatehouseBuilding,
             GameTileManagerAPI tileApi,
@@ -294,16 +441,27 @@ namespace BugfixesAndQoL
 #endif
             // Same first-distinct selection as APIShared, with two value slots instead
             // of per-query closures and a List. Live reads and their order stay unchanged.
-            int first = 0, second = 0;
+            // Vanilla's gate loop raises this query for nearly every unit on the map (~4000 per
+            // gate and pass), so the scan reads the live structure layer once instead of four
+            // Extender calls per tile, and a building ID already found not to be a live drawbridge
+            // is not looked up again within this scan (both are pure reads of unchanged state).
+            Span<ushort> structures = tileApi.GetStructureLayer();
+            int first = 0, second = 0, rejected = 0;
             for (int i = 0; i < candidates.Count; i++)
             {
                 var c = candidates[i];
-                int id = CollectionBuildingId(tileApi, c.X, c.Y
 #if SERP_DEVDIAG
-                    , diagnostics
+                diagnostics.LayerProbes++;
 #endif
-                    );
-                if (id <= 0 || id == first || id == second || !TryGetLiveDrawbridge(id, out _)) continue;
+                int id = 0;
+                if (tileApi.IsTileInsideMapBounds(c.X, c.Y))
+                {
+                    int tile = tileApi.GetTileId(c.X, c.Y);
+                    // The layer spans exactly the Extender's valid packed tile IDs.
+                    if ((uint)tile < (uint)structures.Length) id = structures[tile];
+                }
+                if (id <= 0 || id == first || id == second || id == rejected) continue;
+                if (!TryGetLiveDrawbridge(id, out _)) { rejected = id; continue; }
                 if (first == 0) first = id; else { second = id; break; }
             }
             if (first == 0)
@@ -504,6 +662,7 @@ namespace BugfixesAndQoL
             reachabilityCache.Clear();
             directReachabilityCache.Clear();
             lastCacheTick = int.MinValue;
+            passRun = 0;
         }
 
         private void LogFailure(string message)

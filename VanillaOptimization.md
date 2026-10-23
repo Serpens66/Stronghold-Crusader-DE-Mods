@@ -147,6 +147,26 @@ Die Managed-IL-Anker werden vor Aktivierung geprüft.
   - Auswahl und Mausabfrage müssen weiter funktionieren.
 - **Empfehlung:** Nur als eigenes Projekt, zuerst mit einem Prototyp für eine Einheitenart, um den tatsächlichen Gewinn zu messen.
 
+## Simulationsdurchsatz auf großen Karten (23.10.2026)
+
+Messung `test_stresstest4.sav` (8 KI, größte Karte, Speed 300, Zoom 0.5, nur SE + PerfProbe): **88–97 Ticks/s**, Sim-Thread ~10,4–11,2 ms pro Tick. Die Simulation erreicht damit auf dieser Karte schon in Vanilla nur ~90–95 Ticks/s; Spielgeschwindigkeiten über ~90 bringen dort auch ohne Mods kaum etwas.
+
+| angeforderte Speed | nur SE | SE + APIShared + BFQoL |
+|---|---|---|
+| 90 | 89,1 | 87,6 |
+| 150 | 93,1 | 86,0 |
+| 300 | 92,4–97,2 | 84,6–90,7 |
+
+Die kurzen FPS-Einbrüche (nur SE: ~80–99 Frames > 50 ms pro Minute) entstehen, wenn lange Sim-Ticks (KI-Gruppenwegsuche, 150–200 ms) den Main-Thread über `EngineInterface.threadLock` blockieren; mit BFQoLs Vanilla-Performance-Optionen (V1/V5) sind es 0, ohne sie 73.
+
+| Anteil Sim-Thread | Funktion | Befund |
+|---|---|---|
+| ~41 % | `0xF5A40` | Blattfunktion ohne Aufrufe, einmal pro `DLL_RunTick` (`0x86B9B`); hängt von Kartenbreite (0x320) und Kamerarotation ab: nativer Durchlauf über den sichtbaren Ausschnitt für die Darstellung. Kosten skalieren mit Sichtfläche/Zoom. |
+| ~17 % | `0x41D60` | Sichtkachel-Renderer (siehe BFQoL A2). |
+| ~8 % | `0x18C160`, `0x19CBE0`, `0x182B00` | Einheitenlogik, nicht weiter untersucht. |
+
+Eine Optimierung von `0xF5A40` wäre ein Umbau der nativen Render-Exportschleife (siehe „Native Sim-/Renderschleife umschreiben“ unter Verworfen) und wurde nicht begonnen. Fremder Code, der zwischen den nativen Phasen viel Speicher berührt, verlangsamt `0xF5A40` messbar über Cache-Verdrängung (BFQoL-Torhausabfrage vorher: +0,3–0,5 ms pro Tick).
+
 ## Offene Punkte
 
 - **V7:** Sichtprüfung durch den Nutzer in verschiedenen Spielständen. Tests mit Atlas-Overrides, dem Foliage-Begleitplugin des AtlasBuilders und auf Grafikkarten mit wenig VRAM bzw. kleinerer maximaler Texturgröße.

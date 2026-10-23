@@ -21,9 +21,9 @@ namespace SHCDESE.Interop
 {
     public enum eChimps { CHIMP_TYPE_LION, FixtureSoldier }
     public enum eStructs { STRUCT_DRAWBRIDGE, FixtureGate }
-    public struct GameUnit { public bool Alive; public eChimps r_UnitChimp; public int r_ControllableForPlayerId,r_CurrentHealth,r_PathConnectionMode; public uint r_CurrentPositionTileId; }
+    public struct GameUnit { public bool Alive; public eChimps r_UnitChimp; public int r_ControllableForPlayerId,r_CurrentHealth,r_PathConnectionMode; public uint r_CurrentPositionTileId; public ushort r_CurrentWorldPositionX,r_CurrentWorldPositionY; }
     public struct GameBuilding { public Enums.AliveState r_AliveState; public eStructs r_BuildingType; public uint r_GlobalId; public int r_OccupyTileGridSize,r_TilePositionXBegin,r_TilePositionYBegin; }
-    public struct PathConnectionRecord { public uint r_EntryTileId,r_ExitTileId,r_SubjectGlobalId; public int r_EntryTilePositionX,r_EntryTilePositionY,r_ExitTilePositionX,r_ExitTilePositionY,r_BuildingId; }
+    public struct PathConnectionRecord { public uint r_EntryTileId,r_ExitTileId,r_SubjectGlobalId; public int r_IsActive,r_EntryTilePositionX,r_EntryTilePositionY,r_ExitTilePositionX,r_ExitTilePositionY,r_BuildingId; }
 }
 namespace APIShared
 {
@@ -47,18 +47,23 @@ namespace SHCDESE.API
     {
         public static readonly GamePathingManagerAPI Instance=new GamePathingManagerAPI();
         public SHCDESE.Interop.PathConnectionRecord* Record;
-        public ushort[] Grid=new ushort[64];public int Calls,Target;public bool Throw;
+        public ushort[] Grid=new ushort[64];public int Calls,Target,RecordLookups;public bool Throw;
         public Span<ushort> GetPathComponentGrid()=>Grid;
-        public bool TryGetPathConnectionRecordByBuildingId(int id,out SHCDESE.Interop.PathConnectionRecord* value) { value=Record;return id==1; }
+        // The Extender's lookup is a linear scan of all connection records; the fixture counts each one.
+        public bool TryGetPathConnectionRecordByBuildingId(int id,out SHCDESE.Interop.PathConnectionRecord* value) { RecordLookups++;value=id==1&&Record->r_IsActive!=0?Record:null;return value!=null; }
         public int FindNextComponentTowardDestination(int p,int from,int to,SHCDESE.Interop.Enums.PathConnectionQueryMode mode) { Calls++;if(Throw)throw new InvalidOperationException("external route failure");return to==Target?to:0; }
     }
     public sealed class GameTileManagerAPI
     {
-        public static readonly GameTileManagerAPI Instance=new GameTileManagerAPI();public bool Bridge;public int Reads;
+        public static readonly GameTileManagerAPI Instance=new GameTileManagerAPI();public bool Bridge;public int Reads,LayerFetches;
         public readonly Dictionary<int,int> Occupancy=new Dictionary<int,int>(); public Action OnRead;
+        private readonly ushort[] layer=new ushort[64];
         public bool IsValidTileId(int id)=>id>=0&&id<64;public bool IsTileInsideMapBounds(int x,int y)=>x>=0&&x<8&&y>=0&&y<8;
         public int GetTileId(int x,int y)=>x+y*8;
-        public int GetTileBuildingId(int id) { Reads++;var callback=OnRead;OnRead=null;callback?.Invoke();return Occupancy.TryGetValue(id,out int building)?building:Bridge&&id==28?2:0; }
+        private int Occupant(int id)=>Occupancy.TryGetValue(id,out int building)?building:Bridge&&id==28?2:0;
+        public int GetTileBuildingId(int id) { Reads++;var callback=OnRead;OnRead=null;callback?.Invoke();return Occupant(id); }
+        // Same live occupancy as GetTileBuildingId, materialized at each fetch into one reused buffer.
+        public Span<ushort> GetStructureLayer() { LayerFetches++;var callback=OnRead;OnRead=null;callback?.Invoke();for(int i=0;i<layer.Length;i++)layer[i]=(ushort)Occupant(i);return layer; }
     }
     public sealed class GameTimeManagerAPI { public static readonly GameTimeManagerAPI Instance=new GameTimeManagerAPI(); public int Tick; public Stamp CaptureTimeStamp()=>new Stamp { CapturedGameTick=Tick };public struct Stamp { public int CapturedGameTick; } }
 }
@@ -89,14 +94,14 @@ namespace BugfixesAndQoL
             units[0]=new SHCDESE.Interop.GameUnit { Alive=true,r_UnitChimp=SHCDESE.Interop.eChimps.FixtureSoldier,r_ControllableForPlayerId=1,r_CurrentHealth=10,r_CurrentPositionTileId=1 };
             buildings[0]=new SHCDESE.Interop.GameBuilding { r_GlobalId=10,r_OccupyTileGridSize=1,r_TilePositionXBegin=3,r_TilePositionYBegin=3,r_BuildingType=SHCDESE.Interop.eStructs.FixtureGate };
             buildings[1]=new SHCDESE.Interop.GameBuilding { r_GlobalId=20,r_BuildingType=SHCDESE.Interop.eStructs.STRUCT_DRAWBRIDGE };
-            gate[0]=new SHCDESE.Interop.PathConnectionRecord { r_BuildingId=1,r_SubjectGlobalId=10,r_EntryTileId=27,r_ExitTileId=35,r_EntryTilePositionX=3,r_EntryTilePositionY=3,r_ExitTilePositionX=3,r_ExitTilePositionY=4 };
+            gate[0]=new SHCDESE.Interop.PathConnectionRecord { r_IsActive=1,r_BuildingId=1,r_SubjectGlobalId=10,r_EntryTileId=27,r_ExitTileId=35,r_EntryTilePositionX=3,r_EntryTilePositionY=3,r_ExitTilePositionX=3,r_ExitTilePositionY=4 };
             var paths=SHCDESE.API.GamePathingManagerAPI.Instance;var tiles=SHCDESE.API.GameTileManagerAPI.Instance;
             Array.Fill(paths.Grid,(ushort)3);paths.Grid[1]=1;paths.Grid[27]=paths.Grid[35]=2;
             var digest=new List<string>();
             for(int scenario=0;scenario<4;scenario++)
             {
                 paths.Calls=0;paths.Target=scenario==0?2:scenario==1?3:0;paths.Throw=scenario==3;
-                tiles.Bridge=scenario==1;tiles.Reads=0;SHCDESE.API.GameTimeManagerAPI.Instance.Tick++;
+                tiles.Bridge=scenario==1;tiles.Reads=tiles.LayerFetches=0;SHCDESE.API.GameTimeManagerAPI.Instance.Tick++;
                 var settings=new BugfixesAndQoLViewModel();var runtime=new ReachableEnemyGatehouseRuntime(new BepInEx.Logging.ManualLogSource(),settings);
                 runtime.SetNativeCompatibility(true);
 #if SERP_DEVDIAG
@@ -115,7 +120,8 @@ namespace BugfixesAndQoL
                 if(scenario!=3)Check(totals.DirectMisses==1&&totals.DirectHits==1,"Direct cache decisions differ");
                 if(scenario==1)Check(totals.FullMisses==1&&totals.FullHits==1&&totals.Bridges==2&&totals.Approaches==2&&totals.TraceCalls==2,"Bridge/cache stages differ");
 #if GEOMETRY_OPTIMIZED
-                if(scenario==1)Check(totals.FootprintScans==2&&totals.FootprintCalls+totals.FootprintCacheHits==2&&totals.CollectionTileProbes==tiles.Reads,"Geometry creation/reuse/live probes were conflated");
+                if(scenario==1)Check(totals.FootprintScans==2&&totals.FootprintCalls+totals.FootprintCacheHits==2&&totals.CollectionTileProbes==tiles.Reads&&
+                    tiles.LayerFetches==totals.FootprintScans&&totals.LayerProbes>0,"Geometry creation/reuse/live probes were conflated");
 #else
                 if(scenario==1)Check(totals.FootprintCalls==2,"Baseline footprint instrumentation changed");
 #endif
@@ -126,6 +132,10 @@ namespace BugfixesAndQoL
                 Check(paths.Calls==expected,"Disabled diagnostic path changed gameplay");
             }
             TestLiveChanges(units,buildings,gate,digest);
+#if GEOMETRY_OPTIMIZED
+            TestRunPass(buildings,gate,digest);
+            TestCloseRange(units,buildings,gate,digest);
+#endif
 #if GEOMETRY_OPTIMIZED
             GeometryCacheTests.Run();
 #endif
@@ -150,10 +160,15 @@ namespace BugfixesAndQoL
             runtime.SetNativeCompatibility(true);
             var args=new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs {BuildingId=1,UnitId=1};
             for(int i=0;i<20;i++){args.ShouldClose=null;runtime.Call(args);}
-            long before=GC.GetAllocatedBytesForCurrentThread();paths.Calls=tiles.Reads=0;
+            long before=GC.GetAllocatedBytesForCurrentThread();paths.Calls=tiles.Reads=tiles.LayerFetches=0;
             for(int i=0;i<count;i++){args.ShouldClose=null;runtime.Call(args);}
             long bytes=GC.GetAllocatedBytesForCurrentThread()-before;
+            // Every query still reads the live building layer (one fetch per scan; no result reuse across queries).
+#if GEOMETRY_OPTIMIZED
+            Check(args.ShouldClose==false&&paths.Calls==0&&tiles.Reads==0&&tiles.LayerFetches==count,"Allocation measurement changed decisions or live reads");
+#else
             Check(args.ShouldClose==false&&paths.Calls==0&&tiles.Reads==count*20,"Allocation measurement changed decisions or live reads");
+#endif
             AllocationReport="ALLOCATED_BYTES_PER_QUERY="+(bytes/(double)count).ToString("F2",System.Globalization.CultureInfo.InvariantCulture);
 #if GEOMETRY_OPTIMIZED
             Check(bytes==0,"Warmed no-drawbridge queries must allocate zero bytes: "+AllocationReport);
@@ -202,6 +217,121 @@ namespace BugfixesAndQoL
             Check(ReferenceEquals(outer,empty),"Empty snapshots were allocated per query");
 #endif
         }
+#if GEOMETRY_OPTIMIZED
+        // Reuse of the gatehouse lookup and drawbridge collection within one marked engine run must
+        // give the same decisions as fresh evaluation, and every boundary must evaluate freshly.
+        private static void TestRunPass(SHCDESE.Interop.GameBuilding* buildings,SHCDESE.Interop.PathConnectionRecord* gate,List<string> digest)
+        {
+            var tiles=SHCDESE.API.GameTileManagerAPI.Instance;var paths=SHCDESE.API.GamePathingManagerAPI.Instance;
+            tiles.Occupancy.Clear();tiles.OnRead=null;paths.Throw=false;
+            buildings[0].r_TilePositionXBegin=buildings[0].r_TilePositionYBegin=3;buildings[0].r_OccupyTileGridSize=1;
+            buildings[0].r_AliveState=SHCDESE.Interop.Enums.AliveState.IsAlive;buildings[1].r_AliveState=SHCDESE.Interop.Enums.AliveState.IsAlive;
+            gate[0].r_IsActive=1;gate[0].r_SubjectGlobalId=buildings[0].r_GlobalId;
+            Array.Fill(paths.Grid,(ushort)3);paths.Grid[1]=1;paths.Grid[27]=paths.Grid[35]=2;
+            var rows=new List<string>();
+            // Bridge with a reachable exterior (scenario 1) and no bridge with nothing reachable.
+            foreach(bool bridge in new[]{true,false})
+            {
+                tiles.Bridge=bridge;paths.Target=bridge?3:0;SHCDESE.API.GameTimeManagerAPI.Instance.Tick++;
+                string fresh=Pass(3,out int freshLookups,out int freshFetches);
+                Check(freshLookups==3&&freshFetches==3,"Outside a run every query must look up and scan: "+freshLookups+"/"+freshFetches);
+                SimulationRunScope.Enter();
+                string reused;int lookups,fetches;
+                try{reused=Pass(3,out lookups,out fetches);}finally{SimulationRunScope.Exit();}
+                Check(reused==fresh,"Reused pass decisions differ: "+reused+" vs "+fresh);
+#if SERP_DEVDIAG
+                // The diagnostic build re-evaluates every reused result as in-game evidence.
+                Check(lookups==1&&GatehouseDiagnosticRuntime.Current.PassMismatches==0,"Diagnostic pass check differs: "+lookups);
+#else
+                Check(lookups==1&&fetches==1,"One lookup and scan per gate pass expected: "+lookups+"/"+fetches);
+#endif
+                Check(fresh.StartsWith(bridge?"True,True,True:":"False,False,False:"),"Pass scenario lost its reachable/unreachable distinction: "+fresh);
+                rows.Add((bridge?"bridge:":"plain:")+fresh);
+            }
+            tiles.Bridge=false;paths.Target=0;
+            // An entry position that does not match its tile makes the evaluation unavailable (Vanilla keeps closing).
+            gate[0].r_EntryTilePositionX=7;SHCDESE.API.GameTimeManagerAPI.Instance.Tick++;
+            string invalidFresh=Pass(3,out _,out _);string invalidReused;
+            SimulationRunScope.Enter();try{invalidReused=Pass(3,out _,out _);}finally{SimulationRunScope.Exit();}
+            Check(invalidFresh.StartsWith("True,True,True:routes=0")&&invalidReused==invalidFresh,"Invalid endpoints changed within a pass: "+invalidReused+" vs "+invalidFresh);
+            gate[0].r_EntryTilePositionX=3;rows.Add("invalid:"+invalidFresh);
+            var runtime=new ReachableEnemyGatehouseRuntime(new BepInEx.Logging.ManualLogSource(),new BugfixesAndQoLViewModel());
+            runtime.SetNativeCompatibility(true);
+            int Lookups(Action body){int before=paths.RecordLookups,hits=PassHits();body();return paths.RecordLookups-before-(PassHits()-hits);}
+            void Query(int building){runtime.Call(new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs{BuildingId=building,UnitId=1});}
+            SimulationRunScope.Enter();
+            try
+            {
+                Check(Lookups(()=>{Query(1);Query(1);})==1,"Same gate in one run must reuse its lookup");
+                Check(Lookups(()=>{Query(2);Query(1);})==2,"Another building must end the pass");
+                gate[0].r_IsActive=0;
+                Check(Lookups(()=>Query(1))==1,"A deactivated remembered record must be looked up again");
+                // Reactivation within one pass cannot occur natively (the diagnostic check would flag it).
+                gate[0].r_IsActive=1;SimulationRunScope.Enter();Query(1);
+                // A query on another thread has no run scope: fresh lookup, pass state untouched.
+                int foreign=0;var thread=new System.Threading.Thread(()=>foreign=Lookups(()=>Query(1)));thread.Start();thread.Join();
+                Check(foreign==1&&Lookups(()=>Query(1))==0,"Foreign-thread query changed or used the run pass");
+            }
+            finally{SimulationRunScope.Exit();}
+            SimulationRunScope.Enter();
+            try{Check(Lookups(()=>Query(1))==1,"A new run must start a new pass");}finally{SimulationRunScope.Exit();}
+            Check(Lookups(()=>Query(1))==1&&Lookups(()=>Query(1))==1,"After the run every query must evaluate freshly");
+#if SERP_DEVDIAG
+            Check(GatehouseDiagnosticRuntime.Current.PassMismatches==0,"Reused pass results disagree with fresh evaluation");
+#endif
+            digest.Add("pass:"+string.Join("|",rows));
+        }
+        // Native gate loop: a unit at Chebyshev distance >= 200 (fine units, gate origin tile * 8) never
+        // closes the gate, so its query must keep Vanilla's candidate decision without any evaluation;
+        // a unit at 199 is still evaluated (here: unreachable, so the close is vetoed).
+        private static void TestCloseRange(SHCDESE.Interop.GameUnit* units,SHCDESE.Interop.GameBuilding* buildings,SHCDESE.Interop.PathConnectionRecord* gate,List<string> digest)
+        {
+            var tiles=SHCDESE.API.GameTileManagerAPI.Instance;var paths=SHCDESE.API.GamePathingManagerAPI.Instance;
+            tiles.Occupancy.Clear();tiles.Bridge=false;tiles.OnRead=null;paths.Throw=false;paths.Target=0;
+            buildings[0].r_TilePositionXBegin=100;buildings[0].r_TilePositionYBegin=50;buildings[0].r_OccupyTileGridSize=1;
+            gate[0].r_IsActive=1;gate[0].r_EntryTilePositionX=3;gate[0].r_EntryTilePositionY=3;gate[0].r_ExitTilePositionX=3;gate[0].r_ExitTilePositionY=4;
+            var rows=new List<string>();
+            foreach(var (x,y,inRange) in new[]{(601,400,true),(600,400,false),(999,400,true),(1000,400,false),(800,201,true),(800,200,false),(800,599,true),(800,600,false)})
+            {
+                units[0].r_CurrentWorldPositionX=(ushort)x;units[0].r_CurrentWorldPositionY=(ushort)y;
+                var runtime=new ReachableEnemyGatehouseRuntime(new BepInEx.Logging.ManualLogSource(),new BugfixesAndQoLViewModel());
+                runtime.SetNativeCompatibility(true);SHCDESE.API.GameTimeManagerAPI.Instance.Tick++;
+                int before=paths.Calls,fetches=tiles.LayerFetches;
+                var args=new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs{BuildingId=1,UnitId=1};runtime.Call(args);
+                bool evaluated=paths.Calls!=before;
+                Check(evaluated==inRange&&args.ShouldClose==!inRange&&(tiles.LayerFetches!=fetches)==inRange,
+                    "Close range boundary differs at "+x+"/"+y+": evaluated="+evaluated+" close="+args.ShouldClose);
+                rows.Add(x+"/"+y+":"+args.ShouldClose);
+            }
+            units[0].r_CurrentWorldPositionX=units[0].r_CurrentWorldPositionY=0;
+            buildings[0].r_TilePositionXBegin=buildings[0].r_TilePositionYBegin=3;
+            digest.Add("range:"+string.Join(",",rows));
+        }
+        // Lookups made by production code only: the diagnostic build adds one verification lookup per hit.
+        private static int PassHits()
+        {
+#if SERP_DEVDIAG
+            return (int)GatehouseDiagnosticRuntime.Current.PassHits;
+#else
+            return 0;
+#endif
+        }
+        private static string Pass(int count,out int lookups,out int fetches)
+        {
+            var tiles=SHCDESE.API.GameTileManagerAPI.Instance;var paths=SHCDESE.API.GamePathingManagerAPI.Instance;
+            var runtime=new ReachableEnemyGatehouseRuntime(new BepInEx.Logging.ManualLogSource(),new BugfixesAndQoLViewModel());
+            runtime.SetNativeCompatibility(true);
+            int lookupsBefore=paths.RecordLookups-PassHits(),fetchesBefore=tiles.LayerFetches,callsBefore=paths.Calls;
+            var results=new List<string>();
+            for(int i=0;i<count;i++)
+            {
+                var args=new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs{BuildingId=1,UnitId=1};
+                runtime.Call(args);results.Add(args.ShouldClose.ToString());
+            }
+            lookups=paths.RecordLookups-PassHits()-lookupsBefore;fetches=tiles.LayerFetches-fetchesBefore;
+            return string.Join(",",results)+":routes="+(paths.Calls-callsBefore);
+        }
+#endif
 #if SERP_DEVDIAG
         private static void TestCollector()
         {

@@ -17,6 +17,7 @@
     <Compile Include="Program.cs"/>
     <Compile Include="../../src/VanillaPerformance/EnginePresentationBridge.cs"/>
     <Compile Include="../../src/VanillaPerformance/EnginePresentationBridge.IL.cs"/>
+    <Compile Include="../../src/SimulationRunScope.cs"/>
     <Compile Include="../../src/VanillaPerformance/AchievementDataOptimization.cs"/>
     <Compile Include="../../src/VanillaPerformance/MeritDataLockOptimization.cs"/>
     <Compile Include="../../src/VanillaPerformance/MeritDataLockOptimization.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>

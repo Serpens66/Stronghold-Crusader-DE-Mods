@@ -181,6 +181,11 @@ internal static class Program
         Check(EngineInterface.run(false) == 0 && EngineInterface.NativeCalls == calls && EnginePresentationBridge.Current.Pending != null, "no-buffer does not enter bridge/native");
         MemoryBuffers.Available = true;
         Check(EngineInterface.run(true) == 19 && EngineInterface.Food == 4 && EngineInterface.Wood == 5 && EngineInterface.Weapons == 6, "skip/native preserves tuple and result");
+        long firstScope = 0, secondScope = 0;
+        EngineInterface.NativeAction = () => firstScope = BugfixesAndQoL.SimulationRunScope.Current; EngineInterface.run(false);
+        EngineInterface.NativeAction = () => secondScope = BugfixesAndQoL.SimulationRunScope.Current; EngineInterface.run(false); EngineInterface.NativeAction = null;
+        Check(firstScope != 0 && secondScope != 0 && firstScope != secondScope && BugfixesAndQoL.SimulationRunScope.Current == 0,
+            "each run marks its native tick with its own scope and clears it before publication");
         Busy(() => EngineInterface.SetAchData(int.MinValue, int.MaxValue, -7));
         EngineInterface.SaveSaveGame(); Check(EngineInterface.Saved == int.MinValue+"/"+int.MaxValue+"/-7", "save sees full original integer tuple");
         Busy(() => EngineInterface.SetAchData(8,9,10));
@@ -208,7 +213,10 @@ internal static class Program
         EngineInterface.SaveSaveGame();Check(EngineInterface.Saved=="87/88/89","newer tuple retried as complete publication");
         Busy(() => EngineInterface.SetAchData(80,81,82)); EnginePresentationBridge.SetEnabled(false);
         Check(EngineInterface.Food == 80 && EnginePresentationBridge.Current.Pending == null, "disable drains pending");
-        EngineInterface.SetAchData(90,91,92); Check(EngineInterface.Food == 90, "disabled path synchronous"); Start();
+        EngineInterface.SetAchData(90,91,92); Check(EngineInterface.Food == 90, "disabled path synchronous");
+        long disabledScope = 0; EngineInterface.NativeAction = () => disabledScope = BugfixesAndQoL.SimulationRunScope.Current;
+        EngineInterface.run(false); EngineInterface.NativeAction = null;
+        Check(disabledScope != 0 && BugfixesAndQoL.SimulationRunScope.Current == 0, "run scope is independent of the performance option"); Start();
         Busy(() => EngineInterface.SetAchData(100,101,102)); var retired = EnginePresentationBridge.Current;
         Shared.MissionEvents.Ended.Publish(); Start(); EngineInterface.run(false);
         Check(EngineInterface.Food == 90 && retired.Pending != null, "retired pending tuple never reaches new map");
