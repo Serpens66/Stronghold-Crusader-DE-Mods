@@ -7,13 +7,14 @@ using CrusaderDE;
 using APIShared.Presentation;
 using UnityEngine;
 
-internal static class Program
+internal static partial class Program
 {
     private static int checks;
     private static long now;
     private static readonly BugfixesAndQoLViewModel settings = new BugfixesAndQoLViewModel();
     private static NotificationSpeechPlayback speech;
     private static NotificationLastFrameFeature feature;
+    static partial void TestDiagnostics();
     private static MyAudioManager audio => MyAudioManager.Instance;
     private static SFXManager sfx => SFXManager.instance;
     private static MainHUD hud => MainViewModel.Instance.HUDRoot;
@@ -22,6 +23,7 @@ internal static class Program
     private static void Setup()
     {
         feature?.ResetMapState(); speech?.Invalidate(); speech?.SetNotificationClassifier(null);
+        SHCDESE.API.GameAssetManagerAPI.Instance.Videos.Clear();
         MyAudioManager.Instance = new MyAudioManager(); SFXManager.instance = new SFXManager();
         OnScreenText.Instance = new OnScreenText();
         MainViewModel.Instance = new MainViewModel { HUDRoot = new MainHUD() };
@@ -235,7 +237,9 @@ internal static class Program
         {
             Setup(); speech = NotificationSpeechPlayback.Get(new BepInEx.Logging.ManualLogSource());
             feature = new NotificationLastFrameFeature(new BepInEx.Logging.ManualLogSource(), settings, () => now);
+            TestNotificationMediaPaths();
             TestHdCompletion(); TestSpeechLoadFailureCompletion(); TestSpeechOwnership();
+            TestDiagnostics();
             Console.WriteLine("PASS: " + checks + " production notification playback checks (isolated Unity/Noesis adapters and monotone test clock).");
             return 0;
         }

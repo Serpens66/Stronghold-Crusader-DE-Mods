@@ -189,3 +189,79 @@ observed-idle latching, pause/briefing, left/right clicks, stale HUD/media/manag
 mission end, logical disable, and decoder Pause failure. These isolated adapters
 validate the consumer, not live Noesis decoder timing. Actual game acceptance is
 still required; this task requests no game installation.
+
+## Diagnostic refinement (2026-10-23)
+
+The fixed 20-second bound above does not by itself establish behavioral parity
+with HD. The retained HD export confirms that VA 00479A60 queries the actual
+Miles stream status (4 = playing), while DE's `isSpeechPlaying(1)` reads
+`speechMode1 != 0`, including loading and intentional pause. DE's private
+`MonitorLoadedSounds` only clears a playing-but-silent channel while
+`speechPaused` is false. A silent busy channel is an observation to distinguish
+from a stuck decoder; a single transient sample is not proof of a defect.
+
+HD checks Bink's final frame directly in both audited processing paths.
+The current DE feature instead requires a HUD `MediaEnded` event accepted by
+its managed request/HUD/media/sender guards before setting `Held`. Therefore
+an absent or rejected event can leave the video outside its later held-frame
+completion path even after the speech deadline. This is a static possibility,
+not an established explanation of the reported game run.
+
+Installed Noesis (SHA-256
+98476D3CA84AE0F2DCFBADDCC64B01A1F65474BD44402673FD6856D1B5347648)
+exposes this callback chain: Unity `loopPointReached` -> private
+`NoesisMediaPlayer.OnMediaEnded(VideoPlayer)` -> `RaiseMediaEnded` -> private
+`NoesisApp.MediaElement.OnMediaEnded()` -> routed HUD callback. `MediaElement`
+owns private `_player`, and the Unity adapter owns private `_videoPlayer`.
+`Noesis.BaseComponent.getCPtr(BaseComponent)` is public static and returns a
+HandleRef. Diagnostic managed and native identities can consequently expose
+different wrappers for the same Noesis object without altering production
+identity checks. Each private read is reflection-only and preflight-validated
+against the installed assemblies.
+
+The diagnostic build records both callback chains, independent render/GUI/audio
+monitor counts, raw audio and decoder state, and observed close results. Missing
+callbacks or failed reads are explicit evidence gaps. Playback decisions remain
+unchanged pending a reproduced game run. Managed IL evidence and build/test
+records are retained in `.work/a/lastframe-diag/001`; the native DLL still matches
+CURRENT.json. These observations supplement, rather than replace, the archived
+HD/DE audit above.
+
+## Confirmed URI rejection and consumer correction (2026-10-23)
+
+The complete diagnostic run from 21:15:31 through 21:17:05 confirms the cause
+for `wf_taunt2.webm`, video request 1 / speech request 5. At 21:16:04.800 the
+Unity, MediaElement and HUD end callbacks all arrived. Every identity guard was
+true except URI equality: Noesis returned
+`Assets/GUI/Video/Characters/wf_taunt2.webm**`, while the SFX request retained
+backslashes. Relative System.Uri equality treats these spellings as different.
+The feature rejected the event, so Held remained false. At 21:16:06.721 the
+audio monitor correctly cleared speechMode1 from 2 to 0. After 25 seconds there
+were 996 successful GUI calls, no skipped/replaced calls, no diagnostic errors
+or missing callbacks, and zero close attempts. This is a consumer source-guard
+defect, not a stuck audio channel in this run. Original log:
+`.work/a/lastframe-uri/001/reproduced.log`, especially lines 2947 and 2954-2965.
+
+The correction preserves URI equality and additionally compares only slash-
+normalized OriginalString values, ordinally and with equal absolute/relative
+kind. Expected normalized text is cached per accepted request. The same guard
+serves end acceptance, briefing re-pause and both close paths; request reference,
+HUD/media/sender checks, text independence, audio state and deadline are retained.
+
+The installed Script Extender's NoesisMediaElement_Setter_Hook can also redirect
+a registered relative/provider-qualified video to an absolute file, possibly
+swapping .webm to .mp4. Its TryResolveVideoPath uses Path.ChangeExtension during
+lookup and returns the physical path without the input ** suffix. Thus applying
+** before an override is resolved loses both source identity and nonlooping end
+semantics. The consumer now calls that existing, signature-validated internal
+resolver via reflection once per eligible request before adding **. No Extender
+or APIShared files, global hooks or public contracts change. Unregistered paths
+retain their original URI, including Vanilla absolute custom-lord sources.
+
+Source-linked fixtures reproduce both observed boundaries: Noesis separator
+round-trip and SE physical override/extension selection. They cover the Wolf
+timeline, provider-qualified/ordinary mod assets with/without speech and waiting,
+absolute custom-lord paths, text-only messages, foreign sources and unchanged HD
+wait/lifecycle/click safeguards. A soundless video runs to its own end; visible
+text may continue independently. These tests do not substitute for an actual
+post-fix game run or prove every decoder/media format.

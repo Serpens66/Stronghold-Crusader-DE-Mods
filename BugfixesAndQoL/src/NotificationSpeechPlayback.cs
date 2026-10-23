@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class NotificationSpeechPlayback
+    internal sealed partial class NotificationSpeechPlayback
     {
         private delegate void LoadSpeechClipDelegate(MyAudioManager self, int channel, string folder,
             string soundName, bool unitsSpeech, bool ignorePauseState);
@@ -26,6 +26,8 @@ namespace BugfixesAndQoL
         private Func<string, bool> notificationAudioLoad;
         private MyAudioManager currentAudio;
         private long speechChannel1Generation;
+
+        partial void DiagSpeech(MyAudioManager audio, long generation, string stage, string detail);
 
         // Initialized from the validated Unity-thread LibraryLoaded path; the static owner and
         // permanent delegate survive destruction of the startup BepInEx component.
@@ -67,7 +69,11 @@ namespace BugfixesAndQoL
             generation == Volatile.Read(ref speechChannel1Generation) &&
             ReferenceEquals(audio, Volatile.Read(ref currentAudio));
 
-        internal void Invalidate() => Interlocked.Increment(ref speechChannel1Generation);
+        internal void Invalidate()
+        {
+            Interlocked.Increment(ref speechChannel1Generation);
+            DiagSpeech(currentAudio, Volatile.Read(ref speechChannel1Generation), "speech-invalidated", "pending loads invalidated");
+        }
 
         // Publish only after the optional native skip feature has initialized successfully.
         internal void SetNotificationClassifier(Func<string, bool> classifier) => notificationAudioLoad = classifier;
@@ -84,6 +90,7 @@ namespace BugfixesAndQoL
             // request, including unrelated speech and repeated requests for the same file.
             long generation = Interlocked.Increment(ref speechChannel1Generation);
             Volatile.Write(ref currentAudio, self);
+            DiagSpeech(self, generation, "speech-accepted", folder + "/" + soundName);
             if (notificationAudioLoad == null || !notificationAudioLoad(soundName))
             {
                 loadSpeechClipOriginal(self, channel, folder, soundName, unitsSpeech, ignorePauseState);
@@ -105,6 +112,7 @@ namespace BugfixesAndQoL
                 clip.UnloadAudioData();
             speechClip1Field.SetValue(audio, null);
             speechMode1Field.SetValue(audio, 0);
+            DiagSpeech(audio, Volatile.Read(ref speechChannel1Generation), "speech-stopped", "channel-1 skip");
 
             bool otherSpeechPlaying = audio.isSpeechPlaying(2) || audio.isSpeechPlaying(3);
             bool ignoreSpeechMuting = (bool)ignoreSpeechMutingField.GetValue(audio);
@@ -133,10 +141,13 @@ namespace BugfixesAndQoL
                         : Path.Combine(Application.dataPath, "Assets", "GUI", "Speech", folder, soundName));
                 Task<AudioClip> loadTask =
                     (Task<AudioClip>)loadClipByPathMethod.Invoke(audio, new object[] { path });
+                DiagSpeech(audio, generation, "audio-load-pending", path);
                 loadedClip = await loadTask;
+                DiagSpeech(audio, generation, "audio-load-return", loadedClip == null ? "null" : "clip");
 
                 if (!IsCurrent(audio, generation))
                 {
+                    DiagSpeech(audio, generation, "audio-load-stale", "discard");
                     loadedClip?.UnloadAudioData();
                     return;
                 }
@@ -158,9 +169,11 @@ namespace BugfixesAndQoL
                     audio.setMusicFadedState(
                         ConfigSettings.Settings_ReduceMusicVolumeForSpeech &&
                         !(bool)ignoreSpeechMutingField.GetValue(audio));
+                DiagSpeech(audio, generation, "audio-started", "mode=2");
             }
             catch (Exception ex)
             {
+                DiagSpeech(audio, generation, "audio-load-failed", ex.ToString());
                 if (IsCurrent(audio, generation))
                 {
                     loadedClip?.UnloadAudioData();

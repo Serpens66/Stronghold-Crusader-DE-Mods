@@ -81,9 +81,70 @@ try {
     }
     $radar = @($hud[0].Fields | Where-Object { $_.Name -ceq 'RefRadarME' -and $_.IsPublic })
     if ($radar.Count -ne 1) { throw 'MainHUD.RefRadarME is not public.' }
+    $monitor = @($audio[0].Methods | Where-Object { $_.Name -ceq 'MonitorLoadedSounds' -and $_.IsPrivate -and $_.Parameters.Count -eq 0 -and $_.ReturnType.FullName -ceq 'System.Void' })
+    if ($monitor.Count -ne 1) { throw 'Diagnostic audio monitor contract changed.' }
 }
 finally {
     $assembly.Dispose()
+}
+
+# The consumer resolves registered mod video assets before applying **; never call
+# this internal SE member directly through a publicized compile-time reference.
+$extenderDir = Join-Path $gameDir 'BepInEx\plugins\000shcdese'
+if ($env:SHCDESE_EXTENDER_DIR) { $extenderDir = $env:SHCDESE_EXTENDER_DIR }
+$extender = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $extenderDir 'SHCDESE.dll'))
+try {
+    $asset = @($extender.MainModule.Types | Where-Object { $_.FullName -ceq 'SHCDESE.API.GameAssetManagerAPI' })
+    if ($asset.Count -ne 1 -or -not $asset[0].IsPublic) { throw 'Installed SE asset manager contract changed.' }
+    $resolver = @($asset[0].Methods | Where-Object {
+        $_.Name -ceq 'TryResolveVideoPath' -and -not $_.IsStatic -and $_.ReturnType.FullName -ceq 'System.Boolean' -and
+        (($_.Parameters | ForEach-Object { $_.ParameterType.FullName }) -join ',') -ceq 'System.String,System.String&' -and $_.Parameters[1].IsOut
+    })
+    $getter = @($asset[0].Methods | Where-Object { $_.Name -ceq 'get_Instance' -and $_.IsPublic -and $_.IsStatic -and
+        $_.Parameters.Count -eq 0 -and $_.ReturnType.FullName -ceq $asset[0].FullName })
+    if ($resolver.Count -ne 1 -or $getter.Count -ne 1) { throw 'Installed SE video resolver signature or public Instance visibility changed.' }
+} finally { $extender.Dispose() }
+
+# Every private diagnostic read is reflection-only. Public direct calls must remain
+# public in the installed assemblies; publicized build references prove nothing.
+foreach ($spec in @(
+    @('Noesis.NoesisGUI.dll','NoesisApp.MediaElement','_player','NoesisApp.MediaPlayer','field'),
+    @('Noesis.NoesisGUI.dll','NoesisMediaPlayer','_videoPlayer','UnityEngine.Video.VideoPlayer','field'),
+    @('Noesis.NoesisGUI.dll','NoesisMediaPlayer','OnMediaEnded','System.Void','UnityEngine.Video.VideoPlayer'),
+    @('Noesis.NoesisGUI.dll','NoesisApp.MediaElement','OnMediaEnded','System.Void',''),
+    @('Noesis.NoesisGUI.dll','Noesis.BaseComponent','getCPtr','System.Runtime.InteropServices.HandleRef','Noesis.BaseComponent'),
+    @('Noesis.NoesisGUI.dll','NoesisApp.MediaElement','get_Position','System.TimeSpan',''),
+    @('Noesis.NoesisGUI.dll','NoesisApp.MediaElement','get_NaturalDuration','Noesis.Duration',''),
+    @('UnityEngine.VideoModule.dll','UnityEngine.Video.VideoPlayer','get_frame','System.Int64',''),
+    @('UnityEngine.VideoModule.dll','UnityEngine.Video.VideoPlayer','get_frameCount','System.UInt64',''),
+    @('UnityEngine.VideoModule.dll','UnityEngine.Video.VideoPlayer','get_time','System.Double',''),
+    @('UnityEngine.VideoModule.dll','UnityEngine.Video.VideoPlayer','get_length','System.Double',''),
+    @('UnityEngine.VideoModule.dll','UnityEngine.Video.VideoPlayer','get_isPrepared','System.Boolean',''),
+    @('UnityEngine.VideoModule.dll','UnityEngine.Video.VideoPlayer','get_isPlaying','System.Boolean',''),
+    @('UnityEngine.VideoModule.dll','UnityEngine.Video.VideoPlayer','get_isPaused','System.Boolean',''),
+    @('UnityEngine.AudioModule.dll','UnityEngine.AudioSource','get_isPlaying','System.Boolean',''),
+    @('UnityEngine.AudioModule.dll','UnityEngine.AudioSource','get_volume','System.Single',''),
+    @('UnityEngine.AudioModule.dll','UnityEngine.AudioClip','get_loadState','UnityEngine.AudioDataLoadState',''),
+    @('UnityEngine.AudioModule.dll','UnityEngine.AudioClip','get_length','System.Single',''),
+    @('UnityEngine.CoreModule.dll','UnityEngine.Component','get_gameObject','UnityEngine.GameObject',''),
+    @('UnityEngine.CoreModule.dll','UnityEngine.GameObject','get_activeInHierarchy','System.Boolean',''),
+    @('UnityEngine.CoreModule.dll','UnityEngine.Time','get_frameCount','System.Int32',''),
+    @('UnityEngine.CoreModule.dll','UnityEngine.Application','add_onBeforeRender','System.Void','UnityEngine.Events.UnityAction')
+)) {
+    $check = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $managedDir $spec[0]))
+    try {
+        $type = @($check.MainModule.Types | Where-Object { $_.FullName -ceq $spec[1] })
+        if ($type.Count -ne 1 -or -not $type[0].IsPublic) { throw "Diagnostic type contract changed: $($spec[1])" }
+        if ($spec[4] -ceq 'field') {
+            $found = @($type[0].Fields | Where-Object { $_.Name -ceq $spec[2] -and $_.IsPrivate -and $_.FieldType.FullName -ceq $spec[3] })
+        } else {
+            $found = @($type[0].Methods | Where-Object { $_.Name -ceq $spec[2] -and $_.ReturnType.FullName -ceq $spec[3] -and
+                (($_.Parameters | ForEach-Object { $_.ParameterType.FullName }) -join ',') -ceq $spec[4] -and
+                (($_.Name -ceq 'OnMediaEnded' -and $_.IsPrivate) -or ($_.Name -cne 'OnMediaEnded' -and $_.IsPublic)) })
+        }
+        if ($found.Count -ne 1) { throw "Diagnostic installed member contract changed: $($spec[1]).$($spec[2])" }
+        if ($spec[2] -ceq 'getCPtr' -and -not $found[0].IsStatic) { throw 'Noesis getCPtr must be public static.' }
+    } finally { $check.Dispose() }
 }
 
 $feature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\NotificationLastFrameFeature.cs'))
@@ -107,6 +168,17 @@ if ($feature -match 'NotificationSpeechPlayback|OST_Message_Bar_Vis|addOSTEntry|
     -not $speechFeature.Contains('!IsCurrent(audio, generation)')) {
     throw 'Last-frame audio isolation, text independence or skip stale-load cancellation is incomplete.'
 }
-& dotnet run --project (Join-Path $PSScriptRoot 'tests\NotificationPlayback.Tests\NotificationPlayback.Tests.csproj') --configuration Release
+& dotnet run --project (Join-Path $PSScriptRoot 'tests\NotificationPlayback.Tests\NotificationPlayback.Tests.csproj') --configuration Release --property:SerpDevDiagnostics=false
 if ($LASTEXITCODE -ne 0) { throw 'Notification playback behavior tests failed.' }
+$testAssembly = Join-Path $PSScriptRoot 'tests\NotificationPlayback.Tests\bin\Release\net10.0\NotificationPlayback.Tests.dll'
+$normal = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($testAssembly)
+try {
+    $types = @($normal.MainModule.Types | Where-Object { $_.FullName -in @('BugfixesAndQoL.NotificationLastFrameFeature','BugfixesAndQoL.NotificationSpeechPlayback') })
+    foreach ($type in $types) {
+        if (@($type.Methods | Where-Object { $_.Name -match '^(Diag|ObserveSpeech)' }).Count -ne 0 -or
+            @($type.Fields | Where-Object { $_.Name -like 'diag*' }).Count -ne 0) { throw 'Normal notification artifact retained diagnostic work.' }
+    }
+} finally { $normal.Dispose() }
+& dotnet run --project (Join-Path $PSScriptRoot 'tests\NotificationPlayback.Tests\NotificationPlayback.Tests.csproj') --configuration Release --property:SerpDevDiagnostics=true
+if ($LASTEXITCODE -ne 0) { throw 'Notification diagnostic timeline tests failed.' }
 Write-Output 'Notification last-frame assembly, Noesis, lifecycle, and Vanilla-fallback preflight succeeded.'

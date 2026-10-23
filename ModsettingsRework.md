@@ -4,7 +4,26 @@
 
 Die Modsettings sollen nach Variante B aufgebaut werden: **Client/Host → aufklappbarer Themenbereich → Fixes / QoL / Fixes? → Optionen**. Nutzer sollen zuerst ihr Thema finden und dort alle zugehörigen Einstellungen gemeinsam sehen. Die bisherige fachliche Einordnung bleibt innerhalb des Themas erhalten.
 
-Diese Datei ist ein Umsetzungsplan mit Gestaltungsempfehlungen. Der erste konkrete Anwendungsfall ist BugfixesAndQoL; andere Mods können das Gestaltungsmuster später übernehmen. Dieser Auftrag verändert ausschließlich diese Planungsdatei.
+Diese Datei beschreibt das Gestaltungsmuster und seine Umsetzung in BugfixesAndQoL. Andere Mods können es später übernehmen. Die historischen Bestandsaufnahmen bleiben als Nachweis erhalten; für die aktuelle Umsetzung gilt der folgende Abgleich.
+
+### Umsetzungsstand vom 23.10.2026
+
+Ausgangsstand: `develop`, HEAD `6c02c6ab08250d7126c177d954a3b704a7ac5d43`. Erneut gegen Quell-XAML und ViewModel abgeglichen: **107 Hauptoptionen, davon 35 Client und 72 Host**. Die zehn Themen besitzen aktuell die Größen C1/C2/C3/C4 = **12/9/10/4**, H1/H2/H3/H4/H5/H6 = **18/16/9/13/7/9**. Der zusammengehörige Partievorbereitungs-/Mehrspieler-/Zuschauerbereich bleibt mit 18 Optionen eine bewusste Ausnahme der Zielgröße.
+
+- C3 ergänzt `EnableLordAndMapListEnhancements` und `EnableMissingMapSaveRecovery`; der Workshop-Auswahlfix ist bereits lokal eingeordnet.
+- C1 verwendet nun `SpriteSheetMergeModeIndex` als UI-Adapter des gespeicherten `SpriteSheetMergeMode`.
+- H1 ergänzt `EnableRandomOpponentSelectionEnhancements`, `EnableMultiplayerStartupStateFix` und `EnablePeaceTimeGameplayFixes`.
+- H2 ergänzt `EnableAiSellThresholdFix` unter „Fixes?“.
+- H6 ergänzt `EnableImprovedAssassinPathfindingAI` unmittelbar neben der menschlichen Assassin-Wegfindung. Damit neun statt acht Optionen.
+- Die Zeitsteuerungsberechtigung und das maximale Spieltempo besitzen eigene Darstellungs-/Empfehlungszeilen. Der bisherige Suchschlüssel bleibt bei der Berechtigung; das Maximum erhält einen eigenen Suchschlüssel. Die gespeicherten Werte bleiben unverändert.
+
+Die linke Symbolspalte und Themenklappen sind im Mod umgesetzt. Ansichtszustand ist ausschließlich lokal und gilt für die Lebensdauer des Settings-ViewModels. Suchübersteuerung verwendet den vorhandenen APIShared-Katalog und Matcher. Serp hat die vollständige [redaktionelle Empfehlungsliste](BugfixesAndQoL/ModsettingsRecommendations.md) am 23.10.2026 bestätigt: **47 Sterne „Empfohlen“ und 60 Rauten „Geschmackssache“**. Die nachfolgenden 100-Optionen-Tabellen dokumentieren weiterhin ausdrücklich den älteren Stand.
+
+Nach optischer Rückmeldung werden die zehn Themenköpfe als schlichte goldene Überschriften ohne farbige Buttonfläche oder Rahmen dargestellt. Ein eigenes transparentes Button-Template erhält die ganze Zeile als Klickziel; Hover und Tastaturfokus hellen die Schrift dezent auf. Kleine gezeichnete Dreiecke zeigen den effektiven Öffnungszustand einschließlich Suchübersteuerung an; sie ersetzen die im Spiel fehlenden Schriftzeichen. Die Anzahl steht rechts in Grau, die Sammelschaltflächen bleiben unverändert.
+
+Die bestätigten Empfehlungen werden ausschließlich über stabile Propertynamen im Mod zugeordnet. Begründungen kommen aus Locale-Keys, werden erst bei Anzeige aufgelöst und aktualisieren sich bei einer Katalog-/Sprachaktualisierung. Sie sind eigene 60000-ms-Tooltips der linken Marker; bestehende fachliche Control-Tooltips bleiben erhalten. Technische Getter-Platzhalter in der Empfehlungsliste wurden durch lesbare Texte ersetzt. Der empfohlene Regler für Abrissschutz nennt ausdrücklich „Nur vorübergehende Blockaden (1)“. Einstufungen und deren Anzeige ändern weder Spielwerte noch Presets.
+
+Die Themen-, Rollen- und Legendenbreite folgt der sichtbaren Scrollfläche abzüglich des bestehenden Seitenrands. Das ist bei horizontalem Auto-Scroll erforderlich, damit lange Texte und die Warenliste mit begrenzter Breite umbrechen. Breitere bestehende Preseteditoren behalten den äußeren horizontalen Scrollweg.
 
 ### Bestandsaufnahme vom 21.10.2026
 
@@ -41,12 +60,12 @@ Auch außerhalb dieses Bereichs relevante Einflüsse kennzeichnen: beispielsweis
 
 ### Optionszeilen und Markierungen
 
-Einheitliches Zeilenraster: links das eigentliche Control mit umbrechender Beschriftung, rechts eine schmale Spalte für die Autorenempfehlung. Regler, Auswahllisten, Werttexte und Detailaktionen behalten ihren fachlichen Zusammenhang. Bei schmalen Fenstern darf die Empfehlung unter die Beschriftung rücken; sie darf den Titel nicht abschneiden.
+Einheitliches Zeilenraster: **ganz links eine feste, 28 UI-Einheiten breite Symbolspalte**, daneben das eigentliche Control mit umbrechender Beschriftung. Der Symbolplatz bleibt auch bei fehlender Markierung reserviert. Regler, Auswahllisten, Werttexte und Detailaktionen behalten ihren fachlichen Zusammenhang. Auch bei schmalen Fenstern bleibt das Symbol in seiner Spalte; nur der Optionsinhalt bricht um.
 
 | Kennzeichnung | Bedeutung | Darstellung |
 | --- | --- | --- |
-| ★ Empfohlen | Der Autor empfiehlt, diese Funktion normalerweise dauerhaft aktiviert zu lassen. | Dezentes Gold, stets mit Text. |
-| ◇ Geschmackssache | Die Wahl hängt von gewünschter Darstellung, Bedienung oder Spielweise ab. | Neutrales Hellgrau, stets mit Text. |
+| ★ Empfohlen | Der Autor empfiehlt, diese Funktion normalerweise dauerhaft aktiviert zu lassen. | Dezentes Gold; Symbol links, Bedeutung als Text in der Legende und Begründung im Tooltip. |
+| ◇ Geschmackssache | Die Wahl hängt von gewünschter Darstellung, Bedienung oder Spielweise ab. | Neutrales Hellgrau; Symbol links, Bedeutung als Text in der Legende und Begründung im Tooltip. |
 | Keine Markierung | Noch nicht redaktionell eingestuft. | Keine sichtbare Platzhalterbeschriftung; dieselbe Spalte bleibt im Raster. |
 
 - Eine kurze Legende erklärt die beiden sichtbaren Markierungen einmal im Kopfbereich. Die Empfehlung ist unabhängig vom aktuellen Haken, vom Standardwert und von der Kategorie Fixes/QoL/Fixes?.
@@ -67,20 +86,20 @@ Einheitliches Zeilenraster: links das eigentliche Control mit umbrechender Besch
     LOKALE CLIENT-OPTIONEN            Alle auf / Alle zu
       ▸ Anzeige, HUD, Audio und Leistung                 12
       ▸ Kamera, Bauen und Steuerung                       9
-      ▸ Menüs, Spielstände und Kreuzzugmärsche             8
+      ▸ Menüs, Spielstände und Kreuzzugmärsche            10
       ▸ Markt und Gütertransfer                           4
 
     HOST-OPTIONEN                    Alle auf / Alle zu
-      ▸ Partievorbereitung, Mehrspieler und Zuschauer    15
-      ▸ KI, Burgaufbau und Wirtschaftsschutz             15
+      ▸ Partievorbereitung, Mehrspieler und Zuschauer    18
+      ▸ KI, Burgaufbau und Wirtschaftsschutz             16
       ▾ Truppenbedienung und Bewegungstempo               9
           Fixes
-            [x] …                             ★ Empfohlen
+          ★ [x] …
           QoL
-            [x] …                             ◇ Geschmackssache
+          ◇ [x] …
       ▸ Gebäude, Wirtschaft und Versorgung               13
       ▸ Tore und Belagerungsregeln                        7
-      ▸ Performance Heavy                                8
+      ▸ Performance Heavy                                9
 
 Die Markierungen im Schema illustrieren ausschließlich das Zeilenraster und bewerten keine konkrete Funktion.
 
@@ -381,7 +400,7 @@ Formationsparameter wie Aufstellungsart, Dichte, Rollenmarker und gemerkte Reihe
 ### Optische Abnahme
 
 - Geschlossen sind vier Client- und sechs Hostthemen überschaubar sichtbar. Es gibt keinen nur ein oder zwei Hauptoptionen umfassenden Themenbereich.
-- Die acht identifizierten Optionen mit potenziell großer Zusatzarbeit bzw. kumulativen Suchkosten sind in „Performance Heavy“ gemeinsam auffindbar. Die fünf leichteren Pfadkorrekturen bleiben in ihren fachlichen Themen. Performance-Hinweise und Autorenempfehlungen sind unabhängig erkennbar.
+- Die neun aktuell zugeordneten Optionen mit potenziell großer Zusatzarbeit bzw. kumulativen Suchkosten einschließlich der getrennten KI-Assassin-Option sind in „Performance Heavy“ gemeinsam auffindbar. Die fünf leichteren Pfadkorrekturen bleiben in ihren fachlichen Themen. Performance-Hinweise und Autorenempfehlungen sind unabhängig erkennbar.
 - Alle geöffneten Themen sind lesbar; lange deutsche Texte, schmale Fenster und die unterstützten UI-Skalierungen erzeugen keine überlappenden Controls oder abgeschnittenen Empfehlungskennzeichen.
 - Checkboxen, Regler, ComboBoxen und Hotkeys behalten klare Titel und passende Einheiten. Die Empfehlung ist auch bei ausgeschalteter oder gesperrter Option verständlich.
 - Wareneditor, Statistikvorschau, Steam-Blacklist-Aktion und Hotkey-Erfassung funktionieren nach Einklappen und erneutem Öffnen.

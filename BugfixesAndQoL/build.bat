@@ -100,12 +100,15 @@ rem Common source, dependency and runtime safety checks remain mandatory.
 set "NOTIFICATION_CHECKS=0"
 set "GATEHOUSE_CHECKS=0"
 set "FOREIGN_HUD_CHECKS=0"
+set "SETTINGS_CHECKS=0"
 for %%A in (%*) do if /I "%%~A"=="/checks:notifications" set "NOTIFICATION_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:gatehouse" set "GATEHOUSE_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:foreignhud" set "FOREIGN_HUD_CHECKS=1"
-set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS
+for %%A in (%*) do if /I "%%~A"=="/checks:settings" set "SETTINGS_CHECKS=1"
+set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS+SETTINGS_CHECKS
 if %CHECK_SCOPES% GTR 1 goto build_failed
 pushd "%PROJECT_DIR%"
+if "%SETTINGS_CHECKS%"=="1" goto settings_checks
 if "%FOREIGN_HUD_CHECKS%"=="1" goto foreign_hud_checks
 if "%GATEHOUSE_CHECKS%"=="1" goto gatehouse_checks
 if "%NOTIFICATION_CHECKS%"=="1" goto notification_checks
@@ -261,6 +264,16 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 goto checks_completed
 
+:settings_checks
+echo [%date% %time%] Settings-scoped runtime preflight; production UI/catalog tests run after compilation
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe" --settings-ui
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+goto foreign_hud_checks_completed
+
 :gatehouse_checks
 echo [%date% %time%] Gatehouse geometry, live topology and diagnostic behavior checks
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
@@ -300,6 +313,10 @@ echo [%date% %time%] Compile projects
 "%MSBUILD%" BugfixesAndQoL.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Modsettings.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" -ApiSharedDir "%API_SHARED_DIR%" -ExtenderDir "%EXTENDER_DIR%" -RunNative
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+set "NOTIFICATION_DIAG_ARG="
+if "%SHCDE_DEVDIAG%"=="1" set "NOTIFICATION_DIAG_ARG=-DevDiag"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-NotificationDiagnosticArtifact.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" %NOTIFICATION_DIAG_ARG%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 

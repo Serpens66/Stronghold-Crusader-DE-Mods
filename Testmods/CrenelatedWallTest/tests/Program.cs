@@ -57,11 +57,109 @@ internal static class Program
     {
         try
         {
-            string root = Path.GetFullPath(args[0]); CompileRuntime(root);
-            StraightRows(); SpecialShapes(); OwnershipAndBounds(); Persistence(); Availability(); EndpointGraphics(); ExploitSequences();
+            string root = Path.GetFullPath(args[0]);
+            string sdk = args.Length > 1 ? Path.GetFullPath(args[1]) :
+                Environment.GetEnvironmentVariable("SHCDE_API_SHARED_DIR") ?? Path.Combine(root, "APIShared/BepInEx/plugins/APIShared_Serp");
+            CSharpCompilation compiled = CompileRuntime(root, sdk);
+            ApiCompatibility(compiled, sdk);
+            StraightRows(); SpecialShapes(); OwnershipAndBounds(); Persistence(); Availability(); EndpointGraphics(); ExploitSequences(); PreviewAdmission();
             Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, policy, redraw stability, ownership and MessagePack persistence. Real game/peer execution is not inferred.");
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
+    }
+    private static void PreviewAdmission()
+    {
+        foreach (var dir in new[] { (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1) })
+        {
+            var world = new World(); var cache = new PreviewAdmissionCache();
+            var preferences = new Dictionary<int, WallCell>();
+            for (int length = 1; length <= 8; length++) for (int quota = 0; quota < 12; quota++)
+            {
+                int ex = 200 + dir.Item1 * length, ey = 200 + dir.Item2 * length;
+                string before = world.State();
+                WallPlan preview = cache.Evaluate(world, 8, 200, 200, ex, ey, quota, preferences);
+                WallPlan command = WallAdmission.Evaluate(world, 8, WallPolicy.Raster(world, 200, 200, ex, ey, quota), quota, preferences);
+                Check(preview.Accepted == command.Accepted && preview.Rejection == command.Rejection &&
+                    preview.Heights.SequenceEqual(command.Heights), "Preview differs from synchronized admission");
+                Check(world.State() == before && preferences.Count == 0, "Preview modified map/preferences");
+                Check(ReferenceEquals(preview, cache.Evaluate(world, 8, 200, 200, ex, ey, quota, preferences)), "Stable full-read snapshot not reused");
+            }
+        }
+        var map = new World(); map.Build(100, 100, 101, 100);
+        var memo = new PreviewAdmissionCache(); var saved = new Dictionary<int, WallCell>();
+        WallPlan first = memo.Evaluate(map, 1, 100, 101, 101, 101, 10, saved);
+        Check(!first.Accepted, "Double row preview admitted");
+        Check(memo.Evaluate(map, 1, 100, 101, 101, 101, 1, saved).Accepted, "Resource-limited safe prefix not reevaluated");
+        map.Cells.Remove(100 * 800 + 101);
+        Check(memo.Evaluate(map, 1, 100, 101, 101, 101, 10, saved).Accepted, "Demolition left stale red preview");
+        map.Put(101, 100);
+        Check(!memo.Evaluate(map, 1, 100, 101, 101, 101, 10, saved).Accepted, "Rebuild bypassed preview veto");
+        var stable = new World(); stable.Build(120, 120, 124, 120);
+        WallPlan old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved);
+        var watch = stable.Cells[120 * 800 + 123];
+        foreach (Action<WallCell> mutate in new Action<WallCell>[] {
+            c => c.Owner = 8, c => c.High = !c.High, c => c.Damaged = true,
+            c => c.Structure = true, c => c.IsCrenel = false, c => c.IsWall = false })
+        {
+            WallCell original = watch.Copy(); mutate(watch);
+            WallPlan changed = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved);
+            Check(!ReferenceEquals(old, changed), "Relevant cell change reused preview decision");
+            stable.Cells[original.Id] = original; watch = original;
+            old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved);
+        }
+        saved[watch.Id] = watch.Copy();
+        WallPlan preferenceAdded = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved);
+        Check(!ReferenceEquals(old, preferenceAdded), "New preference did not invalidate cache");
+        saved[watch.Id].High = !saved[watch.Id].High;
+        Check(!ReferenceEquals(preferenceAdded, memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved)), "Changed preference reused cache");
+        memo.Clear();
+        Check(!ReferenceEquals(old, memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved)), "Session reset retained preview result");
+        old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved);
+        Check(!ReferenceEquals(old, memo.Evaluate(stable, 2, 125, 120, 126, 120, 20, saved)), "Editor owner switch reused preview result");
+        var bounds = new MutableBounds();
+        old = memo.Evaluate(bounds, 1, 1, 100, 2, 100, 10, null);
+        bounds.Open = true;
+        Check(!ReferenceEquals(old, memo.Evaluate(bounds, 1, 1, 100, 2, 100, 10, null)), "Previously failed boundary read was not validated");
+        old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved);
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < 1000; i++)
+            Check(ReferenceEquals(old, memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, saved)), "Unchanged preview reran component solver");
+        Console.WriteLine("PASS: 1000 fully revalidated preview cache hits in " + timer.ElapsedMilliseconds + " ms on the small fixture; no in-game performance claim.");
+        // A stale green/red decision is the cache's concrete failure class. Compare
+        // production cached/fresh admission after arbitrary local edits/preferences.
+        var random = new Random(70123); var changing = new World(); var changingCache = new PreviewAdmissionCache();
+        var choices = new Dictionary<int, WallCell>();
+        for (int i = 0; i < 2000; i++)
+        {
+            int rx = random.Next(98, 107), ry = random.Next(98, 104);
+            int id = ry * 800 + rx;
+            switch (random.Next(6))
+            {
+                case 0: changing.Cells.Remove(id); break;
+                case 1: changing.Put(rx, ry, random.Next(1, 3), random.Next(2) != 0); break;
+                case 2:
+                    var damaged = changing.Put(rx, ry); damaged.Damaged = true; break;
+                case 3:
+                    var structure = changing.Put(rx, ry); structure.Structure = true; break;
+                case 4: choices.Remove(id); break;
+                case 5:
+                    choices[id] = new WallCell { Id = id, Owner = random.Next(1, 3), High = random.Next(2) != 0 }; break;
+            }
+            int player = 1 + i / 100 % 2, resource = i / 50 % 8;
+            WallPlan cached = changingCache.Evaluate(changing, player, 100, 100, 105, 100, resource, choices);
+            WallPlan fresh = WallAdmission.Evaluate(changing, player, WallPolicy.Raster(changing, 100, 100, 105, 100, resource), resource, choices);
+            Check(cached.Rejection == fresh.Rejection && cached.Heights.SequenceEqual(fresh.Heights), "Mutated-world preview cache diverged at step " + i);
+        }
+    }
+    private sealed class MutableBounds : IWallWorld
+    {
+        internal bool Open;
+        private readonly World inner = new World();
+        public bool TryRead(int x, int y, out WallCell cell)
+        {
+            if (x == 0 && y == 100 && Open) { cell = new WallCell { Id = 80000, X = x, Y = y }; return true; }
+            return inner.TryRead(x, y, out cell);
+        }
     }
     private static void StraightRows()
     {
@@ -174,7 +272,7 @@ internal static class Program
             Check(restoredPlan.Accepted && restoredPlan.Heights.Keys.All(ids.Contains), "Restoring editor map expanded its metadata scope");
         }
     }
-    private static void CompileRuntime(string root)
+    private static CSharpCompilation CompileRuntime(string root, string sdk)
     {
         // Type-check every production source against the actual installed dependencies and
         // .NET Framework reference assemblies without emitting/building the runtime DLL.
@@ -192,7 +290,7 @@ internal static class Program
         {
             string hint = (string)reference.Element(ns + "HintPath"); if (hint == null) continue;
             hint = hint.Replace("$(GameDir)", game).Replace("$(ExtenderDir)", game + "/BepInEx/plugins/000shcdese")
-                .Replace("$(ApiSharedDir)", game + "/BepInEx/plugins/APIShared_Serp");
+                .Replace("$(ApiSharedDir)", sdk);
             Check(File.Exists(hint), "Missing installed reference: " + hint); paths.Add(Path.GetFullPath(hint));
         }
         var compilation = CSharpCompilation.Create("CrenelatedWallTest.Preflight", trees,
@@ -205,7 +303,55 @@ internal static class Program
         string xaml = File.ReadAllText(Path.Combine(mod, "Override/ScriptExtenderUI/CrenelatedWallTestSettings.xaml"));
         foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(xaml, @"\{Binding ([A-Za-z_][A-Za-z0-9_]*)"))
             Check(publicNames.Contains(match.Groups[1].Value), "XAML references missing public binding: " + match.Groups[1].Value);
-        Console.WriteLine("PASS: all production sources type-checked against true Assembly-CSharp, installed SE and unchanged APIShared package; no runtime DLL emitted.");
+        Console.WriteLine("PASS: all production sources and XAML bindings type-checked against true Assembly-CSharp, installed SE and selected APIShared SDK=" + sdk + "; no runtime DLL emitted.");
+        return compilation;
+    }
+    private static void ApiCompatibility(CSharpCompilation production, string sdk)
+    {
+        // Regression: SDK identity/additive services must not invalidate a consumer;
+        // loss of an actually used public member must. Only synthetic copies change.
+        string api = Path.GetFullPath(Path.Combine(sdk, "APIShared.dll"));
+        var reference = production.References.Single(r => string.Equals(r.Display, api, StringComparison.OrdinalIgnoreCase));
+        string directory = TestWorkDirectory.New("crenel-api");
+        using var resolver = new Mono.Cecil.DefaultAssemblyResolver();
+        foreach (string path in new[] { sdk,
+            "E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/core",
+            "E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/plugins/000shcdese",
+            "E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Managed",
+            "C:/Program Files (x86)/Reference Assemblies/Microsoft/Framework/.NETFramework/v4.8.1" }) resolver.AddSearchDirectory(path);
+        var options = new Mono.Cecil.ReaderParameters { AssemblyResolver = resolver, ReadSymbols = false };
+        string compatible = Path.Combine(directory, "compatible.dll"), broken = Path.Combine(directory, "broken.dll");
+        using (var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(api, options))
+        {
+            assembly.Name.Version = new Version(assembly.Name.Version.Major + 1, 0, 0, 0);
+            var unrelated = new Mono.Cecil.TypeDefinition("CompatibilityFixture", "AdditionalService",
+                Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Class, assembly.MainModule.TypeSystem.Object);
+            unrelated.Fields.Add(new Mono.Cecil.FieldDefinition("AdditionalOption", Mono.Cecil.FieldAttributes.Public, assembly.MainModule.TypeSystem.Int32));
+            assembly.MainModule.Types.Add(unrelated);
+            assembly.Write(compatible);
+        }
+        Diagnostic[] DiagnosticsFor(string path) => production.ReplaceReference(reference, MetadataReference.CreateFromFile(path))
+            .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Check(DiagnosticsFor(compatible).Length == 0, "An APIShared version change/additive unrelated service blocked unchanged required APIs");
+        using (var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(api, options))
+        {
+            var method = assembly.MainModule.GetType("APIShared.ModApiClient").Methods.Single(m => m.Name == "TryGetMissionLifecycle" && m.IsPublic &&
+                m.Parameters.Count == 2 && m.Parameters[0].ParameterType.FullName == "APIShared.IMissionLifecycleCapability&" &&
+                m.Parameters[1].ParameterType.FullName == "APIShared.NativeCapabilityDiagnostic&");
+            method.IsPublic = false; method.IsPrivate = true;
+            assembly.Write(broken);
+        }
+        Diagnostic[] rejected = DiagnosticsFor(broken);
+        Check(rejected.Any(d => d.GetMessage().Contains("TryGetMissionLifecycle")), "Loss of the required public mission capability was not detected");
+        string brokenRegistry = Path.Combine(directory, "broken-registry.dll");
+        using (var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(api, options))
+        {
+            var getter = assembly.MainModule.GetType("APIShared.NativeSites.NativeSiteRegistry").Methods.Single(m => m.Name == "get_IsImageBound");
+            getter.IsPublic = false; getter.IsPrivate = true;
+            assembly.Write(brokenRegistry);
+        }
+        Check(DiagnosticsFor(brokenRegistry).Any(d => d.GetMessage().Contains("IsImageBound")), "Loss of required native-site API was not detected");
+        Console.WriteLine("PASS: synthetic SDK version/additive API accepted; missing required mission API rejected. Actual selected SDK remains untouched; fixtures=" + directory);
     }
     private static void Availability()
     {

@@ -9,7 +9,7 @@ using System.Xml;
 
 // Executes real production predicates from the built DLL. Unity/Noesis constructors and
 // hook installation are external boundaries and are intentionally not invoked here.
-internal static class Program
+internal static partial class Program
 {
     private static Assembly mod;
     private static Type modelType;
@@ -62,7 +62,9 @@ internal static class Program
             AppDomain.CurrentDomain.AssemblyResolve+=(_,e)=>
             {
                 string name=new AssemblyName(e.Name).Name+".dll";
-                foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return Assembly.LoadFrom(path);}return null;
+                // The explicit BepInEx reference can retain Windows download-zone metadata.
+                // Keep game/Noesis load-context identity; do not change installed files.
+                foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return name=="BepInEx.dll"?Assembly.Load(File.ReadAllBytes(path)):Assembly.LoadFrom(path);}return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
             string manifest=File.ReadAllText(Path.Combine(workspace,"BugfixesAndQoL/info.json"));
@@ -125,6 +127,7 @@ internal static class Program
             protectedMap.GetType().GetField("preserveOriginalMapProtection",All).SetValue(protectedMap,true);
             Check(Bool(protectedMap,"OriginalMapProtectionEnabled") && !Bool(protectedMap,"FeatureEnabled"),"already exposed original stays protected while optional dialogs are off");
             Metadata(workspace);
+            SettingsPresentationTests(workspace);
             CallerGates();
             Traversal();
             Console.WriteLine("PASS: built production DLL settings matrices, independent AI-list capacity, callers, classifications/defaults/XAML: "+checks+" checks.");return 0;

@@ -10,7 +10,19 @@ Version 0.1.0. APIShared wird nur über bestehende öffentliche APIs verwendet u
 4. Erfolgreiche Bauten protokollieren `CRENEL_BUILD` mit `eligible = changed + unchanged`. Ablehnungen protokollieren `CRENEL_REJECT` und `CRENEL_REJECT_VERIFIED` mit `added=0` und unverändertem Steinbestand.
 5. `CRENEL_CALLBACK_ERROR`, `CRENEL_POST_UNRESOLVED` oder unerwartetes `CRENEL_LOAD_SKIPPED` mit Screenshot und dem aktuellen Logabschnitt melden. Ein fehlender Start-/Tickmarker bedeutet, dass kein Laufzeitnachweis vorliegt.
 
-Die Vorschau bleibt Vanilla: Ein Bauzug kann grün angezeigt und bei seiner synchronisierten Ausführung trotzdem abgelehnt werden. Abgelehnt wird der gesamte noch mögliche Bauzug, nicht ein nachträglich abgerissenes Teilstück. Normale Kosten, Schäden, Grundhöhen und Eigentümer verwaltet weiterhin Vanilla. Bei gesunkenem Steinbestand prüft der Mod den tatsächlich möglichen Präfix mit Vanillas eigener Verfügbarkeitsabfrage.
+Die zusätzliche Bauprüfung setzt jetzt Vanillas Ungültigkeitsstatus: Unzulässige Zinnenzüge sollen bereits rot erscheinen und beim Loslassen keinen Bauauftrag auslösen. Dafür `CRENEL_PREVIEW_READY` und nach dem ersten zusätzlichen Veto `CRENEL_PREVIEW_CONFIRMED` prüfen; `CRENEL_PREVIEW_UNAVAILABLE` bedeutet, dass nur die bisherige Ausführungssperre verfügbar ist. Bei bereits in der Vorschau blockierten Versuchen sind keine OnBuildWall-Ablehnungsmarker zu erwarten, weil kein Bauauftrag entsteht. Abgelehnt wird weiterhin der gesamte noch mögliche Bauzug. Normale Kosten, Schäden, Grundhöhen und Eigentümer verwaltet Vanilla. Ändert sich die Karte oder der Steinbestand nach der Vorschau, entscheidet die frische synchronisierte Ausführungsprüfung erneut.
+
+## Zusätzliche Vorschau-Abnahme
+
+- Eine Zinne ohne unterstützende normale Mauer zeigen: Vanillas rote Darstellung bleibt erhalten.
+- Ein zulässiges Feld zeigen, daneben einen neuen 2×2-Block vervollständigen: Die Vorschau muss vor dem Klick rot werden; Loslassen verändert weder Karte noch Steinbestand.
+- Vom unzulässigen Feld zurück auf ein zulässiges bewegen: Die gültige Darstellung muss sofort wiederkehren, auch bei pausiertem Spiel.
+- Dasselbe gezogen und einzeln, in allen Kartenrichtungen sowie im Editor für menschliche und KI-Spielerzuordnungen prüfen.
+- Während einer Vorschau benachbarte Mauern abreißen/wiederaufbauen, Spielerzuordnung ändern und Steinbestand verändern: kein veraltetes Grün oder Rot.
+- Mod vor der nächsten Sitzung deaktivieren: ursprüngliche Vorschau und ursprünglicher Bau bleiben vollständig erhalten.
+- In einer echten Host-/Client-Partie von beiden PCs bauen; Vorschau ist lokal, die Ausführungsentscheidung muss auf beiden gleich ausfallen.
+
+Diese visuellen Fälle sind bis zu tatsächlicher Beobachtung offen. Backend-Fixtures bestätigen Aufrufkonvention, Statuswechsel und deaktivierte Semantik; sie zeichnen keine Spielgrafik.
 
 ## Alle Sonderfälle
 

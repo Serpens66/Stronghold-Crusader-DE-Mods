@@ -4,12 +4,13 @@ import json
 from pathlib import Path
 import sqlite3
 import sys
+import os
 import pefile
 import capstone
 
 workspace = Path(sys.argv[1]).resolve()
 game = Path("E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition")
-baseline = workspace / "_inspect/CrusaderDE-Native-Baseline"
+baseline = Path(os.environ.get("SHCDE_NATIVE_BASELINE_ROOT", workspace / "_inspect/CrusaderDE-Native-Baseline")).resolve()
 current = json.loads((baseline / "CURRENT.json").read_text(encoding="utf-8-sig"))
 native = game / "Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll"
 digest = hashlib.sha256(native.read_bytes()).hexdigest().upper()
@@ -64,7 +65,11 @@ reader_bytes = base64.b64decode(re.search(r'ReferenceCode = "([^"]+)"', reader_s
 assert len(reader_bytes) == 179 and image.get_data(0xCF640, len(reader_bytes)) == reader_bytes
 assert hashlib.sha256(reader_bytes).hexdigest().upper() == "F2C875634DF70ABE13AE3938E6F63B1C4BCF2E61061B753BCD3FB9EFFF23B21A"
 assert sum(image.get_data(s.VirtualAddress, min(s.Misc_VirtualSize, s.SizeOfRawData)).count(reader_bytes) for s in image.sections if s.Characteristics & 0x20000000) == 1
-source = (workspace / "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkBuildingDetours.cs").read_text(encoding="utf-8-sig")
+source_path = workspace / "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkBuildingDetours.cs"
+if not source_path.is_file() and os.environ.get("SHCDE_NATIVE_BASELINE_ROOT"):
+    # Isolated branch sources reuse the canonical read-only baseline/fork.
+    source_path = baseline.parent.parent / "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkBuildingDetours.cs"
+source = source_path.read_text(encoding="utf-8-sig")
 start = source.index("public static Int64 c_game_build_wall_hook_impl")
 end = source.index("// void __fastcall c_game_bulldoze_wall", start)
 wrapper = source[start:end]
@@ -75,6 +80,26 @@ rows = connection.execute("select rva,pseudocode from functions where binary_has
 writers = [rva for rva, code in rows if "| 0x400000;" in code and "0x898400" in code]
 assert sorted(writers) == ["0x65830", "0x6CB20", "0x6F230"], "New crenel high-bit writer: " + str(writers)
 hook_source = (workspace / "Testmods/CrenelatedWallTest/src/StraightGraphicsHook.cs").read_text(encoding="utf-8-sig")
+preview_source = (workspace / "Testmods/CrenelatedWallTest/src/PreviewValidationHook.cs").read_text(encoding="utf-8-sig")
+preview_body = bytes.fromhex(re.search(r'BodyHex = "([0-9A-F]+)"', preview_source)[1])
+assert len(preview_body) == 1627 and image.get_data(0x7A3B0, 1627) == preview_body
+preview_entry = list(decoder.disasm(preview_body[:18], 0x18007A3B0))
+assert [i.size for i in preview_entry] == [4, 1, 1, 1, 2, 2, 7]
+assert preview_entry[-1].address + preview_entry[-1].size == 0x18007A3C2
+assert 0x405EDB0 + 0x204E6E4 == 0x60AD494
+preview_users = [rva for rva, code in rows if "FUN_18007a3b0(" in code and rva != "0x7A3B0"]
+assert sorted(preview_users) == ["0x6F230", "0x94120"], "Validator gained an unaudited caller"
+def code_at(rva):
+    return next(code for key, code in rows if key == rva)
+assert "FUN_180077cf0(" in code_at("0x6CB20") and "FUN_18007a3b0(" not in code_at("0x6CB20")
+assert "*(undefined8 *)(param_1 + 0x204e6e4) = 1;" in code_at("0x7A3B0")
+assert "*(undefined4 *)(param_1 + 0x204e6e4) = 0;" in code_at("0x7A3B0")
+assert "DAT_1860ad494 == 0" in code_at("0x94120")
+preview_render = code_at("0x61210")
+assert "*(int *)(param_1 + 0x204e6e4) != 0" in preview_render
+assert "= 0x60014" in preview_render and "= 0x60004" in preview_render
+assert "*(undefined4 *)(param_1 + 0x204e75c) = 0;" in preview_render
+assert "FUN_1800c8cc0(&DAT_1864ccbb0,param_2,uVar6,uVar7,1)" in preview_render
 predicate = bytes.fromhex(re.search(r'BodyHex = "([0-9A-F]+)"', hook_source)[1])
 assert len(predicate) == 237 and image.get_data(0x5C2D0, 237) == predicate
 prologue = list(decoder.disasm(predicate[:15], 0x18005C2D0))
@@ -84,6 +109,7 @@ assert callers == ["0x65830"], "Straight predicate gained a non-graphics consume
 decoder.detail = True
 decoder.skipdata = True
 entry_calls = []
+preview_calls = []
 for section in image.sections:
     if not section.Characteristics & 0x20000000:
         continue
@@ -94,9 +120,14 @@ for section in image.sections:
             if op.type != capstone.x86.X86_OP_IMM:
                 continue
             assert not 0x18005C2D0 < op.imm < 0x18005C2DF, "Incoming edge into displaced prologue"
+            assert not 0x18007A3B0 < op.imm < 0x18007A3C2, "Incoming edge into preview prologue"
+            if op.imm == 0x18007A3B0:
+                preview_calls.append(ins.address)
             if op.imm == 0x18005C2D0:
                 entry_calls.append(ins.address)
 assert entry_calls == [0x180065DD6, 0x180065E4F]
+assert preview_calls == [0x18006F299, 0x1800941F1]
 backend = game / "BepInEx/plugins/000shcdese/RedBird.Backends.NativeX64.dll"
 assert hashlib.sha256(backend.read_bytes()).hexdigest().upper() == re.search(r'BackendHash = "([0-9A-F]+)"', hook_source)[1]
 print("PASS: current native SHA-256,", len(contracts), "feature functions, Chore-25, all high-bit writers, graphics-only callers, full 237-byte predicate, Absolute/15 entry/continuation, incoming edges and installed NativeX64 identity. Audit only; no hooks installed.")
+print("PASS: complete 1627-byte preview validator, Absolute/18/7A3C2, only preview/execution callers, shared invalid-status identity, native red/valid sprites, zero invalid preview costs and separate AI validator.")

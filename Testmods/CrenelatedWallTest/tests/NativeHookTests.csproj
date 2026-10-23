@@ -15,7 +15,8 @@
     <Reference Include="System.Threading.Tasks.Extensions"><HintPath>$(ExtenderDir)/System.Threading.Tasks.Extensions.dll</HintPath></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath></Reference>
     <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath></Reference>
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath></Reference>
   </ItemGroup>
-  <ItemGroup><Compile Include="NativeHookTests.cs"/><Compile Include="../src/StraightGraphicsHook.cs" Link="StraightGraphicsHook.cs"/><Compile Include="../src/EndpointGraphicsPolicy.cs" Link="EndpointGraphicsPolicy.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="NativeHookTests.cs"/><Compile Include="PreviewHookTests.cs"/><Compile Include="../src/PreviewValidationHook.cs"/><Compile Include="../src/StraightGraphicsHook.cs" Link="StraightGraphicsHook.cs"/><Compile Include="../src/EndpointGraphicsPolicy.cs" Link="EndpointGraphicsPolicy.cs"/></ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
 </Project>

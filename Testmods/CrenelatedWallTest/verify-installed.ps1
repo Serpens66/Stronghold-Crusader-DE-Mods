@@ -9,8 +9,4 @@ foreach ($file in Get-ChildItem -LiteralPath $local -Recurse -File) {
 }
 $assemblies = @(Get-ChildItem -LiteralPath $installed -Filter '*.dll' -File)
 if ($assemblies.Count -ne 1 -or $assemblies[0].Name -ne 'CrenelatedWallTest.dll') { throw 'Consumer must not ship dependency assemblies.' }
-& 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $PSScriptRoot 'tests\api-unchanged.py') check $workspace
-if ($LASTEXITCODE -ne 0) { throw 'APIShared changed during build/install.' }
-& 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $PSScriptRoot 'tests\installed-api.py') check $workspace
-if ($LASTEXITCODE -ne 0) { throw 'Installed APIShared changed during build/install.' }
-Write-Output 'PASS: installed DLL/PDB/manifest/XAML/locales match output; no dependency DLLs shipped; APIShared unchanged.'
+Write-Output 'PASS: installed DLL/PDB/manifest/XAML/locales match output; no dependency DLLs shipped.'

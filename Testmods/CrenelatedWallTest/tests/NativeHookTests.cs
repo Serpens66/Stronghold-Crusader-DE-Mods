@@ -60,6 +60,7 @@ internal static class NativeHookTests
             }
             owner.Publish(null); Check(invoke(data, 100, 0, 0) == candidate.Original(data, 100, 0, 0), "Empty snapshot remains original");
             Console.WriteLine("PASS: " + checks + " installed NativeX64 fixture checks; Absolute/15, entry, trampoline continuation, exact original ABI and actual disabled callback. No game hook installed.");
+            PreviewHookTests.Run();
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

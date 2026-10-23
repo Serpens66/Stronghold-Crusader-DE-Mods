@@ -46,6 +46,9 @@ namespace CrenelatedWallTest
         private readonly WallSettings settings;
         private readonly NativeAvailability availability;
         private readonly StraightGraphicsHook graphics;
+        private readonly PreviewValidationHook preview;
+        private readonly PreviewAdmissionCache previewCache = new PreviewAdmissionCache();
+        [ThreadStatic] private static int buildDepth;
         private readonly NativeWallWorld world = new NativeWallWorld();
         private readonly SortedDictionary<int, WallCell> tracked = new SortedDictionary<int, WallCell>();
         private readonly Dictionary<int, int> signatures = new Dictionary<int, int>();
@@ -66,7 +69,11 @@ namespace CrenelatedWallTest
             internal List<WallCell> Before;
         }
         internal WallRuntime(ManualLogSource log, WallSettings settings, NativeAvailability availability)
-        { this.log = log; this.settings = settings; this.availability = availability; graphics = new StraightGraphicsHook(log); }
+        {
+            this.log = log; this.settings = settings; this.availability = availability;
+            graphics = new StraightGraphicsHook(log);
+            preview = new PreviewValidationHook(log, Plugin.Guid, RejectPreview);
+        }
         internal void Register(ModApiClient api, CrusaderLibraryLoadContext library)
         {
             if (!api.TryGetMissionLifecycle(out missions, out var diagnostic) ||
@@ -79,6 +86,7 @@ namespace CrenelatedWallTest
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(Damaged));
             GameTimeManagerAPI.Instance.OnTick += Tick;
             graphics.Install(library);
+            preview.Install(library); // Optional: execution protection survives a preview conflict.
             initialized = true;
             Shared.DebugLogHelper.LogInfo(log, "CRENEL_READY durable publishers=OnBuildWall,APIShared missions,ModSaveDataAPI,OnTick; permanent local graphics predicate.");
         }
@@ -119,9 +127,14 @@ namespace CrenelatedWallTest
             active = activationRequested = activationCaptured = ready = restorePending = tickLogged = callbackLogged = false;
             tracked.Clear(); signatures.Clear(); builds.Clear(); pendingSave = null; scanIds = new int[0]; scanCursor = 0;
             graphics.Publish(null);
+            previewCache.Clear();
         }
         private void BuildWall(BuildWallEventArgs e)
         {
+            // OnBuildWall wraps the original synchronously. Only this thread's
+            // native validator belongs to execution; another peer's preview cannot.
+            if (e.Phase == EventHookPhase.Pre) buildDepth++;
+            else if (e.Phase == EventHookPhase.Post && buildDepth > 0) buildDepth--;
             lock (sync)
             {
                 if (e.Phase == EventHookPhase.Pre)
@@ -136,9 +149,7 @@ namespace CrenelatedWallTest
                             Before = WallPolicy.Raster(world, e.TileXBegin, e.TileYBegin, e.TileXEnd, e.TileYEnd, e.BuildWallsMaximum),
                             Stone = GamePlayerManagerAPI.Instance.GetGoodAmount(e.PlayerId, eGoods.STORED_STONE_BLOCKS) };
                         builds.Pop(); builds.Push(scope);
-                        List<WallCell> predicted = WallPolicy.Predict(scope.Before, scope.Owner, availability.Get(scope.Owner));
-                        if (predicted.Count == 0) return;
-                        WallPlan plan = WallPolicy.Plan(world, scope.Owner, predicted, true, tracked);
+                        WallPlan plan = WallAdmission.Evaluate(world, scope.Owner, scope.Before, availability.Get(scope.Owner), tracked);
                         if (!plan.Accepted)
                         {
                             scope.Rejected = true; e.BuildWallsMaximum = 0;
@@ -180,6 +191,20 @@ namespace CrenelatedWallTest
                     Shared.DebugLogHelper.LogInfo(log, "CRENEL_BUILD owner=" + completed.Owner + "; line=" + Line(completed) + "; built=" + added.Count + "; eligible=" + plan.Heights.Count + "; changed=" + changed + "; unchanged=" + (plan.Heights.Count - changed) + "; anchors=" + plan.Anchors + "; equalPairs=" + plan.EqualPairs + "; noTriples=true.");
                 }
                 catch (Exception ex) { Error("post", ex); }
+            }
+        }
+        private bool RejectPreview(IntPtr manager, int owner, uint x, uint y, uint endX, uint endY, short mapper)
+        {
+            if (buildDepth != 0 || mapper != (short)eMappers.MAPPER_CRENAL) return false;
+            lock (sync)
+            {
+                if (!initialized || !ready || !active || manager != world.Tiles.GetTileManager() ||
+                    !GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) ||
+                    (!context.IsEditor && GamePlayerManagerAPI.Instance.IsAIPlayer(owner))) return false;
+                // 94120 queues CF640's result as BuildWallsMaximum (raster visits),
+                // independently of 6F230's actual-placement quota. Preserve both.
+                int quota = availability.Get(owner);
+                return !previewCache.Evaluate(world, owner, (int)x, (int)y, (int)endX, (int)endY, quota, tracked).Accepted;
             }
         }
         private int Apply(WallPlan plan)

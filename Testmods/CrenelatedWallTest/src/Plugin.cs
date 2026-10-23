@@ -27,7 +27,7 @@ namespace CrenelatedWallTest
                 LobbyModSettingsPresetRegistration.Register(this, log, Name, settings,
                     "ScriptExtenderUI/CrenelatedWallTestSettings.xaml");
                 CrusaderLibrary.Instance.LibraryLoaded += LibraryLoaded;
-                Shared.DebugLogHelper.LogInfo(log, "CRENEL_BOOT version=" + Version + "; revision=editor-endpoints-20261015; APIShared public services only; permanent local endpoint graphics hook.");
+                Shared.DebugLogHelper.LogInfo(log, "CRENEL_BOOT version=" + Version + "; revision=vanilla-preview-20261023; APIShared public services only; permanent local endpoint and preview hooks.");
             }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "CRENEL_INIT_FAILED settings: " + ex); }
         }

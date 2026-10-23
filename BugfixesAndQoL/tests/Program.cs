@@ -40,6 +40,29 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length > 0 && string.Equals(args[0], "--settings-ui", StringComparison.Ordinal))
+            {
+                TestTimerCountdownMigration();
+                TestWaterboyTargetReservationIntegration();
+                TestKeepFlagRotationIntegration();
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "SurrenderFeature.cs")));
+                TestPlacementCancelMoveSuppressionIntegration();
+                TestNotificationSkipIntegration();
+                TestResolutionAwareZoomIntegration();
+                TestMultiplayerSafetyPolicy();
+                TestBriefingNoStartingGoldFix();
+                TestLobbyYellowContrast();
+                TestTrailCustomizationOwnership();
+                TestTunnelPlacementDistanceIntegration();
+                TestFriendlyMoatMovementIntegration();
+                TestAiDefensePatrolIntegration();
+                TestAiStoneReserveIntegration();
+                TestAiWallTargetingIntegration();
+                CorruptLordDataSpawnTests.Run(Check);
+                SkirmishGameOptionsTests.RunSettingsUiChecks(Check);
+                Console.WriteLine("Settings UI integration checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length == 1 && args[0] == "--notifications")
             {
                 TestNotificationSkipPolicy();
@@ -4240,11 +4263,12 @@ namespace BugfixesAndQoL
             Check(xaml.Contains("EnableTunnelPlacementDistanceFix, Mode=TwoWay") &&
                     xaml.Contains("bugfixes.enable-tunnel-placement-distance-fix"),
                 "tunnel distance fix is exposed in the settings UI");
-            Check(xaml.Contains(
-                    "<Grid Style=\"{StaticResource ModSettingsSearchTargetGrid}\" shared:ModSettingsSearch.Key=\"bugfixes.category.client-qol\"") &&
-                    !xaml.Contains(
-                    "<TextBlock Text=\"{Binding QolTitleText}\" Style=\"{StaticResource CategoryHeader}\" Margin=\"0,8,0,4\" shared:ModSettingsSearch.Key=\"bugfixes.category.client-qol\""),
-                "client QoL category uses the neutral Grid search target wrapper");
+            var settingsDocument = new XmlDocument();
+            settingsDocument.LoadXml(xaml);
+            XmlNodeList headings = settingsDocument.SelectNodes("//*[local-name()='TextBlock' and @Text='{Binding QolTitleText}']");
+            Check(headings.Count > 0 && headings.Cast<XmlNode>().All(heading =>
+                    heading.Attributes.Cast<XmlAttribute>().All(attribute => attribute.LocalName != "ModSettingsSearch.Key")),
+                "static QoL headings have no orphaned search targets; searchable settings retain their Grid wrappers");
         }
 
         private static void TestFriendlyMoatMovementPolicy()

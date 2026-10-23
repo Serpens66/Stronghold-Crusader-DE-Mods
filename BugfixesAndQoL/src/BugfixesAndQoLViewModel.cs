@@ -23,6 +23,30 @@ namespace BugfixesAndQoL
 
         public event Action<string> SettingChanged;
 
+        public ModSettingsPresentation SettingsPresentation { get; }
+
+        private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
+                args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
+                args.PropertyName == nameof(System_ModSettingsSearchExactKey))
+                RefreshSettingsPresentation();
+        }
+
+        private void OnSettingsSearchSourceChanged(object owner)
+        {
+            if (!ReferenceEquals(owner, this)) return;
+            SettingsPresentation.RefreshLocalization();
+            RefreshSettingsPresentation();
+        }
+
+        private void RefreshSettingsPresentation()
+        {
+            APIShared.ModSettings.ModSettingsSearchCatalog.TryGetEntries(this, out var entries);
+            SettingsPresentation.RefreshSearch(System_ModSettingsSearchText, System_ModSettingsSearchIncludeToolTips,
+                System_ModSettingsSearchExactKey, entries);
+        }
+
         private bool enableMod = true;
         private bool enableLordAndMapListEnhancements = true;
         private bool enableMissingMapSaveRecovery = true;
@@ -222,6 +246,11 @@ namespace BugfixesAndQoL
         {
             this.steamInviteBlacklist = steamInviteBlacklist ?? throw new ArgumentNullException(nameof(steamInviteBlacklist));
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            SettingsPresentation = new ModSettingsPresentation(CancelHealthBarCapture);
+            // Both publishers and the registered settings model live for the process lifetime.
+            // No component teardown subscription and no per-frame polling are needed.
+            ((System.ComponentModel.INotifyPropertyChanged)this).PropertyChanged += OnSettingsPresentationPropertyChanged;
+            APIShared.ModSettings.ModSettingsSearchCatalog.SourceChanged += OnSettingsSearchSourceChanged;
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
             RestoreHdMarketOrderCommand = new RelayCommand(RestoreHdMarketOrder);
@@ -389,7 +418,7 @@ namespace BugfixesAndQoL
         public string EnableAllyGoodsAmountModifiersHelpText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiersHelp);
         public string EnableMultiplayerGameSpeedChangesText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChanges);
         public string EnableMultiplayerGameSpeedChangesHelpText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChangesHelp);
-        public string MultiplayerGameSpeedMaximumText => SerpLocalization.Get(SerpLocalization.MultiplayerGameSpeedMaximum);
+        public string MultiplayerGameSpeedMaximumText => SerpLocalization.Get("BugfixesAndQoL.SettingsRework.MaximumGameSpeed");
         public string MultiplayerGameSpeedMaximumHelpText => SerpLocalization.Get(SerpLocalization.MultiplayerGameSpeedMaximumHelp);
         public string[] MultiplayerTimeControlPermissionOptions => new[]
         {
