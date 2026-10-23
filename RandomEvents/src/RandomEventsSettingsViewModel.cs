@@ -21,6 +21,7 @@ namespace RandomEvents
         private int fireMin = 1, fireMax = 10;
         private int multiplayerEventMode;
         private bool includeAIPlayers;
+        private bool showEventChatMessages = true;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -58,6 +59,8 @@ namespace RandomEvents
         public string MultiplayerModeHelpText => SerpLocalization.Get("RandomEvents.MultiplayerModeHelp");
         public string IncludeAIPlayersText => SerpLocalization.Get("RandomEvents.IncludeAIPlayers");
         public string IncludeAIPlayersHelpText => SerpLocalization.Get("RandomEvents.IncludeAIPlayersHelp");
+        public string ShowEventChatMessagesText => SerpLocalization.Get("RandomEvents.ShowEventChatMessages");
+        public string ShowEventChatMessagesHelpText => SerpLocalization.Get("RandomEvents.ShowEventChatMessagesHelp");
         public string[] MultiplayerModeOptions => new[]
         {
             SerpLocalization.Get("RandomEvents.MultiplayerShared"),
@@ -115,6 +118,7 @@ namespace RandomEvents
         [SyncHostOnly] public int CooldownMonths { get => cooldownMonths; set => SetClamped(ref cooldownMonths, value, 0, 90, nameof(CooldownMonths)); }
         [SyncHostOnly] public int MultiplayerEventModeIndex { get => multiplayerEventMode; set => SetClamped(ref multiplayerEventMode, value, 0, 1, nameof(MultiplayerEventModeIndex)); }
         [SyncHostOnly] public bool IncludeAIPlayers { get => includeAIPlayers; set => Set(ref includeAIPlayers, value, nameof(IncludeAIPlayers)); }
+        [PresetLocal] public bool ShowEventChatMessages { get => showEventChatMessages; set => Set(ref showEventChatMessages, value, nameof(ShowEventChatMessages)); }
 
         [SyncHostOnly] public int FairChance { get => Chance(RandomEventKind.Fair); set => SetChance(RandomEventKind.Fair, value, nameof(FairChance)); }
         [SyncHostOnly] public int PlagueChance { get => Chance(RandomEventKind.Plague); set => SetChance(RandomEventKind.Plague, value, nameof(PlagueChance)); }
@@ -178,6 +182,8 @@ namespace RandomEvents
 
         private void ResetToDefault()
         {
+            if (CanEditClientSettings)
+                ShowEventChatMessages = true;
             if (!CanEditHostSettings)
                 return;
 

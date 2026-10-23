@@ -124,6 +124,11 @@ internal static class Program
                 Console.WriteLine("PASS: settings opacity, activation notifications, editable values, snapshots and host/client authority.");
                 return 0;
             }
+            if (args != null && args.Length == 1 && args[0] == "random-events-chat")
+            {
+                RandomEventsChatPresetTests.Run();
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "extreme-powers-presets")
             {
                 ExtremePowersPresetTests.Run();
@@ -249,6 +254,7 @@ internal static class Program
             TestCastlePlannerBlueprintHudPolicies();
             TestCastleSpawnContentPolicy();
             TestSnapshotCompletionHook();
+            RandomEventsChatPresetTests.Run();
             ExtremePowersPresetTests.Run();
             TestFreeCastleProtocol();
             TestModSettingsSearchPolicy();

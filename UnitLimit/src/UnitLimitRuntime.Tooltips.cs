@@ -1,3 +1,5 @@
+using APIShared.Presentation;
+using System.Collections.Generic;
 using CrusaderDE;
 using SHCDESE.Interop;
 using System;
@@ -10,26 +12,30 @@ namespace UnitLimit
         private eChimps currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
         private bool hasCurrentTooltipUnitType;
 
-        private void UpdateRecruitmentLimitTooltip(MainViewModel mainViewModel)
-        {
-            if (mainViewModel == null)
-            {
-                ClearUnitLimitTooltip();
-                return;
-            }
+        private IReadOnlyList<TooltipLine> unitLimitLines = Array.Empty<TooltipLine>();
+        private string lastUnitLimitText;
+        private TooltipTarget? currentLimitTooltipTarget;
 
-            UpdateUnitLimitTooltip(GetLastTroopBuildChimp(mainViewModel));
+        private void RegisterUnitLimitTooltip(TooltipTarget target, string id)
+        {
+            if (!TooltipPresentation.TryRegisterContent(UnitLimitPlugin.PluginGuid, id, target,
+                TooltipPlacement.BeforeMainLine, GetUnitLimitTooltip, out string reason)) throw new InvalidOperationException(reason);
+            if (target == TooltipTarget.SiegeConstruction && !TooltipPresentation.TryRegisterText(UnitLimitPlugin.PluginGuid,
+                "SiegeNotification", target, TooltipPlacement.AfterMainLine,
+                context => context.IsActive && IsEffectsActive && SiegeLimitNotification.IsVisible ? SiegeLimitNotification.Message : null,
+                out reason, order: 1)) throw new InvalidOperationException(reason);
         }
 
-        private void UpdateSiegeBuildLimitTooltip(object parameter)
+        private IReadOnlyList<TooltipLine> GetUnitLimitTooltip(TooltipContext context)
         {
-            if (!TryGetSiegeBuildHoverUnit(parameter, out eChimps unitType))
+            if (!context.IsActive || !context.UnitType.HasValue)
             {
-                ClearUnitLimitTooltip();
-                return;
+                if (currentLimitTooltipTarget == context.Target) { ClearUnitLimitTooltip(); currentLimitTooltipTarget = null; }
+                return Array.Empty<TooltipLine>();
             }
-
-            UpdateUnitLimitTooltip(unitType);
+            currentLimitTooltipTarget = context.Target;
+            UpdateUnitLimitTooltip((eChimps)context.UnitType.Value);
+            return unitLimitLines;
         }
 
         private void UpdateUnitLimitTooltip(eChimps unitType)
@@ -46,7 +52,8 @@ namespace UnitLimit
 
             if (!IsEffectsActive)
             {
-                UnitLimitTooltip.Clear();
+                unitLimitLines = Array.Empty<TooltipLine>();
+                lastUnitLimitText = null;
                 return;
             }
 
@@ -56,30 +63,27 @@ namespace UnitLimit
                 !activeUnitLimits.TryGetValue(currentTooltipUnitType, out int limit) ||
                 limit < 0)
             {
-                UnitLimitTooltip.Clear();
+                unitLimitLines = Array.Empty<TooltipLine>();
+                lastUnitLimitText = null;
                 return;
             }
 
             RemoveExpiredPendingRecruitments();
             int count = GetEffectiveUnitCount(playerId, currentTooltipUnitType);
-            UnitLimitTooltip.Show(count, limit);
+            string text = SerpLocalization.Get(SerpLocalization.Limit) + ": " + count + "/" + limit;
+            if (text != lastUnitLimitText)
+            { lastUnitLimitText = text; unitLimitLines = new[] { new TooltipLine(new TooltipText(text, 0xFFEFF3C6)) }; }
         }
 
         private void ClearUnitLimitTooltip()
         {
             hasCurrentTooltipUnitType = false;
             currentTooltipUnitType = eChimps.CHIMP_TYPE_NULL;
-            UnitLimitTooltip.Clear();
+            unitLimitLines = Array.Empty<TooltipLine>();
+            lastUnitLimitText = null;
         }
 
         // Both fields are public in the shipped Assembly-CSharp; typed reads avoid reflection and boxing.
-        private static eChimps GetLastTroopBuildChimp(MainViewModel mainViewModel)
-        {
-            if (mainViewModel == null)
-                return eChimps.CHIMP_TYPE_ARCHER;
-
-            return (eChimps)(int)mainViewModel.lastTroopBuildChimp;
-        }
 
         private static bool TryGetCurrentVanillaRecruitAmount(eChimps unitType, out int amount)
         {
@@ -95,33 +99,6 @@ namespace UnitLimit
             return true;
         }
 
-        private static bool TryGetSiegeBuildHoverUnit(object parameter, out eChimps unitType)
-        {
-            switch (parameter as string)
-            {
-                case "UnitBuildCat":
-                    unitType = eChimps.CHIMP_TYPE_CATAPULT;
-                    return true;
-                case "UnitBuildTreb":
-                    unitType = eChimps.CHIMP_TYPE_TREBUCHET;
-                    return true;
-                case "UnitBuildRam":
-                    unitType = eChimps.CHIMP_TYPE_BATTERING_RAM;
-                    return true;
-                case "UnitBuildTower":
-                    unitType = eChimps.CHIMP_TYPE_SIEGE_TOWER;
-                    return true;
-                case "UnitbuildMantlet":
-                    unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
-                    return true;
-                case "UnitbuildArabBallista":
-                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
-                    return true;
-                default:
-                    unitType = eChimps.CHIMP_TYPE_NULL;
-                    return false;
-            }
-        }
     }
 }
 

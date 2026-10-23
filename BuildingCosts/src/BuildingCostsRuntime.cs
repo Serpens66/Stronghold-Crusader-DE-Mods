@@ -25,9 +25,6 @@ namespace BuildingCosts
         private bool hooksSubscribed;
         private bool libraryInitialized;
         private bool vanillaCostTooltipReadFailureLogged;
-        // Typed getters replace FieldInfo.GetValue (reflection plus boxing on every rollover).
-        private Func<HUD_Main, int> readHoverStruct;
-        private Func<HUD_Main, int> readSelectedStruct;
         private int lastTooltipStruct = int.MinValue;
         private int lastLocalPlayerId = int.MinValue;
         private int lastResourceSignature = int.MinValue;
@@ -36,6 +33,7 @@ namespace BuildingCosts
         private string lastVanillaTooltipText;
         private string lastVanillaCostText;
         private bool tooltipIsClear = true;
+        private IReadOnlyList<TooltipLine> tooltipLines = Array.Empty<TooltipLine>();
         private IBuildingRepairCapability repairCapability;
 
         private static readonly Dictionary<eMappers, BuildingCostDefinition> BuildingCostDefinitions = CreateBuildingCostDefinitions();
@@ -146,31 +144,17 @@ namespace BuildingCosts
 
         private void InstallUpdateRolloverHook()
         {
-            FieldInfo hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            FieldInfo selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (hoverStructField == null || selectedStructField == null ||
-                hoverStructField.FieldType != typeof(int) || selectedStructField.FieldType != typeof(int))
-                throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
-            readHoverStruct = CreateIntFieldGetter(hoverStructField);
-            readSelectedStruct = CreateIntFieldGetter(selectedStructField);
-
-            if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, BuildingCostsPlugin.PluginGuid,
-                "BuildingTooltip", null, args => {
-                    if (args.OriginalCompleted) UpdateRolloverHookImpl(args.BuildingHud);
-                }, out string reason)) throw new InvalidOperationException(reason);
+            if (!TooltipPresentation.TryRegisterContent(BuildingCostsPlugin.PluginGuid, "BuildingTooltip",
+                TooltipTarget.BuildingCompact | TooltipTarget.BuildingDetailed, TooltipPlacement.InlineAfterCosts,
+                GetBuildingTooltip, out string reason)) throw new InvalidOperationException(reason);
         }
 
-        // Validated private int field of the real HUD_Main (checked above); the dynamic method
-        // is owned by HUD_Main so the private read stays inside the runtime's visibility rules.
-        private static Func<HUD_Main, int> CreateIntFieldGetter(FieldInfo field)
+        private IReadOnlyList<TooltipLine> GetBuildingTooltip(TooltipContext context)
         {
-            var method = new System.Reflection.Emit.DynamicMethod(
-                "BuildingCosts_Read_" + field.Name, typeof(int), new[] { typeof(HUD_Main) }, typeof(HUD_Main), true);
-            System.Reflection.Emit.ILGenerator il = method.GetILGenerator();
-            il.Emit(System.Reflection.Emit.OpCodes.Ldarg_0);
-            il.Emit(System.Reflection.Emit.OpCodes.Ldfld, field);
-            il.Emit(System.Reflection.Emit.OpCodes.Ret);
-            return (Func<HUD_Main, int>)method.CreateDelegate(typeof(Func<HUD_Main, int>));
+            if (!EffectsEnabled) { ClearBuildingCostTooltip(); return Array.Empty<TooltipLine>(); }
+            if (!context.IsActive) return Array.Empty<TooltipLine>();
+            UpdateBuildingCostTooltip(context);
+            return tooltipLines;
         }
 
         private void SubscribeSettingsChanges()
@@ -493,18 +477,7 @@ namespace BuildingCosts
             return changed;
         }
 
-        private void UpdateRolloverHookImpl(HUD_Main self)
-        {
-
-            if (!EffectsEnabled)
-            {
-                ClearBuildingCostTooltip();
-                return;
-            }
-            UpdateBuildingCostTooltip(self);
-        }
-
-        private void UpdateBuildingCostTooltip(HUD_Main hud)
+        private void UpdateBuildingCostTooltip(TooltipContext context)
         {
             try
             {
@@ -518,22 +491,9 @@ namespace BuildingCosts
                 }
 
                 MainViewModel vanilla = MainViewModel.Instance;
-                if (repairCapability != null &&
-                    repairCapability.TryGetSelectedQuote(out BuildingRepairQuote repairQuote) &&
-                    repairQuote.CurrentHealth < repairQuote.MaxHealth &&
-                    string.Equals(vanilla.RollOverText?.Trim(),
-                        Translate.Instance.lookUpText(Enums.eTextSections.TEXT_BUBBLE_HELP_TEXT,
-                            Enums.eTextValues.BHELP_TEXT_REPAIR), StringComparison.Ordinal))
-                {
-                    ClearBuildingCostTooltip();
-                    return;
-                }
-
                 bool detailedTooltipVisible = vanilla.RolloverBuilding_TooltipVis;
                 bool compactTooltipVisible = vanilla.RolloverBuilding_TooltipVisNot;
-                int hoverStruct = readHoverStruct(hud);
-                int selectedStruct = readSelectedStruct(hud);
-                int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
+                int tooltipStruct = context.BuildingType;
 
                 if (tooltipStruct <= 0 || (!detailedTooltipVisible && !compactTooltipVisible))
                 {
@@ -553,7 +513,8 @@ namespace BuildingCosts
                     return;
                 }
 
-                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                int localPlayerId = context.LocalPlayerId;
+                if (localPlayerId <= 0) { ClearBuildingCostTooltip(); return; }
                 int resourceSignature = GetTooltipResourceSignature(localPlayerId);
                 string vanillaCostText = vanilla.RollOverText_AmountReq1 + vanilla.RollOverText_AmountGot1 +
                     vanilla.RollOverText_AmountReq2 + vanilla.RollOverText_AmountGot2;
@@ -578,23 +539,18 @@ namespace BuildingCosts
                 lastVanillaCostText = vanillaCostText;
 
                 List<BuildingCostTooltipEntry> entries = CreateAdditionalTooltipEntries(building, localPlayerId);
-                if (entries.Count > 0)
+                if (entries.Count == 0) tooltipLines = Array.Empty<TooltipLine>();
+                else
                 {
-                    entries.Insert(0, new BuildingCostTooltipEntry
+                    var segments = new List<TooltipSegment>(entries.Count * 3);
+                    foreach (var entry in entries)
                     {
-                        AmountRequired = vanilla.RollOverText_AmountReq2,
-                        AmountAvailable = vanilla.RollOverText_AmountGot2,
-                        Image = vanilla.RollOverText_GoodsImage2
-                    });
-                    entries.Insert(0, new BuildingCostTooltipEntry
-                    {
-                        AmountRequired = vanilla.RollOverText_AmountReq1,
-                        AmountAvailable = vanilla.RollOverText_AmountGot1,
-                        Image = vanilla.RollOverText_GoodsImage1
-                    });
-                    entries.Insert(0, new BuildingCostTooltipEntry { Title = vanilla.RollOverText, IsTitle = true });
+                        segments.Add(new TooltipText(entry.AmountRequired));
+                        segments.Add(new TooltipSymbol(entry.Image));
+                        segments.Add(new TooltipText(entry.AmountAvailable));
+                    }
+                    tooltipLines = new[] { new TooltipLine(segments.ToArray()) };
                 }
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip(entries, entries.Count > 0);
                 tooltipIsClear = false;
             }
             catch (Exception ex)
@@ -610,8 +566,9 @@ namespace BuildingCosts
             if (tooltipIsClear)
                 return;
 
-            BuildingCostsPlugin.BuildingCostTooltipViewModel.Clear();
+            tooltipLines = Array.Empty<TooltipLine>();
             tooltipIsClear = true;
+            ResetTooltipCache();
         }
 
         private void ResetTooltipCache()

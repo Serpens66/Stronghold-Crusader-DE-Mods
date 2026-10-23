@@ -102,10 +102,8 @@
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs">
       <Link>Shared\Runtime\Localization\SerpLocalization.cs</Link>
     </Compile>
-    <Compile Include="src\CreateTroopHoverHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\RecruitmentAvailabilityUiHook.cs" />
-    <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitCostValues.cs" />
     <Compile Include="src\UnitExtraCostValues.cs" />
     <Compile Include="src\UnitExtraHorseCostPolicy.cs" />
@@ -117,7 +115,6 @@
     <Compile Include="src\UnitCostsPlugin.cs" />
     <Compile Include="src\UnitCostsRuntime.cs" />
     <Compile Include="src\UnitRecruitmentCostEntry.cs" />
-    <Compile Include="src\UnitRecruitmentCostTooltipViewModel.cs" />
   </ItemGroup>
 
   <ItemGroup>

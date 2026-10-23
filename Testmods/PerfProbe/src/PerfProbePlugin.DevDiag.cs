@@ -33,15 +33,18 @@ namespace PerfProbe
             PerfProbeExtras.BindConfig(config);
             PerfProbeThreadSampler.BindConfig(config);
             // The sampler starts in Awake to cover plugin startup; DevDiag output needs the logger now.
-            // Measurement series may defer it: suspending the main thread while Harmony patches
-            // Director.Update occasionally hung the start (runs X1OFF/G1SE, 2026-10-23). The
-            // LibraryLoaded installation below starts it after PerfProbe's own patches.
-            bool defer = config.Bind("Sampler", "DeferUntilPatched", false,
-                "Start the thread sampler only after PerfProbe's own patches (plugin startup is then not sampled).").Value;
+            // Default: start only after plugin startup (120 rendered frames). Sampling the main thread
+            // during plugin loading hung the game start several times on 2026-10-23 (see
+            // PerfProbeThreadSampler.WarmUp); LibraryLoaded fires synchronously inside this Awake
+            // when the extender is already loaded, so "after PerfProbe's patches" was still startup.
+            bool defer = config.Bind("Sampler", "DeferUntilPatched", true,
+                "Start the thread sampler only after plugin startup, at the 120th rendered frame (plugin startup is then not sampled). " +
+                "false samples startup too; that can hang the game start while plugins load.").Value;
             // Baseline runs: all keys stay bound (complete config file), but nothing is attached or started.
             if (PerfProbeAutomation.AutomationOnly) return;
             Shared.DevDiag.Attach(log);
-            if (!defer) PerfProbeThreadSampler.Install();
+            if (defer) PerfProbeThreadSampler.DeferStart = true;
+            else PerfProbeThreadSampler.Install();
         }
 
         static partial void DiagInstall(ManualLogSource logger)
@@ -88,7 +91,8 @@ namespace PerfProbe
             InstallRunTiming();
             PerfProbeExtras.Install(log, harmony);
             PerfProbeSimSampler.Install();
-            PerfProbeThreadSampler.Install();
+            // Deferred samplers start from OnBeforeRender after plugin startup instead.
+            if (!PerfProbeThreadSampler.DeferStart) PerfProbeThreadSampler.Install();
             lowFpsField = AccessTools.Field(typeof(Director), "lowFPSCompensationLevel");
             if (lowFpsField != null && lowFpsField.FieldType != typeof(int)) lowFpsField = null;
             // Statically rooted per-frame sampler; render/camera bound, also while paused.
@@ -284,6 +288,7 @@ namespace PerfProbe
             PerfProbeContext.FirstFrame();
             PerfProbeThreadSampler.NoteMainThread();
             int frame = Time.frameCount;
+            PerfProbeThreadSampler.StartAfterStartup(frame);
             if (frame == lastFrame) return;
             lastFrame = frame;
             long now = Stopwatch.GetTimestamp();

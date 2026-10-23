@@ -143,7 +143,8 @@ $permanentManagedContracts = @(
         Required = @(
             'RecruitmentMaterialUi.TryRegister(',
             'RecruitmentAvailability.TryRegister(',
-            'PresentationEvents.TryRegister('
+            'Volatile.Read(ref published) != 0',
+            'Volatile.Write(ref published, 1)'
         )
         Forbidden = @(
             'materialUiHook?.Undo()',
@@ -157,8 +158,13 @@ $permanentManagedContracts = @(
         Path = 'UnitCosts\src\UnitCostsRuntime.cs'
         Required = @(
             'private volatile int noWeaponsUiMask;',
-            'IsNoWeaponsUiActive, RefreshCurrentRecruitmentCostTooltip, IsRecruitmentAvailabilityActive, IsRecruitmentBlockedByExtraCosts',
-            'noWeaponsUiMask = appliedNoWeaponsMask;'
+            'IsNoWeaponsUiActive, IsRecruitmentAvailabilityActive, IsRecruitmentBlockedByExtraCosts',
+            'noWeaponsUiMask = appliedNoWeaponsMask;',
+            # Tooltip ownership moved from the UI adapter into the central presentation service.
+            # These are source guardrails for permanent registration and logical activation, not runtime proofs.
+            'TooltipPresentation.TryRegisterContent(',
+            'context.IsActive',
+            'TooltipPlacement.InlineAfterCosts'
         )
         Forbidden = @(
             'recruitmentAvailabilityUiHook = null',
@@ -195,14 +201,9 @@ $permanentManagedContracts = @(
         Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'hook?.Undo()', 'hook?.Dispose()')
     },
     @{
-        Path = 'UnitLimit\src\CreateTroopHoverHook.cs'
-        Required = @('PresentationEvents.TryRegister(', 'args.OriginalCompleted')
-        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'enterHook?.Undo()', 'leaveHook?.Undo()')
-    },
-    @{
-        Path = 'UnitLimit\src\SiegeBuildHoverHook.cs'
-        Required = @('PresentationEvents.TryRegister(', 'args.OriginalCompleted')
-        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'enterHook?.Undo()', 'leaveHook?.Undo()')
+        Path = 'UnitLimit\src\UnitLimitRuntime.Tooltips.cs'
+        Required = @('TooltipPresentation.TryRegisterContent(', 'context.IsActive', 'TooltipPlacement.BeforeMainLine')
+        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(')
     },
     @{
         Path = 'UnitLimit\src\RecruitmentAvailabilityUiHook.cs'

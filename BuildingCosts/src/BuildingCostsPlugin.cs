@@ -10,7 +10,7 @@ namespace BuildingCosts
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency(CrusaderDeTweakerGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.9.0")]
+    [BepInDependency("APIShared_Serp", "0.13.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BuildingCostsPlugin : BaseUnityPlugin
     {
@@ -19,9 +19,8 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.115";
+        public const string PluginVersion = "1.0.116";
 
-        internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 
         private static BuildingCostsRuntime runtime;
         private int libraryInitializationStarted;
@@ -63,13 +62,6 @@ namespace BuildingCosts
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:61", $"BuildingCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
-
-            TryInitializeStage("detailed tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingCostsTooltipHost",
-                    BuildingCostTooltipViewModel));
-            TryInitializeStage("compact tooltip binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BuildingCostsTooltipHostCompact",
-                    BuildingCostTooltipViewModel));
 
             try
             {

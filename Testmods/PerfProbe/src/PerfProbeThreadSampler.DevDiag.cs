@@ -132,6 +132,7 @@ namespace PerfProbe
             cadence = new PerfProbeCadence(interval);
             string initialMode = cadence.Mode;
             Shared.DevDiag.Log(() => "samplerCadence mode=" + initialMode + " intervalUs=" + intervalUs + " longRunOnly=" + longRunOnly);
+            WarmUp(context, scratch);
             while (true)
             {
                 try
@@ -158,6 +159,50 @@ namespace PerfProbe
                     return;
                 }
             }
+        }
+
+        // Startup hang (runs X1OFF, G1SE, PPFULL1, T1BFQ and a user start on 2026-10-23): the first
+        // sample suspended the Unity main thread and then reached code that Mono still had to compile
+        // or link (P/Invoke stubs of GetThreadContext/RtlVirtualUnwind/ResumeThread, Marshal helpers,
+        // call-site trampolines). During plugin loading the main thread holds Mono's loader/JIT locks,
+        // so the sampler waited for the suspended thread forever. The whole suspended-window path is
+        // therefore run once against a parked helper thread, which holds no lock, before any real lane.
+        private static void WarmUp(IntPtr context, IntPtr scratch)
+        {
+            int helperId = 0;
+            using (var ready = new ManualResetEvent(false))
+            using (var release = new ManualResetEvent(false))
+            {
+                var helper = new Thread(() => { helperId = (int)GetCurrentThreadId(); ready.Set(); release.WaitOne(); })
+                    { IsBackground = true, Name = "PerfProbe.SamplerWarmUp" };
+                helper.Start();
+                var lane = new Lane { Name = "warmup", Frames = new ulong[MaxFrames], History = new PerfProbeSampleHistory(4, MaxFrames) };
+                try
+                {
+                    ready.WaitOne();
+                    Thread.Sleep(20); // Let the helper enter its kernel wait.
+                    for (int i = 0; i < 3; i++) SampleLane(lane, helperId, context, scratch);
+                }
+                finally
+                {
+                    if (lane.Handle != IntPtr.Zero) CloseThreadHandle(lane.Handle);
+                    release.Set();
+                    helper.Join(1000);
+                }
+            }
+            Shared.DevDiag.Log(() => "threadSampler warm-up completed on a parked helper thread");
+        }
+
+        // Start deferred to the rendered frames after plugin startup (DeferUntilPatched): no plugin or
+        // assembly loading on the main thread any more. Called by PerfProbe's render callback.
+        internal static bool DeferStart;
+        private static bool deferredStartAttempted;
+        private const int DeferredStartFrame = 120;
+        internal static void StartAfterStartup(int frame)
+        {
+            if (!DeferStart || deferredStartAttempted || frame < DeferredStartFrame) return;
+            deferredStartAttempted = true;
+            Install();
         }
 
         private static void SampleLane(Lane lane, int threadId, IntPtr context, IntPtr scratch)

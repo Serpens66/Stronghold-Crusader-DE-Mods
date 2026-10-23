@@ -10,7 +10,7 @@ namespace UnitLimit
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.12.0")]
+    [BepInDependency("APIShared_Serp", "0.13.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitLimitPlugin : BaseUnityPlugin
     {
@@ -19,7 +19,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.107";
+        public const string PluginVersion = "1.0.108";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -75,20 +75,6 @@ namespace UnitLimit
             }
 
             RegisterBinding("UnitLimitNotificationOverlay", runtime.LimitNotification);
-            RegisterBinding("UnitLimitSiegeNotificationInlineHost", runtime.SiegeLimitNotification);
-            string[] tooltipTargets =
-            {
-                "UnitLimitTroopLimitInlineHost",
-                "UnitLimitArabTroopLimitInlineHost",
-                "UnitLimitBedouinTroopLimitInlineHost",
-                "UnitLimitEngineersLimitInlineHost",
-                "UnitLimitTunellersLimitInlineHost",
-                "UnitLimitMonkLimitInlineHost",
-                "UnitLimitSiegeLimitInlineHost",
-            };
-            foreach (string target in tooltipTargets)
-                RegisterBinding(target, runtime.UnitLimitTooltip);
-
             try
             {
                 runtime.InitializeAfterLibraryLoaded();

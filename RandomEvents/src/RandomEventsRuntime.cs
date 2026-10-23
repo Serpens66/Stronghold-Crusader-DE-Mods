@@ -40,6 +40,14 @@ namespace RandomEvents
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
+        private readonly RandomEventsChatAnnouncements chatAnnouncements = new RandomEventsChatAnnouncements();
+        private readonly Action drainChatAnnouncements;
+        private readonly Func<long> getChatSession;
+        private readonly Func<bool> isChatEnabled;
+        private readonly Func<RandomEventChatAnnouncement, bool> displayChatAnnouncement;
+        private readonly Action<Exception> reportChatFailure;
+        private bool chatRenderSubscribed;
+        private int lastChatRenderFrame = -1;
         private readonly ScenarioSignpostRegistry signpostRegistry;
         private readonly SignpostPlacementService signpostPlacement;
         private readonly NativeVanillaEventDispatcher nativeEventDispatcher;
@@ -99,6 +107,11 @@ namespace RandomEvents
         {
             this.log = log;
             this.settings = settings;
+            drainChatAnnouncements = DrainChatAnnouncements;
+            getChatSession = () => System.Threading.Interlocked.Read(ref currentSessionId);
+            isChatEnabled = () => settings.ShowEventChatMessages && Shared.GameplayModActivationGate.IsAllowed;
+            displayChatAnnouncement = TryDisplayChatAnnouncement;
+            reportChatFailure = ex => LogWarning($"Random Events chat announcement failed: {ex}");
             Shared.GameplayModActivationGate.Initialize(log, RandomEventsPlugin.PluginGuid, RandomEventsPlugin.PluginName, () => settings.EnableMod);
             Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
             signpostRegistry = new ScenarioSignpostRegistry(log);
@@ -1305,6 +1318,7 @@ namespace RandomEvents
                     bool effectApplied = DispatchDirectEvent(definition, strength, targetPlayerId);
                     if (!cooldownStartedFromRoll && effectApplied)
                         StartEventCooldown(definition.Kind, targetPlayerId, due);
+                    QueueChatAnnouncement(definition.Kind, targetPlayerId, effectApplied);
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
                         LogDebug($"Random Events action end: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, effectApplied={effectApplied}, cooldownStartedFromRoll={cooldownStartedFromRoll}, prngBefore={prngBefore}, prngAfter={RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1)}, stateDigestBefore={stateDigestBefore}, stateDigestAfter={RandomEventsDiagnostics.GetStateDigest(state)}.");
                 }
@@ -1313,6 +1327,64 @@ namespace RandomEvents
                     LogFeatureFailure($"due batch action {index}", ex);
                 }
             }
+        }
+
+        private void QueueChatAnnouncement(RandomEventKind kind, int targetPlayerId, bool applied)
+        {
+            // Presentation failure must never prevent cooldowns or later simulation actions.
+            try
+            {
+                if (chatAnnouncements.RecordResult(
+                        System.Threading.Interlocked.Read(ref currentSessionId), kind, targetPlayerId, applied) &&
+                    !Shared.UnityMainThreadDispatch.TryEnqueue(drainChatAnnouncements))
+                    LogWarning("Random Events chat dispatch unavailable; announcement remains queued.");
+            }
+            catch (Exception ex) { reportChatFailure(ex); }
+        }
+
+        private void DrainChatAnnouncements()
+        {
+            chatAnnouncements.Drain(getChatSession, isChatEnabled, displayChatAnnouncement, reportChatFailure);
+            // There is no HUD-ready event. Retry only while an announcement awaits the HUD,
+            // including when simulation ticks are paused, without a plugin MonoBehaviour.
+            bool needsRetry = chatAnnouncements.HasPending;
+            if (needsRetry && !chatRenderSubscribed)
+            {
+                UnityEngine.Application.onBeforeRender += OnBeforeRenderChatAnnouncements;
+                chatRenderSubscribed = true;
+            }
+            else if (!needsRetry && chatRenderSubscribed)
+            {
+                UnityEngine.Application.onBeforeRender -= OnBeforeRenderChatAnnouncements;
+                chatRenderSubscribed = false;
+            }
+        }
+
+        private void OnBeforeRenderChatAnnouncements()
+        {
+            int frame = UnityEngine.Time.frameCount;
+            if (lastChatRenderFrame == frame)
+                return;
+            lastChatRenderFrame = frame;
+            DrainChatAnnouncements();
+        }
+
+        private static bool TryDisplayChatAnnouncement(RandomEventChatAnnouncement announcement)
+        {
+            if (!MainViewModel.viewModelLoaded)
+                return false;
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (viewModel.HUDmain == null || viewModel.HUDMPChatMessages == null)
+                return false;
+
+            string playerName = Platform_Multiplayer.Instance.getSkirmishName(announcement.TargetPlayerId);
+            if (string.IsNullOrWhiteSpace(playerName))
+                playerName = string.Format(System.Globalization.CultureInfo.CurrentCulture,
+                    SerpLocalization.Get("RandomEvents.ChatPlayerFormat"), announcement.TargetPlayerId);
+            string eventName = SerpLocalization.Get("RandomEvents.Event." + announcement.Kind);
+            viewModel.HUDMPChatMessages.recieveIngameChat(
+                playerName + ": ", announcement.TargetPlayerId, eventName);
+            return true;
         }
 
         private bool IsEventOffCooldown(

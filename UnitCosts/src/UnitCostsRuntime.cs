@@ -1,3 +1,4 @@
+using APIShared.Presentation;
 using Shared;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -24,8 +25,6 @@ namespace UnitCosts
         private IDisposable unitTransitionSubscription;
         private readonly Dictionary<eChimps, UnitExtraCostValues> humanExtraCosts = new Dictionary<eChimps, UnitExtraCostValues>();
         private MakeTroopGameActionHook makeTroopGameActionHook;
-        private CreateTroopHoverHook createTroopHoverHook;
-        private SiegeBuildHoverHook siegeBuildHoverHook;
         private RecruitmentAvailabilityUiHook recruitmentAvailabilityUiHook;
         private string materialMessageTimerHandle;
         private DateTime nextSiegeMissingResourcesMessageUtc = DateTime.MinValue;
@@ -66,7 +65,8 @@ namespace UnitCosts
             (unit, value) => GameUnitManagerAPI.Instance.SetUnitGoodCosts(unit, value));
 
         public UnitCostsNotificationViewModel Notification { get; } = new UnitCostsNotificationViewModel();
-        public UnitRecruitmentCostTooltipViewModel RecruitmentCostTooltip { get; } = new UnitRecruitmentCostTooltipViewModel();
+        private TooltipTarget? currentCostTooltipTarget;
+        private IReadOnlyList<TooltipLine> recruitmentTooltipLines = Array.Empty<TooltipLine>();
 
         public UnitCostsRuntime(ManualLogSource log, UnitCostsLobbyViewModel settings)
         {
@@ -117,9 +117,8 @@ namespace UnitCosts
                     .Subscribe(OnBuildingSpawn));
 
             TryInitializeFeature("recruitment action enforcement", () => makeTroopGameActionHook = new MakeTroopGameActionHook(log, () => callbacksEnabled && EffectsEnabled, DecideMakeTroopGameAction));
-            TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, () => callbacksEnabled && EffectsEnabled, UpdateRecruitmentCostTooltip, ClearRecruitmentCostTooltip));
-            TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, () => callbacksEnabled && EffectsEnabled, UpdateSiegeBuildCostTooltip, ClearRecruitmentCostTooltip));
-            TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, () => callbacksEnabled && EffectsEnabled, IsNoWeaponsUiActive, RefreshCurrentRecruitmentCostTooltip, IsRecruitmentAvailabilityActive, IsRecruitmentBlockedByExtraCosts));
+            TryInitializeFeature("recruitment tooltip", RegisterCostTooltip);
+            TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, () => callbacksEnabled && EffectsEnabled, IsNoWeaponsUiActive, IsRecruitmentAvailabilityActive, IsRecruitmentBlockedByExtraCosts));
 
             hooksSubscribed = true;
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts runtime hooks subscribed");
@@ -429,37 +428,30 @@ namespace UnitCosts
             }
         }
 
-        private void UpdateRecruitmentCostTooltip(MainViewModel mainViewModel)
+        private void RegisterCostTooltip()
         {
-            if (mainViewModel == null)
-            {
-                ClearRecruitmentCostEntries();
-                return;
-            }
-
-            eChimps unitType = GetLastTroopBuildChimp(mainViewModel);
-            int multiplier = GetLastTroopsAmountToMake(mainViewModel);
-            ShowRecruitmentCostTooltip(unitType, multiplier, true);
+            if (!TooltipPresentation.TryRegisterContent(UnitCostsPlugin.PluginGuid, "ExtraCosts",
+                TooltipTarget.Recruitment | TooltipTarget.SiegeConstruction, TooltipPlacement.InlineAfterCosts,
+                GetCostTooltip, out string reason)) throw new InvalidOperationException(reason);
+            if (!TooltipPresentation.TryRegisterText(UnitCostsPlugin.PluginGuid, "SiegeNotification", TooltipTarget.SiegeConstruction,
+                TooltipPlacement.AfterMainLine, context => context.IsActive && EffectsEnabled && Notification.IsVisible ? Notification.Message : null,
+                out reason)) throw new InvalidOperationException(reason);
         }
 
-        private void UpdateSiegeBuildCostTooltip(object parameter)
+        private IReadOnlyList<TooltipLine> GetCostTooltip(TooltipContext context)
         {
-            if (!TryGetSiegeBuildHoverUnit(parameter, out eChimps unitType))
+            if (!callbacksEnabled || !EffectsEnabled || !context.IsActive || !context.UnitType.HasValue)
             {
-                ClearRecruitmentCostEntries();
-                return;
+                if (currentCostTooltipTarget == context.Target) { ClearRecruitmentCostTooltip(); currentCostTooltipTarget = null; }
+                return Array.Empty<TooltipLine>();
             }
-
-            ShowRecruitmentCostTooltip(unitType, 1, false);
-        }
-
-        private void ShowRecruitmentCostTooltip(eChimps unitType, int multiplier, bool useRecruitAmount)
-        {
-            currentTooltipUnitType = unitType;
-            currentTooltipMultiplier = Math.Max(1, multiplier);
-            currentTooltipUsesRecruitAmount = useRecruitAmount;
+            currentCostTooltipTarget = context.Target;
+            currentTooltipUnitType = (eChimps)context.UnitType.Value;
+            currentTooltipMultiplier = context.Quantity;
+            currentTooltipUsesRecruitAmount = context.Target == TooltipTarget.Recruitment;
             hasCurrentTooltipUnitType = true;
             RefreshCurrentRecruitmentCostTooltip();
+            return recruitmentTooltipLines;
         }
 
         private void RefreshCurrentRecruitmentCostTooltip()
@@ -486,7 +478,14 @@ namespace UnitCosts
             if (RecruitmentCostStateMatches(playerId, costs, currentTooltipMultiplier))
                 return;
 
-            RecruitmentCostTooltip.SetCosts(CreateRecruitmentCostEntries(playerId, costs, currentTooltipMultiplier));
+            var entries = CreateRecruitmentCostEntries(playerId, costs, currentTooltipMultiplier);
+            var segments = new List<TooltipSegment>(entries.Count * 3);
+            foreach (var entry in entries)
+            {
+                segments.Add(new TooltipText(entry.Amount)); segments.Add(new TooltipSymbol(entry.Image));
+                segments.Add(new TooltipText(entry.AmountAvailable));
+            }
+            recruitmentTooltipLines = segments.Count == 0 ? Array.Empty<TooltipLine>() : new[] { new TooltipLine(segments.ToArray()) };
         }
 
         private List<UnitRecruitmentCostEntry> CreateRecruitmentCostEntries(int playerId, UnitExtraCostValues costs, int multiplier)
@@ -613,34 +612,6 @@ namespace UnitCosts
             }
         }
 
-        private static bool TryGetSiegeBuildHoverUnit(object parameter, out eChimps unitType)
-        {
-            switch (parameter as string)
-            {
-                case "UnitBuildCat":
-                    unitType = eChimps.CHIMP_TYPE_CATAPULT;
-                    return true;
-                case "UnitBuildTreb":
-                    unitType = eChimps.CHIMP_TYPE_TREBUCHET;
-                    return true;
-                case "UnitBuildRam":
-                    unitType = eChimps.CHIMP_TYPE_BATTERING_RAM;
-                    return true;
-                case "UnitBuildTower":
-                    unitType = eChimps.CHIMP_TYPE_SIEGE_TOWER;
-                    return true;
-                case "UnitbuildMantlet":
-                    unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
-                    return true;
-                case "UnitbuildArabBallista":
-                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
-                    return true;
-                default:
-                    unitType = eChimps.CHIMP_TYPE_NULL;
-                    return false;
-            }
-        }
-
         private static bool TryGetSiegeUnitFromMapper(eMappers mapper, out eChimps unitType)
         {
             switch (mapper)
@@ -683,7 +654,7 @@ namespace UnitCosts
         {
             recruitmentCostSnapshot.Clear();
             recruitmentCostSnapshotValid = false;
-            RecruitmentCostTooltip.Clear();
+            recruitmentTooltipLines = Array.Empty<TooltipLine>();
         }
 
         private readonly struct RecruitmentCostSnapshotEntry

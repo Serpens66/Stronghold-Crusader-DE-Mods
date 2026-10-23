@@ -1,3 +1,4 @@
+using APIShared.Presentation;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -13,7 +14,7 @@ using System.Threading;
 
 // TODO
 // sobald im extender ein weg eingebaut wurde die Rekrutierung zu verhinden, dann MakeTroopGameActionHooks dadurch ersetzen
-// anstelle von AliveCount kann für den lokalen Spieler auch das verwendet werden: GameUnitManagerAPI.Instance.GetUnitArmyCount(eChimps chimp) liefert selbe ergebnisse wie alive (also kein pending und keine siege tents)
+// anstelle von AliveCount kann fÃ¼r den lokalen Spieler auch das verwendet werden: GameUnitManagerAPI.Instance.GetUnitArmyCount(eChimps chimp) liefert selbe ergebnisse wie alive (also kein pending und keine siege tents)
 
 namespace UnitLimit
 {
@@ -29,8 +30,6 @@ namespace UnitLimit
         private bool activeUnitCacheAvailable;
         private bool activeSiegeTentCacheAvailable;
         private MakeTroopGameActionHook makeTroopGameActionHook;
-        private CreateTroopHoverHook createTroopHoverHook;
-        private SiegeBuildHoverHook siegeBuildHoverHook;
         private RecruitmentAvailabilityUiHook recruitmentAvailabilityUiHook;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
@@ -42,7 +41,6 @@ namespace UnitLimit
 
         public LimitNotificationViewModel LimitNotification { get; } = new LimitNotificationViewModel();
         public LimitNotificationViewModel SiegeLimitNotification { get; } = new LimitNotificationViewModel();
-        public UnitLimitTooltipViewModel UnitLimitTooltip { get; } = new UnitLimitTooltipViewModel();
 
         private static readonly HashSet<eChimps> SoldierChimps = new HashSet<eChimps>
         {
@@ -132,11 +130,11 @@ namespace UnitLimit
                         DecideMakeTroopGameAction,
                         CompleteMakeTroopGameAction,
                         () => IsEffectsActive));
-                TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip));
+                TryInitializeFeature("recruitment tooltip", () => RegisterUnitLimitTooltip(TooltipTarget.Recruitment, "RecruitmentLimit"));
                 TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, this));
             }
             if (activeUnitCacheAvailable && activeSiegeTentCacheAvailable)
-                TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip));
+                TryInitializeFeature("siege tooltip", () => RegisterUnitLimitTooltip(TooltipTarget.SiegeConstruction, "SiegeLimit"));
 
             TrySubscribeFeature("gameplay session start", () =>
                 Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));

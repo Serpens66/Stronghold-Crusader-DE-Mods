@@ -11,7 +11,7 @@ namespace UnitCosts
     [BepInDependency(CrusaderDeTweakerGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(UnitLimitGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.12.0")]
+    [BepInDependency("APIShared_Serp", "0.13.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitCostsPlugin : BaseUnityPlugin
     {
@@ -21,7 +21,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.37";
+        public const string PluginVersion = "1.0.38";
 
         private UnitCostsRuntime runtime;
         private static UnitCostsRuntime activeRuntime;
@@ -69,10 +69,6 @@ namespace UnitCosts
             TryInitializeStage("notification overlay binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
                     "UnitCostsNotificationOverlay",
                     runtime.Notification));
-            TryInitializeStage("siege notification binding", () => GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "UnitCostsSiegeNotificationInlineHost",
-                    runtime.Notification));
-            TryInitializeStage("recruitment tooltip bindings", RegisterRecruitmentCostTooltipBindings);
 
             try
             {
@@ -94,32 +90,5 @@ namespace UnitCosts
             }
         }
 
-        private void RegisterRecruitmentCostTooltipBindings()
-        {
-            string[] bindingTargets =
-            {
-                "UnitCostsTroopCostsInlineHost",
-                "UnitCostsArabTroopCostsInlineHost",
-                "UnitCostsBedouinTroopCostsInlineHost",
-                "UnitCostsEngineersCostsInlineHost",
-                "UnitCostsTunellersCostsInlineHost",
-                "UnitCostsMonkCostsInlineHost",
-                "UnitCostsSiegeBuildCostsInlineHost",
-            };
-
-            foreach (string bindingTarget in bindingTargets)
-            {
-                try
-                {
-                    GameXAMLManagerAPI.Instance.RegisterBinding(
-                        bindingTarget,
-                        runtime.RecruitmentCostTooltip);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:118", $"UnitCosts tooltip binding '{bindingTarget}' failed; remaining bindings continue: {ex}");
-                }
-            }
-        }
     }
 }

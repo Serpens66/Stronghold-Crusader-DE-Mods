@@ -22,6 +22,7 @@ namespace RandomEvents
             TestSaveState();
             TestSaveRestoreLifecycle();
             TestPresentationTargeting();
+            RandomEventsChatAnnouncementTests.Run(Assert);
             TestEventSoundNativeLayout();
             TestKeepAnchorGeometry();
             TestSignpostAnchorSelection();
