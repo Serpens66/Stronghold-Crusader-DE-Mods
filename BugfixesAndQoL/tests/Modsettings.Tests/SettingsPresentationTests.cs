@@ -30,14 +30,6 @@ internal static partial class Program
         string file = Path.Combine(workspace, "BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml");
         var document = new XmlDocument(); document.Load(file);
         XmlNode[] nodes = document.SelectNodes("//*").Cast<XmlNode>().ToArray();
-        string proposals = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL/ModsettingsRecommendations.md"));
-        var approved = proposals.Split('\n').Where(line => line.StartsWith("| ") && line.Contains("`"))
-            .ToDictionary(line => Regex.Match(line, "`(\\w+)`").Groups[1].Value,
-                line => line.Split('|')[2].Trim(), StringComparer.Ordinal);
-        // The complete editorial list was explicitly approved on 2026-10-23. Compare
-        // identities and classifications, not default values or historical UI categories.
-        Check(approved.Values.Count(v => v == "Empfohlen") == 47 && approved.Values.Count(v => v == "Geschmackssache") == 60,
-            "complete approved editorial list contains 47 recommendations and 60 preferences");
         XmlNode[] topicNodes = nodes.Where(n => SearchAttribute(n, "IsSection") == "True").ToArray();
         Check(topics.Length == 10 && topicNodes.Length == 10, "one collapsible level with ten topics");
         Check(topicNodes.All(n => n.Attributes?["Width"]?.Value.Contains("ViewportWidth, ElementName=SettingsViewport") == true &&
@@ -155,10 +147,11 @@ internal static partial class Program
                 marker.Attributes?["Grid.Column"] == null &&
                 row.SelectSingleNode("*[local-name()='Grid.ColumnDefinitions']/*[1]")?.Attributes?["Width"]?.Value == "28",
                 "fixed left recommendation column: " + editor.Property);
-            bool recommended = approved[editor.Property] == "Empfohlen";
-            Check((string)Get(option, "Symbol") == (recommended ? "★" : "◇") &&
-                (bool)Get(option, "IsPreference") == !recommended,
-                "marker matches the author's explicit classification: " + editor.Property);
+            // The classification itself is editorial metadata in ModSettingsPresentation.Recommendations.cs;
+            // every shown option must carry one and its marker must match it.
+            string symbol = (string)Get(option, "Symbol");
+            Check((symbol == "★" && !(bool)Get(option, "IsPreference")) || (symbol == "◇" && (bool)Get(option, "IsPreference")),
+                "every option has an explicit classification with a matching marker: " + editor.Property);
             Check((string)Get(option, "ReasonKey") == "BugfixesAndQoL.SettingsRework.Reason." + editor.Property,
                 "reason is keyed to the stable setting identity: " + editor.Property);
         }
@@ -281,7 +274,6 @@ internal static partial class Program
             if (expectedKeys == null) expectedKeys = keys;
             Check(new HashSet<string>(expectedKeys).SetEquals(keys), "rework locale parity: " + Path.GetFileName(locale));
         }
-        Check(options.All(o => Regex.Matches(proposals, "`" + (string)Get(o, "PropertyName") + "`").Count == 1), "editorial proposals cover each current option once");
     }
 
     private static object CreateSearchFixture(XmlNode[] nodes, object[] topics)

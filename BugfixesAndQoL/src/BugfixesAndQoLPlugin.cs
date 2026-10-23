@@ -44,7 +44,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.198";
+        public const string PluginVersion = "1.0.199";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -346,7 +346,7 @@ namespace BugfixesAndQoL
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {
-                VanillaPerformance.VanillaPerformanceFeature.Install(Logger, Settings);
+                VanillaPerformance.VanillaPerformanceFeature.Install(Logger, Settings, context);
             }
             catch (Exception ex)
             {

@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.198.0</AssemblyVersion>
-    <FileVersion>1.0.198.0</FileVersion>
+    <AssemblyVersion>1.0.199.0</AssemblyVersion>
+    <FileVersion>1.0.199.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -40,6 +40,8 @@
     <Compile Include="src\VanillaPerformance\AchievementDataOptimization.cs" />
     <Compile Include="src\VanillaPerformance\SpriteSheetMergeOptimization.cs" />
     <Compile Include="src\VanillaPerformance\SpriteSheetMergeMode.cs" />
+    <Compile Include="src\VanillaPerformance\MinimapRefreshThrottle.cs" />
+    <Compile Include="src\VanillaPerformance\RadarThrottlePolicy.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />

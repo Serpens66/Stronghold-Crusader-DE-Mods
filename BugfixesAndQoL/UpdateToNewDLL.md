@@ -15,6 +15,15 @@ The underlying GetMeritData/SetAchValues/save behavior was audited against
 native hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
 see [ENGINE_PRESENTATION_BRIDGE.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ENGINE_PRESENTATION_BRIDGE.md).
 
+## Minimap refresh throttle V13 (2026-10-23)
+
+- Owner: `src/VanillaPerformance/MinimapRefreshThrottle.cs` (host setting `EnableMinimapRefreshThrottle`).
+- Reference: hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, RVA `0xF5A40` (minimap pass), prologue `48 89 5C 24 10 55`; NativeX64 `Indirect` detour with exactly 6 displaced bytes (pointer-slot patch validated after commit).
+- ABI: single direct caller `0x86B9B` in `DLL_RunTick`; `rcx`, `rdx`, `r8` (`radarMap`), `r9d` and seven stack dwords `[rsp+0x20..0x50]`; return value unused. No internal branch targets `0xF5A41..0xF5A45`.
+- Managed contract: `GameMap.processTestMap(short[], int, EngineInterface.PlayState, byte[])` stores the private `lastRadarMap`; `GameMap.ApplyRadarMap` uploads it once per frame; `MemoryBuffers` keeps a ring of 6 buffers.
+- Fallback: none (hash-bound). Another hash, prologue or member layout leaves Vanilla unchanged and logs `VANILLA_PERF_MINIMAP_THROTTLE_DISABLED`.
+- Update checks: find the pass again (only writer of `radarMap` and `*(radar+0x70)`, no simulation writes), re-check the call ABI, the displaced span and the managed buffer ring; audit: [RADAR_PASS_F5A40.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md).
+
 ## AI keep-range probe allocation (2026-10-05)
 
 The 18:51 startup failed before the actual EEF90 hook: the copied-entry probe

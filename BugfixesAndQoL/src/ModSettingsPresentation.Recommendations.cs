@@ -9,6 +9,8 @@ namespace BugfixesAndQoL
             options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
             options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");
             options["EnableVanillaPerformanceOptimizations"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations");
+            // Added 2026-10-23 with the minimap throttle (default on, requested by Serp).
+            options["EnableMinimapRefreshThrottle"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMinimapRefreshThrottle");
             options["SpriteSheetMergeModeIndex"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex");
             options["EnableCompleteNotificationSkipOnClick"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCompleteNotificationSkipOnClick");
             options["ShowSelectedUnitHealth"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowSelectedUnitHealth");

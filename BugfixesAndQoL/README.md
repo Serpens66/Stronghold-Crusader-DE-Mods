@@ -245,6 +245,9 @@ The local **Keep selected Lord after Workshop upload** option prevents successfu
 ### Improve game-speed controls
 Adds Multiplayer game-speed and pause controls. Can be restricted to the host or allowed for everyone. Pressing or holding a speed key changes the speed immediately and repeats every 0.25 seconds; holding Shift changes it by 25 instead of 5 per step. The slider retains its normal 5-point increments.
 
+### Redraw the minimap less often for higher game speed
+Vanilla redraws the whole minimap on every simulation tick, which takes about 40 % of each tick on large maps. The enabled-by-default host option **Redraw the minimap less often** redraws it at most every 0.1 seconds, and immediately when the camera or the minimap size or zoom changes. On a large 8-AI test map, the reachable simulation speed rose from about 85 to about 144 ticks per second. Units on the minimap then move in steps of up to 0.1 seconds; game logic is unchanged. The host decides for all players, because a Multiplayer match runs at the speed of its slowest computer.
+
 ### Use extended game options in local Skirmish
 Adds the multiplayer **Game Options** dialog to local Skirmish, including restrictions, advanced rules, presets and **No Dogs**. A separate host option applies peace-time rules correctly outside multiplayer, including the countdown and rules for starting troops and wildlife.
 

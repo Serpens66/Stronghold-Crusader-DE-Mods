@@ -185,6 +185,10 @@ call :step_start "tests" "16-Test-ModOptionsPerformance.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-ModOptionsPerformance.ps1" -RunTests
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "16b-Test-MinimapThrottlePreflight.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-MinimapThrottlePreflight.ps1" -ExtenderDir "%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
 call :step_start "tests" "17-verify.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinGateClimb\verify.ps1" -SkipPermanentHooks -SkipCommonChecks

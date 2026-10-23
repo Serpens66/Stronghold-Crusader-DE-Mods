@@ -1032,6 +1032,18 @@
                 </CheckBox>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.minimap-refresh-throttle" shared:ModSettingsSearch.Title="{Binding EnableMinimapRefreshThrottleText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMinimapRefreshThrottleHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMinimapRefreshThrottle}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableMinimapRefreshThrottle, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMinimapRefreshThrottleHelpText}" Margin="0,0,14,8">
+                  <TextBlock Text="{Binding EnableMinimapRefreshThrottleText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-surrender-and-statistics" shared:ModSettingsSearch.Title="{Binding EnableSurrenderAndStatisticsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSurrenderAndStatisticsHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

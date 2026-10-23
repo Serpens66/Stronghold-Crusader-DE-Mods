@@ -46,6 +46,14 @@ Evidence:
   - On a non-zero entry `0xF6F20` calls `0x50220` on the view object `0x183A11DC0` (camera jump to that tile) and sets `0x183A11E48 = 1`.
 - Other methods of the radar object (`0xF4C50`, `0xF4D40`, `0xF4DF0`, `0xF6FB0`, `0xF7210`) do not access `+0x70`.
 
+## Call contract and managed buffer ring (audit 2026-10-23, capstone over the installed DLL)
+
+- `0x86B9B` is the only direct caller (`E8` scan over `.text`); no absolute pointer, RIP-relative `lea`/`mov` or `jmp` references `0xF5A40`.
+- The call passes 11 arguments: `rcx`, `rdx`, `r8`, `r9d` and seven stack dwords at `[rsp+0x20..0x50]` (`0x86B4C..0x86B82`); the last one is `r12d`. The return value is not used (`0x86BA0` reloads `r8d` from a global).
+- Entry prologue: `mov [rsp+0x10],rbx` (5 bytes) + `push rbp` (1) end at `0xF5A46`, so a 6-byte Indirect detour ends on an instruction boundary; the remaining prologue continues at `0xF5A46`.
+- Managed side (`Assembly-CSharp` `BC8B6A39…`): `EngineInterface.run` takes a free `MemoryBuffers.MemBuffer` from a pool of `NUM_BUFFERS = 6` and passes its `radarMap` array; `Director.Update` processes up to three filled buffers per frame in `frameID` order, `GameMap.processTestMap` stores each buffer's `radarMap` in `lastRadarMap`, and `GameMap.ApplyRadarMap` uploads only the last one once per frame (`SetPixelData`, `Apply`, `MainViewModel.TestRadarMap`).
+- Consequence: if `0xF5A40` is skipped for one tick, that buffer still holds the image from its previous fill (up to six ticks old). Uploading it would make the minimap jump back; a throttle must keep the previous `lastRadarMap` for such buffers.
+
 ## Classification
 
 - Presentation and local camera input only. Nothing the simulation reads, so skipping or delaying it does not change simulation state or MP synchronisation.

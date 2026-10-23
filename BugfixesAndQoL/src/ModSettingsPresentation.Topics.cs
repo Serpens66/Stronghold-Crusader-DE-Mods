@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation PreserveDisplayResolution => options["PreserveDisplayResolution"];
         public SettingsOptionPresentation EnableGatehouseTargetMarkerHeightFix => options["EnableGatehouseTargetMarkerHeightFix"];
         public SettingsOptionPresentation EnableVanillaPerformanceOptimizations => options["EnableVanillaPerformanceOptimizations"];
+        public SettingsOptionPresentation EnableMinimapRefreshThrottle => options["EnableMinimapRefreshThrottle"];
         public SettingsOptionPresentation SpriteSheetMergeModeIndex => options["SpriteSheetMergeModeIndex"];
         public SettingsOptionPresentation EnableCompleteNotificationSkipOnClick => options["EnableCompleteNotificationSkipOnClick"];
         public SettingsOptionPresentation ShowSelectedUnitHealth => options["ShowSelectedUnitHealth"];
@@ -177,6 +178,7 @@ namespace BugfixesAndQoL
             AddOption("MultiplayerTimeControlPermissionIndex", "bugfixes.enable-multiplayer-game-speed-changes", SettingsCategory.Qol, HostSetup);
             AddOption("MultiplayerGameSpeedMaximum", "bugfixes.multiplayer-game-speed-maximum", SettingsCategory.Qol, HostSetup);
             AddOption("EnableShiftGameSpeedSteps", "bugfixes.enable-shift-game-speed-steps", SettingsCategory.Qol, HostSetup);
+            AddOption("EnableMinimapRefreshThrottle", "bugfixes.minimap-refresh-throttle", SettingsCategory.Fixes, HostSetup);
             AddOption("EnableSurrenderAndStatistics", "bugfixes.enable-surrender-and-statistics", SettingsCategory.Qol, HostSetup);
             AddOption("EnableEliminatedPlayersBecomeSpectators", "bugfixes.enable-eliminated-players-become-spectators", SettingsCategory.Qol, HostSetup);
             AddOption("EnableSpectatorPerspective", "bugfixes.enable-spectator-perspective", SettingsCategory.Qol, HostSetup);

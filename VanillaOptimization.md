@@ -187,9 +187,24 @@ Die kurzen FPS-Einbrüche (nur SE: ~80–99 Frames > 50 ms pro Minute) entstehen
     - Die Klicktabelle folgt der Kamera ebenso verzögert.
     - Der Main-Thread darf Puffer ohne frisches Minimap-Bild nicht hochladen, sonst wechseln alte Pufferinhalte ab.
   - Erwarteter Gewinn bei n = 4: bis ~1,4-facher maximaler Tick-Durchsatz.
-  - **Status: offener Kandidat**, nicht umgesetzt. Ein Prototyp braucht einen nativen Hook an der Aufrufstelle `0x86B9B` und die Zustimmung des Nutzers zur verzögerten Minimap.
+  - **Status: umgesetzt als V13 in BugfixesAndQoL** (`src/VanillaPerformance/MinimapRefreshThrottle.cs`, Host-Einstellung „Minikarte seltener neu zeichnen“, Standard an, fest 100 ms; Host, weil eine Lockstep-Partie im Tempo des langsamsten Peers läuft). Indirect-Detour am Funktionseinstieg, zeitbasiert statt jeder n-te Tick, Kamera-/Größen-/Zoomänderung und eine Tick-Pause über 1 s zeichnen sofort. Skips lassen ein altes Bild im gepoolten Puffer; `GameMap.lastRadarMap` bleibt für solche Puffer auf dem vorherigen Bild (sonst Rücksprung um bis zu 6 Ticks). Vorher als Testmod `RadarThrottleTest` erprobt (inzwischen entfernt). Sichtprüfung durch den Nutzer offen.
+  - **Nachmessung V13** (BugfixesAndQoL normaler Build, alle Mods, gleiche Bedingungen, Läufe `V13A`/`V13B`): 143,4 / 144,0 Ticks/s, 0 Frames > 50 ms.
+  - **Messung** (`test_stresstest4.sav`, Speed 215, Zoom 0.5, gepinnt, alle Mods, je 2 Läufe abwechselnd): ohne Testmod 89,6 / 82,0 Ticks/s; `IntervalMs=50` 161,6 / 127,3; `IntervalMs=500` 147,1 / 148,8. Gezeichnet wurde ~18,5- bzw. ~2-mal pro Sekunde. FPS und Frames > 50 ms unverändert gut (0). 50 und 500 ms liegen innerhalb der Streuung; der Gewinn ist mit +55–80 % deutlich größer als die statische Schätzung (+30–50 %), vermutlich weil auch die Cache-Verdrängung der folgenden Phasen entfällt.
 - Fremder Code, der zwischen den nativen Phasen viel Speicher berührt, verlangsamt `0xF5A40` messbar über Cache-Verdrängung (BFQoL-Torhausabfrage vorher: +0,3–0,5 ms pro Tick).
 - Details: Baseline `knowledge/RADAR_PASS_F5A40.md`.
+
+**Gesamtes Modpack gegen nur SE (23.10.2026, 22:38–22:48, Läufe `C1SE`…`C3ALLP` unter `.work/a/bfqol-perf/001/results`):** `test_stresstest4.sav`, Speed 215, Zoom 0.5, gepinnt (`-AffinityMask 0xFFFF`), 60 s Laufphase, abwechselnd. „Alle“ = alle 14 installierten Plugins inklusive Fixes 1.29.0, BFQoL normaler Build.
+
+| Variante | Ticks/s | FPS Lauf | Frames > 50 ms | Tick-Lücken > 100 ms | Menü bereit |
+|---|---|---|---|---|---|
+| nur SE (`C1SE`, `C2SE`) | 97,0 / 95,6 | 168 / 154 | 97 / 101 | 1 / 1 | 12,3–12,7 s |
+| alle (`C1ALL`, `C2ALL`) | 88,9 / 89,7 | 229 / 221 | 0 / 0 | 1 / 2 | 19,6–19,7 s |
+
+- Das Modpack kostet ~7,6 % Tick-Durchsatz, beseitigt aber die Frame-Hänger (BFQoL V1/V5). Speed 215 ist in beiden Varianten unerreichbar.
+- Sampler-Zuordnung (`C3ALLP`, inner): Vanilla 92 % (`run`-Hülle 80,4 % + ohne Mod-Frame 11,6 %), BFQoL-Builder-Hülle 2,35 % (Vanilla-Zeit). Mod-Code zusammen ~5,7 %, kein einzelner Posten über 0,45 %: BFQoL- und ExtraFeatures-Torhausabfrage je ~0,4 %, `APIShared.UnitAccess.TryGetById` 0,36 %, Fixes-Belagerungs-KI 0,24 %, BFQoL `TribePlayerSnapshot.Matches` (Tribe-Freshness pro Tick) 0,21 %.
+- ExtraFeatures prüft bei der Torhausabfrage seit 23.10.2026 zuerst die Vanilla-Reichweite (`Shared.GatehouseQueryUnitIdPolicy.IsWithinVanillaCloseRange`, gemeinsam mit BFQoL) und erst danach den Pfadverbindungs-Scan über alle Einträge: ExtraFeatures-Anteil 1,06 % → ~0,67 % (Nutzertest mit DEVDIAG gegen `C3ALLP`, daher nur Richtwert).
+- Lange Sim-Ticks (100–200 ms) sind Vanillas Assassinen-Wegsuche `0xD9C40`; die APIShared-Richtungsfilter-Stubs tragen darin 15–25 %. Jeder Builder-Aufruf läuft in einem aktiven Filterkontext (DEVDIAG `gate.search.scoped` = `uc.builder`, 219/s), ein schneller Pfad ohne Kontext brächte daher nichts; nur die Slot-Auflösung im Stub ließe sich verbilligen (geschätzt ~0,2 % Sim-Zeit). Nicht umgesetzt.
+- Der größte verbleibende Hebel ist der Vanilla-Minimap-Aufbau `0xF5A40` (siehe oben).
 
 ## Offene Punkte
 

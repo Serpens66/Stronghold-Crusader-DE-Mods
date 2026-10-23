@@ -137,6 +137,7 @@ namespace BugfixesAndQoL
         private bool preserveDisplayResolution = true;
         private bool enableGatehouseTargetMarkerHeightFix = true;
         private bool enableVanillaPerformanceOptimizations = true;
+        private bool enableMinimapRefreshThrottle = true;
         private SpriteSheetMergeMode spriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
         private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
@@ -554,6 +555,8 @@ namespace BugfixesAndQoL
         public string EnableGatehouseTargetMarkerHeightFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp");
         public string EnableVanillaPerformanceOptimizationsText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizations");
         public string EnableVanillaPerformanceOptimizationsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp");
+        public string EnableMinimapRefreshThrottleText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottle");
+        public string EnableMinimapRefreshThrottleHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottleHelp");
         public string SpriteSheetMergeModeText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeMode");
         public string SpriteSheetMergeModeHelpText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeModeHelp");
         public string[] SpriteSheetMergeModeOptions => new[]
@@ -955,6 +958,15 @@ namespace BugfixesAndQoL
         {
             get => enableVanillaPerformanceOptimizations;
             set => SetSetting(ref enableVanillaPerformanceOptimizations, value, nameof(EnableVanillaPerformanceOptimizations));
+        }
+
+        // V13 minimap throttle (drawn at most every 100 ms). Presentation only, so a mismatch cannot
+        // desync; it is a host value because a lockstep match runs at the speed of its slowest peer.
+        [SyncHostOnly]
+        public bool EnableMinimapRefreshThrottle
+        {
+            get => enableMinimapRefreshThrottle;
+            set => SetSetting(ref enableMinimapRefreshThrottle, value, nameof(EnableMinimapRefreshThrottle));
         }
 
         // Local V7 sprite-sheet merge; read once after Vanilla's sprite loading, so changes need a restart.
@@ -1688,6 +1700,7 @@ namespace BugfixesAndQoL
                 MultiplayerGameSpeedMaximum =
                     MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed;
                 EnableShiftGameSpeedSteps = true;
+                EnableMinimapRefreshThrottle = true;
                 EnableTrailCustomizationButtons = true;
             }
 

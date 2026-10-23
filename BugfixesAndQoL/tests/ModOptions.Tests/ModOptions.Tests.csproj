@@ -23,6 +23,8 @@
     <Compile Include="..\..\src\TimerCountdownFeature.cs" />
     <Compile Include="..\..\src\TimerCountdownPolicy.cs" />
     <Compile Include="..\..\src\VanillaPerformance\SpriteSheetMergeMode.cs" />
+    <Compile Include="..\..\src\VanillaPerformance\RadarThrottlePolicy.cs" />
+    <Compile Include="RadarThrottleTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

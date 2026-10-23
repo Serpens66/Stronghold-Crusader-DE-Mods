@@ -371,7 +371,7 @@ namespace BugfixesAndQoL
 
         public static int Main()
         {
-            try { SpriteSheetMergeModeTests(); LedgerTests(); RuntimeTests(); CountdownTests(); FeatureSaveStateTests(); Console.WriteLine("PASS: " + checks + " mod-option/ledger/save/runtime checks (simulated publishers; no in-game FPS claim)."); return 0; }
+            try { BugfixesAndQoL.VanillaPerformance.RadarThrottleTests.Run(); SpriteSheetMergeModeTests();LedgerTests(); RuntimeTests(); CountdownTests(); FeatureSaveStateTests(); Console.WriteLine("PASS: " + checks + " mod-option/ledger/save/runtime checks (simulated publishers; no in-game FPS claim)."); return 0; }
             catch (Exception error) { Console.Error.WriteLine(error); return 1; }
         }
     }

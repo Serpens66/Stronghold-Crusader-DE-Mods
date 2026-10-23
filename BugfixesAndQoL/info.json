@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.198",
+  "Version": "1.0.199",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,10 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.199",
+      "Changes": ["Add a default-enabled host option under Game setup, multiplayer and spectators to redraw the minimap at most every 0.1 seconds instead of on every simulation tick, giving clearly higher game speed on large maps (about 85 to 144 ticks per second on an 8-AI test map)."]
+    },
     {
       "Version": "1.0.198",
       "Changes": ["Avoid raid missing-Post warnings for regularly skipped calls and report discarded invocation identities; warn about missing plague corrections only after an observed player-local calculation opportunity.", "Hold notification video frames until speech ends with the bounded HD waiting rule."]

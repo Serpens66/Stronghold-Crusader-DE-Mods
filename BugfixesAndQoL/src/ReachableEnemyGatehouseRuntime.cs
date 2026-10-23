@@ -345,18 +345,13 @@ namespace BugfixesAndQoL
         // whose Chebyshev distance max(|8*X - unitX|, |8*Y - unitY|) between the gate origin tile and the
         // unit's fine world position is below 200 (below 140 when its siege flag is set). The fields
         // are read as the native signed words; any distance of at least 200 never closes the gate.
-        private const int VanillaMaximumCloseDistance = 200;
-
-        private static bool IsWithinVanillaCloseRange(GameUnit* unit, GameBuilding* gatehouse)
-        {
-            int gateX = (short)gatehouse->r_TilePositionXBegin * 8;
-            int gateY = (short)gatehouse->r_TilePositionYBegin * 8;
-            int unitX = (short)unit->r_CurrentWorldPositionX;
-            int unitY = (short)unit->r_CurrentWorldPositionY;
-            int dx = gateX <= unitX ? unitX - gateX : gateX - unitX;
-            int dy = gateY <= unitY ? unitY - gateY : gateY - unitY;
-            return (dx < dy ? dy : dx) < VanillaMaximumCloseDistance;
-        }
+        // The rule is shared with ExtraFeatures, which skips the same queries.
+        private static bool IsWithinVanillaCloseRange(GameUnit* unit, GameBuilding* gatehouse) =>
+            Shared.GatehouseQueryUnitIdPolicy.IsWithinVanillaCloseRange(
+                (short)gatehouse->r_TilePositionXBegin,
+                (short)gatehouse->r_TilePositionYBegin,
+                (short)unit->r_CurrentWorldPositionX,
+                (short)unit->r_CurrentWorldPositionY);
 
         // Entry/exit validity depends only on the gate record and the map bounds.
         private bool HaveValidGateEndpoints(int gatehouseBuildingId, PathConnectionRecord* gatehouse,
