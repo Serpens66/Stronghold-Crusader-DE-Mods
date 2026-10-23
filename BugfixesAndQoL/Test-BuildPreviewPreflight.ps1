@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$ExtenderDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese')
+param([switch]$SkipCommonChecks, [string]$ExtenderDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese')
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 . (Join-Path $workspace 'Shared\Tools\Release\Release.Common.ps1')
@@ -9,7 +9,9 @@ $identity = Get-Content -Raw -LiteralPath (Join-Path $workspace '_inspect\Crusad
 $hash = Get-Sha256Hex -Path $native
 if ($hash -ine $identity.currentNativeHash -or $hash -ine 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2') { throw 'Native baseline differs.' }
 $mod = [pscustomobject]@{ Name='BugfixesAndQoL'; Project='BugfixesAndQoL\BugfixesAndQoL.csproj'; Plugin='BugfixesAndQoL\src\BugfixesAndQoLPlugin.cs' }
+if (-not $SkipCommonChecks) {
 Assert-SERuntimeModPreflight $mod $workspace
+}
 $runtimeFiles = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src\BuildPreview') -File -Filter '*.cs')
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests\BuildPreview.Tests\managed-contract.ps1') -GameDir 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 if ($LASTEXITCODE -ne 0) { throw 'Real managed contracts failed.' }

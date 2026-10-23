@@ -21,7 +21,9 @@ if (-not $plugin.Contains('[BepInIncompatibility("DrawbridgeDestructionFixTest_S
 [xml]$xaml = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
 $rows = @($xaml.SelectNodes("//*[local-name()='CheckBox']") | Where-Object { $_.IsChecked -eq '{Binding EnableDrawbridgeDestructionFix, Mode=TwoWay}' })
 if ($rows.Count -ne 1 -or $rows[0].GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or -not $rows[0].GetAttribute('ToolTip')) { throw 'Missing/invalid checkbox tooltip.' }
-if (-not @($rows[0].ParentNode.ParentNode.Attributes | Where-Object { $_.LocalName.EndsWith('.SectionKey') -and $_.Value -eq 'bugfixes.section.host-fixes-gameplay' }).Count) { throw 'Drawbridge checkbox is outside host gameplay fixes.' }
+# Authority/category are contractual; topic IDs and parent depth are presentation details.
+if ($null -eq $rows[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
+    $null -eq $rows[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.FixesVisibility}') ]")) { throw 'Drawbridge checkbox must remain a host-authorized Fix.' }
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales') -File -Filter '*.txt') {
     $text = [IO.File]::ReadAllText($file.FullName)
     foreach ($key in @('EnableDrawbridgeDestructionFix','EnableDrawbridgeDestructionFixHelp')) {

@@ -11,8 +11,8 @@ $game = Join-Path $fixture 'game'
 [void][IO.Directory]::CreateDirectory($repo)
 function Assert-Case([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message }; $script:cases++ }
 function Git-Fixture([string[]]$Arguments) { Invoke-BranchGit $repo $Arguments | Out-Null }
-function Invoke-Fixture([string[]]$Arguments, [int]$Expected = 0) {
-    $output = @(& (Join-Path $repo 'Fixture/build.bat') @Arguments 2>&1)
+function Invoke-Fixture([string[]]$Arguments, [int]$Expected = 0, [string]$Driver = 'Fixture/build.bat') {
+    $output = @(& (Join-Path $repo $Driver) @Arguments 2>&1)
     $code = $LASTEXITCODE
     Assert-Case ($code -eq $Expected) ("Fixture exit $code, expected ${Expected}: " + ($output -join "`n"))
     return $output
@@ -233,6 +233,78 @@ function Assert-ApiBuildProof([string]$Root) {
     Git-Fixture @('commit','-m','failure fixture')
     $null = Invoke-Fixture @('/branch:develop','/nopause') 27
     Assert-Case ((Get-BranchHash (Join-Path $devDir 'built.txt')) -ceq $beforeDev) 'failed build installed files'
+
+    # Build-test modes are consumer choices. Reject ambiguity before copying sources,
+    # preserve command arguments/exit codes, and never rebuild an SDK under /tests:none.
+    $bfDriver = 'BugfixesAndQoL/build.bat'
+    # Exercise the actual pruned enumeration against the old recurse-then-filter
+    # selection: nested build/work trees must disappear, active siblings must remain.
+    $boundaryTokens=$null; $boundaryErrors=$null
+    $boundaryAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Workspace 'Shared/Tools/Validation/Test-SharedBoundaries.ps1'),[ref]$boundaryTokens,[ref]$boundaryErrors)
+    $enumerator=$boundaryAst.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ActiveBoundaryFiles'},$true)
+    . ([scriptblock]::Create($enumerator.Extent.Text))
+    $tree=Join-Path $fixture 'boundary-tree'
+    foreach ($relative in @('src/one.cs','src/nested/two.cs','other/three.cs','tests/input.txt','bin/generated.cs','obj/generated.cs','.work/a/retained.cs','src/BepInEx/generated.cs','_inspect/history.cs')) {
+        Write-BranchText (Join-Path $tree $relative) 'fixture'
+    }
+    $oldSelection=@(Get-ChildItem -LiteralPath $tree -Recurse -File | Where-Object { $_.FullName.Substring($tree.Length) -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect|\.work|\.release-output)[\\/]' } | ForEach-Object FullName | Sort-Object)
+    $newSelection=@(Get-ActiveBoundaryFiles $tree | ForEach-Object FullName | Sort-Object)
+    Assert-Case ($oldSelection.Count -eq 4 -and ($oldSelection -join "`n") -ceq ($newSelection -join "`n")) 'pruned source enumeration lost active inputs or included ignored trees'
+    Assert-Case ((Get-BranchTestSelection $bfDriver @()).Mode -eq 'full') 'default test selection is not full'
+    foreach ($mode in @('full','quick','none')) {
+        Assert-Case ((Get-BranchTestSelection $bfDriver @("/tests:$mode")).Mode -eq $mode) 'test mode parser lost a mode'
+    }
+    foreach ($arguments in @(@('/tests:bad'),@('/tests'),@('/tests:full','/tests:none'),@('/checks:bad'),@('/checks:settings','/checks:notifications'),@('/tests:quick','/checks:settings'),@('/tests:none','/checks:notifications'))) {
+        $rejected=$false
+        try { $null=Get-BranchTestSelection $bfDriver $arguments } catch { $rejected=$true }
+        Assert-Case $rejected ('invalid test selection accepted: ' + ($arguments -join ' '))
+    }
+    Assert-Case ((Get-BranchTestSelection $bfDriver @('/tests:full','/checks:settings')).Scope -eq 'settings') 'existing scope lost'
+    # Test the production BAT timer itself: wrapping a native test must preserve
+    # signed Windows exception exit codes as well as ordinary failures.
+    $productionDriver=[IO.File]::ReadAllText((Join-Path $Workspace $bfDriver))
+    $timerBody=$productionDriver.Substring($productionDriver.LastIndexOf(":step_start`r`n",[StringComparison]::Ordinal))
+    $timerDriver=Join-Path $fixture 'timer.bat'
+    Write-BranchText $timerDriver ("@echo off`r`nsetlocal EnableDelayedExpansion`r`ncall :step_start tests exit-code-fixture`r`ncall :step_end %*`r`nexit /b %ERRORLEVEL%`r`n" + $timerBody)
+    foreach ($expectedCode in @(0,27,-1073741819)) {
+        $timerOutput=@(& $timerDriver $expectedCode)
+        $timerCode=$LASTEXITCODE
+        Assert-Case ($timerCode -eq $expectedCode -and ($timerOutput -join "`n") -match "DurationMs=\d+ ExitCode=$expectedCode") 'timing wrapper lost a test exit code'
+    }
+    $bfPrefix=$prefix.Replace('Fixture/build.bat',$bfDriver)
+    Write-BranchText (Join-Path $repo $bfDriver) ($bfPrefix + "rem SHCDE_TEST_MODES: full quick none`r`n" + $batch)
+    Write-BranchText (Join-Path $repo 'BugfixesAndQoL/source.txt') 'BF_WORKING'
+    Write-BranchText (Join-Path $repo 'BugfixesAndQoL/Fixture.csproj') '<Project><ItemGroup><Reference Include="APIShared" /></ItemGroup></Project>'
+    Write-BranchText (Join-Path $repo 'BugfixesAndQoL/info.json') '{"GUID":"Fixture_Serp","Version":"1.0.0"}'
+    foreach ($mode in @('full','quick','none')) {
+        $output=Invoke-Fixture @('/source:working','/apishared:dev','/noinstall','/nopause',"/tests:$mode") 0 $bfDriver
+        Assert-Case (($output -join "`n") -match "BUILD_ARGUMENTS=.*?/tests:$mode") 'test mode argument did not reach the selected BAT'
+        $latest=@(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b/working') -Filter '*.build.json' | Sort-Object LastWriteTimeUtc -Descending)[0]
+        $record=[IO.File]::ReadAllText($latest.FullName) | ConvertFrom-Json
+        Assert-Case ($record.TestSelection.Mode -eq $mode) 'test mode missing from build record'
+    }
+    # An older source must fail explicitly, even with a new dispatcher available.
+    Write-BranchText (Join-Path $repo $bfDriver) ($bfPrefix + $batch)
+    $output=Invoke-Fixture @('/source:working','/apishared:dev','/noinstall','/nopause','/tests:none') 1 $bfDriver
+    Assert-Case (($output -join "`n") -match 'does not support /tests:none' -and ($output -join "`n") -notmatch 'BUILD_SOURCE:') 'old driver silently ignored the requested test mode'
+    Write-BranchText (Join-Path $repo $bfDriver) ($bfPrefix + "rem SHCDE_TEST_MODES: full quick none`r`n" + $batch)
+    $output=Invoke-Fixture @('/source:working','/apishared:develop','/noinstall','/nopause','/tests:none') 0 $bfDriver
+    Assert-Case (($output -join "`n") -match 'reusing the verified develop SDK') 'none failed to reuse an unchanged SDK'
+    $cachedDll=Join-Path $cacheRoot 'apishared-develop/BepInEx/plugins/APIShared_Serp/APIShared.dll'
+    $cachedBytes=[IO.File]::ReadAllBytes($cachedDll)
+    try {
+        Write-BranchText $cachedDll 'TAMPERED_NONE_MUST_PRESERVE'
+        $cachedHash=Get-BranchHash $cachedDll
+        $output=Invoke-Fixture @('/source:working','/apishared:develop','/noinstall','/nopause','/tests:none') 1 $bfDriver
+        Assert-Case (($output -join "`n") -match '/tests:none never rebuilds' -and (Get-BranchHash $cachedDll) -ceq $cachedHash) 'none repaired or rebuilt an invalid SDK'
+    } finally { [IO.File]::WriteAllBytes($cachedDll,$cachedBytes) }
+    $absentRepo=Join-Path $fixture 'no-sdk-cache'
+    [void][IO.Directory]::CreateDirectory($absentRepo)
+    $rejected=$false
+    try { $null=Get-CachedApiSdk $absentRepo $apiRepo 'develop' -RequireExisting } catch { $rejected=$_.Exception.Message -like '*cache is missing*' }
+    Assert-Case ($rejected -and -not (Test-Path -LiteralPath (Join-Path $absentRepo '.work/c/apishared-develop'))) 'none created a missing SDK cache'
+    Write-BranchText (Join-Path $repo 'BugfixesAndQoL/fail.txt') 'fail'
+    $null=Invoke-Fixture @('/source:working','/apishared:dev','/noinstall','/nopause','/tests:quick') 27 $bfDriver
 
     # Adapt every currently maintained driver and both committed branch variants.
     $drivers = @(Invoke-BranchGit $Workspace @('ls-files','*build.bat') | Where-Object { $_ -notmatch '^(_inspect|shcde-script-extender)/' })

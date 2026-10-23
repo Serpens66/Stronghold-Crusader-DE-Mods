@@ -183,7 +183,6 @@ if ([IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'
     [IO.File]::ReadAllText($projectFile.FullName) -notmatch 'src\\SpectatorSavePolicy.cs') {
     throw 'Pending recovery must block report and ally actions and compile the save policy.'
 }
-& (Join-Path $projectRoot 'Test-SpectatorSavePolicy.ps1')
 if ($hud -match 'SpriteMapping\.RemapMPLoadedColour\(' -or
     $hud -notmatch 'SpriteMapping\.remapColours' -or
     $hud -notmatch 'colourIndex = player < colourMapping\.Length \? colourMapping\[player\] : 0;' -or

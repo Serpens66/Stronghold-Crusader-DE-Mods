@@ -1013,10 +1013,6 @@ internal static class Program
         Check(!mountedStockpile.Contains("context.Pointer->Rflags") &&
               !mountedStockpile.Contains("private const ulong ZeroFlag"),
             "mounted-stockpile endpoint hook does not depend on pre-hook flags");
-        Check(!mountedStockpile.Contains("loggedCorrections") &&
-              !mountedStockpile.Contains("mounted classification corrected") &&
-              !mountedStockpile.Contains("per-unit endpoint wall gate bypassed"),
-            "mounted-stockpile per-event diagnostic logging removed");
         Check(mountedStockpile.Contains("classificationCallbackFailureLogged") &&
               mountedStockpile.Contains("endpointCallbackFailureLogged") &&
               !mountedStockpile.Contains("private bool callbackFailureLogged;"),

@@ -71,6 +71,9 @@ Frameintervall ab der Grenze erhält `recorded-frame-gap`. Ladephasen bleiben
 gesondert gekennzeichnet. Vor manuellen Vergleichen PerfProbe zuletzt mit
 `/devdiag` installieren und im neuen Log Aktivität, `PERFPROBE_READY` und
 nutzbare Samples prüfen; ein späterer normaler Build kann die Diagnose ersetzen.
+Seit 23.10.2026 übergibt `build.bat` `/devdiag` immer selbst (auch per
+Doppelklick), weil PerfProbe ohne DEVDIAG nichts misst; im Branchmenü `develop`
+wählen, `main` lehnt DEVDIAG-Builds ab.
 
 ## Erweiterung für den reduzierten Vergleichslauf (22.10.2026)
 

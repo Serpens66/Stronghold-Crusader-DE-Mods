@@ -246,28 +246,26 @@
         <TextBlock Text="{Binding SettingsPresentation.LegendPreferenceText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" Margin="0,0,14,4"/>
         <TextBlock Text="{Binding SettingsPresentation.LegendUnreviewedText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="0,0,14,4"/>
       </WrapPanel>
-      <Grid Margin="0,12,0,6" shared:ModSettingsSearch.Exclude="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
+      <WrapPanel Margin="0,12,0,6" shared:ModSettingsSearch.Exclude="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
         <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <StackPanel Orientation="Horizontal" Visibility="{Binding SettingsPresentation.BulkActionsVisibility}" Grid.Column="1">
-          <Button Content="{Binding SettingsPresentation.ExpandAllText}" Command="{Binding SettingsPresentation.ExpandClientCommand}" ToolTip="{Binding SettingsPresentation.ExpandAllHelpText}" Margin="8,0,0,0" ToolTipService.ShowDuration="60000"/>
-          <Button Content="{Binding SettingsPresentation.CollapseAllText}" Command="{Binding SettingsPresentation.CollapseClientCommand}" ToolTip="{Binding SettingsPresentation.CollapseAllHelpText}" Margin="8,0,0,0" ToolTipService.ShowDuration="60000"/>
-        </StackPanel>
-      </Grid>
+        <WrapPanel Orientation="Horizontal" Visibility="{Binding SettingsPresentation.BulkActionsVisibility}">
+          <Button Content="{Binding SettingsPresentation.ExpandAllText}" Command="{Binding SettingsPresentation.ExpandClientCommand}" ToolTip="{Binding SettingsPresentation.ExpandAllHelpText}" Margin="4,0,0,0" ToolTipService.ShowDuration="60000"/>
+          <Button Content="{Binding SettingsPresentation.CollapseAllText}" Command="{Binding SettingsPresentation.CollapseClientCommand}" ToolTip="{Binding SettingsPresentation.CollapseAllHelpText}" Margin="4,0,0,0" ToolTipService.ShowDuration="60000"/>
+        </WrapPanel>
+      </WrapPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.Visibility}" Margin="0,0,0,6" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-display" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientDisplay.Title}" shared:ModSettingsSearch.IsSection="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
         <Button Command="{Binding SettingsPresentation.ClientDisplay.ToggleCommand}" HorizontalContentAlignment="Stretch" ToolTip="{Binding SettingsPresentation.TopicToggleHelpText}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" Style="{StaticResource TopicHeading}">
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.ClientDisplay}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientDisplay.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientDisplay.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.ClientDisplay.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.ClientDisplay.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.ContentVisibility}" Margin="8,2,8,6">
@@ -315,14 +313,12 @@
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.SpriteSheetMergeModeIndex}"/>
-              <Grid Margin="0,0,14,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="160"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding SpriteSheetMergeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
-                <ComboBox Grid.Column="1" ItemsSource="{Binding SpriteSheetMergeModeOptions}" SelectedIndex="{Binding SpriteSheetMergeModeIndex, Mode=TwoWay}" Width="160" ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
-              </Grid>
+              <WrapPanel Margin="0,0,14,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <TextBlock Text="{Binding SpriteSheetMergeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <ComboBox ItemsSource="{Binding SpriteSheetMergeModeOptions}" SelectedIndex="{Binding SpriteSheetMergeModeIndex, Mode=TwoWay}" Width="160" ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
+                </WrapPanel>
+              </WrapPanel>
             </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-complete-notification-skip-on-click" shared:ModSettingsSearch.Title="{Binding EnableCompleteNotificationSkipOnClickText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCompleteNotificationSkipOnClickHelpText}">
               <Grid.ColumnDefinitions>
@@ -402,25 +398,22 @@
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.StatisticsTeamBadgeMode}"/>
-              <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="160"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding StatisticsTeamBadgeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding StatisticsTeamBadgeMode, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}"/>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
-                  <TextBlock Text="{Binding StatisticsTeamBadgeModeValueText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                  <Grid Width="28" Height="32" Margin="8,0,0,0">
-                    <Image Source="{Binding StatisticsTeamBadgeVanillaPreviewIcon}" Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding StatisticsTeamBadgeVanillaPreviewVisibility}"/>
-                    <Grid Width="24" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding StatisticsTeamBadgeEasyReadPreviewVisibility}">
-                      <Path Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Fill="#FF508CCC" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round"/>
-                      <TextBlock Text="3" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White"/>
+              <WrapPanel ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <TextBlock Text="{Binding StatisticsTeamBadgeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider Width="160" Minimum="0" Maximum="2" Value="{Binding StatisticsTeamBadgeMode, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}"/>
+                  <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="4,0,0,0">
+                    <TextBlock Text="{Binding StatisticsTeamBadgeModeValueText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <Grid Width="28" Height="32" Margin="4,0,0,0">
+                      <Image Source="{Binding StatisticsTeamBadgeVanillaPreviewIcon}" Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding StatisticsTeamBadgeVanillaPreviewVisibility}"/>
+                      <Grid Width="24" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding StatisticsTeamBadgeEasyReadPreviewVisibility}">
+                        <Path Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Fill="#FF508CCC" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round"/>
+                        <TextBlock Text="3" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White"/>
+                      </Grid>
                     </Grid>
-                  </Grid>
-                </StackPanel>
-              </Grid>
+                  </WrapPanel>
+                </WrapPanel>
+              </WrapPanel>
             </Grid>
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.PossibleVisibility}">
@@ -444,16 +437,13 @@
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ArabianIdleSoundVolumePercent}"/>
-              <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="160"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding ArabianIdleSoundVolumeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding ArabianIdleSoundVolumePercent, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}"/>
-                <TextBlock Grid.Column="2" Text="{Binding ArabianIdleSoundVolumeValueText}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
-              </Grid>
+              <WrapPanel ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <TextBlock Text="{Binding ArabianIdleSoundVolumeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider Width="160" Minimum="0" Maximum="100" Value="{Binding ArabianIdleSoundVolumePercent, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}"/>
+                  <TextBlock Text="{Binding ArabianIdleSoundVolumeValueText}" Foreground="White" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </WrapPanel>
+              </WrapPanel>
             </Grid>
           </StackPanel>
         </StackPanel>
@@ -464,11 +454,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.ClientControls}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientControls.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientControls.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.ClientControls.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.ClientControls.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientControls.ContentVisibility}" Margin="8,2,8,6">
@@ -594,11 +586,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.ClientMenus}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientMenus.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientMenus.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.ClientMenus.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.ClientMenus.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientMenus.ContentVisibility}" Margin="8,2,8,6">
@@ -735,11 +729,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.ClientMarket}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientMarket.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.ClientMarket.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.ClientMarket.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.ClientMarket.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientMarket.ContentVisibility}" Margin="8,2,8,6">
@@ -837,28 +833,26 @@
           </StackPanel>
         </StackPanel>
       </StackPanel>
-      <Grid Margin="0,12,0,6" shared:ModSettingsSearch.Exclude="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
+      <WrapPanel Margin="0,12,0,6" shared:ModSettingsSearch.Exclude="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
         <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <StackPanel Orientation="Horizontal" Visibility="{Binding SettingsPresentation.BulkActionsVisibility}" Grid.Column="1">
-          <Button Content="{Binding SettingsPresentation.ExpandAllText}" Command="{Binding SettingsPresentation.ExpandHostCommand}" ToolTip="{Binding SettingsPresentation.ExpandAllHelpText}" Margin="8,0,0,0" ToolTipService.ShowDuration="60000"/>
-          <Button Content="{Binding SettingsPresentation.CollapseAllText}" Command="{Binding SettingsPresentation.CollapseHostCommand}" ToolTip="{Binding SettingsPresentation.CollapseAllHelpText}" Margin="8,0,0,0" ToolTipService.ShowDuration="60000"/>
-        </StackPanel>
-      </Grid>
+        <WrapPanel Orientation="Horizontal" Visibility="{Binding SettingsPresentation.BulkActionsVisibility}">
+          <Button Content="{Binding SettingsPresentation.ExpandAllText}" Command="{Binding SettingsPresentation.ExpandHostCommand}" ToolTip="{Binding SettingsPresentation.ExpandAllHelpText}" Margin="4,0,0,0" ToolTipService.ShowDuration="60000"/>
+          <Button Content="{Binding SettingsPresentation.CollapseAllText}" Command="{Binding SettingsPresentation.CollapseHostCommand}" ToolTip="{Binding SettingsPresentation.CollapseAllHelpText}" Margin="4,0,0,0" ToolTipService.ShowDuration="60000"/>
+        </WrapPanel>
+      </WrapPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.Visibility}" Margin="0,0,0,6" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-setup" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostSetup.Title}" shared:ModSettingsSearch.IsSection="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
         <Button Command="{Binding SettingsPresentation.HostSetup.ToggleCommand}" HorizontalContentAlignment="Stretch" ToolTip="{Binding SettingsPresentation.TopicToggleHelpText}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" Style="{StaticResource TopicHeading}">
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.HostSetup}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostSetup.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostSetup.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.HostSetup.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.HostSetup.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.ContentVisibility}" Margin="8,2,8,6">
@@ -1005,14 +999,12 @@
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.MultiplayerTimeControlPermissionIndex}"/>
-              <Grid Margin="0,0,14,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="180"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <ComboBox Grid.Column="1" ItemsSource="{Binding MultiplayerTimeControlPermissionOptions}" SelectedIndex="{Binding MultiplayerTimeControlPermissionIndex, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"/>
-              </Grid>
+              <WrapPanel Margin="0,0,14,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <TextBlock Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <ComboBox Width="180" ItemsSource="{Binding MultiplayerTimeControlPermissionOptions}" SelectedIndex="{Binding MultiplayerTimeControlPermissionIndex, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"/>
+                </WrapPanel>
+              </WrapPanel>
             </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.multiplayer-game-speed-maximum" shared:ModSettingsSearch.Title="{Binding MultiplayerGameSpeedMaximumText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplayerGameSpeedMaximumHelpText}">
               <Grid.ColumnDefinitions>
@@ -1020,16 +1012,13 @@
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.MultiplayerGameSpeedMaximum}"/>
-              <Grid Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="160"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding MultiplayerGameSpeedMaximumText}" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="4,0,4,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
-                <Slider Grid.Column="1" Minimum="40" Maximum="200" Value="{Binding MultiplayerGameSpeedMaximum, Mode=TwoWay}" TickFrequency="5" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" IsEnabled="{Binding CanEditHostSettings}" Margin="3,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
-                <TextBlock Grid.Column="2" Text="{Binding MultiplayerGameSpeedMaximum}" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
-              </Grid>
+              <WrapPanel Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <TextBlock Text="{Binding MultiplayerGameSpeedMaximumText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider Width="160" Minimum="40" Maximum="200" Value="{Binding MultiplayerGameSpeedMaximum, Mode=TwoWay}" TickFrequency="5" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" IsEnabled="{Binding CanEditHostSettings}" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
+                  <TextBlock Text="{Binding MultiplayerGameSpeedMaximum}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}" Margin="4,0,0,0"/>
+                </WrapPanel>
+              </WrapPanel>
             </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-shift-game-speed-steps" shared:ModSettingsSearch.Title="{Binding EnableShiftGameSpeedStepsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableShiftGameSpeedStepsHelpText}">
               <Grid.ColumnDefinitions>
@@ -1100,11 +1089,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.HostAi}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostAi.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostAi.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.HostAi.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.HostAi.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostAi.ContentVisibility}" Margin="8,2,8,6">
@@ -1248,16 +1239,13 @@
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.InaccessibleAIBuildingDemolitionProtection}"/>
-              <Grid ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="160"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding InaccessibleAIBuildingDemolitionProtectionText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding InaccessibleAIBuildingDemolitionProtection, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}"/>
-                <TextBlock Grid.Column="2" Text="{Binding InaccessibleAIBuildingDemolitionProtectionValueText}" Foreground="White" TextWrapping="Wrap" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
-              </Grid>
+              <WrapPanel ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <TextBlock Text="{Binding InaccessibleAIBuildingDemolitionProtectionText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider Width="160" Minimum="0" Maximum="2" Value="{Binding InaccessibleAIBuildingDemolitionProtection, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}"/>
+                  <TextBlock Text="{Binding InaccessibleAIBuildingDemolitionProtectionValueText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </WrapPanel>
+              </WrapPanel>
             </Grid>
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.HostAi.QolVisibility}">
@@ -1323,11 +1311,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.HostTroops}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostTroops.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostTroops.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.HostTroops.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.HostTroops.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.ContentVisibility}" Margin="8,2,8,6">
@@ -1453,11 +1443,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.HostEconomy}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostEconomy.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostEconomy.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.HostEconomy.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.HostEconomy.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.ContentVisibility}" Margin="8,2,8,6">
@@ -1635,11 +1627,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.HostSiege}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostSiege.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostSiege.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.HostSiege.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.HostSiege.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.ContentVisibility}" Margin="8,2,8,6">
@@ -1745,11 +1739,13 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="20"/>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.HostPerformance}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostPerformance.Title}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold"/>
-            <TextBlock Text="{Binding SettingsPresentation.HostPerformance.CountText}" Foreground="#FFBBBBBB" VerticalAlignment="Center" Grid.Column="2" TextWrapping="Wrap" Margin="10,0,0,0" FontSize="14"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.HostPerformance.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.HostPerformance.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.ContentVisibility}" Margin="8,2,8,6">

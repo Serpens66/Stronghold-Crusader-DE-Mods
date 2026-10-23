@@ -14,7 +14,6 @@ internal static partial class Program
     private static readonly BugfixesAndQoLViewModel settings = new BugfixesAndQoLViewModel();
     private static NotificationSpeechPlayback speech;
     private static NotificationLastFrameFeature feature;
-    static partial void TestDiagnostics();
     private static MyAudioManager audio => MyAudioManager.Instance;
     private static SFXManager sfx => SFXManager.instance;
     private static MainHUD hud => MainViewModel.Instance.HUDRoot;
@@ -239,7 +238,6 @@ internal static partial class Program
             feature = new NotificationLastFrameFeature(new BepInEx.Logging.ManualLogSource(), settings, () => now);
             TestNotificationMediaPaths();
             TestHdCompletion(); TestSpeechLoadFailureCompletion(); TestSpeechOwnership();
-            TestDiagnostics();
             Console.WriteLine("PASS: " + checks + " production notification playback checks (isolated Unity/Noesis adapters and monotone test clock).");
             return 0;
         }

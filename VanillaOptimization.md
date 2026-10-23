@@ -161,11 +161,35 @@ Die kurzen FPS-Einbrüche (nur SE: ~80–99 Frames > 50 ms pro Minute) entstehen
 
 | Anteil Sim-Thread | Funktion | Befund |
 |---|---|---|
-| ~41 % | `0xF5A40` | Blattfunktion ohne Aufrufe, einmal pro `DLL_RunTick` (`0x86B9B`); hängt von Kartenbreite (0x320) und Kamerarotation ab: nativer Durchlauf über den sichtbaren Ausschnitt für die Darstellung. Kosten skalieren mit Sichtfläche/Zoom. |
+| ~41 % | `0xF5A40` | **Minimap-Aufbau** (Blattfunktion ohne Aufrufe), bei jedem `DLL_RunTick` (`0x86B9B`), auch pausiert. Er zeichnet das Minimap-Bild um die Kamera neu (Argumente `radarMap`, Bildschirmmitte, `radarMapWidth/Height`, `radarZoom`). Die Kosten hängen von der Größe der Minimap bzw. Karte ab, nicht vom Zoom der Hauptansicht. |
 | ~17 % | `0x41D60` | Sichtkachel-Renderer (siehe BFQoL A2). |
 | ~8 % | `0x18C160`, `0x19CBE0`, `0x182B00` | Einheitenlogik, nicht weiter untersucht. |
 
-Machbarkeitsprüfung `0xF5A40` (23.10.2026, statisch): Die Schleifen lesen pro sichtbarer Kachel Einheitenrecords (`+0x67E8AE6`, `+0x67E8D18/E90/E9C`), mehrere kachelgroße Kartenebenen (`0x485A770` … `0x4F64CF0`) und die Diplomatie-Tabelle (`+0x37EDF3C`) und schreiben indexbasierte Int-Tabellen (u. a. `-1`-Füllungen). Die Ausgabe hängt damit vom Zustand jedes Ticks ab; eine Wiederverwendung bei unveränderter Kamera wäre nicht exakt. Übrig bliebe eine byte-genaue Neuimplementierung (vier Rotationsvarianten, speicherbegrenzt, Gewinn unsicher). Eine Optimierung von `0xF5A40` wäre ein Umbau der nativen Render-Exportschleife (siehe „Native Sim-/Renderschleife umschreiben“ unter Verworfen) und wurde nicht begonnen. Fremder Code, der zwischen den nativen Phasen viel Speicher berührt, verlangsamt `0xF5A40` messbar über Cache-Verdrängung (BFQoL-Torhausabfrage vorher: +0,3–0,5 ms pro Tick).
+**`0xF5A40` – Minimap-Aufbau (Audit 23.10.2026, statisch und Disassembly, Native `FBCB9319…`):**
+
+- **Arbeit pro Tick:**
+  - Er läuft über das 800-Zeilen-Kachelraster (Rotationsvarianten über `0x1860AD40C`).
+  - Pro Minimap-Pixel liest er verstreut Kachelindex, Einheit auf der Kachel (`0x184C559B0` → Einheitenrecord mit Diplomatie-Tabelle `0x1837EDF3C` für die Farbe), Kachel-Flags (`0x1848F71B0`, `0x184A312B0`, `0x18485A770`, `0x184DDD350`, `0x184EC82B0`, `0x184F64CF0`) und Farbtabellen.
+  - Bei einer Minimap-Textur von 496×496 sind das rund 250 000 Pixel pro Tick mit Cache-Fehlzugriffen in mehreren MB großen Tabellen.
+  - Bei ~95 Ticks/s ergibt das plausibel die gemessenen ~4 ms pro Tick.
+- **Gegenprobe ohne Sampler:**
+  - In der Pause kostet ein `EngineInterface.run` weiterhin 5,1–6,5 ms, im laufenden Spiel 6,6–6,9 ms (Läufe G0d/H11a, 40 Ticks/s).
+  - Die eigentliche Simulation macht also nur ~1 ms pro Tick aus. Der Rest sind Darstellungsdurchläufe, die auch pausiert laufen, vor allem `0xF5A40` und `0x41D60`.
+- **Schreibziele (vollständig, 27 Speicherschreibbefehle außerhalb des Stacks):**
+  - 26 × in das `radarMap`-Argument (`r12`): Minimap-Pixel als ARGB und der weiße Kamerarahmen (`0xFFFFFFFF`). Leser ist nur der verwaltete `MemoryBuffers.MemBuffer.radarMap` → `GameMap.processTestMap` → `ApplyRadarMap` (Textur-Upload).
+  - 1 × (`0x1800F64B7`) in die Klicktabelle `*(0x183496220+0x70)`, Minimap-Pixel → Kachelindex (`0x271000` Bytes, angelegt von `0xF6F80` bei `ResizeRadarMapBuffer`, 1030). Einziger Leser: `0xF6F20` bei `RadarClicked` (1028). Er setzt nur die Kamera (`0x50220` auf das Ansichtsobjekt `0x183A11DC0`).
+  - Weder `retData` noch globale Variablen werden beschrieben. Alle Schreibbefehle laufen über `r12` (`radarMap`) bzw. den Tabellenzeiger aus `+0x70`.
+- **Einordnung: reine Darstellung.**
+  - Kein Simulationszustand und keine MP-relevanten Daten. Die Funktion ist deterministisch über den jeweiligen Tickzustand, aber niemand in der Simulation liest ihre Ausgabe.
+  - Eine *exakte* Wiederverwendung ist nicht möglich: Die Minimap zeigt Einheitenbewegungen jedes Ticks.
+  - Ein **verlustbehaftetes Drosseln** wäre technisch zulässig und rein clientseitig. Gemeint ist, `0xF5A40` nur jeden n-ten Tick auszuführen. Folgen:
+    - Die Minimap hinkt bis zu n-1 Ticks hinterher.
+    - Die Klicktabelle folgt der Kamera ebenso verzögert.
+    - Der Main-Thread darf Puffer ohne frisches Minimap-Bild nicht hochladen, sonst wechseln alte Pufferinhalte ab.
+  - Erwarteter Gewinn bei n = 4: bis ~1,4-facher maximaler Tick-Durchsatz.
+  - **Status: offener Kandidat**, nicht umgesetzt. Ein Prototyp braucht einen nativen Hook an der Aufrufstelle `0x86B9B` und die Zustimmung des Nutzers zur verzögerten Minimap.
+- Fremder Code, der zwischen den nativen Phasen viel Speicher berührt, verlangsamt `0xF5A40` messbar über Cache-Verdrängung (BFQoL-Torhausabfrage vorher: +0,3–0,5 ms pro Tick).
+- Details: Baseline `knowledge/RADAR_PASS_F5A40.md`.
 
 ## Offene Punkte
 

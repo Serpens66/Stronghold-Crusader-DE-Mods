@@ -85,3 +85,5 @@ if (-not $activeVersion) {
 Write-Host 'Repair preflight passed: audited binary hashes, source assets, XAML, CRLF and version consistency.'
 & (Join-Path $project 'Test-KeepBuildRange.ps1') -ExtenderDir $ExtenderDir
 if (-not $?) { throw 'Keep build range tests failed.' }
+& (Join-Path $project 'Test-GatehouseQueryRange.ps1')
+if (-not $?) { throw 'Gatehouse query range tests failed.' }

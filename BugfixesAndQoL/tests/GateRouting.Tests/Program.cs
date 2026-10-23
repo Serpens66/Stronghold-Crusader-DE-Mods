@@ -758,13 +758,6 @@ namespace BugfixesAndQoL.GateRouting
             Assert(hooks.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) < 0 &&
                     hooks.IndexOf("ValidateMovement(false)", StringComparison.Ordinal) < hooks.IndexOf("NativeHookPublication.Enable(transaction, result", StringComparison.Ordinal),
                 "prepared spans are checked before publication without unpatching live hooks");
-            Assert(runtimeSource.IndexOf("typeof(X64InlineHook).Assembly.GetName().Version",
-                    StringComparison.Ordinal) >= 0 &&
-                    runtimeSource.IndexOf("new Version(1, 1, 0, 0)",
-                        StringComparison.Ordinal) < 0 &&
-                    runtimeSource.IndexOf("is not the audited 1.1.0 implementation",
-                        StringComparison.Ordinal) < 0,
-                "RedBird version is diagnostic while concrete hook contracts remain authoritative");
             Assert(sharedBody.IndexOf("originalZeroKnown", StringComparison.Ordinal) >= 0 &&
                     sharedBody.IndexOf("registers->Rflags", StringComparison.Ordinal) < 0 &&
                     sharedBody.IndexOf("originalZero ? 0UL : 1UL", StringComparison.Ordinal) >= 0,

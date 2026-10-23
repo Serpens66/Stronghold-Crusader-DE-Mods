@@ -3,8 +3,5 @@
   <ItemGroup>
     <Compile Include="../../src/NotificationLastFrameFeature.cs" Link="NotificationLastFrameFeature.cs" />
     <Compile Include="../../src/NotificationSpeechPlayback.cs" Link="NotificationSpeechPlayback.cs" />
-    <Compile Include="../../src/NotificationLastFrameFeature.DevDiag.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
-    <Compile Include="../../src/NotificationSpeechPlayback.DevDiag.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
-    <Compile Include="../../../Shared/Runtime/Diagnostics/DevDiag.cs" Link="DevDiag.cs" />
   </ItemGroup>
 </Project>

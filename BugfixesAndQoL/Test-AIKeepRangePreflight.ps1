@@ -36,7 +36,7 @@ if ($vm -notmatch 'private bool removeAIKeepRangeLimit = true;' -or
 $option = $xaml.SelectSingleNode('//*[local-name()="CheckBox" and @IsChecked="{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}"]')
 if ($null -eq $option -or $option.GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or
     $null -eq $option.SelectSingleNode('ancestor::*[@IsEnabled="{Binding CanEditHostSettings}"]') -or
-    $null -eq $option.SelectSingleNode('ancestor::*[@*[local-name()="ModSettingsSearch.SectionKey"]="bugfixes.section.host-possible-fixes"]')) { throw 'Fixes? host section/tooltip contract.' }
+    $null -eq $option.SelectSingleNode("ancestor::*[contains(@Visibility, '.PossibleVisibility}') ]")) { throw 'Host Possible Fix category/tooltip contract.' }
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales') -Filter '*.txt') {
     $text = [IO.File]::ReadAllText($file.FullName)
     foreach ($key in @('BugfixesAndQoL.RemoveAIKeepRangeLimit','BugfixesAndQoL.RemoveAIKeepRangeLimitHelp')) {

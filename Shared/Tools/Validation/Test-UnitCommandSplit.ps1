@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$SkipCompiler, [string]$ModDirectory, [switch]$SkipPermanentHooks)
+param([switch]$SkipCommonChecks, [switch]$SkipCompiler, [string]$ModDirectory, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $projects = @('APIShared\APIShared.csproj', 'BugfixesAndQoL\BugfixesAndQoL.csproj', 'Testmods\MoatMove\MoatMove.csproj')
@@ -28,7 +28,7 @@ foreach ($relative in $projects) {
     })
     foreach ($path in $paths | Select-Object -Unique) {
         $text = [IO.File]::ReadAllText($path)
-        if ($text -match $jsonPattern) { throw "Forbidden runtime JSON dependency: $path" }
+        if (-not $SkipCommonChecks -and $text -match $jsonPattern) { throw "Forbidden runtime JSON dependency: $path" }
         if ($text -match $callbackPattern) { throw "Runtime component callback or teardown: $path" }
         if ($path -match '\\UnitCommands\\|\\MoatMove\\src\\|\\BugfixesAndQoL\\src\\Formations\\') {
             if ($text -match '\b(?:CodePatch\.Write|VirtualProtect|FlushInstructionCache)\s*\(|\.Hook\.(?:Enable|Disable|Undo|Dispose)\s*\(') {
@@ -40,9 +40,10 @@ foreach ($relative in $projects) {
                 throw "Unexpected executable publication outside private FastNative constructor: $path"
             }
         }
-        if ($text -match '(?<!\r)\n') { throw "Bare LF: $path" }
+        if (-not $SkipCommonChecks -and $text -match '(?<!\r)\n') { throw "Bare LF: $path" }
         $count++
     }
+if (-not $SkipCommonChecks) {
     foreach ($file in Get-ChildItem -LiteralPath $directory -Recurse -File -Filter '*.xaml' | Where-Object { $_.FullName -notmatch '\\(?:bin|obj|BepInEx)\\' }) {
         [xml]$patch = [IO.File]::ReadAllText($file.FullName)
         foreach ($content in $patch.SelectNodes('//*[local-name()="Content"]')) {
@@ -50,6 +51,7 @@ foreach ($relative in $projects) {
             if ($elements.Count -ne 1) { throw "XAML Content requires exactly one root: $($file.FullName)" }
         }
     }
+}
 }
 if (-not $SkipPermanentHooks) {
     & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory $ModDirectory

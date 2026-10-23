@@ -23,8 +23,9 @@ $xamlPath = Join-Path $PSScriptRoot 'Override\ScriptExtenderUI\BugfixesAndQoLSet
 [xml]$xaml = [IO.File]::ReadAllText($xamlPath)
 $row = @($xaml.SelectNodes("//*[local-name()='CheckBox']") | Where-Object { $_.IsChecked -eq '{Binding EnableGatehouseLivingCaptureFix, Mode=TwoWay}' })
 if ($row.Count -ne 1) { throw 'Expected exactly one capture checkbox' }
-$section = $row[0].ParentNode.ParentNode
-if (-not @($section.Attributes | Where-Object { $_.LocalName.EndsWith('.SectionKey') -and $_.Value -eq 'bugfixes.section.host-fixes-gameplay' }).Count) { throw 'Capture checkbox is outside host Fixes/gameplay' }
+# Preserve role/category rather than a historical container identity.
+if ($null -eq $row[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
+    $null -eq $row[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.FixesVisibility}') ]")) { throw 'Capture checkbox must remain a host-authorized Fix.' }
 foreach ($file in Get-ChildItem (Join-Path $PSScriptRoot 'Locales') -File -Filter '*.txt') {
     $text = [IO.File]::ReadAllText($file.FullName)
     foreach ($key in @('EnableGatehouseLivingCaptureFix','EnableGatehouseLivingCaptureFixHelp')) {

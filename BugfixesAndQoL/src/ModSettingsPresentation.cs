@@ -257,7 +257,9 @@ namespace BugfixesAndQoL
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             double width = value is double number ? number : value is float single ? single : 0;
-            return double.IsNaN(width) || double.IsInfinity(width) ? 0.0 : Math.Max(0.0, width - 20.0);
+            // Noesis requires a boxed Single for Width and rejects a boxed Double.
+            return double.IsNaN(width) || double.IsInfinity(width) ? 0f
+                : (float)Math.Min(float.MaxValue, Math.Max(0.0, width - 20.0));
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>

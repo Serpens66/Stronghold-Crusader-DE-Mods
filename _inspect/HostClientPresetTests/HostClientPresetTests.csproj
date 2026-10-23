@@ -78,7 +78,6 @@
     <Compile Include="RandomEventsChatPresetTests.cs" />
     <Compile Include="..\..\RandomEvents\src\RandomEventsSettingsViewModel.cs" />
     <Compile Include="..\..\RandomEvents\src\RandomEventDefinitions.cs" />
-    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.BepInEx\NoesisUtil\RelayCommand.cs" />
     <Compile Include="..\..\Shared\Runtime\UI\NumericTextInput.cs" />
     <Compile Include="..\..\ExtremePowers\src\Settings\ExtremePowersSettings.cs" />
     <Compile Include="DynamicPresetTests.cs" />

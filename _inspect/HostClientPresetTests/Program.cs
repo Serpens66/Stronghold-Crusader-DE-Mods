@@ -6432,7 +6432,7 @@ namespace BepInEx.Logging { public sealed class ManualLogSource { } }
 namespace Noesis
 {
     public enum Visibility { Visible, Hidden, Collapsed }
-    public sealed class ComboBoxItem { public object Content { get; set; } public Visibility Visibility { get; set; } }
+    public sealed class ComboBoxItem { public object Content { get; set; } public Visibility Visibility { get; set; } public bool IsEnabled { get; set; } = true; }
 }
 
 namespace SHCDESE.Interop

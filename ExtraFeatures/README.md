@@ -66,7 +66,7 @@ Multiply all market buying and selling prices globally, then fine-tune the buyin
 ## Plague features
 
 ### Plague damage on elevated defenses
-Four independent host checkboxes allow plague clouds to damage units on walls, gates, towers and keeps. Walls, gates and towers are enabled by default; keeps are disabled. Units can take damage when their actual standing height differs from the cloud standing surface by at most 20 native height units. The visual cloud offset is excluded. Cloud height follows movement, demolition and collapse. Vanilla horizontal range, damage, apothecary protection, treatment and unit immunities remain unchanged.
+Plague clouds can also damage units on nearby walls, gates, towers and keeps when their heights are close enough. The host controls each of these four surfaces separately: walls, gates and towers are enabled by default, keeps are disabled; normal damage and apothecary protection still apply.
 
 ### Customize plague-cloud duration
 Set how long plague clouds remain active from 0.5 to 20 times the Vanilla duration. Longer durations also extend how long a cloud can cause damage. By default set to *4.

@@ -18,6 +18,5 @@
     <Compile Include="..\..\Spectator\src\SpectatorViewModel.cs"/>
     <Compile Include="..\..\Spectator\src\SpectatorFeatureActivation.cs"/>
     <Compile Include="..\..\Spectator\src\ToolsText.cs"/>
-    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.BepInEx\NoesisUtil\RelayCommand.cs"/>
   </ItemGroup>
 </Project>

@@ -66,6 +66,9 @@ try {
                 ('set "API_SHARED_DIR=' + (Join-Path $api 'BepInEx\plugins\APIShared_Serp') + '"'))
         }
         'main' {
+            if ($DriverArguments -icontains '/tests:none') {
+                throw '/tests:none requires an existing SDK selected by the branch dispatcher; it cannot prepare an SDK here. Use build.bat /source:working /apishared:main.'
+            }
             # The game directory of the calling driver lets a fresh main worktree build.
             if (-not $env:SHCDE_GAME_DIR -and $env:GAME_DIR) { $env:SHCDE_GAME_DIR = $env:GAME_DIR }
             $selectionPath = Resolve-ApiMainSelection $Workspace

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$SkipPermanentHooks)
+param([switch]$SkipCommonChecks, [switch]$SkipPermanentHooks)
 $ErrorActionPreference='Stop'
 function Get-Sha256([string]$Path) {
     $stream=[IO.File]::OpenRead($Path)
@@ -11,6 +11,7 @@ function Get-Sha256([string]$Path) {
 $workspace=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $mod=Join-Path $workspace 'BugfixesAndQoL'
 $roots=@((Join-Path $workspace 'APIShared'),$mod)
+if (-not $SkipCommonChecks) {
 foreach($root in $roots) {
     $files=@(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
         $relativePath=$_.FullName.Substring($root.Length).TrimStart('\')
@@ -31,6 +32,7 @@ foreach($root in $roots) {
             }
         }
     }
+}
 }
 if (-not $SkipPermanentHooks) {
     & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
@@ -63,7 +65,10 @@ if($runtimeSource -notmatch '!settings.EnableMod \|\| !settings.EnableAssassinCa
     $runtimeSource -match 'LogInfo|protectedCount|protectedReports|foreach\s*\(|for\s*\('){throw 'Activation, completion, logging or constant-work contract'}
 if($runtimeSource.IndexOf('IsEligibleUnit') -gt $runtimeSource.IndexOf('IsAIPlayer')){throw 'Filter unit before player lookup'}
 $xaml=[IO.File]::ReadAllText((Join-Path $mod 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
-if($xaml.IndexOf('Binding EnableAssassinCapturedGateProtectionFix,') -lt $xaml.IndexOf('Binding FixesTitleText')){throw 'Protection outside Fixes'}
+[xml]$settingsDocument = $xaml
+$controls = @($settingsDocument.SelectNodes("//*[local-name()='CheckBox'][@IsChecked='{Binding EnableAssassinCapturedGateProtectionFix, Mode=TwoWay}']"))
+if ($controls.Count -ne 1 -or $null -eq $controls[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
+    $null -eq $controls[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.PossibleVisibility}') ]")) { throw 'Protection checkbox must remain a host-authorized Possible Fix.' }
 foreach($file in Get-ChildItem -LiteralPath (Join-Path $mod 'Locales') -Filter '*.txt'){
  foreach($key in @('EnableAssassinCapturedGateProtectionFix','EnableAssassinCapturedGateProtectionFixHelp')){
   if([regex]::Matches([IO.File]::ReadAllText($file.FullName),'(?m)^BugfixesAndQoL\.'+$key+'=').Count -ne 1){throw "Protection locale: $file/$key"}

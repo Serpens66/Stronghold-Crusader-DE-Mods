@@ -3,7 +3,8 @@ setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
 if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Testmods/PerfProbe/build.bat" %*
+rem PerfProbe measures only in DEVDIAG builds, so /devdiag is always passed (main rejects it; choose develop).
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Testmods/PerfProbe/build.bat" /devdiag %*
 set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
 set "SHCDE_BRANCH_PAUSE=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"

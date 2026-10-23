@@ -9,25 +9,15 @@ using Noesis;
 using NoesisApp;
 using CrusaderDE;
 
-namespace BepInEx.Logging { public sealed class ManualLogSource {
- public static readonly List<string> Messages=new List<string>(); public void LogMessage(object message){Messages.Add(message.ToString());}
-} }
+namespace BepInEx.Logging { public sealed class ManualLogSource { } }
 namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled => false;
  public static readonly List<string> Errors = new List<string>();
  public static void LogDebug(object a,string b) { }
  public static void LogError(object a,string b) { Errors.Add(b); }
  public static void LogErrorLimited(object a,string b,string c) { Errors.Add(c); }
 } }
-namespace Noesis { public class RoutedEventArgs { }
- public class BaseComponent { public IntPtr Native; public static System.Runtime.InteropServices.HandleRef getCPtr(BaseComponent value)=>new System.Runtime.InteropServices.HandleRef(value,value.Native); }
-}
-namespace NoesisApp {
- public class MediaPlayer { }
- public class MediaElement : Noesis.BaseComponent {
- private MediaPlayer _player; public MediaPlayer Player {get=>_player;set=>_player=value;}
- public TimeSpan Position; public string NaturalDuration="duration";
- private void OnMediaEnded() { }
- public void RaiseEnd()=>MonoMod.RuntimeDetour.Hook.Dispatch("mediaEnd",this);
+namespace Noesis { public class RoutedEventArgs { } }
+namespace NoesisApp { public class MediaElement {
  private Uri source;
  // Installed SE resolves overrides before the Noesis round-trip normalizes separators.
  public Uri Source {get=>source;set{
@@ -42,27 +32,12 @@ namespace NoesisApp {
  public void Close(){Closes++;}
 } }
 namespace UnityEngine {
- public class GameObject {public bool activeInHierarchy=true;}
- public enum AudioDataLoadState{Unloaded,Loading,Loaded,Failed}
- public class AudioClip { public float length=3; public AudioDataLoadState loadState=AudioDataLoadState.Loaded; public bool Unloaded; public void UnloadAudioData(){Unloaded=true;} }
+ public class AudioClip { public bool Unloaded; public void UnloadAudioData(){Unloaded=true;} }
  public class AudioSource { public float volume; public bool Paused,Playing; public int Plays,Stops;
-  public GameObject gameObject=new GameObject(); public bool isPlaying=>Playing&&!Paused;
   public void PlayOneShot(AudioClip clip){Plays++;Playing=true;} public void Pause(){Paused=true;}
   public void Stop(){Stops++;Playing=false;Paused=false;}
  }
- public static class Time {public static int frameCount;}
- public static class Application { public static string streamingAssetsPath="Streaming",dataPath="Data";
-  public static event Action onBeforeRender; public static void Render(){Time.frameCount++;onBeforeRender?.Invoke();}
- }
-}
-namespace UnityEngine.Video { public class VideoPlayer {
- public bool isPrepared=true,isPlaying=true,isPaused; public long frame; public ulong frameCount=10; public double time,length=3;
-} }
-public class NoesisMediaPlayer : NoesisApp.MediaPlayer {
- private UnityEngine.Video.VideoPlayer _videoPlayer=new UnityEngine.Video.VideoPlayer();
- public UnityEngine.Video.VideoPlayer Video=>_videoPlayer; public NoesisApp.MediaElement Media;
- private void OnMediaEnded(UnityEngine.Video.VideoPlayer player) { }
- public void End()=>MonoMod.RuntimeDetour.Hook.Dispatch("playerEnd",this,_videoPlayer);
+ public static class Application { public static string streamingAssetsPath="Streaming",dataPath="Data"; }
 }
 public static class ConfigSettings { public static bool Settings_EnglishSpeech=true,Settings_ReduceMusicVolumeForSpeech=true;
  public static float Settings_UnitSpeechVolume=1,Settings_SpeechVolume=1; }
@@ -89,8 +64,6 @@ public class MyAudioManager {
  }
  private Task<UnityEngine.AudioClip> LoadClip(string path){LastPath=path;return Pending.Task;}
  public void OriginalLoad(int channel,string folder,string name,bool units,bool ignorePause){LastPath=folder+"/"+name;}
- private void MonitorLoadedSounds() { }
- public void Monitor()=>MonoMod.RuntimeDetour.Hook.Dispatch("monitor",this);
 }
 public class SFXManager {
  public static SFXManager instance; public Uri requestBinkPlaybackURI;
@@ -115,7 +88,7 @@ namespace CrusaderDE {
   public MediaElement RefRadarME=new MediaElement();
   private void RadarME_Ended(object sender,RoutedEventArgs args) { }
   public void EndEvent(){MonoMod.RuntimeDetour.Hook.Dispatch("end",this,RefRadarME,new RoutedEventArgs());}
-  public bool IgnoreClose; public void RadarME_Ended(){if(IgnoreClose)return;RefRadarME.Stop();RefRadarME.Source=null;RefRadarME.Close();
+  public void RadarME_Ended(){RefRadarME.Stop();RefRadarME.Source=null;RefRadarME.Close();
    SFXManager.instance.binkIsPlaying=false;SFXManager.instance.requestBinkPlayState=0;RefRadarME.Opacity=0;}
  }
 }
@@ -137,7 +110,7 @@ namespace SHCDESE.API { public class GameTimeManagerAPI {
 }
 namespace APIShared.Presentation {
  public enum PresentationOperation{GuiChecks}
- public class PresentationPostEventArgs{public bool OriginalCompleted=true,WasSkipped,WasReplaced; public Exception CompletionException;}
+ public class PresentationPostEventArgs{public bool OriginalCompleted=true;}
  public static class PresentationEvents {
   public static Action<PresentationPostEventArgs> Callback;
   public static bool TryRegister(PresentationOperation op,string owner,string id,object pre,Action<PresentationPostEventArgs> post,out string reason){Callback=post;reason=null;return true;}
@@ -161,8 +134,7 @@ namespace MonoMod.RuntimeDetour {
   private static readonly Dictionary<string,Delegate> callbacks=new Dictionary<string,Delegate>();
   private readonly string key;private readonly Delegate callback;
   public Hook(MethodInfo method,Delegate callback,HookConfig config){this.callback=callback;
-   key=method.Name=="MonitorLoadedSounds"?"monitor":method.Name=="OnMediaEnded"?(method.DeclaringType==typeof(NoesisMediaPlayer)?"playerEnd":"mediaEnd"):
-    method.DeclaringType==typeof(MyAudioManager)?"speech":method.Name=="playBink"?"play":method.Name=="addOSTEntry"?"text":"end";}
+   key=method.DeclaringType==typeof(MyAudioManager)?"speech":method.Name=="playBink"?"play":method.Name=="addOSTEntry"?"text":"end";}
   public void Apply(){callbacks[key]=callback;}
   public void Dispose(){callbacks.Remove(key);}
   public T GenerateTrampoline<T>()=> (T)(object)Delegate.CreateDelegate(typeof(T),typeof(Originals).GetMethod(key));
@@ -170,10 +142,6 @@ namespace MonoMod.RuntimeDetour {
  }
 }
 public static class Originals {
- public static int Monitors,PlayerEnds,MediaEnds; public static bool FailMonitor,FailPlayerEnd;
- public static void monitor(MyAudioManager audio){Monitors++;if(FailMonitor)throw new InvalidOperationException("monitor failed");if(!audio.Paused && audio.Mode==2 && !audio.Source.isPlaying)audio.Mode=0;}
- public static void playerEnd(NoesisMediaPlayer self,UnityEngine.Video.VideoPlayer player){PlayerEnds++;if(FailPlayerEnd)throw new InvalidOperationException("player failed");self.Media.RaiseEnd();}
- public static void mediaEnd(NoesisApp.MediaElement self){MediaEnds++;MonoMod.RuntimeDetour.Hook.Dispatch("end",MainViewModel.Instance.HUDRoot,self,new RoutedEventArgs());}
  public static bool FailEnd; public static int EndCalls;
  public static void speech(MyAudioManager self,int channel,string folder,string name,bool units,bool ignorePause)=>self.OriginalLoad(channel,folder,name,units,ignorePause);
  public static void text(OnScreenText self,Enums.eOnScreenText id,int d1,int d2,int d3,int d4,int d5){if(id==Enums.eOnScreenText.OST_MESSAGE_BAR)self.Pending=true;}

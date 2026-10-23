@@ -13,7 +13,7 @@ using System.Threading;
 
 namespace BugfixesAndQoL
 {
-    internal sealed partial class NotificationLastFrameFeature
+    internal sealed class NotificationLastFrameFeature
     {
         private delegate void VideoEndedDelegate(MainHUD self, object sender, RoutedEventArgs args);
         private delegate void PlayBinkDelegate(SFXManager self, string binkName, bool loop, bool waitForSpeech);
@@ -83,19 +83,10 @@ namespace BugfixesAndQoL
                 throw;
             }
             GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-            DiagInitialize();
             Shared.DebugLogHelper.LogDebug(log, "NOTIFICATION_LAST_FRAME_INSTALLED: permanent playback and MediaEnded hooks installed; HD speech wait bound is 20000 ms.");
         }
 
         private bool Enabled => settings.EnableClientFeatures && settings.EnableNotificationLastFrame;
-
-        // Implemented only by the development build; calls and arguments disappear otherwise.
-        partial void DiagInitialize();
-        static partial void DiagRequest(SFXManager self, string name, bool loop, bool wait, Uri before);
-        partial void DiagAttach(Playback current);
-        static partial void DiagEnd(MainHUD hud, object sender, string stage);
-        partial void DiagState(Playback current, string stage);
-        static partial void DiagGui(PresentationPostEventArgs args);
 
         // Mission notifications may come from another thread. Close Noesis only on the presentation caller.
         internal void ResetMapState()
@@ -103,7 +94,6 @@ namespace BugfixesAndQoL
             Playback current = Volatile.Read(ref playback);
             if (current != null)
                 Volatile.Write(ref current.Invalidated, true);
-            DiagState(current, "map-invalidated");
         }
 
         private static void OnGameTick(int tick)
@@ -118,7 +108,6 @@ namespace BugfixesAndQoL
         {
             Uri before = self?.requestBinkPlaybackURI;
             originalPlayBink(self, binkName, loop, waitForSpeech);
-            DiagRequest(self, binkName, loop, waitForSpeech, before);
             NotificationLastFrameFeature feature = instance;
             if (feature == null || self == null || ReferenceEquals(before, self.requestBinkPlaybackURI))
                 return; // Rejected requests neither replace the owner nor renew its deadline.
@@ -146,14 +135,12 @@ namespace BugfixesAndQoL
                 self.requestBinkPlaybackURI = source;
                 Volatile.Write(ref feature.playback, new Playback(self, main, hud, source,
                     MyAudioManager.Instance, started, waitForSpeech && self.binkWaitForSpeech));
-                feature.DiagAttach(Volatile.Read(ref feature.playback));
             }
             catch (Exception ex) { feature.LogFailure("URI", ex); }
         }
 
         private static void OnVideoEnded(MainHUD self, object sender, RoutedEventArgs args)
         {
-            DiagEnd(self, sender, "hud-end-enter");
             NotificationLastFrameFeature feature = instance;
             if (feature != null && feature.Enabled)
             {
@@ -161,7 +148,6 @@ namespace BugfixesAndQoL
                 {
                     if (MainViewModel.viewModelLoaded && !ReferenceEquals(MainViewModel.Instance.HUDRoot, self))
                     {
-                        DiagEnd(self, sender, "reject-old-hud");
                         return;
                     }
                     Playback current = Volatile.Read(ref feature.playback);
@@ -169,7 +155,6 @@ namespace BugfixesAndQoL
                     {
                         if (!current.Matches(self, sender))
                         {
-                            DiagEnd(self, sender, "reject-identity");
                             return; // A late event must not finish its replacement.
                         }
                         if (Volatile.Read(ref current.Invalidated))
@@ -187,7 +172,6 @@ namespace BugfixesAndQoL
                             // State 1 + playing avoids FatControler's speech-dependent state-3 cleanup.
                             // ** is nonlooping; Pause keeps the frame and respects a previous left-click hide.
                             current.Held = true;
-                            feature.DiagState(current, "held");
                             current.Media.Pause();
                             return;
                         }
@@ -195,9 +179,7 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception ex) { feature.LogFailure("DISPLAY", ex); }
             }
-            DiagEnd(self, sender, "vanilla-end-fallback");
             originalVideoEnded(self, sender, args);
-            DiagEnd(self, sender, "vanilla-end-return");
         }
 
         private bool IsSpeechWaitActive(Playback current)
@@ -209,14 +191,12 @@ namespace BugfixesAndQoL
                 !current.Audio.isSpeechPlaying(1)))
             {
                 current.WaitingForSpeech = false;
-                DiagState(current, "speech-wait-cleared");
             }
             return current.WaitingForSpeech;
         }
 
         private static void OnGuiChecks(PresentationPostEventArgs args)
         {
-            DiagGui(args);
             NotificationLastFrameFeature feature = instance;
             if (feature == null || !args.OriginalCompleted)
                 return;
@@ -250,7 +230,6 @@ namespace BugfixesAndQoL
         {
             if (current == null)
                 return;
-            DiagState(current, "close-attempt");
             // Never clear global flags belonging to a replacement request or HUD.
             if (current.IsCurrentRequest() && MainViewModel.viewModelLoaded &&
                 ReferenceEquals(MainViewModel.Instance.HUDRoot, current.Hud) &&
@@ -265,7 +244,6 @@ namespace BugfixesAndQoL
                 current.Media.Opacity = 0f;
             }
             Interlocked.CompareExchange(ref playback, null, current);
-            DiagState(current, "close-return");
         }
 
         private void LogFailure(string operation, Exception ex) =>

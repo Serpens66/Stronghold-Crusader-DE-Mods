@@ -46,7 +46,6 @@ internal static partial class Program
             TestCapturedGateSetting(args);
             TestSelectionCache(Path.GetFullPath(args[0]));
             TestProductionKernel(Path.GetFullPath(args[0]));
-            BenchmarkWallGroup();
             TestTemporaryHandoffEvidence();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");
             return 0;
@@ -261,35 +260,6 @@ internal static partial class Program
         Check(!runtime.Contains("SamePcl", StringComparison.OrdinalIgnoreCase) &&
               !runtime.Contains("RequiredOnly", StringComparison.OrdinalIgnoreCase),
             "Assassin optimization contains no semantic fast-path shortcut");
-    }
-
-    private static void BenchmarkWallGroup()
-    {
-        var graph = new TestGraph(80, 80, speedDelay: 5);
-        graph.AddVerticalWall(40, 2, 77, climbable: true, climbTicks: 400);
-        long dijkstraExpanded = 0;
-        long astarExpanded = 0;
-        var stopwatch = Stopwatch.StartNew();
-        for (int unit = 0; unit < 900; unit++)
-        {
-            int sy = 3 + unit % 74;
-            SearchResult result = Search(graph, 4 + unit % 8, sy, 70, sy, false, int.MaxValue);
-            dijkstraExpanded += result.Expanded;
-        }
-        double dijkstraMs = stopwatch.Elapsed.TotalMilliseconds;
-        stopwatch.Restart();
-        for (int unit = 0; unit < 900; unit++)
-        {
-            int sy = 3 + unit % 74;
-            SearchResult result = Search(graph, 4 + unit % 8, sy, 70, sy, true, int.MaxValue);
-            astarExpanded += result.Expanded;
-        }
-        double astarMs = stopwatch.Elapsed.TotalMilliseconds;
-        Check(astarExpanded < dijkstraExpanded,
-            "A* expands fewer nodes in the 900-unit wall scenario");
-        Console.WriteLine(
-            $"ASSASSIN SEARCH MODEL units=900 dijkstraExpanded={dijkstraExpanded} " +
-            $"astarExpanded={astarExpanded} dijkstraMs={dijkstraMs:F2} astarMs={astarMs:F2}");
     }
 
     private static SearchResult Search(

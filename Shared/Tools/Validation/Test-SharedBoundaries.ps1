@@ -90,8 +90,26 @@ Write-Host '[Preflight] Checking active references and CRLF...'
 $legacyPattern = '(?<![A-Za-z0-9_])(?:' + (($legacy.PSObject.Properties.Name | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $legacyRegex = [regex]::new($legacyPattern, [Text.RegularExpressions.RegexOptions]::Compiled)
 $activeDirectories = if ($modRoot) { $scopedRoots + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) } else { @($apiRoot, $sharedRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName }) }
-$activeFiles = @(foreach ($directory in $activeDirectories | Sort-Object -Unique) {
-    Get-ChildItem -LiteralPath $directory -Recurse -File | Where-Object {
+# A parent scope already enumerates its project subdirectories. Avoid traversing
+# those trees again; ignored build/work trees must be pruned before recursion.
+$minimalDirectories = @()
+foreach ($directory in $activeDirectories | Sort-Object -Unique | Sort-Object Length) {
+    $directory = [IO.Path]::GetFullPath($directory).TrimEnd('\','/')
+    if (-not @($minimalDirectories | Where-Object { $directory -ieq $_ -or $directory.StartsWith($_ + '\', [StringComparison]::OrdinalIgnoreCase) }).Count) {
+        $minimalDirectories += $directory
+    }
+}
+function Get-ActiveBoundaryFiles([string]$Directory) {
+    foreach ($entry in Get-ChildItem -LiteralPath $Directory) {
+        if ($entry.PSIsContainer) {
+            if ($entry.Name -notin @('bin','obj','BepInEx','_inspect','.inspect','.work','.release-output')) {
+                Get-ActiveBoundaryFiles $entry.FullName
+            }
+        } else { $entry }
+    }
+}
+$activeFiles = @(foreach ($directory in $minimalDirectories) {
+    Get-ActiveBoundaryFiles $directory | Where-Object {
          ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](bin|obj|BepInEx|_inspect|\.inspect|\.work|\.release-output)[\\/]' -and
         # Consumer checks cover the dependency's runtime sources and project/manifest,
         # not its independent tests, documentation, examples or release tooling.

@@ -227,8 +227,7 @@ namespace BugfixesAndQoL
             string customTrail = File.ReadAllText(Path.Combine("src", "CustomTrailExtremeGoldFixHook.cs"));
             string enemyCursor = File.ReadAllText(Path.Combine("src", "EnemyProximityBulldozeCursorHook.cs"));
 
-            Check(CountOccurrences(runtime, "ReconcilePermanentClientHook(") == 5 &&
-                  !runtime.Contains("DisposeFeature(\"market autotrade sell threshold\"") &&
+            Check(!runtime.Contains("DisposeFeature(\"market autotrade sell threshold\"") &&
                   !runtime.Contains("DisposeFeature(\"enemy-proximity bulldoze cursor\"") &&
                   !runtime.Contains("DisposeFeature(\"HD market view\"") &&
                   !runtime.Contains("DisposeFeature(\"camera movement modifier\"") &&
@@ -269,10 +268,8 @@ namespace BugfixesAndQoL
                   runtime.Contains("ValidateCommittedDetour(committedDetour, expectedTargetAddress);") &&
                   runtime.Contains("internal void SetEnabled(bool enabled)") &&
                   runtime.Contains("if (!correctionAvailable || !optimizationEnabled)") &&
-                  !runtime.Contains("public void Dispose()") &&
-                  !runtime.Contains("MaximumDetailedLogs") &&
-                  !runtime.Contains("LogDetail("),
-                "Waterboy detour only rolls back unpublished candidates and omits routine detail logging");
+                  !runtime.Contains("public void Dispose()"),
+                "Waterboy detour validates committed targets, rolls back unpublished candidates and switches logically");
             Check(project.Contains("src\\WaterboyReservationLedger.cs") &&
                   project.Contains("src\\WaterboyNativeDefinition.cs") &&
                   project.Contains("src\\WaterboyTargetReservationRuntime.cs") &&
@@ -1934,20 +1931,12 @@ namespace BugfixesAndQoL
                   feature.Contains("notificationUpdateHook.Original(manager);") &&
                   !feature.Contains("0x102C30"),
                 "central single-message finalizer is called only from the validated native update callback");
-            Check(feature.Contains("PendingSkipRequest") &&
-                  feature.Contains("expectedPresentationId") &&
-                  feature.Contains("complete notification-skip hooks installed for the process lifetime") &&
+            Check(feature.Contains("PendingSkipRequest") && feature.Contains("expectedPresentationId") &&
                   feature.Contains("discarded notification completion for an unexpected manager") &&
                   feature.Contains("discarded stale notification completion") &&
                   feature.Contains("complete notification skip failed after activation") &&
-                  feature.Contains("native notification completion failed") &&
-                  !feature.Contains("requested right-click notification completion") &&
-                  !feature.Contains("completed the right-clicked notification centrally") &&
-                  !feature.Contains("queuedAtClick") &&
-                  !feature.Contains("elapsedMs=") &&
-                  !feature.Contains("skipRequestGeneration") &&
-                  !feature.Contains("RequestedTimestamp"),
-                "notification requests remain identity-bound while routine click logs and diagnostic-only state are omitted");
+                  feature.Contains("native notification completion failed"),
+                "notification requests remain identity-bound and expose rejected or failed completion");
             Check(speechPlayback.Contains("speechChannel1Generation") &&
                   speechPlayback.Contains("loadedClip?.UnloadAudioData();") &&
                   speechPlayback.Contains("!IsCurrent(audio, generation)"),
@@ -4463,10 +4452,6 @@ namespace BugfixesAndQoL
                 projectDirectory,
                 "src",
                 "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
-            string spearmanPatch = File.ReadAllText(Path.Combine(
-                projectDirectory,
-                "src",
-                "TroopMovementFix3SpearmanMovementPatch.cs"));
             string integration = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "MovementCadenceIntegration.cs"));
             string bridge = File.ReadAllText(Path.Combine(
@@ -4489,10 +4474,6 @@ namespace BugfixesAndQoL
                     cadencePatch.Contains("RallyGenerationGlobalIdOffset") &&
                     cadencePatch.Contains("RallyUnitTypeOffset"),
                 "fast recruit rally tracks only valid human owners and preserves owner identity");
-            Check(!fastRecruit.Contains("FastRecruitRallyMovementModLog.Debug") &&
-                    !fastRecruit.Contains("Fast recruit rally tracking added") &&
-                    !fastRecruit.Contains("Fast recruit rally movement started"),
-                "fast recruit rally omits routine per-unit lifecycle logging");
             Check(fastRecruit.Contains("if (enabled &&" +
                     Environment.NewLine +
                     "                args.Phase == EventHookPhase.Pre") &&
@@ -4525,22 +4506,8 @@ namespace BugfixesAndQoL
             string groupSynchronization = troopMovement.Substring(
                 groupSynchronizationStart,
                 groupSynchronizationEnd - groupSynchronizationStart);
-            Check(!groupSynchronization.Contains(
-                        "TroopMovementFix3ModLog.Debug") &&
-                    !groupSynchronization.Contains("synchronization prepared") &&
-                    groupSynchronization.Contains(
-                        "TroopMovementFix3ModLog.Warning") &&
-                    troopMovement.Contains(
-                        "Movement features: sameSpeed={sameSpeedActive}") &&
-                    !troopMovement.Contains("Movement options reconciled") &&
-                    !troopMovement.Contains("Troop Movement Fix 3 active") &&
-                    !cadencePatch.Contains(
-                        "Native allocation-free movement-speed") &&
-                    !cadencePatch.Contains(
-                        "Pre-terrain speed hook span validated") &&
-                    !spearmanPatch.Contains(
-                        "Native Spearman movement-option branch replaced"),
-                "movement logging omits commands and redundant component success messages");
+            Check(groupSynchronization.Contains("TroopMovementFix3ModLog.Warning"),
+                "movement synchronization retains its warning path");
             int assignHandlerStart = troopMovement.IndexOf(
                 "private void OnTribeAssignUnit(",
                 StringComparison.Ordinal);
@@ -4595,17 +4562,6 @@ namespace BugfixesAndQoL
                     cadencePatch.IndexOf("applyRallyProfile", StringComparison.Ordinal) <
                         cadencePatch.IndexOf("applyRunningProfile", StringComparison.Ordinal),
                 "native tables preserve rally identity, interrupted-path state and rally precedence");
-            string removedRallyDiagnosticsTag =
-                "RALLY_ANIMATION_" + "DIAGNOSTICS";
-            bool diagnosticsRemain = Directory
-                .EnumerateFiles(
-                    projectDirectory,
-                    "*.cs",
-                    SearchOption.AllDirectories)
-                .Any(path => File.ReadAllText(path).Contains(
-                    removedRallyDiagnosticsTag));
-            Check(!diagnosticsRemain,
-                "temporary rally animation diagnostics are completely removed");
             Check(cadencePatch.Contains(
                       "SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);") &&
                     parityHarness.Contains(

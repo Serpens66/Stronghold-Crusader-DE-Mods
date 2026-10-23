@@ -45,11 +45,28 @@ internal static partial class Program
         Type widthConverter = mod.GetType("BugfixesAndQoL.SettingsTopicWidthConverter", true);
         object converter = Activator.CreateInstance(widthConverter);
         MethodInfo convert = widthConverter.GetMethod("Convert");
-        Func<object, double> topicWidth = v => (double)convert.Invoke(converter, new object[] { v, typeof(double), null, System.Globalization.CultureInfo.InvariantCulture });
-        Check(topicWidth(500.0) == 480.0 && topicWidth(320.0f) == 300.0, "viewport binding reserves the actual page margins");
-        Check(topicWidth(null) == 0 && topicWidth(0.0) == 0 && topicWidth(-1.0) == 0 &&
-            topicWidth(double.NaN) == 0 && topicWidth(double.PositiveInfinity) == 0, "initial or invalid viewport sizes cannot produce invalid layout widths");
         Type scrollViewer = presentationType.GetProperty("BulkActionsVisibility").PropertyType.Assembly.GetType("Noesis.ScrollViewer", true);
+        Type widthType = scrollViewer.Assembly.GetType("Noesis.FrameworkElement", true).GetProperty("Width").PropertyType;
+        Func<object, float> topicWidth = v =>
+        {
+            object result = convert.Invoke(converter, new object[] { v, widthType, null, System.Globalization.CultureInfo.InvariantCulture });
+            // Noesis checks assignability before accepting converter output; numeric
+            // equality alone missed the boxed Double regression on its Single Width.
+            Check(widthType.IsInstanceOfType(result) && result is float,
+                "converter output matches the installed Noesis Width type for every input");
+            float width = (float)result;
+            Check(!float.IsNaN(width) && !float.IsInfinity(width) && width >= 0,
+                "converted width is finite and nonnegative");
+            return width;
+        };
+        Check(topicWidth(500.0) == 480f && topicWidth(320.0f) == 300f &&
+            topicWidth(40f) == 20f && topicWidth(20f) == 0f && topicWidth(10f) == 0f,
+            "viewport binding reserves the actual page margins even in narrow views");
+        foreach (object input in new object[] { null, 0.0, 0f, -1.0, -1f,
+            double.NaN, double.PositiveInfinity, double.NegativeInfinity,
+            float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            Check(topicWidth(input) == 0f, "initial or invalid viewport sizes use zero width");
+        Check(topicWidth(double.MaxValue) == float.MaxValue, "large finite input cannot overflow the Noesis Width type");
         Check(scrollViewer.GetProperty("ViewportWidth") != null, "the installed Noesis assembly exposes the bound viewport member");
         Type buttonType = scrollViewer.Assembly.GetType("Noesis.Button", true);
         Check(new[] { "Template", "ContentTemplate", "Foreground", "IsMouseOver", "IsKeyboardFocused" }
@@ -72,8 +89,24 @@ internal static partial class Program
             Check(head.Attributes?["Style"]?.Value == "{StaticResource TopicHeading}" &&
                 head.SelectSingleNode(".//*[local-name()='Path' and @Style='{StaticResource TopicChevron}']") != null &&
                 !head.OuterXml.Contains(".Arrow}"), "every topic uses the plain header and a font-independent arrow");
-            Check(head.SelectSingleNode(".//*[local-name()='TextBlock' and contains(@Text,'.CountText}')]")?.Attributes?["Foreground"]?.Value == "#FFBBBBBB",
+            XmlNode count = head.SelectSingleNode(".//*[local-name()='Run' and contains(@Text,'.CountText}')]");
+            Check(count?.Attributes?["Foreground"]?.Value == "#FFBBBBBB" && count.Attributes?["FontSize"]?.Value == "14",
                 "option count is visually secondary");
+            XmlNode[] inline = count?.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.NodeType == XmlNodeType.Element).ToArray();
+            Check(inline?.Length == 3 && inline[0].Attributes?["Text"]?.Value.EndsWith(".Title}") == true &&
+                inline[1].Attributes?["Text"]?.Value == " " && ReferenceEquals(inline[2], count) &&
+                count.ParentNode.Attributes?["TextWrapping"]?.Value == "Wrap",
+                "topic title and count share one wrapping text with a single space");
+        }
+        foreach (string role in new[] { "Client", "Host" })
+        {
+            XmlNode title = nodes.Single(n => n.LocalName == "TextBlock" && n.Attributes?["Text"]?.Value == "{Binding " + role + "OptionsText}");
+            XmlNode roleRow = title.ParentNode;
+            XmlNode[] actions = roleRow.SelectNodes(".//*[local-name()='Button']").Cast<XmlNode>().ToArray();
+            Check(roleRow.LocalName == "WrapPanel" && actions.Length == 2 &&
+                actions.All(n => n.Attributes?["Margin"]?.Value == "4,0,0,0") &&
+                roleRow.SelectSingleNode(".//*[local-name()='ColumnDefinition']") == null,
+                "role title and bulk commands flow together without a stretching gap: " + role);
         }
 
         // Read the actual editor bindings, rather than fixing the total to a historical snapshot.
@@ -85,6 +118,25 @@ internal static partial class Program
             "each current main editor appears exactly once");
         Check(new HashSet<string>(editors.Select(e => e.Property)).SetEquals(options.Select(o => (string)Get(o, "PropertyName"))),
             "all current options have presentation metadata, without stale entries");
+        // These XAML guardrails target the reported spacing regression. Actual wrap
+        // positions still require acceptance in the game's native Noesis renderer.
+        foreach (var editor in editors.Where(e => e.Node.LocalName == "Slider" || e.Node.LocalName == "ComboBox"))
+        {
+            XmlNode group = editor.Node.ParentNode;
+            XmlNode flow = group.ParentNode;
+            XmlNode row = Ancestors(editor.Node).First(a => SearchAttribute(a, "Key") != null);
+            XmlNode label = flow.SelectSingleNode("./*[local-name()='TextBlock']");
+            Check(group.LocalName == "WrapPanel" && flow.LocalName == "WrapPanel" &&
+                group.Attributes?["Margin"]?.Value == "4,0,0,0" &&
+                label?.Attributes?["Text"]?.Value == SearchAttribute(row, "Title") &&
+                label.Attributes?["TextWrapping"]?.Value == "Wrap" && label.Attributes?["Margin"] == null &&
+                flow.SelectSingleNode(".//*[local-name()='ColumnDefinition']") == null &&
+                editor.Node.Attributes?["Grid.Column"] == null,
+                "value editor follows its wrapping title without a stretching column: " + editor.Property);
+            string width = editor.Node.LocalName == "Slider" || editor.Property == "SpriteSheetMergeModeIndex" ? "160" : "180";
+            Check(editor.Node.Attributes?["Width"]?.Value == width,
+                "compact editor preserves its usable width: " + editor.Property);
+        }
         Check(topics.Sum(t => (int)Get(t, "OptionCount")) == editors.Length, "topic counts count main editors only");
         foreach (var editor in editors)
         {

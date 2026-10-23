@@ -10,6 +10,7 @@ $source = $null
 $exitCode = 0
 try {
     $Repository = [IO.Path]::GetFullPath($Repository).TrimEnd('\','/')
+    $null = Get-BranchTestSelection $Driver $DriverArguments
     $branch = Get-BranchChoice $DriverArguments
     $source = if ($branch -eq 'working') { New-WorkingSource $Repository } else { New-BranchSource $Repository $branch }
     $null = Invoke-SelectedBranchBuild -Repository $Repository -Driver $Driver -Branch $branch -DriverArguments $DriverArguments -ControllerRoot $Repository -Api:$Api -SourceSelection $source

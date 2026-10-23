@@ -620,7 +620,8 @@ namespace ExtraFeatures
 
             try
             {
-                if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out _))
+                // Cheap building checks first; the path-record lookup scans every record.
+                if (!TryGetLiveGatehouseBuilding(args.BuildingId, out GameBuilding* building))
                     return;
 
                 // The Script Extender supplies the normal one-based game ID.
@@ -634,6 +635,19 @@ namespace ExtraFeatures
                         out int unitId) ||
                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null)
+                {
+                    return;
+                }
+
+                // Most queries come from distant units of the owner's list. Vanilla cannot
+                // close for them whatever the answer, so leaving the Extender default there
+                // is exact (BugfixesAndQoL skips the same queries).
+                if (!Shared.GatehouseQueryUnitIdPolicy.IsWithinVanillaCloseRange(
+                        (short)building->r_TilePositionXBegin,
+                        (short)building->r_TilePositionYBegin,
+                        (short)unit->r_CurrentWorldPositionX,
+                        (short)unit->r_CurrentWorldPositionY) ||
+                    !TryGetLiveGatehouse(args.BuildingId, out _, out _))
                 {
                     return;
                 }
@@ -976,20 +990,29 @@ namespace ExtraFeatures
 
         private static bool TryGetLiveGatehouse(int buildingId, out GameBuilding* building, out PathConnectionRecord* gatehouse)
         {
-            building = null;
             gatehouse = null;
-            GameBuildingManagerAPI api = GameBuildingManagerAPI.Instance;
-            if (buildingId <= 0 || !api.TryGetBuildingById(buildingId, out building) || building == null ||
-                building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
-                building->r_GlobalId > int.MaxValue)
+            if (!TryGetLiveGatehouseBuilding(buildingId, out building))
                 return false;
             if (building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE)
                 return true;
-            if (!IsGatehouseType(building->r_BuildingType))
-                return false;
             return GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
                 gatehouse != null && gatehouse->r_BuildingId == buildingId &&
                 gatehouse->r_SubjectGlobalId == building->r_GlobalId;
+        }
+
+        // Building-array checks of TryGetLiveGatehouse without the path-record lookup.
+        private static bool TryGetLiveGatehouseBuilding(int buildingId, out GameBuilding* building)
+        {
+            building = null;
+            if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) ||
+                building == null || building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
+                building->r_GlobalId > int.MaxValue ||
+                (building->r_BuildingType != eStructs.STRUCT_DRAWBRIDGE && !IsGatehouseType(building->r_BuildingType)))
+            {
+                building = null;
+                return false;
+            }
+            return true;
         }
 
         private static bool TryFindGatehouseByGlobalId(int globalId, out GameBuilding* building, out int buildingId)

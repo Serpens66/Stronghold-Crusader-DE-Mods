@@ -1,8 +1,9 @@
 [CmdletBinding()]
-param([switch]$CheckTestApi, [switch]$SkipPermanentHooks)
+param([switch]$SkipCommonChecks, [switch]$CheckTestApi, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $roots = @('APIShared', 'BugfixesAndQoL')
+if (-not $SkipCommonChecks) {
 foreach ($relative in $roots) {
     $root = Join-Path $workspace $relative
     $files = @(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
@@ -31,6 +32,7 @@ foreach ($relative in $roots) {
         }
     }
 }
+}
 if (-not $SkipPermanentHooks) {
     & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
 }
@@ -58,7 +60,10 @@ foreach ($required in @('private bool enableAssassinGatehouseClimbFix = true;', 
 }
 if ($view -notmatch '\[SyncHostOnly\]\s+public bool EnableAssassinGatehouseClimbFix') { throw 'Climb setting must be host-only' }
 $xaml = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
-if ($xaml.IndexOf('Binding EnableAssassinGatehouseClimbFix,') -lt $xaml.IndexOf('Binding FixesTitleText')) { throw 'Climb setting outside Fixes section' }
+[xml]$settingsDocument = $xaml
+$controls = @($settingsDocument.SelectNodes("//*[local-name()='CheckBox'][@IsChecked='{Binding EnableAssassinGatehouseClimbFix, Mode=TwoWay}']"))
+if ($controls.Count -ne 1 -or $null -eq $controls[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
+    $null -eq $controls[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.FixesVisibility}') ]")) { throw 'Climb checkbox must remain a host-authorized Fix.' }
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'BugfixesAndQoL\Locales') -Filter '*.txt') {
     $locale = [IO.File]::ReadAllText($file.FullName)
     foreach ($key in @('EnableAssassinGatehouseClimbFix','EnableAssassinGatehouseClimbFixHelp')) {

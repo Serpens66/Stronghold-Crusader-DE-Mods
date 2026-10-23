@@ -27,6 +27,26 @@ function Assert-BranchUnlinkedPath([string]$Path) {
         }
     }
 }
+function Get-BranchTestSelection([string]$Driver, [string[]]$DriverArguments) {
+    $modeArguments = @($DriverArguments | Where-Object { $_ -match '^/tests(?::|$)' })
+    if ($Driver.Replace('\','/') -ine 'BugfixesAndQoL/build.bat') {
+        if ($modeArguments.Count) { throw '/tests:full|quick|none is supported by BugfixesAndQoL/build.bat only.' }
+        return $null
+    }
+    $modes = @($modeArguments | ForEach-Object {
+        if ($_ -notmatch '^/tests:(full|quick|none)$') { throw 'Use /tests:full, /tests:quick or /tests:none.' }
+        $Matches[1].ToLowerInvariant()
+    } | Sort-Object -Unique)
+    if ($modes.Count -gt 1) { throw 'Conflicting /tests arguments.' }
+    $mode = if ($modes.Count) { $modes[0] } else { 'full' }
+    $scopes = @($DriverArguments | Where-Object { $_ -match '^/checks(?::|$)' } | ForEach-Object {
+        if ($_ -notmatch '^/checks:(notifications|gatehouse|foreignhud|settings)$') { throw 'Unknown /checks scope.' }
+        $Matches[1].ToLowerInvariant()
+    } | Sort-Object -Unique)
+    if ($scopes.Count -gt 1 -or ($scopes.Count -and $mode -ne 'full')) { throw '/checks selects one feature scope and requires /tests:full.' }
+    return [pscustomobject]@{ Mode=$mode; Scope=$(if ($scopes.Count) { $scopes[0] } else { 'all' }) }
+}
+
 function Get-BranchChoice([string[]]$DriverArguments) {
     $working = $DriverArguments -icontains '/workspace' -or $DriverArguments -icontains '/source:working'
     if (@($DriverArguments | Where-Object { $_ -match '^/source:' -and $_ -ine '/source:working' }).Count) { throw 'Supported source override: /source:working.' }
@@ -138,7 +158,7 @@ function Get-BranchSourceDifferences([string]$Root) {
         else { [ordered]@{ Path=$relative; Deleted=$true } }
     }
 }
-function Get-CachedApiSdk([string]$Repository, [string]$ApiRepository, [string]$Branch) {
+function Get-CachedApiSdk([string]$Repository, [string]$ApiRepository, [string]$Branch, [switch]$RequireExisting) {
     # APIShared's own build runs its complete suite and then attests exactly its inputs:
     # Assert-ApiBuildProof fingerprints sources, tests, tools, game/Extender references and
     # MSBuild. An unchanged SDK therefore needs no rebuild and no second test run per
@@ -167,9 +187,11 @@ function Get-CachedApiSdk([string]$Repository, [string]$ApiRepository, [string]$
                 return [pscustomobject]@{ Root=$cache; Branch=$Branch; Commit=$commit; Cached=$true }
             } catch { $reason = $_.Exception.Message }
         }
+        if ($RequireExisting) { throw "APIShared SDK is not reusable ($reason). /tests:none never rebuilds or tests the SDK; prepare the selected SDK with a normal build first." }
         Write-BranchMessage "APIShared SDK cache is not reusable ($reason); rebuilding it."
         Remove-CachedApiSdk $ApiRepository $cache
     }
+    if ($RequireExisting) { throw 'APIShared SDK cache is missing. /tests:none never rebuilds or tests the SDK; prepare the selected SDK with a normal build first.' }
     $source = New-BranchSource $ApiRepository $Branch $cache
     if ($source.Commit -cne $commit) { Remove-CachedApiSdk $ApiRepository $cache; throw "APIShared $Branch moved during SDK preparation." }
     try {
@@ -353,6 +375,11 @@ function Invoke-SelectedBranchBuild {
     $selection = if ($SourceSelection) { $SourceSelection } else { New-BranchSource $Repository $Branch }
     $selectedDriver = Join-Path $selection.Root $Driver
     if (-not (Test-Path -LiteralPath $selectedDriver -PathType Leaf)) { throw "Driver $Driver does not exist on $Branch ($($selection.Commit))." }
+    $testSelection = Get-BranchTestSelection $Driver $DriverArguments
+    if ($testSelection -and $testSelection.Mode -ne 'full' -and
+        -not [IO.File]::ReadAllText($selectedDriver).Contains('SHCDE_TEST_MODES: full quick none')) {
+        throw "The selected source does not support /tests:$($testSelection.Mode). Select /source:working or a branch containing the new driver."
+    }
     $overrides = @(Set-BranchBuildTools $selection $ControllerRoot -Api:$Api -DriverArguments $DriverArguments)
     $oldEnvironment = @{}
     $names = @('SHCDE_BRANCH_SOURCE_ROOT','SHCDE_BRANCH_INSTALL_SUFFIX','SHCDE_BRANCH_NOINSTALL','SHCDE_BRANCH_API_ROOT','SHCDE_BRANCH_API_COMMIT',
@@ -380,6 +407,7 @@ function Invoke-SelectedBranchBuild {
             if (Test-Path -LiteralPath (Join-Path $baselineRoot 'CURRENT.json')) { $env:SHCDE_NATIVE_BASELINE_ROOT=$baselineRoot }
         }
         $sdk = $null
+        $sdkWatch = [Diagnostics.Stopwatch]::StartNew()
         $sdkLock = $null
         $projectRoot = Split-Path -Parent $selectedDriver
         $usesApi = -not $Api -and (@(Get-ChildItem -LiteralPath $projectRoot -File -Filter '*.csproj' | Where-Object {
@@ -415,7 +443,7 @@ function Invoke-SelectedBranchBuild {
                 try {
                     if (-not $sdkLock.WaitOne(0)) { Write-BranchMessage "Waiting for another build that uses the APIShared $apiBranch SDK..."; [void]$sdkLock.WaitOne() }
                 } catch [Threading.AbandonedMutexException] { }
-                $sdk = Get-CachedApiSdk $Repository $apiRepository $apiBranch
+                $sdk = Get-CachedApiSdk $Repository $apiRepository $apiBranch -RequireExisting:($testSelection -and $testSelection.Mode -eq 'none')
                 # Scoped preflight inspects the same committed APIShared sources.
                 $apiSource = New-BranchSource $apiRepository $sdk.Commit (Join-Path $selection.Root 'APIShared')
             } else { throw "Unsupported APIShared source: $apiBranch" }
@@ -428,6 +456,8 @@ function Invoke-SelectedBranchBuild {
             $null = Assert-ApiBuildProof $sdk.Root
             Write-BranchMessage "APIShared: $($sdk.Branch) / $($sdk.Commit) / $env:SHCDE_API_SHARED_DIR"
         }
+        $sdkWatch.Stop()
+        Write-BranchMessage ('[BuildTiming] Category=sdk DurationMs={0}' -f $sdkWatch.ElapsedMilliseconds)
         if (-not $Api -and -not (Test-Path -LiteralPath (Join-Path $selection.Root 'APIShared')) -and
             (Test-Path -LiteralPath (Join-Path $Repository 'APIShared/.git'))) {
             # Scoped preflight inspects APIShared sources even for non-consumers.
@@ -481,6 +511,7 @@ function Invoke-SelectedBranchBuild {
         $code = $LASTEXITCODE
         $record = [ordered]@{ SchemaVersion=1; Branch=$Branch; Commit=$selection.Commit; Driver=$Driver; SourceRoot=$selection.Root;
             ApiShared=$sdk; InstallationTargets=$targets; NoInstall=($env:SHCDE_BRANCH_NOINSTALL -eq '1'); ExitCode=$code; DevDiagnostics=$devDiag;
+            TestSelection=$testSelection; SdkPreparationMs=$sdkWatch.ElapsedMilliseconds;
             CreatedUtc=[DateTime]::UtcNow.ToString('o'); WorkingSource=($DriverArguments -icontains '/source:working'); SourceFiles=@(Get-BranchSourceDifferences $selection.Root); BuildToolOverrides=$overrides }
         $recordPath = $selection.Root + '.build.json'
         Write-BranchText $recordPath (($record | ConvertTo-Json -Depth 8) + "`r`n")
