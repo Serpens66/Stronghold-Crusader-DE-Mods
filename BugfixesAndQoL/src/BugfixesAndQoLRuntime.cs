@@ -439,7 +439,7 @@ namespace BugfixesAndQoL
             }
             else
             {
-                if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)
+                if (settings.EnableMod && (settings.EnableImprovedAssassinPathfinding || settings.EnableImprovedAssassinPathfindingAI))
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs:423", "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
                 }

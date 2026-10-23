@@ -15,6 +15,14 @@ Diese Datei ist ein Umsetzungsplan mit Gestaltungsempfehlungen. Der erste konkre
 - Die beiden neuen Optionen `EnableVanillaPerformanceOptimizations` und `EnableSpriteSheetMerge` sind bereits berücksichtigt. Die drei aktuellen Optionen für Aufgeben/Statistiken und Zuschauer sind ebenfalls noch Bestandteil dieser XAML. Ein anderer neuer Modordner ist für sich kein Beleg, dass sie hier bereits entfallen sind.
 - Die Zuordnung unten ist eine datierte Bestandsaufnahme, keine dauerhafte Erwartung an Optionsnamen oder -anzahl. Vor der Umsetzung gegen den dann aktuellen Arbeitsstand abgleichen; bestehende parallele Änderungen erhalten.
 
+### Ergänzung vom 23.10.2026: Performance sichtbar machen
+
+Für Funktionen mit möglichem starkem Performance-Einfluss ist ein eigener Host-Themenbereich **„Performance Heavy“** vorgesehen. Sein erster Schwerpunkt ist **Wegfindung und Erreichbarkeit**. Die zunächst 13 Kandidaten wurden am 23.10.2026 vollständig im Code geprüft: **acht bleiben in diesem Bereich, fünf kehren in ihre fachlichen Themen zurück**, weil keine vergleichbare zusätzliche große Suche bestätigt ist. Die Ergebnisse und konkreten Optimierungsansätze stehen in [PerformanceFix.md](PerformanceFix.md). Die unten umgeordneten Tabellen verwenden weiterhin die vollständige 100-Optionen-Bestandsaufnahme vom 21.10.; sie sind kein vollständiger Neuabgleich aller inzwischen hinzugekommenen oder umbenannten Optionen.
+
+Der Zweck ist, leistungsrelevante Entscheidungen schnell zu finden. **Nicht jede Wegfindungskorrektur ist nachweislich teuer.** Deshalb im Bereich eine kurze Erläuterung „Kann je nach Karte, Einheitenzahl und Befehlen zusätzliche Rechenzeit beanspruchen“ zeigen und pro Option den Belegstand unterscheiden. Ein pauschales Urteil „verursacht starke Lags“ wäre durch die vorhandenen Ergebnisse nicht gedeckt.
+
+Auch außerhalb dieses Bereichs relevante Einflüsse kennzeichnen: beispielsweise Rendering/Sichtweite beim erweiterten Zoom und Grafikspeicherbedarf beim Spritesheet-Zusammenlegen. Performance-Optimierungen bleiben als solche erkennbar; eine Verbesserung der FPS gehört nicht unter eine pauschale Warnung vor hohen Kosten. Autorenempfehlung und Performance-Einfluss sind zwei unabhängige Informationen.
+
 ## 2. Empfohlener optischer Aufbau
 
 ### Rollen und Klappbereiche
@@ -26,6 +34,7 @@ Diese Datei ist ein Umsetzungsplan mit Gestaltungsempfehlungen. Der erste konkre
 - Neben der Themenüberschrift stehen ein eindeutiger Auf-/Zu-Pfeil und die Zahl der Hauptoptionen. Keine Gruppencheckbox: Ein Klick auf den Kopf öffnet oder schließt ausschließlich den Bereich.
 - Pro Rollenbereich gibt es „Alle aufklappen“ und „Alle zuklappen“. Diese Befehle verändern keine Einstellungen.
 - Zielgröße sind ungefähr **5–16 Hauptoptionen** je Thema, mit begründeten Ausnahmen für umfangreiche Editoren. Keine eigenständigen Klappen nur für Audio, Pest, Zuschauer oder eine einzelne Korrektur anlegen. Themen nicht durch sachfremde Optionen oder einzeln gezählte Editorbuttons künstlich vergrößern.
+- „Performance Heavy“ wird ein eigenständiges Thema auf derselben Klappebene. Darunter keine zusätzliche Pathfinding-Klappe bauen. Die vorhandenen Kategorien Fixes/QoL/Fixes? und die einzelnen Funktionen bleiben erhalten; kein gemeinsamer Schalter, der alle leistungsrelevanten Funktionen deaktiviert.
 - Innerhalb eines Themas erscheinen die vorhandenen Kategorien in der Reihenfolge **Fixes, QoL, Fixes?**. Leere Kategorien entfallen; die übrigen sind einfache, dezente Zwischenüberschriften ohne weitere Klappe. Ein oder zwei Einträge unter solch einer Zwischenüberschrift sind unproblematisch, weil dafür kein zusätzlicher Navigationsschritt entsteht.
 - Die Tabellen unten legen die Themenzuordnung fest. Innerhalb jeder Kategorie die Tabellenreihenfolge beibehalten. Die Kategorie wird im ersten Rework aus dem bisherigen Bestand übernommen, auch wenn der Propertyname anders klingt.
 - Größere Editoren wie Warenreihenfolge und Hotkey-Zuweisung bleiben unmittelbar bei ihrer Option und werden mit dem Thema geschlossen. Kein zusätzlicher Scrollbereich innerhalb eines Klappbereichs.
@@ -63,14 +72,15 @@ Einheitliches Zeilenraster: links das eigentliche Control mit umbrechender Besch
 
     HOST-OPTIONEN                    Alle auf / Alle zu
       ▸ Partievorbereitung, Mehrspieler und Zuschauer    15
-      ▸ KI, Burgaufbau und Wirtschaftsschutz             16
-      ▾ Truppen, Befehle und Bewegung                    14
+      ▸ KI, Burgaufbau und Wirtschaftsschutz             15
+      ▾ Truppenbedienung und Bewegungstempo               9
           Fixes
             [x] …                             ★ Empfohlen
           QoL
             [x] …                             ◇ Geschmackssache
       ▸ Gebäude, Wirtschaft und Versorgung               13
-      ▸ Tore, Gräben und Belagerung                        9
+      ▸ Tore und Belagerungsregeln                        7
+      ▸ Performance Heavy                                8
 
 Die Markierungen im Schema illustrieren ausschließlich das Zeilenraster und bewerten keine konkrete Funktion.
 
@@ -87,11 +97,12 @@ Die Markierungen im Schema illustrieren ausschließlich das Zeilenraster und bew
 | Client | C3 Menüs, Spielstände und Kreuzzugmärsche | 8 | Einladungs-Blacklist leeren |
 | Client | C4 Markt und Gütertransfer | 4 | Vollständiger Wareneditor und HD-Wiederherstellung |
 | Host | H1 Partievorbereitung, Mehrspieler und Zuschauer | 15 | Bestehende Rechte- und Geschwindigkeitsanzeigen |
-| Host | H2 KI, Burgaufbau und Wirtschaftsschutz | 16 | Modusauswahl für Abrissschutz |
-| Host | H3 Truppen, Befehle und Bewegung | 14 | Bestehende Beschreibung der Befehlsfunktionen |
+| Host | H2 KI, Burgaufbau und Wirtschaftsschutz | 15 | KI-spezifische Bau-, Produktions- und Schutzregeln |
+| Host | H3 Truppenbedienung und Bewegungstempo | 9 | Warteschlangen, Bewegungstempo und Bedienung |
 | Host | H4 Gebäude, Wirtschaft und Versorgung | 13 | Pest/Apotheker als Teil der städtischen Versorgung |
-| Host | H5 Tore, Gräben und Belagerung | 9 | Torverhalten, Wege und Belagerungsregeln |
-| **Gesamt** | **Vier Client- und fünf Host-Themen** | **100** | **Zusätzlich Hotkey und Warenreihenfolge als Detailwerte** |
+| Host | H5 Tore und Belagerungsregeln | 7 | Torzustände, Abstände und Belagerungsregeln |
+| Host | H6 Performance Heavy | 8 | Zusätzliche große Suchen und kumulative Erreichbarkeitsprüfungen |
+| **Gesamt** | **Vier Client- und sechs Host-Themen** | **100** | **Zusätzlich Hotkey und Warenreihenfolge als Detailwerte** |
 
 Die Verteilung wird gegenüber dem Bestand zu **33 Client- und 67 Host-Hauptoptionen**. Ursache ist ausschließlich der unten erklärte Wechsel des bereits lokalen Workshop-Lord-Auswahlfixes in den Clientbereich. Die Zahl der Spiel-/Modfunktionen wird nicht erweitert.
 
@@ -190,16 +201,15 @@ Diese Gruppe bündelt den Ablauf einer Partie: Vorbereitung, Lobby, Zeitsteuerun
 
 Sollten Aufgeben/Zuschauer bis zur Umsetzung tatsächlich aus BugfixesAndQoL entfernt worden sein, die drei betroffenen Zeilen aus diesem Planabgleich herausnehmen und die Quellen dieses Umzugs prüfen. H1 enthält dann immer noch zwölf Hauptoptionen und benötigt keinen Ersatz zum Auffüllen.
 
-### H2 — KI, Burgaufbau und Wirtschaftsschutz · 16 Hauptoptionen
+### H2 — KI, Burgaufbau und Wirtschaftsschutz · 15 Hauptoptionen
 
-Alle KI-spezifischen Verhaltensoptionen zusammenhalten. Wirtschaftsschutz, Burgbau und Kampfzielauswahl sind hier unterschiedliche Aspekte derselben Zielgruppe. Eine weitere Klappebene würde den Nutzen der Zusammenfassung wieder verringern.
+KI-spezifische Bau-, Produktions- und Schutzregeln zusammenhalten. Die zusätzlichen nativen Raid-Ersatzaufträge stehen wegen ihres Performance-Bezugs in H6. Die Abrissschutzprüfung bleibt nach Codeprüfung in H2: kleiner begrenzter Portalgraph mit Tick-Caches, keine große Kachel-Suche. Eine weitere Klappebene innerhalb von H2 ist nicht erforderlich.
 
 | Property | Option | Bisher |
 | --- | --- | --- |
 | `RememberAiAivSettings` | Gemeinsame AIV-/AIC-Auswahl merken | Q |
 | `EnableAIQuarryPileTowardsKeep` | KI-Steinhaufen zum Bergfried ausrichten | Q |
 | `EnableAiStoneReserveFix` | Stein für ausstehende KI-Burggebäude zurückhalten | F |
-| `EnableAiRaidRetargetFix` | KI-Raidziele ohne Nahkampfzugang überspringen | F |
 | `EnableAiDefensePatrolFix` | KI-Burgverteidigung wieder auffüllen | F |
 | `EnableAiWallTargetingFix` | KI-Mauerzielauswahl verbessern | F |
 | `EnablePrebuiltAiWorkshopBothFix` | Produktion vorgebauter KI-Werkstätten ausgleichen | F |
@@ -215,22 +225,17 @@ Alle KI-spezifischen Verhaltensoptionen zusammenhalten. Wirtschaftsschutz, Burgb
 
 Bei weiterem Wachstum zuerst die gewachsene tatsächliche Optionsmenge prüfen. Eine spätere Teilung in „KI-Burgbau und Wirtschaft“ sowie „KI-Militär“ erst empfehlen, wenn beide inhaltlich genügend Hauptoptionen besitzen; nicht jetzt für eine Gruppe mit nur wenigen militärischen Optionen teilen.
 
-### H3 — Truppen, Befehle und Bewegung · 14 Hauptoptionen
+### H3 — Truppenbedienung und Bewegungstempo · 9 Hauptoptionen
 
-Allgemeine Einheitensteuerung und Wegausführung zusammenführen. Assassinen bleiben hier, soweit es um allgemeine Bewegung geht; torhausspezifisches Klettern und Erobern steht in H5.
+Bedienung, Befehlswarteschlangen, Bewegungstempo und leichte Pfadkorrekturen zusammenführen. Zusätzliche potenziell große Suchen und häufige Graph-Wiederholungen stehen in H6. Stockpile-Zulässigkeit, Assassin-Wiederaufnahmekontext und Sammelpunktfreigabe bleiben hier: Im Fix selbst ist keine vergleichbare zusätzliche große Suche bestätigt. Dass eine Warteschlange später Bewegungsbefehle ausführt, macht sie ebenfalls noch nicht zu einem eigenen Pathfinding-Verfahren oder nachgewiesenen Performance-Hotspot.
 
 | Property | Option | Bisher |
 | --- | --- | --- |
 | `EnableExtendedShiftCommandQueue` | Erweiterte Shift-Befehlswarteschlangen | Q |
-| `EnableMoveFormationEnhancements` | Aufstellungen und vollständige Zielmarker | Q |
-| `EnableImprovedManualUnitCommands` | Verbesserte manuelle Einheitenbefehle | Q |
-| `EnableImprovedMoatFilling` | Verbessertes Zuschütten von Gräben | Q |
 | `EnableFastRecruitRallyMovement` | Rekruten laufen zu Sammelpunkten | Q |
 | `EnableRallyTerrainSlowdownFix` | Geländeverlangsamung auf dem Weg zum Sammelpunkt korrigieren | Q |
-| `EnableImprovedAssassinPathfinding` | Verbesserte Meuchelmörder-Wegfindung | Q |
 | `EnableTroopMovementFix` | Truppen-Geschwindigkeitskorrektur | F |
 | `EnableMountedStockpileMovementFix` | Stockpile-Bewegung berittener Einheiten | F |
-| `EnableLadderAttackPathfindingFix` | Angriffe über Leiterzugänge ermöglichen | F |
 | `EnableHealerAttackCommandFix` | Heiler aus Nahkampf-Angriffsgruppen heraushalten | F |
 | `EnableAssassinCombatResumeFix` | Meuchelmörder-Bewegung nach Kämpfen fortsetzen | F |
 | `EnableAssemblyPointPlacementFix` | Sammelpunkt-Platzierung korrigieren | F |
@@ -256,21 +261,59 @@ Gebäudebedienung, Produktionsabläufe und städtische Versorgung bündeln. Wass
 | `EnableStuckApothecaryFix` | Feststeckende Apotheker korrigieren | F |
 | `EnablePlagueTargetReservationFix` | Apotheker-Zielreservierung korrigieren | F |
 
-### H5 — Tore, Gräben und Belagerung · 9 Hauptoptionen
+### H5 — Tore und Belagerungsregeln · 7 Hauptoptionen
 
-Gemeinsamer Ort für Bau-/Eroberungsregeln und spezielle Wege an Befestigungen. Allgemeine Bewegungsverbesserungen stehen in H3, die lokalen Zielmarker in C1. Bestehende Tooltips können diese fachliche Abgrenzung kurz erwähnen; keine Optionen mehrfach anzeigen.
+Gemeinsamer Ort für Bau-/Eroberungsregeln an Befestigungen. Enemy-Gate-Zusatzsuchen und die häufige Torschließ-Erreichbarkeitsprüfung stehen in H6, die lokalen Zielmarker weiterhin in C1. Direktes Assassin-Torhausklettern bleibt hier, weil sein eigener Code nur Übergangs-/Endpunktregeln korrigiert und keine weitere A*-Suche startet. Bestehende Tooltips können diese fachliche Abgrenzung kurz erwähnen; keine Optionen mehrfach anzeigen.
 
 | Property | Option | Bisher |
 | --- | --- | --- |
-| `RequireReachableEnemyForAutomaticGateClosing` | Tore nur bei erreichbaren Feinden schließen | Q |
 | `EnableCenteredGatehouseDistanceFix` | Torhaus-Schließdistanz von der Mitte messen | Q |
 | `EnableFairSiegeAmmoRestock` | Belagerungsmunition gleichmäßig nachfüllen | Q |
 | `EnableGatehouseLivingCaptureFix` | Tote Einheiten bei Torhauseroberung ignorieren | F |
 | `EnableDrawbridgeDestructionFix` | Zugbrücken bei Schaden am noch lebenden Torhaus erhalten | F |
 | `EnableAssassinGatehouseClimbFix` | Torhäuser direkt mit Assassinen erklimmen | F |
 | `EnableTunnelPlacementDistanceFix` | Mindestabstand zu Feindbauten und -gräben korrigieren | F |
-| `EnableEnemyGatePathfindingFix` | Feindliche Torhausdurchgänge vermeiden | F |
 | `EnableAssassinCapturedGateProtectionFix` | KI-Assassinen greifen eroberte Torhäuser nicht erneut an | ? |
+
+### H6 — Performance Heavy · 8 Hauptoptionen
+
+**Schwerpunkt: tatsächlich zusätzliche Such-/Prüfarbeit.** Der vollständige Codeabgleich der 13 Kandidaten vom 23.10.2026, einschließlich der hashgeprüften nativen Suchverträge, steht in [PerformanceFix.md](PerformanceFix.md). Sechs Optionen besitzen potenziell große Zusatzsuchen bzw. Planerproben; zwei weitere können durch zahlreiche begrenzte Graphprüfungen relevant werden. Neue Millisekunden- oder FPS-Versprechen sind damit nicht verbunden.
+
+| Property | Option und Grund der Zuordnung | Bisher |
+| --- | --- | --- |
+| `EnableImprovedAssassinPathfinding` | Native Suche plus gewichtetes A* oder Existenzsuche; bei negativen Zielen kann eine große Fläche untersucht werden. | Q |
+| `EnableEnemyGatePathfindingFix` | Gate-Cursorvalidierung kann bis zu zwei zusätzliche native Kachelsuchen mit großem Budget ausführen; dazu häufige Filter und Topologiepflege. | F |
+| `EnableMoveFormationEnhancements` | BFS für erreichbare Formationsziele plus Ersatzslotzuordnung; Aufwand wächst mit Suchfläche und Auswahl. | Q |
+| `EnableImprovedManualUnitCommands` | Native Planerproben mit rund 5 MiB Scratch-Rückkopie je tatsächlicher Probe; viele negative Mitgliederprüfungen können sich summieren. | Q |
+| `EnableImprovedMoatFilling` | Zusätzliche gewichtete Bodenpräfixsuche beim passenden Grabenarbeitsweg, gegebenenfalls mit Verfeinerung; nicht nur Prüfung weniger Nachbarfelder. | Q |
+| `EnableAiRaidRetargetFix` | Bis vier neue native Gebäudeangriffsaufträge je wartender Raidgruppe und Tick; kein globales Vier-Aufträge-Budget. | F |
+| `RequireReachableEnemyForAutomaticGateClosing` | Kumulative Kategorie: viele Torabfragen mit begrenzter Portalgraphsuche, Distanzfilter und Tick-/Pass-Caches. Keine volle Kachel-BFS. | Q |
+| `EnableLadderAttackPathfindingFix` | Kumulative Kategorie: negative Regionsabfrage kann eine weitere native Portalgraphsuche im Gruppenmodus auslösen; kein eigener Vollkarten-A*-Algorithmus. | F |
+
+Die ersten sechs Einträge besitzen im Code bestätigtes Potenzial für große zusätzliche Arbeit. Die beiden letzten sind wegen möglicher hoher Wiederholungszahl aufgeführt; ihre Suche ist anders begrenzt. Bei allen Optionen Aufwand und Auslöser konkret erklären. Kategoriezugehörigkeit allein rechtfertigt weder eine pauschale Warnung „stark verlangsamend“ noch die Empfehlung, sämtliche Einträge abzuschalten. Cachehits, frühe Ablehnungen, bereits vorhandene Optimierungen und das tatsächliche Kartenszenario bleiben entscheidend.
+
+Für den späteren Nutzerhinweis pro Option unterscheiden: **Simulation/CPU**, **situationsabhängige Suchspitzen**, **Rendering/GPU**, **Grafikspeicher** und **Start-/Ladezeit**. Nur tatsächlich passende Aspekte zeigen. Ein vorhandener Suchpfad begründet „potenziell aufwendig“, noch keine gemessene Größenordnung. Empfehlungen wie „sollte immer aktiv sein“ bleiben davon unabhängig.
+
+**Bewusste Abgrenzung:** Gruppen-Geschwindigkeit, schnellere Rekruten und Geländeverlangsamung betreffen im Plan H3. Heiler aus Nahkampfgruppen ausschließen, KI-Mauerzielreservierungen, Wasserträger-Zuweisung, Apotheker-Zielreservierungen, Torhaus-Schließdistanz und Eroberungsregeln bleiben in ihren fachlichen Bereichen. Aus Bewegung, Zielauswahl oder einem Bestandteil der gemeinsamen X1PATH-Abschaltgruppe allein folgt noch keine einzeln belegte schwere Wegsuche. Werden für eine dieser Optionen relevante Kosten nachgewiesen, sie gezielt in „Performance Heavy“ verschieben oder am bisherigen Ort mit demselben Performance-Hinweis kennzeichnen; keine zweite Kopie des Schalters anlegen.
+
+Die fünf ausgeschiedenen Kandidaten sind in H2/H3/H5 wieder zugeordnet. Ihr Codebefund ist in `PerformanceFix.md` einzeln erläutert. Insbesondere Stockpile-Cursorprüfungen können eine große Auswahl linear prüfen; „keine schwere Suche“ ist keine Behauptung „kostenlos“.
+
+### Vorhandene Performance-Nachweise · gesichtet am 23.10.2026
+
+Die PerfProbe-Ergebnisse sind im Workspace erhalten, überwiegend unter dem Git-ignorierten Analysepfad [.work/a/bfqol-perf/001/results](.work/a/bfqol-perf/001/results). Bei der Sichtung lagen dort 301 Logdateien und 14 Serienzusammenfassungen. Zugehörige Treiber, Originalsettings und Mess-DLLs liegen im übergeordneten Analyseordner. Diese Dateien erhalten; die folgenden Links sind lokale Nachweise, keine Zusicherung, dass sie in einem frischen Clone vorhanden sind.
+
+| Nachweis | Aussage für die Einordnung | Grenze |
+| --- | --- | --- |
+| [E-Serie](.work/a/bfqol-perf/001/results/E-series.txt) | `EnableEnemyGatePathfindingFix=false` wurde gezielt getestet: E1/E2NOGATE mit 89,6/88,5 Ticks/s, E1BFQ mit 86,4 Ticks/s. Die FPS lagen in diesen drei Läufen eng beieinander, ungefähr 206–209. | Historisches szenarioabhängiges Signal für Simulationskosten; keine isolierte aktuelle CPU-Kostenmessung und kein Nachweis eines allgemeinen FPS-Verlusts. |
+| [R1-Serie](.work/a/bfqol-perf/001/results/R1-series.txt), [S-Serie](.work/a/bfqol-perf/001/results/S-series.txt) | Eigene Varianten mit `RequireReachableEnemyForAutomaticGateClosing=false` sowie Baseline-/Modläufe existieren. | Ticks/s allein trennt Mehraufwand nicht sicher von verändertem Spielablauf; Streuung und Quellstand beachten. |
+| [Lag-Auswertung vom 22.10.](.work/a/perf-lag/001/findings.json) und [zugehöriger Log](.work/a/perf-lag/001/LogOutput.log) | Tor-Erreichbarkeit war in zwei Simulationsspitzen an prominenten innersten verwalteten Samplestellen sichtbar. | Die Auswertung schließt ausdrücklich aus, daraus alleinige Ursache oder exakte CPU-Zeit abzuleiten; Sampler- und Sperrwartezeiten mitbetrachten. |
+| [X1-Serie](.work/a/bfqol-perf/001/results/X1-series.txt) | `X1PATH` schaltet 13 Bewegungs-/Pathfinding-Optionen gemeinsam ab; zusätzlich existieren eine KI-Gruppe und eine Tor-Erreichbarkeitsvariante. | Ein Gruppenversuch ist keine Einzelmessung für jede der 13 Optionen. Der frühe `X1OFF`-Lauf hing und zählt nicht als Performance-Ergebnis. |
+| [Neuere Laufdaten L1BFQ](.work/a/bfqol-perf/001/results/L1BFQ_LogOutput.log), [L2BFQD](.work/a/bfqol-perf/001/results/L2BFQD_LogOutput.log) | Weitere Sampler-/DEVDIAG-Rohdaten vom 23.10. sind vorhanden und können zur Prüfung späterer Optimierungsstände dienen. | Einzelne Rohlog-Samples sind noch kein abgeschlossener Vergleich oder Beleg eines heutigen unveränderten Kostenanteils. |
+| [V-Serie](.work/a/bfqol-perf/001/results/V-series.txt) | `EnableVanillaPerformanceOptimizations=false` wurde separat getestet; die protokollierten FPS lagen deutlich unter dem dortigen Mod-Vergleichslauf. | Zeigt, warum leistungssteigernde Optionen nicht als „teuer, besser aus“ eingeordnet werden dürfen. Das ist keine neue Zusage gleicher Gewinne auf jeder Karte. |
+
+Der in älteren Treibern und `AGENTS/performance.md` erwähnte Sammelbericht `BFQoLPerformace.md` wurde am Workspace-Root und in der gezielten Dateisuche nicht gefunden. Die oben verlinkten Serien und Rohlogs sind jedoch vorhanden; nicht aus dem fehlenden Bericht auf fehlende Messungen schließen. Keine neue Messreihe wurde für diese Planergänzung gestartet.
+
+**Vorgehen vor endgültigen Kostenkennzeichen:** Vorhandene Nachweise zuerst nach Save, Laufvariante, gemessener Phase und damaliger Build-/DLL-Identität zuordnen. Spätere Optimierungen können frühere Kostenbefunde überholen. Danach nur offene Einzelzuordnungen bei Bedarf messen: gleiche Szene, Zoom, Geschwindigkeit und Diagnosekonfiguration, abwechselnde Vergleichsläufe sowie Simulations- und Renderkosten getrennt. Für Einzelkosten Sampler-/Zeitbefunde heranziehen, nicht bloß Ticks/s oder das Auftreten eines Modnamens im Gesamtstack. Historische Artefakte unverändert erhalten.
 
 ## 4. Weitere Einstellungen, Detailaktionen und Verwaltung
 
@@ -301,7 +344,7 @@ Formationsparameter wie Aufstellungsart, Dichte, Rollenmarker und gemerkte Reihe
 ### Schritt 1 — Bestand und Themenstruktur sichern
 
 1. Vor Änderungen XAML und klassifizierte ViewModel-Properties erneut inventarisieren; den dann aktuellen Arbeitsstand einschließlich uncommitteter Änderungen verwenden. Neue oder inzwischen ausgelagerte Funktionen im Planabgleich berücksichtigen.
-2. Die neun Themenbereiche entsprechend der Tabellen aufbauen. Kategoriezugehörigkeit, Optionstitel, Standardwerte, Bindings, Commands und gespeicherte Propertynamen zunächst erhalten.
+2. Die zehn Themenbereiche entsprechend der Tabellen aufbauen, einschließlich „Performance Heavy“ mit Schwerpunkt Wegfindung/Erreichbarkeit. Kategoriezugehörigkeit, Optionstitel, Standardwerte, Bindings, Commands und gespeicherte Propertynamen zunächst erhalten.
 3. Den lokalen Workshop-Lord-Auswahlfix in C3 einordnen. Keine anderen Host-/Client-Zuordnungen aus der Themenähnlichkeit ableiten und keine Syncattribute verändern.
 4. Gemeinsam verwendete Aktivierungs-, Preset- und Suchoberfläche erhalten. Das Rework betrifft die Organisation der bestehenden Optionen, nicht deren Spielverhalten.
 
@@ -337,7 +380,8 @@ Formationsparameter wie Aufstellungsart, Dichte, Rollenmarker und gemerkte Reihe
 
 ### Optische Abnahme
 
-- Geschlossen sind vier Client- und fünf Hostthemen überschaubar sichtbar. Es gibt keinen nur ein oder zwei Hauptoptionen umfassenden Themenbereich.
+- Geschlossen sind vier Client- und sechs Hostthemen überschaubar sichtbar. Es gibt keinen nur ein oder zwei Hauptoptionen umfassenden Themenbereich.
+- Die acht identifizierten Optionen mit potenziell großer Zusatzarbeit bzw. kumulativen Suchkosten sind in „Performance Heavy“ gemeinsam auffindbar. Die fünf leichteren Pfadkorrekturen bleiben in ihren fachlichen Themen. Performance-Hinweise und Autorenempfehlungen sind unabhängig erkennbar.
 - Alle geöffneten Themen sind lesbar; lange deutsche Texte, schmale Fenster und die unterstützten UI-Skalierungen erzeugen keine überlappenden Controls oder abgeschnittenen Empfehlungskennzeichen.
 - Checkboxen, Regler, ComboBoxen und Hotkeys behalten klare Titel und passende Einheiten. Die Empfehlung ist auch bei ausgeschalteter oder gesperrter Option verständlich.
 - Wareneditor, Statistikvorschau, Steam-Blacklist-Aktion und Hotkey-Erfassung funktionieren nach Einklappen und erneutem Öffnen.

@@ -91,7 +91,8 @@ namespace BugfixesAndQoL {
   public object EnterNativeSearch(int player,EnemyGateSearchKind kind)=>null;
   public void ExitNativeSearch(object scope,EnemyGateSearchKind kind,bool completed,bool success){}
  }
- sealed class BugfixesAndQoLViewModel { public bool EnableMod=true,EnableImprovedAssassinPathfinding=true; }
+ sealed class BugfixesAndQoLViewModel { public bool EnableMod=true,EnableImprovedAssassinPathfinding=true,EnableImprovedAssassinPathfindingAI=true; }
+ sealed class GamePlayerManagerAPI { public static readonly GamePlayerManagerAPI Instance=new(); public bool AI; public bool IsAIPlayer(int player)=>AI; }
  sealed class AssassinClimbRuntime { public bool Allowed=true;public bool IsClimbingAllowed(int player)=>Allowed; }
  sealed class AssassinPathReconstructionPatch { public bool IsApplied=>true; }
  static class BugfixesAndQoLPlugin { public const string PluginGuid="fixture"; }

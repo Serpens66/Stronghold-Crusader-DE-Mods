@@ -571,6 +571,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableImprovedAssassinPathfindingText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-assassin-pathfinding-ai" shared:ModSettingsSearch.Title="{Binding EnableImprovedAssassinPathfindingAIText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedAssassinPathfindingAIHelpText}"><CheckBox IsChecked="{Binding EnableImprovedAssassinPathfindingAI, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedAssassinPathfindingAIHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableImprovedAssassinPathfindingAIText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       </StackPanel>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.host-fixes" shared:ModSettingsSearch.Title="{Binding FixesTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding FixesTitleText}"><TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.host-fixes-multiplayer" shared:ModSettingsSearch.SectionTitle="{Binding MultiplayerTitleText}">

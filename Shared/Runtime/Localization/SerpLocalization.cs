@@ -154,6 +154,8 @@ public static class SerpLocalization
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
     public const string EnableImprovedAssassinPathfinding = "SomeSettings.EnableImprovedAssassinPathfinding";
     public const string EnableImprovedAssassinPathfindingHelp = "SomeSettings.EnableImprovedAssassinPathfindingHelp";
+    public const string EnableImprovedAssassinPathfindingAI = "SomeSettings.EnableImprovedAssassinPathfindingAI";
+    public const string EnableImprovedAssassinPathfindingAIHelp = "SomeSettings.EnableImprovedAssassinPathfindingAIHelp";
     public const string EnableAssassinCombatResumeFix = "BugfixesAndQoL.EnableAssassinCombatResumeFix";
     public const string EnableAssassinCombatResumeFixHelp = "BugfixesAndQoL.EnableAssassinCombatResumeFixHelp";
     public const string EnableTrailCustomizationButtons = "BugfixesAndQoL.EnableTrailCustomizationButtons";
@@ -677,8 +679,10 @@ public static class SerpLocalization
         { EnableMonksAlwaysRunHelp, "Lets Monks use the normal troop running decision and running animation instead of their special walking restriction. Applies to both the Fighting Monk and Temple Guard skins." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
-        { EnableImprovedAssassinPathfinding, "Improved Assassin pathfinding" },
-        { EnableImprovedAssassinPathfindingHelp, "Chooses Assassin routes by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
+        { EnableImprovedAssassinPathfinding, "Improved Assassin pathfinding (human players)" },
+        { EnableImprovedAssassinPathfindingHelp, "Chooses routes for the Assassins of human players by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
+        { EnableImprovedAssassinPathfindingAI, "Improved Assassin pathfinding (AI lords)" },
+        { EnableImprovedAssassinPathfindingAIHelp, "Chooses routes for the Assassins of AI lords by expected travel time, including climbing animations. When disabled, AI lords use Vanilla Assassin pathfinding." },
         { EnableAssassinCombatResumeFix, "Resume Assassin movement after combat" },
         { EnableAssassinCombatResumeFixHelp, "Makes Assassins continue their original movement order after an automatically fought melee combat, including routes that require climbing." },
         { AssassinClimbingToggleTooltip, "Toggle global climbing mode" },

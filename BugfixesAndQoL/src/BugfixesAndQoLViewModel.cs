@@ -62,6 +62,7 @@ namespace BugfixesAndQoL
         private bool enableFastRecruitRallyMovement = true;
         private bool enableRallyTerrainSlowdownFix = true;
         private bool enableImprovedAssassinPathfinding = true;
+        private bool enableImprovedAssassinPathfindingAI = true;
         private bool enableAssassinCombatResumeFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
@@ -571,6 +572,8 @@ namespace BugfixesAndQoL
         public string EnableAIQuarryPileTowardsKeepHelpText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeepHelp);
         public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
         public string EnableImprovedAssassinPathfindingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingHelp);
+        public string EnableImprovedAssassinPathfindingAIText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingAI);
+        public string EnableImprovedAssassinPathfindingAIHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingAIHelp);
         public string EnableAssassinCombatResumeFixText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFix);
         public string EnableAssassinCombatResumeFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFixHelp);
         public string EnablePlaguePopularityFixText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFix);
@@ -1360,6 +1363,15 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableImprovedAssassinPathfinding, value, nameof(EnableImprovedAssassinPathfinding));
         }
 
+        // Same weighted search for the Assassins of AI lords. Separate so that hosts can keep Vanilla
+        // pathfinding for AI lords (lower simulation cost on large maps) without losing it for humans.
+        [SyncHostOnly]
+        public bool EnableImprovedAssassinPathfindingAI
+        {
+            get => enableImprovedAssassinPathfindingAI;
+            set => SetSetting(ref enableImprovedAssassinPathfindingAI, value, nameof(EnableImprovedAssassinPathfindingAI));
+        }
+
         [SyncHostOnly]
         public bool EnableAssassinCombatResumeFix
         {
@@ -1621,6 +1633,7 @@ namespace BugfixesAndQoL
                 InaccessibleAIBuildingDemolitionProtection =
                     TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
                 EnableImprovedAssassinPathfinding = true;
+                EnableImprovedAssassinPathfindingAI = true;
                 EnableAssassinCombatResumeFix = true;
                 EnablePlaguePopularityFix = true;
                 EnablePlagueCloudRemovalFix = true;

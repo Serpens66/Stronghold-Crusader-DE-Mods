@@ -156,7 +156,7 @@ foreach ($required in @(
     'drawn.OwnerColorArgb = entry.OwnerColorArgb;',
     'drawn.ColorId != entry.ColorId',
     'LordPortraitPalette.Get\(entry.ColorId\)',
-    'FindPortrait\(portraitCode, entry.ColorId\)',
+    'FindPortrait\(portraitKey, entry.ColorId\)',
     'Array.Clear\(drawnEntries, 0, drawnEntries.Length\)'
 )) {
     if ($view -notmatch $required) { throw "Missing view integration: $required" }

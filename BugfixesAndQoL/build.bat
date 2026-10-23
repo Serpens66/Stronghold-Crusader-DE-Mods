@@ -99,10 +99,14 @@ rem /checks:notifications selects the relevant behavior suite for a notification
 rem Common source, dependency and runtime safety checks remain mandatory.
 set "NOTIFICATION_CHECKS=0"
 set "GATEHOUSE_CHECKS=0"
+set "FOREIGN_HUD_CHECKS=0"
 for %%A in (%*) do if /I "%%~A"=="/checks:notifications" set "NOTIFICATION_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:gatehouse" set "GATEHOUSE_CHECKS=1"
-if "%NOTIFICATION_CHECKS%%GATEHOUSE_CHECKS%"=="11" goto build_failed
+for %%A in (%*) do if /I "%%~A"=="/checks:foreignhud" set "FOREIGN_HUD_CHECKS=1"
+set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS
+if %CHECK_SCOPES% GTR 1 goto build_failed
 pushd "%PROJECT_DIR%"
+if "%FOREIGN_HUD_CHECKS%"=="1" goto foreign_hud_checks
 if "%GATEHOUSE_CHECKS%"=="1" goto gatehouse_checks
 if "%NOTIFICATION_CHECKS%"=="1" goto notification_checks
 echo [%date% %time%] Lobby save loading and visibility contracts
@@ -266,7 +270,28 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1" -Diagnostic
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 
+goto checks_completed
+
+:foreign_hud_checks
+echo [%date% %time%] Foreign troop HUD runtime, skin and player-color checks
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-ModOptionsPerformance.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+goto foreign_hud_behavior_checks
+
 :checks_completed
+rem Keep foreign HUD regressions in the ordinary suite as well as the scoped build.
+if "%NOTIFICATION_CHECKS%%GATEHOUSE_CHECKS%"=="00" goto foreign_hud_behavior_checks
+goto foreign_hud_checks_completed
+
+:foreign_hud_behavior_checks
+pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\ForeignTroopHud\Test-PlayerColors.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\ForeignTroopHud\Test-Portraits.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+
+:foreign_hud_checks_completed
 popd
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"

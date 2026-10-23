@@ -17,6 +17,7 @@ namespace BugfixesAndQoL
     {
         internal int Owner;
         internal int Type;
+        internal GM Material;
         internal int ColorId; // UI portrait order, not the material palette or unit sprite slot.
         internal uint OwnerColorArgb;
         internal int Count;
@@ -306,6 +307,8 @@ namespace BugfixesAndQoL
                     entry = entryPool[usedEntries++];
                     entry.Owner = owner;
                     entry.Type = type;
+                    // The first matching unit represents this owner/type group's actual skin.
+                    entry.Material = unit.r_GameMaterialIndex;
                     ForeignTroopPlayerColor color = playerColors.Get(owner);
                     entry.ColorId = color.PortraitColorId;
                     entry.OwnerColorArgb = color.LabelArgb;
@@ -443,6 +446,7 @@ namespace BugfixesAndQoL
             if (Marshal.SizeOf<GameUnit>() != 0x490 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_AliveState)).ToInt32() != 0x88 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitChimp)).ToInt32() != 0x8A ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_GameMaterialIndex)).ToInt32() != 0x08 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpritePlayerColorId)).ToInt32() != 0x0C ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpawnedForPlayerIndex)).ToInt32() != 0x7C ||

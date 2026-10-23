@@ -63,6 +63,23 @@ internal static partial class Program
       bool maskedFound=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,r.climbRuntime.Allowed,true,null,gateMask,out _);
       Assert(r.FindAnyWeightedRoute(sx,sy,tx,ty,4,r.climbRuntime.Allowed,true,gateMask)==(maskedFound?RouteExistence.Exists:RouteExistence.None),
        "existence search applies the same gate mask "+terrain);
+      // Backward unreachability proof: never for a reachable target (oracle), with or without a gate
+      // mask. The fixture's separated far side (1488 tiles) exceeds the budget and stays undecided.
+      Assert(oracle<0||!r.ProvesTargetUnreachable(sx,sy,tx,ty,r.climbRuntime.Allowed,true,null),"backward proof keeps reachable target "+terrain);
+      Assert(!maskedFound||!r.ProvesTargetUnreachable(sx,sy,tx,ty,r.climbRuntime.Allowed,true,gateMask),"backward proof keeps masked reachable target "+terrain);
+      if(terrain=="unreachable")Assert(!r.ProvesTargetUnreachable(sx,sy,tx,ty,r.climbRuntime.Allowed,true,null),"budget leaves a large separated region to the forward search");
+      if(terrain=="open"&&i==0){
+       // A 5x5 interior behind a complete ring of invalid coordinates: proof inside the budget, and the
+       // forward searches agree that no route exists. The ring is restored afterwards.
+       var ring=new List<int>();
+       for(int k=-3;k<=3;k++)foreach(var(px,py) in new[]{(50+k,7),(50+k,13),(47,10+k),(53,10+k)})ring.Add(py*800+px);
+       foreach(int cell in ring)r.validCoordinates[cell]=0;
+       Assert(r.ProvesTargetUnreachable(5,5,50,10,true,true,null),"backward proof decides an enclosed target");
+       Assert(!r.TryBuildWeightedRoute(5,5,50,10,TileCount,4,true,true,null,null,out _)&&r.Oracle(5,5,50,10)<0,"enclosed target has no route");
+       Assert(r.FindAnyWeightedRoute(5,5,50,10,4,true,true,null)==RouteExistence.None,"existence search reports the enclosed target as unreachable");
+       Assert(!r.ProvesTargetUnreachable(50,10,51,11,true,true,null)&&r.TryBuildWeightedRoute(50,10,51,11,TileCount,4,true,true,null,null,out _),"route inside the enclosure stays available");
+       foreach(int cell in ring)r.validCoordinates[cell]=1;
+      }
 """);
         fixture = fixture.Replace("VERIFY_BOUND_PROFILE", before ? "" : """
    var direct=new AssassinPathfindingRuntime("open");
@@ -79,6 +96,20 @@ internal static partial class Program
     Assert(ReferenceEquals(prepared.GetPackedDirections(),prepared.GetPackedDirections()),"cached encoding reused");
     Assert(ReferenceEquals(prepared.GetValidator(),prepared.GetValidator()),"bound validator reused");
     Assert(prepared.GetValidator()(),"cached validator proves current route");
+    // SPLIT_SETTINGS_BEGIN separate host settings for human players and AI lords (player table kind).
+    direct.settings.EnableImprovedAssassinPathfindingAI=false;
+    Assert(direct.IsWeightedEnabledFor(false)&&!direct.IsWeightedEnabledFor(true),"AI setting disables only AI lords");
+    var split=new AssassinCommandScope(null,2,0,0,1,1,0,0,"split",direct.IsWeightedEnabledFor(false),direct.IsWeightedEnabledFor(true));
+    Assert(split.Enabled&&split.IsEnabledFor(false)&&!split.IsEnabledFor(true),"command snapshot keeps both player kinds");
+    GamePlayerManagerAPI.Instance.AI=true;
+    Assert(!prepared.GetValidator()(),"cached route of an AI lord is rejected once the AI setting is off");
+    GamePlayerManagerAPI.Instance.AI=false;
+    Assert(prepared.GetValidator()(),"cached route of a human player stays valid");
+    direct.settings.EnableImprovedAssassinPathfindingAI=true;direct.settings.EnableImprovedAssassinPathfinding=false;
+    Assert(!direct.IsWeightedEnabledFor(false)&&direct.IsWeightedEnabledFor(true)&&!prepared.GetValidator()(),"human setting disables only human players");
+    direct.settings.EnableImprovedAssassinPathfinding=true;
+    Assert(new AssassinCommandScope(null,3,0,0,1,1,0,0,"legacy",true).IsEnabledFor(true),"single-flag scope enables both kinds");
+    // SPLIT_SETTINGS_END
     direct.climbRuntime.Allowed=false;
     Assert(!prepared.GetValidator()(),"reused validator rechecks climbing policy");
     direct.climbRuntime.Allowed=true;direct.mapEpoch++;
@@ -96,6 +127,16 @@ internal static partial class Program
     }finally{frame.Leave();}
    }finally{direct.Release();}
 """);
+        // A compared snapshot revision without the backward proof or the split player-kind settings
+        // keeps the remaining fixture contract.
+        if (!body.Contains("bool ProvesTargetUnreachable("))
+            fixture = string.Join("\n", fixture.Split('\n').Where(line => !line.Contains("ProvesTargetUnreachable(")));
+        if (!body.Contains("bool IsWeightedEnabledFor("))
+        {
+            int begin = fixture.IndexOf("// SPLIT_SETTINGS_BEGIN", StringComparison.Ordinal);
+            int end = fixture.IndexOf("// SPLIT_SETTINGS_END", StringComparison.Ordinal);
+            if (begin >= 0 && end > begin) fixture = fixture.Remove(begin, end - begin);
+        }
         string[] files = { "APIShared/src/Pathfinding/Assassin/AssassinRouteHandoff.cs", "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs",
             "APIShared/src/Pathfinding/GateRoutes/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
             "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",

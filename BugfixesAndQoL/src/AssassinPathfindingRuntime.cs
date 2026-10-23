@@ -201,11 +201,24 @@ namespace BugfixesAndQoL
             if (patch == null)
                 return;
 
+            // The native reconstruction rule is global, not per player: it stays active while either player
+            // kind uses weighted routes. With only the AI setting on, human players' Vanilla routes also get
+            // the corrected one-way connection step (no failed reconstruction and full-map repair).
             patch.SetEnabled(AssassinClimbTransitionPolicy.ShouldRelaxPathReconstruction(
                 settings.EnableMod,
-                settings.EnableImprovedAssassinPathfinding,
+                settings.EnableImprovedAssassinPathfinding || settings.EnableImprovedAssassinPathfindingAI,
                 IsInstalled));
         }
+
+        // EnableImprovedAssassinPathfinding covers human players (and keeps the climb button and Stop
+        // cancellation, which only humans use); EnableImprovedAssassinPathfindingAI covers AI lords.
+        private bool IsWeightedEnabledFor(bool aiPlayer) =>
+            settings.EnableMod &&
+            (aiPlayer ? settings.EnableImprovedAssassinPathfindingAI : settings.EnableImprovedAssassinPathfinding);
+
+        // Player kind from the game's player table: the same on every peer, so the choice of the
+        // weighted or the Vanilla route stays deterministic in multiplayer.
+        private static bool IsAIPlayer(int playerId) => GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
 
         public void BeginMap()
         {
@@ -306,7 +319,7 @@ namespace BugfixesAndQoL
                         UnitCommandPathRuntime.CaptureTemporaryAssassinSource() + ",mode=" + continuation +
                         ",start=" + startX + "/" + startY + ",target=" + targetX + "/" + targetY +
                         ",nativeState=" + DescribeNativeAssassinState(context) +
-                        ",directGateClimb=" + AssassinPathAPI.DirectGatehouseClimbingEnabled + ",weightedConfigured=" + (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)); }
+                        ",directGateClimb=" + AssassinPathAPI.DirectGatehouseClimbingEnabled + ",weightedConfigured=" + IsWeightedEnabledFor(aiPlayer: false) + "/ai=" + IsWeightedEnabledFor(aiPlayer: true)); }
                     catch (Exception ex) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-entry", ex); }
                 }
 #endif
@@ -445,15 +458,22 @@ namespace BugfixesAndQoL
             AssassinCommandScope command = activeCommand;
             long requestStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             long nativeStarted = requestStarted;
+            // DEVDIAG request mix (all callers, also outside command scopes): counts and stage times.
+            long diagRequest = 0, diagStage = 0;
+            Shared.DevDiag.Start(ref diagRequest);
+            Shared.DevDiag.Count(command == null ? "bfqol.assassin.req.noCommand" : "bfqol.assassin.req.command");
+            Shared.DevDiag.Count(maximumNodes >= TileCount ? "bfqol.assassin.req.fullBudget" : "bfqol.assassin.req.limitedBudget");
+            Shared.DevDiag.Start(ref diagStage);
             // Vanilla initializes internal queue state even when our compact route field replaces it.
             int vanillaResult = AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+            Shared.DevDiag.Stop(ref diagStage, vanillaResult != 0 ? "bfqol.assassin.nativeBuilder.found" : "bfqol.assassin.nativeBuilder.none");
             if (activeObservation != null)
             { activeObservation.NativeResult = vanillaResult; activeObservation.Outcome = "native-only"; }
             long nativeTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - nativeStarted;
             if (PerformanceDiagnosticsEnabled) command?.RecordNativeBuilder(nativeTicks);
 
             bool enabled = command?.Enabled ??
-                (settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+                (IsWeightedEnabledFor(aiPlayer: false) || IsWeightedEnabledFor(aiPlayer: true));
             if (activeObservation != null) activeObservation.EffectiveWeighted = enabled;
             if (!enabled || continuation != 0)
             {
@@ -468,6 +488,7 @@ namespace BugfixesAndQoL
 
             try
             {
+                backwardProofUseful = vanillaResult == 0;
                 long resolutionStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                 if (!TryResolveAssassinRequest(command, context, startX, startY, targetX, targetY, out int playerId, out int speedDelay))
                 {
@@ -477,6 +498,15 @@ namespace BugfixesAndQoL
                 }
                 if (PerformanceDiagnosticsEnabled) command?.RecordResolution((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - resolutionStarted);
                 if (activeObservation != null) activeObservation.Player = playerId;
+                // Separate host settings for human players and AI lords; same snapshot as the command.
+                bool aiPlayer = IsAIPlayer(playerId);
+                Shared.DevDiag.Count(aiPlayer ? "bfqol.assassin.req.aiPlayer" : "bfqol.assassin.req.humanPlayer");
+                if (!(command?.IsEnabledFor(aiPlayer) ?? IsWeightedEnabledFor(aiPlayer)))
+                {
+                    if (activeObservation != null) activeObservation.EffectiveWeighted = false;
+                    SetOutcome("weighted-disabled-player-kind");
+                    return vanillaResult;
+                }
                 if (!EnsureCoordinateTileMappingValidated())
                 {
                     SetOutcome("coordinate-map-unready");
@@ -505,13 +535,18 @@ namespace BugfixesAndQoL
                 bool routeReady = command != null &&
                     TryLoadCachedRoute(command, cacheKey, out routeSummary, out preparedRoute);
                 if (PerformanceDiagnosticsEnabled) command?.RecordCacheLookup((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - cacheStarted);
+                if (routeReady) Shared.DevDiag.Count("bfqol.assassin.cacheHit");
                 if (!routeReady && UsesRouteExistenceOnly(context, startX, startY, targetX, targetY, maximumNodes))
                 {
                     // Without an exact single-unit frame the weighted route is never published:
                     // this request returns Vanilla's result when a valid weighted route exists and
                     // 0 otherwise. Answer exactly that question without the cost-optimal search.
+                    Shared.DevDiag.Start(ref diagStage);
                     RouteExistence existence = FindAnyWeightedRoute(startX, startY, targetX, targetY, speedDelay,
                         allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy);
+                    Shared.DevDiag.Stop(ref diagStage, existence == RouteExistence.Exists ? "bfqol.assassin.exist.exists" :
+                        existence == RouteExistence.None ? "bfqol.assassin.exist.none" : "bfqol.assassin.exist.undecided");
+                    Shared.DevDiag.Count(vanillaResult != 0 ? "bfqol.assassin.exist.nativeFound" : "bfqol.assassin.exist.nativeNone");
                     if (existence != RouteExistence.Undecided)
                     {
                         if (!AssassinGateRoutePolicy.IsCurrent(gatePolicy))
@@ -528,6 +563,7 @@ namespace BugfixesAndQoL
                     activeObservation?.ParentDecisions?.Clear();
 #endif
 
+                    Shared.DevDiag.Start(ref diagStage);
                     routeReady = TryBuildWeightedRoute(
                         startX,
                         startY,
@@ -540,6 +576,9 @@ namespace BugfixesAndQoL
                         command,
                         gatePolicy,
                         out routeSummary);
+                    Shared.DevDiag.Stop(ref diagStage, routeReady
+                        ? (vanillaResult != 0 ? "bfqol.assassin.astar.found.nativeFound" : "bfqol.assassin.astar.found.nativeNone")
+                        : (vanillaResult != 0 ? "bfqol.assassin.astar.none.nativeFound" : "bfqol.assassin.astar.none.nativeNone"));
                     if (routeReady && command != null)
                         preparedRoute = CachePreparedRoute(command, cacheKey, routeSummary);
                 }
@@ -607,7 +646,9 @@ namespace BugfixesAndQoL
             }
             finally
             {
+                backwardProofUseful = true;
                 if (PerformanceDiagnosticsEnabled) command?.RecordTotal((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - requestStarted);
+                Shared.DevDiag.Stop(ref diagRequest, "bfqol.assassin.request");
             }
         }
 
@@ -636,6 +677,12 @@ namespace BugfixesAndQoL
             int targetTile = GetTileId(targetX, targetY);
             if (!IsNativeTile(startTile) || !IsNativeTile(targetTile))
                 return false;
+            if (ProvesTargetUnreachable(startX, startY, targetX, targetY, allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy))
+            {
+                if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
+                    (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, 0, 0);
+                return false;
+            }
 
             int startNode = GetCoordinateIndex(startX, startY);
             int targetNode = GetCoordinateIndex(targetX, targetY);
@@ -658,6 +705,7 @@ namespace BugfixesAndQoL
                 expanded++;
                 if (currentNode == targetNode)
                 {
+                    Shared.DevDiag.Count("bfqol.assassin.astar.expanded.found", expanded);
                     long reconstructionStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                     if (!PrepareRoute(startNode, targetNode, costs[targetNode], expanded,
                         heapOperations, searchStarted, reconstructionStarted, out routeSummary))
@@ -761,6 +809,7 @@ namespace BugfixesAndQoL
 
             if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
                 (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, expanded, heapOperations);
+            Shared.DevDiag.Count(expanded >= nodeLimit ? "bfqol.assassin.astar.expanded.nodeLimit" : "bfqol.assassin.astar.expanded.exhausted", expanded);
             return false;
         }
 
@@ -791,6 +840,8 @@ namespace BugfixesAndQoL
             int diagonalTicks = AssassinClimbCostPolicy.GetDiagonalMovementTicks(speedDelay);
             if (!IsNativeTile(GetTileId(startX, startY)) || !IsNativeTile(GetTileId(targetX, targetY)))
                 return RouteExistence.None;
+            if (ProvesTargetUnreachable(startX, startY, targetX, targetY, allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy))
+                return RouteExistence.None;
             int startNode = GetCoordinateIndex(startX, startY);
             int targetNode = GetCoordinateIndex(targetX, targetY);
             // costs[] holds the cost of the found parent chain; the heap orders by the estimate only.
@@ -801,6 +852,7 @@ namespace BugfixesAndQoL
                 int currentNode = Pop();
                 if (currentNode == targetNode)
                 {
+                    Shared.DevDiag.Count("bfqol.assassin.exist.touched.found", touchedCount);
                     long bound = (long)cardinalTicks * MaximumCommittedPathLength;
                     return costs[targetNode] < bound ? RouteExistence.Exists : RouteExistence.Undecided;
                 }
@@ -842,7 +894,76 @@ namespace BugfixesAndQoL
                     Push(nextNode);
                 }
             }
+            Shared.DevDiag.Count("bfqol.assassin.exist.touched.none", touchedCount);
             return RouteExistence.None;
+        }
+
+        // Exact unreachability proof before the start-side search. Breadth-first search from the target
+        // over reversed edges; every predecessor -> node edge is checked with exactly the predicates of
+        // the forward searches (ordinary connection, cardinal climb fallback, climbing switch, gate
+        // policy), so the visited set is the set of tiles that can reach the target. Exhausting it
+        // without the start proves that no forward search can reach the target: A* would explore the
+        // whole start component (often the whole map) and still return no route. Targets enclosed by
+        // buildings or walls have tiny backward sets (1-11 tiles on the 8-lord stress save, against
+        // ~243,000 forward expansions). The budget bounds the cost of a reachable target, where the
+        // backward set is large; then the result is undecided and the normal search runs unchanged.
+        private const int BackwardProofNodeBudget = 512;
+        private readonly int[] backwardStamps = new int[CoordinateCount];
+        private readonly int[] backwardQueue = new int[BackwardProofNodeBudget];
+        private int backwardEpoch;
+        // Cleared for one request when Vanilla's builder already reached the target: the target is then
+        // almost certainly reachable and the proof would only cost its budget. Skipping never changes a
+        // result (the normal search runs); every unreachable request on the stress save had native 0.
+        private bool backwardProofUseful = true;
+
+        private bool ProvesTargetUnreachable(int startX, int startY, int targetX, int targetY, bool allowClimbing,
+            bool allowWalkableReservedClimbEndpoints, IEnemyGateRoutePolicySnapshot gatePolicy)
+        {
+            // Diagnostic observers record the forward search's edge decisions; keep their full order.
+            if (activeObservation != null || !backwardProofUseful)
+                return false;
+            int startNode = GetCoordinateIndex(startX, startY);
+            int targetNode = GetCoordinateIndex(targetX, targetY);
+            if (startNode == targetNode)
+                return false;
+            if (backwardEpoch == int.MaxValue)
+            {
+                Array.Clear(backwardStamps, 0, backwardStamps.Length);
+                backwardEpoch = 0;
+            }
+            int epoch = ++backwardEpoch;
+            int head = 0, tail = 0;
+            backwardQueue[tail++] = targetNode;
+            backwardStamps[targetNode] = epoch;
+            while (head < tail)
+            {
+                int node = backwardQueue[head++];
+                int x = node % MapWidth, y = node / MapWidth;
+                int tile = GetTileId(x, y);
+                for (int direction = 0; direction < DirectionX.Length; direction++)
+                {
+                    int fromX = x - DirectionX[direction], fromY = y - DirectionY[direction];
+                    if (!IsValidCoordinate(fromX, fromY))
+                        continue;
+                    int from = GetCoordinateIndex(fromX, fromY);
+                    if (backwardStamps[from] == epoch)
+                        continue;
+                    int fromTile = GetTileId(fromX, fromY);
+                    if (!IsNativeTile(fromTile))
+                        continue;
+                    if (!HasOrdinaryConnection(fromTile, tile, direction) &&
+                        ((direction & 1) != 0 || !IsVanillaAssassinFallback(fromTile, tile, tileFlags[fromTile], allowWalkableReservedClimbEndpoints) || !allowClimbing))
+                        continue;
+                    if (!AllowsAssassinTransition(gatePolicy, fromTile, tile, direction, allowClimbing, allowWalkableReservedClimbEndpoints))
+                        continue;
+                    if (from == startNode || tail == BackwardProofNodeBudget)
+                        return false;
+                    backwardStamps[from] = epoch;
+                    backwardQueue[tail++] = from;
+                }
+            }
+            Shared.DevDiag.Count("bfqol.assassin.backwardProof.tiles", tail);
+            return true;
         }
 
         private bool IsVanillaAssassinFallback(
@@ -1528,7 +1649,8 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                     args.TileX,
                     args.TileY,
                     $"move/{args.MoveType}/patrol={args.IsPatrolPath}/new={args.IsNewOrder}",
-                    settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+                    IsWeightedEnabledFor(aiPlayer: false),
+                    IsWeightedEnabledFor(aiPlayer: true));
                 return;
             }
 
@@ -1549,7 +1671,8 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                     args.TargetValue1,
                     args.TargetValue2,
                     $"target/{args.AICommand}",
-                    settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+                    IsWeightedEnabledFor(aiPlayer: false),
+                    IsWeightedEnabledFor(aiPlayer: true));
                 return;
             }
 
@@ -1712,13 +1835,17 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             return result;
         }
 
+        // Four-ary heap: half the depth of a binary heap, so fewer key moves per Push/Pop. Every key is
+        // distinct (insertion orders are unique within a search), so the priority order is total and
+        // the pop sequence is the same for any correct heap shape: routes, expansions and tie-breaking
+        // stay identical to the former binary heap.
         private void SiftUp(int position)
         {
             int tile = heap[position];
             HeapKey key = heapKeys[position];
             while (position > 0)
             {
-                int parent = (position - 1) >> 1;
+                int parent = (position - 1) >> 2;
                 if (!ComesBefore(in key, in heapKeys[parent]))
                     break;
                 heap[position] = heap[parent];
@@ -1737,11 +1864,14 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             HeapKey key = heapKeys[position];
             while (true)
             {
-                int left = position * 2 + 1;
-                if (left >= heapCount)
+                int first = (position << 2) + 1;
+                if (first >= heapCount)
                     break;
-                int right = left + 1;
-                int best = right < heapCount && ComesBefore(in heapKeys[right], in heapKeys[left]) ? right : left;
+                int best = first;
+                int last = Math.Min(first + 4, heapCount);
+                for (int child = first + 1; child < last; child++)
+                    if (ComesBefore(in heapKeys[child], in heapKeys[best]))
+                        best = child;
                 if (!ComesBefore(in heapKeys[best], in key))
                     break;
                 heap[position] = heap[best];
@@ -1754,23 +1884,23 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             heapPositions[tile] = position;
         }
 
-        private static bool ComesBefore(in HeapKey left, in HeapKey right)
-        {
-            return AssassinAStarPolicy.ComesBefore(
-                left.EstimatedTotal, left.Cost, left.InsertionOrder,
-                right.EstimatedTotal, right.Cost, right.InsertionOrder);
-        }
+        // Same order as AssassinAStarPolicy.ComesBefore (estimated total, then cost, then insertion
+        // order) with the first two levels in one unsigned comparison; see HeapKey.
+        private static bool ComesBefore(in HeapKey left, in HeapKey right) =>
+            left.Primary < right.Primary ||
+            (left.Primary == right.Primary && left.InsertionOrder < right.InsertionOrder);
 
         private readonly struct HeapKey
         {
-            internal readonly int EstimatedTotal;
-            internal readonly int Cost;
+            // Estimated total in the high and cost in the low 32 bits. Both are non-negative ints
+            // (costs start at 0 and only grow by saturating additions of non-negative edge and
+            // heuristic values), so the unsigned 64-bit order equals the lexicographic int order.
+            internal readonly ulong Primary;
             internal readonly int InsertionOrder;
 
             internal HeapKey(int estimatedTotal, int cost, int insertionOrder)
             {
-                EstimatedTotal = estimatedTotal;
-                Cost = cost;
+                Primary = ((ulong)(uint)estimatedTotal << 32) | (uint)cost;
                 InsertionOrder = insertionOrder;
             }
         }
@@ -1868,7 +1998,7 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             private bool Validate() =>
                 (epoch == runtime.mapEpoch || runtime.TemporaryRouteValidation(false, key, "map-epoch", Summary)) &&
                 (runtime.settings.EnableMod || runtime.TemporaryRouteValidation(false, key, "mod-disabled", Summary)) &&
-                (runtime.settings.EnableImprovedAssassinPathfinding || runtime.TemporaryRouteValidation(false, key, "improvement-disabled", Summary)) &&
+                (runtime.IsWeightedEnabledFor(IsAIPlayer(key.PlayerId)) || runtime.TemporaryRouteValidation(false, key, "improvement-disabled", Summary)) &&
                 (key.AllowClimbing == runtime.climbRuntime.IsClimbingAllowed(key.PlayerId) ||
                     runtime.TemporaryRouteValidation(false, key, "player-climb-switch", Summary)) &&
                 (AssassinGateRoutePolicy.IsCurrent(key.GatePolicy) ||
@@ -1877,7 +2007,7 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             private bool Validate() =>
                 (epoch == runtime.mapEpoch) &&
                 (runtime.settings.EnableMod) &&
-                (runtime.settings.EnableImprovedAssassinPathfinding) &&
+                (runtime.IsWeightedEnabledFor(IsAIPlayer(key.PlayerId))) &&
                 (key.AllowClimbing == runtime.climbRuntime.IsClimbingAllowed(key.PlayerId)) &&
                 (AssassinGateRoutePolicy.IsCurrent(key.GatePolicy)) && runtime.ValidateCachedRoute(key, this);
 #endif
@@ -1905,7 +2035,8 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                 int targetValue1,
                 int targetValue2,
                 string kind,
-                bool enabled)
+                bool enabledForHumans,
+                bool? enabledForAI = null)
             {
                 Previous = previous;
                 Sequence = sequence;
@@ -1916,7 +2047,8 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                 TargetValue1 = targetValue1;
                 TargetValue2 = targetValue2;
                 Kind = kind;
-                Enabled = enabled;
+                EnabledForHumans = enabledForHumans;
+                EnabledForAI = enabledForAI ?? enabledForHumans;
                 StartedTimestamp = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             }
 
@@ -1929,7 +2061,11 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             public int TargetValue1 { get; }
             public int TargetValue2 { get; }
             public string Kind { get; }
-            public bool Enabled { get; }
+            // Settings snapshot taken when the command starts; requests inside it use the same values.
+            public bool EnabledForHumans { get; }
+            public bool EnabledForAI { get; }
+            public bool Enabled => EnabledForHumans || EnabledForAI;
+            public bool IsEnabledFor(bool aiPlayer) => aiPlayer ? EnabledForAI : EnabledForHumans;
             public long StartedTimestamp { get; }
             public long ElapsedTicks { get; set; }
             public Dictionary<int, AssassinRequestInfo> RequestIndex { get; set; }

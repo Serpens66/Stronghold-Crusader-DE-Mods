@@ -157,8 +157,9 @@ namespace BugfixesAndQoL {
             internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver; internal Dictionary<int,GateTransitionEvidence> ParentDecisions;
             internal long FilteredGround,FilteredClimb; internal string Outcome="weighted-published",Error; internal bool CacheHit; }
         private class GateTransitionEvidence { }
-        private class Settings { internal bool EnableMod=true,EnableImprovedAssassinPathfinding=true; }
+        private class Settings { internal bool EnableMod=true,EnableImprovedAssassinPathfinding=true,EnableImprovedAssassinPathfindingAI=true; }
         private readonly Settings settings=new Settings();
+        private bool IsWeightedEnabledFor(bool aiPlayer)=>settings.EnableMod&&(aiPlayer?settings.EnableImprovedAssassinPathfindingAI:settings.EnableImprovedAssassinPathfinding);
         internal int Calls; internal Action Nested; internal bool Throw;
         private string DescribeNativeAssassinState(IntPtr context)=>"fixture-state";
         private void LogWarning(string text)=>throw new Exception(text);

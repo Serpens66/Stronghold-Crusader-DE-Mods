@@ -299,6 +299,7 @@
     <Compile Include="src\SelectedUnitHealthFeature.cs" />
     <Compile Include="src\ForeignTroopHudRuntime.cs" />
     <Compile Include="src\ForeignTroopHudView.cs" />
+    <Compile Include="src\ForeignTroopPortraits.cs" />
     <Compile Include="src\ForeignTroopPlayerColors.cs" />
     <Compile Include="src\BuildPreview\*.cs" />
     <Compile Include="src\DamagedHealthBarsRuntime.cs" />
