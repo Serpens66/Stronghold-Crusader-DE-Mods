@@ -31,18 +31,22 @@ $shotDir = Join-Path $game 'BepInEx\PerfProbe_shots'
 $process = 'Stronghold Crusader Definitive Edition'
 
 # Section-aware: PerfProbe uses the key "Enabled" in several sections. A missing key or section is
-# appended (keys of a newer build appear in the file only after its first start).
+# appended (keys of a newer build appear in the file only after its first start). BepInEx writes the
+# file with LF; the file's own line ending is kept, and values are inserted literally (no regex '$').
 function Set-CfgValue([string]$text, [string]$section, [string]$key, [string]$value) {
-    $pattern = '(?m)^' + [regex]::Escape($key) + ' = .*$'
-    $sectionMatch = [regex]::Match($text, '(?m)^\[' + [regex]::Escape($section) + '\]\r?$')
-    if (-not $sectionMatch.Success) { return $text.TrimEnd() + "`r`n`r`n[" + $section + "]`r`n" + $key + ' = ' + $value + "`r`n" }
+    $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $line = $key + ' = ' + $value
+    $sectionMatch = [regex]::Match($text, '(?m)^\[' + [regex]::Escape($section) + '\][^\S\n]*(\n|$)')
+    if (-not $sectionMatch.Success) { return $text.TrimEnd() + $nl + $nl + '[' + $section + ']' + $nl + $line + $nl }
     $headEnd = $sectionMatch.Index + $sectionMatch.Length
     $rest = $text.Substring($headEnd)
     $next = [regex]::Match($rest, '(?m)^\[')
     $body = if ($next.Success) { $rest.Substring(0, $next.Index) } else { $rest }
     $tail = if ($next.Success) { $rest.Substring($next.Index) } else { '' }
-    if ($body -match $pattern) { $body = [regex]::Replace($body, $pattern, ($key + ' = ' + $value)) }
-    else { $body = "`r`n" + $key + ' = ' + $value + $body }
+    $existing = [regex]::Match($body, '(?m)^' + [regex]::Escape($key) + ' = [^\r\n]*')
+    if ($existing.Success) { $body = $body.Substring(0, $existing.Index) + $line + $body.Substring($existing.Index + $existing.Length) }
+    elseif ($sectionMatch.Groups[1].Value.Length -eq 0) { $body = $nl + $line + $nl + $body }
+    else { $body = $line + $nl + $body }
     return $text.Substring(0, $headEnd) + $body + $tail
 }
 
@@ -58,7 +62,10 @@ foreach ($pair in ($Config -split ';' | Where-Object { $_ -match '=' })) {
     $kv = $pair -split '=', 2
     $sectionKey = $kv[0].Trim() -split '\.', 2
     if ($sectionKey.Count -ne 2) { throw "Config entry needs Section.Key: $pair" }
-    $text = Set-CfgValue $text $sectionKey[0] $sectionKey[1] $kv[1].Trim().ToLowerInvariant()
+    # Only booleans are normalized (BepInEx writes true/false); paths and labels stay as given.
+    $value = $kv[1].Trim()
+    if ($value -in @('true', 'false')) { $value = $value.ToLowerInvariant() }
+    $text = Set-CfgValue $text $sectionKey[0] $sectionKey[1] $value
 }
 $text = Set-CfgValue $text 'Automation' 'Enabled' 'true'
 $text = Set-CfgValue $text 'Automation' 'AutomationOnly' $(if ($AutomationOnly) { 'true' } else { 'false' })

@@ -32,15 +32,15 @@ namespace PerfProbe
                 config.Bind("Spikes", "FreezeMs", 400, "Spike lines at or above this duration are marked freeze=true.").Value);
             PerfProbeExtras.BindConfig(config);
             PerfProbeThreadSampler.BindConfig(config);
-            // Baseline runs: all keys stay bound (complete config file), but nothing is attached or started.
-            if (PerfProbeAutomation.AutomationOnly) return;
             // The sampler starts in Awake to cover plugin startup; DevDiag output needs the logger now.
             // Measurement series may defer it: suspending the main thread while Harmony patches
             // Director.Update occasionally hung the start (runs X1OFF/G1SE, 2026-10-23). The
             // LibraryLoaded installation below starts it after PerfProbe's own patches.
-            Shared.DevDiag.Attach(log);
             bool defer = config.Bind("Sampler", "DeferUntilPatched", false,
                 "Start the thread sampler only after PerfProbe's own patches (plugin startup is then not sampled).").Value;
+            // Baseline runs: all keys stay bound (complete config file), but nothing is attached or started.
+            if (PerfProbeAutomation.AutomationOnly) return;
+            Shared.DevDiag.Attach(log);
             if (!defer) PerfProbeThreadSampler.Install();
         }
 
