@@ -23,7 +23,7 @@ namespace BugfixesAndQoL
         private readonly IntPtr demand = Marshal.AllocHGlobal(1);
         private bool ready;
 
-        internal PermanentNativeSwitch(ManualLogSource log, ulong imageBase, NativeSwitchPlan[] plans)
+        internal PermanentNativeSwitch(ManualLogSource log, ulong imageBase, NativeSwitchPlan[] plans, string contractSha256)
         {
             Volatile.Write(ref *(byte*)demand, 0);
             // Root before the first executable entry is published, even if Enable fails later.
@@ -49,7 +49,7 @@ namespace BugfixesAndQoL
             }
             ready = true;
             Shared.DebugLogHelper.LogInfo(log, "Native logical switch installed with gate off; spans=" +
-                plans.Length + "; sha256=" + NoDogsNativeContract.ReferenceSha256 + ".");
+                plans.Length + "; contract sha256=" + contractSha256 + ".");
         }
 
         internal void SetEnabled(bool value) => Volatile.Write(ref *(byte*)demand, (byte)(ready && value ? 1 : 0));

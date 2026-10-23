@@ -54,6 +54,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 
 - `README.md`-Dateien nur auf ausdrückliche Bitte ändern. Bekommt ein Mod ein neues Feature, fragen, ob es nach Fertigstellung in die README soll.
 - Bestehende Nutzeränderungen erhalten; keine sachfremden Dateien ändern; Dateien gezielt bearbeiten.
+- **Code und Tests gemeinsam ändern:** Bei jeder Codeänderung im selben Arbeitsgang alle Tests suchen, die den geänderten Code prüfen, und an die neue Struktur anpassen. Dazu gehören auch Quelltext- und Strukturprüfungen, die Dateien, Member- oder Aufrufnamen per Text suchen (z. B. `File.ReadAllText` in `tests/Program.cs`), sowie Fixtures, `verify.ps1`-Skripte und die Tests im Buildskript. Die geprüften Garantien bleiben dabei erhalten; eine Erwartung nie nur ändern, damit sie besteht ([build-release.md](AGENTS/build-release.md#auswahl-der-prüfungen)). Vor dem Abschluss die betroffenen Tests oder den Build des Mods laufen lassen. Ein Test, den die eigene Änderung rot macht, gehört zur eigenen Arbeit, nicht zu „fremden“ Fehlern.
 - Für bereits Git-getrackte Dateien keine zusätzlichen Sicherungskopien anlegen; die versionierte Historie genügt. Noch nicht committete Nutzeränderungen sind dadurch nicht gesichert und müssen weiterhin erhalten bleiben.
 - Analysewerkzeuge und Artefakte in `.inspect`, `.tools`, `.native-analysis` u. ä. nicht anschließend löschen.
 - Textdateien verwenden CRLF (außer ausdrücklich für Linux); sicheres Konvertierungsverfahren → [build-release.md](AGENTS/build-release.md).

@@ -5446,12 +5446,20 @@ namespace BugfixesAndQoL
                     !handler.Contains("unitId+1"),
                 "gatehouse handler applies no obsolete +1 conversion to the event Unit ID");
 
+            // Footprint candidates come from the pure-coordinate cache over APIShared's ordered footprint;
+            // the first-distinct drawbridge selection and the exterior-approach route test are inline.
+            string footprintCache = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "GatehouseFootprintGeometryCache.cs"));
             Check(source.Contains("STRUCT_DRAWBRIDGE") &&
                     source.Contains("MaximumSynchronizedDrawbridges") &&
-                    source.Contains("BuildOrderedFootprintCandidates(") &&
-                    source.Contains("CollectFirstDistinctBuildingIds(") &&
-                    source.Contains("CanReachAnyExteriorApproach(") &&
+                    source.Contains("GatehouseFootprintGeometryCache.Get(") &&
+                    footprintCache.Contains("BuildOrderedFootprintCandidates(") &&
+                    source.Contains("id == first || id == second") &&
+                    source.Contains("TryTraceExteriorApproach(") &&
+                    source.Contains("CanReachDrawbridge(") &&
+                    source.Contains("FindNextComponentTowardDestination(") &&
                     source.Contains("GetTileBuildingId(") &&
+                    !footprintCache.Contains("GameBuilding*") &&
                     !source.Contains("GATE_REACH_DIAG") &&
                     !source.Contains("GatehouseReachabilityDiagnosticThrottle") &&
                     !source.Contains("missing-path-record") &&

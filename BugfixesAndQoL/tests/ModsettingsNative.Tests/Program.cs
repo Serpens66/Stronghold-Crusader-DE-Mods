@@ -97,7 +97,7 @@ internal static class Program
             {
                 // Both preceding variants used an unpublished private fixture. Publication starts here.
                 Copy(arena,NoDogsNativeContract.PatchRva,NoDogsNativeContract.ExpectedBytes);
-                installed=new PermanentNativeSwitch(null,b,NativeSwitchCatalog.CreatePlans(image,b,true));Roots.Add(installed);
+                installed=new PermanentNativeSwitch(null,b,NativeSwitchCatalog.CreatePlans(image,b,true),NoDogsNativeContract.ReferenceSha256);Roots.Add(installed);
                 published=Read(arena,0xffd94,6);
             }
             if(pass>=2)installed.SetEnabled(pass==3);
@@ -136,10 +136,10 @@ internal static class Program
         // 0x8EA60 after the peace-time span; a foreign jump there is accepted, any other live change is not.
         IntPtr foreign=Image(image);
         Copy(foreign,0x8EA60,new byte[]{0xCC,0xCC,0xCC});
-        bool overlap=false;try {Roots.Add(new PermanentNativeSwitch(null,(ulong)foreign.ToInt64(),NativeSwitchCatalog.CreatePlans(image,(ulong)foreign.ToInt64(),false)));}catch(InvalidOperationException){overlap=true;}
+        bool overlap=false;try {Roots.Add(new PermanentNativeSwitch(null,(ulong)foreign.ToInt64(),NativeSwitchCatalog.CreatePlans(image,(ulong)foreign.ToInt64(),false),VanillaPeaceTimeNativeContract.ReferenceSha256));}catch(InvalidOperationException){overlap=true;}
         Check(overlap,"non-jump live change at a continuation rejected");
         Copy(arena,0x8EA60,new byte[]{0xFF,0x25,0,0,0,0});
-        var installed=new PermanentNativeSwitch(null,b,plans);Roots.Add(installed);
+        var installed=new PermanentNativeSwitch(null,b,plans,VanillaPeaceTimeNativeContract.ReferenceSha256);Roots.Add(installed);
         byte[][] before=plans.Select(p=>Read(arena,p.Rva,p.PhysicalLength)).ToArray();
         foreach(bool value in new[]{false,true,false,true})
         {

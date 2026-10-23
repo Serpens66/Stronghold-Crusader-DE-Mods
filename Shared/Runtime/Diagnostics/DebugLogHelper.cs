@@ -94,6 +94,7 @@ namespace Shared
 
         private static void WritePersistentHash(string fullPath, long length, DateTime written, string hash)
         {
+            string temporary = null;
             try
             {
                 string store = PersistentHashPath();
@@ -105,12 +106,16 @@ namespace Shared
                 lines.Add(string.Join("\t", fullPath, length.ToString(CultureInfo.InvariantCulture),
                     written.Ticks.ToString(CultureInfo.InvariantCulture), hash));
                 Directory.CreateDirectory(Path.GetDirectoryName(store));
-                string temporary = store + "." + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture) + ".tmp";
+                // Unique per write: every mod links its own copy of this file and its own lock.
+                temporary = store + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 File.WriteAllLines(temporary, lines);
                 if (File.Exists(store)) File.Replace(temporary, store, null);
                 else File.Move(temporary, store);
+                temporary = null;
             }
             catch (Exception) { /* The store only saves time on the next start. */ }
+            if (temporary != null)
+                try { File.Delete(temporary); } catch (Exception) { }
         }
 
         private readonly struct CachedFileHash

@@ -72,39 +72,16 @@ Stand 2026-10-22, 23:17–23:40: Alle Release-Mods und APIShared sind vom Arbeit
    - `AI sell hook resolved: reference-rva=…` erscheint zweimal, und BFQoL „AI sell threshold safety“ meldet keinen Fehler.
 3. Den BFQoL-Release-Build vor der Veröffentlichung mit `APISHARED_CONSUMER_SCAN` gegen APIShared scannen. Es dürfen keine Interna gebunden sein: Ohne Grant würden sie zur Laufzeit scheitern.
 
-## 2a. Review-Befunde im neuen Code (Stand 2026-10-23)
+## 2a. Review des neuen Codes (Stand 2026-10-23)
 
-Geprüft wurde der Code seit Mod-Repo `ab291bbfb` bzw. APIShared `66e7f98`: APIShared, BFQoL, ExtendedData, Shared und StartConditions. Die übrigen Release-Mods haben seitdem keine Quelländerungen. Die Liste beginnt mit dem wichtigsten Punkt.
+Geprüft wurde der Code seit Mod-Repo `ab291bbfb` bzw. APIShared `66e7f98`. Die Befunde sind umgesetzt, noch nicht committet und noch nicht gebaut:
 
-1. **APIShared `src/Economy/AiMarketSellNativeRuntime.cs`, `VerifyBackend()`:** Hier werden vier Backend-Assemblies per SHA-256 festgenagelt: RedBird X64/Core/Abstractions und Iced.
-   - Jeder Start hasht diese Dateien.
-   - Jedes Script-Extender-Update, das eine davon ändert, schaltet die KI-Verkaufsregeln ab. Betroffen sind BFQoL „AI sell threshold safety“ und die KI-Marktpreise von ExtraFeatures.
-   - Das widerspricht der neuen AGENTS-Regel: IL- bzw. API-Vertrag statt Datei-Hash.
-   - Empfehlung: Die Pins durch `InstalledAssemblyIdentity.VerifyModule` (MVID) ersetzen oder ganz streichen, denn die Verdrängungsprüfung `DisplacedByteCount == 15` existiert bereits.
-2. **Dieselbe Datei, `Resolve()`:** Der Fallback-Scan ist toter Code.
-   - Er läuft nur, wenn die Bytes an der Referenz-RVA abweichen, verlangt aber anschließend `match == rva`, kann also nie gelingen.
-   - Dabei liest er die ausführbaren Sektionen byteweise per `Marshal.ReadByte` aus dem **live** gepatchten Speicher.
-   - Auch `ValidateLive` prüft live und nicht am unveränderten `CrusaderLibraryLoadContext.Memory`: Ein fremder Hook an 0x3F1F3, 0x29723, 0x3F202, 0x29732 oder am Epilog schaltet das Feature ab.
-   - Empfehlung: Scan entfernen, oder nach dem Verfahren aus `native-analysis.md` umstellen (unverändertes Abbild, `NativeResolutionCache`). Das ist eine Entscheidung: Soll die Stelle bei einem neuen Build wandern dürfen?
-3. **BFQoL `PermanentNativeSwitch` und `NativeSwitchCatalog`:** Die Toleranz für einen fremden Hook an der Folgegrenze (`StartsForeignJump`) greift nur, wenn das Original genau den physischen Span umfasst.
-   - Acht Definitionen kopieren die Folgeinstruktion mit: 0x8A141, 0x8D360, 0x8D7BD, 0x8E0D7, 0x8E5F8, 0xABC88, 0xC70BA und 0xCE2FD.
-   - Ein fremder Hook dort scheitert schon an „live span differs“. Im aktiven Block würde die mitkopierte Folgeinstruktion den fremden Hook außerdem überspringen.
-   - Heute ist dort kein Hook bekannt, deshalb ist das kein Releaseblocker. Vor einem Extender- oder Fixes-Update an diesen Stellen gezielt prüfen.
-   - Nebenbei: Die Installationszeile loggt für beide Schalter `sha256=NoDogsNativeContract.ReferenceSha256`, auch für die Friedenszeit, und das ist der Referenz-, nicht der Ist-Hash. Kosmetisch.
-4. **Shared `DebugLogHelper`, persistenter Hash-Speicher `BepInEx/cache/Serp.file-hashes.tsv`:**
-   - Alle Mods, die die Datei quellverlinken, schreiben dieselbe Datei. Jede Assembly hat aber ihr eigenes Lock, und die Temp-Datei heißt nur nach der Prozess-ID.
-   - Zwei Mods im selben Prozess können sich deshalb beim Schreiben überschneiden. Die Ausnahme wird verschluckt, und es geht höchstens ein Eintrag verloren, der beim nächsten Start neu gehasht wird.
-   - Kein Funktionsfehler. Optional: Assemblyname in den Temp-Namen aufnehmen oder ein benanntes Mutex verwenden.
-5. **ExtendedData `LordDataSyncCoordinator.SetActivation`:** Wird „Lord-Daten-Integration“ während einer laufenden Partie oder eines geladenen Saves abgeschaltet, wird das Aufräumen bewusst aufgeschoben. `MissionEvents.Ended` holt es aber nicht nach.
-   - Danach bleiben `active`, der Host-`LordDataSnapshot`/`LordPackageManifest` und `LordDataStatus` stehen, bis die Funktion wieder eingeschaltet wird.
-   - Alle Leser prüfen die Aktivierung, deshalb ist das ohne bekannte Auswirkung, zumal Modsettings während einer Partie normalerweise nicht geändert werden.
-   - Optional: Im `Ended`-Handler das Aufräumen ausführen, wenn `!activation.LordDataIntegration`.
-6. **Ohne Befund geprüft:**
-   - APIShared: AiMarketSell-Bridge, Epilog und Policies, NativeKnowledge, Mission-Restart, Coop-AI-Preview/ConfirmedCandidateCount und Preset-Snapshots.
-   - ExtendedData: die neue Feature-Aufteilung (Mission-Settings/Coop/Lords/Editor/Workshop) einschließlich Locales und XAML, und der Upload-Workflow.
-   - BFQoL: die neuen Teilschalter (Listen, Missing-Map, Random-Opponent, MP-Startzustand, Friedenszeit, KI-Verkauf, Sprite-Merge-Modus) mit Locales in allen 21 Sprachen und Verbrauchern, `SkirmishGameOptionsRuntime`, `AiCastleSettingsListEnhancementHook`, die Coop-Lord-Preview, `GatehouseFootprintGeometryCache`, MeritData-Diagnose und SavegameMissingMap.
-   - Shared: `NativeResolutionCache`; das ungegatete `LogInfo`, wobei die BFQoL-Wrapper in heißen Pfaden auf `LogDebugLimited` gehen.
-   - StartConditions: `StartSettings.Tests` und `build.bat`.
+- APIShared KI-Verkauf: Die Datei-Hashes auf RedBird/Iced sind durch eine Laufzeitprüfung des erzeugten Stubs ersetzt. Der tote Scan ist entfernt, Grenzen werden am unveränderten Ladeabbild geprüft, und ein fremder Hook an einer Folgegrenze ist erlaubt. `AiMarketSell.NativeTests` ist grün.
+- BFQoL `PermanentNativeSwitch` loggt den eigenen Vertrags-Hash. Die vermutete fehlende Fremd-Hook-Toleranz war unbegründet, weil die mitkopierten Folgebytes selbst Patchstellen sind.
+- Shared Hash-Speicher: Die Temp-Datei hat jetzt einen eindeutigen Namen, und Reste werden entfernt.
+- ExtendedData Lord-Daten: Ein während der Partie abgeschaltetes Aufräumen wird bei Partieende nachgeholt.
+
+Stand 2026-10-23, 02:11: APIShared, ExtendedData und ExtraFeatures (`_dev`) sind gebaut und installiert. BFQoL ist als **DEVDIAG** installiert (auf Wunsch zur Diagnose). Vor jedem Release muss deshalb ein normaler BFQoL-Build darüber; Release- und Modpack-Skripte brechen mit einer DEVDIAG-Assembly ab. Der Gatehouse-Quelltexttest in `BugfixesAndQoL/tests/Program.cs` ist an die Struktur aus Commit „1009“ angepasst.
 
 ## 3. Release-Reihenfolge (Nutzer)
 
@@ -142,7 +119,7 @@ Bisher ist keiner durchgeführt. Vorrangig 1–4, 13 und 15.
   - die gemeinsame Befehls-Runtime `UnitCommandPathRuntime` (etwa 40 Detours, rund 100 Konstanten) und damit ExtendedShiftCommandQueue sowie Formation/FormationSpeech
   - weitere BFQoL-Features mit festen Daten-RVAs
   - PopularityDisplay (Managed-Hash, kein IL-Vertrag)
-  - die KI-Verkaufs-Hooks in APIShared: feste RVAs ohne Fallback, dazu Backend-Datei-Hashes (siehe 2a, Punkte 1 und 2)
+  - die KI-Verkaufs-Hooks in APIShared (feste RVAs ohne Fallback; der Backend-Vertrag wird zur Laufzeit geprüft)
 
   Die vollständige Liste, die Reihenfolge und die schon auditierten Anker stehen in `HashAdressTODO.md` und `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md`.
 - **Nach einem Spielupdate:** Funktionen mit Pattern-Fallback suchen einmal und cachen das Ergebnis (`BepInEx/cache/BugfixesAndQoL_Serp.native-cache.tsv`). Ab dem zweiten Start entfällt der Scan.

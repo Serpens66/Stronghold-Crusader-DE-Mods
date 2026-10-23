@@ -80,6 +80,11 @@ Diese Skripte prüfen den Datei-Hash der `Assembly-CSharp.dll` und brechen nach 
 
 - `APIShared/src/ScriptExtenderFixes/Popularity/PopularityDisplayRuntime.cs:22`: prüft weiter den Managed-Hash `BC8B6A39…`. Es gibt dort keinen IL-Vertrag. Der Hash sichert ab, welche Vanilla-GUI-Felder je `app_sub_mode` geschrieben werden (`PopularityPresentation.Apply`). Das Feature ist zusätzlich an den Native-Hash gebunden. Für Update-Festigkeit bräuchte es einen IL-Vertrag über die schreibende Vanilla-GUI-Methode.
 - Native Teile von APIShared-Audio (`Audio/NativeContract.cs`: `NativeHash`, `MeleeFrameHash`, feste RVAs): Der Managed-Teil ist auf den IL-Vertrag umgestellt, der native Teil bleibt hashgebunden.
+- KI-Verkauf (`APIShared/src/Economy/AiMarketSellNativeRuntime.cs`, `AiMarketSellAssembly.cs`):
+  - Bleibt hashgebunden: `NativeHash`, die zwei Hookstellen 0x3F1F3/0x29723, das Epilog-Ziel 0x2978B und der Struktur- und Bridge-Stackvertrag (`PlayerStride`, Goods-Offsets).
+  - Keine Datei-Hashes auf RedBird/Iced mehr: Spanne, erzeugter Stub und Sprungform werden zur Laufzeit geprüft.
+  - Grenzen werden am unveränderten Ladeabbild geprüft.
+  - Für Update-Festigkeit müssten die Hookstellen per Pattern plus Cache gefunden und der Strukturvertrag neu abgeleitet werden.
 
 - `APIShared/src/ScriptExtenderFixes/ScriptExtenderFixesRuntime.cs:20`: `ManagedHash = "D98415…"` mit `Supports(...)` (`:141-143`). Betrifft eine andere Managed-Assembly als Assembly-CSharp; Zuordnung klären und auf IL-Vertrag prüfen.
 - Native APIShared-Dienste mit festen RVAs, etwa die Konstanten in `AssassinPathAPI` (`BuildingGridRva`, `TileFlagsRva` usw.) und `EnemyGatePathfindingNativeDefinition`. Die Werte sind zum Teil jetzt öffentlich (`GateRoutingNativeLayout`); dieselbe Cache- und RIP-Strategie wäre hier anwendbar.

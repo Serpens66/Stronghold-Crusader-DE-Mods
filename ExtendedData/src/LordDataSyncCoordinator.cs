@@ -74,23 +74,29 @@ namespace ExtendedData
             ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(value.LordDataIntegration);
             if (!value.LordDataIntegration)
             {
-                fixes.Restore();
-                active = null;
-                pendingTrail = null;
-                packageManifest = null;
-                pendingTrailMediaNames.Clear();
-                localLordPaths.Clear();
-                ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
-                settings.LordDataStatus = "NONE";
-                settings.LordPackageStatus = string.Empty;
-                if (GameNetworkAPI.IsLocalHost())
-                {
-                    settings.LordDataSnapshot = string.Empty;
-                    settings.LordPackageManifest = string.Empty;
-                }
+                ClearIntegrationState();
                 return;
             }
             OnLobbyOpened(ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer);
+        }
+
+        // Also runs at mission end when the integration was disabled during that session.
+        private void ClearIntegrationState()
+        {
+            fixes.Restore();
+            active = null;
+            pendingTrail = null;
+            packageManifest = null;
+            pendingTrailMediaNames.Clear();
+            localLordPaths.Clear();
+            ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
+            settings.LordDataStatus = "NONE";
+            settings.LordPackageStatus = string.Empty;
+            if (GameNetworkAPI.IsLocalHost())
+            {
+                settings.LordDataSnapshot = string.Empty;
+                settings.LordPackageManifest = string.Empty;
+            }
         }
 
         internal void Initialize()
@@ -201,6 +207,9 @@ namespace ExtendedData
                 lastMapAppliedDiagnostic = null;
                 if (hadLordSession)
                     DebugLogHelper.LogDebug(log, "Lord-data map ended; session Fixes preferences restored.");
+                // SetActivation deferred the cleanup while this session owned its values.
+                if (!activation.LordDataIntegration)
+                    ClearIntegrationState();
             }));
         }
 

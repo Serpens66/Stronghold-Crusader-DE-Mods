@@ -18,7 +18,7 @@ namespace BugfixesAndQoL
                 throw new ArgumentException("The Crusader native library is unavailable.");
             ulong imageBase=unchecked((ulong)libraryHandle.ToInt64());
             VanillaPeaceTimeNativeContract.Validate(memory,imageBase,referenceHashMatches);
-            native=new PermanentNativeSwitch(log,imageBase,NativeSwitchCatalog.CreatePlans(memory,imageBase,false));
+            native=new PermanentNativeSwitch(log,imageBase,NativeSwitchCatalog.CreatePlans(memory,imageBase,false),VanillaPeaceTimeNativeContract.ReferenceSha256);
             settings.SettingChanged+=Refresh;
             Refresh(null);
         }
