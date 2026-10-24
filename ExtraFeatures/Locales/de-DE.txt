@@ -187,3 +187,11 @@ ExtraFeatures.SettingsTopics.CollapseAll=Alle zuklappen
 ExtraFeatures.SettingsTopics.ExpandAllHelp=Öffnet alle Themenbereiche, ohne Einstellungen zu ändern.
 ExtraFeatures.SettingsTopics.CollapseAllHelp=Schließt alle Themenbereiche, ohne Einstellungen zu ändern.
 ExtraFeatures.SettingsTopics.TopicToggleHelp=Öffnet oder schließt diesen Themenbereich. Während einer Suche öffnen sich passende Bereiche automatisch; zum manuellen Zuklappen die Suche leeren.
+
+ExtraFeatures.SettingsLayout.SoldierBehavior=Soldatenverhalten
+ExtraFeatures.SettingsLayout.KnightTransformation=Ritter auf- und absitzen
+ExtraFeatures.SettingsLayout.GateControl=Automatische Torsteuerung
+ExtraFeatures.SettingsLayout.ReopenDelay=Wiederöffnungsverzögerung
+ExtraFeatures.SettingsLayout.ClosingDistance=Schließdistanz
+ExtraFeatures.SettingsLayout.Singleplayer=Singleplayer
+ExtraFeatures.SettingsLayout.Multiplayer=Multiplayer

@@ -21,9 +21,8 @@ using UnityEngine;
 
 namespace CastlePlanner
 {
-    internal sealed partial class BlueprintRuntimeController
+    internal sealed class BlueprintRuntimeController
     {
-        partial void DiagVisualFrame();
         private delegate void CameraUpdateDelegate(CameraControls2D self);
         private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
 
@@ -204,7 +203,6 @@ namespace CastlePlanner
 
         private void OnBeforeRender()
         {
-            DiagVisualFrame();
             // A hidden projection has no frame-dependent work after its one-time preparation.
             if (!blueprintVisible && !hotkeyCapturePending && !depthLoadReady &&
                 !(mapActive && buildingImageLibrary.HasCompletedDepthRead) &&

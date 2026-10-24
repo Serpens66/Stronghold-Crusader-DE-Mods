@@ -32,17 +32,8 @@ using System.Text;
 
 namespace CastlePlanner
 {
-    internal sealed unsafe partial class CastlePlannerRuntime
+    internal sealed unsafe class CastlePlannerRuntime
     {
-        partial void DiagInstall();
-        partial void DiagStart(APIShared.MissionLifecycleNotification args);
-        partial void DiagLoadSave(APIShared.MissionLifecycleNotification args);
-        partial void DiagEnd(string reason);
-        partial void DiagRemember(PendingAivImport prepared);
-        partial void DiagBeforeCastle(PreparedAivCastle castle);
-        partial void DiagSnapshot(int playerId, string phase);
-        partial void DiagSpawn(BuildingSpawnEventArgs args);
-        partial void DiagTick(int tick);
         private const int AivSpecStride = 0x6D98;
         private const int PlayerAivStateStride = 0x583C;
         private const int SpecCopiedPlayerAivValueOffset = 0x08;
@@ -213,7 +204,6 @@ namespace CastlePlanner
             GameTimeManagerAPI.Instance.OnTick += OnGameTick;
 
             installed = true;
-            DiagInstall();
             Shared.DebugLogHelper.LogDebug(
                 log,
                 "Native AIV castle spawner installed; all private functions and globals resolved uniquely.");
@@ -221,7 +211,6 @@ namespace CastlePlanner
 
         private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
-            DiagLoadSave(args);
             handledCurrentMap = true;
             ClearDeferredCompoundPlacements("savegame-load");
             ClearMapSpawnState();
@@ -230,7 +219,6 @@ namespace CastlePlanner
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            DiagEnd("map-end");
             handledCurrentMap = false;
             ClearDeferredCompoundPlacements("map-unload");
             ClearMapSpawnState();
@@ -336,7 +324,6 @@ namespace CastlePlanner
         {
             ClearDeferredCompoundPlacements("new-map-start");
             ClearMapSpawnState();
-            DiagStart(args);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:348", $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}.");
 
@@ -664,7 +651,6 @@ namespace CastlePlanner
             int keepX,
             int keepY)
         {
-            DiagRemember(prepared);
             int playerId = prepared.PlayerId;
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
                 GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
@@ -789,7 +775,6 @@ namespace CastlePlanner
 
         private void ExecutePreparedCastle(PreparedAivCastle castle)
         {
-            DiagBeforeCastle(castle);
             int ownedBuildingsBeforeExecution = CountOwnedBuildings(castle.PlayerId);
             SetPrebuiltPlayerBit(castle.PlayerId);
             nativeCastleExecutionInProgress = true;
@@ -805,9 +790,7 @@ namespace CastlePlanner
             try
             {
                 executeToPercentage(aivState, castle.PlayerId, 100);
-                DiagSnapshot(castle.PlayerId, "after-native-castle");
                 SpawnSupplementalContents(castle);
-                DiagSnapshot(castle.PlayerId, "after-supplemental");
                 QueueDeferredCompoundBuildings(castle);
             }
             finally
@@ -829,7 +812,6 @@ namespace CastlePlanner
 
         private void OnBuildingSpawnPost(BuildingSpawnEventArgs args)
         {
-            DiagSpawn(args);
             if (!IsCastleSpawningModeAllowed())
                 return;
 
@@ -1224,7 +1206,6 @@ namespace CastlePlanner
 
         private void OnGameTick(int tick)
         {
-            DiagTick(tick);
             if (deferredCompoundBuildings.Count == 0)
                 return;
 
@@ -1257,10 +1238,7 @@ namespace CastlePlanner
                     try
                     {
                         if (ProcessDeferredCompoundBuilding(queue, tick))
-                        {
-                            DiagSnapshot(playerId, "deferred-queue-ended");
                             deferredCompoundBuildings.Remove(playerId);
-                        }
                     }
                     catch (Exception ex)
                     {

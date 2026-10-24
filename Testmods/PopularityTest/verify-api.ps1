@@ -5,10 +5,10 @@ $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $workspace 'Shared/Tools/Release/Release.Common.ps1')
 if (-not $ApiSharedDir) { $ApiSharedDir = Join-Path $workspace 'APIShared/BepInEx/plugins/APIShared_Serp' }
 $ApiSharedDir = [IO.Path]::GetFullPath($ApiSharedDir).TrimEnd('\','/')
-$installedDev = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\APIShared_Serp_dev'
-# Explicit selection of the installed dev SDK is local to this testmod. Other
+$installed = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\APIShared_Serp'
+# Explicit selection of the installed SDK is local to this testmod. Other
 # package selections retain the workspace's normal source/provenance validation.
-if ($ApiSharedDir -ine $installedDev) {
+if ($ApiSharedDir -ine $installed -and $ApiSharedDir -ine ($installed + '_dev')) {
     & (Join-Path $workspace 'Shared/Tools/ApiSharedRepository/Test-ConsumerPackage.ps1') -Workspace $workspace -PackageDirectory $ApiSharedDir
     if (-not $?) { throw 'Selected APIShared package validation failed.' }
 }

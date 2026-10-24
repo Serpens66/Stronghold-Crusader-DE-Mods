@@ -21,6 +21,17 @@ namespace ExtraFeatures
         public event Action<string> SettingChanged;
 
         public ModSettingsPresentation SettingsPresentation { get; }
+        public string SoldierBehaviorTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.SoldierBehavior");
+        public string KnightTransformationTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.KnightTransformation");
+        public string GateControlTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.GateControl");
+        public string GateReopenDelayTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.ReopenDelay");
+        public string GateClosingDistanceTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.ClosingDistance");
+        public string SingleplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Singleplayer");
+        public string MultiplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Multiplayer");
+        public string HumanEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximitySingleplayerText;
+        public string HumanEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximityMultiplayerText;
+        public string AIEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximitySingleplayerText;
+        public string AIEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximityMultiplayerText;
         private string settingsSearchLanguage;
         private string settingsSearchGoodsTitles;
 

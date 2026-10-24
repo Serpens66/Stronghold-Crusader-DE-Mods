@@ -12,7 +12,7 @@ namespace PopularityTest
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Guid = "PopularityTest_Serp", Name = "Popularity Test", Version = "0.2.0";
+        public const string Guid = "PopularityTest_Serp", Name = "Popularity Test", Version = "0.2.1";
         private static ManualLogSource log;
         private static PopularitySettings settings;
         private static PopularityRuntime runtime;

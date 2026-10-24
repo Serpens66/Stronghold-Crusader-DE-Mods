@@ -155,5 +155,6 @@ compound/storage routes, then execute each supported mapper through the real
 capture helper and verify a single delegate invocation with variation 15.
 Existing identity, nesting, raw-return, terrain and rotation checks remain.
 Existing saves keep their persisted wrong variation; this is a future-spawn fix.
-Gameplay confirmation, especially the rapid alternate-image hover symptom,
-requires a newly spawned castle rather than reloading the old defective save.
+The user confirmed corrected in-game graphics after spawning a new castle on
+2026-10-25. The temporary visual diagnosis, its four managed observation hooks,
+partial call sites and dedicated tests were removed for version 0.8.46.

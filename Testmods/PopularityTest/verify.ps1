@@ -19,4 +19,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Preset/settings integration test compilation f
 # Run this verifier elevated: the preset harness exercises atomic File.Replace.
 & (Join-Path $PSScriptRoot 'tests\bin\PresetTests\PopularityTest.PresetTests.exe') $PSScriptRoot
 if ($LASTEXITCODE -ne 0) { throw 'Preset/settings/ownership integration regression failed.' }
+& (Join-Path $PSScriptRoot 'tests/Test-Package.ps1')
+if (-not $?) { throw 'Source/package/install regression failed.' }
 Write-Host ('[{0:yyyy-MM-dd HH:mm:ss.fff}] PASS: PopularityTest preflight and relevant integration checks.' -f [DateTime]::Now)

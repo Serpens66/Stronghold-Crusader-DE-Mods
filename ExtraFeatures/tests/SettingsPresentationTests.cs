@@ -18,13 +18,13 @@ public static class SettingsPresentationTests
     private static int checks;
     private static readonly Dictionary<string, string[]> Membership = new Dictionary<string, string[]>
     {
-        { "Units", new[] { "lord-health", "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay" } },
-        { "Gatehouses", new[] { "human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance", "elevated-moat" } },
-        { "Building", new[] { "building-repair", "keep-build-range", "human-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-singleplayer", "ai-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
-        { "Economy", new[] { "campfire-peasants", "extra-church-priests", "multiply-goods-gain", "multiply-goods-as-money", "no-kill-reward" } },
-        { "Demolition", new[] { "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund", "keep-storage-content" } },
+        { "Units", new[] { "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay", "lord-health" } },
+        { "Gatehouses", new[] { "elevated-moat", "human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance" } },
+        { "Building", new[] { "building-repair", "keep-build-range", "human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
+        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "no-kill-reward", "multiply-goods-gain", "multiply-goods-as-money" } },
+        { "Demolition", new[] { "keep-storage-content", "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund" } },
         { "Plague", new[] { "plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance", "healer-targets" } },
-        { "Market", new[] { "market-buy-price-multiplier", "market-sell-price-multiplier", "market-prices-also-ai" } }
+        { "Market", new[] { "market-prices-also-ai", "market-buy-price-multiplier", "market-sell-price-multiplier" } }
     };
 
     private static object Get(object instance, string property) { return instance.GetType().GetProperty(property, All).GetValue(instance, null); }
@@ -90,6 +90,65 @@ public static class SettingsPresentationTests
             items.SelectNodes(".//*[local-name()='WrapPanel']").Cast<XmlNode>().All(n => n.Attributes["Width"] == null), "goods wrap to the finite available width");
         Check(nodes.Any(n => n.LocalName == "ScrollViewer" && n.Attributes["HorizontalScrollBarVisibility"].Value == "Auto" &&
             n.Attributes["VerticalScrollBarVisibility"].Value == "Auto"), "outer Auto scrollbars retained");
+        ValidateCompactLayout(document);
+    }
+
+    // Structural guardrails for the two reported layout regressions, not a native rendering proof.
+    private static string EffectiveStyleValue(XmlNode node, string property)
+    {
+        XmlAttribute direct = node.Attributes == null ? null : node.Attributes[property];
+        if (direct != null) return direct.Value;
+        string reference = node.Attributes == null || node.Attributes["Style"] == null ? "" : node.Attributes["Style"].Value;
+        while (reference.StartsWith("{StaticResource ", StringComparison.Ordinal))
+        {
+            string key = reference.Substring(16).TrimEnd('}');
+            XmlNode style = node.OwnerDocument.SelectNodes("//*[local-name()='Style']").Cast<XmlNode>()
+                .Single(n => n.Attributes.Cast<XmlAttribute>().Any(a => a.LocalName == "Key" && a.Value == key));
+            XmlNode setter = style.SelectNodes("./*[local-name()='Setter']").Cast<XmlNode>().FirstOrDefault(n => n.Attributes["Property"].Value == property);
+            if (setter != null) return setter.Attributes["Value"].Value;
+            reference = style.Attributes["BasedOn"] == null ? "" : style.Attributes["BasedOn"].Value;
+        }
+        return "";
+    }
+
+    private static void ValidateCompactLayout(XmlDocument document)
+    {
+        XmlNode[] nodes = document.SelectNodes("//*").Cast<XmlNode>().ToArray();
+        foreach (XmlNode row in nodes.Where(n => Search(n, "Key") != null && Search(n, "Key").StartsWith("extra.", StringComparison.Ordinal)))
+        {
+            Check(float.Parse(EffectiveStyleValue(row, "MinHeight"), CultureInfo.InvariantCulture) >= 28, "setting rows reserve checkbox height");
+            bool spacing = EffectiveStyleValue(row, "Margin").Split(',').Last() == "8" || Ancestors(row).Any(n =>
+                n.LocalName == "Grid" && EffectiveStyleValue(n, "Margin").Split(',').Last() == "8");
+            Check(spacing, "every setting row or enclosing table row has eight-unit spacing");
+            Check(row.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*").Cast<XmlNode>().All(n => n.Attributes["Width"].Value != "*"), "setting labels never consume the remaining page width");
+            foreach (XmlNode check in row.SelectNodes(".//*[local-name()='CheckBox']"))
+                Check(float.Parse(check.Attributes["MinHeight"].Value, CultureInfo.InvariantCulture) >= 28, "checkboxes retain minimum hit/layout height");
+        }
+        foreach (string key in new[] { "extra.knight-transform-gold", "extra.knight-transform-delay" })
+        {
+            XmlNode row = nodes.Single(n => Search(n, "Key") == key);
+            XmlNode[] columns = row.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*").Cast<XmlNode>().ToArray();
+            Check(columns[0].Attributes["Width"].Value == "Auto" && columns[0].Attributes["SharedSizeGroup"].Value == "SettingLabel" &&
+                columns[1].Attributes["Width"].Value == "16", "mounting cost/delay labels share a compact content-sized column");
+        }
+        foreach (XmlNode header in nodes.Where(n => n.LocalName == "Grid" && n.SelectNodes("./*[local-name()='TextBlock' and @FontWeight='Bold']").Count == 2))
+        {
+            XmlNode[] texts = header.SelectNodes("./*[local-name()='TextBlock']").Cast<XmlNode>().ToArray();
+            Check(texts[0].Attributes["Text"].Value == "{Binding HumanText}" && texts[0].Attributes["Grid.Column"].Value == "2" &&
+                texts[1].Attributes["Text"].Value == "{Binding AiText}" && texts[1].Attributes["Grid.Column"].Value == "4", "human-first role headers");
+        }
+        foreach (string name in new[] { "AllowElevatedMoatHuman", "NoKillRewardHuman", "MultiplyGoodsGainHuman", "MultiplyGoodsGainInMoneyHuman", "HumanLordHealthPercent" })
+        {
+            XmlNode editor = nodes.Single(n => n.Attributes["IsChecked"] != null && n.Attributes["IsChecked"].Value == "{Binding " + name + ", Mode=TwoWay}" ||
+                n.LocalName == "Slider" && n.Attributes["Value"] != null && n.Attributes["Value"].Value == "{Binding " + name + ", Mode=TwoWay}");
+            XmlNode roleCell = new[] { editor }.Concat(Ancestors(editor)).First(n => n.Attributes != null && n.Attributes["Grid.Column"] != null &&
+                (n.Attributes["Grid.Column"].Value == "2" || n.Attributes["Grid.Column"].Value == "4"));
+            Check(roleCell.Attributes["Grid.Column"].Value == "2", "human editor occupies the left role column: " + name);
+        }
+        XmlNode context = nodes.Single(n => n.Attributes["Text"] != null && n.Attributes["Text"].Value == "{Binding EnemyProximityTitleText}");
+        Check(Ancestors(context).Any(n => n.Attributes != null && n.Attributes["Visibility"] != null && n.Attributes["Visibility"].Value == "{Binding SettingsPresentation.EnemyProximityOptions.Visibility}"), "enemy-proximity context follows its search group");
+        foreach (string text in new[] { "BuildingsProductionTitleText", "EconomyBuffsTitleText", "LordHealthTitleText", "BulldozeHelpText", "PlagueDamageSurfacesText", "MarketGoodPriceMultipliersHelpText" })
+            Check(nodes.Any(n => n.Attributes["Text"] != null && n.Attributes["Text"].Value == "{Binding " + text + "}"), "retained contextual heading/explanation: " + text);
     }
 
     private static void NegativeXaml(XmlDocument original, Action<XmlDocument> mutate)
@@ -112,6 +171,9 @@ public static class SettingsPresentationTests
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[@IsEnabled='{Binding CanEditHostSettings}' and @Opacity]")).RemoveAttribute("IsEnabled"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='Slider']")).SetAttribute("ToolTipService.ShowDuration", "100"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='ItemsPanelTemplate']/*[local-name()='WrapPanel']")).SetAttribute("Width", "760"));
+        NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableKnightDismount')]")).SetAttribute("MinHeight", "20"));
+        NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[@shared:ModSettingsSearch.Key='extra.knight-transform-gold']/*[local-name()='Grid.ColumnDefinitions']/*[1]", Namespaces(d))).SetAttribute("Width", "*"));
+        NegativeXaml(document, d => { XmlNode n = d.SelectSingleNode("//*[local-name()='TextBlock' and @Text='{Binding EnemyProximityTitleText}']"); n.ParentNode.RemoveChild(n); });
 
         Type type = mod.GetType("ExtraFeatures.ModSettingsPresentation", true);
         object presentation = Activator.CreateInstance(type, true);
@@ -170,6 +232,20 @@ public static class SettingsPresentationTests
         Execute(presentation, "CollapseAllCommand"); Execute(presentation, "ExpandAllCommand"); Execute(market, "ToggleCommand"); Execute(topics[0], "ToggleCommand");
         search("", false, "");
         Check(Visible(topics[0], "ContentVisibility") && !Visible(market, "ContentVisibility") && topics.Skip(1).All(t => !Visible(t, "ContentVisibility")), "search and commands preserve manual state");
+        search("", false, "extra.human-enemy-proximity-singleplayer");
+        Check(Visible(Get(presentation, "EnemyProximityOptions"), "Visibility") && Visible(Get(presentation, "EnemySingleplayerOptions"), "Visibility") &&
+            !Visible(Get(presentation, "EnemyMultiplayerOptions"), "Visibility") && !Visible(Get(presentation, "BuildingOptions"), "Visibility") &&
+            !Visible(Get(presentation, "AiRebuildOptions"), "Visibility"), "single enemy-distance hit retains only its context and table row");
+        search("Text.EnemyProximityTitleText", false, "");
+        Check(Visible(Get(presentation, "EnemySingleplayerOptions"), "Visibility") && Visible(Get(presentation, "EnemyMultiplayerOptions"), "Visibility"), "contextual search titles find all enemy-distance role/mode values");
+        search("", false, "extra.instant-horse");
+        Check(Visible(Get(presentation, "KnightOptions"), "Visibility") && !Visible(Get(presentation, "SoldierOptions"), "Visibility") &&
+            !Visible(Get(presentation, "LordOptions"), "Visibility"), "knight search hides unrelated subsection captions");
+        search("", false, (string)Get(Get(presentation, "Units"), "Key"));
+        Check(new[] { "KnightOptions", "SoldierOptions", "LordOptions" }.All(name => Visible(Get(presentation, name), "Visibility")), "whole-topic target retains every contextual group");
+        search("", false, "extra.plague-duration");
+        Check(Visible(Get(presentation, "PlagueOptions"), "Visibility") && !Visible(Get(presentation, "PlagueSurfacesOptions"), "Visibility") &&
+            !Visible(Get(presentation, "HealerOptions"), "Visibility"), "duration search does not leave a detached plague-surface explanation");
         search("", false, (string)Get(market, "Key"));
         Check(Visible(market, "ContentVisibility"), "exact section navigation");
         search("Topic.Plague", false, "");
@@ -180,8 +256,11 @@ public static class SettingsPresentationTests
         Check(Visible(market, "ContentVisibility"), "tooltip search opens topic");
         search("no-such-setting-913", true, "");
         Check(topics.All(t => !Visible(t, "Visibility")), "no results hides all topics");
+        object[] groups = ((IEnumerable)Get(presentation, "Groups")).Cast<object>().ToArray();
+        Check(groups.All(group => !Visible(group, "Visibility")), "no results hides every subsection caption/row");
         search("", false, "");
         Check(topics.All(t => Visible(t, "Visibility")) && Visible(topics[0], "ContentVisibility"), "clearing no-results restores manual state");
+        Check(groups.All(group => Visible(group, "Visibility")), "clearing search restores contextual groups");
 
         // Replacement snapshots cover newly available goods and language changes without persisting UI state.
         SettingsSearchFixtureBase.Labels.Market.Title = "Localized market topic";
@@ -196,6 +275,9 @@ public static class SettingsPresentationTests
         object converter = Activator.CreateInstance(mod.GetType("ExtraFeatures.SettingsTopicWidthConverter", true));
         MethodInfo convert = converter.GetType().GetMethod("Convert");
         Type widthType = type.GetProperty("BulkActionsVisibility").PropertyType.Assembly.GetType("Noesis.FrameworkElement", true).GetProperty("Width").PropertyType;
+        Assembly noesis = type.GetProperty("BulkActionsVisibility").PropertyType.Assembly;
+        Check(noesis.GetType("Noesis.Grid", true).GetMethod("GetIsSharedSizeScope") != null &&
+            noesis.GetType("Noesis.DefinitionBase", true).GetProperty("SharedSizeGroup").PropertyType == typeof(string), "installed Noesis exposes the shared-column XAML contract");
         foreach (object input in new object[] { null, 0d, 12f, 640d, double.NaN, double.PositiveInfinity, double.MaxValue })
         {
             object result = convert.Invoke(converter, new[] { input, (object)widthType, null, CultureInfo.InvariantCulture });
@@ -245,6 +327,10 @@ public static class SettingsPresentationTests
             string[] lines = File.ReadAllLines(file).Where(line => line.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
             Check(lines.Select(line => line.Split('=')[0]).OrderBy(k => k).SequenceEqual(expected), "new locale keys are complete/unique: " + Path.GetFileName(file));
             Check(lines.All(line => line.IndexOf('=') < line.Length - 1), "new locale text is nonempty");
+            string[] layout = File.ReadAllLines(file).Where(line => line.StartsWith("ExtraFeatures.SettingsLayout.", StringComparison.Ordinal)).ToArray();
+            string[] layoutKeys = new[] { "SoldierBehavior", "KnightTransformation", "GateControl", "ReopenDelay", "ClosingDistance", "Singleplayer", "Multiplayer" }
+                .Select(key => "ExtraFeatures.SettingsLayout." + key).OrderBy(key => key).ToArray();
+            Check(layout.Select(line => line.Split('=')[0]).OrderBy(key => key).SequenceEqual(layoutKeys) && layout.All(line => line.IndexOf('=') < line.Length - 1), "compact layout locales are complete/unique/nonempty");
         }
     }
 }
@@ -255,6 +341,10 @@ public class SettingsSearchFixtureBase
     public static SettingsSearchGood[] Goods;
     public SettingsSearchLabels SettingsPresentation { get { return Labels; } }
     public SettingsSearchGood[] MarketGoodPriceItems { get { return Goods; } }
+    public string HumanEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanEnemyProximitySingleplayerText"; } }
+    public string HumanEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanEnemyProximityMultiplayerText"; } }
+    public string AIEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AIEnemyProximitySingleplayerText"; } }
+    public string AIEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AIEnemyProximityMultiplayerText"; } }
 }
 public class SettingsSearchTopicLabel { public string Title { get; set; } }
 public class SettingsSearchLabels

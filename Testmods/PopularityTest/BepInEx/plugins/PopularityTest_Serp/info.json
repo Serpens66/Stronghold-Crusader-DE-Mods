@@ -3,10 +3,10 @@
   "Author": "Serpens66",
   "Name": "Popularity Test",
   "Description": "Opt-in per-source popularity contributions with Vanilla defaults and synchronized host settings.",
-  "Version": "0.1.0",
+  "Version": "0.2.1",
   "Manifest": 1,
   "NetworkMode": 1,
   "MinimumScriptExtenderVersion": "2.14.1",
   "MaximumScriptExtenderVersion": "",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.10.0", "MaximumVersion": "" }]
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.15.0", "MaximumVersion": "" }]
 }

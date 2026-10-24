@@ -16,7 +16,19 @@
     <Style x:Key="HostActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443B6EA5"/><Setter Property="BorderBrush" Value="#FF77AAFF"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
     <Style x:Key="ClientActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#44306950"/><Setter Property="BorderBrush" Value="#FF66CC99"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
     <shared:ModSettingsSearchVisibilityConverter x:Key="ModSettingsSearchVisibilityConverter"/>
-    <Style x:Key="ModSettingsSearchTargetGrid" TargetType="{x:Type Grid}"><Setter Property="shared:ModSettingsMode.Key" Value="{Binding RelativeSource={RelativeSource Self}, Path=(shared:ModSettingsSearch.Key)}"/>
+    <Style x:Key="CompactSettingLabel" TargetType="{x:Type TextBlock}">
+      <Setter Property="Foreground" Value="White"/><Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="MaxWidth" Value="220"/><Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="SubsectionHeader" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource CompactSettingLabel}">
+      <Setter Property="FontWeight" Value="Bold"/><Setter Property="Foreground" Value="#DDDDDD"/>
+      <Setter Property="MaxWidth" Value="600"/><Setter Property="Margin" Value="0,12,0,6"/>
+    </Style>
+    <Style x:Key="CompactTableRow" TargetType="{x:Type Grid}">
+      <Setter Property="MinHeight" Value="28"/><Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+    </Style>
+    <Style x:Key="ModSettingsSearchTargetGrid" TargetType="{x:Type Grid}" BasedOn="{StaticResource CompactTableRow}"><Setter Property="shared:ModSettingsMode.Key" Value="{Binding RelativeSource={RelativeSource Self}, Path=(shared:ModSettingsSearch.Key)}"/>
       <Setter Property="Visibility">
         <Setter.Value>
           <MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}">
@@ -202,41 +214,89 @@
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.Units.ContentVisibility}" Margin="8,2,8,6" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.lord-health" shared:ModSettingsSearch.Title="{Binding LordHealthTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding LordHealthHelpText}">
-            <StackPanel>
-              <TextBlock TextWrapping="Wrap" Text="{Binding LordHealthTitleText}" Foreground="#DDDDDD" FontWeight="Bold" Margin="0,0,0,4"/>
-              <Grid Margin="0,0,0,10" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="60"/><ColumnDefinition Width="24"/><ColumnDefinition Width="120"/><ColumnDefinition Width="60"/></Grid.ColumnDefinitions>
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <TextBlock TextWrapping="Wrap" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/>
-                <TextBlock TextWrapping="Wrap" Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/>
-                <Slider Grid.Row="1" Grid.Column="0" Minimum="10" Maximum="500" Value="{Binding HumanLordHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}"/>
-                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="1" Text="{Binding HumanLordHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-                <Slider Grid.Row="1" Grid.Column="3" Minimum="10" Maximum="500" Value="{Binding AILordHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}"/>
-                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="4" Text="{Binding AILordHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+          <StackPanel Visibility="{Binding SettingsPresentation.SoldierOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding SoldierBehaviorTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.fear-factor-neutralization" shared:ModSettingsSearch.Title="{Binding EnableFearFactorNeutralizationText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableFearFactorNeutralizationHelpText}">
+              <CheckBox Content="{Binding EnableFearFactorNeutralizationText}" IsChecked="{Binding EnableFearFactorNeutralization, Mode=TwoWay}" Foreground="White" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFearFactorNeutralizationHelpText}" MinHeight="28" VerticalAlignment="Center" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.monks-always-run" shared:ModSettingsSearch.Title="{Binding EnableMonksAlwaysRunText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMonksAlwaysRunHelpText}">
+              <CheckBox IsChecked="{Binding EnableMonksAlwaysRun, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMonksAlwaysRunHelpText}" Margin="0" MinHeight="28" VerticalAlignment="Center">
+                <TextBlock Text="{Binding EnableMonksAlwaysRunText}" Foreground="White" TextWrapping="Wrap" />
+              </CheckBox>
+            </Grid>
+          </StackPanel>
+          <StackPanel Visibility="{Binding SettingsPresentation.KnightOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding KnightTransformationTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.knight-dismount" shared:ModSettingsSearch.Title="{Binding EnableKnightDismountText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableKnightDismountHelpText}">
+              <CheckBox IsChecked="{Binding EnableKnightDismount, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableKnightDismountHelpText}" Margin="0" MinHeight="28" VerticalAlignment="Center">
+                <TextBlock Text="{Binding EnableKnightDismountText}" Foreground="White" TextWrapping="Wrap" />
+              </CheckBox>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.instant-horse" shared:ModSettingsSearch.Title="{Binding InstantHorseText}" shared:ModSettingsSearch.ToolTipText="{Binding InstantHorseHelpText}">
+              <CheckBox IsChecked="{Binding InstantHorse, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding InstantHorseHelpText}" Margin="0" MinHeight="28" VerticalAlignment="Center">
+                <TextBlock Text="{Binding InstantHorseText}" Foreground="White" TextWrapping="Wrap" />
+              </CheckBox>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.knight-transform-gold" shared:ModSettingsSearch.Title="{Binding KnightTransformationGoldCostText}" shared:ModSettingsSearch.ToolTipText="{Binding KnightTransformationGoldCostHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationGoldCostHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding KnightTransformationGoldCostText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding KnightTransformationGoldCostValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationGoldCostHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.knight-transform-delay" shared:ModSettingsSearch.Title="{Binding KnightTransformationDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding KnightTransformationDelayHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationDelayHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding KnightTransformationDelayText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding KnightTransformationDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationDelayHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+            </Grid>
+          </StackPanel>
+          <StackPanel Visibility="{Binding SettingsPresentation.LordOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding LordHealthTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding HumanText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="2" FontWeight="Bold" />
+              <TextBlock Text="{Binding AiText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="4" FontWeight="Bold" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.lord-health" shared:ModSettingsSearch.Title="{Binding LordHealthTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding LordHealthHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <Grid HorizontalAlignment="Left" Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider Minimum="10" Maximum="500" Value="{Binding HumanLordHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanLordHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
               </Grid>
-            </StackPanel>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.fear-factor-neutralization" shared:ModSettingsSearch.Title="{Binding EnableFearFactorNeutralizationText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableFearFactorNeutralizationHelpText}">
-            <CheckBox Content="{Binding EnableFearFactorNeutralizationText}" IsChecked="{Binding EnableFearFactorNeutralization, Mode=TwoWay}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFearFactorNeutralizationHelpText}"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.monks-always-run" shared:ModSettingsSearch.Title="{Binding EnableMonksAlwaysRunText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMonksAlwaysRunHelpText}">
-            <CheckBox IsChecked="{Binding EnableMonksAlwaysRun, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMonksAlwaysRunHelpText}" Margin="0,0,14,8">
-              <TextBlock Text="{Binding EnableMonksAlwaysRunText}" Foreground="White" TextWrapping="Wrap"/>
-            </CheckBox>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.knight-dismount" shared:ModSettingsSearch.Title="{Binding EnableKnightDismountText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableKnightDismountHelpText}">
-            <CheckBox IsChecked="{Binding EnableKnightDismount, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableKnightDismountHelpText}" Margin="0,0,14,0">
-              <TextBlock Text="{Binding EnableKnightDismountText}" Foreground="White" TextWrapping="Wrap"/>
-            </CheckBox>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.instant-horse" shared:ModSettingsSearch.Title="{Binding InstantHorseText}" shared:ModSettingsSearch.ToolTipText="{Binding InstantHorseHelpText}">
-            <CheckBox IsChecked="{Binding InstantHorse, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding InstantHorseHelpText}" Margin="0,0,14,0">
-              <TextBlock Text="{Binding InstantHorseText}" Foreground="White" TextWrapping="Wrap"/>
-            </CheckBox>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.knight-transform-gold" shared:ModSettingsSearch.Title="{Binding KnightTransformationGoldCostText}" shared:ModSettingsSearch.ToolTipText="{Binding KnightTransformationGoldCostHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationGoldCostHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding KnightTransformationGoldCostText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="1" Text="{Binding KnightTransformationGoldCostValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationGoldCostHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.knight-transform-delay" shared:ModSettingsSearch.Title="{Binding KnightTransformationDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding KnightTransformationDelayHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationDelayHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding KnightTransformationDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="1" Text="{Binding KnightTransformationDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KnightTransformationDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
+              <Grid HorizontalAlignment="Left" Grid.Column="4">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider Minimum="10" Maximum="500" Value="{Binding AILordHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AILordHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+              </Grid>
+            </Grid>
+          </StackPanel>
         </StackPanel>
       </StackPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.Gatehouses.Visibility}" Margin="0,0,0,6" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left"
@@ -251,17 +311,98 @@
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.Gatehouses.ContentVisibility}" Margin="8,2,8,6" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-gate-reopen-delay" shared:ModSettingsSearch.Title="{Binding HumanGateReopenDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding GateReopenDelayHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding HumanGateReopenDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><Slider Grid.Column="1" Minimum="0" Maximum="30" Value="{Binding HumanGateReopenDelaySeconds, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HumanGateReopenDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-gate-reopen-delay" shared:ModSettingsSearch.Title="{Binding AIGateReopenDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding GateReopenDelayHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding AIGateReopenDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><Slider Grid.Column="1" Minimum="0" Maximum="120" Value="{Binding AIGateReopenDelaySeconds, Mode=TwoWay}" TickFrequency="2.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIGateReopenDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-gate-closing-distance" shared:ModSettingsSearch.Title="{Binding HumanGateClosingDistanceText}" shared:ModSettingsSearch.ToolTipText="{Binding GateClosingDistanceHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding HumanGateClosingDistanceText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><Slider Grid.Column="1" Minimum="5" Maximum="50" Value="{Binding HumanGateClosingDistanceTiles, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HumanGateClosingDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-gate-closing-distance" shared:ModSettingsSearch.Title="{Binding AIGateClosingDistanceText}" shared:ModSettingsSearch.ToolTipText="{Binding GateClosingDistanceHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding AIGateClosingDistanceText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/><Slider Grid.Column="1" Minimum="5" Maximum="50" Value="{Binding AIGateClosingDistanceTiles, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIGateClosingDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.elevated-moat" shared:ModSettingsSearch.Title="{Binding AllowElevatedMoatText}" shared:ModSettingsSearch.ToolTipText="{Binding AllowElevatedMoatHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock TextWrapping="Wrap" Text="{Binding AllowElevatedMoatText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0"/>
-              <CheckBox Content="{Binding AiText}" IsChecked="{Binding AllowElevatedMoatAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
-              <CheckBox Content="{Binding HumanText}" IsChecked="{Binding AllowElevatedMoatHuman, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
-            </StackPanel>
-          </Grid>
+          <StackPanel Visibility="{Binding SettingsPresentation.MoatOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.elevated-moat" shared:ModSettingsSearch.Title="{Binding AllowElevatedMoatText}" shared:ModSettingsSearch.ToolTipText="{Binding AllowElevatedMoatHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding AllowElevatedMoatText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <CheckBox Content="{Binding HumanText}" IsChecked="{Binding AllowElevatedMoatHuman, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}" Margin="0" MinHeight="28" Grid.Column="2" />
+              <CheckBox Content="{Binding AiText}" IsChecked="{Binding AllowElevatedMoatAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}" MinHeight="28" Grid.Column="4" />
+            </Grid>
+          </StackPanel>
+          <StackPanel Visibility="{Binding SettingsPresentation.GateOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding GateControlTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding HumanText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="2" FontWeight="Bold" />
+              <TextBlock Text="{Binding AiText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="4" FontWeight="Bold" />
+            </Grid>
+            <Grid Style="{StaticResource CompactTableRow}" Visibility="{Binding SettingsPresentation.GateReopenOptions.Visibility}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding GateReopenDelayTitleText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-gate-reopen-delay" shared:ModSettingsSearch.Title="{Binding HumanGateReopenDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding GateReopenDelayHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" Grid.Column="2" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="0" Maximum="30" Value="{Binding HumanGateReopenDelaySeconds, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanGateReopenDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-gate-reopen-delay" shared:ModSettingsSearch.Title="{Binding AIGateReopenDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding GateReopenDelayHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" Grid.Column="4" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="0" Maximum="120" Value="{Binding AIGateReopenDelaySeconds, Mode=TwoWay}" TickFrequency="2.5" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIGateReopenDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateReopenDelayHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource CompactTableRow}" Visibility="{Binding SettingsPresentation.GateDistanceOptions.Visibility}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding GateClosingDistanceTitleText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-gate-closing-distance" shared:ModSettingsSearch.Title="{Binding HumanGateClosingDistanceText}" shared:ModSettingsSearch.ToolTipText="{Binding GateClosingDistanceHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" Grid.Column="2" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="5" Maximum="50" Value="{Binding HumanGateClosingDistanceTiles, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanGateClosingDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-gate-closing-distance" shared:ModSettingsSearch.Title="{Binding AIGateClosingDistanceText}" shared:ModSettingsSearch.ToolTipText="{Binding GateClosingDistanceHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" Grid.Column="4" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="5" Maximum="50" Value="{Binding AIGateClosingDistanceTiles, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIGateClosingDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GateClosingDistanceHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+            </Grid>
+          </StackPanel>
         </StackPanel>
       </StackPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.Building.Visibility}" Margin="0,0,0,6" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left"
@@ -276,50 +417,121 @@
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.Building.ContentVisibility}" Margin="8,2,8,6" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.building-repair" shared:ModSettingsSearch.Title="{Binding EnableBuildingRepairText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableBuildingRepairHelpText}">
-            <CheckBox IsChecked="{Binding EnableBuildingRepair, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableBuildingRepairHelpText}" Margin="0,0,14,8">
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding EnableBuildingRepairText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                <Image Source="{Binding BuildingRepairIcon}" Width="20" Height="20" Stretch="Uniform" Margin="6,0,0,0"/>
-              </StackPanel>
-            </CheckBox>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.keep-build-range" shared:ModSettingsSearch.Title="{Binding KeepBuildRangeText}" shared:ModSettingsSearch.ToolTipText="{Binding KeepBuildRangeHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding KeepBuildRangeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="-1" Maximum="500" Value="{Binding KeepBuildRange, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding KeepBuildRangeValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding HumanEnemyProximitySingleplayerText}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding HumanEnemyProximitySingleplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding HumanEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HumanEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding HumanEnemyProximityMultiplayerText}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding HumanEnemyProximityMultiplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding HumanEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HumanEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding AIEnemyProximitySingleplayerText}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding AIEnemyProximitySingleplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding AIEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding AIEnemyProximityMultiplayerText}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding AIEnemyProximityMultiplayerText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding AIEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AIEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-tower-gate-rebuild-delay" shared:ModSettingsSearch.Title="{Binding AITowerGateRebuildDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding AITowerGateRebuildDelayHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding AITowerGateRebuildDelayText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="-1" Maximum="300" Value="{Binding AITowerGateRebuildDelaySeconds, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding AITowerGateRebuildDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}" MinWidth="86" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
+          <StackPanel Visibility="{Binding SettingsPresentation.BuildingOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding BuildingsProductionTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.building-repair" shared:ModSettingsSearch.Title="{Binding EnableBuildingRepairText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableBuildingRepairHelpText}">
+              <CheckBox IsChecked="{Binding EnableBuildingRepair, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableBuildingRepairHelpText}" Margin="0" MinHeight="28" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="{Binding EnableBuildingRepairText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+                  <Image Source="{Binding BuildingRepairIcon}" Width="20" Height="20" Stretch="Uniform" Margin="6,0,0,0" />
+                </StackPanel>
+              </CheckBox>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.keep-build-range" shared:ModSettingsSearch.Title="{Binding KeepBuildRangeText}" shared:ModSettingsSearch.ToolTipText="{Binding KeepBuildRangeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding KeepBuildRangeText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Slider Minimum="-1" Maximum="500" Value="{Binding KeepBuildRange, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding KeepBuildRangeValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+          </StackPanel>
+          <StackPanel Visibility="{Binding SettingsPresentation.EnemyProximityOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding EnemyProximityTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding HumanText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="2" FontWeight="Bold" />
+              <TextBlock Text="{Binding AiText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="4" FontWeight="Bold" />
+            </Grid>
+            <Grid Style="{StaticResource CompactTableRow}" Visibility="{Binding SettingsPresentation.EnemySingleplayerOptions.Visibility}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding SingleplayerText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding HumanEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" Grid.Column="2" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding AIEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" Grid.Column="4" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding AIEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource CompactTableRow}" Visibility="{Binding SettingsPresentation.EnemyMultiplayerOptions.Visibility}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding MultiplayerText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding HumanEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" Grid.Column="2" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding AIEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" Grid.Column="4" Margin="0">
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding AIEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+            </Grid>
+          </StackPanel>
+          <StackPanel Visibility="{Binding SettingsPresentation.AiRebuildOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-tower-gate-rebuild-delay" shared:ModSettingsSearch.Title="{Binding AITowerGateRebuildDelayText}" shared:ModSettingsSearch.ToolTipText="{Binding AITowerGateRebuildDelayHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding AITowerGateRebuildDelayText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Slider Minimum="-1" Maximum="300" Value="{Binding AITowerGateRebuildDelaySeconds, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AITowerGateRebuildDelayValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AITowerGateRebuildDelayHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+          </StackPanel>
         </StackPanel>
       </StackPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.Economy.Visibility}" Margin="0,0,0,6" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left"
@@ -334,26 +546,112 @@
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.Economy.ContentVisibility}" Margin="8,2,8,6" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.campfire-peasants" shared:ModSettingsSearch.Title="{Binding CampfirePeasantsText}" shared:ModSettingsSearch.ToolTipText="{Binding CampfirePeasantsHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding CampfirePeasantsText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="-1" Maximum="200" Value="{Binding CampfirePeasantsLimit, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding CampfirePeasantsLimitText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.extra-church-priests" shared:ModSettingsSearch.Title="{Binding EnableExtraChurchPriestsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableExtraChurchPriestsHelpText}">
-            <CheckBox IsChecked="{Binding EnableExtraChurchPriests, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableExtraChurchPriestsHelpText}" Margin="0,0,14,8">
-              <TextBlock Text="{Binding EnableExtraChurchPriestsText}" Foreground="White" TextWrapping="Wrap"/>
-            </CheckBox>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.multiply-goods-gain" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsGainText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsGainHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/><ColumnDefinition Width="55"/><ColumnDefinition Width="120"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock TextWrapping="Wrap" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/><TextBlock TextWrapping="Wrap" Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/><TextBlock TextWrapping="Wrap" Grid.Row="1" Grid.Column="0" Text="{Binding MultiplyGoodsGainText}" Foreground="White" Margin="0,4" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}"/><Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainAI, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainAIText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/><Slider Grid.Row="1" Grid.Column="3" Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainHuman, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="4" Text="{Binding MultiplyGoodsGainHumanText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.multiply-goods-as-money" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsAsMoneyText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsAsMoneyHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/><ColumnDefinition Width="55"/><ColumnDefinition Width="120"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock TextWrapping="Wrap" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding AiText}" Foreground="White" FontWeight="Bold"/><TextBlock TextWrapping="Wrap" Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2" Text="{Binding HumanText}" Foreground="White" FontWeight="Bold"/><TextBlock TextWrapping="Wrap" Grid.Row="1" Grid.Column="0" Text="{Binding MultiplyGoodsAsMoneyText}" Foreground="White" Margin="0,4" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}"/><Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainInMoneyAI, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="2" Text="{Binding MultiplyGoodsGainInMoneyAIText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/><Slider Grid.Row="1" Grid.Column="3" Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainInMoneyHuman, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="1" Grid.Column="4" Text="{Binding MultiplyGoodsGainInMoneyHumanText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.no-kill-reward" shared:ModSettingsSearch.Title="{Binding NoKillRewardText}" shared:ModSettingsSearch.ToolTipText="{Binding NoKillRewardSearchHelpText}" Margin="0,0,0,8">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock TextWrapping="Wrap" Text="{Binding NoKillRewardText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0"/>
-              <CheckBox Content="{Binding HumanText}" IsChecked="{Binding NoKillRewardHuman, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardHumanHelpText}"/>
-              <CheckBox Content="{Binding AiText}" IsChecked="{Binding NoKillRewardAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardAIHelpText}"/>
+          <StackPanel Visibility="{Binding SettingsPresentation.PopulationOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding BuildingsProductionTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.extra-church-priests" shared:ModSettingsSearch.Title="{Binding EnableExtraChurchPriestsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableExtraChurchPriestsHelpText}">
+              <CheckBox IsChecked="{Binding EnableExtraChurchPriests, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableExtraChurchPriestsHelpText}" Margin="0" MinHeight="28" VerticalAlignment="Center">
+                <TextBlock Text="{Binding EnableExtraChurchPriestsText}" Foreground="White" TextWrapping="Wrap" />
+              </CheckBox>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.campfire-peasants" shared:ModSettingsSearch.Title="{Binding CampfirePeasantsText}" shared:ModSettingsSearch.ToolTipText="{Binding CampfirePeasantsHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding CampfirePeasantsText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Slider Minimum="-1" Maximum="200" Value="{Binding CampfirePeasantsLimit, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding CampfirePeasantsLimitText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+          </StackPanel>
+          <StackPanel Grid.IsSharedSizeScope="True">
+            <StackPanel Visibility="{Binding SettingsPresentation.KillRewardOptions.Visibility}">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.no-kill-reward" shared:ModSettingsSearch.Title="{Binding NoKillRewardText}" shared:ModSettingsSearch.ToolTipText="{Binding NoKillRewardSearchHelpText}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding NoKillRewardText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <CheckBox Content="{Binding HumanText}" IsChecked="{Binding NoKillRewardHuman, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardHumanHelpText}" MinHeight="28" Grid.Column="2" />
+                <CheckBox Content="{Binding AiText}" IsChecked="{Binding NoKillRewardAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardAIHelpText}" Margin="0" MinHeight="28" Grid.Column="4" />
+              </Grid>
             </StackPanel>
-          </Grid>
+            <StackPanel Visibility="{Binding SettingsPresentation.EconomyBonusOptions.Visibility}">
+              <TextBlock Text="{Binding EconomyBuffsTitleText}" Style="{StaticResource SubsectionHeader}" />
+              <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding HumanText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="2" FontWeight="Bold" />
+                <TextBlock Text="{Binding AiText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="4" FontWeight="Bold" />
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.multiply-goods-gain" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsGainText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsGainHelpText}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding MultiplyGoodsGainText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <Grid HorizontalAlignment="Left" Grid.Column="2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainHuman, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding MultiplyGoodsGainHumanText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+                <Grid HorizontalAlignment="Left" Grid.Column="4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainAI, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding MultiplyGoodsGainAIText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsGainHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.multiply-goods-as-money" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsAsMoneyText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsAsMoneyHelpText}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding MultiplyGoodsAsMoneyText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <Grid HorizontalAlignment="Left" Grid.Column="2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainInMoneyHuman, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding MultiplyGoodsGainInMoneyHumanText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+                <Grid HorizontalAlignment="Left" Grid.Column="4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                  </Grid.ColumnDefinitions>
+                  <Slider Minimum="0" Maximum="5" Value="{Binding MultiplyGoodsGainInMoneyAI, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding MultiplyGoodsGainInMoneyAIText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplyGoodsAsMoneyHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                </Grid>
+              </Grid>
+            </StackPanel>
+          </StackPanel>
         </StackPanel>
       </StackPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.Demolition.Visibility}" Margin="0,0,0,6" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left"
@@ -368,17 +666,94 @@
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.Demolition.ContentVisibility}" Margin="8,2,8,6" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-          <TextBlock Text="{Binding BulldozeHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,0,0,8"/>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.wood-refund" shared:ModSettingsSearch.Title="{Binding WoodRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding WoodRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock TextWrapping="Wrap" Text="{Binding WoodRefundText}" Foreground="White"/></StackPanel><Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding WoodRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding WoodRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.stone-refund" shared:ModSettingsSearch.Title="{Binding StoneRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding StoneRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock TextWrapping="Wrap" Text="{Binding StoneRefundText}" Foreground="White"/></StackPanel><Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding StoneRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding StoneRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.iron-refund" shared:ModSettingsSearch.Title="{Binding IronRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding IronRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock TextWrapping="Wrap" Text="{Binding IronRefundText}" Foreground="White"/></StackPanel><Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding IronRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding IronRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.pitch-refund" shared:ModSettingsSearch.Title="{Binding PitchRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding PitchRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock TextWrapping="Wrap" Text="{Binding PitchRefundText}" Foreground="White"/></StackPanel><Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding PitchRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding PitchRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.gold-refund" shared:ModSettingsSearch.Title="{Binding GoldRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,3,8,3"><Image Source="{Binding GoldRefundIcon}" Width="18" Height="18" Margin="0,0,6,0"/><TextBlock TextWrapping="Wrap" Text="{Binding GoldRefundText}" Foreground="White"/></StackPanel><Slider Grid.Column="1" Minimum="-1" Maximum="100" Value="{Binding GoldRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding GoldRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
           <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.keep-storage-content" shared:ModSettingsSearch.Title="{Binding KeepStorageContentText}" shared:ModSettingsSearch.ToolTipText="{Binding KeepStorageContentHelpText}">
-            <CheckBox IsChecked="{Binding KeepStorageContent, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepStorageContentHelpText}" Margin="0,4,14,4">
-              <StackPanel Orientation="Horizontal"><TextBlock TextWrapping="Wrap" Text="{Binding KeepStorageContentText}" Foreground="White"/><Image Source="{Binding KeepStorageFruitIcon}" Width="18" Height="18" Margin="8,0,0,0"/><Image Source="{Binding KeepStorageWoodIcon}" Width="18" Height="18" Margin="4,0,0,0"/><Image Source="{Binding KeepStorageBowsIcon}" Width="18" Height="18" Margin="4,0,0,0"/></StackPanel>
+            <CheckBox IsChecked="{Binding KeepStorageContent, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepStorageContentHelpText}" Margin="0" MinHeight="28" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock TextWrapping="Wrap" Text="{Binding KeepStorageContentText}" Foreground="White" />
+                <Image Source="{Binding KeepStorageFruitIcon}" Width="18" Height="18" Margin="8,0,0,0" />
+                <Image Source="{Binding KeepStorageWoodIcon}" Width="18" Height="18" Margin="4,0,0,0" />
+                <Image Source="{Binding KeepStorageBowsIcon}" Width="18" Height="18" Margin="4,0,0,0" />
+              </StackPanel>
             </CheckBox>
           </Grid>
+          <StackPanel Visibility="{Binding SettingsPresentation.RefundOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding BulldozeHelpText}" Style="{StaticResource CompactSettingLabel}" MaxWidth="600" Foreground="#CCCCCC" Margin="0,0,0,8" />
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.wood-refund" shared:ModSettingsSearch.Title="{Binding WoodRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                <Image Source="{Binding WoodRefundIcon}" Width="18" Height="18" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding WoodRefundText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              </StackPanel>
+              <Slider Minimum="-1" Maximum="100" Value="{Binding WoodRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding WoodRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.stone-refund" shared:ModSettingsSearch.Title="{Binding StoneRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                <Image Source="{Binding StoneRefundIcon}" Width="18" Height="18" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding StoneRefundText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              </StackPanel>
+              <Slider Minimum="-1" Maximum="100" Value="{Binding StoneRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding StoneRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.iron-refund" shared:ModSettingsSearch.Title="{Binding IronRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                <Image Source="{Binding IronRefundIcon}" Width="18" Height="18" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding IronRefundText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              </StackPanel>
+              <Slider Minimum="-1" Maximum="100" Value="{Binding IronRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding IronRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.pitch-refund" shared:ModSettingsSearch.Title="{Binding PitchRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                <Image Source="{Binding PitchRefundIcon}" Width="18" Height="18" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding PitchRefundText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              </StackPanel>
+              <Slider Minimum="-1" Maximum="100" Value="{Binding PitchRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding PitchRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.gold-refund" shared:ModSettingsSearch.Title="{Binding GoldRefundText}" shared:ModSettingsSearch.ToolTipText="{Binding BulldozeHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                <Image Source="{Binding GoldRefundIcon}" Width="18" Height="18" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding GoldRefundText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              </StackPanel>
+              <Slider Minimum="-1" Maximum="100" Value="{Binding GoldRefundPercent, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding GoldRefundPercentValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BulldozeHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+          </StackPanel>
         </StackPanel>
       </StackPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.Plague.Visibility}" Margin="0,0,0,6" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left"
@@ -393,42 +768,61 @@
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.Plague.ContentVisibility}" Margin="8,2,8,6" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-          <StackPanel Margin="0,0,0,8">
-            <TextBlock Text="{Binding PlagueDamageSurfacesText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,4"/>
-            <StackPanel Orientation="Horizontal">
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-walls" shared:ModSettingsSearch.Title="{Binding PlagueDamageWallsText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageWallsHelpText}">
-              <CheckBox Content="{Binding PlagueDamageWallsText}" IsChecked="{Binding PlagueDamageWalls, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageWallsHelpText}"/>
-              </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-gates" shared:ModSettingsSearch.Title="{Binding PlagueDamageGatesText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageGatesHelpText}">
-              <CheckBox Content="{Binding PlagueDamageGatesText}" IsChecked="{Binding PlagueDamageGates, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageGatesHelpText}"/>
-              </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-towers" shared:ModSettingsSearch.Title="{Binding PlagueDamageTowersText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageTowersHelpText}">
-              <CheckBox Content="{Binding PlagueDamageTowersText}" IsChecked="{Binding PlagueDamageTowers, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageTowersHelpText}"/>
-              </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-keeps" shared:ModSettingsSearch.Title="{Binding PlagueDamageKeepsText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageKeepsHelpText}">
-              <CheckBox Content="{Binding PlagueDamageKeepsText}" IsChecked="{Binding PlagueDamageKeeps, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageKeepsHelpText}"/>
-              </Grid>
+          <StackPanel Visibility="{Binding SettingsPresentation.PlagueOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <TextBlock Text="{Binding PlagueTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <StackPanel Visibility="{Binding SettingsPresentation.PlagueSurfacesOptions.Visibility}">
+              <TextBlock Text="{Binding PlagueDamageSurfacesText}" Style="{StaticResource CompactSettingLabel}" MaxWidth="600" Margin="0,0,0,6" />
+              <WrapPanel>
+                <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-walls" shared:ModSettingsSearch.Title="{Binding PlagueDamageWallsText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageWallsHelpText}" Margin="0,0,18,8">
+                  <CheckBox Content="{Binding PlagueDamageWallsText}" IsChecked="{Binding PlagueDamageWalls, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageWallsHelpText}" MinHeight="28" VerticalAlignment="Center" />
+                </Grid>
+                <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-gates" shared:ModSettingsSearch.Title="{Binding PlagueDamageGatesText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageGatesHelpText}" Margin="0,0,18,8">
+                  <CheckBox Content="{Binding PlagueDamageGatesText}" IsChecked="{Binding PlagueDamageGates, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageGatesHelpText}" MinHeight="28" VerticalAlignment="Center" />
+                </Grid>
+                <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-towers" shared:ModSettingsSearch.Title="{Binding PlagueDamageTowersText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageTowersHelpText}" Margin="0,0,18,8">
+                  <CheckBox Content="{Binding PlagueDamageTowersText}" IsChecked="{Binding PlagueDamageTowers, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageTowersHelpText}" MinHeight="28" VerticalAlignment="Center" />
+                </Grid>
+                <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-damage-keeps" shared:ModSettingsSearch.Title="{Binding PlagueDamageKeepsText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDamageKeepsHelpText}" Margin="0,0,18,8">
+                  <CheckBox Content="{Binding PlagueDamageKeepsText}" IsChecked="{Binding PlagueDamageKeeps, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" Foreground="White" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDamageKeepsHelpText}" MinHeight="28" VerticalAlignment="Center" />
+                </Grid>
+              </WrapPanel>
             </StackPanel>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-duration" shared:ModSettingsSearch.Title="{Binding PlagueDurationMultiplierText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDurationMultiplierHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding PlagueDurationMultiplierText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Slider Minimum="0.5" Maximum="20" Value="{Binding PlagueDurationMultiplier, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding PlagueDurationMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.apothecary-plague-search-distance" shared:ModSettingsSearch.Title="{Binding ApothecaryPlagueSearchDistanceText}" shared:ModSettingsSearch.ToolTipText="{Binding ApothecaryPlagueSearchDistanceHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding ApothecaryPlagueSearchDistanceText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Slider Minimum="20" Maximum="200" Value="{Binding ApothecaryPlagueSearchDistance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding ApothecaryPlagueSearchDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" Width="Auto" />
+            </Grid>
           </StackPanel>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.plague-duration" shared:ModSettingsSearch.Title="{Binding PlagueDurationMultiplierText}" shared:ModSettingsSearch.ToolTipText="{Binding PlagueDurationMultiplierHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding PlagueDurationMultiplierText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="0.5" Maximum="20" Value="{Binding PlagueDurationMultiplier, Mode=TwoWay}" TickFrequency="0.5" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding PlagueDurationMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding PlagueDurationMultiplierHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.apothecary-plague-search-distance" shared:ModSettingsSearch.Title="{Binding ApothecaryPlagueSearchDistanceText}" shared:ModSettingsSearch.ToolTipText="{Binding ApothecaryPlagueSearchDistanceHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding ApothecaryPlagueSearchDistanceText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-            <Slider Grid.Column="1" Minimum="20" Maximum="200" Value="{Binding ApothecaryPlagueSearchDistance, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding ApothecaryPlagueSearchDistanceValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding ApothecaryPlagueSearchDistanceHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-          </Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.healer-targets" shared:ModSettingsSearch.Title="{Binding HealerTargetsText}" shared:ModSettingsSearch.ToolTipText="{Binding HealerTargetsHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock TextWrapping="Wrap" Text="{Binding HealerTargetsText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0"/>
-              <CheckBox Content="{Binding HealerTargetsCivilianText}" IsChecked="{Binding HealCivilianTargets, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}"/>
-              <CheckBox Content="{Binding HealerTargetsSiegeText}" IsChecked="{Binding HealSiegeTargets, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}"/>
-            </StackPanel>
-          </Grid>
+          <StackPanel Visibility="{Binding SettingsPresentation.HealerOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.healer-targets" shared:ModSettingsSearch.Title="{Binding HealerTargetsText}" shared:ModSettingsSearch.ToolTipText="{Binding HealerTargetsHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}">
+              <StackPanel>
+                <TextBlock Text="{Binding HealerTargetsText}" Style="{StaticResource SubsectionHeader}" />
+                <WrapPanel>
+                  <CheckBox Content="{Binding HealerTargetsCivilianText}" IsChecked="{Binding HealCivilianTargets, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}" MinHeight="28" />
+                  <CheckBox Content="{Binding HealerTargetsSiegeText}" IsChecked="{Binding HealSiegeTargets, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}" Margin="0,0,18,0" MinHeight="28" />
+                </WrapPanel>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
         </StackPanel>
       </StackPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.Market.Visibility}" Margin="0,0,0,6" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left"
@@ -443,18 +837,43 @@
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.Market.ContentVisibility}" Margin="8,2,8,6" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.market-buy-price-multiplier" shared:ModSettingsSearch.Title="{Binding MarketBuyPriceMultiplierText}" shared:ModSettingsSearch.ToolTipText="{Binding MarketBuyPriceMultiplierHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><TextBlock TextWrapping="Wrap" Grid.Column="0" Text="{Binding MarketBuyPriceMultiplierText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/><Slider Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MarketBuyPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding MarketBuyPriceMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
-          <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.market-sell-price-multiplier" shared:ModSettingsSearch.Title="{Binding MarketSellPriceMultiplierText}" shared:ModSettingsSearch.ToolTipText="{Binding MarketSellPriceMultiplierHelpText}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions><TextBlock TextWrapping="Wrap" Grid.Column="0" Text="{Binding MarketSellPriceMultiplierText}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/><Slider Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding MarketSellPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}"/><TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding MarketSellPriceMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/></Grid>
           <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.market-prices-also-ai" shared:ModSettingsSearch.Title="{Binding MarketPricesAlsoForAIText}" shared:ModSettingsSearch.ToolTipText="{Binding MarketPricesAlsoForAIHelpText}">
-            <CheckBox IsChecked="{Binding MarketPricesAlsoForAI, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketPricesAlsoForAIHelpText}" Margin="0,8,14,4">
-              <TextBlock Text="{Binding MarketPricesAlsoForAIText}" Foreground="White" TextWrapping="Wrap"/>
+            <CheckBox IsChecked="{Binding MarketPricesAlsoForAI, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketPricesAlsoForAIHelpText}" Margin="0" MinHeight="28" VerticalAlignment="Center">
+              <TextBlock Text="{Binding MarketPricesAlsoForAIText}" Foreground="White" TextWrapping="Wrap" />
             </CheckBox>
           </Grid>
-          <TextBlock Text="{Binding MarketGoodPriceMultipliersHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,8,14,6"/>
+          <StackPanel Visibility="{Binding SettingsPresentation.MarketGeneralOptions.Visibility}" Grid.IsSharedSizeScope="True">
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.market-buy-price-multiplier" shared:ModSettingsSearch.Title="{Binding MarketBuyPriceMultiplierText}" shared:ModSettingsSearch.ToolTipText="{Binding MarketBuyPriceMultiplierHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding MarketBuyPriceMultiplierText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Slider Minimum="0" Maximum="5" Value="{Binding MarketBuyPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding MarketBuyPriceMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketBuyPriceMultiplierHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" VerticalAlignment="Center" Grid.Column="4" Width="Auto" />
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.market-sell-price-multiplier" shared:ModSettingsSearch.Title="{Binding MarketSellPriceMultiplierText}" shared:ModSettingsSearch.ToolTipText="{Binding MarketSellPriceMultiplierHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ScalarValue" MinWidth="90" MaxWidth="130" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding MarketSellPriceMultiplierText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Slider Minimum="0" Maximum="5" Value="{Binding MarketSellPriceMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="2" Width="160" />
+              <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding MarketSellPriceMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding MarketSellPriceMultiplierHelpText}" MinWidth="90" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" VerticalAlignment="Center" Grid.Column="4" Width="Auto" />
+            </Grid>
+          </StackPanel>
+          <TextBlock Text="{Binding MarketGoodPriceMultipliersHelpText}" Foreground="#CCCCCC" TextWrapping="Wrap" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}" Margin="0,8,14,6" />
+
           <ItemsControl ItemsSource="{Binding MarketGoodPriceItems}" HorizontalAlignment="Stretch">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <WrapPanel/>
+                <WrapPanel />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
@@ -462,33 +881,52 @@
                 <Border Width="72" Height="116" Margin="2" Background="#33251D13" BorderBrush="#887B674B" BorderThickness="1" CornerRadius="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoodToolTip}">
                   <Border.Visibility>
                     <MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}">
-                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.FilterText)"/>
-                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.IncludeToolTips)"/>
-                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ExactKey)"/>
-                      <Binding Path="BuySearchKey"/><Binding Path="BuySearchTitle"/><Binding Path="BuyToolTip"/>
-                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/>
-                      <Binding Path="SellSearchKey"/><Binding Path="SellSearchTitle"/><Binding Path="SellToolTip"/>
-                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/>
+                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.FilterText)" />
+                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.IncludeToolTips)" />
+                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ExactKey)" />
+                      <Binding Path="BuySearchKey" />
+                      <Binding Path="BuySearchTitle" />
+                      <Binding Path="BuyToolTip" />
+                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)" />
+                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)" />
+                      <Binding Path="SellSearchKey" />
+                      <Binding Path="SellSearchTitle" />
+                      <Binding Path="SellToolTip" />
+                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)" />
+                      <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)" />
                     </MultiBinding>
                   </Border.Visibility>
                   <Grid Margin="3">
-                    <Grid.RowDefinitions><RowDefinition Height="27"/><RowDefinition Height="17"/><RowDefinition Height="23"/><RowDefinition Height="17"/><RowDefinition Height="23"/></Grid.RowDefinitions>
-                    <Image Grid.Row="0" Source="{Binding Icon}" Width="23" Height="23" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    <Grid Grid.Row="1" Grid.RowSpan="2" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding BuySearchKey}" shared:ModSettingsSearch.Title="{Binding BuySearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding BuyToolTip}">
-                      <Grid.RowDefinitions><RowDefinition Height="17"/><RowDefinition Height="23"/></Grid.RowDefinitions>
-                      <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="0" Text="{Binding BuyMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="#FF77AAFF" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuyToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-                      <Slider Grid.Row="1" Minimum="0" Maximum="5" Value="{Binding BuyMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Width="62" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuyToolTip}"/>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="27" />
+                      <RowDefinition Height="17" />
+                      <RowDefinition Height="23" />
+                      <RowDefinition Height="17" />
+                      <RowDefinition Height="23" />
+                    </Grid.RowDefinitions>
+                    <Image Grid.Row="0" Source="{Binding Icon}" Width="23" Height="23" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Grid Grid.Row="1" Grid.RowSpan="2" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding BuySearchKey}" shared:ModSettingsSearch.Title="{Binding BuySearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding BuyToolTip}" Margin="0">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="17" />
+                        <RowDefinition Height="23" />
+                      </Grid.RowDefinitions>
+                      <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="0" Text="{Binding BuyMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="#FF77AAFF" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuyToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" />
+                      <Slider Grid.Row="1" Minimum="0" Maximum="5" Value="{Binding BuyMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Width="62" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuyToolTip}" />
                     </Grid>
-                    <Grid Grid.Row="3" Grid.RowSpan="2" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding SellSearchKey}" shared:ModSettingsSearch.Title="{Binding SellSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding SellToolTip}">
-                      <Grid.RowDefinitions><RowDefinition Height="17"/><RowDefinition Height="23"/></Grid.RowDefinitions>
-                      <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="0" Text="{Binding SellMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="#FF66CC99" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding SellToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-                      <Slider Grid.Row="1" Minimum="0" Maximum="5" Value="{Binding SellMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Width="62" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding SellToolTip}"/>
+                    <Grid Grid.Row="3" Grid.RowSpan="2" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding SellSearchKey}" shared:ModSettingsSearch.Title="{Binding SellSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding SellToolTip}" Margin="0">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="17" />
+                        <RowDefinition Height="23" />
+                      </Grid.RowDefinitions>
+                      <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Row="0" Text="{Binding SellMultiplierValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="#FF66CC99" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding SellToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" />
+                      <Slider Grid.Row="1" Minimum="0" Maximum="5" Value="{Binding SellMultiplier, Mode=TwoWay}" TickFrequency="0.1" IsSnapToTickEnabled="True" Width="62" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding SellToolTip}" />
                     </Grid>
                   </Grid>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+
         </StackPanel>
       </StackPanel>
 

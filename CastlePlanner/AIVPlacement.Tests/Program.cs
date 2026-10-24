@@ -21,9 +21,6 @@ internal static class Program
 
         var tests = new (string Name, Action Run)[]
         {
-#if SERP_DEVDIAG
-            ("bounds visual diagnostic captures and session writers", VisualDiagnosticTests.Run),
-#endif
             ("checks supplemental terrain and synchronous spawn identity", SupplementalSpawnTests.Run),
             ("waits for current mission and final castle-preview identity", FreeCastleIdentityReadinessTests.Run),
             ("keep range boundaries, allies, prepared raster and settings", KeepRangeTests.Run),

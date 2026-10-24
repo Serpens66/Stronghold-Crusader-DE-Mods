@@ -17,6 +17,10 @@ namespace ExtraFeatures
         internal ModSettingsPresentation()
         {
             Topics = new[] { Units, Gatehouses, Building, Economy, Demolition, Plague, Market };
+            Groups = new[] { SoldierOptions, KnightOptions, LordOptions, MoatOptions, GateOptions, GateReopenOptions,
+                GateDistanceOptions, BuildingOptions, EnemyProximityOptions, EnemySingleplayerOptions,
+                EnemyMultiplayerOptions, AiRebuildOptions, PopulationOptions, KillRewardOptions,
+                EconomyBonusOptions, RefundOptions, PlagueOptions, PlagueSurfacesOptions, HealerOptions, MarketGeneralOptions };
             ExpandAllCommand = new SettingsViewCommand(() => SetAll(true));
             CollapseAllCommand = new SettingsViewCommand(() => SetAll(false));
         }
@@ -30,6 +34,28 @@ namespace ExtraFeatures
         public SettingsTopicPresentation Plague { get; } = new SettingsTopicPresentation("Plague", "extra.topic.plague");
         public SettingsTopicPresentation Market { get; } = new SettingsTopicPresentation("Market", "extra.topic.market");
         internal IReadOnlyList<SettingsTopicPresentation> Topics { get; }
+        // Group membership only controls contextual captions/rows; APIShared remains the sole search index.
+        public SettingsGroupPresentation SoldierOptions { get; } = new SettingsGroupPresentation("fear-factor-neutralization", "monks-always-run");
+        public SettingsGroupPresentation KnightOptions { get; } = new SettingsGroupPresentation("knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay");
+        public SettingsGroupPresentation LordOptions { get; } = new SettingsGroupPresentation("lord-health");
+        public SettingsGroupPresentation MoatOptions { get; } = new SettingsGroupPresentation("elevated-moat");
+        public SettingsGroupPresentation GateOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance");
+        public SettingsGroupPresentation GateReopenOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay");
+        public SettingsGroupPresentation GateDistanceOptions { get; } = new SettingsGroupPresentation("human-gate-closing-distance", "ai-gate-closing-distance");
+        public SettingsGroupPresentation BuildingOptions { get; } = new SettingsGroupPresentation("building-repair", "keep-build-range");
+        public SettingsGroupPresentation EnemyProximityOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer");
+        public SettingsGroupPresentation EnemySingleplayerOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer");
+        public SettingsGroupPresentation EnemyMultiplayerOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer");
+        public SettingsGroupPresentation AiRebuildOptions { get; } = new SettingsGroupPresentation("ai-tower-gate-rebuild-delay");
+        public SettingsGroupPresentation PopulationOptions { get; } = new SettingsGroupPresentation("extra-church-priests", "campfire-peasants");
+        public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("no-kill-reward");
+        public SettingsGroupPresentation EconomyBonusOptions { get; } = new SettingsGroupPresentation("multiply-goods-gain", "multiply-goods-as-money");
+        public SettingsGroupPresentation RefundOptions { get; } = new SettingsGroupPresentation("wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund");
+        public SettingsGroupPresentation PlagueOptions { get; } = new SettingsGroupPresentation("plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance");
+        public SettingsGroupPresentation PlagueSurfacesOptions { get; } = new SettingsGroupPresentation("plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps");
+        public SettingsGroupPresentation HealerOptions { get; } = new SettingsGroupPresentation("healer-targets");
+        public SettingsGroupPresentation MarketGeneralOptions { get; } = new SettingsGroupPresentation("market-buy-price-multiplier", "market-sell-price-multiplier");
+        internal IReadOnlyList<SettingsGroupPresentation> Groups { get; }
         public ICommand ExpandAllCommand { get; }
         public ICommand CollapseAllCommand { get; }
         public Visibility BulkActionsVisibility => searchActive ? Visibility.Collapsed : Visibility.Visible;
@@ -57,6 +83,10 @@ namespace ExtraFeatures
                     entry.SectionKey, entry.SectionTitle));
                 topic.Refresh(searchActive, matches, count);
             }
+            foreach (SettingsGroupPresentation group in Groups)
+                group.Refresh(searchActive, (entries ?? Array.Empty<ModSettingsSearchEntry>()).Any(entry =>
+                    group.Contains(entry.Key) && ModSettingsSearchMatcher.IsMatch(text, includeToolTips, exactKey,
+                        entry.Key, entry.Title, entry.ToolTip, entry.SectionKey, entry.SectionTitle)));
             foreach (string property in new[] { nameof(BulkActionsVisibility), nameof(ExpandAllText),
                 nameof(CollapseAllText), nameof(ExpandAllHelpText), nameof(CollapseAllHelpText), nameof(TopicToggleHelpText) })
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
@@ -66,6 +96,24 @@ namespace ExtraFeatures
         {
             if (searchActive) return;
             foreach (SettingsTopicPresentation topic in Topics) topic.SetExpanded(expanded);
+        }
+    }
+
+    public sealed class SettingsGroupPresentation : INotifyPropertyChanged
+    {
+        private readonly HashSet<string> keys;
+        private Visibility visibility = Visibility.Visible;
+        internal SettingsGroupPresentation(params string[] suffixes) =>
+            keys = new HashSet<string>(suffixes.Select(key => "extra." + key), StringComparer.Ordinal);
+        internal bool Contains(string key) => keys.Contains(key);
+        public Visibility Visibility => visibility;
+        public event PropertyChangedEventHandler PropertyChanged;
+        internal void Refresh(bool searching, bool matches)
+        {
+            Visibility next = !searching || matches ? Visibility.Visible : Visibility.Collapsed;
+            if (next == visibility) return;
+            visibility = next;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Visibility)));
         }
     }
 

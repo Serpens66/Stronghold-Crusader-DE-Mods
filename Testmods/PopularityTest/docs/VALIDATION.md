@@ -3,13 +3,15 @@
 ## Dependency and ownership
 
 Use `SHCDE_API_SHARED_DIR` to select the SDK for every verification/build/install child.
-For the installed development SDK set it to the game's `BepInEx/plugins/APIShared_Serp_dev`,
+For the installed SDK set it to the game's `BepInEx/plugins/APIShared_Serp` (or `_dev`),
 then run `build.bat /working /nopause` (add `/noinstall` for a build only).
-`/working /apishared:installed-dev /nopause` is an equivalent explicit convenience selection.
+`/working /apishared:installed-dev /nopause` explicitly selects the installed dev folder.
 Other selections retain the normal workspace package/provenance check. No dependency is
 silently rebuilt or selected instead. DLL name, manifest GUID/version, minimum dependency
 and a run-wide DLL SHA-256 are checked; no APIShared DLL is included with this consumer.
-The dev SDK must contain the rounded fear API, not merely share its version string.
+Installed SDK selections validate the actual member signatures and identity, and pin the
+DLL hash for the run; their mutable checkout's build proof is not used. The SDK must
+contain the fixed-level fear API, not merely share its version string.
 
 APIShared owns the automatic display correction and fear contribution selection. This mod
 owns synchronized host settings, opt-in activation, localization and ordinary SE overrides.
@@ -34,6 +36,18 @@ Extender and original game assembly, plus this mod's preset/override behavior te
 Source scans are guardrails, not behavioral proof. No exact source text, control adjacency,
 private method layout, current setting count or foreign consumer suite is a build contract.
 
+Package content is resolved from evaluated MSBuild ContentWithTargetPath metadata,
+including conditional items and target paths. XAML, locales and the manifest are copied
+unconditionally: checkout timestamps must never select stale assets. After compilation,
+source/package SHA-256 and DLL/manifest identity are checked. The same gate runs before
+any installer copy, then validates source/package/installation hashes and all packaged
+files after copying. Unrelated installed files are preserved. Test-Package.ps1 builds the
+actual project into an allocated fixture with equal-length stale outputs at equal/newer
+timestamps, rejects every missing/corrupted evaluated asset before writing a destination,
+and checks the post-install verification. These are package guarantees, not proof of
+Noesis rendering. A fresh game run must separately confirm the shared header, presets,
+search, both fear switches and all ten labeled fixed-contribution editors.
+
 The standalone preset fixture compiles the real settings and maintained API preset sources;
 only external engine/UI/logging boundaries are doubles. It tests persistence (including
 fixed fear levels), reset, host/client authority, local preference preservation, mission
@@ -54,8 +68,8 @@ how to extend supported semantic analysis without weakening its safety boundarie
 Check Mod Options layout, numeric input, tooltips, disabled controls, presets and reset.
 Test new game, editor, save/load and subsequent maps with checked and unchecked sources.
 Check `POPULARITY_BOOT`, `POPULARITY_SESSION`/`POPULARITY_END`, `FEAR_POPULARITY_READY`,
-`FEAR_POPULARITY_APPLIED` and `SE_POPULARITY_DISPLAY` where applicable. Confirm signed fear
-products, ties, totals, and preserved unrelated event contributions. Real host/client,
+`FEAR_POPULARITY_APPLIED` and `SE_POPULARITY_DISPLAY` where applicable. Confirm selected fear
+contributions, ties, totals, and preserved unrelated event contributions. Real host/client,
 late-join and saved-game synchronization require actual game logs; CLI tests prove none
 of those. The existing negative-religion auxiliary unsigned-counter limitation remains.
 
