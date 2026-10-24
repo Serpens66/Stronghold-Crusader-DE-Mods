@@ -275,14 +275,23 @@ function Get-PluginMetadata {
     if ($infos.Count -ne 1) {
         throw "Expected exactly one plugin info.json below $pluginRoot, found $($infos.Count)."
     }
-    $manifest = Get-Content -LiteralPath $infos[0].FullName -Raw | ConvertFrom-Json
+    # A mod-root info.json is the source that build.bat copies into the package; the committed
+    # package copy can lag behind after working-tree builds. Mods without one keep the package manifest.
+    $manifestSource = $infos[0].FullName
+    $rootManifest = Join-Path $modDir 'info.json'
+    if (Test-Path -LiteralPath $rootManifest -PathType Leaf) {
+        $packaged = Get-Content -LiteralPath $infos[0].FullName -Raw | ConvertFrom-Json
+        $source = Get-Content -LiteralPath $rootManifest -Raw | ConvertFrom-Json
+        if ([string]$source.GUID -ceq [string]$packaged.GUID) { $manifestSource = $rootManifest }
+    }
+    $manifest = Get-Content -LiteralPath $manifestSource -Raw | ConvertFrom-Json
     foreach ($property in @('GUID', 'Name', 'Version', 'SerpChangelog')) {
         if ($manifest.PSObject.Properties.Name -notcontains $property) {
-            throw "Missing property '$property' in $($infos[0].FullName)."
+            throw "Missing property '$property' in $manifestSource."
         }
     }
     if ([string]$manifest.Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
-        throw "Invalid release version '$($manifest.Version)' in $($infos[0].FullName)."
+        throw "Invalid release version '$($manifest.Version)' in $manifestSource."
     }
     $matchingChanges = @($manifest.SerpChangelog | Where-Object { [string]$_.Version -eq [string]$manifest.Version })
     if ($matchingChanges.Count -ne 1 -or @($matchingChanges[0].Changes).Count -eq 0) {

@@ -79,6 +79,27 @@ function Resolve-ApiMainSelection([string]$Workspace) {
     Write-Host "APIShared release source: main / $commit (personal checkout unchanged)."
     return $path
 }
+# Consumer build preflights read APIShared sources at <root>\APIShared, as branch builds provide
+# them. A release worktree of the modpack has no such checkout (APIShared is ignored there), so it
+# gets a detached worktree of the pinned public-main commit. The coordinator keeps its own checkout.
+function Ensure-ApiMainConsumerSource([string]$Root) {
+    $Root=[IO.Path]::GetFullPath($Root).TrimEnd('\','/')
+    $workspace=Get-ApiMainWorkspace $Root
+    if($Root -ieq $workspace){return}
+    $selection=Assert-ApiMainSelection $workspace $env:SHCDE_API_SHARED_MAIN_SELECTION
+    $nested=Join-Path $Root 'APIShared'
+    Assert-ApiMainUnlinkedPath $nested
+    if(-not (Test-Path -LiteralPath $nested)){
+        Invoke-ApiRepositoryGit (Join-Path $workspace 'APIShared') @('worktree','add','--detach',$nested,$selection.Commit)|Out-Null
+        Write-Host "APIShared sources for consumer checks: main / $($selection.Commit) in $nested"
+        return
+    }
+    if(@(Invoke-ApiRepositoryGit $nested @('status','--porcelain','--untracked-files=normal')).Count){throw "APIShared sources in the release worktree were changed; preserve and remove them first: $nested"}
+    if(((Invoke-ApiRepositoryGit $nested @('rev-parse','HEAD'))-join '').Trim() -cne $selection.Commit){
+        Invoke-ApiRepositoryGit $nested @('checkout','--quiet','--detach',$selection.Commit)|Out-Null
+        Write-Host "APIShared sources for consumer checks moved to main / $($selection.Commit)."
+    }
+}
 function Get-WorkshopApiRoot([string]$Workspace) {
     if($env:SHCDE_API_SHARED_MAIN_SELECTION){return (Assert-ApiMainSelection $Workspace $env:SHCDE_API_SHARED_MAIN_SELECTION).Root}
     # Ordinary local builds and explicit unit fixtures retain their development package.

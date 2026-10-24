@@ -126,7 +126,7 @@ echo [%date% %time%] Run tests
 dotnet run --project ExtendedData.Tests -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
-"%MSBUILD%" ExtendedData.Upload.Tests\ExtendedData.Upload.Tests.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
+"%MSBUILD%" ExtendedData.Upload.Tests\ExtendedData.Upload.Tests.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%ExtendedData.Upload.Tests\bin\Debug\ExtendedData.Upload.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd

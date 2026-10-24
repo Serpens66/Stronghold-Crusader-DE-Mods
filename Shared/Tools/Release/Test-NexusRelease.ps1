@@ -23,7 +23,9 @@ $releaseSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod.ps
 Assert-True ($releaseSource -match 'Thin APIShared consumer contains private runtime DLLs') 'Thin-Releases muessen private API-Laufzeitkopien ablehnen.'
 Assert-True ($releaseSource -notmatch 'with-APIShared' -and $releaseSource -notmatch "Profile = 'Bundle'") 'Release-Mod darf keine Bundle-Artefakte mehr erzeugen.'
 $steamSource = [IO.File]::ReadAllText((Join-Path $root 'Shared\Tools\Steam\Create-SteamModPack.ps1'))
-Assert-True ($steamSource -match 'Steam infrastructure must contain exactly one APIShared\.dll') 'Steam muss genau eine zentrale APIShared-Kopie erzwingen.'
+# APIShared ships as its own Workshop item: the pack rejects any bundled copy, and the separate
+# release package must contain exactly one APIShared.dll.
+Assert-True ($steamSource -match 'The modpack must not contain APIShared\.' -and $steamSource -match 'APIShared release package must contain exactly one APIShared\.dll') 'Steam darf APIShared nicht mitliefern und muss genau eine zentrale APIShared-Kopie erzwingen.'
 Assert-True ($steamSource -match 'Steam consumer .* is not thin') 'Steam muss private API-Kopien in Verbraucherpaketen ablehnen.'
 
 $mods = @('StartConditions','BuildingCosts','BuildingLimit','UnitCosts','UnitLimit','BugfixesAndQoL','ExtraFeatures')
@@ -39,7 +41,7 @@ foreach ($mod in $mods) {
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 $notesTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
 try {
-    [void](New-Item -ItemType Directory -Path $notesTestRoot)
+    [void][IO.Directory]::CreateDirectory($notesTestRoot)
     $notesRelease = [PSCustomObject]@{ ModName='NotesTest'; Version='1.2.3'; Directory=$notesTestRoot }
     $notesPath = Join-Path $notesTestRoot 'release-notes.md'
     [IO.File]::WriteAllText(
@@ -242,7 +244,7 @@ try {
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 $tamperRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
 try {
-    [void](New-Item -ItemType Directory -Path $tamperRoot)
+    [void][IO.Directory]::CreateDirectory($tamperRoot)
     $source = Get-LatestNexusLocalRelease -Root $root -ModName 'StartConditions'
     $fakeRelease = [PSCustomObject]@{ ModName=$source.ModName; Version=$source.Version; Directory=$tamperRoot; ZipName=$source.ZipName; ZipPath=(Join-Path $tamperRoot $source.ZipName) }
     Copy-Item -LiteralPath $source.ZipPath -Destination $fakeRelease.ZipPath
@@ -254,7 +256,7 @@ try {
     Assert-True $rejected 'Manipuliertes ZIP muss abgewiesen werden.'
 
     $missingRoot = Join-Path $tamperRoot 'missing-provenance'
-    [void](New-Item -ItemType Directory -Path $missingRoot)
+    [void][IO.Directory]::CreateDirectory($missingRoot)
     $missingRelease = [PSCustomObject]@{ ModName=$source.ModName; Version=$source.Version; Directory=$missingRoot; ZipName=$source.ZipName; ZipPath=(Join-Path $missingRoot $source.ZipName) }
     Copy-Item -LiteralPath $source.ZipPath -Destination $missingRelease.ZipPath
     Copy-Item -LiteralPath "$($source.ZipPath).sha256" -Destination "$($missingRelease.ZipPath).sha256"
