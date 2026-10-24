@@ -97,16 +97,27 @@ try {
     foreach($dir in @('src','Properties','Patches','tools','Workshop','tools/WorkshopUploader')) { [IO.Directory]::CreateDirectory((Join-Path $releaseApi $dir)) | Out-Null }
     Write-Fixture (Join-Path $releaseApi 'APIShared.csproj') '<Project />'
     Write-Fixture (Join-Path $releaseApi 'src/example.cs') 'production input boundary'
+    Write-Fixture (Join-Path $releaseApi 'build.bat') 'build entry boundary'
+    Write-Fixture (Join-Path $releaseApi 'bootstrap/APIShared.DependencyBootstrap.csproj') '<Project />'
+    Write-Fixture (Join-Path $releaseApi 'bootstrap/src/Package/PairContract.cs') 'bootstrap input boundary'
     Write-Fixture (Join-Path $releaseApi '.gitignore') ".local/`nBepInEx/`n"
     Write-Fixture (Join-Path $releaseApi 'tools/Build.ps1') 'build boundary'
-    foreach($inputTool in @('WorkshopPackage.ps1','Prepare-WorkshopPackage.ps1','New-WorkshopBootstrap.ps1','PublisherPackage.ps1')) { Write-Fixture (Join-Path $releaseApi ('tools/'+$inputTool)) 'package tool input boundary' }
+    foreach($inputTool in @('Prepare-WorkshopPackage.ps1','New-WorkshopBootstrap.ps1','PublisherPackage.ps1')) { Write-Fixture (Join-Path $releaseApi ('tools/'+$inputTool)) 'package tool input boundary' }
     Write-Fixture (Join-Path $releaseApi 'tools/WorkshopUploader/fixture.sh') 'publisher input boundary'
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../../../APIShared/tools/BuildProof.ps1') -Destination (Join-Path $releaseApi 'tools/BuildProof.ps1')
+    foreach($inputTool in @('BuildProof.ps1','WorkshopPackage.ps1','DependencyBootstrapPackage.ps1','Remove-DependencyBootstrap.ps1')) {
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot ('../../../APIShared/tools/'+$inputTool)) -Destination (Join-Path $releaseApi ('tools/'+$inputTool))
+    }
     Commit-Fixture $releaseApi release-inputs
     Commit-Fixture $releaseRoot pin
     $compiler=Join-Path $temp 'release-compiler'; Write-Fixture $compiler 'external compiler boundary'
     $dll=Join-Path $releaseApi 'BepInEx/plugins/APIShared_Serp/APIShared.dll'; Write-Fixture $dll 'external binary boundary'
+    Write-Fixture (Join-Path $releaseApi 'BepInEx/patchers/APIShared.DependencyBootstrap.dll') 'external bootstrap binary boundary'
+    Write-Fixture (Join-Path $releaseApi 'BepInEx/plugins/APIShared_Serp/info.json') '{"GUID":"APIShared_Serp","Version":"1.0.0"}'
     Write-Fixture (Join-Path $releaseApi 'BepInEx/tools/APISharedWorkshopPublisher/fixture.sh') 'publisher package boundary'
+    # Exercise the real package-pair contract with doubled external binaries.
+    . (Join-Path $releaseApi 'tools/WorkshopPackage.ps1')
+    . (Join-Path $releaseApi 'tools/DependencyBootstrapPackage.ps1')
+    New-ApiBootstrapPair $releaseApi
     . (Join-Path $releaseApi 'tools/BuildProof.ps1')
     $state=Get-ApiInputState $releaseApi '' '' $compiler
     Write-ApiBuildProof $releaseApi '' '' $compiler $state

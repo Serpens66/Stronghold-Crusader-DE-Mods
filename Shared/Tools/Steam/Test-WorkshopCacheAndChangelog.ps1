@@ -16,8 +16,13 @@ function Import-Function([string]$File, [string[]]$Names) {
     }
 }
 Import-Function (Join-Path $PSScriptRoot 'Upload-Workshop.ps1') @('Get-Sha256','Get-UploadedModVersions','Get-WorkshopChangeNote','Save-ChangelogState')
-Import-Function (Join-Path $PSScriptRoot 'Create-SteamModPack.ps1') @('Get-HistoryMapPath','Get-PackReleaseState','Get-ReleasePackage')
+Import-Function (Join-Path $PSScriptRoot 'Create-SteamModPack.ps1') @('Get-HistoryMapPath','Test-StableReleaseTag','Get-PackReleaseState','Get-ReleasePackage')
 function Stop-Upload($Code, $Message) { throw $Message }
+# APIShared Workshop notes list every version since the last upload, newest first.
+$apiLog=@([pscustomobject]@{Version='0.3.0';Changes=@('third')},[pscustomobject]@{Version='0.1.0';Changes=@('first')},[pscustomobject]@{Version='0.2.0';Changes=@('second a','second b')})
+$apiNote=Get-SerpChangelogSince $apiLog '0.3.0' '0.1.0' 'APIShared'
+Check ($apiNote -ceq "### v0.3.0`r`n`r`n- third`r`n`r`n### v0.2.0`r`n`r`n- second a`r`n- second b") 'APIShared note must list all versions since the last upload, newest first.'
+Reject {Get-SerpChangelogSince $apiLog '0.2.0' '0.3.0' 'APIShared'}
 function Fail-Pack($Code, $Message) { throw $Message }
 function Write-UploadLog($Message, $Level) { }
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
@@ -87,6 +92,9 @@ $releases = @([pscustomobject]@{tagName='SerpsMods/v1.2.3';isDraft=$false;publis
 $pack = Get-PackReleaseState $releases; $before=$downloads
 $null = Get-PackReleaseState $releases
 Check ($downloads -eq $before) 'Previous modpack assets downloaded again.'
+# Manually published prereleases (e.g. v1.0.29BETA) never become the previous pack baseline.
+$beta=[pscustomobject]@{tagName='SerpsMods/v1.2.4BETA';isDraft=$false;isPrerelease=$true;publishedAt='2026-10-02'}
+Check ((Get-PackReleaseState (@($releases)+$beta)).Version -ceq '1.2.3' -and $downloads -eq $before) 'A manual prerelease replaced the stable pack baseline.'
 [IO.File]::WriteAllText($pack.MapShaPath,'corrupt checksum')
 $null = Get-PackReleaseState $releases
 Check ($downloads -eq $before+1) 'Checksum repair redownloaded other pack files.'
@@ -179,7 +187,11 @@ Check ($persisted.ContentFingerprint -ceq $savedNote.ContentFingerprint -and $pe
 # Current prepared production package: compare every emitted line to its actual manifest.
 $config=Get-WorkshopConfiguration
 $preparation=Join-Path $root '.release-output/SteamWorkshop/prepared/SerpsMods.json'
-if (Test-Path -LiteralPath $preparation) {
+# UploadWorkshop removes the temporary release folder after a successful upload; its consumed
+# preparation then has no local package left to compare.
+$preparedRoot=if(Test-Path -LiteralPath $preparation){$p0=[IO.File]::ReadAllText($preparation)|ConvertFrom-Json;if($p0.PSObject.Properties['ModpackSource']){[string]$p0.ModpackSource.Root}else{''}}else{''}
+if($preparedRoot -and -not (Test-Path -LiteralPath $preparedRoot)){Write-Host "SKIP: prepared package folder was removed after its upload: $preparedRoot"}
+elseif (Test-Path -LiteralPath $preparation) {
     # Prepared files belong to their selected checkout, even when this test starts on develop.
     $prepared=[IO.File]::ReadAllText($preparation)|ConvertFrom-Json
     if($prepared.PSObject.Properties['PublishedRelease']){

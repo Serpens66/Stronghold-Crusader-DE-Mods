@@ -13,26 +13,33 @@ function Get-PayloadChangelogBody {
     }
     $info = [IO.File]::ReadAllText($path) | ConvertFrom-Json
     if ($info.GUID -cne $Mod.Guid -or $info.Version -cne $Mod.Version) { throw "Changelog manifest identity mismatch: $path" }
-    $current = [version]$Mod.Version
+    return [pscustomobject]@{ Text = (Get-SerpChangelogSince $info.SerpChangelog $Mod.Version $PreviousVersion $Mod.Name); Path = $path }
+}
+
+# Changelog entries newer than the last uploaded version up to the current one, newest first,
+# as '### v<version>' sections. Shared by the modpack mods and APIShared Workshop notes.
+function Get-SerpChangelogSince {
+    param($Changelog, [string]$CurrentVersion, [AllowEmptyString()][string]$PreviousVersion, [string]$Name)
+    $current = [version]$CurrentVersion
     $previous = if ($PreviousVersion) { [version]$PreviousVersion } else { $null }
-    if ($previous -and $previous -gt $current) { throw "Changelog downgrade for $($Mod.Name): $PreviousVersion -> $current" }
+    if ($previous -and $previous -gt $current) { throw "Changelog downgrade for ${Name}: $PreviousVersion -> $current" }
     $seen = [Collections.Generic.HashSet[version]]::new()
-    foreach ($entry in @($info.SerpChangelog)) {
+    foreach ($entry in @($Changelog)) {
         $version = [version]$entry.Version
-        if (-not $seen.Add($version) -or @($entry.Changes).Count -eq 0) { throw "Duplicate/empty changelog entry for $($Mod.Name): $version" }
+        if (-not $seen.Add($version) -or @($entry.Changes).Count -eq 0) { throw "Duplicate/empty changelog entry for ${Name}: $version" }
         foreach ($change in $entry.Changes) {
-            if ($change -isnot [string] -or [string]::IsNullOrWhiteSpace($change)) { throw "Invalid changelog text for $($Mod.Name): $version" }
+            if ($change -isnot [string] -or [string]::IsNullOrWhiteSpace($change)) { throw "Invalid changelog text for ${Name}: $version" }
         }
     }
-    if (-not $seen.Contains($current)) { throw "Missing current changelog entry for $($Mod.Name): $current" }
-    $entries = @($info.SerpChangelog | Where-Object {
+    if (-not $seen.Contains($current)) { throw "Missing current changelog entry for ${Name}: $current" }
+    $entries = @($Changelog | Where-Object {
         [version]$_.Version -le $current -and ($null -eq $previous -or [version]$_.Version -gt $previous)
     } | Sort-Object { [version]$_.Version } -Descending)
     $sections = @(foreach ($entry in $entries) {
         $lines = @("### v$($entry.Version)", '') + @($entry.Changes | ForEach-Object { '- ' + $_ })
         $lines -join "`r`n"
     })
-    return [pscustomobject]@{ Text = $sections -join "`r`n`r`n"; Path = $path }
+    return $sections -join "`r`n`r`n"
 }
 
 function Get-ConfirmedWorkshopChangelogState {

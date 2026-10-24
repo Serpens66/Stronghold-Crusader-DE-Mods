@@ -11,7 +11,8 @@ $noPauseRequested=@($Options|Where-Object {$_ -ieq '/nopause'}).Count -gt 0
 # Leave delegated work through this block so only the original caller owns the pause.
 :workflow do {
 try{
-    if($Action -eq 'Upload' -and -not @($Options|Where-Object {$_ -in @('/modpack','/apishared','/both')}).Count){$Options=@('/modpack')+$Options}
+    # A double-click start offers the target menu; scripted /nopause calls keep the modpack default.
+    if($Action -eq 'Upload' -and $noPauseRequested -and -not @($Options|Where-Object {$_ -in @('/modpack','/apishared','/both')}).Count){$Options=@('/modpack')+$Options}
     $settings=Resolve-WorkshopOptions $Options
     if($settings.Target -eq 'Cancel'){exit 0}
     $config=Get-WorkshopConfiguration
