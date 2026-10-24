@@ -23,11 +23,17 @@ $previousApiSharedTestMode = $env:SHCDE_WORKSHOP_TEST
 . (Join-Path $PSScriptRoot 'ApiSharedSdkPolicy.ps1')
 $mainWorkspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){$env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $mainWorkspace}
-if(-not $Validate){Ensure-ApiMainBuild $mainWorkspace}
+if(-not $Validate){Ensure-ApiMainBuild $mainWorkspace;Ensure-ApiMainConsumerSource $mainWorkspace}
 $script:ApiMainRoot=Get-WorkshopApiRoot $mainWorkspace
 $previousGameDirectory = $env:SHCDE_GAME_DIR
 $previousExtenderDirectory = $env:SHCDESE_EXTENDER_DIR
 $previousMsBuild = $env:SHCDE_MSBUILD
+$previousNativeBaselineRoot = $env:SHCDE_NATIVE_BASELINE_ROOT
+# As in branch builds: the Git-ignored native databases exist only in the coordinator workspace.
+if (-not $env:SHCDE_NATIVE_BASELINE_ROOT) {
+    $nativeBaselineRoot = Join-Path (Get-ApiMainWorkspace $mainWorkspace) '_inspect/CrusaderDE-Native-Baseline'
+    if (Test-Path -LiteralPath (Join-Path $nativeBaselineRoot 'CURRENT.json')) { $env:SHCDE_NATIVE_BASELINE_ROOT = $nativeBaselineRoot }
+}
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
@@ -436,7 +442,10 @@ function Get-PluginSourceMetadata {
     if ($matchingManifests.Count -eq 0) { Fail-Pack 3 "No info.json matching GUID $($guidMatch.Groups[1].Value) was found for $ModName." }
     $canonicalRows = @($matchingManifests | Where-Object { $_.File.FullName -match '\\BepInEx\\plugins\\' })
     if ($canonicalRows.Count -ne 1) { Fail-Pack 3 "Expected exactly one packaged info.json for $ModName, found $($canonicalRows.Count)." }
-    $manifest = $canonicalRows[0].Json
+    # A mod-root info.json is the source its build copies into the package; the committed package
+    # copy can lag behind after working-tree builds. Mods without one keep the package manifest.
+    $sourceRows = @($matchingManifests | Where-Object { $_.File.FullName -ieq (Join-Path $modDir 'info.json') })
+    $manifest = if ($sourceRows.Count -eq 1) { $sourceRows[0].Json } else { $canonicalRows[0].Json }
     if ([string]$manifest.Version -notmatch '^\d+\.\d+\.\d+$') { Fail-Pack 3 "Invalid semantic version for ${ModName}: $($manifest.Version)" }
     $changes = @($manifest.SerpChangelog | Where-Object { [string]$_.Version -eq [string]$manifest.Version })
     if ($changes.Count -ne 1 -or @($changes[0].Changes).Count -eq 0) { Fail-Pack 3 "Missing current changelog entry for $ModName v$($manifest.Version)." }
@@ -473,10 +482,17 @@ function Get-PluginSourceMetadata {
     }
 }
 
+# Manually published prereleases (e.g. v1.0.29BETA) are not release baselines.
+function Test-StableReleaseTag($Release, [string]$Prefix) {
+    if ($Release.PSObject.Properties['isPrerelease'] -and [bool]$Release.isPrerelease) { return $false }
+    $tag = [string]$Release.tagName
+    return $tag.StartsWith($Prefix, [StringComparison]::Ordinal) -and $tag.Substring($Prefix.Length) -match '^\d+\.\d+\.\d+(?:-[0-9a-f]{12})?$'
+}
+
 function Get-LatestReleaseForMod {
     param([string]$ModName, [object[]]$Releases, [string]$Repository = $script:Repository)
     $candidate = @($Releases | Where-Object {
-        (-not [bool]$_.isDraft) -and ([string]$_.tagName).StartsWith($ModName + '/v', [StringComparison]::Ordinal)
+        (-not [bool]$_.isDraft) -and (Test-StableReleaseTag $_ ($ModName + '/v'))
     } | Sort-Object publishedAt -Descending | Select-Object -First 1)
     Write-RunLog "Release lookup for ${ModName}: inputs=$($Releases.Count), matches=$($candidate.Count)."
     if ($candidate.Count -eq 0) { return $null }
@@ -1302,7 +1318,7 @@ function Get-PackReleaseState {
     $testCandidates=@($Releases|Where-Object {$_.isDraft -and ([string]$_.tagName).StartsWith('SerpsMods/test/v',[StringComparison]::Ordinal)})
     $prefix=if($TestMode -and $testCandidates.Count){'SerpsMods/test/v'}else{'SerpsMods/v'}
     $candidate = @($Releases | Where-Object {
-        ([bool]$_.isDraft -eq ($TestMode -and $testCandidates.Count -gt 0)) -and ([string]$_.tagName).StartsWith($prefix, [StringComparison]::Ordinal)
+        ([bool]$_.isDraft -eq ($TestMode -and $testCandidates.Count -gt 0)) -and (Test-StableReleaseTag $_ $prefix)
     } | Sort-Object publishedAt -Descending | Select-Object -First 1)
     if ($candidate.Count -eq 0) { return $null }
     $tag = [string]$candidate[0].tagName
@@ -1521,7 +1537,7 @@ try {
         Fail-Pack 3 "Built APIShared infrastructure DLL differs from the source manifest v$([string]$apiSharedSourceInfo.Version)."
     }
     foreach ($consumer in $mods) {
-        $manifest = [IO.File]::ReadAllText((Join-Path $script:Root ($consumer.Name+'/info.json'))) | ConvertFrom-Json
+        $manifest = $consumer.Manifest
         foreach ($dependency in @($manifest.Dependencies | Where-Object { $_.GUID -ceq 'APIShared_Serp' })) {
             if ($dependency.MinimumVersion) { Assert-ApiSharedMinimumVersion $apiSharedSourceInfo.Version $dependency.MinimumVersion }
         }
@@ -1550,7 +1566,7 @@ try {
     }
     try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $apiSharedDirectory) }
     catch { Fail-Pack 3 "APIShared infrastructure violates the XAML patch contract: $($_.Exception.Message)" }
-    $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @('release','list','--repo',$script:Repository,'--limit','1000','--json','tagName,isDraft,publishedAt') -FailureCode 2
+    $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @('release','list','--repo',$script:Repository,'--limit','1000','--json','tagName,isDraft,isPrerelease,publishedAt') -FailureCode 2
     $parsedReleases = ($releaseResult.Output -join "`n") | ConvertFrom-Json
     $script:ReleaseList = @()
     foreach ($parsedRelease in $parsedReleases) { $script:ReleaseList += $parsedRelease }
@@ -1911,4 +1927,5 @@ try {
     $env:SHCDE_GAME_DIR = $previousGameDirectory
     $env:SHCDESE_EXTENDER_DIR = $previousExtenderDirectory
     $env:SHCDE_MSBUILD = $previousMsBuild
+    $env:SHCDE_NATIVE_BASELINE_ROOT = $previousNativeBaselineRoot
 }

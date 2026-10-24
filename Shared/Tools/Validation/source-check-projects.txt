@@ -45,8 +45,6 @@ Testmods/AIMarketOverbuyDiagnostic/AIMarketOverbuyDiagnostic.csproj
 Testmods/AivLobbyPresetTest/AivLobbyPresetTest.csproj
 Testmods/EnemyBridgePathTest/EnemyBridgePathTest.csproj
 Testmods/EnemyBridgePathTest/EnemyBridgePathTest.PolicyTests.csproj
-Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.csproj
-Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.PolicyTests.csproj
 Testmods/EngineerSiegeFixTest/EngineerSiegeFixTest.csproj
 Testmods/MainViewModelInitProbe/MainViewModelInitProbe.csproj
 Testmods/MoatMove/MoatMove.csproj

@@ -19,6 +19,8 @@
     <Reference Include="System.Core" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
+    <!-- LordDataSnapshot (used by LordPackageManifest) bounds sidecars with APIShared.Content limits. -->
+    <Reference Include="APIShared.Content"><HintPath>$(ApiSharedDir)\APIShared.Content.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\src\LordUpload\CustomLordCompatibilityProfile.cs"><Link>CustomLordCompatibilityProfile.cs</Link></Compile>
@@ -30,6 +32,8 @@
     <Compile Include="..\src\LordUpload\CustomLordWorkshopPackagePolicy.cs"><Link>CustomLordWorkshopPackagePolicy.cs</Link></Compile>
     <Compile Include="..\src\TrailLordSourceSelector.cs"><Link>TrailLordSourceSelector.cs</Link></Compile>
     <Compile Include="..\ExtendedData.Core\LordPackageManifest.cs"><Link>LordPackageManifest.cs</Link></Compile>
+    <Compile Include="..\ExtendedData.Core\LordDataSnapshot.cs"><Link>LordDataSnapshot.cs</Link></Compile>
+    <Compile Include="..\ExtendedData.Core\FixesPreferenceSources.cs"><Link>FixesPreferenceSources.cs</Link></Compile>
     <Compile Include="..\src\LordUpload\CustomLordWorkshopPreflight.cs"><Link>CustomLordWorkshopPreflight.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
