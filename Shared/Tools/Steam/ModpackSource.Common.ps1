@@ -67,6 +67,33 @@ function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$Allow
     }else{$null=Assert-ModpackSource $Workspace $source -Clean}
     return $source
 }
+# A release worktree below .release-output\Modpack is temporary: after the upload the GitHub
+# release, its proofs and the copied release files remain, and the next preparation recreates it.
+# Only a pushed worktree whose sole changes are the frozen host build outputs is removed.
+function Remove-ModpackReleaseWorktree([string]$Workspace,$Source) {
+    $coordinator=Get-ModpackCoordinator $Workspace
+    $root=[IO.Path]::GetFullPath([string]$Source.Root).TrimEnd('\','/')
+    $base=[IO.Path]::GetFullPath((Join-Path $coordinator '.release-output\Modpack')).TrimEnd('\','/')
+    if(-not $root.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $root)){return}
+    Assert-ApiMainUnlinkedPath $root
+    $branch=[string]$Source.Branch
+    Invoke-ApiRepositoryGit $root @('fetch','--no-tags','origin',("+refs/heads/{0}:refs/remotes/origin/{0}" -f $branch))|Out-Null
+    $head=((Invoke-ApiRepositoryGit $root @('rev-parse','HEAD')) -join '').Trim()
+    if((Invoke-ApiRepositoryProcess 'git' @('-C',$root,'merge-base','--is-ancestor',$head,"refs/remotes/origin/$branch")).ExitCode -ne 0){throw "local $branch in $root has unpushed commits."}
+    $allowed=@(Get-ModpackGeneratedOutputPaths)
+    foreach($line in @(Invoke-ApiRepositoryGit $root @('-c','core.quotepath=false','status','--porcelain=v1','--untracked-files=normal'))){
+        if($line.Substring(3) -cnotin $allowed){throw "unexpected change in ${root}: $line"}
+    }
+    $nested=Join-Path $root 'APIShared'
+    if(Test-Path -LiteralPath (Join-Path $nested '.git') -PathType Leaf){
+        if(@(Invoke-ApiRepositoryGit $nested @('status','--porcelain','--untracked-files=normal')).Count){throw "APIShared sources in $nested were changed."}
+        $apiCommon=((Invoke-ApiRepositoryGit $nested @('rev-parse','--path-format=absolute','--git-common-dir')) -join '').Trim()
+        Invoke-ApiRepositoryGit (Split-Path -Parent $apiCommon) @('worktree','remove','--force',$nested)|Out-Null
+    }
+    Invoke-ApiRepositoryGit $coordinator @('worktree','remove','--force',$root)|Out-Null
+    Invoke-ApiRepositoryGit $coordinator @('worktree','prune')|Out-Null
+    Write-Host "Removed the temporary $branch release folder $root; the next CreateSteamModPack.bat run recreates it."
+}
 function Get-ModpackStateRoot([string]$Workspace,[bool]$Test) {
     $root=Join-Path (Get-ModpackCoordinator $Workspace) '.release-output/SteamWorkshop'
     if($Test){$root=Join-Path $root 'test'}
