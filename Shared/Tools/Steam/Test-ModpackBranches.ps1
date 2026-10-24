@@ -125,8 +125,11 @@ function Test-CompletionMatrix([string]$Driver,[switch]$WithoutArguments){
     $start.WorkingDirectory=$entryRoot;$start.UseShellExecute=$false;$start.CreateNoWindow=$true
     $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
     $process=[Diagnostics.Process]::new();$process.StartInfo=$start
-    $result=[Text.StringBuilder]::new();$sentEnter=$false
+    $result=[Text.StringBuilder]::new();$sentEnter=$false;$sentTarget=$false
+    # A UTF-8 console would prepend a BOM to the redirected menu answer; typed input never has one.
+    $inputEncoding=[Console]::InputEncoding
     try{
+     if($inputEncoding.GetPreamble().Length){[Console]::InputEncoding=[Text.UTF8Encoding]::new($false)}
      [void]$process.Start();$errors=$process.StandardError.ReadToEndAsync()
      if($noPause){$process.StandardInput.Close()}
      # Read one character so a prompt without a newline cannot remain buffered.
@@ -138,6 +141,8 @@ function Test-CompletionMatrix([string]$Driver,[switch]$WithoutArguments){
       }
       $count=$read.Result;if($count -eq 0){break}
       [void]$result.Append($buffer,0,$count)
+      # A double-click upload offers the target menu; choose the modpack.
+      if($WithoutArguments -and -not $sentTarget -and $result.ToString().Contains('FIXTURE_PROMPT=Auswahl')){$process.StandardInput.WriteLine('1');$sentTarget=$true}
       if(-not $noPause -and -not $sentEnter -and $result.ToString().Contains('FIXTURE_PROMPT=Enter zum Schliessen')){
        Check (-not $process.HasExited) 'BAT exited before receiving Enter'
        $process.StandardInput.WriteLine();$process.StandardInput.Close();$sentEnter=$true
@@ -147,13 +152,13 @@ function Test-CompletionMatrix([string]$Driver,[switch]$WithoutArguments){
      $output=$result.ToString();$description="$Driver root=$entryRoot fail=$fail nopause=$noPause noargs=$WithoutArguments"
      Check ($process.ExitCode -eq $(if($fail){1}else{0})) ("Wrong exit code: $description / $output / "+$errors.Result)
      if($WithoutArguments){
-      Check ($output -match 'Modpack-Branch: main /' -and $output -notmatch 'Unknown option:|FIXTURE_PROMPT=Auswahl|FIXTURE_PROMPT=Modpack-Branch') ("Argumentless upload must select main without an option error/menu: $description / $output")
+      Check ($sentTarget -and [regex]::Matches($output,'FIXTURE_PROMPT=Auswahl').Count -eq 1 -and $output -match 'Modpack-Branch: main /' -and $output -notmatch 'Unknown option:|FIXTURE_PROMPT=Modpack-Branch') ("Argumentless upload must offer the target menu once and then use the prepared main modpack: $description / $output")
      }
      $prompts=[regex]::Matches($output,'FIXTURE_PROMPT=Enter zum Schliessen').Count
      Check ($prompts -eq $(if($noPause){0}else{1}) -and ($noPause -or $sentEnter)) ("Wrong pause count: $description / $output")
      $marker=if($fail){'FIXTURE_FAILURE'}elseif($Driver -eq 'CreateSteamModPack.bat'){'FIXTURE_SOURCE='}else{'FIXTURE_UPLOAD='}
      Check ([regex]::Matches($output,$marker).Count -eq 1) ("Workflow executed more or less than once: $description / $output")
-    }finally{if(-not $process.HasExited){$process.Kill();$process.WaitForExit()};$process.Dispose()}
+    }finally{if(-not $process.HasExited){$process.Kill();$process.WaitForExit()};$process.Dispose();if([Console]::InputEncoding -ne $inputEncoding){[Console]::InputEncoding=$inputEncoding}}
    }
   }
  }
