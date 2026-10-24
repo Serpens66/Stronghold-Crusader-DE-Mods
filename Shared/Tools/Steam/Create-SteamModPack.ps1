@@ -1765,7 +1765,13 @@ try {
     $hostDir = Join-Path $script:Root 'SerpsModsHost'
     $apiProof = Assert-ApiMainSelection $script:Root $env:SHCDE_API_SHARED_MAIN_SELECTION
     $null = Assert-ApiConsumerPackage $script:Root $apiSharedInfrastructure.Directory
-    Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause','/noinstall') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
+    # Like Release-Mod: build the pinned release commit directly against the published SDK
+    # instead of the branch dispatcher, which would select a personal APIShared checkout.
+    $previousHostBranchPinned = $env:SHCDE_BRANCH_PINNED
+    try {
+        $env:SHCDE_BRANCH_PINNED = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
+        Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause','/noinstall') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
+    } finally { $env:SHCDE_BRANCH_PINNED = $previousHostBranchPinned }
 
     $runRoot = Join-Path $script:OutputRoot "v$packVersion"
     $stage = Join-Path $runRoot 'stage'
