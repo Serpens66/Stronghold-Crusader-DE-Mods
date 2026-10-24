@@ -1,0 +1,18 @@
+{
+    "Version":  "0.7.1",
+    "Mod":  "APIShared",
+    "Tag":  "APIShared/v0.7.1",
+    "Commit":  "43eba8d765aa1f363ef670b3088e9c0e5d8e0d65",
+    "Package":  {
+                    "Sha256":  "1605563bdb1eee568046745a50e094d0424cff21a7633f7e43069bde1dacc208",
+                    "Files":  [
+                                  {
+                                      "Path":  "BepInEx/plugins/APIShared_Serp/APIShared.dll",
+                                      "Sha256":  "1ca6228ef153b8799f2db733f77407f199b650bad8dd9e1e40ca1575557fe6c0",
+                                      "Size":  16
+                                  }
+                              ]
+                },
+    "SchemaVersion":  1,
+    "PluginGuid":  "APIShared_Serp"
+}

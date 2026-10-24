@@ -1,0 +1,21 @@
+<Project>
+  <ItemGroup Condition="'$(IsTestProject)' == 'true' or $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('Tests')) or $([System.Text.RegularExpressions.Regex]::IsMatch('$(MSBuildProjectDirectory)', '[\\/](tests|_inspect)[\\/]'))">
+    <Compile Include="$(MSBuildThisFileDirectory)TestWorkDirectory.cs" Link="TestInfrastructure/TestWorkDirectory.cs" />
+  </ItemGroup>
+  <!-- Configure executable hosts only; plugin DLLs must not change their game host. -->
+  <Target Name="ConfigureWorkspaceExecutablePaths" BeforeTargets="PrepareForBuild"
+          Condition="'$(OS)' == 'Windows_NT' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe')">
+    <PropertyGroup>
+      <_PathsOutput>$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)paths'))))</_PathsOutput>
+      <_PathsConfig>$(AppConfig)</_PathsConfig>
+      <_PathsConfig Condition="'$(_PathsConfig)' == '' and Exists('$(MSBuildProjectDirectory)/App.config')">$(MSBuildProjectDirectory)/App.config</_PathsConfig>
+      <_PathsFramework>false</_PathsFramework>
+      <_PathsFramework Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework' or $([System.String]::Copy('$(TargetFrameworkVersion)').StartsWith('v4.'))">true</_PathsFramework>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)Configure-Executable.ps1&quot; -Config &quot;$(_PathsConfig)&quot; -Manifest &quot;$(ApplicationManifest)&quot; -Output &quot;$(_PathsOutput)&quot; -Framework $(_PathsFramework)" />
+    <PropertyGroup>
+      <AppConfig Condition="'$(_PathsFramework)' == 'true'">$(_PathsOutput)/app.config</AppConfig>
+      <ApplicationManifest>$(_PathsOutput)/app.manifest</ApplicationManifest>
+    </PropertyGroup>
+  </Target>
+</Project>
