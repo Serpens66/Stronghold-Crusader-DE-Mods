@@ -35,6 +35,10 @@ try{
             if($settings.Validate){$argsForChild+='/validate'}
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $source.Root 'Shared/Tools/Steam/WorkshopWorkflow.ps1') -Action $Action @argsForChild
             $exitCode=$LASTEXITCODE
+            # The temporary release folder is only needed until its package is uploaded.
+            if($Action -eq 'Upload' -and $exitCode -eq 0 -and -not $settings.Validate -and -not $settings.Test){
+                try{Remove-ModpackReleaseWorktree $config.Root $source}catch{Write-Host ('WARNING: temporary release folder was kept: '+$_.Exception.Message)}
+            }
             break workflow
         }
     }

@@ -1914,6 +1914,18 @@ try {
     Save-WorkshopReleaseReference (Get-WorkshopConfiguration) ([bool]$TestMode) $provenancePath
     $journal.Status = 'complete'; $journal.CompletedUtc = [DateTime]::UtcNow.ToString('o'); Write-JsonCrLf -Path $script:JournalPath -Value $journal
     Write-RunLog "Steam upload folder ready: $finalDir" 'OK'
+    # The release worktree is temporary; keep a copy of the published files where the workspace
+    # expects them (.release-output\SerpsMods\v<version>). The large staging folders are left out.
+    $coordinatorRoot = Get-ApiMainWorkspace $script:Root
+    if (-not $TestMode -and -not [string]::Equals($coordinatorRoot, $script:Root.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
+        $copyRoot = Join-Path $coordinatorRoot ".release-output\SerpsMods\v$packVersion"
+        Assert-ApiMainUnlinkedPath $copyRoot
+        if (Test-Path -LiteralPath $copyRoot) { Remove-Item -LiteralPath $copyRoot -Recurse -Force }
+        [void][IO.Directory]::CreateDirectory($copyRoot)
+        Get-ChildItem -LiteralPath $runRoot -File | Copy-Item -Destination $copyRoot
+        Copy-Item -LiteralPath $script:LogPath -Destination (Join-Path $copyRoot ('release-' + [IO.Path]::GetFileName($script:LogPath)))
+        Write-RunLog "Release files copied to the workspace: $copyRoot" 'OK'
+    }
     Write-RunLog "Map SHA-256: $mapHash" 'OK'
     Write-Host "Log: $($script:LogPath)"
     exit 0

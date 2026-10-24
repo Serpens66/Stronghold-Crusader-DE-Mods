@@ -250,4 +250,20 @@ Check ($synced.Root -ieq [IO.Path]::GetFullPath($root) -and $synced.Commit -ceq 
 Git @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','--allow-empty','-m','local-only')|Out-Null
 $null=Push-OriginCommit 'remote-only'
 Reject {Resolve-ModpackSource $caller 'main'}
+# After an upload only a pushed release folder whose sole changes are the frozen host outputs is removed.
+Invoke-ApiRepositoryGit $pusher @('push','--quiet','origin','main:release')|Out-Null
+$releaseFolder=Join-Path $root '.release-output\Modpack\release\source'
+function New-ReleaseFolder{Git @('fetch','--quiet','origin','+refs/heads/release:refs/heads/release')|Out-Null;Git @('worktree','add','--quiet',$releaseFolder,'release')|Out-Null}
+New-ReleaseFolder
+[IO.File]::WriteAllText((Join-Path $releaseFolder 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll'),'release host build')
+Remove-ModpackReleaseWorktree $root ([pscustomobject]@{Root=$releaseFolder;Branch='release'})
+Check (-not (Test-Path -LiteralPath $releaseFolder)) 'Uploaded release folder with only frozen outputs was kept'
+New-ReleaseFolder
+[IO.File]::AppendAllText((Join-Path $releaseFolder '.gitignore'),"`r`nchanged")
+Reject {Remove-ModpackReleaseWorktree $root ([pscustomobject]@{Root=$releaseFolder;Branch='release'})}
+Check (Test-Path -LiteralPath $releaseFolder) 'Release folder with a source change was removed'
+Invoke-ApiRepositoryGit $releaseFolder @('checkout','--','.gitignore')|Out-Null
+Invoke-ApiRepositoryGit $releaseFolder @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','--quiet','--allow-empty','-m','unpushed')|Out-Null
+Reject {Remove-ModpackReleaseWorktree $root ([pscustomobject]@{Root=$releaseFolder;Branch='release'})}
+Check (Test-Path -LiteralPath $releaseFolder) 'Release folder with unpushed commits was removed'
 Write-Host "PASS: $checks modpack branch/menu/worktree/proof/ID checks with real BAT and PowerShell children. Fixtures: $fixture"
