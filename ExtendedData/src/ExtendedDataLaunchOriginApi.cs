@@ -181,6 +181,11 @@ namespace ExtendedData
             }
         }
 
+        internal static void CancelPendingLaunch()
+        {
+            lock (Sync) launchPending = false;
+        }
+
         internal static void PrepareCoopLaunch(int zeroBasedTrailId, int selectedMissionId, bool restarting)
         {
             if (restarting)

@@ -12,12 +12,56 @@ using SHCDESE.ViewModels;
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 
 namespace ExtraFeatures
 {
     public sealed class ExtraFeaturesViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
+
+        public ModSettingsPresentation SettingsPresentation { get; }
+        private string settingsSearchLanguage;
+        private string settingsSearchGoodsTitles;
+
+        private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
+                args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
+                args.PropertyName == nameof(System_ModSettingsSearchExactKey))
+                RefreshSettingsPresentation();
+        }
+
+        private void OnSettingsSearchSourceChanged(object owner)
+        {
+            if (!ReferenceEquals(owner, this)) return;
+            settingsSearchLanguage = GameAssetManagerAPI.Instance.CurrentLanguage;
+            settingsSearchGoodsTitles = GetSettingsSearchGoodsTitles();
+            RefreshSettingsPresentation();
+        }
+
+        private string GetSettingsSearchGoodsTitles() => string.Join("\u001f",
+            MarketGoodPriceItems.Select(item => item.BuySearchTitle));
+
+        // Called by the existing settings-hub UI event, after goods names/icons are refreshed.
+        // Catalog item metadata is a snapshot; replace it when language or resolved names change.
+        internal void RefreshSettingsSearchSource(ManualLogSource log)
+        {
+            if (!ModSettingsSearchCatalog.IsRegistered(this)) return;
+            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
+            if (string.Equals(settingsSearchLanguage, language, StringComparison.Ordinal) &&
+                string.Equals(settingsSearchGoodsTitles, GetSettingsSearchGoodsTitles(), StringComparison.Ordinal)) return;
+            if (GameAssetManagerAPI.Instance.GetModifiedFilePath("ScriptExtenderUI/ExtraFeaturesSettings.xaml", out string path))
+                ModSettingsSearchCatalog.RegisterSource(this, path, Shared.DebugLogHelper.ForExternalCode(log),
+                    ExtraFeaturesPlugin.PluginName, System_ApplyModSettingsSearchTarget);
+        }
+
+        private void RefreshSettingsPresentation()
+        {
+            ModSettingsSearchCatalog.TryGetEntries(this, out var entries);
+            SettingsPresentation.RefreshSearch(System_ModSettingsSearchText, System_ModSettingsSearchIncludeToolTips,
+                System_ModSettingsSearchExactKey, entries);
+        }
 
         private bool enableMod = true;
         private int woodRefundPercent = -1;
@@ -70,6 +114,7 @@ namespace ExtraFeatures
         private int aiEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
         private int aiTowerGateRebuildDelaySeconds = 60;
         private bool marketGoodPriceVisualsResolved;
+        private string marketGoodPriceVisualsLanguage;
         private ImageSource buildingRepairIcon;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
@@ -77,6 +122,9 @@ namespace ExtraFeatures
 
         public ExtraFeaturesViewModel(bool legacySomeSettingsLoaded)
         {
+            SettingsPresentation = new ModSettingsPresentation();
+            ((System.ComponentModel.INotifyPropertyChanged)this).PropertyChanged += OnSettingsPresentationPropertyChanged;
+            ModSettingsSearchCatalog.SourceChanged += OnSettingsSearchSourceChanged;
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
@@ -481,7 +529,9 @@ namespace ExtraFeatures
 
         internal void RefreshMarketGoodPriceVisuals()
         {
-            if (marketGoodPriceVisualsResolved || !MainViewModel.viewModelLoaded)
+            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
+            if ((marketGoodPriceVisualsResolved && string.Equals(marketGoodPriceVisualsLanguage, language, StringComparison.Ordinal)) ||
+                !MainViewModel.viewModelLoaded)
                 return;
 
             MainViewModel viewModel = MainViewModel.Instance;
@@ -502,6 +552,7 @@ namespace ExtraFeatures
             marketGoodPriceVisualsResolved =
                 resolvedIconCount == MarketGoodPriceDefinition.Count &&
                 resolvedNameCount == MarketGoodPriceDefinition.Count;
+            marketGoodPriceVisualsLanguage = language;
         }
 
         internal void RefreshBuildingRepairIcon()

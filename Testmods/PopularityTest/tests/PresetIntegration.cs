@@ -65,37 +65,57 @@ namespace PopularityTest.Tests
                     foreach (var key in textKeys)
                         Check(translations.TryGetValue(key,out var text) && !string.IsNullOrWhiteSpace(text), "Used localization key: " + key);
                 }
-                var enabled = typeof(PopularitySettings).GetProperties().Where(p => p.Name.EndsWith("Enabled") &&
-                    p.Name != "HostSettingsEnabled" && p.Name != "ClientSettingsEnabled").ToArray();
-                Check(enabled.Length > 0, "Activation settings are present");
+                // Mod-owned persisted values are host-controlled; independent overrides
+                // are opt-in. Discover typed settings without prescribing companion names
+                // or the inherited preset engine's property layout.
+                var modSettings = typeof(PopularitySettings).GetProperties(BindingFlags.Public |
+                    BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                    .Where(p => p.CanRead && p.CanWrite && (p.PropertyType == typeof(bool) ||
+                        p.PropertyType == typeof(int) || p.PropertyType == typeof(double))).ToArray();
+                Check(modSettings.Length > 0, "Mod-owned settings are present");
+                foreach (var property in modSettings)
+                    Check(property.IsDefined(typeof(SHCDESE.API.Components.Network.SyncHostOnlyAttribute), true),
+                        property.Name + " is host-controlled");
+                var enabled = modSettings.Where(p => p.PropertyType == typeof(bool) &&
+                    p.Name != nameof(PopularitySettings.EnableMod)).ToArray();
+                Check(enabled.Length > 0, "Opt-in overrides are present");
                 foreach (var toggle in enabled)
-                {
                     Check(!(bool)toggle.GetValue(settings), toggle.Name + " defaults disabled");
-                    Check(toggle.GetCustomAttributes(false).Any(a => a.GetType().Name == "SyncHostOnlyAttribute"), "Toggle host classification");
-                    var value = typeof(PopularitySettings).GetProperty(toggle.Name.Substring(0, toggle.Name.Length - 7));
-                    Check(value != null && (value.PropertyType == typeof(int) || value.PropertyType == typeof(double)), "Numeric companion");
-                    Check(value.GetCustomAttributes(false).Any(a => a.GetType().Name == "SyncHostOnlyAttribute"), "Value host classification");
-                }
-                settings.GoodBadThingPopModifierMultiplierEnabled = true;
-                settings.GoodBadThingPopModifierMultiplier = 1.1;
-                Check(Prepare(plugin).GoodBadThingPopModifierMultiplier == 1.1, "Fractional fear coefficient persists exactly");
-                settings.GoodBadThingPopModifierMultiplierValueText = "-2,3";
-                Check(settings.GoodBadThingPopModifierMultiplier == -2.3, "Decimal comma accepted");
-                settings.GoodBadThingPopModifierMultiplier = 99;
-                Check(settings.GoodBadThingPopModifierMultiplier == 5, "Fear maximum +5");
-                settings.GoodBadThingPopModifierMultiplier = -99;
-                Check(settings.GoodBadThingPopModifierMultiplier == -5, "Fear minimum -5");
-                settings.GoodBadThingPopModifierMultiplier = 1.26;
-                Check(settings.GoodBadThingPopModifierMultiplier == 1.3, "Fear input snaps to tenths");
-                for (int tenths = -50; tenths <= 50; tenths++)
+                Check(settings.CaptureFearContributions().Count == 0, "Fear groups default inactive");
+                settings.NegativeFearEnabled = true;
+                var negative = settings.CaptureFearContributions();
+                Check(negative.Keys.OrderBy(v => v).SequenceEqual(Enumerable.Range(-5,5)), "Negative group contains exactly its supported levels");
+                foreach (var entry in negative) Check(entry.Value == entry.Key, "Negative level has its Vanilla default");
+                settings.PositiveFearEnabled = true;
+                var both = settings.CaptureFearContributions();
+                foreach (int level in Enumerable.Range(-5,11).Where(level => level != 0))
+                    Check(both.TryGetValue(level,out int points) && points == level, "Every Vanilla fear level maps to its own default");
+                Check(!both.ContainsKey(0), "Neutral fear is never overridden");
+                settings.FearNegative3 = -12; settings.FearPositive4 = 0; settings.FearPositive2 = -7;
+                var savedFear = Prepare(plugin);
+                Check(savedFear.NegativeFearEnabled && savedFear.PositiveFearEnabled &&
+                    savedFear.CaptureFearContributions().OrderBy(v => v.Key).SequenceEqual(settings.CaptureFearContributions().OrderBy(v => v.Key)),
+                    "Both groups and all level contributions persist across restart");
+                settings.NegativeFearEnabled = false;
+                Check(settings.FearNegative3 == -12 && !settings.FearNegative3Editable &&
+                    settings.CaptureFearContributions().Keys.All(level => level > 0), "Disabling one side retains values and leaves the other active");
+                settings.NegativeFearEnabled = true; settings.PositiveFearEnabled = false;
+                Check(settings.CaptureFearContributions().Keys.All(level => level < 0) && !settings.FearPositive4Editable,
+                    "Positive and negative activation are independent");
+                settings.FearNegative1ValueText = " +25 ";
+                Check(settings.FearNegative1 == 25, "Signed whole-point text accepted");
+                settings.FearNegative1ValueText = "1.5"; settings.FearNegative1ValueText = "not a number";
+                Check(settings.FearNegative1 == 25, "Invalid or fractional text preserves whole-point value");
+                settings.FearNegative1 = -999; Check(settings.FearNegative1 == -25, "Fear lower bound");
+                settings.FearNegative1 = 999; Check(settings.FearNegative1 == 25, "Fear upper bound");
+                for (int value=-25; value<=25; value++)
                 {
-                    settings.GoodBadThingPopModifierMultiplier = tenths / 10.0;
-                    Check(settings.GoodBadThingPopModifierMultiplier == tenths / 10.0, "Every declared tenth is representable");
+                    settings.FearNegative1 = value;
+                    Check(settings.CaptureFearContributions()[-1] == value, "Every declared whole-point contribution is representable");
                 }
-                settings.GoodBadThingPopModifierMultiplier = 1.1;
-                settings.GoodBadThingPopModifierMultiplier = double.NaN;
-                settings.GoodBadThingPopModifierMultiplier = double.PositiveInfinity;
-                Check(settings.GoodBadThingPopModifierMultiplier == 1.1, "Nonfinite inputs preserve current coefficient");
+                settings.EnableMod = false;
+                Check(settings.CaptureFearContributions().Count == 0, "Host activation disables both fear groups");
+                settings.EnableMod = true;
                 settings.ReligionPopModifierTierOneEnabled = true; settings.ReligionPopModifierTierOne = -9;
                 settings.AlePopModifierTierFourEnabled = true; settings.AlePopModifierTierFour = -7;
                 settings.TaxPopModifierCruellest = -48;
@@ -106,20 +126,32 @@ namespace PopularityTest.Tests
                 Check(restored.AlePopModifierTierFour == -7 && !restored.AlePopModifierTierFourEditable, "Disabled retains value and locks editor");
                 restored.TaxPopModifierCruellest = -999; Check(restored.TaxPopModifierCruellest == -48, "Numeric input bounds");
                 restored.SetMissionLocked(true); restored.ReligionPopModifierTierOne = 12; restored.EnableMod = false;
-                restored.ResetToDefaultCommand.Execute(null);
-                Check(restored.ReligionPopModifierTierOne == -9 && restored.EnableMod && !restored.CanConfigure, "Mission locks setters and reset");
+                var missionFear = restored.CaptureFearContributions();
+                restored.FearNegative3 = 20; restored.NegativeFearEnabled = false;
+                Check(restored.CaptureFearContributions().OrderBy(v => v.Key).SequenceEqual(missionFear.OrderBy(v => v.Key)),
+                    "Mission locks fear contributions and side switches");
+                Check(restored.ReligionPopModifierTierOne == -9 && restored.EnableMod && !restored.CanConfigure, "Mission locks setters");
                 restored.SetMissionLocked(false);
                 GameNetworkAPI.LocalHost = false; GameNetworkAPI.Networked = true; GameNetworkAPI.MultiplayerGame = true;
                 restored.ReligionPopModifierTierOne = 12;
+                int hostFear = restored.FearNegative3;
+                restored.FearNegative3 = 23; restored.NegativeFearEnabled = false;
+                Check(restored.FearNegative3 == hostFear && restored.NegativeFearEnabled, "Client cannot alter fear groups or values");
+                GameXAMLManagerAPI.Instance.ApplyNetworkSync(restored, () => restored.FearNegative3 = 8);
+                Check(restored.FearNegative3 == 8, "Authoritative fear value accepted");
                 Check(restored.ReligionPopModifierTierOne == -9, "Client cannot change host value");
                 GameXAMLManagerAPI.Instance.ApplyNetworkSync(restored, () => restored.ReligionPopModifierTierOne = 11);
                 Check(restored.ReligionPopModifierTierOne == 11, "Authoritative host update accepted");
                 GameNetworkAPI.LocalHost = true; GameNetworkAPI.Networked = false; GameNetworkAPI.MultiplayerGame = false;
                 var own = Prepare(plugin);
-                Check(own.ReligionPopModifierTierOne == -9, "Received host value does not overwrite personal preset");
-                own.ResetToDefaultCommand.Execute(null);
+                Check(own.ReligionPopModifierTierOne == -9 && own.FearNegative3 == hostFear, "Received host values do not overwrite personal presets");
+                own.System_LoadModDefaults();
                 Check(own.ReligionPopModifierTierOne == 2 && own.AlePopModifierTierFour == 8 && own.TaxPopModifierCruellest == -24, "Vanilla defaults restored");
-                foreach (var toggle in enabled) Check(!(bool)toggle.GetValue(own), "Reset disables every override");
+                foreach (var toggle in enabled) Check(!(bool)toggle.GetValue(own), "Shared defaults reset disables every override");
+                own.NegativeFearEnabled = true; own.PositiveFearEnabled = true;
+                foreach (var entry in own.CaptureFearContributions()) Check(entry.Value == entry.Key, "Shared defaults restores every fear contribution");
+                own.SetMissionLocked(true); own.SetMissionLocked(false);
+                Check(own.FearNegative3Editable && own.FearPositive4Editable, "Next mission setup unlocks both fear groups");
                 var baseline = new Values(); var lease = new OwnedOverride(baseline, -400);
                 Check(baseline.Value == -400, "Override installed");
                 Check(lease.Release() && baseline.Depth == 1 && baseline.Value == 137, "Exact foreign baseline restored");

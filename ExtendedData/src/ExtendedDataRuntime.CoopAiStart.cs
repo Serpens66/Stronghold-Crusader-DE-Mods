@@ -54,7 +54,18 @@ namespace ExtendedData
                 throw new InvalidOperationException("The Coop lobby of the packaged mission is unavailable.");
             bool singlePlayer = self?.singlePlayerCoop == true;
             var plans = new List<CoopAiSlotPlan>();
-            foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> entry in mission.AiInfoByPlayerIndex)
+            var selections = new Dictionary<int, FRONT_Multiplayer.MPAIVInfo>(mission.AiInfoByPlayerIndex);
+            if (singlePlayer)
+            {
+                Shared.CoopAiStartPlanFactory.ValidateLobby(lobby, self.AIVs);
+                foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+                {
+                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    int id = lobby.getThisPlayerFromSteamID(member.GetSteamID());
+                    if (!selections.ContainsKey(id - 1)) selections.Add(id - 1, self.AIVs[id - 1]);
+                }
+            }
+            foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> entry in selections)
             {
                 int playerId = entry.Key + 1;
                 Platform_Multiplayer.MPLobbyMember member = lobby.GetLobbyMemberFromThis_PlayerID(playerId);
@@ -124,45 +135,53 @@ namespace ExtendedData
             ResolvedMission mission = selected;
             if (mission == null || self?.currentLobby == null)
                 return null;
-            bool needsImport = false;
-            var needsSynchronizedList = new Dictionary<int, int>();
-            foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> entry in mission.AiInfoByPlayerIndex)
+            try
             {
-                int playerId = entry.Key + 1;
-                FRONT_Multiplayer.MPAIVInfo hostSelection = self.AIVs != null && playerId <= self.AIVs.Length
-                    ? self.AIVs[playerId - 1] : null;
-                if (hostSelection == null)
-                    continue;
-                Shared.CoopAiSelectionRules.Classify(hostSelection.lordType, hostSelection.builtInLord,
-                    hostSelection.lordConfig != null, hostSelection.lordName, hostSelection.builtIn,
-                    hostSelection.community, hostSelection.historical, hostSelection.aivs?.Count ?? 0,
-                    out Shared.CoopAiCastleKind castle, out bool needsPlan);
-                needsImport |= needsPlan;
-                if (self.singlePlayerCoop || castle != Shared.CoopAiCastleKind.Explicit ||
-                    hostSelection.aivs.Count <= 1 ||
-                    Shared.CoopAiStartPlanFactory.IsSameSelection(entry.Value, hostSelection, true))
-                    continue;
-                needsSynchronizedList[playerId] = hostSelection.aivs.Count;
-            }
-            if (!needsImport)
-                return null;
-            if (!coopAiImportAvailable || coopAiPreview == null)
-                return SerpLocalization.Get("ExtendedData.ErrorCoopAiImportUnavailable") + " " +
-                    (coopAiImportAvailable ? "Coop AI start preview unavailable." : coopAiImportUnavailableReason);
-            if (!coopAiPreview.TryPreview(mission.Loaded.TrailNumber, mission.Loaded.MissionNumber - 1,
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
+                var expected = new List<CoopAiSlotPlan>();
+                var complete = new HashSet<int>();
+                foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+                {
+                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    int id = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                    FRONT_Multiplayer.MPAIVInfo info = self.AIVs[id - 1];
+                    bool requireComplete = self.singlePlayerCoop ||
+                        info.aivs.Count > 1 && (!mission.AiInfoByPlayerIndex.TryGetValue(id - 1, out var packaged) ||
+                            !Shared.CoopAiStartPlanFactory.IsSameSelection(packaged, info, true));
+                    CoopAiSlotPlan plan = Shared.CoopAiStartPlanFactory.Create(info, id, member.GetLordType(),
+                        requireComplete ? -1 : 1, null, requireComplete);
+                    if (plan != null) expected.Add(plan);
+                    if (requireComplete) complete.Add(id);
+                }
+                if (!coopAiImportAvailable || coopAiPreview == null)
+                {
+                    if (expected.Count == 0) return null;
+                    throw new Shared.CoopAiSelectionException("MissingImportPlan", expected[0].PlayerId,
+                        "import unavailable: " + coopAiImportUnavailableReason);
+                }
+                if (!coopAiPreview.TryPreview(mission.Loaded.TrailNumber, mission.Loaded.MissionNumber - 1,
                     out CoopAiStartPreview preview, out NativeCapabilityDiagnostic diagnostic))
-                return SerpLocalization.Get("ExtendedData.ErrorCoopAiImportUnavailable") + " " + diagnostic?.Reason;
-            if (!preview.Succeeded)
-                return SerpLocalization.Get("ExtendedData.ErrorCoopAiPlansConflict").Replace("{Reason}", preview.Failure);
-            foreach (KeyValuePair<int, int> slot in needsSynchronizedList)
-            {
-                CoopAiSlotPlan plan = preview.PlanFor(slot.Key);
-                if (plan == null || !plan.CandidateListComplete || plan.ConfirmedCandidateCount != plan.CandidateCount ||
-                    plan.CandidateCount != slot.Value)
-                    return SerpLocalization.Get("ExtendedData.ErrorCustomizedCandidatesUnsynchronized")
-                        .Replace("{Player}", slot.Key.ToString());
+                    throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, diagnostic?.Reason ?? "preview unavailable");
+                if (!preview.Succeeded)
+                    throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, preview.Failure);
+                foreach (CoopAiSlotPlan plan in expected)
+                    Shared.CoopAiStartPlanFactory.RequirePlan(plan, preview.PlanFor(plan.PlayerId), complete.Contains(plan.PlayerId));
+                return null;
             }
-            return null;
+            catch (Shared.CoopAiSelectionException failure)
+            {
+                LogError(CoopLaunchDiagnostic(self) + ": " + failure + "; selections=[" +
+                    Shared.CoopAiStartPlanFactory.DescribeLobby(self.currentLobby, self.AIVs) + "]");
+                return LocalizeCoopSelectionFailure(failure);
+            }
         }
+
+        private static string LocalizeCoopSelectionFailure(Shared.CoopAiSelectionException failure) =>
+            SerpLocalization.Get("CoopAi.Error." + failure.Code).Replace("{Player}", failure.PlayerId.ToString());
+
+        private static string CoopLaunchDiagnostic(FRONT_Multiplayer self) =>
+            "Coop launch trail=" + (self?.currentLobby?.coopTrailID + 1) + ", mission=" + self?.currentLobby?.coopSelectedMission +
+            ", route=" + (APIShared.MissionRestart.IsInProgress ? "restart" :
+                ExtendedDataLaunchOriginApi.RestoredFromSave ? "restore" : FRONT_Multiplayer.skirmishGame ? "customize" : "direct");
     }
 }

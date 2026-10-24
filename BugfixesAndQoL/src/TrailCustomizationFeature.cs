@@ -201,6 +201,7 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo)
         {
+            if (!CoopCustomLordSelectionFeature.TryValidateLocalCoopStart(self)) return;
             if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
             {
                 customTrailRestartInfo = customTrailSetupRestartInfo;
@@ -375,6 +376,8 @@ namespace BugfixesAndQoL
             try
             {
                 self.CoopMissionChanged(trailId, missionId);
+                if (self.singlePlayerCoop)
+                    Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
                 if (notifyClients)
                     Broadcast(trailId, missionId, launch: false);
 

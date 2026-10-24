@@ -394,17 +394,24 @@ namespace ExtendedData
         }
 
         public void RefreshPackages(IEnumerable<CoopTrailPackage> packages)
+            => RefreshPackageManifests((packages ?? Enumerable.Empty<CoopTrailPackage>()).Select(item => item.Manifest));
+
+        internal void RefreshPackageOverviews(IEnumerable<CoopTrailPackageOverview> packages)
+            => RefreshPackageManifests(packages.GroupBy(item => item.Manifest.PackageId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First().Manifest));
+
+        private void RefreshPackageManifests(IEnumerable<CoopTrailPackageManifest> packages)
         {
             var options = new List<ComboBoxItem>
             {
                 new ComboBoxItem { Content = SerpLocalization.Get("ExtendedData.VanillaPackage") },
             };
             var ids = new List<string> { string.Empty };
-            foreach (CoopTrailPackage package in (packages ?? Enumerable.Empty<CoopTrailPackage>())
-                .OrderBy(item => item.Manifest.DisplayName, StringComparer.CurrentCultureIgnoreCase))
+            foreach (CoopTrailPackageManifest package in packages
+                .OrderBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase))
             {
-                options.Add(new ComboBoxItem { Content = package.Manifest.DisplayName + " (" + package.Manifest.MissionCount + ")" });
-                ids.Add(package.Manifest.PackageId);
+                options.Add(new ComboBoxItem { Content = package.DisplayName + " (" + package.MissionCount + ")" });
+                ids.Add(package.PackageId);
             }
             ComboBoxItem[] refreshedOptions = options.ToArray();
             string[] refreshedIds = ids.ToArray();

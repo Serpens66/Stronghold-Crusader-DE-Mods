@@ -260,6 +260,7 @@ function Assert-ApiBuildProof([string]$Root) {
         Assert-Case $rejected ('invalid test selection accepted: ' + ($arguments -join ' '))
     }
     Assert-Case ((Get-BranchTestSelection $bfDriver @('/tests:full','/checks:settings')).Scope -eq 'settings') 'existing scope lost'
+    Assert-Case ((Get-BranchTestSelection $bfDriver @('/tests:full','/checks:coop')).Scope -eq 'coop') 'Coop validation scope lost'
     # Test the production BAT timer itself: wrapping a native test must preserve
     # signed Windows exception exit codes as well as ordinary failures.
     $productionDriver=[IO.File]::ReadAllText((Join-Path $Workspace $bfDriver))

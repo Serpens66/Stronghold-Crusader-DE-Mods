@@ -18,7 +18,7 @@ namespace PopularityTest
     }
     internal static class PopularityCatalog
     {
-        // The game's component reports divide by 25; total popularity instead divides by 100.
+        // Component reports divide by 25; total popularity instead divides by 100.
         internal const int UnitsPerPoint = 25;
         internal static readonly PopularityParameter[] All = {
             new PopularityParameter("RationsPopModifierNone", "Rations", -8, 16, g => g.RationsPopModifierNone, s => s.RationsPopModifierNoneEnabled, s => s.RationsPopModifierNone),

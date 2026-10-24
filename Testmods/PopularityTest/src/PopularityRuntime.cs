@@ -31,7 +31,7 @@ namespace PopularityTest
 
         internal void Register()
         {
-            // An optional coefficient adapter must not disable independent SE parameters.
+            // An optional fear adapter must not disable independent SE parameters.
             IndependentFeatureRegistration.Register(
                 () => FearPopularity.TryRegister(Plugin.Guid, "fear-multiplier", out fear, out fearDiagnostic),
                 RegisterMissions,
@@ -77,10 +77,10 @@ namespace PopularityTest
         }
         private void ApplySnapshot()
         {
-            bool requested = settings.EnableMod && settings.GoodBadThingPopModifierMultiplierEnabled;
+            bool requested = settings.EnableMod && (settings.NegativeFearEnabled || settings.PositiveFearEnabled);
             try {
                 if (fear != null) {
-                    fear.SetMultiplier(requested ? (decimal?)settings.GoodBadThingPopModifierMultiplier : null);
+                    fear.SetLevelContributions(requested ? settings.CaptureFearContributions() : null);
                 } else if (requested) Shared.RuntimeHealth.Report("fear-registration", false,
                     fearDiagnostic + "; independent popularity overrides continue.");
             } catch (Exception ex) { Error("POPULARITY_FEAR_FAILED: " + ex); }
@@ -104,7 +104,7 @@ namespace PopularityTest
         }
         private void Release()
         {
-            fear?.SetMultiplier(null);
+            fear?.SetLevelContributions(null);
             bool released = overrides.Release();
             if (!released) Shared.RuntimeHealth.Report("popularity-release", true,
                 "Some owned layers could not be released; see ownership errors. session=" + session);

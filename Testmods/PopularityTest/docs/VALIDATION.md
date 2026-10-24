@@ -11,23 +11,32 @@ silently rebuilt or selected instead. DLL name, manifest GUID/version, minimum d
 and a run-wide DLL SHA-256 are checked; no APIShared DLL is included with this consumer.
 The dev SDK must contain the rounded fear API, not merely share its version string.
 
-APIShared owns the automatic display correction and rounded fear calculation. This mod
-owns host settings, opt-in activation, localization and its ordinary SE overrides.
-Fear accepts -5..+5 in 0.1 steps, including decimal comma input. The exact coefficient is
-multiplied by the signed fear level, then rounded to whole report points; midpoint ties
-round away from zero. Ordinary source settings retain integer steps and existing bounds.
+APIShared owns the automatic display correction and fear contribution selection. This mod
+owns synchronized host settings, opt-in activation, localization and ordinary SE overrides.
+Its settings page uses the ExtraFeatures host/preset/source/search shell and the shared
+APIShared commands. Load the Mod defaults source to reset the working values and disable
+overrides. The page is disabled during a mission; native/host snapshots still follow the
+existing initialization checkpoints. There is no local-client feature section.
+
+Negative and positive fear groups each have one activation switch and five whole-point
+values (-25..25), keyed by levels -5..-1 and +1..+5 respectively. Defaults equal their
+levels and both groups start disabled. A disabled group retains its saved values and
+publishes no override. Zero contributions and reversed signs are supported; neutral
+level zero is never overridden. The previous testmod coefficient is intentionally not
+migrated. Unrelated settings remain compatible. The maintained generator reads its local
+SettingsShell.xaml; it does not depend on another mod during generation or at runtime.
 
 ## Relevant checks
 
 The build runs scoped dependency/source-boundary, runtime JSON/lifecycle guardrails,
-asset/locale/CRLF checks, compiled signatures and XAML bindings against the actual SDK,
+asset/locale/CRLF checks, compiled signatures and context-aware XAML bindings (including preset item templates) against the actual SDK,
 Extender and original game assembly, plus this mod's preset/override behavior tests.
 Source scans are guardrails, not behavioral proof. No exact source text, control adjacency,
 private method layout, current setting count or foreign consumer suite is a build contract.
 
 The standalone preset fixture compiles the real settings and maintained API preset sources;
 only external engine/UI/logging boundaries are doubles. It tests persistence (including
-fractional fear), reset, host/client authority, local preference preservation, mission
+fixed fear levels), reset, host/client authority, local preference preservation, mission
 locking, disabled no-op, duplicate lifecycle checkpoints, zero/negative overrides,
 partial rollback and foreign stack retention. Run the BAT/fresh Windows PowerShell
 outside the sandbox: the fixture exercises atomic File.Replace. General API tests stay

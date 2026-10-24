@@ -159,3 +159,46 @@ separate ABI boundaries. The game and native calculation audited earlier are unc
 ## 2026-10-18: managed IL operand representation
 
 The installed Extender fear method has two audited coefficient sites. Inside MonoMod ILContext.Invoke its branches use ILLabel/ILLabel[] operands; direct Cecil-only CFG traversal falsely reported unreachable coefficient access. APIShared now resolves and validates label targets without mutating operands. This is a managed-analysis correction; the hash-bound native formula, resource identity, signed input and hook sites remain unchanged. Offline regression invokes the real installed method through ILContext.Invoke; runtime gameplay acceptance is still required.
+
+## Fear-level production and fixed contributions (2026-10-25)
+
+Native SHA-256 remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The current raw function/instruction packets were compared with the canonical installed
+DLL: 3,734 instructions across 0xBCEB0, 0xCD850, 0xCB090, 0x19D960, 0xD1AD0 and
+0x180560 matched byte-for-byte. Generic function names retain their candidate labels;
+the following local machine/data-flow observations are confirmed-static.
+
+The resource scheduler 0xD1AD0 calls building recount 0xBCEB0 before productivity
+0xCD850 and the popularity component path 0xCB090. Recount clears counts and level
+for all eight player slots, excludes building statuses 0 and 3, and classifies owned
+building types using the native ranges/bitmask. Bad types are 62..64 and 91..98;
+good types in this exact build are 65, 66, 100, 101 and 103. This records the observed
+classification, not an assumption that every decorative building counts.
+
+Resource identity is anchored by manager VA 0x18366C210 (scheduler caller 0xCDE60),
+record stride 0x583C and native slot prefix 0x12EBC0. Slot 1 begins at manager+0x1343FC,
+matching the Extender array. Signed fear boost at struct+0x2134 is native slot+0x130CF4;
+its neighboring bad/good counts are struct+0x212C/+0x2130 and total population +0x2180.
+The independent report producer copies those same count/level fields. For nonnegative
+population, recount computes denominator = trunc(population/16)+1, then
+level = clamp(trunc((goodCount-badCount)/denominator), -5, +5). Division truncates toward
+zero (signed IDIV); equal counts retain the zero from the initial clear. The next-stage
+field records the remaining net buildings needed. Thus population 100 requires seven
+net buildings for each level. Building count, population and ownership are inputs;
+a popularity-contribution override does not change this producer.
+
+Productivity is separately 100-10*level percent for native levels -5..5, clamped at
+150/50 percent at the extremes by 0xCD850. The popularity path multiplies the signed
+level by 25 internal report units; its result reaches component storage, accumulator
+and worst-source selection before events and the final popularity clamp. Report
+0x19D960 independently computes level*25, so the API display correction uses the same
+selected contribution as simulation. 0x180560 independently consumes the level in its
+own arithmetic; changing the popularity contribution leaves that input untouched.
+
+APIShared's fixed-level tables use the existing managed multiplication adapter, with
+no new hook or change to native branches. Tables select on the signed input level,
+not the sign of the configured output. Unspecified levels reveal earlier applicable
+registrations or the complete original SE multiplication. Level zero stays neutral.
+The Extender's configurable multiplier directly exposes Vanilla's constant 25; that
+is a technical explanation, not evidence of the author's personal design motivation.
+Actual game, report/preview and real host/client acceptance remain separate.

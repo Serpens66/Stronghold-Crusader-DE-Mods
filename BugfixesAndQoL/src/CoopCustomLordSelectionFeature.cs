@@ -119,6 +119,7 @@ namespace BugfixesAndQoL
         private TextureSource selectedPortrait;
         private bool customSelectionActive;
         private bool initialized;
+        private ICoopAiStartPreviewCapability coopAiPreview;
 
         internal CoopCustomLordSelectionFeature(
             ManualLogSource log,
@@ -199,6 +200,7 @@ namespace BugfixesAndQoL
                         out ICoopAiStartImportCapability coopImport, out NativeCapabilityDiagnostic diagnostic) ||
                     !coopImport.TryRegisterProvider("BugfixesAndQoL.CoopLordSelection", ProvideCoopAiStart, out diagnostic))
                     throw new InvalidOperationException("APIShared Coop AI start import unavailable: " + diagnostic?.Reason);
+                coopAiPreview = coopImport as ICoopAiStartPreviewCapability;
 
                 coopMissionChangedHook = pendingMission;
                 initCoopGameHook = pendingInit;
@@ -248,6 +250,12 @@ namespace BugfixesAndQoL
             CoopCustomLordSelectionFeature feature = current;
             if (feature == null)
                 return;
+
+            if (feature.settings.EnableMod && self?.singlePlayerCoop == true && !self.closePanelDisplayed &&
+                FRONT_Multiplayer.coopGame && !FRONT_Multiplayer.customCoopGame &&
+                string.Equals(command, "COOP_START", StringComparison.Ordinal) && self.AIVs?.Length == 8 &&
+                self.currentLobby?.members != null && self.currentLobby.this_player_to_SteamID_mapping?.Length == 8)
+                Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
 
             if (string.Equals(command, "CoopSinglePlayer", StringComparison.Ordinal))
                 feature.ClearSelection("new Coop run");
@@ -763,6 +771,8 @@ namespace BugfixesAndQoL
             if (request.IsPreview && !self.singlePlayerCoop && request.CoopTrail > 0)
                 return PreviewMultiplayerCoopStart(self);
             int selectedAllyLordType = checked((int)(ulong)SinglePlayerCoopAllyField.GetValue(self));
+            if (self.singlePlayerCoop)
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
             var plans = new List<CoopAiSlotPlan>();
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
             {
@@ -780,7 +790,7 @@ namespace BugfixesAndQoL
                         self.singlePlayerCoop,
                         selectedInfo?.lordType == lordType,
                         selectedInfo != null && (!selectedInfo.builtInLord ||
-                            (!selectedInfo.builtIn && selectedInfo.aivs?.Count > 0)),
+                            (!selectedInfo.builtIn && (selectedInfo.community || selectedInfo.historical || selectedInfo.aivs?.Count > 0))),
                         playerId))
                 {
                     plan = self.singlePlayerCoop
@@ -805,6 +815,53 @@ namespace BugfixesAndQoL
                     plans.Add(plan);
             }
             return plans.Count == 0 ? null : new CoopAiStartContribution(plans);
+        }
+
+        // The existing final managed start hook also covers restart paths that bypass the Play button.
+        internal static bool TryValidateLocalCoopStart(FRONT_Multiplayer self)
+        {
+            CoopCustomLordSelectionFeature feature = current;
+            if (feature?.EnhancementsEnabled != true || self?.singlePlayerCoop != true ||
+                !FRONT_Multiplayer.coopGame || FRONT_Multiplayer.customCoopGame) return true;
+            try
+            {
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
+                var expected = new List<CoopAiSlotPlan>();
+                foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+                {
+                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    int id = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                    CoopAiSlotPlan plan = Shared.CoopAiStartPlanFactory.Create(self.AIVs[id - 1], id,
+                        member.GetLordType(), -1, null, true);
+                    if (plan != null) expected.Add(plan);
+                }
+                if (feature.coopAiPreview == null)
+                {
+                    if (expected.Count == 0) return true;
+                    throw new Shared.CoopAiSelectionException("MissingImportPlan", expected[0].PlayerId, "preview unavailable");
+                }
+                if (!feature.coopAiPreview.TryPreview(self.currentLobby.coopTrailID + 1,
+                    self.currentLobby.coopSelectedMission - 1, out CoopAiStartPreview preview, out NativeCapabilityDiagnostic diagnostic))
+                    throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, diagnostic?.Reason ?? "preview unavailable");
+                if (!preview.Succeeded)
+                    throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, preview.Failure);
+                foreach (CoopAiSlotPlan plan in expected)
+                    Shared.CoopAiStartPlanFactory.RequirePlan(plan, preview.PlanFor(plan.PlayerId), true);
+                return true;
+            }
+            catch (Shared.CoopAiSelectionException failure)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(feature.log, "coop-ai-launch-validation",
+                    "Blocked Coop start: trail=" + (self.currentLobby?.coopTrailID + 1) +
+                    ", mission=" + self.currentLobby?.coopSelectedMission + ", route=" +
+                    (MissionRestart.IsInProgress ? "restart" : FRONT_Multiplayer.skirmishGame ? "customize" : "direct") + "; " + failure +
+                    "; selections=[" + Shared.CoopAiStartPlanFactory.DescribeLobby(self.currentLobby, self.AIVs) + "]");
+                HUD_ConfirmationPopup.ShowConfirmationOKMessage(SerpLocalization.Get("CoopAi.StartBlocked"), () => { },
+                    SerpLocalization.Get("CoopAi.Error." + failure.Code).Replace("{Player}", failure.PlayerId.ToString()));
+                MainViewModel.Instance.Show_HUD_Confirmation = false;
+                MainViewModel.Instance.Show_HUD_ConfirmationMP = true;
+                return false;
+            }
         }
 
         // Host-side preview of BeginCoopStart: every AI slot from the host's selection, which its lobby data and

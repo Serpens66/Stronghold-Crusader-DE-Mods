@@ -174,3 +174,16 @@ SomeSettings.PlagueDamageWallsHelp=Allows plague damage on low and high walls an
 SomeSettings.PlagueDamageGatesHelp=Allows plague damage on walkable gatehouses. Cloud and unit standing heights must differ by at most 20 native height units. Unit-type immunity, damage and apothecary protection remain unchanged. Off preserves Vanilla exclusions for this category.
 SomeSettings.PlagueDamageTowersHelp=Allows plague damage on defensive towers. Cloud and unit standing heights must differ by at most 20 native height units. Unit-type immunity, damage and apothecary protection remain unchanged. Off preserves Vanilla exclusions for this category.
 SomeSettings.PlagueDamageKeepsHelp=Allows plague damage on keep platforms. Cloud and unit standing heights must differ by at most 20 native height units. Unit-type immunity, damage and apothecary protection remain unchanged. Off preserves Vanilla exclusions for this category.
+
+ExtraFeatures.SettingsTopics.Topic.Units=Units and combat
+ExtraFeatures.SettingsTopics.Topic.Gatehouses=Gatehouses and drawbridges
+ExtraFeatures.SettingsTopics.Topic.Building=Building and rebuilding
+ExtraFeatures.SettingsTopics.Topic.Economy=Population and economy
+ExtraFeatures.SettingsTopics.Topic.Demolition=Demolition and refunds
+ExtraFeatures.SettingsTopics.Topic.Plague=Plague and healing
+ExtraFeatures.SettingsTopics.Topic.Market=Market prices
+ExtraFeatures.SettingsTopics.ExpandAll=Expand all
+ExtraFeatures.SettingsTopics.CollapseAll=Collapse all
+ExtraFeatures.SettingsTopics.ExpandAllHelp=Opens all topic areas without changing any settings.
+ExtraFeatures.SettingsTopics.CollapseAllHelp=Closes all topic areas without changing any settings.
+ExtraFeatures.SettingsTopics.TopicToggleHelp=Opens or closes this topic area. Matching topics open automatically during a search; clear the search to fold them manually.

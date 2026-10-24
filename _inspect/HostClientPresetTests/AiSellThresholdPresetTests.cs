@@ -14,7 +14,7 @@ internal static class AiSellThresholdPresetTests
     // the production property classification/default and reconciliation wiring.
     private sealed class Probe : PresetLobbyModSettingsViewModel
     {
-        private bool enabled = true;
+        private bool enabled = false;
         [SyncHostOnly]
         public bool EnableAiSellThresholdFix
         {
@@ -30,7 +30,7 @@ internal static class AiSellThresholdPresetTests
 
     internal static void Run()
     {
-        Check(new Probe().EnableAiSellThresholdFix, "new setting defaults to enabled");
+        Check(!new Probe().EnableAiSellThresholdFix, "new setting defaults to disabled");
         string guid = "AiSellThresholdPresetProbe";
         string targetGuid = "Tests." + guid;
         string plugin = Path.Combine(Program.PresetFixtureInstallRoot, "TestPlugin.dll");
@@ -66,7 +66,7 @@ internal static class AiSellThresholdPresetTests
         var legacy = new Probe();
         legacy.PreparePresets(null, plugin, legacyGuid);
         legacy.ActivatePresets();
-        Check(legacy.EnableAiSellThresholdFix, "missing setting in old preset must remain enabled");
+        Check(!legacy.EnableAiSellThresholdFix, "missing setting in old preset uses disabled default");
         GameNetworkAPI.LocalHost = true;
         GameNetworkAPI.Networked = false;
         vm.System_RefreshSettingsAccess();
@@ -85,7 +85,8 @@ internal static class AiSellThresholdPresetTests
         vm.System_TestLoadPreset(one.StableId); Check(!vm.EnableAiSellThresholdFix, "first personal preset retains false");
         vm.System_TestLoadPreset(two.StableId); Check(vm.EnableAiSellThresholdFix, "second personal preset retains true");
         vm.System_LoadModDefaults();
-        Check(vm.EnableAiSellThresholdFix, "reset default true");
+        Check(!vm.EnableAiSellThresholdFix, "reset default false");
+        vm.EnableAiSellThresholdFix = true;
         vm.System_EnterMissionPreset(saved, "Trail", false);
         Check(!vm.EnableAiSellThresholdFix && !vm.CanEditHostSettings, "read-only Trail false");
         vm.System_ExitMissionPreset();
@@ -96,10 +97,10 @@ internal static class AiSellThresholdPresetTests
         Check(vm.EnableAiSellThresholdFix, "save exit restores local working state");
         string root = FindRoot();
         string source = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs"));
-        Check(source.Contains("private bool enableAiSellThresholdFix = true;") &&
+        Check(source.Contains("private bool enableAiSellThresholdFix = false;") &&
             source.Contains("[SyncHostOnly]\r\n        public bool EnableAiSellThresholdFix") &&
             source.Contains("SetSetting(ref enableAiSellThresholdFix, value, nameof(EnableAiSellThresholdFix))") &&
-            source.Contains("EnableAiSellThresholdFix = true;"), "production property default, host classification, setter and reset");
+            source.Contains("EnableAiSellThresholdFix = false;"), "production property default, host classification, setter and reset");
         string runtime = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs"));
         Check(runtime.Contains("settings.EnableMod && settings.EnableAiSellThresholdFix") &&
             runtime.Contains("TryApplyFeature(\"AI sell threshold safety\", ApplyAiSellThresholdFix)"), "main switch and central settings application on all peers");

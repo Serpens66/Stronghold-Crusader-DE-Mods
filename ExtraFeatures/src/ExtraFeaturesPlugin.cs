@@ -173,6 +173,7 @@ namespace ExtraFeatures
             try
             {
                 Settings.RefreshMarketGoodPriceVisuals();
+                Settings.RefreshSettingsSearchSource(Logger);
             }
             catch (Exception ex)
             {
@@ -180,7 +181,7 @@ namespace ExtraFeatures
                     return;
 
                 marketGoodPriceVisualRefreshFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:177", $"Extra Features market-price icon refresh failed; multiplier controls remain usable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:177", $"Extra Features market-price visual/search refresh failed; multiplier controls remain usable: {ex}");
             }
         }
 

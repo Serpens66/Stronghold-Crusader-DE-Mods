@@ -1094,6 +1094,11 @@ namespace BugfixesAndQoL
                     continue;
                 if (playerId < 1 || playerId > parent.AIVs.Length)
                     continue;
+                // Direct Coop always uses a Vanilla partner's standard data. The remembered choice
+                // remains on disk and can be selected in the Customize skirmish setup.
+                if (playerId == 2 && parent.singlePlayerCoop && FRONT_Multiplayer.coopGame &&
+                    !FRONT_Multiplayer.skirmishGame && member.GetLordType() < Shared.CoopAiSelectionRules.FirstCustomLordType)
+                    continue;
                 if (before.TryGetValue(playerId, out string previousKey) &&
                     string.Equals(previousKey, key, StringComparison.OrdinalIgnoreCase))
                 {

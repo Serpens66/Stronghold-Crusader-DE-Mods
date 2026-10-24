@@ -58,7 +58,7 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiStoneReserveFix = true;
-        private bool enableAiSellThresholdFix = true;
+        private bool enableAiSellThresholdFix = false;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableEnemyGatePathfindingFix = true;
@@ -1633,7 +1633,7 @@ namespace BugfixesAndQoL
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
-                EnableAiSellThresholdFix = true;
+                EnableAiSellThresholdFix = false;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableEnemyGatePathfindingFix = true;

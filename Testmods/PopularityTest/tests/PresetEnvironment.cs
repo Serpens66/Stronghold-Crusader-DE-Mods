@@ -178,6 +178,16 @@ namespace SHCDESE.API
 
         public static GameXAMLManagerAPI Instance { get; } = new GameXAMLManagerAPI();
         public SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin CurrentLobbyModSettingsChangeOrigin { get; private set; }
+        // External Extender boundary: nested origins restore their predecessor and
+        // callback failures are swallowed there. APIShared's real wrapper rethrows.
+        internal void RunWithChangeOrigin(SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin origin, Action action)
+        {
+            var previous = CurrentLobbyModSettingsChangeOrigin;
+            CurrentLobbyModSettingsChangeOrigin = origin;
+            try { action(); }
+            catch { }
+            finally { CurrentLobbyModSettingsChangeOrigin = previous; }
+        }
         public List<Registration> RegisteredModSettings { get; } = new List<Registration>();
         public int BroadcastCount { get; private set; }
         public int SaveCount { get; private set; }
@@ -213,6 +223,7 @@ namespace SHCDESE.API
             notify.PropertyChanged += (sender, args) =>
             {
                 if (CurrentLobbyModSettingsChangeOrigin == SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.IncomingNetwork ||
+                    CurrentLobbyModSettingsChangeOrigin == SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.InitialLoad ||
                     sender is SHCDESE.ViewModels.LobbyModSettingsBaseViewModel revertingVm && revertingVm.IsSuppressingSync ||
                     sender == null ||
                     string.IsNullOrEmpty(args.PropertyName))

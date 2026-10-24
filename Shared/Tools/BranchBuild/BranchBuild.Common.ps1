@@ -40,7 +40,7 @@ function Get-BranchTestSelection([string]$Driver, [string[]]$DriverArguments) {
     if ($modes.Count -gt 1) { throw 'Conflicting /tests arguments.' }
     $mode = if ($modes.Count) { $modes[0] } else { 'full' }
     $scopes = @($DriverArguments | Where-Object { $_ -match '^/checks(?::|$)' } | ForEach-Object {
-        if ($_ -notmatch '^/checks:(notifications|gatehouse|foreignhud|settings)$') { throw 'Unknown /checks scope.' }
+        if ($_ -notmatch '^/checks:(notifications|gatehouse|foreignhud|settings|coop)$') { throw 'Unknown /checks scope.' }
         $Matches[1].ToLowerInvariant()
     } | Sort-Object -Unique)
     if ($scopes.Count -gt 1 -or ($scopes.Count -and $mode -ne 'full')) { throw '/checks selects one feature scope and requires /tests:full.' }

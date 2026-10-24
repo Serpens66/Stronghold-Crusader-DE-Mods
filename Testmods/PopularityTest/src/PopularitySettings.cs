@@ -1,7 +1,7 @@
 using APIShared.ModSettings;
 using SHCDESE.API.Components.Network;
-using SHCDESE.NoesisUtil;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -16,7 +16,6 @@ namespace PopularityTest
         private readonly int uiThread = Thread.CurrentThread.ManagedThreadId;
         public PopularitySettings()
         {
-            ResetToDefaultCommand = new RelayCommand(ResetDefaults);
             PropertyChanged += (_, e) => { if (e.PropertyName == nameof(CanEditHostSettings)) RefreshEditors(); };
         }
         public bool BetweenMissions => !missionLocked;
@@ -27,8 +26,6 @@ namespace PopularityTest
             get => enableMod;
             set { if (Change(ref enableMod, value)) RefreshEditors(); }
         }
-        public RelayCommand ResetToDefaultCommand { get; }
-        public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
         public string ScopeText => SerpLocalization.Get("Popularity.Scope");
         public string RuleText => SerpLocalization.Get("Popularity.Rule");
         protected override string ResolveSettingsUiText(string key, string fallback)
@@ -88,62 +85,67 @@ namespace PopularityTest
             OnPropertyChanged(nameof(AlePopModifierTierThreeEditable));
             OnPropertyChanged(nameof(AlePopModifierTierFourEditable));
             OnPropertyChanged(nameof(FairsPopularityEventModifierEditable));
-            OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierEditable));
+            OnPropertyChanged(nameof(FearNegative1Editable));
+            OnPropertyChanged(nameof(FearNegative2Editable));
+            OnPropertyChanged(nameof(FearNegative3Editable));
+            OnPropertyChanged(nameof(FearNegative4Editable));
+            OnPropertyChanged(nameof(FearNegative5Editable));
+            OnPropertyChanged(nameof(FearPositive1Editable));
+            OnPropertyChanged(nameof(FearPositive2Editable));
+            OnPropertyChanged(nameof(FearPositive3Editable));
+            OnPropertyChanged(nameof(FearPositive4Editable));
+            OnPropertyChanged(nameof(FearPositive5Editable));
         }
-        private void ResetDefaults()
+        private bool negativeFearEnabled;
+        [SyncHostOnly]
+        public bool NegativeFearEnabled
         {
-            if (!CanConfigure) return;
-            EnableMod = true;
-            RationsPopModifierNoneEnabled = false; RationsPopModifierNone = -8;
-            RationsPopModifierHalfEnabled = false; RationsPopModifierHalf = -4;
-            RationsPopModifierFullEnabled = false; RationsPopModifierFull = 0;
-            RationsPopModifierExtraEnabled = false; RationsPopModifierExtra = 4;
-            RationsPopModifierDoubleEnabled = false; RationsPopModifierDouble = 8;
-            RationsPopModifierNoPreferredFoodEnabled = false; RationsPopModifierNoPreferredFood = -8;
-            RationsPopModifierNoPopulationEnabled = false; RationsPopModifierNoPopulation = 8;
-            FoodVarietyPopModifierTwoTypesEnabled = false; FoodVarietyPopModifierTwoTypes = 1;
-            FoodVarietyPopModifierThreeTypesEnabled = false; FoodVarietyPopModifierThreeTypes = 2;
-            FoodVarietyPopModifierFourTypesEnabled = false; FoodVarietyPopModifierFourTypes = 3;
-            OverpopulationPopModifierTierOneEnabled = false; OverpopulationPopModifierTierOne = -2;
-            OverpopulationPopModifierTierTwoEnabled = false; OverpopulationPopModifierTierTwo = -4;
-            OverpopulationPopModifierTierThreeEnabled = false; OverpopulationPopModifierTierThree = -6;
-            OverpopulationPopModifierTierFourEnabled = false; OverpopulationPopModifierTierFour = -8;
-            OverpopulationPopModifierTierFiveEnabled = false; OverpopulationPopModifierTierFive = -10;
-            TaxPopModifierHugeDonationEnabled = false; TaxPopModifierHugeDonation = 7;
-            TaxPopModifierBigDonationEnabled = false; TaxPopModifierBigDonation = 5;
-            TaxPopModifierSmallDonationEnabled = false; TaxPopModifierSmallDonation = 3;
-            TaxPopModifierNoneEnabled = false; TaxPopModifierNone = 1;
-            TaxPopModifierLowEnabled = false; TaxPopModifierLow = -2;
-            TaxPopModifierModerateEnabled = false; TaxPopModifierModerate = -4;
-            TaxPopModifierHighEnabled = false; TaxPopModifierHigh = -6;
-            TaxPopModifierMeanEnabled = false; TaxPopModifierMean = -8;
-            TaxPopModifierUsuriousEnabled = false; TaxPopModifierUsurious = -12;
-            TaxPopModifierCruelEnabled = false; TaxPopModifierCruel = -16;
-            TaxPopModifierMostCruelEnabled = false; TaxPopModifierMostCruel = -20;
-            TaxPopModifierCruellestEnabled = false; TaxPopModifierCruellest = -24;
-            TaxPopModifierUnaffordableDonationEnabled = false; TaxPopModifierUnaffordableDonation = 1;
-            TaxPopModifierUnknownModeEnabled = false; TaxPopModifierUnknownMode = -24;
-            ReligionPopModifierTierOneEnabled = false; ReligionPopModifierTierOne = 2;
-            ReligionPopModifierTierTwoEnabled = false; ReligionPopModifierTierTwo = 4;
-            ReligionPopModifierTierThreeEnabled = false; ReligionPopModifierTierThree = 6;
-            ReligionPopModifierTierFourEnabled = false; ReligionPopModifierTierFour = 8;
-            ChurchPopModifierEnabled = false; ChurchPopModifier = 1;
-            CathedralPopModifierEnabled = false; CathedralPopModifier = 2;
-            AlePopModifierTierOneEnabled = false; AlePopModifierTierOne = 2;
-            AlePopModifierTierTwoEnabled = false; AlePopModifierTierTwo = 4;
-            AlePopModifierTierThreeEnabled = false; AlePopModifierTierThree = 6;
-            AlePopModifierTierFourEnabled = false; AlePopModifierTierFour = 8;
-            FairsPopularityEventModifierEnabled = false; FairsPopularityEventModifier = 16;
-            GoodBadThingPopModifierMultiplierEnabled = false; GoodBadThingPopModifierMultiplier = 1;
+            get => negativeFearEnabled;
+            set { if (Change(ref negativeFearEnabled, value)) RefreshEditors(); }
+        }
+        public string NegativeFearTitle => SerpLocalization.Get("Popularity.NegativeFear");
+        public string NegativeFearHelp => SerpLocalization.Get("Popularity.NegativeFear.Help");
+        private bool positiveFearEnabled;
+        [SyncHostOnly]
+        public bool PositiveFearEnabled
+        {
+            get => positiveFearEnabled;
+            set { if (Change(ref positiveFearEnabled, value)) RefreshEditors(); }
+        }
+        public string PositiveFearTitle => SerpLocalization.Get("Popularity.PositiveFear");
+        public string PositiveFearHelp => SerpLocalization.Get("Popularity.PositiveFear.Help");
+        // Capture at mission checkpoints; APIShared copies this table before
+        // publishing it to simulation and report readers.
+        internal Dictionary<int, int> CaptureFearContributions()
+        {
+            var values = new Dictionary<int, int>();
+            if (!EnableMod) return values;
+            if (NegativeFearEnabled)
+            {
+                values.Add(-1, FearNegative1);
+                values.Add(-2, FearNegative2);
+                values.Add(-3, FearNegative3);
+                values.Add(-4, FearNegative4);
+                values.Add(-5, FearNegative5);
+            }
+            if (PositiveFearEnabled)
+            {
+                values.Add(1, FearPositive1);
+                values.Add(2, FearPositive2);
+                values.Add(3, FearPositive3);
+                values.Add(4, FearPositive4);
+                values.Add(5, FearPositive5);
+            }
+            return values;
         }
         private bool rationsPopModifierNoneEnabled;
-        private int rationsPopModifierNone = -8;
         [SyncHostOnly]
         public bool RationsPopModifierNoneEnabled
         {
             get => rationsPopModifierNoneEnabled;
             set { if (Change(ref rationsPopModifierNoneEnabled, value)) OnPropertyChanged(nameof(RationsPopModifierNoneEditable)); }
         }
+        private int rationsPopModifierNone = -8;
         [SyncHostOnly]
         public int RationsPopModifierNone
         {
@@ -159,13 +161,13 @@ namespace PopularityTest
         public string RationsPopModifierNoneTitle => SerpLocalization.Get("Popularity.RationsPopModifierNone");
         public string RationsPopModifierNoneHelp => SerpLocalization.Get("Popularity.RationsPopModifierNone.Help");
         private bool rationsPopModifierHalfEnabled;
-        private int rationsPopModifierHalf = -4;
         [SyncHostOnly]
         public bool RationsPopModifierHalfEnabled
         {
             get => rationsPopModifierHalfEnabled;
             set { if (Change(ref rationsPopModifierHalfEnabled, value)) OnPropertyChanged(nameof(RationsPopModifierHalfEditable)); }
         }
+        private int rationsPopModifierHalf = -4;
         [SyncHostOnly]
         public int RationsPopModifierHalf
         {
@@ -181,13 +183,13 @@ namespace PopularityTest
         public string RationsPopModifierHalfTitle => SerpLocalization.Get("Popularity.RationsPopModifierHalf");
         public string RationsPopModifierHalfHelp => SerpLocalization.Get("Popularity.RationsPopModifierHalf.Help");
         private bool rationsPopModifierFullEnabled;
-        private int rationsPopModifierFull = 0;
         [SyncHostOnly]
         public bool RationsPopModifierFullEnabled
         {
             get => rationsPopModifierFullEnabled;
             set { if (Change(ref rationsPopModifierFullEnabled, value)) OnPropertyChanged(nameof(RationsPopModifierFullEditable)); }
         }
+        private int rationsPopModifierFull = 0;
         [SyncHostOnly]
         public int RationsPopModifierFull
         {
@@ -203,13 +205,13 @@ namespace PopularityTest
         public string RationsPopModifierFullTitle => SerpLocalization.Get("Popularity.RationsPopModifierFull");
         public string RationsPopModifierFullHelp => SerpLocalization.Get("Popularity.RationsPopModifierFull.Help");
         private bool rationsPopModifierExtraEnabled;
-        private int rationsPopModifierExtra = 4;
         [SyncHostOnly]
         public bool RationsPopModifierExtraEnabled
         {
             get => rationsPopModifierExtraEnabled;
             set { if (Change(ref rationsPopModifierExtraEnabled, value)) OnPropertyChanged(nameof(RationsPopModifierExtraEditable)); }
         }
+        private int rationsPopModifierExtra = 4;
         [SyncHostOnly]
         public int RationsPopModifierExtra
         {
@@ -225,13 +227,13 @@ namespace PopularityTest
         public string RationsPopModifierExtraTitle => SerpLocalization.Get("Popularity.RationsPopModifierExtra");
         public string RationsPopModifierExtraHelp => SerpLocalization.Get("Popularity.RationsPopModifierExtra.Help");
         private bool rationsPopModifierDoubleEnabled;
-        private int rationsPopModifierDouble = 8;
         [SyncHostOnly]
         public bool RationsPopModifierDoubleEnabled
         {
             get => rationsPopModifierDoubleEnabled;
             set { if (Change(ref rationsPopModifierDoubleEnabled, value)) OnPropertyChanged(nameof(RationsPopModifierDoubleEditable)); }
         }
+        private int rationsPopModifierDouble = 8;
         [SyncHostOnly]
         public int RationsPopModifierDouble
         {
@@ -247,13 +249,13 @@ namespace PopularityTest
         public string RationsPopModifierDoubleTitle => SerpLocalization.Get("Popularity.RationsPopModifierDouble");
         public string RationsPopModifierDoubleHelp => SerpLocalization.Get("Popularity.RationsPopModifierDouble.Help");
         private bool rationsPopModifierNoPreferredFoodEnabled;
-        private int rationsPopModifierNoPreferredFood = -8;
         [SyncHostOnly]
         public bool RationsPopModifierNoPreferredFoodEnabled
         {
             get => rationsPopModifierNoPreferredFoodEnabled;
             set { if (Change(ref rationsPopModifierNoPreferredFoodEnabled, value)) OnPropertyChanged(nameof(RationsPopModifierNoPreferredFoodEditable)); }
         }
+        private int rationsPopModifierNoPreferredFood = -8;
         [SyncHostOnly]
         public int RationsPopModifierNoPreferredFood
         {
@@ -269,13 +271,13 @@ namespace PopularityTest
         public string RationsPopModifierNoPreferredFoodTitle => SerpLocalization.Get("Popularity.RationsPopModifierNoPreferredFood");
         public string RationsPopModifierNoPreferredFoodHelp => SerpLocalization.Get("Popularity.RationsPopModifierNoPreferredFood.Help");
         private bool rationsPopModifierNoPopulationEnabled;
-        private int rationsPopModifierNoPopulation = 8;
         [SyncHostOnly]
         public bool RationsPopModifierNoPopulationEnabled
         {
             get => rationsPopModifierNoPopulationEnabled;
             set { if (Change(ref rationsPopModifierNoPopulationEnabled, value)) OnPropertyChanged(nameof(RationsPopModifierNoPopulationEditable)); }
         }
+        private int rationsPopModifierNoPopulation = 8;
         [SyncHostOnly]
         public int RationsPopModifierNoPopulation
         {
@@ -291,13 +293,13 @@ namespace PopularityTest
         public string RationsPopModifierNoPopulationTitle => SerpLocalization.Get("Popularity.RationsPopModifierNoPopulation");
         public string RationsPopModifierNoPopulationHelp => SerpLocalization.Get("Popularity.RationsPopModifierNoPopulation.Help");
         private bool foodVarietyPopModifierTwoTypesEnabled;
-        private int foodVarietyPopModifierTwoTypes = 1;
         [SyncHostOnly]
         public bool FoodVarietyPopModifierTwoTypesEnabled
         {
             get => foodVarietyPopModifierTwoTypesEnabled;
             set { if (Change(ref foodVarietyPopModifierTwoTypesEnabled, value)) OnPropertyChanged(nameof(FoodVarietyPopModifierTwoTypesEditable)); }
         }
+        private int foodVarietyPopModifierTwoTypes = 1;
         [SyncHostOnly]
         public int FoodVarietyPopModifierTwoTypes
         {
@@ -313,13 +315,13 @@ namespace PopularityTest
         public string FoodVarietyPopModifierTwoTypesTitle => SerpLocalization.Get("Popularity.FoodVarietyPopModifierTwoTypes");
         public string FoodVarietyPopModifierTwoTypesHelp => SerpLocalization.Get("Popularity.FoodVarietyPopModifierTwoTypes.Help");
         private bool foodVarietyPopModifierThreeTypesEnabled;
-        private int foodVarietyPopModifierThreeTypes = 2;
         [SyncHostOnly]
         public bool FoodVarietyPopModifierThreeTypesEnabled
         {
             get => foodVarietyPopModifierThreeTypesEnabled;
             set { if (Change(ref foodVarietyPopModifierThreeTypesEnabled, value)) OnPropertyChanged(nameof(FoodVarietyPopModifierThreeTypesEditable)); }
         }
+        private int foodVarietyPopModifierThreeTypes = 2;
         [SyncHostOnly]
         public int FoodVarietyPopModifierThreeTypes
         {
@@ -335,13 +337,13 @@ namespace PopularityTest
         public string FoodVarietyPopModifierThreeTypesTitle => SerpLocalization.Get("Popularity.FoodVarietyPopModifierThreeTypes");
         public string FoodVarietyPopModifierThreeTypesHelp => SerpLocalization.Get("Popularity.FoodVarietyPopModifierThreeTypes.Help");
         private bool foodVarietyPopModifierFourTypesEnabled;
-        private int foodVarietyPopModifierFourTypes = 3;
         [SyncHostOnly]
         public bool FoodVarietyPopModifierFourTypesEnabled
         {
             get => foodVarietyPopModifierFourTypesEnabled;
             set { if (Change(ref foodVarietyPopModifierFourTypesEnabled, value)) OnPropertyChanged(nameof(FoodVarietyPopModifierFourTypesEditable)); }
         }
+        private int foodVarietyPopModifierFourTypes = 3;
         [SyncHostOnly]
         public int FoodVarietyPopModifierFourTypes
         {
@@ -357,13 +359,13 @@ namespace PopularityTest
         public string FoodVarietyPopModifierFourTypesTitle => SerpLocalization.Get("Popularity.FoodVarietyPopModifierFourTypes");
         public string FoodVarietyPopModifierFourTypesHelp => SerpLocalization.Get("Popularity.FoodVarietyPopModifierFourTypes.Help");
         private bool overpopulationPopModifierTierOneEnabled;
-        private int overpopulationPopModifierTierOne = -2;
         [SyncHostOnly]
         public bool OverpopulationPopModifierTierOneEnabled
         {
             get => overpopulationPopModifierTierOneEnabled;
             set { if (Change(ref overpopulationPopModifierTierOneEnabled, value)) OnPropertyChanged(nameof(OverpopulationPopModifierTierOneEditable)); }
         }
+        private int overpopulationPopModifierTierOne = -2;
         [SyncHostOnly]
         public int OverpopulationPopModifierTierOne
         {
@@ -379,13 +381,13 @@ namespace PopularityTest
         public string OverpopulationPopModifierTierOneTitle => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierOne");
         public string OverpopulationPopModifierTierOneHelp => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierOne.Help");
         private bool overpopulationPopModifierTierTwoEnabled;
-        private int overpopulationPopModifierTierTwo = -4;
         [SyncHostOnly]
         public bool OverpopulationPopModifierTierTwoEnabled
         {
             get => overpopulationPopModifierTierTwoEnabled;
             set { if (Change(ref overpopulationPopModifierTierTwoEnabled, value)) OnPropertyChanged(nameof(OverpopulationPopModifierTierTwoEditable)); }
         }
+        private int overpopulationPopModifierTierTwo = -4;
         [SyncHostOnly]
         public int OverpopulationPopModifierTierTwo
         {
@@ -401,13 +403,13 @@ namespace PopularityTest
         public string OverpopulationPopModifierTierTwoTitle => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierTwo");
         public string OverpopulationPopModifierTierTwoHelp => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierTwo.Help");
         private bool overpopulationPopModifierTierThreeEnabled;
-        private int overpopulationPopModifierTierThree = -6;
         [SyncHostOnly]
         public bool OverpopulationPopModifierTierThreeEnabled
         {
             get => overpopulationPopModifierTierThreeEnabled;
             set { if (Change(ref overpopulationPopModifierTierThreeEnabled, value)) OnPropertyChanged(nameof(OverpopulationPopModifierTierThreeEditable)); }
         }
+        private int overpopulationPopModifierTierThree = -6;
         [SyncHostOnly]
         public int OverpopulationPopModifierTierThree
         {
@@ -423,13 +425,13 @@ namespace PopularityTest
         public string OverpopulationPopModifierTierThreeTitle => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierThree");
         public string OverpopulationPopModifierTierThreeHelp => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierThree.Help");
         private bool overpopulationPopModifierTierFourEnabled;
-        private int overpopulationPopModifierTierFour = -8;
         [SyncHostOnly]
         public bool OverpopulationPopModifierTierFourEnabled
         {
             get => overpopulationPopModifierTierFourEnabled;
             set { if (Change(ref overpopulationPopModifierTierFourEnabled, value)) OnPropertyChanged(nameof(OverpopulationPopModifierTierFourEditable)); }
         }
+        private int overpopulationPopModifierTierFour = -8;
         [SyncHostOnly]
         public int OverpopulationPopModifierTierFour
         {
@@ -445,13 +447,13 @@ namespace PopularityTest
         public string OverpopulationPopModifierTierFourTitle => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierFour");
         public string OverpopulationPopModifierTierFourHelp => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierFour.Help");
         private bool overpopulationPopModifierTierFiveEnabled;
-        private int overpopulationPopModifierTierFive = -10;
         [SyncHostOnly]
         public bool OverpopulationPopModifierTierFiveEnabled
         {
             get => overpopulationPopModifierTierFiveEnabled;
             set { if (Change(ref overpopulationPopModifierTierFiveEnabled, value)) OnPropertyChanged(nameof(OverpopulationPopModifierTierFiveEditable)); }
         }
+        private int overpopulationPopModifierTierFive = -10;
         [SyncHostOnly]
         public int OverpopulationPopModifierTierFive
         {
@@ -467,13 +469,13 @@ namespace PopularityTest
         public string OverpopulationPopModifierTierFiveTitle => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierFive");
         public string OverpopulationPopModifierTierFiveHelp => SerpLocalization.Get("Popularity.OverpopulationPopModifierTierFive.Help");
         private bool taxPopModifierHugeDonationEnabled;
-        private int taxPopModifierHugeDonation = 7;
         [SyncHostOnly]
         public bool TaxPopModifierHugeDonationEnabled
         {
             get => taxPopModifierHugeDonationEnabled;
             set { if (Change(ref taxPopModifierHugeDonationEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierHugeDonationEditable)); }
         }
+        private int taxPopModifierHugeDonation = 7;
         [SyncHostOnly]
         public int TaxPopModifierHugeDonation
         {
@@ -489,13 +491,13 @@ namespace PopularityTest
         public string TaxPopModifierHugeDonationTitle => SerpLocalization.Get("Popularity.TaxPopModifierHugeDonation");
         public string TaxPopModifierHugeDonationHelp => SerpLocalization.Get("Popularity.TaxPopModifierHugeDonation.Help");
         private bool taxPopModifierBigDonationEnabled;
-        private int taxPopModifierBigDonation = 5;
         [SyncHostOnly]
         public bool TaxPopModifierBigDonationEnabled
         {
             get => taxPopModifierBigDonationEnabled;
             set { if (Change(ref taxPopModifierBigDonationEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierBigDonationEditable)); }
         }
+        private int taxPopModifierBigDonation = 5;
         [SyncHostOnly]
         public int TaxPopModifierBigDonation
         {
@@ -511,13 +513,13 @@ namespace PopularityTest
         public string TaxPopModifierBigDonationTitle => SerpLocalization.Get("Popularity.TaxPopModifierBigDonation");
         public string TaxPopModifierBigDonationHelp => SerpLocalization.Get("Popularity.TaxPopModifierBigDonation.Help");
         private bool taxPopModifierSmallDonationEnabled;
-        private int taxPopModifierSmallDonation = 3;
         [SyncHostOnly]
         public bool TaxPopModifierSmallDonationEnabled
         {
             get => taxPopModifierSmallDonationEnabled;
             set { if (Change(ref taxPopModifierSmallDonationEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierSmallDonationEditable)); }
         }
+        private int taxPopModifierSmallDonation = 3;
         [SyncHostOnly]
         public int TaxPopModifierSmallDonation
         {
@@ -533,13 +535,13 @@ namespace PopularityTest
         public string TaxPopModifierSmallDonationTitle => SerpLocalization.Get("Popularity.TaxPopModifierSmallDonation");
         public string TaxPopModifierSmallDonationHelp => SerpLocalization.Get("Popularity.TaxPopModifierSmallDonation.Help");
         private bool taxPopModifierNoneEnabled;
-        private int taxPopModifierNone = 1;
         [SyncHostOnly]
         public bool TaxPopModifierNoneEnabled
         {
             get => taxPopModifierNoneEnabled;
             set { if (Change(ref taxPopModifierNoneEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierNoneEditable)); }
         }
+        private int taxPopModifierNone = 1;
         [SyncHostOnly]
         public int TaxPopModifierNone
         {
@@ -555,13 +557,13 @@ namespace PopularityTest
         public string TaxPopModifierNoneTitle => SerpLocalization.Get("Popularity.TaxPopModifierNone");
         public string TaxPopModifierNoneHelp => SerpLocalization.Get("Popularity.TaxPopModifierNone.Help");
         private bool taxPopModifierLowEnabled;
-        private int taxPopModifierLow = -2;
         [SyncHostOnly]
         public bool TaxPopModifierLowEnabled
         {
             get => taxPopModifierLowEnabled;
             set { if (Change(ref taxPopModifierLowEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierLowEditable)); }
         }
+        private int taxPopModifierLow = -2;
         [SyncHostOnly]
         public int TaxPopModifierLow
         {
@@ -577,13 +579,13 @@ namespace PopularityTest
         public string TaxPopModifierLowTitle => SerpLocalization.Get("Popularity.TaxPopModifierLow");
         public string TaxPopModifierLowHelp => SerpLocalization.Get("Popularity.TaxPopModifierLow.Help");
         private bool taxPopModifierModerateEnabled;
-        private int taxPopModifierModerate = -4;
         [SyncHostOnly]
         public bool TaxPopModifierModerateEnabled
         {
             get => taxPopModifierModerateEnabled;
             set { if (Change(ref taxPopModifierModerateEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierModerateEditable)); }
         }
+        private int taxPopModifierModerate = -4;
         [SyncHostOnly]
         public int TaxPopModifierModerate
         {
@@ -599,13 +601,13 @@ namespace PopularityTest
         public string TaxPopModifierModerateTitle => SerpLocalization.Get("Popularity.TaxPopModifierModerate");
         public string TaxPopModifierModerateHelp => SerpLocalization.Get("Popularity.TaxPopModifierModerate.Help");
         private bool taxPopModifierHighEnabled;
-        private int taxPopModifierHigh = -6;
         [SyncHostOnly]
         public bool TaxPopModifierHighEnabled
         {
             get => taxPopModifierHighEnabled;
             set { if (Change(ref taxPopModifierHighEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierHighEditable)); }
         }
+        private int taxPopModifierHigh = -6;
         [SyncHostOnly]
         public int TaxPopModifierHigh
         {
@@ -621,13 +623,13 @@ namespace PopularityTest
         public string TaxPopModifierHighTitle => SerpLocalization.Get("Popularity.TaxPopModifierHigh");
         public string TaxPopModifierHighHelp => SerpLocalization.Get("Popularity.TaxPopModifierHigh.Help");
         private bool taxPopModifierMeanEnabled;
-        private int taxPopModifierMean = -8;
         [SyncHostOnly]
         public bool TaxPopModifierMeanEnabled
         {
             get => taxPopModifierMeanEnabled;
             set { if (Change(ref taxPopModifierMeanEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierMeanEditable)); }
         }
+        private int taxPopModifierMean = -8;
         [SyncHostOnly]
         public int TaxPopModifierMean
         {
@@ -643,13 +645,13 @@ namespace PopularityTest
         public string TaxPopModifierMeanTitle => SerpLocalization.Get("Popularity.TaxPopModifierMean");
         public string TaxPopModifierMeanHelp => SerpLocalization.Get("Popularity.TaxPopModifierMean.Help");
         private bool taxPopModifierUsuriousEnabled;
-        private int taxPopModifierUsurious = -12;
         [SyncHostOnly]
         public bool TaxPopModifierUsuriousEnabled
         {
             get => taxPopModifierUsuriousEnabled;
             set { if (Change(ref taxPopModifierUsuriousEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierUsuriousEditable)); }
         }
+        private int taxPopModifierUsurious = -12;
         [SyncHostOnly]
         public int TaxPopModifierUsurious
         {
@@ -665,13 +667,13 @@ namespace PopularityTest
         public string TaxPopModifierUsuriousTitle => SerpLocalization.Get("Popularity.TaxPopModifierUsurious");
         public string TaxPopModifierUsuriousHelp => SerpLocalization.Get("Popularity.TaxPopModifierUsurious.Help");
         private bool taxPopModifierCruelEnabled;
-        private int taxPopModifierCruel = -16;
         [SyncHostOnly]
         public bool TaxPopModifierCruelEnabled
         {
             get => taxPopModifierCruelEnabled;
             set { if (Change(ref taxPopModifierCruelEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierCruelEditable)); }
         }
+        private int taxPopModifierCruel = -16;
         [SyncHostOnly]
         public int TaxPopModifierCruel
         {
@@ -687,13 +689,13 @@ namespace PopularityTest
         public string TaxPopModifierCruelTitle => SerpLocalization.Get("Popularity.TaxPopModifierCruel");
         public string TaxPopModifierCruelHelp => SerpLocalization.Get("Popularity.TaxPopModifierCruel.Help");
         private bool taxPopModifierMostCruelEnabled;
-        private int taxPopModifierMostCruel = -20;
         [SyncHostOnly]
         public bool TaxPopModifierMostCruelEnabled
         {
             get => taxPopModifierMostCruelEnabled;
             set { if (Change(ref taxPopModifierMostCruelEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierMostCruelEditable)); }
         }
+        private int taxPopModifierMostCruel = -20;
         [SyncHostOnly]
         public int TaxPopModifierMostCruel
         {
@@ -709,13 +711,13 @@ namespace PopularityTest
         public string TaxPopModifierMostCruelTitle => SerpLocalization.Get("Popularity.TaxPopModifierMostCruel");
         public string TaxPopModifierMostCruelHelp => SerpLocalization.Get("Popularity.TaxPopModifierMostCruel.Help");
         private bool taxPopModifierCruellestEnabled;
-        private int taxPopModifierCruellest = -24;
         [SyncHostOnly]
         public bool TaxPopModifierCruellestEnabled
         {
             get => taxPopModifierCruellestEnabled;
             set { if (Change(ref taxPopModifierCruellestEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierCruellestEditable)); }
         }
+        private int taxPopModifierCruellest = -24;
         [SyncHostOnly]
         public int TaxPopModifierCruellest
         {
@@ -731,13 +733,13 @@ namespace PopularityTest
         public string TaxPopModifierCruellestTitle => SerpLocalization.Get("Popularity.TaxPopModifierCruellest");
         public string TaxPopModifierCruellestHelp => SerpLocalization.Get("Popularity.TaxPopModifierCruellest.Help");
         private bool taxPopModifierUnaffordableDonationEnabled;
-        private int taxPopModifierUnaffordableDonation = 1;
         [SyncHostOnly]
         public bool TaxPopModifierUnaffordableDonationEnabled
         {
             get => taxPopModifierUnaffordableDonationEnabled;
             set { if (Change(ref taxPopModifierUnaffordableDonationEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierUnaffordableDonationEditable)); }
         }
+        private int taxPopModifierUnaffordableDonation = 1;
         [SyncHostOnly]
         public int TaxPopModifierUnaffordableDonation
         {
@@ -753,13 +755,13 @@ namespace PopularityTest
         public string TaxPopModifierUnaffordableDonationTitle => SerpLocalization.Get("Popularity.TaxPopModifierUnaffordableDonation");
         public string TaxPopModifierUnaffordableDonationHelp => SerpLocalization.Get("Popularity.TaxPopModifierUnaffordableDonation.Help");
         private bool taxPopModifierUnknownModeEnabled;
-        private int taxPopModifierUnknownMode = -24;
         [SyncHostOnly]
         public bool TaxPopModifierUnknownModeEnabled
         {
             get => taxPopModifierUnknownModeEnabled;
             set { if (Change(ref taxPopModifierUnknownModeEnabled, value)) OnPropertyChanged(nameof(TaxPopModifierUnknownModeEditable)); }
         }
+        private int taxPopModifierUnknownMode = -24;
         [SyncHostOnly]
         public int TaxPopModifierUnknownMode
         {
@@ -775,13 +777,13 @@ namespace PopularityTest
         public string TaxPopModifierUnknownModeTitle => SerpLocalization.Get("Popularity.TaxPopModifierUnknownMode");
         public string TaxPopModifierUnknownModeHelp => SerpLocalization.Get("Popularity.TaxPopModifierUnknownMode.Help");
         private bool religionPopModifierTierOneEnabled;
-        private int religionPopModifierTierOne = 2;
         [SyncHostOnly]
         public bool ReligionPopModifierTierOneEnabled
         {
             get => religionPopModifierTierOneEnabled;
             set { if (Change(ref religionPopModifierTierOneEnabled, value)) OnPropertyChanged(nameof(ReligionPopModifierTierOneEditable)); }
         }
+        private int religionPopModifierTierOne = 2;
         [SyncHostOnly]
         public int ReligionPopModifierTierOne
         {
@@ -797,13 +799,13 @@ namespace PopularityTest
         public string ReligionPopModifierTierOneTitle => SerpLocalization.Get("Popularity.ReligionPopModifierTierOne");
         public string ReligionPopModifierTierOneHelp => SerpLocalization.Get("Popularity.ReligionPopModifierTierOne.Help");
         private bool religionPopModifierTierTwoEnabled;
-        private int religionPopModifierTierTwo = 4;
         [SyncHostOnly]
         public bool ReligionPopModifierTierTwoEnabled
         {
             get => religionPopModifierTierTwoEnabled;
             set { if (Change(ref religionPopModifierTierTwoEnabled, value)) OnPropertyChanged(nameof(ReligionPopModifierTierTwoEditable)); }
         }
+        private int religionPopModifierTierTwo = 4;
         [SyncHostOnly]
         public int ReligionPopModifierTierTwo
         {
@@ -819,13 +821,13 @@ namespace PopularityTest
         public string ReligionPopModifierTierTwoTitle => SerpLocalization.Get("Popularity.ReligionPopModifierTierTwo");
         public string ReligionPopModifierTierTwoHelp => SerpLocalization.Get("Popularity.ReligionPopModifierTierTwo.Help");
         private bool religionPopModifierTierThreeEnabled;
-        private int religionPopModifierTierThree = 6;
         [SyncHostOnly]
         public bool ReligionPopModifierTierThreeEnabled
         {
             get => religionPopModifierTierThreeEnabled;
             set { if (Change(ref religionPopModifierTierThreeEnabled, value)) OnPropertyChanged(nameof(ReligionPopModifierTierThreeEditable)); }
         }
+        private int religionPopModifierTierThree = 6;
         [SyncHostOnly]
         public int ReligionPopModifierTierThree
         {
@@ -841,13 +843,13 @@ namespace PopularityTest
         public string ReligionPopModifierTierThreeTitle => SerpLocalization.Get("Popularity.ReligionPopModifierTierThree");
         public string ReligionPopModifierTierThreeHelp => SerpLocalization.Get("Popularity.ReligionPopModifierTierThree.Help");
         private bool religionPopModifierTierFourEnabled;
-        private int religionPopModifierTierFour = 8;
         [SyncHostOnly]
         public bool ReligionPopModifierTierFourEnabled
         {
             get => religionPopModifierTierFourEnabled;
             set { if (Change(ref religionPopModifierTierFourEnabled, value)) OnPropertyChanged(nameof(ReligionPopModifierTierFourEditable)); }
         }
+        private int religionPopModifierTierFour = 8;
         [SyncHostOnly]
         public int ReligionPopModifierTierFour
         {
@@ -863,13 +865,13 @@ namespace PopularityTest
         public string ReligionPopModifierTierFourTitle => SerpLocalization.Get("Popularity.ReligionPopModifierTierFour");
         public string ReligionPopModifierTierFourHelp => SerpLocalization.Get("Popularity.ReligionPopModifierTierFour.Help");
         private bool churchPopModifierEnabled;
-        private int churchPopModifier = 1;
         [SyncHostOnly]
         public bool ChurchPopModifierEnabled
         {
             get => churchPopModifierEnabled;
             set { if (Change(ref churchPopModifierEnabled, value)) OnPropertyChanged(nameof(ChurchPopModifierEditable)); }
         }
+        private int churchPopModifier = 1;
         [SyncHostOnly]
         public int ChurchPopModifier
         {
@@ -885,13 +887,13 @@ namespace PopularityTest
         public string ChurchPopModifierTitle => SerpLocalization.Get("Popularity.ChurchPopModifier");
         public string ChurchPopModifierHelp => SerpLocalization.Get("Popularity.ChurchPopModifier.Help");
         private bool cathedralPopModifierEnabled;
-        private int cathedralPopModifier = 2;
         [SyncHostOnly]
         public bool CathedralPopModifierEnabled
         {
             get => cathedralPopModifierEnabled;
             set { if (Change(ref cathedralPopModifierEnabled, value)) OnPropertyChanged(nameof(CathedralPopModifierEditable)); }
         }
+        private int cathedralPopModifier = 2;
         [SyncHostOnly]
         public int CathedralPopModifier
         {
@@ -907,13 +909,13 @@ namespace PopularityTest
         public string CathedralPopModifierTitle => SerpLocalization.Get("Popularity.CathedralPopModifier");
         public string CathedralPopModifierHelp => SerpLocalization.Get("Popularity.CathedralPopModifier.Help");
         private bool alePopModifierTierOneEnabled;
-        private int alePopModifierTierOne = 2;
         [SyncHostOnly]
         public bool AlePopModifierTierOneEnabled
         {
             get => alePopModifierTierOneEnabled;
             set { if (Change(ref alePopModifierTierOneEnabled, value)) OnPropertyChanged(nameof(AlePopModifierTierOneEditable)); }
         }
+        private int alePopModifierTierOne = 2;
         [SyncHostOnly]
         public int AlePopModifierTierOne
         {
@@ -929,13 +931,13 @@ namespace PopularityTest
         public string AlePopModifierTierOneTitle => SerpLocalization.Get("Popularity.AlePopModifierTierOne");
         public string AlePopModifierTierOneHelp => SerpLocalization.Get("Popularity.AlePopModifierTierOne.Help");
         private bool alePopModifierTierTwoEnabled;
-        private int alePopModifierTierTwo = 4;
         [SyncHostOnly]
         public bool AlePopModifierTierTwoEnabled
         {
             get => alePopModifierTierTwoEnabled;
             set { if (Change(ref alePopModifierTierTwoEnabled, value)) OnPropertyChanged(nameof(AlePopModifierTierTwoEditable)); }
         }
+        private int alePopModifierTierTwo = 4;
         [SyncHostOnly]
         public int AlePopModifierTierTwo
         {
@@ -951,13 +953,13 @@ namespace PopularityTest
         public string AlePopModifierTierTwoTitle => SerpLocalization.Get("Popularity.AlePopModifierTierTwo");
         public string AlePopModifierTierTwoHelp => SerpLocalization.Get("Popularity.AlePopModifierTierTwo.Help");
         private bool alePopModifierTierThreeEnabled;
-        private int alePopModifierTierThree = 6;
         [SyncHostOnly]
         public bool AlePopModifierTierThreeEnabled
         {
             get => alePopModifierTierThreeEnabled;
             set { if (Change(ref alePopModifierTierThreeEnabled, value)) OnPropertyChanged(nameof(AlePopModifierTierThreeEditable)); }
         }
+        private int alePopModifierTierThree = 6;
         [SyncHostOnly]
         public int AlePopModifierTierThree
         {
@@ -973,13 +975,13 @@ namespace PopularityTest
         public string AlePopModifierTierThreeTitle => SerpLocalization.Get("Popularity.AlePopModifierTierThree");
         public string AlePopModifierTierThreeHelp => SerpLocalization.Get("Popularity.AlePopModifierTierThree.Help");
         private bool alePopModifierTierFourEnabled;
-        private int alePopModifierTierFour = 8;
         [SyncHostOnly]
         public bool AlePopModifierTierFourEnabled
         {
             get => alePopModifierTierFourEnabled;
             set { if (Change(ref alePopModifierTierFourEnabled, value)) OnPropertyChanged(nameof(AlePopModifierTierFourEditable)); }
         }
+        private int alePopModifierTierFour = 8;
         [SyncHostOnly]
         public int AlePopModifierTierFour
         {
@@ -995,13 +997,13 @@ namespace PopularityTest
         public string AlePopModifierTierFourTitle => SerpLocalization.Get("Popularity.AlePopModifierTierFour");
         public string AlePopModifierTierFourHelp => SerpLocalization.Get("Popularity.AlePopModifierTierFour.Help");
         private bool fairsPopularityEventModifierEnabled;
-        private int fairsPopularityEventModifier = 16;
         [SyncHostOnly]
         public bool FairsPopularityEventModifierEnabled
         {
             get => fairsPopularityEventModifierEnabled;
             set { if (Change(ref fairsPopularityEventModifierEnabled, value)) OnPropertyChanged(nameof(FairsPopularityEventModifierEditable)); }
         }
+        private int fairsPopularityEventModifier = 16;
         [SyncHostOnly]
         public int FairsPopularityEventModifier
         {
@@ -1016,28 +1018,156 @@ namespace PopularityTest
         }
         public string FairsPopularityEventModifierTitle => SerpLocalization.Get("Popularity.FairsPopularityEventModifier");
         public string FairsPopularityEventModifierHelp => SerpLocalization.Get("Popularity.FairsPopularityEventModifier.Help");
-        private bool goodBadThingPopModifierMultiplierEnabled;
-        private double goodBadThingPopModifierMultiplier = 1;
+        private int fearNegative1 = -1;
         [SyncHostOnly]
-        public bool GoodBadThingPopModifierMultiplierEnabled
+        public int FearNegative1
         {
-            get => goodBadThingPopModifierMultiplierEnabled;
-            set { if (Change(ref goodBadThingPopModifierMultiplierEnabled, value)) OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierEditable)); }
+            get => fearNegative1;
+            set { if (Change(ref fearNegative1, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearNegative1ValueText)); }
         }
+        public bool FearNegative1Editable => CanConfigure && EnableMod && NegativeFearEnabled;
+        public string FearNegative1ValueText
+        {
+            get => FearNegative1.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearNegative1 = parsed; OnPropertyChanged(nameof(FearNegative1ValueText)); }
+        }
+        public string FearNegative1Title => SerpLocalization.Get("Popularity.FearNegative1");
+        public string FearNegative1Help => SerpLocalization.Get("Popularity.FearNegative1.Help");
+        private int fearNegative2 = -2;
         [SyncHostOnly]
-        public double GoodBadThingPopModifierMultiplier
+        public int FearNegative2
         {
-            get => goodBadThingPopModifierMultiplier;
-            set { if (double.IsNaN(value) || double.IsInfinity(value)) return; if (Change(ref goodBadThingPopModifierMultiplier, Math.Round(Math.Max(-5.0, Math.Min(5.0, value)), 1, MidpointRounding.AwayFromZero))) OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierValueText)); }
+            get => fearNegative2;
+            set { if (Change(ref fearNegative2, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearNegative2ValueText)); }
         }
-        public bool GoodBadThingPopModifierMultiplierEditable => CanConfigure && EnableMod && GoodBadThingPopModifierMultiplierEnabled;
-        public string GoodBadThingPopModifierMultiplierValueText
+        public bool FearNegative2Editable => CanConfigure && EnableMod && NegativeFearEnabled;
+        public string FearNegative2ValueText
         {
-            get => GoodBadThingPopModifierMultiplier.ToString("0.0", CultureInfo.InvariantCulture);
-            set { if (double.TryParse(value.Replace(',', '.'), NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out double parsed)) GoodBadThingPopModifierMultiplier = parsed; OnPropertyChanged(nameof(GoodBadThingPopModifierMultiplierValueText)); }
+            get => FearNegative2.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearNegative2 = parsed; OnPropertyChanged(nameof(FearNegative2ValueText)); }
         }
-        public string GoodBadThingPopModifierMultiplierTitle => SerpLocalization.Get("Popularity.GoodBadThingPopModifierMultiplier");
-        public string GoodBadThingPopModifierMultiplierHelp => SerpLocalization.Get("Popularity.GoodBadThingPopModifierMultiplier.Help");
+        public string FearNegative2Title => SerpLocalization.Get("Popularity.FearNegative2");
+        public string FearNegative2Help => SerpLocalization.Get("Popularity.FearNegative2.Help");
+        private int fearNegative3 = -3;
+        [SyncHostOnly]
+        public int FearNegative3
+        {
+            get => fearNegative3;
+            set { if (Change(ref fearNegative3, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearNegative3ValueText)); }
+        }
+        public bool FearNegative3Editable => CanConfigure && EnableMod && NegativeFearEnabled;
+        public string FearNegative3ValueText
+        {
+            get => FearNegative3.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearNegative3 = parsed; OnPropertyChanged(nameof(FearNegative3ValueText)); }
+        }
+        public string FearNegative3Title => SerpLocalization.Get("Popularity.FearNegative3");
+        public string FearNegative3Help => SerpLocalization.Get("Popularity.FearNegative3.Help");
+        private int fearNegative4 = -4;
+        [SyncHostOnly]
+        public int FearNegative4
+        {
+            get => fearNegative4;
+            set { if (Change(ref fearNegative4, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearNegative4ValueText)); }
+        }
+        public bool FearNegative4Editable => CanConfigure && EnableMod && NegativeFearEnabled;
+        public string FearNegative4ValueText
+        {
+            get => FearNegative4.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearNegative4 = parsed; OnPropertyChanged(nameof(FearNegative4ValueText)); }
+        }
+        public string FearNegative4Title => SerpLocalization.Get("Popularity.FearNegative4");
+        public string FearNegative4Help => SerpLocalization.Get("Popularity.FearNegative4.Help");
+        private int fearNegative5 = -5;
+        [SyncHostOnly]
+        public int FearNegative5
+        {
+            get => fearNegative5;
+            set { if (Change(ref fearNegative5, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearNegative5ValueText)); }
+        }
+        public bool FearNegative5Editable => CanConfigure && EnableMod && NegativeFearEnabled;
+        public string FearNegative5ValueText
+        {
+            get => FearNegative5.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearNegative5 = parsed; OnPropertyChanged(nameof(FearNegative5ValueText)); }
+        }
+        public string FearNegative5Title => SerpLocalization.Get("Popularity.FearNegative5");
+        public string FearNegative5Help => SerpLocalization.Get("Popularity.FearNegative5.Help");
+        private int fearPositive1 = 1;
+        [SyncHostOnly]
+        public int FearPositive1
+        {
+            get => fearPositive1;
+            set { if (Change(ref fearPositive1, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearPositive1ValueText)); }
+        }
+        public bool FearPositive1Editable => CanConfigure && EnableMod && PositiveFearEnabled;
+        public string FearPositive1ValueText
+        {
+            get => FearPositive1.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearPositive1 = parsed; OnPropertyChanged(nameof(FearPositive1ValueText)); }
+        }
+        public string FearPositive1Title => SerpLocalization.Get("Popularity.FearPositive1");
+        public string FearPositive1Help => SerpLocalization.Get("Popularity.FearPositive1.Help");
+        private int fearPositive2 = 2;
+        [SyncHostOnly]
+        public int FearPositive2
+        {
+            get => fearPositive2;
+            set { if (Change(ref fearPositive2, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearPositive2ValueText)); }
+        }
+        public bool FearPositive2Editable => CanConfigure && EnableMod && PositiveFearEnabled;
+        public string FearPositive2ValueText
+        {
+            get => FearPositive2.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearPositive2 = parsed; OnPropertyChanged(nameof(FearPositive2ValueText)); }
+        }
+        public string FearPositive2Title => SerpLocalization.Get("Popularity.FearPositive2");
+        public string FearPositive2Help => SerpLocalization.Get("Popularity.FearPositive2.Help");
+        private int fearPositive3 = 3;
+        [SyncHostOnly]
+        public int FearPositive3
+        {
+            get => fearPositive3;
+            set { if (Change(ref fearPositive3, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearPositive3ValueText)); }
+        }
+        public bool FearPositive3Editable => CanConfigure && EnableMod && PositiveFearEnabled;
+        public string FearPositive3ValueText
+        {
+            get => FearPositive3.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearPositive3 = parsed; OnPropertyChanged(nameof(FearPositive3ValueText)); }
+        }
+        public string FearPositive3Title => SerpLocalization.Get("Popularity.FearPositive3");
+        public string FearPositive3Help => SerpLocalization.Get("Popularity.FearPositive3.Help");
+        private int fearPositive4 = 4;
+        [SyncHostOnly]
+        public int FearPositive4
+        {
+            get => fearPositive4;
+            set { if (Change(ref fearPositive4, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearPositive4ValueText)); }
+        }
+        public bool FearPositive4Editable => CanConfigure && EnableMod && PositiveFearEnabled;
+        public string FearPositive4ValueText
+        {
+            get => FearPositive4.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearPositive4 = parsed; OnPropertyChanged(nameof(FearPositive4ValueText)); }
+        }
+        public string FearPositive4Title => SerpLocalization.Get("Popularity.FearPositive4");
+        public string FearPositive4Help => SerpLocalization.Get("Popularity.FearPositive4.Help");
+        private int fearPositive5 = 5;
+        [SyncHostOnly]
+        public int FearPositive5
+        {
+            get => fearPositive5;
+            set { if (Change(ref fearPositive5, Math.Max(-25, Math.Min(25, value)))) OnPropertyChanged(nameof(FearPositive5ValueText)); }
+        }
+        public bool FearPositive5Editable => CanConfigure && EnableMod && PositiveFearEnabled;
+        public string FearPositive5ValueText
+        {
+            get => FearPositive5.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) FearPositive5 = parsed; OnPropertyChanged(nameof(FearPositive5ValueText)); }
+        }
+        public string FearPositive5Title => SerpLocalization.Get("Popularity.FearPositive5");
+        public string FearPositive5Help => SerpLocalization.Get("Popularity.FearPositive5.Help");
         public string RationsTitle => SerpLocalization.Get("Popularity.Rations");
         public string VarietyTitle => SerpLocalization.Get("Popularity.Variety");
         public string CrowdingTitle => SerpLocalization.Get("Popularity.Crowding");

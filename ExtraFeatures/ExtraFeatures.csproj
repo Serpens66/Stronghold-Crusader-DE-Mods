@@ -57,6 +57,7 @@
     <Compile Include="src\LordHealthSaveState.cs" />
     <Compile Include="src\KeepBuildRangeOverride.cs" />
     <Compile Include="src\KeepBuildRangeRuntime.cs" />
+    <Compile Include="src\ModSettingsPresentation.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>

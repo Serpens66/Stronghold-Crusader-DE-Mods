@@ -9,6 +9,8 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Coop menu mirrors authoritative selection, catalog refresh and edit permissions", CoopTrailMenuTests.Selection),
+    ("Coop menu consumes dismissal through release and resets recreated views", CoopTrailMenuTests.Input),
     ("Coop Customize drafts survive ready, repeated start, rejection and mission replacement", CoopDraftTests.Run),
     ("Maker embedded maps retain original data and publish validated immutable cache entries", TrailMakerEmbeddedMapTests.Run),
     ("Trail reset sources retain authored rules and replace or clear mission identity", TrailSetupTests.Sources),
@@ -50,6 +52,13 @@ var tests = new (string Name, Action Run)[]
     ("preferred AIV permits differing rotations", TestPreferredAiv),
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
     ("package fingerprint detects content changes", TestPackageFingerprint),
+    ("streaming package fingerprint retains the byte contract across buffers", TestStreamingFingerprint),
+    ("package discovery reads manifests without opening mission assets", TestPackageDiscovery),
+    ("selected package session reuses and invalidates validated data", TestPackageSession),
+    ("lazy mission cache resolves only selected slots and retries failures", TestLazyMissionCache),
+    ("mission dependencies detect catalog, map and external file changes", TestMissionDependencies),
+    ("mission table restoration protects templates and foreign entries", TestMissionTableRestoration),
+    ("lobby copies cannot mutate cached mission and Lord data", TestMissionTemplateCopies),
     ("Coop Workshop staging filters modsettings", TestCoopWorkshopStaging),
     ("Coop Lord requirements remain mandatory when modsettings are excluded", TestCoopLordRequirementStaging),
     ("duplicate package IDs are rejected", TestDuplicatePackageIds),
@@ -1521,6 +1530,14 @@ static void TestCustomizedLaunchOriginRoundtrip()
         ExtendedData.ExtendedDataLaunchOriginApi.MissionId == 10,
         "Coop Trail origin did not survive a save roundtrip");
 
+    ExtendedData.ExtendedDataLaunchOriginApi.MarkRestartPending();
+    ExtendedData.ExtendedDataLaunchOriginApi.CancelPendingLaunch();
+    Assert(!ExtendedData.ExtendedDataLaunchOriginApi.LaunchPending &&
+        ExtendedData.ExtendedDataLaunchOriginApi.RestoredFromSave &&
+        ExtendedData.ExtendedDataLaunchOriginApi.TrailId == 3 &&
+        ExtendedData.ExtendedDataLaunchOriginApi.MissionId == 10,
+        "rejected Coop restart lost its source or retained a pending launch");
+
     ExtendedData.ExtendedDataLaunchOriginApi.SetCustomizedVanillaTrail(1, 1, 0);
     saved = saveApi.SaveCallback(new SHCDESE.API.Components.SaveData.SaveContext(true, false));
     ExtendedData.ExtendedDataLaunchOriginApi.Clear();
@@ -1865,6 +1882,195 @@ static void TestLastCatalogSlot()
     Assert(catalog.TryGet(3, 10, out _), "Trail4 mission 10 was not loaded");
 }
 
+static void TestPackageDiscovery()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string package = CreatePackage(fixture, root, "Overview", 2);
+    var catalog = new CoopTrailPackageCatalog();
+    // An exclusive lock is a real I/O boundary: any accidental parse/hash fails here.
+    using (File.Open(Path.Combine(package, "CoopMissions", "01.coopmission.json"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+    using (File.Open(Path.Combine(package, "CoopMissions", "map.map"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+    {
+        var found = catalog.Discover(new[] { root, root });
+        Assert(found.Count == 1 && found[0].Manifest.DisplayName == "Overview" && found[0].Manifest.MissionCount == 2,
+            "discovery opened mission data or duplicated overlapping roots");
+    }
+    File.Delete(Path.Combine(package, "CoopMissions", "01.coopmission.json"));
+    var overview = catalog.Discover(new[] { root });
+    Assert(overview.Count == 1, "overview pretended to fully validate the package");
+    ExpectFailure(() => new CoopTrailPackageSession().GetOrLoad(overview, overview[0].Manifest.PackageId, out _),
+        "an unvalidated overview was accepted for play");
+    Directory.CreateDirectory(Path.Combine(root, ".cooptrail-build-test"));
+    File.Copy(Path.Combine(package, "cooptrail.json"), Path.Combine(root, ".cooptrail-build-test", "cooptrail.json"));
+    Assert(catalog.Discover(new[] { root }).Count == 1, "discovery included a staging package");
+}
+
+static void TestPackageSession()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string path = CreatePackage(fixture, root, "Selected", 2);
+    string other = CreatePackage(fixture, root, "Unselected", 2);
+    var catalog = new CoopTrailPackageCatalog();
+    var overview = catalog.Discover(new[] { root });
+    string id = overview.Single(item => item.RootPath == path).Manifest.PackageId;
+    int loads = 0;
+    var session = new CoopTrailPackageSession(candidate => { loads++; return CoopTrailPackageCatalog.Load(candidate); });
+    CoopTrailPackage first;
+    using (File.Open(Path.Combine(other, "CoopMissions", "map.map"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        first = session.GetOrLoad(overview, id, out bool _);
+    Assert(loads == 1, "selecting a package validated unrelated packages");
+    Assert(ReferenceEquals(first, session.GetOrLoad(catalog.Discover(new[] { root }), id, out bool hit)) && hit && loads == 1,
+        "unchanged package was parsed/hashed again");
+    Assert(ReferenceEquals(first, session.GetOrLoad(overview, id, out hit, forceValidation: true)) && !hit && loads == 2,
+        "forced restart validation skipped the byte check or discarded unchanged definitions");
+
+    string asset = Path.Combine(path, "CoopMissions", "map.map");
+    byte[] original = File.ReadAllBytes(asset);
+    File.AppendAllText(asset, "changed");
+    ExpectFailure(() => session.GetOrLoad(overview, id, out _), "changed asset reused a valid cache");
+    File.WriteAllBytes(asset, original);
+    Assert(!ReferenceEquals(first, session.GetOrLoad(overview, id, out hit)) && !hit,
+        "repaired package did not recover after validation failure");
+
+    string sidecar = Path.Combine(path, "CoopMissions", "01.modtrail.json");
+    File.Delete(sidecar);
+    RehashTestPackage(path);
+    overview = catalog.Discover(new[] { root });
+    CoopTrailPackage withoutSidecar = session.GetOrLoad(overview, id, out hit);
+    Assert(!hit && withoutSidecar.Missions[0].ModSettingsPath == null, "removed optional sidecar was cached");
+    File.Copy(fixture.SidecarPath, sidecar);
+    RehashTestPackage(path);
+    overview = catalog.Discover(new[] { root });
+    Assert(session.GetOrLoad(overview, id, out hit).Missions[0].ModSettingsPath != null && !hit,
+        "new optional sidecar was not detected");
+
+    string otherId = overview.Single(item => item.RootPath == other).Manifest.PackageId;
+    session.GetOrLoad(overview, otherId, out _);
+    session.GetOrLoad(overview, id, out hit);
+    Assert(!hit, "session retained a second inactive package");
+    session.Clear();
+    session.GetOrLoad(overview, id, out hit);
+    Assert(!hit, "explicit export invalidation did not clear the session");
+    Directory.Delete(path, recursive: true);
+    ExpectFailure(() => session.GetOrLoad(catalog.Discover(new[] { root }), id, out _), "removed package remained available");
+}
+
+static void RehashTestPackage(string root)
+{
+    string path = Path.Combine(root, "cooptrail.json");
+    CoopTrailPackageManifest manifest = CoopTrailPackageManifestJson.Read(path);
+    var files = new List<string>();
+    for (int ordinal = 1; ordinal <= manifest.MissionCount; ordinal++)
+    {
+        LoadedMission loaded = new MissionLoader().Load(Path.Combine(root, "CoopMissions", ordinal.ToString("00") + ".coopmission.json"),
+            (ordinal - 1) / 10 + 1, (ordinal - 1) % 10 + 1);
+        files.Add(loaded.JsonPath);
+        files.AddRange(loaded.BundledFiles);
+        if (loaded.ModSettingsPath != null) files.Add(loaded.ModSettingsPath);
+        if (loaded.LordRequirementsPath != null) files.Add(loaded.LordRequirementsPath);
+    }
+    manifest.ContentFingerprint = CoopTrailPackageFingerprint.Compute(root, files);
+    CoopTrailPackageManifestJson.WriteAtomic(path, manifest);
+}
+
+static void TestLazyMissionCache()
+{
+    var cache = new CoopMissionCache<object>();
+    int calls = 0;
+    bool valid = true;
+    object Resolve(LoadedMission _) { calls++; return new object(); }
+    var missions = Enumerable.Range(0, 4).Select(page => new LoadedMission { TrailNumber = page + 1, MissionNumber = 10 }).ToArray();
+    object first = cache.GetOrResolve(missions[0], Resolve, _ => valid, out bool hit);
+    Assert(calls == 1 && !hit, "first selection resolved more than one mission");
+    Assert(ReferenceEquals(first, cache.GetOrResolve(missions[0], Resolve, _ => valid, out hit)) && hit && calls == 1,
+        "repeated selection discarded the prepared mission");
+    foreach (LoadedMission mission in missions.Skip(1)) cache.GetOrResolve(mission, Resolve, _ => valid, out _);
+    Assert(calls == 4 && ReferenceEquals(first, cache.GetOrResolve(missions[0], Resolve, _ => valid, out hit)) && hit,
+        "page mapping or revisiting an earlier mission failed");
+    valid = false;
+    ExpectFailure(() => cache.GetOrResolve(missions[0], _ => throw new IOException("source unavailable"), _ => valid, out _),
+        "invalid dependency retained an old mission");
+    valid = true;
+    Assert(!ReferenceEquals(first, cache.GetOrResolve(missions[0], Resolve, _ => valid, out hit)) && !hit,
+        "failed resolution was retained instead of retried");
+    cache.Clear();
+    cache.GetOrResolve(missions[1], Resolve, _ => valid, out hit);
+    Assert(!hit, "package invalidation retained mission templates");
+}
+
+static void TestMissionTableRestoration()
+{
+    var original = new object();
+    var replacement = new object();
+    var table = new[] { original, new object() };
+    var overrides = new CoopMissionTableOverrides<object>();
+    overrides.Install(101, table, 0, replacement);
+    overrides.Install(101, table, 0, new object());
+    overrides.Restore();
+    Assert(ReferenceEquals(table[0], original), "repeated installation lost the Vanilla entry");
+    overrides.Restore();
+    overrides.Install(101, table, 0, replacement);
+    var foreign = new object();
+    table[0] = foreign;
+    overrides.Install(101, table, 0, replacement);
+    overrides.Restore();
+    Assert(ReferenceEquals(table[0], foreign), "reinstallation/restoration overwrote a later foreign replacement");
+}
+
+static void TestMissionDependencies()
+{
+    using Fixture fixture = Fixture.Create();
+    string path = Path.Combine(fixture.Root, "dependency.aivjson");
+    File.WriteAllText(path, "first");
+    var header = new object();
+    var dependencies = new CoopMissionDependencies(7, new[] { path, path }, header);
+    Assert(dependencies.IsCurrent(7, header), "unchanged source was invalidated");
+    Assert(!dependencies.IsCurrent(8, header), "Lord catalog rebuild retained stale objects");
+    Assert(!dependencies.IsCurrent(7, new object()), "replaced installed map header was not detected");
+    File.AppendAllText(path, "changed");
+    Assert(!dependencies.IsCurrent(7, header), "external source edit was not detected");
+    dependencies = new CoopMissionDependencies(7, new[] { path }, null);
+    File.Delete(path);
+    Assert(!dependencies.IsCurrent(7, null), "external source deletion was not detected");
+    dependencies = new CoopMissionDependencies(7, new[] { path }, null);
+    File.WriteAllText(path, "repaired");
+    Assert(!dependencies.IsCurrent(7, null), "newly available dependency was not detected");
+}
+
+static void TestMissionTemplateCopies()
+{
+    var source = new CrusaderDE.FRONT_Multiplayer.CoopMissionSetupData {
+        header = new FileHeader(), mapName = "Custom", keepOrder = new[] { 1, 2 }, teams = new[] { 1, 1 },
+        AIs = new[] { 3 }, AIVs = new[] { 4 }, fairness = 7, allowStockadePlayer2 = 1,
+    };
+    var first = CoopMissionDataCopies.CopySetup(source);
+    var table = new[] { new CrusaderDE.FRONT_Multiplayer.CoopMissionSetupData() };
+    var vanilla = table[0];
+    var overrides = new CoopMissionTableOverrides<CrusaderDE.FRONT_Multiplayer.CoopMissionSetupData>();
+    overrides.Install(101, table, 0, first);
+    first.keepOrder[0] = 8; first.teams[0] = 5; first.AIs[0] = 9; first.AIVs[0] = 9;
+    overrides.Restore();
+    // Model InitCoopMissions' in-place header writer after the restoration boundary.
+    table[0].header = new FileHeader();
+    Assert(ReferenceEquals(table[0], vanilla) && ReferenceEquals(first.header, source.header) &&
+        source.keepOrder[0] == 1 && source.teams[0] == 1 && source.AIs[0] == 3 && source.AIVs[0] == 4,
+        "Vanilla initialization or lobby edits mutated the prepared template");
+    var lord = new CrusaderDE.FRONT_Multiplayer.MPAIVInfo {
+        lordName = "Custom", lordConfig = new CustomisationFileManager.CustomLordConfig {
+            name = "AIC", lordData = new EngineInterface.AILordConfigTransferData { opponent_type = 3 } },
+        imageData = new byte[] { 7 }, image = new object(),
+    };
+    lord.aivs.Add(new CustomisationFileManager.CustomAIV { data = new short[] { 4 }, AIVName = "Castle" });
+    var copy = CoopMissionDataCopies.CopyLord(lord);
+    copy.lordConfig.name = "Edited"; copy.lordConfig.lordData.opponent_type = 9;
+    copy.imageData[0] = 8; copy.aivs[0].data[0] = 6; copy.aivs.Clear();
+    Assert(lord.lordConfig.name == "AIC" && lord.lordConfig.lordData.opponent_type == 3 &&
+        lord.imageData[0] == 7 && lord.aivs.Count == 1 && lord.aivs[0].data[0] == 4 && ReferenceEquals(lord.image, copy.image),
+        "lobby Lord copy shared mutable template data");
+}
+
 static void TestPackageFingerprint()
 {
     using Fixture fixture = Fixture.Create();
@@ -1872,6 +2078,19 @@ static void TestPackageFingerprint()
     string package = CreatePackage(fixture, root, "Changed", 1);
     File.AppendAllText(Path.Combine(package, "CoopMissions", "01.modtrail.json"), "changed");
     ExpectFailure(() => CoopTrailPackageCatalog.Load(package), "changed mission sidecar passed its fingerprint");
+}
+
+static void TestStreamingFingerprint()
+{
+    using Fixture fixture = Fixture.Create();
+    string a = Path.Combine(fixture.Root, "a.bin"), z = Path.Combine(fixture.Root, "z.bin");
+    File.WriteAllBytes(a, new byte[] { 97, 98, 99, 0, 255 });
+    File.WriteAllBytes(z, Enumerable.Range(0, 131079).Select(index => (byte)(index % 251)).ToArray());
+    // Independent SHA-256 reference over UTF-8 relative name, NUL, then all file bytes;
+    // the larger input crosses two 64 KiB buffer boundaries.
+    Assert(CoopTrailPackageFingerprint.Compute(fixture.Root, new[] { z, a, z }) ==
+        "2131e2df7c6b94c48d0d1aa0cf881b273b35f56cfdaf6d810e8615f4066c34b9",
+        "streaming changed ordering, duplicate handling, framing or byte contents");
 }
 
 static void TestCoopWorkshopStaging()
@@ -1956,6 +2175,8 @@ static void TestDuplicatePackageIds()
     catalog.Scan(root, null, errors.Add);
     Assert(catalog.Packages.Count == 0, "duplicate package ID remained selectable");
     Assert(errors.Any(message => message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)), "duplicate package ID was not diagnosed");
+    ExpectFailure(() => new CoopTrailPackageSession().GetOrLoad(catalog.Discover(new[] { root }), id, out _),
+        "selected-package validation accepted conflicting valid replicas");
 }
 
 static void TestIdenticalPackageReplicas()
@@ -1972,6 +2193,14 @@ static void TestIdenticalPackageReplicas()
     Assert(catalog.Packages.Count == 1, "identical local and Workshop replicas were rejected");
     Assert(string.Equals(catalog.Packages.Values.Single().RootPath, Path.GetFullPath(localPackage), StringComparison.OrdinalIgnoreCase),
         "the first local package was not preferred over its identical Workshop replica");
+    var overview = catalog.Discover(new[] { localRoot, workshopRoot });
+    string id = overview[0].Manifest.PackageId;
+    var session = new CoopTrailPackageSession();
+    Assert(session.GetOrLoad(overview, id, out _).RootPath == localPackage,
+        "selected-package validation did not prefer the local replica");
+    File.AppendAllText(Path.Combine(localPackage, "CoopMissions", "map.map"), "broken");
+    Assert(session.GetOrLoad(overview, id, out bool hit).RootPath == workshopPackage && !hit,
+        "a damaged local replica concealed the valid Workshop replica");
 }
 
 static void CopyTree(string source, string destination)
@@ -2421,5 +2650,6 @@ public sealed partial class CustomisationFileManager
         public int lordType;
         public ulong checksum;
         public EngineInterface.AILordConfigTransferData lordData;
+        public bool workshop, workshopUploadInfoAvailable;
     }
 }

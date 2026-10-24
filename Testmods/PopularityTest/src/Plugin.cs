@@ -8,11 +8,11 @@ namespace PopularityTest
 {
     [BepInPlugin(Guid, Name, Version)]
     [BepInDependency("000shcdese", "2.14.1")]
-    [BepInDependency("APIShared_Serp", "0.10.0")]
+    [BepInDependency("APIShared_Serp", "0.15.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Guid = "PopularityTest_Serp", Name = "Popularity Test", Version = "0.1.0";
+        public const string Guid = "PopularityTest_Serp", Name = "Popularity Test", Version = "0.2.0";
         private static ManualLogSource log;
         private static PopularitySettings settings;
         private static PopularityRuntime runtime;

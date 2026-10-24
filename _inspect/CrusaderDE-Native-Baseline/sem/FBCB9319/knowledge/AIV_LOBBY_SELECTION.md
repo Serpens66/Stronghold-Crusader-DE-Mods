@@ -1232,3 +1232,25 @@ this native hash. Reproducible with `ilspycmd` on `FRONT_Multiplayer`, `AIVLoade
 
 APIShared's `CoopAiStartImportService` replaces exactly the Coop branch's upload
 for planned slots; see `APIShared/docs/THIRD_PARTY_GUIDE.md#coop-trail-ai-start-import`.
+## Managed Coop launch validation audit (24 October 2026)
+
+Rechecked installed hashes: native FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2,
+managed BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+This is a managed contract; no native RVA or hook span is changed.
+
+- FRONT_Multiplayer.Open creates/clears eight MPAIVInfo entries. Clear calls Init(0, "").
+  SkirmishAIAddClick's Coop branch and CoopMissionChanged create the partner through
+  AddSkirmishPlayerLocal without initializing its redundant MPAIVInfo type. The lobby
+  member's GetLordType remains authoritative for Vanilla's default upload.
+- ExtendedData's packaged mission resolver starts at zero-based slot index 2. Its
+  separate launch check previously also compared the partner at player ID 2. A Rat
+  partner passed because its type is zero; the user reproduced the same start failure
+  with Snake at 21:46:00.498 on 24 October 2026. This is pre-fix runtime evidence.
+- Empty lordName with builtInLord=false and a valid Vanilla AIC is legitimate; see
+  TRAIL_CUSTOM_AIC_EXPORT.md. The reported player-3 Abbot failure reached that combined
+  name/config check; its author confirmed custom files. The report alone does not tell
+  whether the name, configuration, or both were missing.
+- RestartSkirmishMapInfo.importAIVs enumerates all eight entries and their lists.
+  Real-assembly CLI tests now exercise that snapshot and the shared production launch
+  validator, including placeholder types, unnamed AICs and independent castle sources.
+  These do not establish post-fix in-game or host/client acceptance.

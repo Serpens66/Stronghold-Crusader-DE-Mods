@@ -173,9 +173,9 @@ namespace ExtendedData
         private readonly MissionCatalog catalog = new MissionCatalog();
         private readonly EditorModSettingsSaveOptionsViewModel editorSaveOptions =
             new EditorModSettingsSaveOptionsViewModel();
-        private readonly Dictionary<int, ResolvedMission> resolved = new Dictionary<int, ResolvedMission>();
-        private readonly Dictionary<int, FRONT_Multiplayer.CoopMissionSetupData> vanillaMissions =
-            new Dictionary<int, FRONT_Multiplayer.CoopMissionSetupData>();
+        private readonly CoopMissionCache<ResolvedMission> resolved = new CoopMissionCache<ResolvedMission>();
+        private readonly CoopMissionTableOverrides<FRONT_Multiplayer.CoopMissionSetupData> missionTables =
+            new CoopMissionTableOverrides<FRONT_Multiplayer.CoopMissionSetupData>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private Hook initHook;
         private Hook missionHook;
@@ -218,6 +218,7 @@ namespace ExtendedData
         private string lastBlockedChatReason = string.Empty;
         private DateTime lastBlockedChatAtUtc;
         private ExtendedDataFeatureActivation activation;
+        private readonly CoopTrailMenuViewModel coopTrailMenu;
 
         public ExtendedDataRuntime(
             ManualLogSource log,
@@ -228,10 +229,13 @@ namespace ExtendedData
             this.customTrailsRoot = customTrailsRoot;
             this.settings = settings;
             activation = settings.FeatureActivation;
+            coopTrailMenu = new CoopTrailMenuViewModel(settings);
         }
 
         public void Initialize()
         {
+            Shared.DevDiag.Attach(log);
+            GameXAMLManagerAPI.Instance.RegisterBinding("ExtendedDataCoopTrailMenuHost", coopTrailMenu);
             ExtendedDataLaunchOriginApi.Initialize(log);
             ExtendedDataModDataApi.InitializeSource();
             editorSaveOptions.SetEnabled(activation.EditorFiles);
@@ -249,9 +253,12 @@ namespace ExtendedData
                 settings.ApplyTrailSettingModesForMod,
                 editorSaveOptions);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
+            missionSettingsCoordinator.CoopPackageExported += OnCoopPackagesExported;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.CoopLaunchReceived += OnCoopLaunchReceived;
             missionSettingsCoordinator.SinglePlayerCoopStarting += PrepareSinglePlayerCoopStart;
+            missionSettingsCoordinator.SinglePlayerCoopLaunchValidating += CoopAiStartBlockReason;
+            missionSettingsCoordinator.SinglePlayerCoopStartRejected += OnSinglePlayerCoopStartRejected;
             missionSettingsCoordinator.Initialize();
             SavegameModSettings.RegisterTrailCreatorRulesProvider(
                 missionSettingsCoordinator.CaptureCreatorRulesForActiveTrail,
@@ -346,7 +353,7 @@ namespace ExtendedData
                 LogError("APIShared Coop AI start import could not be acquired: " + exception);
             }
 
-            RefreshPackageCatalog();
+            InstallLordCatalogueObserver();
             OnActiveCoopPackageChanged();
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -410,6 +417,7 @@ namespace ExtendedData
 
         public void Dispose()
         {
+            coopTrailMenu.Disable();
             activation = ExtendedDataFeatureActivation.Disabled;
             ExtendedDataModDataApi.UnregisterSource();
             editorSaveOptions.SetEnabled(false);
@@ -427,9 +435,12 @@ namespace ExtendedData
             if (missionSettingsCoordinator != null)
             {
                 missionSettingsCoordinator.CoopPackagesChanged -= OnActiveCoopPackageChanged;
+                missionSettingsCoordinator.CoopPackageExported -= OnCoopPackagesExported;
                 missionSettingsCoordinator.CoopSetupOpened -= OnCoopSetupOpened;
                 missionSettingsCoordinator.CoopLaunchReceived -= OnCoopLaunchReceived;
                 missionSettingsCoordinator.SinglePlayerCoopStarting -= PrepareSinglePlayerCoopStart;
+                missionSettingsCoordinator.SinglePlayerCoopLaunchValidating -= CoopAiStartBlockReason;
+                missionSettingsCoordinator.SinglePlayerCoopStartRejected -= OnSinglePlayerCoopStartRejected;
             }
             missionSettingsCoordinator?.ExitContext(force: true);
             mapSettingsCoordinator?.Dispose();
@@ -443,17 +454,19 @@ namespace ExtendedData
 
         private void InitCoopMissionsHook(FRONT_Multiplayer self)
         {
+            // Vanilla rewrites headers in-place even when its arrays already exist.
+            // Restore our entries first; prepared templates must never enter that loop.
+            RestoreVanillaMissions();
             initTrampoline(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
             if (!activation.CoopPackages)
             {
                 resolved.Clear();
-                vanillaMissions.Clear();
                 return;
             }
             try
             {
-                ApplyActivePackage();
+                ApplyActivePackage(refreshVisible: false);
             }
             catch (Exception ex)
             {
@@ -481,13 +494,24 @@ namespace ExtendedData
                 // genuinely different mission selection ends that pending attempt.
                 coopLaunchPending = false;
             }
+            ResolvedMission next = null;
+            if (HasActiveCoopPackage())
+            {
+                try { next = EnsureResolvedMission(trailId, missionId); }
+                catch (Exception exception)
+                {
+                    RejectMissionSelection(trailId, missionId, exception);
+                    return;
+                }
+            }
             missionSettingsCoordinator.ResetCustomizeForNewCoopSelection();
+            // Resolve and install BEFORE Vanilla reads the selected table entry.
+            selected = next;
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             missionSettingsCoordinator.ObserveCoopLobby(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
             if (!activation.CoopPackages)
                 return;
-            resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
             if (selected == null)
             {
                 lordDataCoordinator.SetEmbeddedTrailSlots(null);
@@ -523,6 +547,17 @@ namespace ExtendedData
             {
                 buttonTrampoline(self, command);
                 return;
+            }
+            if (activation.CoopPackages && self?.singlePlayerCoop == true &&
+                string.Equals(command, "COOP_START", StringComparison.Ordinal))
+            {
+                try { Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs); }
+                catch (Shared.CoopAiSelectionException failure)
+                {
+                    LogError(CoopLaunchDiagnostic(self) + ": " + failure);
+                    BlockLaunch(command, LocalizeCoopSelectionFailure(failure));
+                    return;
+                }
             }
             // A failed validation must never trap a player in the ready/locked state.
             if (string.Equals(command, "Ready", StringComparison.Ordinal) && ReadLobbyFlag(self, LocalReadyField) ||
@@ -644,7 +679,9 @@ namespace ExtendedData
                 {
                     if (IsStartCommand(command))
                     {
-                        string aiStartReason = CoopAiStartBlockReason(self);
+                        // Local starts also enter here through restart/continuation paths. Their final
+                        // shared hook validates after preparation, immediately before Vanilla starts.
+                        string aiStartReason = self.singlePlayerCoop ? null : CoopAiStartBlockReason(self);
                         if (aiStartReason != null)
                         {
                             BlockLaunch(command, aiStartReason);
@@ -726,8 +763,14 @@ namespace ExtendedData
             {
                 var roots = new List<string> { customTrailsRoot };
                 roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(message => LogWarning(message)));
-                packageCatalog.Scan(roots, message => LogInfo(message), message => LogError(message));
-                settings.RefreshPackages(packageCatalog.Packages.Values);
+                long started = 0;
+                Shared.DevDiag.Start(ref started);
+                try
+                {
+                    packageOverviews = packageCatalog.Discover(roots, message => LogError(message));
+                    settings.RefreshPackageOverviews(packageOverviews);
+                }
+                finally { Shared.DevDiag.StopSpike(ref started, "coop.discovery", 10000); }
             }
             finally
             {
@@ -746,21 +789,6 @@ namespace ExtendedData
             try
             {
                 RefreshPackageCatalog();
-                if (activation.CoopPackages && GameNetworkAPI.IsLocalHost())
-                {
-                    if (packageCatalog.Packages.TryGetValue(settings.ActiveCoopPackageId, out CoopTrailPackage hostPackage))
-                    {
-                        settings.ActiveCoopPackageFingerprint = hostPackage.Manifest.ContentFingerprint;
-                        settings.ActiveCoopPackageMissionCount = hostPackage.Manifest.MissionCount;
-                        settings.ActiveCoopPackageDescriptor = ExpectedPackageDescriptor();
-                    }
-                    else
-                    {
-                        settings.ActiveCoopPackageFingerprint = string.Empty;
-                        settings.ActiveCoopPackageMissionCount = 0;
-                        settings.ActiveCoopPackageDescriptor = ExpectedPackageDescriptor();
-                    }
-                }
                 ApplyActivePackage();
             }
             finally
@@ -810,135 +838,104 @@ namespace ExtendedData
             OnCoopPackageRemoteStatusChanged();
         }
 
-        private void ApplyActivePackage()
+        private void ApplyActivePackage(bool refreshVisible = true)
         {
-            RestoreVanillaMissions();
-            missionSettingsCoordinator?.SetCoopPackagePresentation(null, 0);
-            catalog.Load(null, null, null);
-            resolved.Clear();
-            vanillaMissions.Clear();
-            activePackage = null;
-            selected = null;
-            lordDataCoordinator?.SetEmbeddedTrailSlots(null);
+            bool previousUpdating = updatingPackage;
+            updatingPackage = true;
+            try { ApplyActivePackageCore(refreshVisible); }
+            finally { updatingPackage = previousUpdating; }
+        }
 
-            if (!activation.CoopPackages)
+        private void ApplyActivePackageCore(bool refreshVisible)
+        {
+            if (!activation.CoopPackages || string.IsNullOrEmpty(settings.ActiveCoopPackageId))
             {
-                SetLocalPackageError(ExtendedDataSettingsViewModel.DisabledStatus, SerpLocalization.Get("ExtendedData.ErrorModDisabled"));
-                return;
-            }
-            if (string.IsNullOrEmpty(settings.ActiveCoopPackageId))
-            {
+                bool changed = activePackage != null || selected != null;
+                ClearPackageData();
+                ClearHostPackageDescriptor();
+                missionSettingsCoordinator?.SetCoopPackagePresentation(null, 0);
                 localPackageError = string.Empty;
-                SetLocalPackageStatus("OK|VANILLA");
+                if (!activation.CoopPackages)
+                    SetLocalPackageError(ExtendedDataSettingsViewModel.DisabledStatus, SerpLocalization.Get("ExtendedData.ErrorModDisabled"));
+                else SetLocalPackageStatus("OK|VANILLA");
+                if (changed && refreshVisible) RefreshVisibleCoopMissionAfterPackageChange();
                 return;
             }
-            missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, 0);
             if (!GameNetworkAPI.IsLocalHost() &&
-                !string.Equals(settings.ActiveCoopPackageDescriptor, ExpectedPackageDescriptor(), StringComparison.Ordinal))
+                (!string.Equals(settings.ActiveCoopPackageDescriptor, ExpectedPackageDescriptor(), StringComparison.Ordinal) ||
+                 string.IsNullOrEmpty(settings.ActiveCoopPackageFingerprint)))
             {
+                ClearPackageData();
+                missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
                 SetLocalPackageError(ExtendedDataSettingsViewModel.WaitingStatus, SerpLocalization.Get("ExtendedData.StatusChecking"));
                 return;
             }
-            if (string.IsNullOrEmpty(settings.ActiveCoopPackageFingerprint))
-            {
-                SetLocalPackageError(ExtendedDataSettingsViewModel.WaitingStatus, SerpLocalization.Get("ExtendedData.StatusChecking"));
-                return;
-            }
-            if (settings.ActiveCoopPackageMissionCount >= 1 && settings.ActiveCoopPackageMissionCount <= 40)
-                missionSettingsCoordinator?.SetCoopPackagePresentation(
-                    settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
-            if (!packageCatalog.Packages.TryGetValue(settings.ActiveCoopPackageId, out activePackage))
-            {
-                SetLocalPackageError(
-                    ExtendedDataSettingsViewModel.MissingStatus,
-                    SerpLocalization.Get("ExtendedData.ErrorPackageMissing") + " " + settings.ActiveCoopPackageId);
-                RefreshVisibleCoopMissionAfterPackageChange();
-                ShowLocalPackageBlockAfterSync();
-                return;
-            }
-            if (!string.Equals(activePackage.Manifest.ContentFingerprint, settings.ActiveCoopPackageFingerprint, StringComparison.OrdinalIgnoreCase))
-            {
-                SetLocalPackageError(
-                    ExtendedDataSettingsViewModel.MismatchStatus,
-                    SerpLocalization.Get("ExtendedData.ErrorFingerprintMismatch"));
-                RefreshVisibleCoopMissionAfterPackageChange();
-                ShowLocalPackageBlockAfterSync();
-                return;
-            }
-
-            catalog.Load(activePackage, message => LogInfo(message), message => LogError(message));
-            var resolver = new MissionAssetResolver();
-            var prepared = new List<KeyValuePair<int, ResolvedMission>>();
             try
             {
-                foreach (KeyValuePair<int, LoadedMission> entry in catalog.Missions)
+                CoopTrailPackage next = LoadSelectedPackage();
+                if (GameNetworkAPI.IsLocalHost())
                 {
-                    if (CoopTrailFields[entry.Value.TrailNumber - 1] == null)
-                        throw new InvalidDataException("Trail" + entry.Value.TrailNumber + " is unavailable in this game build.");
-                    FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(entry.Value.TrailNumber);
-                    if (trail == null)
-                        continue;
-                    ResolvedMission mission;
-                    try
-                    {
-                        mission = resolver.Resolve(entry.Value);
-                    }
-                    catch (Exception exception)
-                    {
-                        throw new InvalidDataException("Trail" + entry.Value.TrailNumber + "/" +
-                            entry.Value.MissionNumber.ToString("00") + " [" +
-                            Path.GetFileName(entry.Value.JsonPath) + "]: " + exception.Message, exception);
-                    }
-                    if (!string.IsNullOrWhiteSpace(entry.Value.Definition.ModSettingsError))
-                        LogError("Trail" + entry.Value.TrailNumber + "/" + entry.Value.MissionNumber.ToString("00") + " ignored an invalid mod-settings sidecar; local mod settings remain unchanged: " + entry.Value.Definition.ModSettingsError);
-                    prepared.Add(new KeyValuePair<int, ResolvedMission>(entry.Key, mission));
+                    settings.ActiveCoopPackageFingerprint = next.Manifest.ContentFingerprint;
+                    settings.ActiveCoopPackageMissionCount = next.Manifest.MissionCount;
+                    settings.ActiveCoopPackageDescriptor = ExpectedPackageDescriptor();
                 }
-                foreach (KeyValuePair<int, ResolvedMission> entry in prepared)
+                if (!string.Equals(next.Manifest.ContentFingerprint, settings.ActiveCoopPackageFingerprint, StringComparison.OrdinalIgnoreCase) ||
+                    next.Manifest.MissionCount != settings.ActiveCoopPackageMissionCount)
                 {
-                    LoadedMission loaded = entry.Value.Loaded;
-                    FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(loaded.TrailNumber);
-                    resolved[entry.Key] = entry.Value;
-                    vanillaMissions[entry.Key] = trail[loaded.MissionNumber - 1];
-                    trail[loaded.MissionNumber - 1] = entry.Value.CoopData;
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogInfo("Replaced Trail" + loaded.TrailNumber + "/" + loaded.MissionNumber.ToString("00") + " from [" + Path.GetFileName(loaded.JsonPath) + "].");
+                    ClearPackageData();
+                    missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
+                    SetLocalPackageError(ExtendedDataSettingsViewModel.MismatchStatus,
+                        SerpLocalization.Get("ExtendedData.ErrorFingerprintMismatch"));
+                    ShowLocalPackageBlockAfterSync();
+                    return;
                 }
-                missionSettingsCoordinator?.SetCoopPackagePresentation(
-                    activePackage.Manifest.DisplayName,
-                    activePackage.Manifest.MissionCount);
+
+                // Identical host/preset notifications and menu reopening must not discard
+                // the selected mission or a user's editable Customize draft.
+                if (ReferenceEquals(activePackage, next)) return;
+                ClearPackageData(clearSession: false);
+                activePackage = next;
+                catalog.Load(next, message => LogInfo(message), message => LogError(message));
+                missionSettingsCoordinator?.SetCoopPackagePresentation(next.Manifest.DisplayName, next.Manifest.MissionCount);
+                localPackageError = string.Empty;
+                SetLocalPackageStatus(ExpectedReadyStatus());
+                if (refreshVisible) RefreshVisibleCoopMissionAfterPackageChange();
             }
             catch (Exception exception)
             {
-                RestoreVanillaMissions();
+                ClearPackageData();
+                ClearHostPackageDescriptor();
+                missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
                 SetLocalPackageError(
-                    ExtendedDataSettingsViewModel.InvalidStatusPrefix + exception.Message,
+                    exception is FileNotFoundException ? ExtendedDataSettingsViewModel.MissingStatus :
+                        ExtendedDataSettingsViewModel.InvalidStatusPrefix + exception.Message,
                     SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message);
                 LogError("Selected Coop Trail package is unusable: " + exception);
-                RefreshVisibleCoopMissionAfterPackageChange();
                 ShowLocalPackageBlockAfterSync();
-                return;
             }
-            localPackageError = string.Empty;
-            SetLocalPackageStatus(ExpectedReadyStatus());
-            RefreshVisibleCoopMissionAfterPackageChange();
-            ShowLocalPackageBlockAfterSync();
         }
 
-        private void RestoreVanillaMissions()
+        private void ClearHostPackageDescriptor()
         {
-            foreach (KeyValuePair<int, FRONT_Multiplayer.CoopMissionSetupData> entry in vanillaMissions)
-            {
-                int trailNumber = entry.Key / 100;
-                int missionNumber = entry.Key % 100;
-                if (trailNumber < 1 || trailNumber > CoopTrailFields.Length || CoopTrailFields[trailNumber - 1] == null)
-                    continue;
-                FRONT_Multiplayer.CoopMissionSetupData[] trail = GetTrail(trailNumber);
-                if (trail != null && missionNumber >= 1 && missionNumber <= trail.Length)
-                    trail[missionNumber - 1] = entry.Value;
-            }
-            vanillaMissions.Clear();
-            resolved.Clear();
+            if (!activation.CoopPackages || !GameNetworkAPI.IsLocalHost()) return;
+            settings.ActiveCoopPackageFingerprint = string.Empty;
+            settings.ActiveCoopPackageMissionCount = 0;
+            settings.ActiveCoopPackageDescriptor = ExpectedPackageDescriptor();
         }
+
+        private void ClearPackageData(bool clearSession = true)
+        {
+            RestoreVanillaMissions();
+            resolved.Clear();
+            catalog.Load(null, null, null);
+            activePackage = null;
+            selected = null;
+            missingMods = Array.Empty<string>();
+            lordDataCoordinator?.SetEmbeddedTrailSlots(null);
+            if (clearSession) packageSession.Clear();
+        }
+
+        private void RestoreVanillaMissions() => missionTables.Restore();
 
         private void ApplySelectedMission(FRONT_Multiplayer self, bool updateHost)
         {
@@ -1123,20 +1120,7 @@ namespace ExtendedData
         }
 
         private static FRONT_Multiplayer.MPAIVInfo CopyLordInfo(FRONT_Multiplayer.MPAIVInfo source) =>
-            new FRONT_Multiplayer.MPAIVInfo
-            {
-                lordType = source.lordType,
-                lordName = source.lordName,
-                builtIn = source.builtIn,
-                community = source.community,
-                historical = source.historical,
-                rotation = source.rotation,
-                builtInLord = source.builtInLord,
-                lordConfig = source.lordConfig,
-                aivs = new List<CustomisationFileManager.CustomAIV>(source.aivs),
-                imageData = source.imageData,
-                image = source.image,
-            };
+            CoopMissionDataCopies.CopyLord(source);
 
         private Dictionary<int, FRONT_Multiplayer.MPAIVInfo> CurrentLordInfoMap(FRONT_Multiplayer self)
         {
@@ -1753,38 +1737,13 @@ namespace ExtendedData
             int missionId = lobby.currentLobby.coopSelectedMission;
             try
             {
-                var roots = new List<string> { customTrailsRoot };
-                roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(message => LogWarning(message)));
-                packageCatalog.Scan(roots, message => LogInfo(message), message => LogError(message));
-
-                if (!packageCatalog.Packages.TryGetValue(
-                        settings.ActiveCoopPackageId,
-                        out CoopTrailPackage currentPackage))
-                {
-                    throw new FileNotFoundException(
-                        SerpLocalization.Get("ExtendedData.ErrorPackageMissing") + " " +
-                        settings.ActiveCoopPackageId);
-                }
-                if (!string.Equals(
-                        currentPackage.Manifest.ContentFingerprint,
-                        settings.ActiveCoopPackageFingerprint,
-                        StringComparison.OrdinalIgnoreCase))
-                {
+                RefreshPackageCatalog();
+                CoopTrailPackage currentPackage = LoadSelectedPackage(forceValidation: true);
+                if (!string.Equals(currentPackage.Manifest.ContentFingerprint,
+                        settings.ActiveCoopPackageFingerprint, StringComparison.OrdinalIgnoreCase) ||
+                    currentPackage.Manifest.MissionCount != settings.ActiveCoopPackageMissionCount)
                     throw new InvalidDataException(SerpLocalization.Get("ExtendedData.ErrorFingerprintMismatch"));
-                }
-
-                var restartCatalog = new MissionCatalog();
-                restartCatalog.Load(currentPackage, message => LogInfo(message), message => LogError(message));
-                if (!restartCatalog.Missions.TryGetValue(
-                        MissionCatalog.ToKey(trailId + 1, missionId),
-                        out LoadedMission loaded))
-                {
-                    throw new InvalidDataException(
-                        "The active package does not contain Trail" + (trailId + 1) + "/" +
-                        missionId.ToString("00") + ".");
-                }
-
-                selected = new MissionAssetResolver().Resolve(loaded);
+                selected = EnsureResolvedMission(trailId, missionId);
                 string featureError = SelectedFeatureDependencyError();
                 if (featureError != null) throw new InvalidOperationException(featureError);
                 RefreshSelectedLordRequirementStatus(lobby);
@@ -1807,15 +1766,7 @@ namespace ExtendedData
             catch (Exception exception)
             {
                 coopLaunchPending = false;
-                if (missionSettingsCoordinator.HasCustomizeDraft)
-                    missionSettingsCoordinator.RecoverCoopDraft();
-                else
-                {
-                    selected = null;
-                    lordDataCoordinator.SetEmbeddedTrailSlots(null);
-                    missingMods = Array.Empty<string>();
-                    missionSettingsCoordinator.ExitContext(force: true);
-                }
+                missionSettingsCoordinator.RecoverCoopDraft();
                 string reason = SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message;
                 LogError("Blocked custom single-player Coop restart: " + exception);
                 ShowBlockedMessage(reason);
@@ -1823,14 +1774,17 @@ namespace ExtendedData
             }
         }
 
+        private void OnSinglePlayerCoopStartRejected() => coopLaunchPending = false;
+
         private void OnCoopLaunchReceived(int trailId, int missionId)
         {
-            if (!activation.CoopPackages || !resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out ResolvedMission mission))
+            if (!activation.CoopPackages) return;
+            try { selected = EnsureResolvedMission(trailId, missionId); }
+            catch (Exception exception)
             {
-                LogError($"Ignored authenticated Coop Trail launch for unavailable Trail{trailId + 1}/{missionId:00}.");
+                RejectMissionSelection(trailId, missionId, exception);
                 return;
             }
-            selected = mission;
             string featureError = SelectedFeatureDependencyError();
             if (featureError != null)
             {

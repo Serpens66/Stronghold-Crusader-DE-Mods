@@ -174,3 +174,16 @@ SomeSettings.PlagueDamageWallsHelp=Erlaubt Pestschaden an Einheiten auf niedrige
 SomeSettings.PlagueDamageGatesHelp=Erlaubt Pestschaden an Einheiten auf begehbaren Torhäusern. Wolken- und Einheitenstandhöhe dürfen höchstens 20 native Höheneinheiten abweichen. Typimmunität, Schaden und Apotheker-Schutz bleiben unverändert. Aus erhält die Vanilla-Ausschlüsse dieser Kategorie.
 SomeSettings.PlagueDamageTowersHelp=Erlaubt Pestschaden an Einheiten auf Verteidigungstürmen. Wolken- und Einheitenstandhöhe dürfen höchstens 20 native Höheneinheiten abweichen. Typimmunität, Schaden und Apotheker-Schutz bleiben unverändert. Aus erhält die Vanilla-Ausschlüsse dieser Kategorie.
 SomeSettings.PlagueDamageKeepsHelp=Erlaubt Pestschaden an Einheiten auf Keep-Plattformen. Wolken- und Einheitenstandhöhe dürfen höchstens 20 native Höheneinheiten abweichen. Typimmunität, Schaden und Apotheker-Schutz bleiben unverändert. Aus erhält die Vanilla-Ausschlüsse dieser Kategorie.
+
+ExtraFeatures.SettingsTopics.Topic.Units=Einheiten und Kampf
+ExtraFeatures.SettingsTopics.Topic.Gatehouses=Torhäuser und Zugbrücken
+ExtraFeatures.SettingsTopics.Topic.Building=Bauen und Wiederaufbau
+ExtraFeatures.SettingsTopics.Topic.Economy=Bevölkerung und Wirtschaft
+ExtraFeatures.SettingsTopics.Topic.Demolition=Gebäudeabriss und Erstattungen
+ExtraFeatures.SettingsTopics.Topic.Plague=Pest und Heilung
+ExtraFeatures.SettingsTopics.Topic.Market=Marktpreise
+ExtraFeatures.SettingsTopics.ExpandAll=Alle aufklappen
+ExtraFeatures.SettingsTopics.CollapseAll=Alle zuklappen
+ExtraFeatures.SettingsTopics.ExpandAllHelp=Öffnet alle Themenbereiche, ohne Einstellungen zu ändern.
+ExtraFeatures.SettingsTopics.CollapseAllHelp=Schließt alle Themenbereiche, ohne Einstellungen zu ändern.
+ExtraFeatures.SettingsTopics.TopicToggleHelp=Öffnet oder schließt diesen Themenbereich. Während einer Suche öffnen sich passende Bereiche automatisch; zum manuellen Zuklappen die Suche leeren.

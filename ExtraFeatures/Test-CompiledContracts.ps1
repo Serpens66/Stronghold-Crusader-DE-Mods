@@ -14,7 +14,9 @@ $resolver = [ResolveEventHandler] {
     $name = ([Reflection.AssemblyName]::new($eventArgs.Name)).Name + '.dll'
     foreach ($directory in $probeDirectories) {
         $candidate = Join-Path $directory $name
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return [Reflection.Assembly]::LoadFrom($candidate) }
+        # Installed reference DLLs may retain a download-zone marker. Read the same bytes
+        # for this offline test instead of changing their metadata or PowerShell's config.
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($candidate)) }
     }
     return $null
 }
@@ -85,6 +87,9 @@ try {
         throw 'Compiled APIShared reference differs from the selected SDK.'
     }
     Write-Host "PASS: compiled production healer classification ($count enum values), host authority and selected SDK reference. No game or Unity callbacks executed."
+    # Run the production view-state logic and shared XAML catalog without native Noesis construction.
+    Add-Type -Path (Join-Path $PSScriptRoot 'tests/SettingsPresentationTests.cs') -ReferencedAssemblies @('System.Core.dll','System.Xml.dll')
+    [SettingsPresentationTests]::Run($assembly, $PSScriptRoot)
 } finally {
     [AppDomain]::CurrentDomain.remove_AssemblyResolve($resolver)
 }

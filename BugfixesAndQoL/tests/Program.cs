@@ -40,6 +40,14 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--coop-ai")
+            {
+                TestCoopCustomLordSelectionPolicy();
+                TestCustomCoopAivSyncPolicy();
+                TestTrailCustomizationOwnership();
+                Console.WriteLine("Coop AI policy and integration checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length > 0 && string.Equals(args[0], "--settings-ui", StringComparison.Ordinal))
             {
                 TestTimerCountdownMigration();
@@ -2853,11 +2861,11 @@ namespace BugfixesAndQoL
             Check(
                 CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, true, false, false, false, 4) &&
                 CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 4) &&
-                !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 2) &&
+                CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 2) &&
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, false, true, 4) &&
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, false, 4) &&
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(false, false, true, true, true, 4),
-                "Custom Coop AI selections survive singleplayer restart without overriding the Vanilla partner");
+                "Custom Coop AI selections include the customized partner and survive singleplayer restart");
 
             // F4: the AIC (builtInLord) and the castle source are independent dimensions.
             int custom = Shared.CoopAiSelectionRules.FirstCustomLordType;

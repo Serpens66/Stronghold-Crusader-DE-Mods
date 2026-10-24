@@ -76,7 +76,7 @@ namespace BugfixesAndQoL
             options["RememberAiAivSettings"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RememberAiAivSettings");
             options["EnableAIQuarryPileTowardsKeep"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAIQuarryPileTowardsKeep");
             options["RemoveAIKeepRangeLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RemoveAIKeepRangeLimit");
-            options["EnableAiSellThresholdFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiSellThresholdFix");
+            options["EnableAiSellThresholdFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAiSellThresholdFix");
             options["EnableTroopMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTroopMovementFix");
             options["EnableMountedStockpileMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMountedStockpileMovementFix");
             options["EnableHealerAttackCommandFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableHealerAttackCommandFix");

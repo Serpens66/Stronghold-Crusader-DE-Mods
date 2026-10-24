@@ -1,6 +1,7 @@
 """Structural asset checks only; compiled signatures and behavior have separate tests."""
 from pathlib import Path
 import re
+import math
 import xml.etree.ElementTree as ET
 root = Path(__file__).resolve().parents[1]
 ns = {'p': 'http://schemas.microsoft.com/winfx/2006/xaml/presentation'}
@@ -11,12 +12,14 @@ for slider in sliders:
     binding = slider.get('Value', '')
     name = re.search(r'Binding (\w+)', binding).group(1)
     assert float(slider.get('Minimum')) < float(slider.get('Maximum')), name
-    step = '0.1' if name == 'GoodBadThingPopModifierMultiplier' else '1'
-    for key in ('TickFrequency', 'SmallChange', 'LargeChange'):
+    step = '1'  # Declared popularity values are whole report points.
+    # Tick/input precision is a user-visible contract; page increments may vary.
+    for key in ('TickFrequency', 'SmallChange'):
         assert float(slider.get(key)) == float(step), (name, key)
+    large = float(slider.get('LargeChange'))
+    assert math.isfinite(large) and large >= float(step), (name, 'LargeChange')
+    assert math.isclose(large / float(step), round(large / float(step))), (name, 'LargeChange')
     assert slider.get('IsSnapToTickEnabled') == 'True', name
-    if name == 'GoodBadThingPopModifierMultiplier':
-        assert float(slider.get('Minimum')) == -5 and float(slider.get('Maximum')) == 5
 for node in xaml.iter():
     if node.tag.rsplit('}', 1)[-1] in ('CheckBox', 'Slider', 'TextBox', 'Button', 'ComboBox'):
         assert node.get('ToolTipService.ShowDuration') == '60000' and node.get('ToolTip'), node.attrib
