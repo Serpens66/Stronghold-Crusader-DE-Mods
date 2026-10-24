@@ -483,7 +483,8 @@ function Get-PluginSourceMetadata {
 }
 
 # Manually published prereleases (e.g. v1.0.29BETA) are not release baselines.
-function Test-StableReleaseTag($Release, [string]$Prefix) {
+function Test-StableReleaseTag {
+    param($Release, [string]$Prefix)
     if ($Release.PSObject.Properties['isPrerelease'] -and [bool]$Release.isPrerelease) { return $false }
     $tag = [string]$Release.tagName
     return $tag.StartsWith($Prefix, [StringComparison]::Ordinal) -and $tag.Substring($Prefix.Length) -match '^\d+\.\d+\.\d+(?:-[0-9a-f]{12})?$'

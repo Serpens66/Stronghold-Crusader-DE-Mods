@@ -63,8 +63,15 @@ Copy-Item -LiteralPath (Join-Path $run 'APIShared.map') -Destination $content
 Copy-Item -LiteralPath $api.Preview -Destination (Join-Path $content 'preview.png')
 Assert-PreparedWorkshopFolder $content $info.Version $api.Guid
 Publish-WorkshopFolder $content (Get-WorkshopFolder $config $api $test) $config.Root
-$changes=@($info.SerpChangelog|Where-Object {$_.Version -ceq $info.Version})
-$releaseNotes='APIShared v'+$info.Version+': '+(@($changes.Changes) -join '; ')
+# Like the modpack: every changelog version since the last confirmed Workshop upload.
+. (Join-Path $PSScriptRoot 'WorkshopChangelog.ps1')
+$uploadedState=Join-Path (Get-WorkshopStateRoot $config $test) ('items/'+$config.AppId+'-APIShared.changelog-state.json')
+$uploadedVersion=if(Test-Path -LiteralPath $uploadedState){[string]([IO.File]::ReadAllText($uploadedState)|ConvertFrom-Json).PackVersion}else{''}
+# A repeated upload of the same version lists only its own entry.
+if($uploadedVersion -and [version]$uploadedVersion -ge [version]$info.Version){
+    $uploadedVersion=[string](@($info.SerpChangelog|Where-Object {[version]$_.Version -lt [version]$info.Version}|Sort-Object {[version]$_.Version} -Descending|Select-Object -First 1).Version)
+}
+$releaseNotes='## APIShared v'+$info.Version+"`r`n`r`n"+(Get-SerpChangelogSince $info.SerpChangelog $info.Version $uploadedVersion 'APIShared')
 $sdkIdentity=Get-ApiSharedPackageIdentity $provenance (Get-ApiMainDeliveryIdentity $config.Root).Commit $test
 $null=Write-WorkshopPreparation $config $api $test $info.Version $deliveredCommit $tag $releaseNotes -SdkIdentity $sdkIdentity
 Write-Host ('APIShared upload folder ready: '+(Get-WorkshopFolder $config $api $test))
