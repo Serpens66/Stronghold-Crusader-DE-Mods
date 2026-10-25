@@ -39,6 +39,9 @@ unsafe static class UnitAccess {
 }
 enum EnemyGateSearchKind { Builder }
 static class EnemyBridgeDiagnosticBridge { internal static object BeginSearch(string s,int p)=>null; internal static void EndSearch(object s,bool b,int r){} }
+// Timing observers are an external boundary here; the production capture/accounting
+// and real Harmony phase probes are exercised by EnginePresentation.Tests.
+static class GateAttackFreezeCapture { internal static void Leave(long token,int result,bool completed){} }
 // Mirrors the public AssassinPathAPI.BeginRouteOutput: one frame around the real compiled handoff.
 static class AssassinPathAPI { internal static AssassinRouteOutputFrame BeginRouteOutput(IntPtr c,int sx,int sy,int tx,int ty,int p,Func<bool> v,Func<byte[],int,int> pub,int cp=-1,int sd=-1,Action<string,string,string> r=null)=>new AssassinRouteOutputFrame(new AssassinRouteHandoff(c,sx,sy,tx,ty,p,v,pub,cp,sd,r)); }
 unsafe partial class UnitCommandPathRuntime {
@@ -47,6 +50,7 @@ unsafe partial class UnitCommandPathRuntime {
  private bool assassinExactPublicationLogged, nativeManualProbe;
  private IntPtr nativePathManager; private byte* nativeUnitManager; private object log;
  private Func<int> builder;
+ private long FreezeBuilder(IntPtr manager)=>0;
  private IEnemyGatePathPolicy BeginEnemyGateSearch(int p,EnemyGateSearchKind k,out object s){s=null;return null;}
  private object BeginTemporaryRouteReport(IntPtr p,string s,int? c=null,int? v=null)=>null;
  private void ObserveTemporaryNativeBuilderOutput(object t,int r){}

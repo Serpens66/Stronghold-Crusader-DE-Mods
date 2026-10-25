@@ -118,10 +118,12 @@ internal static class Program
         {
             EnginePresentationBridge.Install(Log); MeritDataLockOptimization.Install(Log); Start();
             Check(EnginePresentationBridge.Active, "bridge installation: "+string.Join(" | ", Log.Lines));
-            Merit(); Achievements(); ConcurrentMailbox(); Il();
+            Merit(); Achievements(); ConcurrentMailbox();
 #if SERP_DEVDIAG
             Batch();
+            FreezeTests.Run(Check, Log);
 #endif
+            Il();
             Console.WriteLine("PASS engine presentation: "+checks+" assertions; real Harmony prefixes/finalizers, run/save IL, races, sessions and PerfProbe composition."); return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

@@ -167,6 +167,10 @@ call :step_start "tests" "10-Test-DrawbridgeDestructionFix.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-DrawbridgeDestructionFix.ps1" -RunTests
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "10b-Test-MoatTerrain.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-MoatTerrain.ps1" -RunTests
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "11-Test-GatehouseLivingCapturePreflight.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GatehouseLivingCapturePreflight.ps1" -RunTests
 call :step_end %ERRORLEVEL%

@@ -149,3 +149,5 @@ Additional offline queries: `slice`, `memory`, `switch`, `summary`, `type` and `
 Mod sources are mutable integration snapshots. Later edits do not invalidate Vanilla machine facts or block feature and summary queries. Hook checks retain machine evidence but report incomplete current ownership when the source inventory has changed. Concurrent baseline knowledge is preserved by publication guards.
 
 - [Savegame metadata without the original map](./sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md): confirmed Vanilla map-availability rejection, embedded Lord presentation, safe serialization boundary and desktop-tested managed testmod.
+
+- [Moat terrain restoration](./sem/FBCB9319/knowledge/MOAT_TERRAIN_RESTORATION.md): confirmed soil-zero writer, direct placement ordering, bridge conversion/removal, explicit replacement boundaries and private native fixture evidence; in-game acceptance pending.

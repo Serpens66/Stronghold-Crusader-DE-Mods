@@ -33,6 +33,9 @@ namespace BugfixesAndQoL.UnitCommands
             int sourceRegion,
             int movementClass)
         {
+#if SERP_DEVDIAG
+            long freeze = GateAttackFreezeCapture.Enter(GateAttackFreezeCapture.Approach, FreezeGroupContext(tribeId, buildingId));
+#endif
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
@@ -62,6 +65,9 @@ namespace BugfixesAndQoL.UnitCommands
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingApproach, bridgeCompleted, false);
                 DiagFinishBuildingApproach(ref measured, tribeId, buildingId, requestedResults, sourceRegion, movementClass);
+#if SERP_DEVDIAG
+                GateAttackFreezeCapture.Leave(freeze, int.MinValue, bridgeCompleted);
+#endif
             }
         }
 
@@ -84,6 +90,9 @@ namespace BugfixesAndQoL.UnitCommands
         internal void ObserveBuildingCandidateConsumer(
             IntPtr tribeManager, int tribeId, int builderVariant)
         {
+#if SERP_DEVDIAG
+            long freeze = GateAttackFreezeCapture.Enter(GateAttackFreezeCapture.Consumer, FreezeGroupContext(tribeId, activeAttackCommand?.TargetValue1 ?? 0));
+#endif
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
@@ -103,6 +112,9 @@ namespace BugfixesAndQoL.UnitCommands
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingConsumer, bridgeCompleted, false);
                 Shared.DevDiag.StopSpike(ref measured, "uc.attack.buildingConsumer", 20000);
+#if SERP_DEVDIAG
+                GateAttackFreezeCapture.Leave(freeze, int.MinValue, bridgeCompleted);
+#endif
             }
         }
 

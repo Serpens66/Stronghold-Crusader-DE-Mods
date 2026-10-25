@@ -11,7 +11,11 @@
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="BepInEx" Condition="'$(SerpDevDiagnostics)'=='true'"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
     <Compile Include="ActualGameIlAudit.cs"/><Compile Include="../../src/VanillaPerformance/EnginePresentationBridge.IL.cs"/>
+    <Compile Include="../../src/GateAttackFreezeCapture.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
+    <Compile Include="../../src/VanillaPerformance/GateAttackFreezeRun.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
+    <Compile Include="../../../Shared/Runtime/Diagnostics/DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

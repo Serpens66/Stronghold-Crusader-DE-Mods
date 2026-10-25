@@ -607,3 +607,6 @@ Common.ModSettingsSearchStateAll=All
 Common.ModSettingsSearchStateActive=Active
 Common.ModSettingsSearchStateInactive=Inactive
 Common.ModSettingsSearchStateHelp=Filter configured values. Checkboxes use their check mark; sliders use their declared inactive values (otherwise -1 and 0). Mixed rows appear in both filters. Parent switches are ignored.
+BugfixesAndQoL.EnableMoatTerrainRestoration=Restore terrain after moat removal
+BugfixesAndQoL.EnableMoatTerrainRestorationHelp=Remembers the original ground type of new moats and restores it when they are deleted or filled, including by enemies. Oasis grass becomes usable for farms again. Applies to humans, AI and the map editor. Existing moats without recorded ground data are unchanged. Disabling this option discards the recorded ground data.
+BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration=Whether filling a moat permanently destroys fertile ground is a gameplay preference. Enabling this option restores the original ground type.

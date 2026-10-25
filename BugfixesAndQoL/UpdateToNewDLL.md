@@ -899,3 +899,99 @@ Instruction boundaries are proven on the unmodified load image. Live, a foreign 
 These features depend on the shared command runtime `UnitCommandPathRuntime`. It requires the reference hash and binds about 40 fixed detour prefixes (`src/UnitCommands/Native/NativeDetourContracts.cs`) and about 100 native constants. Deriving their own data addresses cannot keep them working after an update until that runtime gets the same fallback.
 
 The audited anchors, with a second evidence for the Chore staging globals, managers, strides and speech call targets, are recorded in [MOVE_STAGER_DATA_ANCHORS.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md). Formation's `TribeUnitCountOffset 0x5C` and `MovementTargetAvailability 0x3A11EA4` have no confirmed anchor yet.
+
+## Gate attack freeze diagnosis (DEVDIAG only, 2026-10-25)
+
+Reference native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+`GateAttackFreezeRuntime.DevDiag.cs` reads the existing UnitCommandPathRuntime-validated
+path manager (reference RVA 0x60AD660), WORD/array contracts already owned by that
+runtime, and DWORD counters +0x78 (E1640 failed reconstruction before repair) and
++0x74 (E49D0 component rebuilds). The counters are never reset or written. Unsigned
+modular deltas are observations, not proof of repair duration or causality. No
+independent address fallback is introduced: if the hash-bound command owner is
+unavailable, the counter reader is not registered and reports say unknown.
+Builder output buffer/stride/unit identity uses the same validated F4930 publication
+contract; ordinary SDK reads use existing public UnitAccess/GameUnit/Tribe fields.
+
+The managed run diagnosis validates the real EngineInterface.run(bool)->int IL:
+getFreeBuffer -> Monitor.Enter(object,ref bool) -> DLL_RunTick -> returnBuffer ->
+Monitor.Exit inside the original finally. It preserves arguments/results and labels/EH,
+and returns incoming IL unchanged on any mismatch. A managed run without DLL_RunTick
+is not a native tick. Timings of original native delegates include active SE/mod hooks.
+All additions compile only with SERP_DEVDIAG; no new native site, ownership or gameplay
+policy is introduced. Update validation: actual-game IL audit, nested/exception/no-buffer
+fixtures, normal binary exclusion and DEVDIAG release-gate rejection.
+
+## Moat terrain restoration (2026-10-25)
+
+Owner: BugfixesAndQoL `MoatTerrain`, host `EnableMoatTerrainRestoration` (default true).
+Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The feature is layout-bound. No unknown DLL may use these field/table offsets solely
+because a code pattern matches. Unknown hash/layout or any failed span disables only
+this fix, retaining Vanilla. There is no compatibility fallback for the grid layout;
+it has not been independently derived for an unknown binary.
+
+| Stage | Function RVA | Hook `[start,end)` | Length |
+|---|---|---|---|
+| TaskCreated | `0x59210` | `0x59359..0x5936C` | 19 |
+| Excavated | `0x639C0` | `0x63A4E..0x63A5E` | 16 |
+| Filled | `0x69470` | `0x694D3..0x694E2` | 15 |
+| DirectPrepare | `0x6FE90` | `0x705BF..0x705CD` | 14 |
+| BrushFinished | `0x6FE90` | `0x70940..0x70952` | 18 |
+| BridgeRemoved | `0x622D0` | `0x6240E..0x6241F` | 17 |
+| BridgePurged | `0x6CA30` | `0x6CADD..0x6CAED` | 16 |
+| AreaRemoved | `0xED2E0` | `0xEDA8C..0xEDA9B` | 15 |
+| Paint | `0x6FE90` | `0x7082E..0x7083F` | 17 |
+| BuildingPrepare | `0x6D580` | `0x6D8DF..0x6D8F3` | 20 |
+| Replaced | `0x5D740` | `0x5D76F..0x5D783` | 20 |
+| Erased | `0x7AE50` | `0x7AFAF..0x7AFC0` | 17 |
+| Vegetation | `0x108320` | `0x1085D0..0x1085E2` | 18 |
+| VegetationUpdate | `0x109930` | `0x109A05..0x109A16` | 17 |
+
+Every site has exact reference bytes and a section-bounded unique-byte pattern
+resolver before installation. A moved pattern result is refused under the current
+hash-bound semantic contract. Whole immutable function-body hashes, complete
+instruction decoding, canonical DLL SHA-256 and the retained incoming-reference
+audit qualify these spans; all live spans must still match before publication.
+The installed RedBird X64 inline backend must displace exactly the recorded length.
+All original instructions execute once at the original RSP, including external
+calls and conditional branches. Full GPRs used by our operations and original flags
+are saved/restored; our native operations use no XMM instructions or managed calls.
+
+Data anchors: module+`0x405EDB0` tile manager; manager+`0x898400` uint logic flags,
++`0x9D2500` byte soil, +`0xB0BCA0` ushort building IDs; physical capacity 320800.
+The task allocator's frame argument at original RSP+`0x50` is the native creation
+mode (zero planned, nonzero completed/filling record). Task and vegetation pointer
+operands remain the original validated native records; tile indices are zero-based
+packed indices, not one-based unit/building game IDs. Bridge identity uses the
+Extender `eStructs.STRUCT_DRAWBRIDGE`; flags use `TilePropertyFlag`.
+
+ExtraFeatures height spans end adjacent to, or outside, these sites, including
+`[0x694BD,0x694D3)` and `[0xEDA77,0xEDA8C)`. Their hooks and the command runtime's
+entry detours are not relocated or replaced. The immutable load snapshot is used
+for semantic validation; only our actual live spans are required to be pristine.
+NativeSiteRegistry claims the complete group before one atomic hook transaction.
+Published hooks, memory and registrations remain rooted until process exit;
+settings/load/end only change data and the native activation gate.
+
+Native-only per-tile work uses a fixed 641664-byte state allocation (64-byte header
+and 320800 ushorts), bounded tile access and no searches, allocations, logging or
+managed callbacks. The buffer is not a Vanilla field. The versioned binary record
+is a 16-byte header plus 641600 payload bytes, below the 1 MiB public entry limit.
+Schema/identifier and known entry `terrain` are persistence contracts. Save scope is
+`SaveGamesAndMaps`, and `SimulationRelevant=true` uses APIShared's existing peer
+agreement. Known empty/disabled state writes an explicit empty record; future opaque
+records retain APIShared preservation semantics and cannot enable restoration.
+
+The reflected `EngineInterface.threadLock` must remain a non-null private static
+object and the normal save/map-save wrapper must retain that gate around native
+saving. Recheck both the real managed field and locking IL on an update. No direct
+private-member access, own transport or per-tile locking is introduced.
+
+Update checks: re-audit the full capture, completion, bridge conversion, all terminal
+removal and explicit replacement branches; verify each input register/stack source,
+field layout, branch ingress, continuation, shared neighbor and live span. Run
+`Test-MoatTerrain.ps1 -RunTests`, production Modsettings tests and relevant preset
+checks. Fixtures substitute external native refresh/call boundaries and do not prove
+actual game visuals, farm eligibility or real host/client acceptance. See
+`_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOAT_TERRAIN_RESTORATION.md`.

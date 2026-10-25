@@ -607,3 +607,6 @@ Common.ModSettingsSearchStateAll=Alle
 Common.ModSettingsSearchStateActive=Aktiv
 Common.ModSettingsSearchStateInactive=Inaktiv
 Common.ModSettingsSearchStateHelp=Eingestellte Werte filtern. Checkboxen werden nach ihrem Häkchen bewertet; Slider nach ihren angegebenen Neutralwerten (sonst -1 und 0). Gemischte Zeilen erscheinen in beiden Filtern. Übergeordnete Schalter bleiben unberücksichtigt.
+BugfixesAndQoL.EnableMoatTerrainRestoration=Boden nach Burggrabenentfernung wiederherstellen
+BugfixesAndQoL.EnableMoatTerrainRestorationHelp=Merkt sich den ursprünglichen Bodentyp neuer Burggräben und stellt ihn beim Löschen oder vollständigen Auffüllen wieder her, auch durch Feinde. Oasengras wird dadurch wieder für Farmen nutzbar. Gilt für Menschen, KI und den Karteneditor. Bestehende Gräben ohne gespeicherte Bodendaten bleiben unverändert. Das Ausschalten verwirft die gespeicherten Bodendaten.
+BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration=Ob das Auffüllen eines Burggrabens fruchtbaren Boden dauerhaft zerstört, ist eine spielerische Präferenz. Diese Option stellt den ursprünglichen Bodentyp wieder her.

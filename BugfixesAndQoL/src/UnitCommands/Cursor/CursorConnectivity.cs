@@ -117,6 +117,7 @@ namespace BugfixesAndQoL.UnitCommands
         internal void ObserveCursorPerformance()
         {
 #if SERP_DEVDIAG
+            GateAttackFreezeCapture.Drain(UnityEngine.Time.frameCount);
             if (disposed)
                 return;
             // The friendly-moat cursor counters live in the MoatMove provider; without it they stay zero.
