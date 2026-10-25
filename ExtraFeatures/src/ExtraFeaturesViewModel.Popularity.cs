@@ -136,565 +136,103 @@ namespace ExtraFeatures
             OnPropertyChanged(nameof(FearPositive5HumanEditable));
             OnPropertyChanged(nameof(FearPositive5AIEditable));
         }
-        private bool rationsPopModifierNoneHumanEnabled;
+        private bool rationsHumanEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierNoneHumanEnabled
+        public bool RationsHumanEnabled
         {
-            get => rationsPopModifierNoneHumanEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierNoneHumanEnabled, value)) RefreshPopularityEditors(); }
+            get => rationsHumanEnabled;
+            set { if (ChangePopularity(ref rationsHumanEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierNoneAIEnabled;
+        private bool rationsAIEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierNoneAIEnabled
+        public bool RationsAIEnabled
         {
-            get => rationsPopModifierNoneAIEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierNoneAIEnabled, value)) RefreshPopularityEditors(); }
+            get => rationsAIEnabled;
+            set { if (ChangePopularity(ref rationsAIEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierHalfHumanEnabled;
+        private bool varietyHumanEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierHalfHumanEnabled
+        public bool VarietyHumanEnabled
         {
-            get => rationsPopModifierHalfHumanEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierHalfHumanEnabled, value)) RefreshPopularityEditors(); }
+            get => varietyHumanEnabled;
+            set { if (ChangePopularity(ref varietyHumanEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierHalfAIEnabled;
+        private bool varietyAIEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierHalfAIEnabled
+        public bool VarietyAIEnabled
         {
-            get => rationsPopModifierHalfAIEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierHalfAIEnabled, value)) RefreshPopularityEditors(); }
+            get => varietyAIEnabled;
+            set { if (ChangePopularity(ref varietyAIEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierFullHumanEnabled;
+        private bool crowdingHumanEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierFullHumanEnabled
+        public bool CrowdingHumanEnabled
         {
-            get => rationsPopModifierFullHumanEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierFullHumanEnabled, value)) RefreshPopularityEditors(); }
+            get => crowdingHumanEnabled;
+            set { if (ChangePopularity(ref crowdingHumanEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierFullAIEnabled;
+        private bool crowdingAIEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierFullAIEnabled
+        public bool CrowdingAIEnabled
         {
-            get => rationsPopModifierFullAIEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierFullAIEnabled, value)) RefreshPopularityEditors(); }
+            get => crowdingAIEnabled;
+            set { if (ChangePopularity(ref crowdingAIEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierExtraHumanEnabled;
+        private bool taxesHumanEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierExtraHumanEnabled
+        public bool TaxesHumanEnabled
         {
-            get => rationsPopModifierExtraHumanEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierExtraHumanEnabled, value)) RefreshPopularityEditors(); }
+            get => taxesHumanEnabled;
+            set { if (ChangePopularity(ref taxesHumanEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierExtraAIEnabled;
+        private bool taxesAIEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierExtraAIEnabled
+        public bool TaxesAIEnabled
         {
-            get => rationsPopModifierExtraAIEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierExtraAIEnabled, value)) RefreshPopularityEditors(); }
+            get => taxesAIEnabled;
+            set { if (ChangePopularity(ref taxesAIEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierDoubleHumanEnabled;
+        private bool religionHumanEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierDoubleHumanEnabled
+        public bool ReligionHumanEnabled
         {
-            get => rationsPopModifierDoubleHumanEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierDoubleHumanEnabled, value)) RefreshPopularityEditors(); }
+            get => religionHumanEnabled;
+            set { if (ChangePopularity(ref religionHumanEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierDoubleAIEnabled;
+        private bool religionAIEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierDoubleAIEnabled
+        public bool ReligionAIEnabled
         {
-            get => rationsPopModifierDoubleAIEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierDoubleAIEnabled, value)) RefreshPopularityEditors(); }
+            get => religionAIEnabled;
+            set { if (ChangePopularity(ref religionAIEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierNoPreferredFoodHumanEnabled;
+        private bool aleHumanEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierNoPreferredFoodHumanEnabled
+        public bool AleHumanEnabled
         {
-            get => rationsPopModifierNoPreferredFoodHumanEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierNoPreferredFoodHumanEnabled, value)) RefreshPopularityEditors(); }
+            get => aleHumanEnabled;
+            set { if (ChangePopularity(ref aleHumanEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierNoPreferredFoodAIEnabled;
+        private bool aleAIEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierNoPreferredFoodAIEnabled
+        public bool AleAIEnabled
         {
-            get => rationsPopModifierNoPreferredFoodAIEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierNoPreferredFoodAIEnabled, value)) RefreshPopularityEditors(); }
+            get => aleAIEnabled;
+            set { if (ChangePopularity(ref aleAIEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierNoPopulationHumanEnabled;
+        private bool fairsHumanEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierNoPopulationHumanEnabled
+        public bool FairsHumanEnabled
         {
-            get => rationsPopModifierNoPopulationHumanEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierNoPopulationHumanEnabled, value)) RefreshPopularityEditors(); }
+            get => fairsHumanEnabled;
+            set { if (ChangePopularity(ref fairsHumanEnabled, value)) RefreshPopularityEditors(); }
         }
-        private bool rationsPopModifierNoPopulationAIEnabled;
+        private bool fairsAIEnabled;
         [SyncHostOnly]
-        public bool RationsPopModifierNoPopulationAIEnabled
+        public bool FairsAIEnabled
         {
-            get => rationsPopModifierNoPopulationAIEnabled;
-            set { if (ChangePopularity(ref rationsPopModifierNoPopulationAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool foodVarietyPopModifierTwoTypesHumanEnabled;
-        [SyncHostOnly]
-        public bool FoodVarietyPopModifierTwoTypesHumanEnabled
-        {
-            get => foodVarietyPopModifierTwoTypesHumanEnabled;
-            set { if (ChangePopularity(ref foodVarietyPopModifierTwoTypesHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool foodVarietyPopModifierTwoTypesAIEnabled;
-        [SyncHostOnly]
-        public bool FoodVarietyPopModifierTwoTypesAIEnabled
-        {
-            get => foodVarietyPopModifierTwoTypesAIEnabled;
-            set { if (ChangePopularity(ref foodVarietyPopModifierTwoTypesAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool foodVarietyPopModifierThreeTypesHumanEnabled;
-        [SyncHostOnly]
-        public bool FoodVarietyPopModifierThreeTypesHumanEnabled
-        {
-            get => foodVarietyPopModifierThreeTypesHumanEnabled;
-            set { if (ChangePopularity(ref foodVarietyPopModifierThreeTypesHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool foodVarietyPopModifierThreeTypesAIEnabled;
-        [SyncHostOnly]
-        public bool FoodVarietyPopModifierThreeTypesAIEnabled
-        {
-            get => foodVarietyPopModifierThreeTypesAIEnabled;
-            set { if (ChangePopularity(ref foodVarietyPopModifierThreeTypesAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool foodVarietyPopModifierFourTypesHumanEnabled;
-        [SyncHostOnly]
-        public bool FoodVarietyPopModifierFourTypesHumanEnabled
-        {
-            get => foodVarietyPopModifierFourTypesHumanEnabled;
-            set { if (ChangePopularity(ref foodVarietyPopModifierFourTypesHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool foodVarietyPopModifierFourTypesAIEnabled;
-        [SyncHostOnly]
-        public bool FoodVarietyPopModifierFourTypesAIEnabled
-        {
-            get => foodVarietyPopModifierFourTypesAIEnabled;
-            set { if (ChangePopularity(ref foodVarietyPopModifierFourTypesAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierOneHumanEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierOneHumanEnabled
-        {
-            get => overpopulationPopModifierTierOneHumanEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierOneHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierOneAIEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierOneAIEnabled
-        {
-            get => overpopulationPopModifierTierOneAIEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierOneAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierTwoHumanEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierTwoHumanEnabled
-        {
-            get => overpopulationPopModifierTierTwoHumanEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierTwoHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierTwoAIEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierTwoAIEnabled
-        {
-            get => overpopulationPopModifierTierTwoAIEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierTwoAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierThreeHumanEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierThreeHumanEnabled
-        {
-            get => overpopulationPopModifierTierThreeHumanEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierThreeHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierThreeAIEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierThreeAIEnabled
-        {
-            get => overpopulationPopModifierTierThreeAIEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierThreeAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierFourHumanEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierFourHumanEnabled
-        {
-            get => overpopulationPopModifierTierFourHumanEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierFourHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierFourAIEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierFourAIEnabled
-        {
-            get => overpopulationPopModifierTierFourAIEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierFourAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierFiveHumanEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierFiveHumanEnabled
-        {
-            get => overpopulationPopModifierTierFiveHumanEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierFiveHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool overpopulationPopModifierTierFiveAIEnabled;
-        [SyncHostOnly]
-        public bool OverpopulationPopModifierTierFiveAIEnabled
-        {
-            get => overpopulationPopModifierTierFiveAIEnabled;
-            set { if (ChangePopularity(ref overpopulationPopModifierTierFiveAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierHugeDonationHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierHugeDonationHumanEnabled
-        {
-            get => taxPopModifierHugeDonationHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierHugeDonationHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierHugeDonationAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierHugeDonationAIEnabled
-        {
-            get => taxPopModifierHugeDonationAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierHugeDonationAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierBigDonationHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierBigDonationHumanEnabled
-        {
-            get => taxPopModifierBigDonationHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierBigDonationHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierBigDonationAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierBigDonationAIEnabled
-        {
-            get => taxPopModifierBigDonationAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierBigDonationAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierSmallDonationHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierSmallDonationHumanEnabled
-        {
-            get => taxPopModifierSmallDonationHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierSmallDonationHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierSmallDonationAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierSmallDonationAIEnabled
-        {
-            get => taxPopModifierSmallDonationAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierSmallDonationAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierNoneHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierNoneHumanEnabled
-        {
-            get => taxPopModifierNoneHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierNoneHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierNoneAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierNoneAIEnabled
-        {
-            get => taxPopModifierNoneAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierNoneAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierLowHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierLowHumanEnabled
-        {
-            get => taxPopModifierLowHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierLowHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierLowAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierLowAIEnabled
-        {
-            get => taxPopModifierLowAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierLowAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierModerateHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierModerateHumanEnabled
-        {
-            get => taxPopModifierModerateHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierModerateHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierModerateAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierModerateAIEnabled
-        {
-            get => taxPopModifierModerateAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierModerateAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierHighHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierHighHumanEnabled
-        {
-            get => taxPopModifierHighHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierHighHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierHighAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierHighAIEnabled
-        {
-            get => taxPopModifierHighAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierHighAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierMeanHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierMeanHumanEnabled
-        {
-            get => taxPopModifierMeanHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierMeanHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierMeanAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierMeanAIEnabled
-        {
-            get => taxPopModifierMeanAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierMeanAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierUsuriousHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierUsuriousHumanEnabled
-        {
-            get => taxPopModifierUsuriousHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierUsuriousHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierUsuriousAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierUsuriousAIEnabled
-        {
-            get => taxPopModifierUsuriousAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierUsuriousAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierCruelHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierCruelHumanEnabled
-        {
-            get => taxPopModifierCruelHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierCruelHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierCruelAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierCruelAIEnabled
-        {
-            get => taxPopModifierCruelAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierCruelAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierMostCruelHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierMostCruelHumanEnabled
-        {
-            get => taxPopModifierMostCruelHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierMostCruelHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierMostCruelAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierMostCruelAIEnabled
-        {
-            get => taxPopModifierMostCruelAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierMostCruelAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierCruellestHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierCruellestHumanEnabled
-        {
-            get => taxPopModifierCruellestHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierCruellestHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierCruellestAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierCruellestAIEnabled
-        {
-            get => taxPopModifierCruellestAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierCruellestAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierUnaffordableDonationHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierUnaffordableDonationHumanEnabled
-        {
-            get => taxPopModifierUnaffordableDonationHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierUnaffordableDonationHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierUnaffordableDonationAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierUnaffordableDonationAIEnabled
-        {
-            get => taxPopModifierUnaffordableDonationAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierUnaffordableDonationAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierUnknownModeHumanEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierUnknownModeHumanEnabled
-        {
-            get => taxPopModifierUnknownModeHumanEnabled;
-            set { if (ChangePopularity(ref taxPopModifierUnknownModeHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool taxPopModifierUnknownModeAIEnabled;
-        [SyncHostOnly]
-        public bool TaxPopModifierUnknownModeAIEnabled
-        {
-            get => taxPopModifierUnknownModeAIEnabled;
-            set { if (ChangePopularity(ref taxPopModifierUnknownModeAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierOneHumanEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierOneHumanEnabled
-        {
-            get => religionPopModifierTierOneHumanEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierOneHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierOneAIEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierOneAIEnabled
-        {
-            get => religionPopModifierTierOneAIEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierOneAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierTwoHumanEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierTwoHumanEnabled
-        {
-            get => religionPopModifierTierTwoHumanEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierTwoHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierTwoAIEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierTwoAIEnabled
-        {
-            get => religionPopModifierTierTwoAIEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierTwoAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierThreeHumanEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierThreeHumanEnabled
-        {
-            get => religionPopModifierTierThreeHumanEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierThreeHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierThreeAIEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierThreeAIEnabled
-        {
-            get => religionPopModifierTierThreeAIEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierThreeAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierFourHumanEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierFourHumanEnabled
-        {
-            get => religionPopModifierTierFourHumanEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierFourHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool religionPopModifierTierFourAIEnabled;
-        [SyncHostOnly]
-        public bool ReligionPopModifierTierFourAIEnabled
-        {
-            get => religionPopModifierTierFourAIEnabled;
-            set { if (ChangePopularity(ref religionPopModifierTierFourAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool churchPopModifierHumanEnabled;
-        [SyncHostOnly]
-        public bool ChurchPopModifierHumanEnabled
-        {
-            get => churchPopModifierHumanEnabled;
-            set { if (ChangePopularity(ref churchPopModifierHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool churchPopModifierAIEnabled;
-        [SyncHostOnly]
-        public bool ChurchPopModifierAIEnabled
-        {
-            get => churchPopModifierAIEnabled;
-            set { if (ChangePopularity(ref churchPopModifierAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool cathedralPopModifierHumanEnabled;
-        [SyncHostOnly]
-        public bool CathedralPopModifierHumanEnabled
-        {
-            get => cathedralPopModifierHumanEnabled;
-            set { if (ChangePopularity(ref cathedralPopModifierHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool cathedralPopModifierAIEnabled;
-        [SyncHostOnly]
-        public bool CathedralPopModifierAIEnabled
-        {
-            get => cathedralPopModifierAIEnabled;
-            set { if (ChangePopularity(ref cathedralPopModifierAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierOneHumanEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierOneHumanEnabled
-        {
-            get => alePopModifierTierOneHumanEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierOneHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierOneAIEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierOneAIEnabled
-        {
-            get => alePopModifierTierOneAIEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierOneAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierTwoHumanEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierTwoHumanEnabled
-        {
-            get => alePopModifierTierTwoHumanEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierTwoHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierTwoAIEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierTwoAIEnabled
-        {
-            get => alePopModifierTierTwoAIEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierTwoAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierThreeHumanEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierThreeHumanEnabled
-        {
-            get => alePopModifierTierThreeHumanEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierThreeHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierThreeAIEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierThreeAIEnabled
-        {
-            get => alePopModifierTierThreeAIEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierThreeAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierFourHumanEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierFourHumanEnabled
-        {
-            get => alePopModifierTierFourHumanEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierFourHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool alePopModifierTierFourAIEnabled;
-        [SyncHostOnly]
-        public bool AlePopModifierTierFourAIEnabled
-        {
-            get => alePopModifierTierFourAIEnabled;
-            set { if (ChangePopularity(ref alePopModifierTierFourAIEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool fairsPopularityEventModifierHumanEnabled;
-        [SyncHostOnly]
-        public bool FairsPopularityEventModifierHumanEnabled
-        {
-            get => fairsPopularityEventModifierHumanEnabled;
-            set { if (ChangePopularity(ref fairsPopularityEventModifierHumanEnabled, value)) RefreshPopularityEditors(); }
-        }
-        private bool fairsPopularityEventModifierAIEnabled;
-        [SyncHostOnly]
-        public bool FairsPopularityEventModifierAIEnabled
-        {
-            get => fairsPopularityEventModifierAIEnabled;
-            set { if (ChangePopularity(ref fairsPopularityEventModifierAIEnabled, value)) RefreshPopularityEditors(); }
+            get => fairsAIEnabled;
+            set { if (ChangePopularity(ref fairsAIEnabled, value)) RefreshPopularityEditors(); }
         }
         private bool negativeFearHumanEnabled;
         [SyncHostOnly]
@@ -731,7 +269,7 @@ namespace ExtraFeatures
             get => rationsPopModifierNoneHuman;
             set { if (ChangePopularity(ref rationsPopModifierNoneHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierNoneHumanValueText)); }
         }
-        public bool RationsPopModifierNoneHumanEditable => CanConfigurePopularity && EnableMod && RationsPopModifierNoneHumanEnabled;
+        public bool RationsPopModifierNoneHumanEditable => CanConfigurePopularity && EnableMod && RationsHumanEnabled;
         public string RationsPopModifierNoneHumanValueText
         {
             get => RationsPopModifierNoneHuman.ToString(CultureInfo.InvariantCulture);
@@ -744,7 +282,7 @@ namespace ExtraFeatures
             get => rationsPopModifierNoneAI;
             set { if (ChangePopularity(ref rationsPopModifierNoneAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierNoneAIValueText)); }
         }
-        public bool RationsPopModifierNoneAIEditable => CanConfigurePopularity && EnableMod && RationsPopModifierNoneAIEnabled;
+        public bool RationsPopModifierNoneAIEditable => CanConfigurePopularity && EnableMod && RationsAIEnabled;
         public string RationsPopModifierNoneAIValueText
         {
             get => RationsPopModifierNoneAI.ToString(CultureInfo.InvariantCulture);
@@ -757,7 +295,7 @@ namespace ExtraFeatures
             get => rationsPopModifierHalfHuman;
             set { if (ChangePopularity(ref rationsPopModifierHalfHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierHalfHumanValueText)); }
         }
-        public bool RationsPopModifierHalfHumanEditable => CanConfigurePopularity && EnableMod && RationsPopModifierHalfHumanEnabled;
+        public bool RationsPopModifierHalfHumanEditable => CanConfigurePopularity && EnableMod && RationsHumanEnabled;
         public string RationsPopModifierHalfHumanValueText
         {
             get => RationsPopModifierHalfHuman.ToString(CultureInfo.InvariantCulture);
@@ -770,7 +308,7 @@ namespace ExtraFeatures
             get => rationsPopModifierHalfAI;
             set { if (ChangePopularity(ref rationsPopModifierHalfAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierHalfAIValueText)); }
         }
-        public bool RationsPopModifierHalfAIEditable => CanConfigurePopularity && EnableMod && RationsPopModifierHalfAIEnabled;
+        public bool RationsPopModifierHalfAIEditable => CanConfigurePopularity && EnableMod && RationsAIEnabled;
         public string RationsPopModifierHalfAIValueText
         {
             get => RationsPopModifierHalfAI.ToString(CultureInfo.InvariantCulture);
@@ -783,7 +321,7 @@ namespace ExtraFeatures
             get => rationsPopModifierFullHuman;
             set { if (ChangePopularity(ref rationsPopModifierFullHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierFullHumanValueText)); }
         }
-        public bool RationsPopModifierFullHumanEditable => CanConfigurePopularity && EnableMod && RationsPopModifierFullHumanEnabled;
+        public bool RationsPopModifierFullHumanEditable => CanConfigurePopularity && EnableMod && RationsHumanEnabled;
         public string RationsPopModifierFullHumanValueText
         {
             get => RationsPopModifierFullHuman.ToString(CultureInfo.InvariantCulture);
@@ -796,7 +334,7 @@ namespace ExtraFeatures
             get => rationsPopModifierFullAI;
             set { if (ChangePopularity(ref rationsPopModifierFullAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierFullAIValueText)); }
         }
-        public bool RationsPopModifierFullAIEditable => CanConfigurePopularity && EnableMod && RationsPopModifierFullAIEnabled;
+        public bool RationsPopModifierFullAIEditable => CanConfigurePopularity && EnableMod && RationsAIEnabled;
         public string RationsPopModifierFullAIValueText
         {
             get => RationsPopModifierFullAI.ToString(CultureInfo.InvariantCulture);
@@ -809,7 +347,7 @@ namespace ExtraFeatures
             get => rationsPopModifierExtraHuman;
             set { if (ChangePopularity(ref rationsPopModifierExtraHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierExtraHumanValueText)); }
         }
-        public bool RationsPopModifierExtraHumanEditable => CanConfigurePopularity && EnableMod && RationsPopModifierExtraHumanEnabled;
+        public bool RationsPopModifierExtraHumanEditable => CanConfigurePopularity && EnableMod && RationsHumanEnabled;
         public string RationsPopModifierExtraHumanValueText
         {
             get => RationsPopModifierExtraHuman.ToString(CultureInfo.InvariantCulture);
@@ -822,7 +360,7 @@ namespace ExtraFeatures
             get => rationsPopModifierExtraAI;
             set { if (ChangePopularity(ref rationsPopModifierExtraAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierExtraAIValueText)); }
         }
-        public bool RationsPopModifierExtraAIEditable => CanConfigurePopularity && EnableMod && RationsPopModifierExtraAIEnabled;
+        public bool RationsPopModifierExtraAIEditable => CanConfigurePopularity && EnableMod && RationsAIEnabled;
         public string RationsPopModifierExtraAIValueText
         {
             get => RationsPopModifierExtraAI.ToString(CultureInfo.InvariantCulture);
@@ -835,7 +373,7 @@ namespace ExtraFeatures
             get => rationsPopModifierDoubleHuman;
             set { if (ChangePopularity(ref rationsPopModifierDoubleHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierDoubleHumanValueText)); }
         }
-        public bool RationsPopModifierDoubleHumanEditable => CanConfigurePopularity && EnableMod && RationsPopModifierDoubleHumanEnabled;
+        public bool RationsPopModifierDoubleHumanEditable => CanConfigurePopularity && EnableMod && RationsHumanEnabled;
         public string RationsPopModifierDoubleHumanValueText
         {
             get => RationsPopModifierDoubleHuman.ToString(CultureInfo.InvariantCulture);
@@ -848,7 +386,7 @@ namespace ExtraFeatures
             get => rationsPopModifierDoubleAI;
             set { if (ChangePopularity(ref rationsPopModifierDoubleAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierDoubleAIValueText)); }
         }
-        public bool RationsPopModifierDoubleAIEditable => CanConfigurePopularity && EnableMod && RationsPopModifierDoubleAIEnabled;
+        public bool RationsPopModifierDoubleAIEditable => CanConfigurePopularity && EnableMod && RationsAIEnabled;
         public string RationsPopModifierDoubleAIValueText
         {
             get => RationsPopModifierDoubleAI.ToString(CultureInfo.InvariantCulture);
@@ -861,7 +399,7 @@ namespace ExtraFeatures
             get => rationsPopModifierNoPreferredFoodHuman;
             set { if (ChangePopularity(ref rationsPopModifierNoPreferredFoodHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierNoPreferredFoodHumanValueText)); }
         }
-        public bool RationsPopModifierNoPreferredFoodHumanEditable => CanConfigurePopularity && EnableMod && RationsPopModifierNoPreferredFoodHumanEnabled;
+        public bool RationsPopModifierNoPreferredFoodHumanEditable => CanConfigurePopularity && EnableMod && RationsHumanEnabled;
         public string RationsPopModifierNoPreferredFoodHumanValueText
         {
             get => RationsPopModifierNoPreferredFoodHuman.ToString(CultureInfo.InvariantCulture);
@@ -874,7 +412,7 @@ namespace ExtraFeatures
             get => rationsPopModifierNoPreferredFoodAI;
             set { if (ChangePopularity(ref rationsPopModifierNoPreferredFoodAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierNoPreferredFoodAIValueText)); }
         }
-        public bool RationsPopModifierNoPreferredFoodAIEditable => CanConfigurePopularity && EnableMod && RationsPopModifierNoPreferredFoodAIEnabled;
+        public bool RationsPopModifierNoPreferredFoodAIEditable => CanConfigurePopularity && EnableMod && RationsAIEnabled;
         public string RationsPopModifierNoPreferredFoodAIValueText
         {
             get => RationsPopModifierNoPreferredFoodAI.ToString(CultureInfo.InvariantCulture);
@@ -887,7 +425,7 @@ namespace ExtraFeatures
             get => rationsPopModifierNoPopulationHuman;
             set { if (ChangePopularity(ref rationsPopModifierNoPopulationHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierNoPopulationHumanValueText)); }
         }
-        public bool RationsPopModifierNoPopulationHumanEditable => CanConfigurePopularity && EnableMod && RationsPopModifierNoPopulationHumanEnabled;
+        public bool RationsPopModifierNoPopulationHumanEditable => CanConfigurePopularity && EnableMod && RationsHumanEnabled;
         public string RationsPopModifierNoPopulationHumanValueText
         {
             get => RationsPopModifierNoPopulationHuman.ToString(CultureInfo.InvariantCulture);
@@ -900,7 +438,7 @@ namespace ExtraFeatures
             get => rationsPopModifierNoPopulationAI;
             set { if (ChangePopularity(ref rationsPopModifierNoPopulationAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(RationsPopModifierNoPopulationAIValueText)); }
         }
-        public bool RationsPopModifierNoPopulationAIEditable => CanConfigurePopularity && EnableMod && RationsPopModifierNoPopulationAIEnabled;
+        public bool RationsPopModifierNoPopulationAIEditable => CanConfigurePopularity && EnableMod && RationsAIEnabled;
         public string RationsPopModifierNoPopulationAIValueText
         {
             get => RationsPopModifierNoPopulationAI.ToString(CultureInfo.InvariantCulture);
@@ -913,7 +451,7 @@ namespace ExtraFeatures
             get => foodVarietyPopModifierTwoTypesHuman;
             set { if (ChangePopularity(ref foodVarietyPopModifierTwoTypesHuman, Math.Max(-6, Math.Min(6, value)))) OnPropertyChanged(nameof(FoodVarietyPopModifierTwoTypesHumanValueText)); }
         }
-        public bool FoodVarietyPopModifierTwoTypesHumanEditable => CanConfigurePopularity && EnableMod && FoodVarietyPopModifierTwoTypesHumanEnabled;
+        public bool FoodVarietyPopModifierTwoTypesHumanEditable => CanConfigurePopularity && EnableMod && VarietyHumanEnabled;
         public string FoodVarietyPopModifierTwoTypesHumanValueText
         {
             get => FoodVarietyPopModifierTwoTypesHuman.ToString(CultureInfo.InvariantCulture);
@@ -926,7 +464,7 @@ namespace ExtraFeatures
             get => foodVarietyPopModifierTwoTypesAI;
             set { if (ChangePopularity(ref foodVarietyPopModifierTwoTypesAI, Math.Max(-6, Math.Min(6, value)))) OnPropertyChanged(nameof(FoodVarietyPopModifierTwoTypesAIValueText)); }
         }
-        public bool FoodVarietyPopModifierTwoTypesAIEditable => CanConfigurePopularity && EnableMod && FoodVarietyPopModifierTwoTypesAIEnabled;
+        public bool FoodVarietyPopModifierTwoTypesAIEditable => CanConfigurePopularity && EnableMod && VarietyAIEnabled;
         public string FoodVarietyPopModifierTwoTypesAIValueText
         {
             get => FoodVarietyPopModifierTwoTypesAI.ToString(CultureInfo.InvariantCulture);
@@ -939,7 +477,7 @@ namespace ExtraFeatures
             get => foodVarietyPopModifierThreeTypesHuman;
             set { if (ChangePopularity(ref foodVarietyPopModifierThreeTypesHuman, Math.Max(-6, Math.Min(6, value)))) OnPropertyChanged(nameof(FoodVarietyPopModifierThreeTypesHumanValueText)); }
         }
-        public bool FoodVarietyPopModifierThreeTypesHumanEditable => CanConfigurePopularity && EnableMod && FoodVarietyPopModifierThreeTypesHumanEnabled;
+        public bool FoodVarietyPopModifierThreeTypesHumanEditable => CanConfigurePopularity && EnableMod && VarietyHumanEnabled;
         public string FoodVarietyPopModifierThreeTypesHumanValueText
         {
             get => FoodVarietyPopModifierThreeTypesHuman.ToString(CultureInfo.InvariantCulture);
@@ -952,7 +490,7 @@ namespace ExtraFeatures
             get => foodVarietyPopModifierThreeTypesAI;
             set { if (ChangePopularity(ref foodVarietyPopModifierThreeTypesAI, Math.Max(-6, Math.Min(6, value)))) OnPropertyChanged(nameof(FoodVarietyPopModifierThreeTypesAIValueText)); }
         }
-        public bool FoodVarietyPopModifierThreeTypesAIEditable => CanConfigurePopularity && EnableMod && FoodVarietyPopModifierThreeTypesAIEnabled;
+        public bool FoodVarietyPopModifierThreeTypesAIEditable => CanConfigurePopularity && EnableMod && VarietyAIEnabled;
         public string FoodVarietyPopModifierThreeTypesAIValueText
         {
             get => FoodVarietyPopModifierThreeTypesAI.ToString(CultureInfo.InvariantCulture);
@@ -965,7 +503,7 @@ namespace ExtraFeatures
             get => foodVarietyPopModifierFourTypesHuman;
             set { if (ChangePopularity(ref foodVarietyPopModifierFourTypesHuman, Math.Max(-6, Math.Min(6, value)))) OnPropertyChanged(nameof(FoodVarietyPopModifierFourTypesHumanValueText)); }
         }
-        public bool FoodVarietyPopModifierFourTypesHumanEditable => CanConfigurePopularity && EnableMod && FoodVarietyPopModifierFourTypesHumanEnabled;
+        public bool FoodVarietyPopModifierFourTypesHumanEditable => CanConfigurePopularity && EnableMod && VarietyHumanEnabled;
         public string FoodVarietyPopModifierFourTypesHumanValueText
         {
             get => FoodVarietyPopModifierFourTypesHuman.ToString(CultureInfo.InvariantCulture);
@@ -978,7 +516,7 @@ namespace ExtraFeatures
             get => foodVarietyPopModifierFourTypesAI;
             set { if (ChangePopularity(ref foodVarietyPopModifierFourTypesAI, Math.Max(-6, Math.Min(6, value)))) OnPropertyChanged(nameof(FoodVarietyPopModifierFourTypesAIValueText)); }
         }
-        public bool FoodVarietyPopModifierFourTypesAIEditable => CanConfigurePopularity && EnableMod && FoodVarietyPopModifierFourTypesAIEnabled;
+        public bool FoodVarietyPopModifierFourTypesAIEditable => CanConfigurePopularity && EnableMod && VarietyAIEnabled;
         public string FoodVarietyPopModifierFourTypesAIValueText
         {
             get => FoodVarietyPopModifierFourTypesAI.ToString(CultureInfo.InvariantCulture);
@@ -991,7 +529,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierOneHuman;
             set { if (ChangePopularity(ref overpopulationPopModifierTierOneHuman, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierOneHumanValueText)); }
         }
-        public bool OverpopulationPopModifierTierOneHumanEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierOneHumanEnabled;
+        public bool OverpopulationPopModifierTierOneHumanEditable => CanConfigurePopularity && EnableMod && CrowdingHumanEnabled;
         public string OverpopulationPopModifierTierOneHumanValueText
         {
             get => OverpopulationPopModifierTierOneHuman.ToString(CultureInfo.InvariantCulture);
@@ -1004,7 +542,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierOneAI;
             set { if (ChangePopularity(ref overpopulationPopModifierTierOneAI, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierOneAIValueText)); }
         }
-        public bool OverpopulationPopModifierTierOneAIEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierOneAIEnabled;
+        public bool OverpopulationPopModifierTierOneAIEditable => CanConfigurePopularity && EnableMod && CrowdingAIEnabled;
         public string OverpopulationPopModifierTierOneAIValueText
         {
             get => OverpopulationPopModifierTierOneAI.ToString(CultureInfo.InvariantCulture);
@@ -1017,7 +555,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierTwoHuman;
             set { if (ChangePopularity(ref overpopulationPopModifierTierTwoHuman, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierTwoHumanValueText)); }
         }
-        public bool OverpopulationPopModifierTierTwoHumanEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierTwoHumanEnabled;
+        public bool OverpopulationPopModifierTierTwoHumanEditable => CanConfigurePopularity && EnableMod && CrowdingHumanEnabled;
         public string OverpopulationPopModifierTierTwoHumanValueText
         {
             get => OverpopulationPopModifierTierTwoHuman.ToString(CultureInfo.InvariantCulture);
@@ -1030,7 +568,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierTwoAI;
             set { if (ChangePopularity(ref overpopulationPopModifierTierTwoAI, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierTwoAIValueText)); }
         }
-        public bool OverpopulationPopModifierTierTwoAIEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierTwoAIEnabled;
+        public bool OverpopulationPopModifierTierTwoAIEditable => CanConfigurePopularity && EnableMod && CrowdingAIEnabled;
         public string OverpopulationPopModifierTierTwoAIValueText
         {
             get => OverpopulationPopModifierTierTwoAI.ToString(CultureInfo.InvariantCulture);
@@ -1043,7 +581,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierThreeHuman;
             set { if (ChangePopularity(ref overpopulationPopModifierTierThreeHuman, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierThreeHumanValueText)); }
         }
-        public bool OverpopulationPopModifierTierThreeHumanEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierThreeHumanEnabled;
+        public bool OverpopulationPopModifierTierThreeHumanEditable => CanConfigurePopularity && EnableMod && CrowdingHumanEnabled;
         public string OverpopulationPopModifierTierThreeHumanValueText
         {
             get => OverpopulationPopModifierTierThreeHuman.ToString(CultureInfo.InvariantCulture);
@@ -1056,7 +594,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierThreeAI;
             set { if (ChangePopularity(ref overpopulationPopModifierTierThreeAI, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierThreeAIValueText)); }
         }
-        public bool OverpopulationPopModifierTierThreeAIEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierThreeAIEnabled;
+        public bool OverpopulationPopModifierTierThreeAIEditable => CanConfigurePopularity && EnableMod && CrowdingAIEnabled;
         public string OverpopulationPopModifierTierThreeAIValueText
         {
             get => OverpopulationPopModifierTierThreeAI.ToString(CultureInfo.InvariantCulture);
@@ -1069,7 +607,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierFourHuman;
             set { if (ChangePopularity(ref overpopulationPopModifierTierFourHuman, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierFourHumanValueText)); }
         }
-        public bool OverpopulationPopModifierTierFourHumanEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierFourHumanEnabled;
+        public bool OverpopulationPopModifierTierFourHumanEditable => CanConfigurePopularity && EnableMod && CrowdingHumanEnabled;
         public string OverpopulationPopModifierTierFourHumanValueText
         {
             get => OverpopulationPopModifierTierFourHuman.ToString(CultureInfo.InvariantCulture);
@@ -1082,7 +620,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierFourAI;
             set { if (ChangePopularity(ref overpopulationPopModifierTierFourAI, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierFourAIValueText)); }
         }
-        public bool OverpopulationPopModifierTierFourAIEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierFourAIEnabled;
+        public bool OverpopulationPopModifierTierFourAIEditable => CanConfigurePopularity && EnableMod && CrowdingAIEnabled;
         public string OverpopulationPopModifierTierFourAIValueText
         {
             get => OverpopulationPopModifierTierFourAI.ToString(CultureInfo.InvariantCulture);
@@ -1095,7 +633,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierFiveHuman;
             set { if (ChangePopularity(ref overpopulationPopModifierTierFiveHuman, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierFiveHumanValueText)); }
         }
-        public bool OverpopulationPopModifierTierFiveHumanEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierFiveHumanEnabled;
+        public bool OverpopulationPopModifierTierFiveHumanEditable => CanConfigurePopularity && EnableMod && CrowdingHumanEnabled;
         public string OverpopulationPopModifierTierFiveHumanValueText
         {
             get => OverpopulationPopModifierTierFiveHuman.ToString(CultureInfo.InvariantCulture);
@@ -1108,7 +646,7 @@ namespace ExtraFeatures
             get => overpopulationPopModifierTierFiveAI;
             set { if (ChangePopularity(ref overpopulationPopModifierTierFiveAI, Math.Max(-20, Math.Min(20, value)))) OnPropertyChanged(nameof(OverpopulationPopModifierTierFiveAIValueText)); }
         }
-        public bool OverpopulationPopModifierTierFiveAIEditable => CanConfigurePopularity && EnableMod && OverpopulationPopModifierTierFiveAIEnabled;
+        public bool OverpopulationPopModifierTierFiveAIEditable => CanConfigurePopularity && EnableMod && CrowdingAIEnabled;
         public string OverpopulationPopModifierTierFiveAIValueText
         {
             get => OverpopulationPopModifierTierFiveAI.ToString(CultureInfo.InvariantCulture);
@@ -1121,7 +659,7 @@ namespace ExtraFeatures
             get => taxPopModifierHugeDonationHuman;
             set { if (ChangePopularity(ref taxPopModifierHugeDonationHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierHugeDonationHumanValueText)); }
         }
-        public bool TaxPopModifierHugeDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierHugeDonationHumanEnabled;
+        public bool TaxPopModifierHugeDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierHugeDonationHumanValueText
         {
             get => TaxPopModifierHugeDonationHuman.ToString(CultureInfo.InvariantCulture);
@@ -1134,7 +672,7 @@ namespace ExtraFeatures
             get => taxPopModifierHugeDonationAI;
             set { if (ChangePopularity(ref taxPopModifierHugeDonationAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierHugeDonationAIValueText)); }
         }
-        public bool TaxPopModifierHugeDonationAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierHugeDonationAIEnabled;
+        public bool TaxPopModifierHugeDonationAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierHugeDonationAIValueText
         {
             get => TaxPopModifierHugeDonationAI.ToString(CultureInfo.InvariantCulture);
@@ -1147,7 +685,7 @@ namespace ExtraFeatures
             get => taxPopModifierBigDonationHuman;
             set { if (ChangePopularity(ref taxPopModifierBigDonationHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierBigDonationHumanValueText)); }
         }
-        public bool TaxPopModifierBigDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierBigDonationHumanEnabled;
+        public bool TaxPopModifierBigDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierBigDonationHumanValueText
         {
             get => TaxPopModifierBigDonationHuman.ToString(CultureInfo.InvariantCulture);
@@ -1160,7 +698,7 @@ namespace ExtraFeatures
             get => taxPopModifierBigDonationAI;
             set { if (ChangePopularity(ref taxPopModifierBigDonationAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierBigDonationAIValueText)); }
         }
-        public bool TaxPopModifierBigDonationAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierBigDonationAIEnabled;
+        public bool TaxPopModifierBigDonationAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierBigDonationAIValueText
         {
             get => TaxPopModifierBigDonationAI.ToString(CultureInfo.InvariantCulture);
@@ -1173,7 +711,7 @@ namespace ExtraFeatures
             get => taxPopModifierSmallDonationHuman;
             set { if (ChangePopularity(ref taxPopModifierSmallDonationHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierSmallDonationHumanValueText)); }
         }
-        public bool TaxPopModifierSmallDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierSmallDonationHumanEnabled;
+        public bool TaxPopModifierSmallDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierSmallDonationHumanValueText
         {
             get => TaxPopModifierSmallDonationHuman.ToString(CultureInfo.InvariantCulture);
@@ -1186,7 +724,7 @@ namespace ExtraFeatures
             get => taxPopModifierSmallDonationAI;
             set { if (ChangePopularity(ref taxPopModifierSmallDonationAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierSmallDonationAIValueText)); }
         }
-        public bool TaxPopModifierSmallDonationAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierSmallDonationAIEnabled;
+        public bool TaxPopModifierSmallDonationAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierSmallDonationAIValueText
         {
             get => TaxPopModifierSmallDonationAI.ToString(CultureInfo.InvariantCulture);
@@ -1199,7 +737,7 @@ namespace ExtraFeatures
             get => taxPopModifierNoneHuman;
             set { if (ChangePopularity(ref taxPopModifierNoneHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierNoneHumanValueText)); }
         }
-        public bool TaxPopModifierNoneHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierNoneHumanEnabled;
+        public bool TaxPopModifierNoneHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierNoneHumanValueText
         {
             get => TaxPopModifierNoneHuman.ToString(CultureInfo.InvariantCulture);
@@ -1212,7 +750,7 @@ namespace ExtraFeatures
             get => taxPopModifierNoneAI;
             set { if (ChangePopularity(ref taxPopModifierNoneAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierNoneAIValueText)); }
         }
-        public bool TaxPopModifierNoneAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierNoneAIEnabled;
+        public bool TaxPopModifierNoneAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierNoneAIValueText
         {
             get => TaxPopModifierNoneAI.ToString(CultureInfo.InvariantCulture);
@@ -1225,7 +763,7 @@ namespace ExtraFeatures
             get => taxPopModifierLowHuman;
             set { if (ChangePopularity(ref taxPopModifierLowHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierLowHumanValueText)); }
         }
-        public bool TaxPopModifierLowHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierLowHumanEnabled;
+        public bool TaxPopModifierLowHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierLowHumanValueText
         {
             get => TaxPopModifierLowHuman.ToString(CultureInfo.InvariantCulture);
@@ -1238,7 +776,7 @@ namespace ExtraFeatures
             get => taxPopModifierLowAI;
             set { if (ChangePopularity(ref taxPopModifierLowAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierLowAIValueText)); }
         }
-        public bool TaxPopModifierLowAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierLowAIEnabled;
+        public bool TaxPopModifierLowAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierLowAIValueText
         {
             get => TaxPopModifierLowAI.ToString(CultureInfo.InvariantCulture);
@@ -1251,7 +789,7 @@ namespace ExtraFeatures
             get => taxPopModifierModerateHuman;
             set { if (ChangePopularity(ref taxPopModifierModerateHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierModerateHumanValueText)); }
         }
-        public bool TaxPopModifierModerateHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierModerateHumanEnabled;
+        public bool TaxPopModifierModerateHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierModerateHumanValueText
         {
             get => TaxPopModifierModerateHuman.ToString(CultureInfo.InvariantCulture);
@@ -1264,7 +802,7 @@ namespace ExtraFeatures
             get => taxPopModifierModerateAI;
             set { if (ChangePopularity(ref taxPopModifierModerateAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierModerateAIValueText)); }
         }
-        public bool TaxPopModifierModerateAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierModerateAIEnabled;
+        public bool TaxPopModifierModerateAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierModerateAIValueText
         {
             get => TaxPopModifierModerateAI.ToString(CultureInfo.InvariantCulture);
@@ -1277,7 +815,7 @@ namespace ExtraFeatures
             get => taxPopModifierHighHuman;
             set { if (ChangePopularity(ref taxPopModifierHighHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierHighHumanValueText)); }
         }
-        public bool TaxPopModifierHighHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierHighHumanEnabled;
+        public bool TaxPopModifierHighHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierHighHumanValueText
         {
             get => TaxPopModifierHighHuman.ToString(CultureInfo.InvariantCulture);
@@ -1290,7 +828,7 @@ namespace ExtraFeatures
             get => taxPopModifierHighAI;
             set { if (ChangePopularity(ref taxPopModifierHighAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierHighAIValueText)); }
         }
-        public bool TaxPopModifierHighAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierHighAIEnabled;
+        public bool TaxPopModifierHighAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierHighAIValueText
         {
             get => TaxPopModifierHighAI.ToString(CultureInfo.InvariantCulture);
@@ -1303,7 +841,7 @@ namespace ExtraFeatures
             get => taxPopModifierMeanHuman;
             set { if (ChangePopularity(ref taxPopModifierMeanHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierMeanHumanValueText)); }
         }
-        public bool TaxPopModifierMeanHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierMeanHumanEnabled;
+        public bool TaxPopModifierMeanHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierMeanHumanValueText
         {
             get => TaxPopModifierMeanHuman.ToString(CultureInfo.InvariantCulture);
@@ -1316,7 +854,7 @@ namespace ExtraFeatures
             get => taxPopModifierMeanAI;
             set { if (ChangePopularity(ref taxPopModifierMeanAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierMeanAIValueText)); }
         }
-        public bool TaxPopModifierMeanAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierMeanAIEnabled;
+        public bool TaxPopModifierMeanAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierMeanAIValueText
         {
             get => TaxPopModifierMeanAI.ToString(CultureInfo.InvariantCulture);
@@ -1329,7 +867,7 @@ namespace ExtraFeatures
             get => taxPopModifierUsuriousHuman;
             set { if (ChangePopularity(ref taxPopModifierUsuriousHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierUsuriousHumanValueText)); }
         }
-        public bool TaxPopModifierUsuriousHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierUsuriousHumanEnabled;
+        public bool TaxPopModifierUsuriousHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierUsuriousHumanValueText
         {
             get => TaxPopModifierUsuriousHuman.ToString(CultureInfo.InvariantCulture);
@@ -1342,7 +880,7 @@ namespace ExtraFeatures
             get => taxPopModifierUsuriousAI;
             set { if (ChangePopularity(ref taxPopModifierUsuriousAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierUsuriousAIValueText)); }
         }
-        public bool TaxPopModifierUsuriousAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierUsuriousAIEnabled;
+        public bool TaxPopModifierUsuriousAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierUsuriousAIValueText
         {
             get => TaxPopModifierUsuriousAI.ToString(CultureInfo.InvariantCulture);
@@ -1355,7 +893,7 @@ namespace ExtraFeatures
             get => taxPopModifierCruelHuman;
             set { if (ChangePopularity(ref taxPopModifierCruelHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierCruelHumanValueText)); }
         }
-        public bool TaxPopModifierCruelHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierCruelHumanEnabled;
+        public bool TaxPopModifierCruelHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierCruelHumanValueText
         {
             get => TaxPopModifierCruelHuman.ToString(CultureInfo.InvariantCulture);
@@ -1368,7 +906,7 @@ namespace ExtraFeatures
             get => taxPopModifierCruelAI;
             set { if (ChangePopularity(ref taxPopModifierCruelAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierCruelAIValueText)); }
         }
-        public bool TaxPopModifierCruelAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierCruelAIEnabled;
+        public bool TaxPopModifierCruelAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierCruelAIValueText
         {
             get => TaxPopModifierCruelAI.ToString(CultureInfo.InvariantCulture);
@@ -1381,7 +919,7 @@ namespace ExtraFeatures
             get => taxPopModifierMostCruelHuman;
             set { if (ChangePopularity(ref taxPopModifierMostCruelHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierMostCruelHumanValueText)); }
         }
-        public bool TaxPopModifierMostCruelHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierMostCruelHumanEnabled;
+        public bool TaxPopModifierMostCruelHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierMostCruelHumanValueText
         {
             get => TaxPopModifierMostCruelHuman.ToString(CultureInfo.InvariantCulture);
@@ -1394,7 +932,7 @@ namespace ExtraFeatures
             get => taxPopModifierMostCruelAI;
             set { if (ChangePopularity(ref taxPopModifierMostCruelAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierMostCruelAIValueText)); }
         }
-        public bool TaxPopModifierMostCruelAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierMostCruelAIEnabled;
+        public bool TaxPopModifierMostCruelAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierMostCruelAIValueText
         {
             get => TaxPopModifierMostCruelAI.ToString(CultureInfo.InvariantCulture);
@@ -1407,7 +945,7 @@ namespace ExtraFeatures
             get => taxPopModifierCruellestHuman;
             set { if (ChangePopularity(ref taxPopModifierCruellestHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierCruellestHumanValueText)); }
         }
-        public bool TaxPopModifierCruellestHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierCruellestHumanEnabled;
+        public bool TaxPopModifierCruellestHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierCruellestHumanValueText
         {
             get => TaxPopModifierCruellestHuman.ToString(CultureInfo.InvariantCulture);
@@ -1420,7 +958,7 @@ namespace ExtraFeatures
             get => taxPopModifierCruellestAI;
             set { if (ChangePopularity(ref taxPopModifierCruellestAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierCruellestAIValueText)); }
         }
-        public bool TaxPopModifierCruellestAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierCruellestAIEnabled;
+        public bool TaxPopModifierCruellestAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierCruellestAIValueText
         {
             get => TaxPopModifierCruellestAI.ToString(CultureInfo.InvariantCulture);
@@ -1433,7 +971,7 @@ namespace ExtraFeatures
             get => taxPopModifierUnaffordableDonationHuman;
             set { if (ChangePopularity(ref taxPopModifierUnaffordableDonationHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierUnaffordableDonationHumanValueText)); }
         }
-        public bool TaxPopModifierUnaffordableDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierUnaffordableDonationHumanEnabled;
+        public bool TaxPopModifierUnaffordableDonationHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierUnaffordableDonationHumanValueText
         {
             get => TaxPopModifierUnaffordableDonationHuman.ToString(CultureInfo.InvariantCulture);
@@ -1446,7 +984,7 @@ namespace ExtraFeatures
             get => taxPopModifierUnaffordableDonationAI;
             set { if (ChangePopularity(ref taxPopModifierUnaffordableDonationAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierUnaffordableDonationAIValueText)); }
         }
-        public bool TaxPopModifierUnaffordableDonationAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierUnaffordableDonationAIEnabled;
+        public bool TaxPopModifierUnaffordableDonationAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierUnaffordableDonationAIValueText
         {
             get => TaxPopModifierUnaffordableDonationAI.ToString(CultureInfo.InvariantCulture);
@@ -1459,7 +997,7 @@ namespace ExtraFeatures
             get => taxPopModifierUnknownModeHuman;
             set { if (ChangePopularity(ref taxPopModifierUnknownModeHuman, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierUnknownModeHumanValueText)); }
         }
-        public bool TaxPopModifierUnknownModeHumanEditable => CanConfigurePopularity && EnableMod && TaxPopModifierUnknownModeHumanEnabled;
+        public bool TaxPopModifierUnknownModeHumanEditable => CanConfigurePopularity && EnableMod && TaxesHumanEnabled;
         public string TaxPopModifierUnknownModeHumanValueText
         {
             get => TaxPopModifierUnknownModeHuman.ToString(CultureInfo.InvariantCulture);
@@ -1472,7 +1010,7 @@ namespace ExtraFeatures
             get => taxPopModifierUnknownModeAI;
             set { if (ChangePopularity(ref taxPopModifierUnknownModeAI, Math.Max(-48, Math.Min(48, value)))) OnPropertyChanged(nameof(TaxPopModifierUnknownModeAIValueText)); }
         }
-        public bool TaxPopModifierUnknownModeAIEditable => CanConfigurePopularity && EnableMod && TaxPopModifierUnknownModeAIEnabled;
+        public bool TaxPopModifierUnknownModeAIEditable => CanConfigurePopularity && EnableMod && TaxesAIEnabled;
         public string TaxPopModifierUnknownModeAIValueText
         {
             get => TaxPopModifierUnknownModeAI.ToString(CultureInfo.InvariantCulture);
@@ -1485,7 +1023,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierOneHuman;
             set { if (ChangePopularity(ref religionPopModifierTierOneHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierOneHumanValueText)); }
         }
-        public bool ReligionPopModifierTierOneHumanEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierOneHumanEnabled;
+        public bool ReligionPopModifierTierOneHumanEditable => CanConfigurePopularity && EnableMod && ReligionHumanEnabled;
         public string ReligionPopModifierTierOneHumanValueText
         {
             get => ReligionPopModifierTierOneHuman.ToString(CultureInfo.InvariantCulture);
@@ -1498,7 +1036,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierOneAI;
             set { if (ChangePopularity(ref religionPopModifierTierOneAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierOneAIValueText)); }
         }
-        public bool ReligionPopModifierTierOneAIEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierOneAIEnabled;
+        public bool ReligionPopModifierTierOneAIEditable => CanConfigurePopularity && EnableMod && ReligionAIEnabled;
         public string ReligionPopModifierTierOneAIValueText
         {
             get => ReligionPopModifierTierOneAI.ToString(CultureInfo.InvariantCulture);
@@ -1511,7 +1049,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierTwoHuman;
             set { if (ChangePopularity(ref religionPopModifierTierTwoHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierTwoHumanValueText)); }
         }
-        public bool ReligionPopModifierTierTwoHumanEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierTwoHumanEnabled;
+        public bool ReligionPopModifierTierTwoHumanEditable => CanConfigurePopularity && EnableMod && ReligionHumanEnabled;
         public string ReligionPopModifierTierTwoHumanValueText
         {
             get => ReligionPopModifierTierTwoHuman.ToString(CultureInfo.InvariantCulture);
@@ -1524,7 +1062,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierTwoAI;
             set { if (ChangePopularity(ref religionPopModifierTierTwoAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierTwoAIValueText)); }
         }
-        public bool ReligionPopModifierTierTwoAIEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierTwoAIEnabled;
+        public bool ReligionPopModifierTierTwoAIEditable => CanConfigurePopularity && EnableMod && ReligionAIEnabled;
         public string ReligionPopModifierTierTwoAIValueText
         {
             get => ReligionPopModifierTierTwoAI.ToString(CultureInfo.InvariantCulture);
@@ -1537,7 +1075,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierThreeHuman;
             set { if (ChangePopularity(ref religionPopModifierTierThreeHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierThreeHumanValueText)); }
         }
-        public bool ReligionPopModifierTierThreeHumanEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierThreeHumanEnabled;
+        public bool ReligionPopModifierTierThreeHumanEditable => CanConfigurePopularity && EnableMod && ReligionHumanEnabled;
         public string ReligionPopModifierTierThreeHumanValueText
         {
             get => ReligionPopModifierTierThreeHuman.ToString(CultureInfo.InvariantCulture);
@@ -1550,7 +1088,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierThreeAI;
             set { if (ChangePopularity(ref religionPopModifierTierThreeAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierThreeAIValueText)); }
         }
-        public bool ReligionPopModifierTierThreeAIEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierThreeAIEnabled;
+        public bool ReligionPopModifierTierThreeAIEditable => CanConfigurePopularity && EnableMod && ReligionAIEnabled;
         public string ReligionPopModifierTierThreeAIValueText
         {
             get => ReligionPopModifierTierThreeAI.ToString(CultureInfo.InvariantCulture);
@@ -1563,7 +1101,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierFourHuman;
             set { if (ChangePopularity(ref religionPopModifierTierFourHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierFourHumanValueText)); }
         }
-        public bool ReligionPopModifierTierFourHumanEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierFourHumanEnabled;
+        public bool ReligionPopModifierTierFourHumanEditable => CanConfigurePopularity && EnableMod && ReligionHumanEnabled;
         public string ReligionPopModifierTierFourHumanValueText
         {
             get => ReligionPopModifierTierFourHuman.ToString(CultureInfo.InvariantCulture);
@@ -1576,7 +1114,7 @@ namespace ExtraFeatures
             get => religionPopModifierTierFourAI;
             set { if (ChangePopularity(ref religionPopModifierTierFourAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ReligionPopModifierTierFourAIValueText)); }
         }
-        public bool ReligionPopModifierTierFourAIEditable => CanConfigurePopularity && EnableMod && ReligionPopModifierTierFourAIEnabled;
+        public bool ReligionPopModifierTierFourAIEditable => CanConfigurePopularity && EnableMod && ReligionAIEnabled;
         public string ReligionPopModifierTierFourAIValueText
         {
             get => ReligionPopModifierTierFourAI.ToString(CultureInfo.InvariantCulture);
@@ -1589,7 +1127,7 @@ namespace ExtraFeatures
             get => churchPopModifierHuman;
             set { if (ChangePopularity(ref churchPopModifierHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ChurchPopModifierHumanValueText)); }
         }
-        public bool ChurchPopModifierHumanEditable => CanConfigurePopularity && EnableMod && ChurchPopModifierHumanEnabled;
+        public bool ChurchPopModifierHumanEditable => CanConfigurePopularity && EnableMod && ReligionHumanEnabled;
         public string ChurchPopModifierHumanValueText
         {
             get => ChurchPopModifierHuman.ToString(CultureInfo.InvariantCulture);
@@ -1602,7 +1140,7 @@ namespace ExtraFeatures
             get => churchPopModifierAI;
             set { if (ChangePopularity(ref churchPopModifierAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(ChurchPopModifierAIValueText)); }
         }
-        public bool ChurchPopModifierAIEditable => CanConfigurePopularity && EnableMod && ChurchPopModifierAIEnabled;
+        public bool ChurchPopModifierAIEditable => CanConfigurePopularity && EnableMod && ReligionAIEnabled;
         public string ChurchPopModifierAIValueText
         {
             get => ChurchPopModifierAI.ToString(CultureInfo.InvariantCulture);
@@ -1615,7 +1153,7 @@ namespace ExtraFeatures
             get => cathedralPopModifierHuman;
             set { if (ChangePopularity(ref cathedralPopModifierHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(CathedralPopModifierHumanValueText)); }
         }
-        public bool CathedralPopModifierHumanEditable => CanConfigurePopularity && EnableMod && CathedralPopModifierHumanEnabled;
+        public bool CathedralPopModifierHumanEditable => CanConfigurePopularity && EnableMod && ReligionHumanEnabled;
         public string CathedralPopModifierHumanValueText
         {
             get => CathedralPopModifierHuman.ToString(CultureInfo.InvariantCulture);
@@ -1628,7 +1166,7 @@ namespace ExtraFeatures
             get => cathedralPopModifierAI;
             set { if (ChangePopularity(ref cathedralPopModifierAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(CathedralPopModifierAIValueText)); }
         }
-        public bool CathedralPopModifierAIEditable => CanConfigurePopularity && EnableMod && CathedralPopModifierAIEnabled;
+        public bool CathedralPopModifierAIEditable => CanConfigurePopularity && EnableMod && ReligionAIEnabled;
         public string CathedralPopModifierAIValueText
         {
             get => CathedralPopModifierAI.ToString(CultureInfo.InvariantCulture);
@@ -1641,7 +1179,7 @@ namespace ExtraFeatures
             get => alePopModifierTierOneHuman;
             set { if (ChangePopularity(ref alePopModifierTierOneHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierOneHumanValueText)); }
         }
-        public bool AlePopModifierTierOneHumanEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierOneHumanEnabled;
+        public bool AlePopModifierTierOneHumanEditable => CanConfigurePopularity && EnableMod && AleHumanEnabled;
         public string AlePopModifierTierOneHumanValueText
         {
             get => AlePopModifierTierOneHuman.ToString(CultureInfo.InvariantCulture);
@@ -1654,7 +1192,7 @@ namespace ExtraFeatures
             get => alePopModifierTierOneAI;
             set { if (ChangePopularity(ref alePopModifierTierOneAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierOneAIValueText)); }
         }
-        public bool AlePopModifierTierOneAIEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierOneAIEnabled;
+        public bool AlePopModifierTierOneAIEditable => CanConfigurePopularity && EnableMod && AleAIEnabled;
         public string AlePopModifierTierOneAIValueText
         {
             get => AlePopModifierTierOneAI.ToString(CultureInfo.InvariantCulture);
@@ -1667,7 +1205,7 @@ namespace ExtraFeatures
             get => alePopModifierTierTwoHuman;
             set { if (ChangePopularity(ref alePopModifierTierTwoHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierTwoHumanValueText)); }
         }
-        public bool AlePopModifierTierTwoHumanEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierTwoHumanEnabled;
+        public bool AlePopModifierTierTwoHumanEditable => CanConfigurePopularity && EnableMod && AleHumanEnabled;
         public string AlePopModifierTierTwoHumanValueText
         {
             get => AlePopModifierTierTwoHuman.ToString(CultureInfo.InvariantCulture);
@@ -1680,7 +1218,7 @@ namespace ExtraFeatures
             get => alePopModifierTierTwoAI;
             set { if (ChangePopularity(ref alePopModifierTierTwoAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierTwoAIValueText)); }
         }
-        public bool AlePopModifierTierTwoAIEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierTwoAIEnabled;
+        public bool AlePopModifierTierTwoAIEditable => CanConfigurePopularity && EnableMod && AleAIEnabled;
         public string AlePopModifierTierTwoAIValueText
         {
             get => AlePopModifierTierTwoAI.ToString(CultureInfo.InvariantCulture);
@@ -1693,7 +1231,7 @@ namespace ExtraFeatures
             get => alePopModifierTierThreeHuman;
             set { if (ChangePopularity(ref alePopModifierTierThreeHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierThreeHumanValueText)); }
         }
-        public bool AlePopModifierTierThreeHumanEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierThreeHumanEnabled;
+        public bool AlePopModifierTierThreeHumanEditable => CanConfigurePopularity && EnableMod && AleHumanEnabled;
         public string AlePopModifierTierThreeHumanValueText
         {
             get => AlePopModifierTierThreeHuman.ToString(CultureInfo.InvariantCulture);
@@ -1706,7 +1244,7 @@ namespace ExtraFeatures
             get => alePopModifierTierThreeAI;
             set { if (ChangePopularity(ref alePopModifierTierThreeAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierThreeAIValueText)); }
         }
-        public bool AlePopModifierTierThreeAIEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierThreeAIEnabled;
+        public bool AlePopModifierTierThreeAIEditable => CanConfigurePopularity && EnableMod && AleAIEnabled;
         public string AlePopModifierTierThreeAIValueText
         {
             get => AlePopModifierTierThreeAI.ToString(CultureInfo.InvariantCulture);
@@ -1719,7 +1257,7 @@ namespace ExtraFeatures
             get => alePopModifierTierFourHuman;
             set { if (ChangePopularity(ref alePopModifierTierFourHuman, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierFourHumanValueText)); }
         }
-        public bool AlePopModifierTierFourHumanEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierFourHumanEnabled;
+        public bool AlePopModifierTierFourHumanEditable => CanConfigurePopularity && EnableMod && AleHumanEnabled;
         public string AlePopModifierTierFourHumanValueText
         {
             get => AlePopModifierTierFourHuman.ToString(CultureInfo.InvariantCulture);
@@ -1732,7 +1270,7 @@ namespace ExtraFeatures
             get => alePopModifierTierFourAI;
             set { if (ChangePopularity(ref alePopModifierTierFourAI, Math.Max(-16, Math.Min(16, value)))) OnPropertyChanged(nameof(AlePopModifierTierFourAIValueText)); }
         }
-        public bool AlePopModifierTierFourAIEditable => CanConfigurePopularity && EnableMod && AlePopModifierTierFourAIEnabled;
+        public bool AlePopModifierTierFourAIEditable => CanConfigurePopularity && EnableMod && AleAIEnabled;
         public string AlePopModifierTierFourAIValueText
         {
             get => AlePopModifierTierFourAI.ToString(CultureInfo.InvariantCulture);
@@ -1745,7 +1283,7 @@ namespace ExtraFeatures
             get => fairsPopularityEventModifierHuman;
             set { if (ChangePopularity(ref fairsPopularityEventModifierHuman, Math.Max(-32, Math.Min(32, value)))) OnPropertyChanged(nameof(FairsPopularityEventModifierHumanValueText)); }
         }
-        public bool FairsPopularityEventModifierHumanEditable => CanConfigurePopularity && EnableMod && FairsPopularityEventModifierHumanEnabled;
+        public bool FairsPopularityEventModifierHumanEditable => CanConfigurePopularity && EnableMod && FairsHumanEnabled;
         public string FairsPopularityEventModifierHumanValueText
         {
             get => FairsPopularityEventModifierHuman.ToString(CultureInfo.InvariantCulture);
@@ -1758,7 +1296,7 @@ namespace ExtraFeatures
             get => fairsPopularityEventModifierAI;
             set { if (ChangePopularity(ref fairsPopularityEventModifierAI, Math.Max(-32, Math.Min(32, value)))) OnPropertyChanged(nameof(FairsPopularityEventModifierAIValueText)); }
         }
-        public bool FairsPopularityEventModifierAIEditable => CanConfigurePopularity && EnableMod && FairsPopularityEventModifierAIEnabled;
+        public bool FairsPopularityEventModifierAIEditable => CanConfigurePopularity && EnableMod && FairsAIEnabled;
         public string FairsPopularityEventModifierAIValueText
         {
             get => FairsPopularityEventModifierAI.ToString(CultureInfo.InvariantCulture);
@@ -2274,6 +1812,41 @@ namespace ExtraFeatures
         public string FearPositive5HumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.FearPositive5.Human.Help");
         public string FearPositive5AITitle => SerpLocalization.Get("ExtraFeatures.Popularity.FearPositive5.AI.Title");
         public string FearPositive5AIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.FearPositive5.AI.Help");
+        public string RationsTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Rations");
+        public string RationsHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Rations.Human.Title");
+        public string RationsHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Rations.Human.Help");
+        public string RationsAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.Rations.AI.Title");
+        public string RationsAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Rations.AI.Help");
+        public string VarietyTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Variety");
+        public string VarietyHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Variety.Human.Title");
+        public string VarietyHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Variety.Human.Help");
+        public string VarietyAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.Variety.AI.Title");
+        public string VarietyAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Variety.AI.Help");
+        public string CrowdingTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Crowding");
+        public string CrowdingHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Crowding.Human.Title");
+        public string CrowdingHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Crowding.Human.Help");
+        public string CrowdingAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.Crowding.AI.Title");
+        public string CrowdingAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Crowding.AI.Help");
+        public string TaxesTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Taxes");
+        public string TaxesHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Taxes.Human.Title");
+        public string TaxesHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Taxes.Human.Help");
+        public string TaxesAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.Taxes.AI.Title");
+        public string TaxesAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Taxes.AI.Help");
+        public string ReligionTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Religion");
+        public string ReligionHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Religion.Human.Title");
+        public string ReligionHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Religion.Human.Help");
+        public string ReligionAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.Religion.AI.Title");
+        public string ReligionAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Religion.AI.Help");
+        public string AleTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Ale");
+        public string AleHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Ale.Human.Title");
+        public string AleHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Ale.Human.Help");
+        public string AleAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.Ale.AI.Title");
+        public string AleAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Ale.AI.Help");
+        public string FairsTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Fairs");
+        public string FairsHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Fairs.Human.Title");
+        public string FairsHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Fairs.Human.Help");
+        public string FairsAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.Fairs.AI.Title");
+        public string FairsAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.Fairs.AI.Help");
         public string NegativeFearTitle => SerpLocalization.Get("ExtraFeatures.Popularity.NegativeFear");
         public string NegativeFearHumanTitle => SerpLocalization.Get("ExtraFeatures.Popularity.NegativeFear.Human.Title");
         public string NegativeFearHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.NegativeFear.Human.Help");
@@ -2284,58 +1857,51 @@ namespace ExtraFeatures
         public string PositiveFearHumanHelp => SerpLocalization.Get("ExtraFeatures.Popularity.PositiveFear.Human.Help");
         public string PositiveFearAITitle => SerpLocalization.Get("ExtraFeatures.Popularity.PositiveFear.AI.Title");
         public string PositiveFearAIHelp => SerpLocalization.Get("ExtraFeatures.Popularity.PositiveFear.AI.Help");
-        public string RationsTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Rations");
-        public string VarietyTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Variety");
-        public string CrowdingTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Crowding");
-        public string TaxesTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Taxes");
-        public string ReligionTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Religion");
-        public string AleTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Ale");
-        public string FairsTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Fairs");
         public string FearTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Fear");
         internal Dictionary<PopularitySource, PopularityOverrideValues> CaptureOrdinaryContributions()
         {
             var values = new Dictionary<PopularitySource, PopularityOverrideValues>();
             if (!EnableMod) return values;
-            if (RationsPopModifierNoneHumanEnabled || RationsPopModifierNoneAIEnabled) values.Add(PopularitySource.RationsPopModifierNone, new PopularityOverrideValues(RationsPopModifierNoneHumanEnabled ? (int?)RationsPopModifierNoneHuman : null, RationsPopModifierNoneAIEnabled ? (int?)RationsPopModifierNoneAI : null));
-            if (RationsPopModifierHalfHumanEnabled || RationsPopModifierHalfAIEnabled) values.Add(PopularitySource.RationsPopModifierHalf, new PopularityOverrideValues(RationsPopModifierHalfHumanEnabled ? (int?)RationsPopModifierHalfHuman : null, RationsPopModifierHalfAIEnabled ? (int?)RationsPopModifierHalfAI : null));
-            if (RationsPopModifierFullHumanEnabled || RationsPopModifierFullAIEnabled) values.Add(PopularitySource.RationsPopModifierFull, new PopularityOverrideValues(RationsPopModifierFullHumanEnabled ? (int?)RationsPopModifierFullHuman : null, RationsPopModifierFullAIEnabled ? (int?)RationsPopModifierFullAI : null));
-            if (RationsPopModifierExtraHumanEnabled || RationsPopModifierExtraAIEnabled) values.Add(PopularitySource.RationsPopModifierExtra, new PopularityOverrideValues(RationsPopModifierExtraHumanEnabled ? (int?)RationsPopModifierExtraHuman : null, RationsPopModifierExtraAIEnabled ? (int?)RationsPopModifierExtraAI : null));
-            if (RationsPopModifierDoubleHumanEnabled || RationsPopModifierDoubleAIEnabled) values.Add(PopularitySource.RationsPopModifierDouble, new PopularityOverrideValues(RationsPopModifierDoubleHumanEnabled ? (int?)RationsPopModifierDoubleHuman : null, RationsPopModifierDoubleAIEnabled ? (int?)RationsPopModifierDoubleAI : null));
-            if (RationsPopModifierNoPreferredFoodHumanEnabled || RationsPopModifierNoPreferredFoodAIEnabled) values.Add(PopularitySource.RationsPopModifierNoPreferredFood, new PopularityOverrideValues(RationsPopModifierNoPreferredFoodHumanEnabled ? (int?)RationsPopModifierNoPreferredFoodHuman : null, RationsPopModifierNoPreferredFoodAIEnabled ? (int?)RationsPopModifierNoPreferredFoodAI : null));
-            if (RationsPopModifierNoPopulationHumanEnabled || RationsPopModifierNoPopulationAIEnabled) values.Add(PopularitySource.RationsPopModifierNoPopulation, new PopularityOverrideValues(RationsPopModifierNoPopulationHumanEnabled ? (int?)RationsPopModifierNoPopulationHuman : null, RationsPopModifierNoPopulationAIEnabled ? (int?)RationsPopModifierNoPopulationAI : null));
-            if (FoodVarietyPopModifierTwoTypesHumanEnabled || FoodVarietyPopModifierTwoTypesAIEnabled) values.Add(PopularitySource.FoodVarietyPopModifierTwoTypes, new PopularityOverrideValues(FoodVarietyPopModifierTwoTypesHumanEnabled ? (int?)FoodVarietyPopModifierTwoTypesHuman : null, FoodVarietyPopModifierTwoTypesAIEnabled ? (int?)FoodVarietyPopModifierTwoTypesAI : null));
-            if (FoodVarietyPopModifierThreeTypesHumanEnabled || FoodVarietyPopModifierThreeTypesAIEnabled) values.Add(PopularitySource.FoodVarietyPopModifierThreeTypes, new PopularityOverrideValues(FoodVarietyPopModifierThreeTypesHumanEnabled ? (int?)FoodVarietyPopModifierThreeTypesHuman : null, FoodVarietyPopModifierThreeTypesAIEnabled ? (int?)FoodVarietyPopModifierThreeTypesAI : null));
-            if (FoodVarietyPopModifierFourTypesHumanEnabled || FoodVarietyPopModifierFourTypesAIEnabled) values.Add(PopularitySource.FoodVarietyPopModifierFourTypes, new PopularityOverrideValues(FoodVarietyPopModifierFourTypesHumanEnabled ? (int?)FoodVarietyPopModifierFourTypesHuman : null, FoodVarietyPopModifierFourTypesAIEnabled ? (int?)FoodVarietyPopModifierFourTypesAI : null));
-            if (OverpopulationPopModifierTierOneHumanEnabled || OverpopulationPopModifierTierOneAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierOne, new PopularityOverrideValues(OverpopulationPopModifierTierOneHumanEnabled ? (int?)OverpopulationPopModifierTierOneHuman : null, OverpopulationPopModifierTierOneAIEnabled ? (int?)OverpopulationPopModifierTierOneAI : null));
-            if (OverpopulationPopModifierTierTwoHumanEnabled || OverpopulationPopModifierTierTwoAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierTwo, new PopularityOverrideValues(OverpopulationPopModifierTierTwoHumanEnabled ? (int?)OverpopulationPopModifierTierTwoHuman : null, OverpopulationPopModifierTierTwoAIEnabled ? (int?)OverpopulationPopModifierTierTwoAI : null));
-            if (OverpopulationPopModifierTierThreeHumanEnabled || OverpopulationPopModifierTierThreeAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierThree, new PopularityOverrideValues(OverpopulationPopModifierTierThreeHumanEnabled ? (int?)OverpopulationPopModifierTierThreeHuman : null, OverpopulationPopModifierTierThreeAIEnabled ? (int?)OverpopulationPopModifierTierThreeAI : null));
-            if (OverpopulationPopModifierTierFourHumanEnabled || OverpopulationPopModifierTierFourAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierFour, new PopularityOverrideValues(OverpopulationPopModifierTierFourHumanEnabled ? (int?)OverpopulationPopModifierTierFourHuman : null, OverpopulationPopModifierTierFourAIEnabled ? (int?)OverpopulationPopModifierTierFourAI : null));
-            if (OverpopulationPopModifierTierFiveHumanEnabled || OverpopulationPopModifierTierFiveAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierFive, new PopularityOverrideValues(OverpopulationPopModifierTierFiveHumanEnabled ? (int?)OverpopulationPopModifierTierFiveHuman : null, OverpopulationPopModifierTierFiveAIEnabled ? (int?)OverpopulationPopModifierTierFiveAI : null));
-            if (TaxPopModifierHugeDonationHumanEnabled || TaxPopModifierHugeDonationAIEnabled) values.Add(PopularitySource.TaxPopModifierHugeDonation, new PopularityOverrideValues(TaxPopModifierHugeDonationHumanEnabled ? (int?)TaxPopModifierHugeDonationHuman : null, TaxPopModifierHugeDonationAIEnabled ? (int?)TaxPopModifierHugeDonationAI : null));
-            if (TaxPopModifierBigDonationHumanEnabled || TaxPopModifierBigDonationAIEnabled) values.Add(PopularitySource.TaxPopModifierBigDonation, new PopularityOverrideValues(TaxPopModifierBigDonationHumanEnabled ? (int?)TaxPopModifierBigDonationHuman : null, TaxPopModifierBigDonationAIEnabled ? (int?)TaxPopModifierBigDonationAI : null));
-            if (TaxPopModifierSmallDonationHumanEnabled || TaxPopModifierSmallDonationAIEnabled) values.Add(PopularitySource.TaxPopModifierSmallDonation, new PopularityOverrideValues(TaxPopModifierSmallDonationHumanEnabled ? (int?)TaxPopModifierSmallDonationHuman : null, TaxPopModifierSmallDonationAIEnabled ? (int?)TaxPopModifierSmallDonationAI : null));
-            if (TaxPopModifierNoneHumanEnabled || TaxPopModifierNoneAIEnabled) values.Add(PopularitySource.TaxPopModifierNone, new PopularityOverrideValues(TaxPopModifierNoneHumanEnabled ? (int?)TaxPopModifierNoneHuman : null, TaxPopModifierNoneAIEnabled ? (int?)TaxPopModifierNoneAI : null));
-            if (TaxPopModifierLowHumanEnabled || TaxPopModifierLowAIEnabled) values.Add(PopularitySource.TaxPopModifierLow, new PopularityOverrideValues(TaxPopModifierLowHumanEnabled ? (int?)TaxPopModifierLowHuman : null, TaxPopModifierLowAIEnabled ? (int?)TaxPopModifierLowAI : null));
-            if (TaxPopModifierModerateHumanEnabled || TaxPopModifierModerateAIEnabled) values.Add(PopularitySource.TaxPopModifierModerate, new PopularityOverrideValues(TaxPopModifierModerateHumanEnabled ? (int?)TaxPopModifierModerateHuman : null, TaxPopModifierModerateAIEnabled ? (int?)TaxPopModifierModerateAI : null));
-            if (TaxPopModifierHighHumanEnabled || TaxPopModifierHighAIEnabled) values.Add(PopularitySource.TaxPopModifierHigh, new PopularityOverrideValues(TaxPopModifierHighHumanEnabled ? (int?)TaxPopModifierHighHuman : null, TaxPopModifierHighAIEnabled ? (int?)TaxPopModifierHighAI : null));
-            if (TaxPopModifierMeanHumanEnabled || TaxPopModifierMeanAIEnabled) values.Add(PopularitySource.TaxPopModifierMean, new PopularityOverrideValues(TaxPopModifierMeanHumanEnabled ? (int?)TaxPopModifierMeanHuman : null, TaxPopModifierMeanAIEnabled ? (int?)TaxPopModifierMeanAI : null));
-            if (TaxPopModifierUsuriousHumanEnabled || TaxPopModifierUsuriousAIEnabled) values.Add(PopularitySource.TaxPopModifierUsurious, new PopularityOverrideValues(TaxPopModifierUsuriousHumanEnabled ? (int?)TaxPopModifierUsuriousHuman : null, TaxPopModifierUsuriousAIEnabled ? (int?)TaxPopModifierUsuriousAI : null));
-            if (TaxPopModifierCruelHumanEnabled || TaxPopModifierCruelAIEnabled) values.Add(PopularitySource.TaxPopModifierCruel, new PopularityOverrideValues(TaxPopModifierCruelHumanEnabled ? (int?)TaxPopModifierCruelHuman : null, TaxPopModifierCruelAIEnabled ? (int?)TaxPopModifierCruelAI : null));
-            if (TaxPopModifierMostCruelHumanEnabled || TaxPopModifierMostCruelAIEnabled) values.Add(PopularitySource.TaxPopModifierMostCruel, new PopularityOverrideValues(TaxPopModifierMostCruelHumanEnabled ? (int?)TaxPopModifierMostCruelHuman : null, TaxPopModifierMostCruelAIEnabled ? (int?)TaxPopModifierMostCruelAI : null));
-            if (TaxPopModifierCruellestHumanEnabled || TaxPopModifierCruellestAIEnabled) values.Add(PopularitySource.TaxPopModifierCruellest, new PopularityOverrideValues(TaxPopModifierCruellestHumanEnabled ? (int?)TaxPopModifierCruellestHuman : null, TaxPopModifierCruellestAIEnabled ? (int?)TaxPopModifierCruellestAI : null));
-            if (TaxPopModifierUnaffordableDonationHumanEnabled || TaxPopModifierUnaffordableDonationAIEnabled) values.Add(PopularitySource.TaxPopModifierUnaffordableDonation, new PopularityOverrideValues(TaxPopModifierUnaffordableDonationHumanEnabled ? (int?)TaxPopModifierUnaffordableDonationHuman : null, TaxPopModifierUnaffordableDonationAIEnabled ? (int?)TaxPopModifierUnaffordableDonationAI : null));
-            if (TaxPopModifierUnknownModeHumanEnabled || TaxPopModifierUnknownModeAIEnabled) values.Add(PopularitySource.TaxPopModifierUnknownMode, new PopularityOverrideValues(TaxPopModifierUnknownModeHumanEnabled ? (int?)TaxPopModifierUnknownModeHuman : null, TaxPopModifierUnknownModeAIEnabled ? (int?)TaxPopModifierUnknownModeAI : null));
-            if (ReligionPopModifierTierOneHumanEnabled || ReligionPopModifierTierOneAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierOne, new PopularityOverrideValues(ReligionPopModifierTierOneHumanEnabled ? (int?)ReligionPopModifierTierOneHuman : null, ReligionPopModifierTierOneAIEnabled ? (int?)ReligionPopModifierTierOneAI : null));
-            if (ReligionPopModifierTierTwoHumanEnabled || ReligionPopModifierTierTwoAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierTwo, new PopularityOverrideValues(ReligionPopModifierTierTwoHumanEnabled ? (int?)ReligionPopModifierTierTwoHuman : null, ReligionPopModifierTierTwoAIEnabled ? (int?)ReligionPopModifierTierTwoAI : null));
-            if (ReligionPopModifierTierThreeHumanEnabled || ReligionPopModifierTierThreeAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierThree, new PopularityOverrideValues(ReligionPopModifierTierThreeHumanEnabled ? (int?)ReligionPopModifierTierThreeHuman : null, ReligionPopModifierTierThreeAIEnabled ? (int?)ReligionPopModifierTierThreeAI : null));
-            if (ReligionPopModifierTierFourHumanEnabled || ReligionPopModifierTierFourAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierFour, new PopularityOverrideValues(ReligionPopModifierTierFourHumanEnabled ? (int?)ReligionPopModifierTierFourHuman : null, ReligionPopModifierTierFourAIEnabled ? (int?)ReligionPopModifierTierFourAI : null));
-            if (ChurchPopModifierHumanEnabled || ChurchPopModifierAIEnabled) values.Add(PopularitySource.ChurchPopModifier, new PopularityOverrideValues(ChurchPopModifierHumanEnabled ? (int?)ChurchPopModifierHuman : null, ChurchPopModifierAIEnabled ? (int?)ChurchPopModifierAI : null));
-            if (CathedralPopModifierHumanEnabled || CathedralPopModifierAIEnabled) values.Add(PopularitySource.CathedralPopModifier, new PopularityOverrideValues(CathedralPopModifierHumanEnabled ? (int?)CathedralPopModifierHuman : null, CathedralPopModifierAIEnabled ? (int?)CathedralPopModifierAI : null));
-            if (AlePopModifierTierOneHumanEnabled || AlePopModifierTierOneAIEnabled) values.Add(PopularitySource.AlePopModifierTierOne, new PopularityOverrideValues(AlePopModifierTierOneHumanEnabled ? (int?)AlePopModifierTierOneHuman : null, AlePopModifierTierOneAIEnabled ? (int?)AlePopModifierTierOneAI : null));
-            if (AlePopModifierTierTwoHumanEnabled || AlePopModifierTierTwoAIEnabled) values.Add(PopularitySource.AlePopModifierTierTwo, new PopularityOverrideValues(AlePopModifierTierTwoHumanEnabled ? (int?)AlePopModifierTierTwoHuman : null, AlePopModifierTierTwoAIEnabled ? (int?)AlePopModifierTierTwoAI : null));
-            if (AlePopModifierTierThreeHumanEnabled || AlePopModifierTierThreeAIEnabled) values.Add(PopularitySource.AlePopModifierTierThree, new PopularityOverrideValues(AlePopModifierTierThreeHumanEnabled ? (int?)AlePopModifierTierThreeHuman : null, AlePopModifierTierThreeAIEnabled ? (int?)AlePopModifierTierThreeAI : null));
-            if (AlePopModifierTierFourHumanEnabled || AlePopModifierTierFourAIEnabled) values.Add(PopularitySource.AlePopModifierTierFour, new PopularityOverrideValues(AlePopModifierTierFourHumanEnabled ? (int?)AlePopModifierTierFourHuman : null, AlePopModifierTierFourAIEnabled ? (int?)AlePopModifierTierFourAI : null));
-            if (FairsPopularityEventModifierHumanEnabled || FairsPopularityEventModifierAIEnabled) values.Add(PopularitySource.FairsPopularityEventModifier, new PopularityOverrideValues(FairsPopularityEventModifierHumanEnabled ? (int?)FairsPopularityEventModifierHuman : null, FairsPopularityEventModifierAIEnabled ? (int?)FairsPopularityEventModifierAI : null));
+            if (RationsHumanEnabled || RationsAIEnabled) values.Add(PopularitySource.RationsPopModifierNone, new PopularityOverrideValues(RationsHumanEnabled ? (int?)RationsPopModifierNoneHuman : null, RationsAIEnabled ? (int?)RationsPopModifierNoneAI : null));
+            if (RationsHumanEnabled || RationsAIEnabled) values.Add(PopularitySource.RationsPopModifierHalf, new PopularityOverrideValues(RationsHumanEnabled ? (int?)RationsPopModifierHalfHuman : null, RationsAIEnabled ? (int?)RationsPopModifierHalfAI : null));
+            if (RationsHumanEnabled || RationsAIEnabled) values.Add(PopularitySource.RationsPopModifierFull, new PopularityOverrideValues(RationsHumanEnabled ? (int?)RationsPopModifierFullHuman : null, RationsAIEnabled ? (int?)RationsPopModifierFullAI : null));
+            if (RationsHumanEnabled || RationsAIEnabled) values.Add(PopularitySource.RationsPopModifierExtra, new PopularityOverrideValues(RationsHumanEnabled ? (int?)RationsPopModifierExtraHuman : null, RationsAIEnabled ? (int?)RationsPopModifierExtraAI : null));
+            if (RationsHumanEnabled || RationsAIEnabled) values.Add(PopularitySource.RationsPopModifierDouble, new PopularityOverrideValues(RationsHumanEnabled ? (int?)RationsPopModifierDoubleHuman : null, RationsAIEnabled ? (int?)RationsPopModifierDoubleAI : null));
+            if (RationsHumanEnabled || RationsAIEnabled) values.Add(PopularitySource.RationsPopModifierNoPreferredFood, new PopularityOverrideValues(RationsHumanEnabled ? (int?)RationsPopModifierNoPreferredFoodHuman : null, RationsAIEnabled ? (int?)RationsPopModifierNoPreferredFoodAI : null));
+            if (RationsHumanEnabled || RationsAIEnabled) values.Add(PopularitySource.RationsPopModifierNoPopulation, new PopularityOverrideValues(RationsHumanEnabled ? (int?)RationsPopModifierNoPopulationHuman : null, RationsAIEnabled ? (int?)RationsPopModifierNoPopulationAI : null));
+            if (VarietyHumanEnabled || VarietyAIEnabled) values.Add(PopularitySource.FoodVarietyPopModifierTwoTypes, new PopularityOverrideValues(VarietyHumanEnabled ? (int?)FoodVarietyPopModifierTwoTypesHuman : null, VarietyAIEnabled ? (int?)FoodVarietyPopModifierTwoTypesAI : null));
+            if (VarietyHumanEnabled || VarietyAIEnabled) values.Add(PopularitySource.FoodVarietyPopModifierThreeTypes, new PopularityOverrideValues(VarietyHumanEnabled ? (int?)FoodVarietyPopModifierThreeTypesHuman : null, VarietyAIEnabled ? (int?)FoodVarietyPopModifierThreeTypesAI : null));
+            if (VarietyHumanEnabled || VarietyAIEnabled) values.Add(PopularitySource.FoodVarietyPopModifierFourTypes, new PopularityOverrideValues(VarietyHumanEnabled ? (int?)FoodVarietyPopModifierFourTypesHuman : null, VarietyAIEnabled ? (int?)FoodVarietyPopModifierFourTypesAI : null));
+            if (CrowdingHumanEnabled || CrowdingAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierOne, new PopularityOverrideValues(CrowdingHumanEnabled ? (int?)OverpopulationPopModifierTierOneHuman : null, CrowdingAIEnabled ? (int?)OverpopulationPopModifierTierOneAI : null));
+            if (CrowdingHumanEnabled || CrowdingAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierTwo, new PopularityOverrideValues(CrowdingHumanEnabled ? (int?)OverpopulationPopModifierTierTwoHuman : null, CrowdingAIEnabled ? (int?)OverpopulationPopModifierTierTwoAI : null));
+            if (CrowdingHumanEnabled || CrowdingAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierThree, new PopularityOverrideValues(CrowdingHumanEnabled ? (int?)OverpopulationPopModifierTierThreeHuman : null, CrowdingAIEnabled ? (int?)OverpopulationPopModifierTierThreeAI : null));
+            if (CrowdingHumanEnabled || CrowdingAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierFour, new PopularityOverrideValues(CrowdingHumanEnabled ? (int?)OverpopulationPopModifierTierFourHuman : null, CrowdingAIEnabled ? (int?)OverpopulationPopModifierTierFourAI : null));
+            if (CrowdingHumanEnabled || CrowdingAIEnabled) values.Add(PopularitySource.OverpopulationPopModifierTierFive, new PopularityOverrideValues(CrowdingHumanEnabled ? (int?)OverpopulationPopModifierTierFiveHuman : null, CrowdingAIEnabled ? (int?)OverpopulationPopModifierTierFiveAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierHugeDonation, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierHugeDonationHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierHugeDonationAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierBigDonation, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierBigDonationHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierBigDonationAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierSmallDonation, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierSmallDonationHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierSmallDonationAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierNone, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierNoneHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierNoneAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierLow, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierLowHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierLowAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierModerate, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierModerateHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierModerateAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierHigh, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierHighHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierHighAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierMean, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierMeanHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierMeanAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierUsurious, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierUsuriousHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierUsuriousAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierCruel, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierCruelHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierCruelAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierMostCruel, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierMostCruelHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierMostCruelAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierCruellest, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierCruellestHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierCruellestAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierUnaffordableDonation, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierUnaffordableDonationHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierUnaffordableDonationAI : null));
+            if (TaxesHumanEnabled || TaxesAIEnabled) values.Add(PopularitySource.TaxPopModifierUnknownMode, new PopularityOverrideValues(TaxesHumanEnabled ? (int?)TaxPopModifierUnknownModeHuman : null, TaxesAIEnabled ? (int?)TaxPopModifierUnknownModeAI : null));
+            if (ReligionHumanEnabled || ReligionAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierOne, new PopularityOverrideValues(ReligionHumanEnabled ? (int?)ReligionPopModifierTierOneHuman : null, ReligionAIEnabled ? (int?)ReligionPopModifierTierOneAI : null));
+            if (ReligionHumanEnabled || ReligionAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierTwo, new PopularityOverrideValues(ReligionHumanEnabled ? (int?)ReligionPopModifierTierTwoHuman : null, ReligionAIEnabled ? (int?)ReligionPopModifierTierTwoAI : null));
+            if (ReligionHumanEnabled || ReligionAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierThree, new PopularityOverrideValues(ReligionHumanEnabled ? (int?)ReligionPopModifierTierThreeHuman : null, ReligionAIEnabled ? (int?)ReligionPopModifierTierThreeAI : null));
+            if (ReligionHumanEnabled || ReligionAIEnabled) values.Add(PopularitySource.ReligionPopModifierTierFour, new PopularityOverrideValues(ReligionHumanEnabled ? (int?)ReligionPopModifierTierFourHuman : null, ReligionAIEnabled ? (int?)ReligionPopModifierTierFourAI : null));
+            if (ReligionHumanEnabled || ReligionAIEnabled) values.Add(PopularitySource.ChurchPopModifier, new PopularityOverrideValues(ReligionHumanEnabled ? (int?)ChurchPopModifierHuman : null, ReligionAIEnabled ? (int?)ChurchPopModifierAI : null));
+            if (ReligionHumanEnabled || ReligionAIEnabled) values.Add(PopularitySource.CathedralPopModifier, new PopularityOverrideValues(ReligionHumanEnabled ? (int?)CathedralPopModifierHuman : null, ReligionAIEnabled ? (int?)CathedralPopModifierAI : null));
+            if (AleHumanEnabled || AleAIEnabled) values.Add(PopularitySource.AlePopModifierTierOne, new PopularityOverrideValues(AleHumanEnabled ? (int?)AlePopModifierTierOneHuman : null, AleAIEnabled ? (int?)AlePopModifierTierOneAI : null));
+            if (AleHumanEnabled || AleAIEnabled) values.Add(PopularitySource.AlePopModifierTierTwo, new PopularityOverrideValues(AleHumanEnabled ? (int?)AlePopModifierTierTwoHuman : null, AleAIEnabled ? (int?)AlePopModifierTierTwoAI : null));
+            if (AleHumanEnabled || AleAIEnabled) values.Add(PopularitySource.AlePopModifierTierThree, new PopularityOverrideValues(AleHumanEnabled ? (int?)AlePopModifierTierThreeHuman : null, AleAIEnabled ? (int?)AlePopModifierTierThreeAI : null));
+            if (AleHumanEnabled || AleAIEnabled) values.Add(PopularitySource.AlePopModifierTierFour, new PopularityOverrideValues(AleHumanEnabled ? (int?)AlePopModifierTierFourHuman : null, AleAIEnabled ? (int?)AlePopModifierTierFourAI : null));
+            if (FairsHumanEnabled || FairsAIEnabled) values.Add(PopularitySource.FairsPopularityEventModifier, new PopularityOverrideValues(FairsHumanEnabled ? (int?)FairsPopularityEventModifierHuman : null, FairsAIEnabled ? (int?)FairsPopularityEventModifierAI : null));
             return values;
         }
         internal Dictionary<int, PopularityOverrideValues> CaptureFearContributions()
@@ -2356,86 +1922,20 @@ namespace ExtraFeatures
         }
         internal void ResetPopularityDefaults()
         {
-            RationsPopModifierNoneHumanEnabled = false;
-            RationsPopModifierNoneAIEnabled = false;
-            RationsPopModifierHalfHumanEnabled = false;
-            RationsPopModifierHalfAIEnabled = false;
-            RationsPopModifierFullHumanEnabled = false;
-            RationsPopModifierFullAIEnabled = false;
-            RationsPopModifierExtraHumanEnabled = false;
-            RationsPopModifierExtraAIEnabled = false;
-            RationsPopModifierDoubleHumanEnabled = false;
-            RationsPopModifierDoubleAIEnabled = false;
-            RationsPopModifierNoPreferredFoodHumanEnabled = false;
-            RationsPopModifierNoPreferredFoodAIEnabled = false;
-            RationsPopModifierNoPopulationHumanEnabled = false;
-            RationsPopModifierNoPopulationAIEnabled = false;
-            FoodVarietyPopModifierTwoTypesHumanEnabled = false;
-            FoodVarietyPopModifierTwoTypesAIEnabled = false;
-            FoodVarietyPopModifierThreeTypesHumanEnabled = false;
-            FoodVarietyPopModifierThreeTypesAIEnabled = false;
-            FoodVarietyPopModifierFourTypesHumanEnabled = false;
-            FoodVarietyPopModifierFourTypesAIEnabled = false;
-            OverpopulationPopModifierTierOneHumanEnabled = false;
-            OverpopulationPopModifierTierOneAIEnabled = false;
-            OverpopulationPopModifierTierTwoHumanEnabled = false;
-            OverpopulationPopModifierTierTwoAIEnabled = false;
-            OverpopulationPopModifierTierThreeHumanEnabled = false;
-            OverpopulationPopModifierTierThreeAIEnabled = false;
-            OverpopulationPopModifierTierFourHumanEnabled = false;
-            OverpopulationPopModifierTierFourAIEnabled = false;
-            OverpopulationPopModifierTierFiveHumanEnabled = false;
-            OverpopulationPopModifierTierFiveAIEnabled = false;
-            TaxPopModifierHugeDonationHumanEnabled = false;
-            TaxPopModifierHugeDonationAIEnabled = false;
-            TaxPopModifierBigDonationHumanEnabled = false;
-            TaxPopModifierBigDonationAIEnabled = false;
-            TaxPopModifierSmallDonationHumanEnabled = false;
-            TaxPopModifierSmallDonationAIEnabled = false;
-            TaxPopModifierNoneHumanEnabled = false;
-            TaxPopModifierNoneAIEnabled = false;
-            TaxPopModifierLowHumanEnabled = false;
-            TaxPopModifierLowAIEnabled = false;
-            TaxPopModifierModerateHumanEnabled = false;
-            TaxPopModifierModerateAIEnabled = false;
-            TaxPopModifierHighHumanEnabled = false;
-            TaxPopModifierHighAIEnabled = false;
-            TaxPopModifierMeanHumanEnabled = false;
-            TaxPopModifierMeanAIEnabled = false;
-            TaxPopModifierUsuriousHumanEnabled = false;
-            TaxPopModifierUsuriousAIEnabled = false;
-            TaxPopModifierCruelHumanEnabled = false;
-            TaxPopModifierCruelAIEnabled = false;
-            TaxPopModifierMostCruelHumanEnabled = false;
-            TaxPopModifierMostCruelAIEnabled = false;
-            TaxPopModifierCruellestHumanEnabled = false;
-            TaxPopModifierCruellestAIEnabled = false;
-            TaxPopModifierUnaffordableDonationHumanEnabled = false;
-            TaxPopModifierUnaffordableDonationAIEnabled = false;
-            TaxPopModifierUnknownModeHumanEnabled = false;
-            TaxPopModifierUnknownModeAIEnabled = false;
-            ReligionPopModifierTierOneHumanEnabled = false;
-            ReligionPopModifierTierOneAIEnabled = false;
-            ReligionPopModifierTierTwoHumanEnabled = false;
-            ReligionPopModifierTierTwoAIEnabled = false;
-            ReligionPopModifierTierThreeHumanEnabled = false;
-            ReligionPopModifierTierThreeAIEnabled = false;
-            ReligionPopModifierTierFourHumanEnabled = false;
-            ReligionPopModifierTierFourAIEnabled = false;
-            ChurchPopModifierHumanEnabled = false;
-            ChurchPopModifierAIEnabled = false;
-            CathedralPopModifierHumanEnabled = false;
-            CathedralPopModifierAIEnabled = false;
-            AlePopModifierTierOneHumanEnabled = false;
-            AlePopModifierTierOneAIEnabled = false;
-            AlePopModifierTierTwoHumanEnabled = false;
-            AlePopModifierTierTwoAIEnabled = false;
-            AlePopModifierTierThreeHumanEnabled = false;
-            AlePopModifierTierThreeAIEnabled = false;
-            AlePopModifierTierFourHumanEnabled = false;
-            AlePopModifierTierFourAIEnabled = false;
-            FairsPopularityEventModifierHumanEnabled = false;
-            FairsPopularityEventModifierAIEnabled = false;
+            RationsHumanEnabled = false;
+            RationsAIEnabled = false;
+            VarietyHumanEnabled = false;
+            VarietyAIEnabled = false;
+            CrowdingHumanEnabled = false;
+            CrowdingAIEnabled = false;
+            TaxesHumanEnabled = false;
+            TaxesAIEnabled = false;
+            ReligionHumanEnabled = false;
+            ReligionAIEnabled = false;
+            AleHumanEnabled = false;
+            AleAIEnabled = false;
+            FairsHumanEnabled = false;
+            FairsAIEnabled = false;
             NegativeFearHumanEnabled = false;
             NegativeFearAIEnabled = false;
             PositiveFearHumanEnabled = false;

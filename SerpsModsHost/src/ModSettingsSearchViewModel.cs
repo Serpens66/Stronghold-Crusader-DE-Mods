@@ -21,6 +21,7 @@ namespace SerpsModsHost
         private readonly List<IndexedModSetting> index = new List<IndexedModSetting>();
         private string searchText = string.Empty;
         private bool includeToolTips;
+        private ModSettingsSearchStateFilter stateFilter;
         private ModSettingsSearchFilter selectedModFilter;
         private string selectedModName;
         private bool filtersDirty = true;
@@ -33,13 +34,14 @@ namespace SerpsModsHost
         public ModSettingsSearchViewModel(ManualLogSource log)
         {
             this.log = log;
-            ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
+            ClearSearchCommand = new RelayCommand(() => { StateFilter = ModSettingsSearchStateFilter.All; SearchText = string.Empty; });
             Results = new ObservableCollection<ModSettingsSearchResult>();
             ModFilters = new ObservableCollection<ModSettingsSearchFilter>();
             RequestRefresh();
             GameXAMLManagerAPI.Instance.RegisteredModSettings.CollectionChanged += OnModTabsChanged;
             Plugin.ModSettingsHubViewModel.PropertyChanged += OnHubPropertyChanged;
             ModSettingsSearchCatalog.SourceChanged += OnSearchSourceChanged;
+            ModSettingsSearchCatalog.StateChanged += OnSearchStateChanged;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -54,6 +56,30 @@ namespace SerpsModsHost
         public string IncludeToolTipsHelpText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchIncludeToolTipsHelp);
         public string ResultsTitleText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchResultsTitle);
         public string NoResultsText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchNoResults);
+        public string StateFilterLabelText => SerpLocalization.Get("Common.ModSettingsSearchStateLabel");
+        public string StateFilterHelpText => SerpLocalization.Get("Common.ModSettingsSearchStateHelp");
+        public string[] StateFilters => new[] { SerpLocalization.Get("Common.ModSettingsSearchStateAll"),
+            SerpLocalization.Get("Common.ModSettingsSearchStateActive"), SerpLocalization.Get("Common.ModSettingsSearchStateInactive") };
+        public int SelectedStateFilterIndex
+        {
+            get => (int)StateFilter;
+            set { if (value >= 0 && value <= 2) StateFilter = (ModSettingsSearchStateFilter)value; }
+        }
+        public ModSettingsSearchStateFilter StateFilter
+        {
+            get => stateFilter;
+            set
+            {
+                if (stateFilter == value || !Enum.IsDefined(typeof(ModSettingsSearchStateFilter), value)) return;
+                stateFilter = value;
+                stateVersion++;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SelectedStateFilterIndex));
+                OnPropertyChanged(nameof(SearchResultsVisibility));
+                RequestRefresh();
+            }
+        }
+        private bool HasFilter => !string.IsNullOrWhiteSpace(searchText) || stateFilter != ModSettingsSearchStateFilter.All;
 
         public string SearchText
         {
@@ -99,12 +125,19 @@ namespace SerpsModsHost
         }
 
         public Visibility SearchResultsVisibility =>
-            string.IsNullOrWhiteSpace(searchText) ? Visibility.Collapsed : Visibility.Visible;
+            HasFilter ? Visibility.Visible : Visibility.Collapsed;
         public Visibility NoResultsVisibility =>
-            !string.IsNullOrWhiteSpace(searchText) && Results.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            HasFilter && Results.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         public string ResultCountText => SerpLocalization.Get(SerpLocalization.SerpsModsSearchResultCount, "Count", Results.Count);
 
         private void OnModTabsChanged(object sender, NotifyCollectionChangedEventArgs args) => InvalidateCatalog();
+
+        private void OnSearchStateChanged(object model)
+        {
+            if (stateFilter == ModSettingsSearchStateFilter.All || !GetSupportedTabs().Any(tab => ReferenceEquals(tab.ViewModel, model))) return;
+            stateVersion++;
+            RequestRefresh();
+        }
 
         private void OnSearchSourceChanged(object viewModel)
         {
@@ -201,10 +234,10 @@ namespace SerpsModsHost
                     refreshPending = false;
                     if (filtersDirty) RebuildModFilters();
                     string query = searchText.Trim();
-                    if (query.Length > 0 && indexDirty) RebuildIndex();
+                    if (HasFilter && indexDirty) RebuildIndex();
                     int version = stateVersion;
                     List<ModSettingsSearchResult> snapshot = BuildResults(query, selectedModName, includeToolTips);
-                    if (version != stateVersion || filtersDirty || (query.Length > 0 && indexDirty))
+                    if (version != stateVersion || filtersDirty || (HasFilter && indexDirty))
                     {
                         refreshPending = true;
                         continue;
@@ -228,11 +261,17 @@ namespace SerpsModsHost
 
         private List<ModSettingsSearchResult> BuildResults(string query, string modName, bool toolTips)
         {
-            if (query.Length == 0) return new List<ModSettingsSearchResult>();
+            if (!HasFilter) return new List<ModSettingsSearchResult>();
             List<IndexedModSetting> candidates = index.Where(candidate => string.IsNullOrEmpty(modName) ||
                 string.Equals(candidate.Tab.Name, modName, StringComparison.Ordinal)).ToList();
+            if (stateFilter != ModSettingsSearchStateFilter.All)
+            {
+                candidates = candidates.Where(candidate => !candidate.IsSection &&
+                    ModSettingsSearchStateMatcher.IsMatch(stateFilter,
+                        ModSettingsSearchCatalog.GetState(candidate.Tab.ViewModel, candidate.Key))).ToList();
+            }
             var matchedSections = new HashSet<string>(candidates
-                .Where(candidate => candidate.IsSection && ModSettingsSearchMatcher.IsSectionTitleMatch(query, candidate.Title))
+                .Where(candidate => query.Length > 0 && candidate.IsSection && ModSettingsSearchMatcher.IsSectionTitleMatch(query, candidate.Title))
                 .Select(candidate => candidate.SectionIdentity), StringComparer.Ordinal);
             return candidates.Where(candidate =>
                     ModSettingsSearchPolicy.ShouldIncludeCandidate(candidate.IsSection, candidate.SectionIdentity,

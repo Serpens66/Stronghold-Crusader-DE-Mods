@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.120",
+  "Version": "1.0.121",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.121",
+      "Changes": [
+        "Activate rations, food variety, crowding, taxes, religion, ale and fairs with one Human and one AI switch per thematic group. Every group member uses its independent player-type value; disabling retains all entered numbers.",
+        "Keep group titles and labelled activation switches in a shared table header, with slider/value rows below. Remove unused checkbox columns, retain compact responsive sliders and keep activation context accessible during text and state searches.",
+        "Preserve numeric setting keys, host authority, mission locking and existing negative/positive fear group switches. New ordinary group switches default off; unpublished per-value activation flags are intentionally not migrated."
+      ]
+    },
     {
       "Version": "1.0.120",
       "Changes": [

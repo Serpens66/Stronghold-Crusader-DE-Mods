@@ -46,7 +46,7 @@ namespace ExtraFeatures.Tests
                 var settings = Prepare(plugin);
                 foreach (var parameter in PopularityCatalog.All)
                 {
-                    Check((int)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"Human").GetValue(settings)==parameter.Vanilla && !(bool)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"HumanEnabled").GetValue(settings),parameter.Name+" retains its disabled Vanilla default");
+                    Check((int)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"Human").GetValue(settings)==parameter.Vanilla && !(bool)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Group+"HumanEnabled").GetValue(settings),parameter.Name+" retains its disabled Vanilla default");
                     var property=typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"Human");
                     property.SetValue(settings,int.MinValue);
                     Check((int)property.GetValue(settings)==-parameter.Limit,parameter.Name+" lower bound");
@@ -54,26 +54,39 @@ namespace ExtraFeatures.Tests
                     Check((int)property.GetValue(settings)==parameter.Limit,parameter.Name+" upper bound");
                     property.SetValue(settings,parameter.Vanilla);
                 }
-                foreach (var parameter in PopularityCatalog.All)
+                foreach (var group in PopularityCatalog.All.GroupBy(p => p.Group))
                 {
-                    foreach (string role in new[] { "Human", "AI" }) {
+                    settings.ResetPopularityDefaults();
+                    foreach(var parameter in group)
+                    foreach(string role in new[]{"Human","AI"}) {
                         var number=typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+role);
-                        var flag=typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+role+"Enabled");
-                        Check((int)number.GetValue(settings)==parameter.Vanilla && !(bool)flag.GetValue(settings),"Both role defaults: "+parameter.Name+role);
+                        var flag=typeof(ExtraFeaturesViewModel).GetProperty(group.Key+role+"Enabled");
+                        Check((int)number.GetValue(settings)==parameter.Vanilla && !(bool)flag.GetValue(settings),"Group defaults: "+parameter.Name+role);
+                        number.SetValue(settings,int.MinValue);
+                        Check((int)number.GetValue(settings)==-parameter.Limit,"Every role obeys the lower numeric bound");
+                        number.SetValue(settings,int.MaxValue);
+                        Check((int)number.GetValue(settings)==parameter.Limit,"Every role obeys the upper numeric bound");
                         number.SetValue(settings,role=="Human"?0:-parameter.Limit);
+                        Check(typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+role+"Enabled")==null,"Unpublished individual activations are removed");
                     }
                     for(int combination=0;combination<4;combination++) {
-                        bool h=(combination&1)!=0, ai=(combination&2)!=0;
-                        typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"HumanEnabled").SetValue(settings,h);
-                        typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"AIEnabled").SetValue(settings,ai);
-                        var source=(APIShared.Economy.PopularitySource)Enum.Parse(typeof(APIShared.Economy.PopularitySource),parameter.Name);
+                        bool human=(combination&1)!=0, ai=(combination&2)!=0;
+                        typeof(ExtraFeaturesViewModel).GetProperty(group.Key+"HumanEnabled").SetValue(settings,human);
+                        typeof(ExtraFeaturesViewModel).GetProperty(group.Key+"AIEnabled").SetValue(settings,ai);
                         var captured=settings.CaptureOrdinaryContributions();
-                        Check(captured.ContainsKey(source)==(h||ai),"Role combination publishes only active sources");
-                        if(h||ai) Check(captured[source].HumanPoints==(h?(int?)0:null) && captured[source].AIPoints==(ai?(int?)-parameter.Limit:null),"Independent numbers including zero");
-                        Check((bool)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"HumanEditable").GetValue(settings)==h &&
-                            (bool)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+"AIEditable").GetValue(settings)==ai,"Editor follows only its role switch");
+                        var expected=group.Select(p=>(APIShared.Economy.PopularitySource)Enum.Parse(typeof(APIShared.Economy.PopularitySource),p.Name));
+                        Check(captured.Keys.OrderBy(v=>v).SequenceEqual((human||ai?expected:Enumerable.Empty<APIShared.Economy.PopularitySource>()).OrderBy(v=>v)),"Only the selected group is published, including every member");
+                        foreach(var parameter in group) {
+                            var source=(APIShared.Economy.PopularitySource)Enum.Parse(typeof(APIShared.Economy.PopularitySource),parameter.Name);
+                            if(human||ai) Check(captured[source].HumanPoints==(human?(int?)0:null) && captured[source].AIPoints==(ai?(int?)-parameter.Limit:null),"Independent role contributions, including zero");
+                            foreach(string role in new[]{"Human","AI"}) {
+                                Check((bool)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+role+"Editable").GetValue(settings)==(role=="Human"?human:ai),"Every member follows its own group/role switch");
+                                Check((int)typeof(ExtraFeaturesViewModel).GetProperty(parameter.Name+role).GetValue(settings)==(role=="Human"?0:-parameter.Limit),"Disabling a group retains every entered number");
+                            }
+                        }
                     }
                 }
+                settings.ResetPopularityDefaults();
                 foreach(string group in new[]{"NegativeFear","PositiveFear"})
                 foreach(int combination in new[]{0,1,2,3}) {
                     bool h=(combination&1)!=0,ai=(combination&2)!=0;
@@ -88,9 +101,33 @@ namespace ExtraFeatures.Tests
                         if(h||ai)Check(captured[signed].HumanPoints==(h?(int?)0:null)&&captured[signed].AIPoints==(ai?(int?)(25-level):null),"Fear role values independent, including zero and reversed signs");
                     }
                 }
+                settings.RationsHumanEnabled=true; settings.RationsAIEnabled=true;
+                settings.RationsPopModifierNoneHuman=0; settings.RationsPopModifierNoneAI=-16;
                 var bothRoles=Prepare(plugin);
                 Check(bothRoles.FearNegative3Human==0 && bothRoles.FearNegative3AI==22 && bothRoles.NegativeFearHumanEnabled && bothRoles.NegativeFearAIEnabled,"Both fear role values persist");
-                Check(bothRoles.RationsPopModifierNoneHuman==0 && bothRoles.RationsPopModifierNoneAI==-16 && bothRoles.RationsPopModifierNoneHumanEnabled && bothRoles.RationsPopModifierNoneAIEnabled,"Both ordinary role values persist");
+                Check(bothRoles.RationsPopModifierNoneHuman==0 && bothRoles.RationsPopModifierNoneAI==-16 && bothRoles.RationsHumanEnabled && bothRoles.RationsAIEnabled,"Both ordinary role values persist");
+                // A real persisted old snapshot has the same numeric property keys,
+                // but only retired per-value flags. No activation migration is intended.
+                string oldFile=Directory.GetFiles(fixture,"settings.msgpack",SearchOption.AllDirectories).Single();
+                var oldPayload=MessagePackSerializer.Deserialize<Dictionary<string,byte[]>>(File.ReadAllBytes(oldFile));
+                bool oldGroupSnapshot=false;
+                foreach(string section in oldPayload.Keys.ToArray()) {
+                    Dictionary<string,byte[]> snapshot;
+                    try { snapshot=MessagePackSerializer.Deserialize<Dictionary<string,byte[]>>(oldPayload[section]); } catch { continue; }
+                    if(snapshot==null || !snapshot.ContainsKey(nameof(settings.RationsPopModifierNoneHuman)))continue;
+                    foreach(var parameter in PopularityCatalog.All)
+                    foreach(string role in new[]{"Human","AI"}) {
+                        snapshot.Remove(parameter.Group+role+"Enabled");
+                        snapshot[parameter.Name+role+"Enabled"]=MessagePackSerializer.Serialize(true);
+                    }
+                    oldPayload[section]=MessagePackSerializer.Serialize(snapshot); oldGroupSnapshot=true;
+                }
+                Check(oldGroupSnapshot,"Old individual-switch payload contains the real persisted values");
+                File.WriteAllBytes(oldFile,MessagePackSerializer.Serialize(oldPayload));
+                settings=Prepare(plugin);
+                foreach(var group in PopularityCatalog.All.Select(p=>p.Group).Distinct())
+                foreach(string role in new[]{"Human","AI"}) Check(!(bool)typeof(ExtraFeaturesViewModel).GetProperty(group+role+"Enabled").GetValue(settings),"Old switches do not activate new groups");
+                Check(settings.RationsPopModifierNoneHuman==0 && settings.RationsPopModifierNoneAI==-16 && settings.NegativeFearHumanEnabled && settings.NegativeFearAIEnabled,"Numbers and unchanged fear flags survive while new group flags stay off");
                 settings.System_LoadModDefaults();
                 // Evaluate production text properties through a localization boundary
                 // returning their requested key, then check the delivered mod-owned values.
@@ -141,7 +178,7 @@ namespace ExtraFeatures.Tests
                 settings = Prepare(plugin);
                 Check(settings.WoodRefundPercent==77 && settings.MarketBuyPriceMultiplier==1.7 && settings.EnableFearFactorNeutralization,
                     "Existing ExtraFeatures values and independent fear neutralization survive old payload loading");
-                Check(settings.FearNegative3Human==-3 && !settings.NegativeFearHumanEnabled && !settings.RationsPopModifierNoneHumanEnabled,
+                Check(settings.FearNegative3Human==-3 && !settings.NegativeFearHumanEnabled && !settings.RationsHumanEnabled,
                     "Absent Popularity fields acquire inactive defaults without resetting existing values");
                 Check(modSettings.Length > 0, "Mod-owned settings are present");
                 foreach (var property in modSettings)
@@ -187,16 +224,27 @@ namespace ExtraFeatures.Tests
                 settings.EnableMod = false;
                 Check(settings.CaptureFearContributions().Count == 0, "Host activation disables both fear groups");
                 settings.EnableMod = true;
-                settings.ReligionPopModifierTierOneHumanEnabled = true; settings.ReligionPopModifierTierOneHuman = -9;
-                settings.AlePopModifierTierFourHumanEnabled = true; settings.AlePopModifierTierFourHuman = -7;
+                settings.ReligionHumanEnabled = true; settings.ReligionPopModifierTierOneHuman = -9;
+                settings.AleHumanEnabled = true; settings.AlePopModifierTierFourHuman = -7;
                 settings.TaxPopModifierCruellestHuman = -48;
                 var restored = Prepare(plugin);
-                Check(restored.ReligionPopModifierTierOneHuman == -9 && restored.ReligionPopModifierTierOneHumanEnabled, "Negative religion and activation persisted across restart");
+                restored.ReligionAIEnabled=true; restored.ReligionPopModifierTierOneAI=10;
+                restored.System_SavePersonalPreset("group-roles","Group roles","",modSettings.Select(p=>new PresetSaveSelection {PropertyName=p.Name,Mode=PublishedPresetValueMode.Fixed}).ToArray(),false);
+                var preset=restored.System_TestPublishedPresets.Single(p=>p.Id=="group-roles");
+                restored.System_LoadModDefaults();
+                restored.System_TestLoadPreset(preset.StableId);
+                Check(restored.ReligionHumanEnabled && restored.ReligionAIEnabled && restored.ReligionPopModifierTierOneHuman==-9 && restored.ReligionPopModifierTierOneAI==10,"Named preset restores independent group flags and values");
+                Check(restored.ReligionPopModifierTierOneHuman == -9 && restored.ReligionHumanEnabled, "Negative religion and activation persisted across restart");
                 Check(restored.AlePopModifierTierFourHuman == -7 && restored.TaxPopModifierCruellestHuman == -48, "Multiple source values persist");
-                restored.AlePopModifierTierFourHumanEnabled = false;
+                restored.AleHumanEnabled = false;
                 Check(restored.AlePopModifierTierFourHuman == -7 && !restored.AlePopModifierTierFourHumanEditable, "Disabled retains value and locks editor");
                 restored.TaxPopModifierCruellestHuman = -999; Check(restored.TaxPopModifierCruellestHuman == -48, "Numeric input bounds");
-                restored.SetPopularityMissionLocked(true); restored.ReligionPopModifierTierOneHuman = 12; 
+                restored.SetPopularityMissionLocked(true);
+                foreach(var toggle in enabled) {
+                    bool previous=(bool)toggle.GetValue(restored);toggle.SetValue(restored,!previous);
+                    Check((bool)toggle.GetValue(restored)==previous,"Mission locks every group and role switch");
+                }
+                restored.ReligionPopModifierTierOneHuman = 12;
                 var missionFear = restored.CaptureFearContributions();
                 restored.FearNegative3Human = 20; restored.NegativeFearHumanEnabled = false;
                 Check(restored.CaptureFearContributions().OrderBy(v => v.Key).SequenceEqual(missionFear.OrderBy(v => v.Key)),
@@ -204,6 +252,12 @@ namespace ExtraFeatures.Tests
                 Check(restored.ReligionPopModifierTierOneHuman == -9 && !restored.CanConfigurePopularity, "Mission locks setters");
                 restored.SetPopularityMissionLocked(false);
                 GameNetworkAPI.LocalHost = false; GameNetworkAPI.Networked = true; GameNetworkAPI.MultiplayerGame = true;
+                foreach(var toggle in enabled) {
+                    bool previous=(bool)toggle.GetValue(restored);toggle.SetValue(restored,!previous);
+                    Check((bool)toggle.GetValue(restored)==previous,"Client cannot change any group or role switch");
+                }
+                GameXAMLManagerAPI.Instance.ApplyNetworkSync(restored,()=>restored.RationsAIEnabled=true);
+                Check(restored.RationsAIEnabled && !restored.RationsPopModifierHalfAIEditable,"Received group activation applies without granting client editor rights");
                 restored.ReligionPopModifierTierOneHuman = 12;
                 int hostFear = restored.FearNegative3Human;
                 restored.FearNegative3Human = 23; restored.NegativeFearHumanEnabled = false;
@@ -215,6 +269,7 @@ namespace ExtraFeatures.Tests
                 Check(restored.ReligionPopModifierTierOneHuman == 11, "Authoritative host update accepted");
                 GameNetworkAPI.LocalHost = true; GameNetworkAPI.Networked = false; GameNetworkAPI.MultiplayerGame = false;
                 var own = Prepare(plugin);
+                Check(!own.RationsAIEnabled,"Received group switch does not overwrite personal values");
                 Check(own.ReligionPopModifierTierOneHuman == -9 && own.FearNegative3Human == hostFear, "Received host values do not overwrite personal presets");
                 own.System_LoadModDefaults();
                 Check(own.ReligionPopModifierTierOneHuman == 2 && own.AlePopModifierTierFourHuman == 8 && own.TaxPopModifierCruellestHuman == -24, "Vanilla defaults restored");

@@ -282,11 +282,19 @@ namespace ExtraFeatures {
 // Search presentation is an external UI boundary in this persistence fixture.
 // SettingsPresentationTests separately exercises the actual installed catalog.
 namespace APIShared.ModSettings {
+    // This persistence fixture has no UI state source; real status classification is
+    // exercised by the production catalog and converter tests, not this boundary.
+    public enum ModSettingsSearchStateFilter { All, Active, Inactive }
+    [Flags] public enum ModSettingsSearchState { Unknown = 0, Active = 1, Inactive = 2 }
+    public static class ModSettingsSearchStateMatcher {
+        public static bool IsMatch(ModSettingsSearchStateFilter filter, ModSettingsSearchState state) => filter == ModSettingsSearchStateFilter.All;
+    }
     public sealed class ModSettingsSearchEntry {
         public string Key, Title, ToolTip, SectionKey, SectionTitle;
         public bool IsSection;
     }
     public static class ModSettingsSearchCatalog {
+        public static ModSettingsSearchState GetState(object owner, string key) => ModSettingsSearchState.Unknown;
         public static event Action<object> SourceChanged { add { } remove { } }
         public static bool IsRegistered(object owner) => false;
         public static bool TryGetEntries(object owner, out System.Collections.Generic.IReadOnlyList<ModSettingsSearchEntry> entries) { entries = null; return false; }
@@ -296,6 +304,8 @@ namespace APIShared.ModSettings {
         public string System_ModSettingsSearchText => "";
         public bool System_ModSettingsSearchIncludeToolTips => false;
         public string System_ModSettingsSearchExactKey => "";
+        public ModSettingsSearchStateFilter System_ModSettingsSearchStateFilter => ModSettingsSearchStateFilter.All;
+        public int System_ModSettingsSearchStateRevision => 0;
         public bool System_ApplyModSettingsSearchTarget(string key, string title) => false;
     }
 }

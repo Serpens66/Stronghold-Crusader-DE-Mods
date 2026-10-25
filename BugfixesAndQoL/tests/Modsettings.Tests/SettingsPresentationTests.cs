@@ -256,7 +256,7 @@ internal static partial class Program
         object[] indexed = ((IEnumerable)entries).Cast<object>().ToArray();
         Check(options.All(o => indexed.Any(e => (string)Get(e, "Key") == (string)Get(o, "Key"))), "closed-topic XAML catalog includes every main option");
         MethodInfo refresh = presentationType.GetMethod("RefreshSearch", All);
-        Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries });
+        Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries, Enum.ToObject(catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true), 0), fixture });
 
         object performance = Get(presentation, "HostPerformance"), market = Get(presentation, "ClientMarket");
         string performanceKey = (string)Get(performance, "Key");
@@ -299,6 +299,18 @@ internal static partial class Program
         Check(Visible(performance, "ContentVisibility"), "refreshed catalog remains searchable");
         search("", true, "");
         Check(!Visible(performance, "ContentVisibility"), "catalog replacement preserves manual state");
+        bool[] manualTopicVisibility = topics.Select(topic => Visible(topic, "ContentVisibility")).ToArray();
+        Type stateType = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true);
+        refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(topics.All(t => !Visible(t, "Visibility")), "unsupported values and unchecked checkboxes do not create active topics");
+        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = true;
+        refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(Visible(performance, "ContentVisibility") && !Visible(display, "Visibility"), "status-only search opens the matching topic");
+        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = false;
+        refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 2), fixture });
+        Check(Visible(performance, "ContentVisibility"), "inactive checkbox opens its topic");
+        search("", false, "");
+        Check(topics.Select(topic => Visible(topic, "ContentVisibility")).SequenceEqual(manualTopicVisibility), "clearing status restores the manual session view");
 
         Check(topicNodes.All(n => !n.SelectNodes(".//*[local-name()='ScrollViewer']").Cast<XmlNode>().Any()), "no nested scrolling in topics");
         Check(nodes.Where(n => n.LocalName == "Button" && Ancestors(n).Any(a => SearchAttribute(a, "IsSection") == "True"))
@@ -338,6 +350,7 @@ internal static partial class Program
 
 public class SearchFixtureBase
 {
+    public bool EnableImprovedAssassinPathfindingAI { get; set; }
     public static SearchPresentationLabels Labels;
     public SearchPresentationLabels SettingsPresentation => Labels;
     public SearchGoodFixture[] MarketGoodsOrderItems => new[] { new SearchGoodFixture() };

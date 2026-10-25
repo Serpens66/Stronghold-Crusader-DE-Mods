@@ -39,9 +39,10 @@ internal static class PopularityLifecycleTests
     internal static void Run(Action<bool,string> check)
     {
         var settings = new ExtraFeaturesViewModel(false);
-        settings.RationsPopModifierNoneHumanEnabled = true; settings.RationsPopModifierNoneHuman = -11;
+        settings.RationsHumanEnabled = true; settings.RationsPopModifierNoneHuman = -11;
         settings.NegativeFearHumanEnabled = true; settings.FearNegative3Human = 0;
-        settings.RationsPopModifierNoneAIEnabled=true; settings.RationsPopModifierNoneAI=6;
+        settings.RationsAIEnabled=true; settings.RationsPopModifierNoneAI=6;
+        settings.RationsPopModifierHalfHuman=-13; settings.RationsPopModifierHalfAI=0;
         var runtime = new PopularityRuntime(null, settings);
         runtime.Register();
         long id = 0;
@@ -58,6 +59,8 @@ internal static class PopularityLifecycleTests
                 check(allowed == (kind==GameModeKind.CustomGame || kind==GameModeKind.MapEditor),"Popularity follows actual ExtraFeatures mode profile");
                 check(APIShared.Economy.PopularitySelection.Resolve(137,APIShared.Economy.PopularitySelection.ForKind(1),(int)APIShared.Economy.PopularitySource.RationsPopModifierNone)==(allowed?-275:137),"Human early source selection follows mode gate");
                 check(APIShared.Economy.PopularitySelection.Resolve(137,APIShared.Economy.PopularitySelection.ForKind(2),(int)APIShared.Economy.PopularitySource.RationsPopModifierNone)==(allowed?150:137),"AI simultaneously receives its own source value");
+                check(APIShared.Economy.PopularitySelection.Resolve(137,APIShared.Economy.PopularitySelection.ForKind(1),(int)APIShared.Economy.PopularitySource.RationsPopModifierHalf)==(allowed?-325:137),"Group gate publishes another human member at early checkpoints");
+                check(APIShared.Economy.PopularitySelection.Resolve(137,APIShared.Economy.PopularitySelection.ForKind(2),(int)APIShared.Economy.PopularitySource.RationsPopModifierHalf)==(allowed?0:137),"Group gate publishes explicit AI zero for another member");
                 check(APIShared.Economy.FearPopularity.MultiplyTargeted(25,-3,APIShared.Economy.PopularitySelection.ForKind(1))==(allowed?0:-75),"Human fear obeys early mode gate");
                 check(APIShared.Economy.FearPopularity.MultiplyTargeted(25,-3,APIShared.Economy.PopularitySelection.ForKind(2))==-75,"AI fear remains untouched");
                 publish(MissionLifecycleKind.Initialization,MissionInitializationPhase.NativeLoaded,MissionEndReason.None);
@@ -69,7 +72,7 @@ internal static class PopularityLifecycleTests
                 check(!APIShared.Economy.PopularitySelection.NeedsPlayer && settings.PopularityBetweenMissions,"End clears targeted configuration and unlocks setup");
             }
         }
-        settings.RationsPopModifierNoneHumanEnabled=false;
+        settings.RationsHumanEnabled=false;
         settings.EnableMod=false;
         var attempt = new MissionContext(++id,MissionStartKind.NewGame,Mode(GameModeKind.CustomGame),null,"failed",false);
         Shared.MissionEvents.Publish(new MissionLifecycleNotification(attempt,MissionLifecycleKind.Initialization,MissionInitializationPhase.BeforeLoad,MissionEndReason.None,false));

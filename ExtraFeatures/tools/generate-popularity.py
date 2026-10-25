@@ -90,10 +90,11 @@ namespace ExtraFeatures
             OnPropertyChanged(nameof(PopularityBetweenMissions)); OnPropertyChanged(nameof(CanConfigurePopularity));
 '''
 roles=('Human','AI')
+activation_groups=[g[0] for g in groups]+[g[0] for g in fear_groups]
 for _,_,key,_,_,_ in items+fear_items:
     for role in roles: settings+=f'            OnPropertyChanged(nameof({key}{role}Editable));\n'
 settings+='        }\n'
-for key in [i[2] for i in items]+[g[0] for g in fear_groups]:
+for key in activation_groups:
     for role in roles:
         name=key+role; field=name[0].lower()+name[1:]+'Enabled'
         settings+=f'''        private bool {field};
@@ -106,7 +107,7 @@ for key in [i[2] for i in items]+[g[0] for g in fear_groups]:
 '''
 for group,limit,key,default,en,de in items+fear_items:
     for role in roles:
-        name=key+role; field=name[0].lower()+name[1:]; enabled=(group if group in ('NegativeFear','PositiveFear') else key)+role+'Enabled'
+        name=key+role; field=name[0].lower()+name[1:]; enabled=group+role+'Enabled'
         settings+=f'''        private int {field} = {default};
         [SyncHostOnly]
         public int {name}
@@ -121,22 +122,21 @@ for group,limit,key,default,en,de in items+fear_items:
             set {{ if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)) {name} = parsed; OnPropertyChanged(nameof({name}ValueText)); }}
         }}
 '''
-for key in [i[2] for i in items+fear_items]+[g[0] for g in fear_groups]:
+for key in [i[2] for i in items+fear_items]+activation_groups:
     settings+=f'        public string {key}Title => SerpLocalization.Get("ExtraFeatures.Popularity.{key}");\n'
     for role in roles:
         for suffix in ('Title','Help'):
             settings+=f'        public string {key}{role}{suffix} => SerpLocalization.Get("ExtraFeatures.Popularity.{key}.{role}.{suffix}");\n'
-for group,*_ in groups: settings+=f'        public string {group}Title => SerpLocalization.Get("ExtraFeatures.Popularity.{group}");\n'
 settings+='        public string FearTitle => SerpLocalization.Get("ExtraFeatures.Popularity.Fear");\n'
 for kind,keytype,source in [('Ordinary','PopularitySource',items),('Fear','int',fear_items)]:
     settings+=f'        internal Dictionary<{keytype}, PopularityOverrideValues> Capture{kind}Contributions()\n        {{\n            var values = new Dictionary<{keytype}, PopularityOverrideValues>();\n            if (!EnableMod) return values;\n'
     for group,_,key,level,_,_ in source:
-        enable=group if kind=='Fear' else key
+        enable=group
         index=str(level) if kind=='Fear' else 'PopularitySource.'+key
         settings+=f'            if ({enable}HumanEnabled || {enable}AIEnabled) values.Add({index}, new PopularityOverrideValues({enable}HumanEnabled ? (int?){key}Human : null, {enable}AIEnabled ? (int?){key}AI : null));\n'
     settings+='            return values;\n        }\n'
 settings+='        internal void ResetPopularityDefaults()\n        {\n'
-for key in [i[2] for i in items]+[g[0] for g in fear_groups]:
+for key in activation_groups:
     for role in roles: settings+=f'            {key}{role}Enabled = false;\n'
 for _,_,key,default,_,_ in items+fear_items:
     for role in roles: settings+=f'            {key}{role} = {default};\n'
@@ -162,58 +162,67 @@ catalog+='        };\n    }\n}\n';write('src/PopularityCatalog.cs',catalog)
 # Each player block has its own search entry; row unions keep captions attached.
 search_groups={}
 for group,*_ in groups:
-    search_groups['Popularity'+group+'Options']=[i[2] for i in items if i[0]==group]
+    search_groups['Popularity'+group+'Options']=[group]+[i[2] for i in items if i[0]==group]
 for group,*_ in fear_groups:
     search_groups['Popularity'+group+'Options']=[group]+[i[2] for i in fear_items if i[0]==group]
 search_groups['PopularityFearOptions']=[g[0] for g in fear_groups]+[i[2] for i in fear_items]
-for key in [i[2] for i in items+fear_items]+[g[0] for g in fear_groups]: search_groups['PopularityRow'+key]=[key]
+for key in [i[2] for i in items+fear_items]: search_groups['PopularityRow'+key]=[key]
+role_groups={}
+for group in activation_groups:
+    members=search_groups['Popularity'+group+'Options']
+    for role in roles: role_groups['Popularity'+group+role+'Options']=[(key,role) for key in members]
 presentation='using System.Collections.Generic;\nnamespace ExtraFeatures\n{\n    public sealed partial class ModSettingsPresentation\n    {\n'
 for name,keys in search_groups.items():
     suffixes=', '.join('"popularity.'+k+'.'+r.lower()+'"' for k in keys for r in roles)
     presentation+=f'        public SettingsGroupPresentation {name} {{ get; }} = new SettingsGroupPresentation({suffixes});\n'
-presentation+='        private IEnumerable<SettingsGroupPresentation> PopularityGroups => new[] { '+', '.join(search_groups)+' };\n    }\n}\n';write('src/ModSettingsPresentation.Popularity.cs',presentation)
+for name,pairs in role_groups.items():
+    suffixes=', '.join('"popularity.'+key+'.'+role.lower()+'"' for key,role in pairs)
+    presentation+=f'        public SettingsGroupPresentation {name} {{ get; }} = new SettingsGroupPresentation({suffixes});\n'
+presentation+='        private IEnumerable<SettingsGroupPresentation> PopularityGroups => new[] { '+', '.join(list(search_groups)+list(role_groups))+' };\n    }\n}\n';write('src/ModSettingsPresentation.Popularity.cs',presentation)
 
 def table_columns():
-    return '<Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*" MinWidth="188" MaxWidth="228"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*" MinWidth="188" MaxWidth="228"/></Grid.ColumnDefinitions>'
+    return '<Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*" MinWidth="152" MaxWidth="192"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*" MinWidth="152" MaxWidth="192"/></Grid.ColumnDefinitions>'
 
-def role_header():
-    return f'''      <Grid Margin="0,0,0,6" shared:ModSettingsSearch.Exclude="True">
-        {table_columns()}
-        <TextBlock Grid.Column="2" Text="{{Binding HumanText}}" Foreground="White" FontWeight="Bold"/>
-        <TextBlock Grid.Column="4" Text="{{Binding AiText}}" Foreground="White" FontWeight="Bold"/>
-      </Grid>'''
+def group_header(group):
+    row=[f'      <Grid Margin="0,12,0,8" MinHeight="28">',
+         '        '+table_columns(),
+         f'        <TextBlock Text="{{Binding {group}Title}}" Foreground="#DDDDDD" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{{Binding {group}Title}}" ToolTipService.ShowDuration="60000"/>']
+    for role,column,label in [('Human',2,'HumanText'),('AI',4,'AiText')]:
+        name=group+role
+        # The context union includes child values, so filtering for a value never
+        # hides the switch needed to enable that player's whole group.
+        row.append(f'        <Grid Grid.Column="{column}" MinHeight="28" Margin="0" HorizontalAlignment="Stretch" Style="{{StaticResource ModSettingsSearchTargetGrid}}" Visibility="{{Binding SettingsPresentation.Popularity{group}{role}Options.Visibility}}" shared:ModSettingsSearch.Key="extra.popularity.{group}.{role.lower()}" shared:ModSettingsSearch.Title="{{Binding {name}Title}}" shared:ModSettingsSearch.ToolTipText="{{Binding {name}Help}}">')
+        row.append(f'          <CheckBox Content="{{Binding {label}}}" MinHeight="28" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0" IsChecked="{{Binding {name}Enabled, Mode=TwoWay}}" IsEnabled="{{Binding CanConfigurePopularity}}" Foreground="White" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
+        row.append('        </Grid>')
+    row.append('      </Grid>');return '\n'.join(row)
 
-def value_row(key,limit=None,checkbox=True,enable_key=None):
+def value_row(key,limit):
     row=[f'      <Grid Margin="0,0,0,8" MinHeight="28" Visibility="{{Binding SettingsPresentation.PopularityRow{key}.Visibility}}">',
          '        '+table_columns(),
          f'        <TextBlock Text="{{Binding {key}Title}}" Foreground="White" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{{Binding {key}Title}}" ToolTipService.ShowDuration="60000"/>']
+    neutral=next(default for _,_,name,default,_,_ in items+fear_items if name==key)
     for role,column in [('Human',2),('AI',4)]:
-        name=key+role; ename=(enable_key or key)+role
+        name=key+role
         row.append(f'        <Grid Grid.Column="{column}" MinHeight="28" HorizontalAlignment="Stretch" Margin="0" Style="{{StaticResource ModSettingsSearchTargetGrid}}" shared:ModSettingsSearch.Key="extra.popularity.{key}.{role.lower()}" shared:ModSettingsSearch.Title="{{Binding {name}Title}}" shared:ModSettingsSearch.ToolTipText="{{Binding {name}Help}}">')
-        row.append('          <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*" MinWidth="80" MaxWidth="120"/><ColumnDefinition Width="8"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>')
-        if checkbox:
-            row.append(f'          <CheckBox MinHeight="28" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0" IsChecked="{{Binding {ename}Enabled, Mode=TwoWay}}" IsEnabled="{{Binding CanConfigurePopularity}}" Foreground="White" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
-        if limit is not None:
-            row.append(f'          <Slider Grid.Column="2" MinWidth="80" MaxWidth="120" HorizontalAlignment="Stretch" Margin="0" Minimum="-{limit}" Maximum="{limit}" Value="{{Binding {name}, Mode=TwoWay}}" IsEnabled="{{Binding {name}Editable}}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
-            row.append(f'          <TextBox Grid.Column="4" Width="64" Text="{{Binding {name}ValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}}" IsEnabled="{{Binding {name}Editable}}" seui:KeyboardCaptureBinding.Enabled="True" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" TextAlignment="Center" VerticalAlignment="Center" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
+        row.append('          <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="80" MaxWidth="120"/><ColumnDefinition Width="8"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>')
+        row.append(f'          <Slider shared:ModSettingsSearch.InactiveValues="{neutral}" MinWidth="80" MaxWidth="120" HorizontalAlignment="Stretch" Margin="0" Minimum="-{limit}" Maximum="{limit}" Value="{{Binding {name}, Mode=TwoWay}}" IsEnabled="{{Binding {name}Editable}}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
+        row.append(f'          <TextBox Grid.Column="2" Width="64" Text="{{Binding {name}ValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}}" IsEnabled="{{Binding {name}Editable}}" seui:KeyboardCaptureBinding.Enabled="True" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" TextAlignment="Center" VerticalAlignment="Center" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
         row.append('        </Grid>')
     row.append('      </Grid>');return '\n'.join(row)
-rows=[]
 
-def heading(group):
-    rows.append(f'          <StackPanel Visibility="{{Binding SettingsPresentation.Popularity{group}Options.Visibility}}">')
-    rows.append(f'            <TextBlock Text="{{Binding {group}Title}}" Style="{{StaticResource SubsectionHeader}}"/>')
-    rows.append(role_header())
+rows=[]
 for group,_,_,limit,entries in groups:
-    heading(group)
+    rows.append(f'          <StackPanel Visibility="{{Binding SettingsPresentation.Popularity{group}Options.Visibility}}">')
+    rows.append(group_header(group))
     for key,*_ in entries: rows.append(value_row(key,limit))
     rows.append('          </StackPanel>')
-heading('Fear')
+rows.append('          <StackPanel Visibility="{Binding SettingsPresentation.PopularityFearOptions.Visibility}">')
+rows.append('            <TextBlock Text="{Binding FearTitle}" Style="{StaticResource SubsectionHeader}"/>')
 for group,*_ in fear_groups:
     rows.append(f'          <StackPanel Visibility="{{Binding SettingsPresentation.Popularity{group}Options.Visibility}}">')
-    rows.append(value_row(group))
+    rows.append(group_header(group))
     for row_group,limit,key,*_ in fear_items:
-        if row_group==group: rows.append(value_row(key,limit,False,group))
+        if row_group==group: rows.append(value_row(key,limit))
     rows.append('          </StackPanel>')
 rows.append('          </StackPanel>')
 path=root/'Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml';template=path.read_text(encoding='utf-8-sig')
@@ -243,14 +252,15 @@ for locale in (root/'Locales').glob('*.txt'):
     base = '\n'.join(line for line in locale.read_text(encoding='utf-8-sig').splitlines() if not line.startswith('ExtraFeatures.Popularity.')).rstrip('\n')
     extra = {
      'ExtraFeatures.Popularity.Scope': 'Getrennte Beliebtheitsbeiträge für menschliche Spieler und KI. Änderungen gelten ab der nächsten Karte; während einer Partie sind die Regler gesperrt.' if german else 'Independent popularity contributions for human players and AI. Changes apply from the next map; controls are locked during a mission.',
-     'ExtraFeatures.Popularity.Rule': 'Checkbox aus: kein Override durch diesen Mod. Quelle „Mod-Standards“ laden: alle Overrides aus, Werte auf Vanilla. Einheit: Zufriedenheitspunkte der Spielberichte.' if german else 'Checkbox off: this mod supplies no override. Load the Mod defaults source to disable all overrides and restore Vanilla values. Unit: popularity points in the game reports.',
+     'ExtraFeatures.Popularity.Rule': 'Gruppenhäkchen aus: kein Override dieser Gruppe durch den Mod. Quelle „Mod-Standards“ laden: alle Overrides aus, Werte auf Vanilla. Einheit: Zufriedenheitspunkte der Spielberichte.' if german else 'Group checkbox off: this mod supplies no override for that group. Load the Mod defaults source to disable all overrides and restore Vanilla values. Unit: popularity points in the game reports.',
      'ExtraFeatures.Popularity.Fear': 'Furchtfaktor' if german else 'Fear factor'}
     for group,en,de,_,_ in groups:
         extra['ExtraFeatures.Popularity.'+group] = de if german else en
+        extra['ExtraFeatures.Popularity.'+group+'.Help'] = ('Aktiviert alle Beiträge dieser Gruppe für die gewählte Spielerart. Ausgeschaltet gelten die vorhandenen Spiel-/Extender-Werte; eingetragene Zahlen bleiben gespeichert.' if german else 'Enables every contribution in this group for the selected player type. When disabled, existing game/Extender values remain effective and entered numbers stay saved.')
     for group,limit,key,default,en,de in items:
         extra['ExtraFeatures.Popularity.'+key] = de if german else en
         explanation = (help_de if german else help_en)[group]
-        suffix = f' Vanilla: {default:+d}. ' + ('Ausgeschaltet bleibt dieser Teil unverändert. Aktiviert ersetzt der Regler den absoluten Beitrag in Zufriedenheitspunkten.' if german else 'When unchecked, this part is untouched. When checked, the slider replaces the absolute contribution in popularity points.')
+        suffix = f' Vanilla: {default:+d}. ' + ('Gilt nur bei aktivierter zugehöriger Gruppe für diese Spielerart. Der Regler ersetzt den absoluten Beitrag in Zufriedenheitspunkten; ausgeschaltet bleibt der eingetragene Wert gespeichert.' if german else 'Applies only when its group is enabled for this player type. The slider replaces the absolute contribution in popularity points; disabling the group retains the entered value.')
         extra['ExtraFeatures.Popularity.'+key+'.Help'] = explanation+suffix
     for group,_,en,de in fear_groups:
         extra['ExtraFeatures.Popularity.'+group] = de if german else en
@@ -258,7 +268,7 @@ for locale in (root/'Locales').glob('*.txt'):
     for group,limit,key,level,en,de in fear_items:
         extra['ExtraFeatures.Popularity.'+key] = (de + ' (Punkte)') if german else (en + ' (points)')
         extra['ExtraFeatures.Popularity.'+key+'.Help'] = (f'Fester Beliebtheitsbeitrag bei Furchtfaktorstufe {level:+d}, von -25 bis +25 in ganzen Berichtspunkten. Vanilla: {level:+d}. Gilt nur bei aktivierter zugehöriger Furchtfaktorseite. Null und umgekehrte Vorzeichen sind möglich. Der tatsächliche Furchtfaktor und seine anderen Wirkungen bleiben unverändert.' if german else f'Absolute popularity contribution at fear level {level:+d}, from -25 to +25 in whole report points. Vanilla: {level:+d}. Applies only when its fear-side switch is enabled. Zero and reversed signs are allowed. The actual fear level and its other effects are unchanged.')
-    for key in [i[2] for i in items+fear_items]+[g[0] for g in fear_groups]:
+    for key in [i[2] for i in items+fear_items]+activation_groups:
         for role in roles:
             label = ('Mensch' if role=='Human' else 'KI') if german else role
             extra['ExtraFeatures.Popularity.'+key+'.'+role+'.Title'] = extra['ExtraFeatures.Popularity.'+key]+' — '+label

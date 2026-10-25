@@ -39,7 +39,9 @@ namespace ExtraFeatures
         {
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
-                args.PropertyName == nameof(System_ModSettingsSearchExactKey))
+                args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
+                args.PropertyName == nameof(System_ModSettingsSearchStateFilter) ||
+                args.PropertyName == nameof(System_ModSettingsSearchStateRevision))
                 RefreshSettingsPresentation();
         }
 
@@ -71,7 +73,7 @@ namespace ExtraFeatures
         {
             ModSettingsSearchCatalog.TryGetEntries(this, out var entries);
             SettingsPresentation.RefreshSearch(System_ModSettingsSearchText, System_ModSettingsSearchIncludeToolTips,
-                System_ModSettingsSearchExactKey, entries);
+                System_ModSettingsSearchExactKey, entries, System_ModSettingsSearchStateFilter, this);
         }
 
         private bool enableMod = true;

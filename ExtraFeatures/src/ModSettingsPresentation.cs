@@ -69,9 +69,14 @@ namespace ExtraFeatures
 
         // Both the preset search properties and SourceChanged are published on the Unity UI thread.
         internal void RefreshSearch(string text, bool includeToolTips, string exactKey,
-            IReadOnlyList<ModSettingsSearchEntry> entries)
+            IReadOnlyList<ModSettingsSearchEntry> entries,
+            ModSettingsSearchStateFilter stateFilter = ModSettingsSearchStateFilter.All, object model = null)
         {
-            searchActive = !string.IsNullOrWhiteSpace(text) || !string.IsNullOrWhiteSpace(exactKey);
+            searchActive = stateFilter != ModSettingsSearchStateFilter.All || !string.IsNullOrWhiteSpace(text) || !string.IsNullOrWhiteSpace(exactKey);
+            bool Matches(ModSettingsSearchEntry entry) =>
+                (stateFilter == ModSettingsSearchStateFilter.All || (!entry.IsSection && ModSettingsSearchStateMatcher.IsMatch(
+                    stateFilter, ModSettingsSearchCatalog.GetState(model, entry.Key)))) &&
+                ModSettingsSearchMatcher.IsMatch(text, includeToolTips, exactKey, entry.Key, entry.Title, entry.ToolTip, entry.SectionKey, entry.SectionTitle);
             foreach (SettingsTopicPresentation topic in Topics)
             {
                 ModSettingsSearchEntry[] section = (entries ?? Array.Empty<ModSettingsSearchEntry>())
@@ -79,15 +84,12 @@ namespace ExtraFeatures
                 // Count the full catalog, never the filtered result or individual editor controls.
                 int count = section.Where(entry => !entry.IsSection).Select(entry => entry.Key)
                     .Distinct(StringComparer.Ordinal).Count();
-                bool matches = section.Any(entry => ModSettingsSearchMatcher.IsMatch(
-                    text, includeToolTips, exactKey, entry.Key, entry.Title, entry.ToolTip,
-                    entry.SectionKey, entry.SectionTitle));
+                bool matches = section.Any(entry => Matches(entry));
                 topic.Refresh(searchActive, matches, count);
             }
             foreach (SettingsGroupPresentation group in Groups)
                 group.Refresh(searchActive, (entries ?? Array.Empty<ModSettingsSearchEntry>()).Any(entry =>
-                    group.Contains(entry.Key) && ModSettingsSearchMatcher.IsMatch(text, includeToolTips, exactKey,
-                        entry.Key, entry.Title, entry.ToolTip, entry.SectionKey, entry.SectionTitle)));
+                    group.Contains(entry.Key) && Matches(entry)));
             foreach (string property in new[] { nameof(BulkActionsVisibility), nameof(ExpandAllText),
                 nameof(CollapseAllText), nameof(ExpandAllHelpText), nameof(CollapseAllHelpText), nameof(TopicToggleHelpText) })
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
