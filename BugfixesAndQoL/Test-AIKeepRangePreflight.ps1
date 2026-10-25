@@ -36,7 +36,8 @@ if ($vm -notmatch 'private bool removeAIKeepRangeLimit = true;' -or
 $option = $xaml.SelectSingleNode('//*[local-name()="CheckBox" and @IsChecked="{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}"]')
 if ($null -eq $option -or $option.GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or
     $null -eq $option.SelectSingleNode('ancestor::*[@IsEnabled="{Binding CanEditHostSettings}"]') -or
-    $null -eq $option.SelectSingleNode("ancestor::*[contains(@Visibility, '.PossibleVisibility}') ]")) { throw 'Host Possible Fix category/tooltip contract.' }
+    # The approved settings presentation classifies this option as a recommended Host AI fix.
+    $null -eq $option.SelectSingleNode("ancestor::*[@Visibility='{Binding SettingsPresentation.HostAi.FixesVisibility}']")) { throw 'Host AI Fix category/tooltip contract.' }
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales') -Filter '*.txt') {
     $text = [IO.File]::ReadAllText($file.FullName)
     foreach ($key in @('BugfixesAndQoL.RemoveAIKeepRangeLimit','BugfixesAndQoL.RemoveAIKeepRangeLimitHelp')) {
@@ -52,7 +53,7 @@ foreach ($file in $files) {
 if (-not $SkipPermanentHooks) {
     & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
 }
-Write-Output 'PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.'
+Write-Output 'PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Host AI Fix XAML, locale parity and CRLF.'
 if (-not $SkipTests) {
     . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
     $auditWork=New-ShortWorkDirectory -Root $workspace -Kind a -Name keep -Identity (([IO.File]::ReadAllText((Join-Path $workspace '_inspect/CrusaderDE-Native-Baseline/CURRENT.json')) | ConvertFrom-Json).currentNativeHash)
