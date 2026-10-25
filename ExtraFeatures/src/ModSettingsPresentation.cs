@@ -181,9 +181,14 @@ namespace ExtraFeatures
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             double width = value is double number ? number : value is float single ? single : 0;
-            // Noesis Width requires a boxed Single, including during the initial unmeasured layout.
-            return double.IsNaN(width) || double.IsInfinity(width) ? 0f
-                : (float)Math.Min(float.MaxValue, Math.Max(0.0, width - 20.0));
+            // A table may request a minimum viewport width so the outer Auto
+            // scroller includes its complete one-line content instead of clipping it.
+            double minimum = double.TryParse(parameter as string, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out double parsed) && !double.IsNaN(parsed) &&
+                !double.IsInfinity(parsed) ? Math.Max(0.0, parsed) : 0.0;
+            double available = double.IsNaN(width) || double.IsInfinity(width) ? 0.0 : Math.Max(0.0, width - 20.0);
+            // Noesis Width requires a boxed Single, including before measurement.
+            return (float)Math.Min(float.MaxValue, Math.Max(minimum, available));
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>

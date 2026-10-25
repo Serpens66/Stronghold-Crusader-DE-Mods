@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.119",
+  "Version": "1.0.120",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.120",
+      "Changes": [
+        "Keep both Human and AI Popularity editors on a single aligned table row with shared column headers instead of wrapping player blocks.",
+        "Use compact title columns, responsive 80–120 pixel sliders and 64-pixel numeric inputs. Preserve complete rows with horizontal scrolling in narrow views; full captions remain available in tooltips. Existing settings, values, search, fear group switches and gameplay behavior are unchanged."
+      ]
+    },
     {
       "Version": "1.0.119",
       "Changes": [

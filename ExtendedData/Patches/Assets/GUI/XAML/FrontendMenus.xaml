@@ -12,6 +12,9 @@
                   Width="520" Height="40" Margin="0,150,0,0"
                   HorizontalAlignment="Center" VerticalAlignment="Top"
                   FontSize="24" MaxDropDownHeight="494"
+                  Background="{DynamicResource CoopTrail.Background}"
+                  BorderBrush="{DynamicResource CoopTrail.Border}"
+                  Foreground="{DynamicResource CoopTrail.Foreground}"
                   ScrollViewer.CanContentScroll="True"
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
@@ -20,12 +23,26 @@
                   IsEnabled="{Binding CanEdit}"
                   IsDropDownOpen="{Binding IsDropDownOpen, Mode=TwoWay}"
                   ToolTipService.ShowDuration="60000">
+          <ComboBox.Resources>
+            <SolidColorBrush x:Key="CoopTrail.Background" Color="#FF0D0B0A"/>
+            <SolidColorBrush x:Key="CoopTrail.Border" Color="#FF9E3932"/>
+            <SolidColorBrush x:Key="CoopTrail.Foreground" Color="#FFCCCCCC"/>
+            <SolidColorBrush x:Key="CoopTrail.Hover" Color="#FF29211F"/>
+            <SolidColorBrush x:Key="CoopTrail.BorderOver" Color="#FFC04C43"/>
+            <SolidColorBrush x:Key="CoopTrail.ForegroundOver" Color="#FFFFFFFF"/>
+            <SolidColorBrush x:Key="CoopTrail.Selected" Color="#FF3B1715"/>
+            <SolidColorBrush x:Key="CoopTrail.SelectedOver" Color="#FF48201C"/>
+            <SolidColorBrush x:Key="CoopTrail.ForegroundDisabled" Color="#FF77716C"/>
+            <SolidColorBrush x:Key="CoopTrail.BorderDisabled" Color="#FF5C403B"/>
+          </ComboBox.Resources>
           <ComboBox.ItemsPanel>
             <ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate>
           </ComboBox.ItemsPanel>
           <ComboBox.ItemContainerStyle>
             <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
               <Setter Property="Height" Value="48"/>
+              <Setter Property="Background" Value="Transparent"/>
+              <Setter Property="Foreground" Value="{DynamicResource CoopTrail.Foreground}"/>
               <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
               <Setter Property="Template">
                 <Setter.Value>
@@ -33,18 +50,21 @@
                     <Grid Background="Transparent" ClipToBounds="True">
                       <Border x:Name="Selection" Background="{TemplateBinding Background}"/>
                       <!-- This layer is controlled by popup hit testing, independently of mouse capture. -->
-                      <Border x:Name="PointerHover" Background="{DynamicResource Brush.Item.Over}"
+                      <Border x:Name="PointerHover" Background="{DynamicResource CoopTrail.Hover}"
                               Visibility="Collapsed" IsHitTestVisible="False"/>
-                      <TextBlock Text="{TemplateBinding Content}" Margin="12,0"
+                      <TextBlock x:Name="ItemText" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" Margin="12,0"
                                  VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                       <Trigger Property="IsSelected" Value="True">
-                        <Setter TargetName="Selection" Property="Background" Value="{DynamicResource Brush.Item.Selected}"/>
-                        <Setter TargetName="PointerHover" Property="Background" Value="{DynamicResource Brush.Item.SelectedOver}"/>
+                        <Setter TargetName="Selection" Property="Background" Value="{DynamicResource CoopTrail.Selected}"/>
+                        <Setter TargetName="PointerHover" Property="Background" Value="{DynamicResource CoopTrail.SelectedOver}"/>
                       </Trigger>
+                      <DataTrigger Binding="{Binding Visibility, ElementName=PointerHover}" Value="Visible">
+                        <Setter TargetName="ItemText" Property="Foreground" Value="{DynamicResource CoopTrail.ForegroundOver}"/>
+                      </DataTrigger>
                       <Trigger Property="IsEnabled" Value="False">
-                        <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground.Disabled}"/>
+                        <Setter TargetName="ItemText" Property="Foreground" Value="{DynamicResource CoopTrail.ForegroundDisabled}"/>
                       </Trigger>
                     </ControlTemplate.Triggers>
                   </ControlTemplate>
@@ -55,15 +75,15 @@
           <ComboBox.Template>
             <ControlTemplate TargetType="ComboBox">
               <Grid>
-                <ToggleButton Style="{StaticResource Style.ComboBox.Toggle}" ClickMode="Press" IsTabStop="False"
+                <ToggleButton x:Name="DropDownButton" Style="{StaticResource Style.ComboBox.Toggle}" ClickMode="Press" IsTabStop="False"
                               Foreground="{TemplateBinding Foreground}"
                               IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                  <Border x:Name="FieldBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
                     <Grid>
                       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                      <TextBlock Text="{TemplateBinding SelectionBoxItem}" Margin="6,0" VerticalAlignment="Center"
+                      <TextBlock x:Name="FieldText" Text="{TemplateBinding SelectionBoxItem}" Foreground="{TemplateBinding Foreground}" Margin="6,0" VerticalAlignment="Center"
                                  TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                      <Path Grid.Column="1" Data="{StaticResource Geometry.ComboBox.Arrow}" Stroke="{TemplateBinding Foreground}"
+                      <Path x:Name="Arrow" Grid.Column="1" Data="{StaticResource Geometry.ComboBox.Arrow}" Stroke="{TemplateBinding Foreground}"
                             Margin="10,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
                     </Grid>
                   </Border>
@@ -71,7 +91,7 @@
                 <Popup x:Name="PART_Popup" Placement="Bottom" Focusable="False" AllowsTransparency="True"
                        IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
                   <Border x:Name="DropDownBorder" Width="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                          Background="{DynamicResource Brush.Background.Popup}" BorderBrush="{DynamicResource Brush.Border.Popup}"
+                          Background="{DynamicResource CoopTrail.Background}" BorderBrush="{DynamicResource CoopTrail.Border}"
                           BorderThickness="1" Padding="0,6">
                     <ScrollViewer x:Name="CoopTrailScroll" CanContentScroll="True" Focusable="False"
                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
@@ -94,6 +114,23 @@
                   </Border>
                 </Popup>
               </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger SourceName="DropDownButton" Property="IsMouseOver" Value="True">
+                  <Setter TargetName="FieldBorder" Property="Background" Value="{DynamicResource CoopTrail.Hover}"/>
+                  <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource CoopTrail.BorderOver}"/>
+                  <Setter TargetName="FieldText" Property="Foreground" Value="{DynamicResource CoopTrail.ForegroundOver}"/>
+                  <Setter TargetName="Arrow" Property="Stroke" Value="{DynamicResource CoopTrail.ForegroundOver}"/>
+                </Trigger>
+                <Trigger Property="IsDropDownOpen" Value="True">
+                  <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource CoopTrail.BorderOver}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter TargetName="FieldBorder" Property="Background" Value="{DynamicResource CoopTrail.Background}"/>
+                  <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource CoopTrail.BorderDisabled}"/>
+                  <Setter TargetName="FieldText" Property="Foreground" Value="{DynamicResource CoopTrail.ForegroundDisabled}"/>
+                  <Setter TargetName="Arrow" Property="Stroke" Value="{DynamicResource CoopTrail.ForegroundDisabled}"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
             </ControlTemplate>
           </ComboBox.Template>
           <ComboBox.ToolTip>

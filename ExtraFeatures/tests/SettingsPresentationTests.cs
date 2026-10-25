@@ -91,10 +91,23 @@ public static class SettingsPresentationTests
             items.SelectNodes(".//*[local-name()='WrapPanel']").Cast<XmlNode>().All(n => n.Attributes["Width"] == null), "goods wrap to the finite available width");
         Check(nodes.Any(n => n.LocalName == "ScrollViewer" && n.Attributes["HorizontalScrollBarVisibility"].Value == "Auto" &&
             n.Attributes["VerticalScrollBarVisibility"].Value == "Auto"), "outer Auto scrollbars retained");
-        foreach(XmlNode slider in nodes.Where(n=>n.LocalName=="Slider" && Ancestors(n).Any(a=>(Search(a,"Key")??"").StartsWith("extra.popularity.")))) {
-            Check(slider.Attributes["Width"].Value=="120","Popularity sliders have the requested compact width");
-            XmlNode block=Ancestors(slider).First(a=>(Search(a,"Key")??"").StartsWith("extra.popularity."));
-            Check(block.ParentNode.LocalName=="WrapPanel" && block.SelectNodes("./*[local-name()='TextBox' and @Width='64']").Count==1,"whole role blocks wrap with 64px numeric inputs");
+        // Keep each pair on one grid row. This directly guards the reported
+        // WrapPanel regression; widths may vary inside the agreed usable bounds.
+        var popularityBlocks=nodes.Where(n=>(Search(n,"Key")??"").StartsWith("extra.popularity.")).ToArray();
+        foreach(XmlNode row in popularityBlocks.Select(n=>n.ParentNode).Distinct()) {
+            XmlNode[] blocks=popularityBlocks.Where(n=>ReferenceEquals(n.ParentNode,row)).ToArray();
+            Check(row.LocalName=="Grid" && blocks.Length==2 && !Ancestors(blocks[0]).Any(n=>n.LocalName=="WrapPanel"),"both player editors stay on one non-wrapping table row");
+            Check(((XmlElement)blocks[0]).GetAttribute("Grid.Row")==((XmlElement)blocks[1]).GetAttribute("Grid.Row") &&
+                int.Parse(blocks[0].Attributes["Grid.Column"].Value)<int.Parse(blocks[1].Attributes["Grid.Column"].Value),"Human then AI on the same row");
+            XmlNode caption=row.SelectNodes("./*[local-name()='TextBlock']").Cast<XmlNode>().Single();
+            Check(caption.Attributes["TextWrapping"].Value=="NoWrap" && caption.Attributes["TextTrimming"].Value=="CharacterEllipsis" &&
+                caption.Attributes["ToolTip"]!=null,"long row captions remain single-line and accessible in a tooltip");
+            foreach(XmlNode block in blocks) {
+                Check(!block.SelectNodes(".//*[local-name()='CheckBox' and @Content] | .//*[local-name()='TextBlock']").Cast<XmlNode>().Any(),"player labels are shared headers, not repeated in each value row");
+                foreach(XmlNode slider in block.SelectNodes(".//*[local-name()='Slider']"))
+                    Check(slider.Attributes["Width"]==null && slider.Attributes["MinWidth"].Value=="80" && slider.Attributes["MaxWidth"].Value=="120" &&
+                        block.SelectNodes("./*[local-name()='TextBox' and @Width='64']").Count==1,"bounded shrinking sliders retain 64px numeric inputs");
+            }
         }
         ValidateCompactLayout(document);
     }
@@ -126,7 +139,7 @@ public static class SettingsPresentationTests
             bool spacing = EffectiveStyleValue(row, "Margin").Split(',').Last() == "8" || Ancestors(row).Any(n =>
                 EffectiveStyleValue(n, "Margin").Split(',').Last() == "8");
             Check(spacing, "every setting row or enclosing table row has eight-unit spacing");
-            Check(row.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*").Cast<XmlNode>().All(n => n.Attributes["Width"].Value != "*"), "setting labels never consume the remaining page width");
+            Check(row.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*").Cast<XmlNode>().Take(1).All(n => n.Attributes["Width"].Value != "*"), "setting labels never consume the remaining page width");
             foreach (XmlNode check in row.SelectNodes(".//*[local-name()='CheckBox']"))
                 Check(float.Parse(check.Attributes["MinHeight"].Value, CultureInfo.InvariantCulture) >= 28, "checkboxes retain minimum hit/layout height");
         }
@@ -180,6 +193,15 @@ public static class SettingsPresentationTests
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableKnightDismount')]")).SetAttribute("MinHeight", "20"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[@shared:ModSettingsSearch.Key='extra.knight-transform-gold']/*[local-name()='Grid.ColumnDefinitions']/*[1]", Namespaces(d))).SetAttribute("Width", "*"));
         NegativeXaml(document, d => { XmlNode n = d.SelectSingleNode("//*[local-name()='TextBlock' and @Text='{Binding EnemyProximityTitleText}']"); n.ParentNode.RemoveChild(n); });
+
+        NegativeXaml(document,d=>{
+            XmlNode role=d.SelectSingleNode("//*[@shared:ModSettingsSearch.Key='extra.popularity.RationsPopModifierNone.ai']",Namespaces(d));
+            ((XmlElement)role).SetAttribute("Grid.Row","1");
+        });
+        NegativeXaml(document,d=>{
+            XmlElement caption=(XmlElement)d.SelectSingleNode("//*[@shared:ModSettingsSearch.Key='extra.popularity.RationsPopModifierNone.ai']/../*[local-name()='TextBlock']",Namespaces(d));
+            caption.SetAttribute("TextWrapping","Wrap");
+        });
 
         Type type = mod.GetType("ExtraFeatures.ModSettingsPresentation", true);
         object presentation = Activator.CreateInstance(type, true);
@@ -304,6 +326,15 @@ public static class SettingsPresentationTests
             Check(result is float && widthType.IsInstanceOfType(result) && (float)result >= 0 && !float.IsInfinity((float)result) && !float.IsNaN((float)result), "width converter returns finite Noesis Single");
         }
         Check((float)convert.Invoke(converter, new object[] { 640d, widthType, null, CultureInfo.InvariantCulture }) == 620f, "width accounts for page margin");
+        XmlNode popularityTopic=document.SelectNodes("//*[@shared:ModSettingsSearch.IsSection='True']",Namespaces(document)).Cast<XmlNode>()
+            .Single(n=>Search(n,"SectionKey")=="extra.topic.popularity");
+        var parameter=Regex.Match(popularityTopic.Attributes["Width"].Value,@"ConverterParameter=(\d+)");
+        Check(parameter.Success,"Popularity topic declares a minimum scroll extent");
+        float minimum=float.Parse(parameter.Groups[1].Value,CultureInfo.InvariantCulture);
+        foreach(object input in new object[]{0d,320d,640d,960d,double.NaN,double.PositiveInfinity}) {
+            float extent=(float)convert.Invoke(converter,new object[]{input,widthType,parameter.Groups[1].Value,CultureInfo.InvariantCulture});
+            Check(extent>=minimum && !float.IsNaN(extent) && !float.IsInfinity(extent),"narrow or unmeasured viewports retain the complete table scroll extent");
+        }
         ValidateLocales(project);
         Console.WriteLine("PASS: ExtraFeatures settings presentation, catalog, layout/authority guardrails and locales (" + checks + " checks; no native rendering).");
     }

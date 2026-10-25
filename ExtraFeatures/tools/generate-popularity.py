@@ -173,25 +173,37 @@ for name,keys in search_groups.items():
     presentation+=f'        public SettingsGroupPresentation {name} {{ get; }} = new SettingsGroupPresentation({suffixes});\n'
 presentation+='        private IEnumerable<SettingsGroupPresentation> PopularityGroups => new[] { '+', '.join(search_groups)+' };\n    }\n}\n';write('src/ModSettingsPresentation.Popularity.cs',presentation)
 
+def table_columns():
+    return '<Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*" MinWidth="188" MaxWidth="228"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*" MinWidth="188" MaxWidth="228"/></Grid.ColumnDefinitions>'
+
+def role_header():
+    return f'''      <Grid Margin="0,0,0,6" shared:ModSettingsSearch.Exclude="True">
+        {table_columns()}
+        <TextBlock Grid.Column="2" Text="{{Binding HumanText}}" Foreground="White" FontWeight="Bold"/>
+        <TextBlock Grid.Column="4" Text="{{Binding AiText}}" Foreground="White" FontWeight="Bold"/>
+      </Grid>'''
+
 def value_row(key,limit=None,checkbox=True,enable_key=None):
-    row=[f'      <WrapPanel Orientation="Horizontal" Margin="0,0,0,8" Visibility="{{Binding SettingsPresentation.PopularityRow{key}.Visibility}}">',f'        <TextBlock Width="230" Text="{{Binding {key}Title}}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>']
-    for role in roles:
+    row=[f'      <Grid Margin="0,0,0,8" MinHeight="28" Visibility="{{Binding SettingsPresentation.PopularityRow{key}.Visibility}}">',
+         '        '+table_columns(),
+         f'        <TextBlock Text="{{Binding {key}Title}}" Foreground="White" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{{Binding {key}Title}}" ToolTipService.ShowDuration="60000"/>']
+    for role,column in [('Human',2),('AI',4)]:
         name=key+role; ename=(enable_key or key)+role
-        row.append(f'        <Grid Width="280" MinHeight="28" Style="{{StaticResource ModSettingsSearchTargetGrid}}" shared:ModSettingsSearch.Key="extra.popularity.{key}.{role.lower()}" shared:ModSettingsSearch.Title="{{Binding {name}Title}}" shared:ModSettingsSearch.ToolTipText="{{Binding {name}Help}}">')
-        row.append('          <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="126"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>')
-        label='HumanText' if role=='Human' else 'AiText'
+        row.append(f'        <Grid Grid.Column="{column}" MinHeight="28" HorizontalAlignment="Stretch" Margin="0" Style="{{StaticResource ModSettingsSearchTargetGrid}}" shared:ModSettingsSearch.Key="extra.popularity.{key}.{role.lower()}" shared:ModSettingsSearch.Title="{{Binding {name}Title}}" shared:ModSettingsSearch.ToolTipText="{{Binding {name}Help}}">')
+        row.append('          <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*" MinWidth="80" MaxWidth="120"/><ColumnDefinition Width="8"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>')
         if checkbox:
-            row.append(f'          <CheckBox MinHeight="28" Content="{{Binding {label}}}" IsChecked="{{Binding {ename}Enabled, Mode=TwoWay}}" IsEnabled="{{Binding CanConfigurePopularity}}" Foreground="White" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
-        else: row.append(f'          <TextBlock Text="{{Binding {label}}}" Foreground="White" VerticalAlignment="Center"/>')
+            row.append(f'          <CheckBox MinHeight="28" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0" IsChecked="{{Binding {ename}Enabled, Mode=TwoWay}}" IsEnabled="{{Binding CanConfigurePopularity}}" Foreground="White" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
         if limit is not None:
-            row.append(f'          <Slider Grid.Column="1" Width="120" Minimum="-{limit}" Maximum="{limit}" Value="{{Binding {name}, Mode=TwoWay}}" IsEnabled="{{Binding {name}Editable}}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
-            row.append(f'          <TextBox Grid.Column="2" Width="64" Text="{{Binding {name}ValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}}" IsEnabled="{{Binding {name}Editable}}" seui:KeyboardCaptureBinding.Enabled="True" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" TextAlignment="Center" VerticalAlignment="Center" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
+            row.append(f'          <Slider Grid.Column="2" MinWidth="80" MaxWidth="120" HorizontalAlignment="Stretch" Margin="0" Minimum="-{limit}" Maximum="{limit}" Value="{{Binding {name}, Mode=TwoWay}}" IsEnabled="{{Binding {name}Editable}}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
+            row.append(f'          <TextBox Grid.Column="4" Width="64" Text="{{Binding {name}ValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}}" IsEnabled="{{Binding {name}Editable}}" seui:KeyboardCaptureBinding.Enabled="True" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" TextAlignment="Center" VerticalAlignment="Center" ToolTip="{{Binding {name}Help}}" ToolTipService.ShowDuration="60000"/>')
         row.append('        </Grid>')
-    row.append('      </WrapPanel>');return '\n'.join(row)
+    row.append('      </Grid>');return '\n'.join(row)
 rows=[]
+
 def heading(group):
     rows.append(f'          <StackPanel Visibility="{{Binding SettingsPresentation.Popularity{group}Options.Visibility}}">')
     rows.append(f'            <TextBlock Text="{{Binding {group}Title}}" Style="{{StaticResource SubsectionHeader}}"/>')
+    rows.append(role_header())
 for group,_,_,limit,entries in groups:
     heading(group)
     for key,*_ in entries: rows.append(value_row(key,limit))

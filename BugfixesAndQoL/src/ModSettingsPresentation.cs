@@ -126,8 +126,7 @@ namespace BugfixesAndQoL
         // Editorial metadata only; the approved table is keyed by stable PropertyName.
         internal SettingsRecommendationKind Recommendation { get; private set; }
         internal string ReasonKey { get; private set; }
-        public string Symbol => Recommendation == SettingsRecommendationKind.Recommended ? "★" :
-            Recommendation == SettingsRecommendationKind.Preference ? "◇" : string.Empty;
+        public string Symbol => Recommendation == SettingsRecommendationKind.Recommended ? "★" : string.Empty;
         public bool IsPreference => Recommendation == SettingsRecommendationKind.Preference;
         public string ToolTip => FormatToolTip(SerpLocalization.Get);
 
