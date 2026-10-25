@@ -3,19 +3,25 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.54",
+  "Version": "1.0.55",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.7.0"
+      "MinimumVersion": "0.16.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.55",
+      "Changes": [
+        "Add localized Active/Inactive settings search filters through APIShared 0.16.0, preserving event configuration and multiplayer authority."
+      ]
+    },
     {
       "Version": "1.0.54",
       "Changes": [

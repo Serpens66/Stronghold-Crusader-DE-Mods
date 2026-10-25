@@ -10,7 +10,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.6"
+      "MinimumVersion": "0.16.0"
     }
   ],
   "Manifest": 1,
@@ -18,7 +18,10 @@
   "SerpChangelog": [
     {
       "Version": "1.0.201",
-      "Changes": ["Fix Custom Lord Coop partners starting at a random free position instead of the mission's assigned position, including first selection, continuation, mission changes and swapped Coop positions."]
+      "Changes": [
+        "Fix Custom Lord Coop partners starting at a random free position instead of the mission's assigned position, including first selection, continuation, mission changes and swapped Coop positions.",
+        "Add localized Active/Inactive status filtering to the settings search, using APIShared 0.16.0 while preserving host/client editing permissions and existing text filters."
+      ]
     },
     {
       "Version": "1.0.200",
