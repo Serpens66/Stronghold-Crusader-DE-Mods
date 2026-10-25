@@ -16,14 +16,14 @@
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
-    {
-      "Version": "1.0.31",
-      "Changes": [
-        "Require APIShared 0.16.0 or newer and provide localized live Active/Inactive filtering in the global ModSettings search.",
-        "Include the Coop custom Lord start-position fix, the ExtendedData Coop package menu and responsive dropdown, independent Human/AI Popularity controls, and the CastlePlanner supplemental building sprite correction.",
-        "All multiplayer participants need the same modpack and APIShared versions; preserve existing presets, configuration, published identities and package paths."
-      ]
-    },
+                          {
+                              "Version":  "1.0.31",
+                              "Changes":  [
+                                              "Require APIShared 0.16.0 or newer and provide localized live Active/Inactive filtering in the global ModSettings search.",
+                                              "Include the Coop custom Lord start-position fix, the ExtendedData Coop package menu and responsive dropdown, independent Human/AI Popularity controls, and the CastlePlanner supplemental building sprite correction.",
+                                              "All multiplayer participants need the same modpack and APIShared versions; preserve existing presets, configuration, published identities and package paths."
+                                          ]
+                          },
                           {
                               "Version":  "1.0.30",
                               "Changes":  [
