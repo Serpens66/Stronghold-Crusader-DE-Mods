@@ -236,6 +236,47 @@ The machine-readable result is `validation/validation-report.json`. Individual G
 
 The text audit found 13,837 literal backslash-r/backslash-n escape sequences in 17 files. They are intentional: 13,768 encode preserved Roslyn source declarations/contexts inside JSON strings, while the remaining 69 occur in raw extracted strings, documentation and newline-handling literals in the reusable C#, Java and Python tools. They are not file line endings. Details are retained in `validation/text-audit.json`.
 
+## NativeKnowledge enrichment, 25 October 2026
+
+The maintained semantic project now also contains 141 owned NativeKnowledge types:
+88 field-identity views, five record views, eleven unions with 33 alternative
+views, three documentation carriers and `START_HERE`. Open Data Type Manager →
+`NativeKnowledge/FBCB9319`. The complete APIShared catalog, meanings, aliases,
+relationships, independent storage permissions and evidence remain visible in type
+descriptions and component comments. Historical split storage is retained. Types
+without verified storage use undefined bytes and preserve their recorded scalar
+interpretation in comments; the manager view does not claim a full record extent.
+
+This is metadata transfer, not a promotion of candidate semantics or a new native
+audit. No code bytes, function signatures, pointer types or memory definitions
+were changed. Existing header types remain independent. Only the semantic type
+export and its SQLite/manifest representation were refreshed; function/pseudocode
+exports, raw reference projects and versioned historical machine-analysis inputs
+stay unchanged. Earlier counts and hashes above describe their recorded generations.
+An early refresh mistakenly replaced the ignored historical SQLite cache; its
+logical contents were reconstructed, but its original physical SHA-256 was not
+recovered. The maintained index now lives outside historical generations. See
+[acceptance details](validation/native-knowledge-acceptance.json).
+
+The capture records all seven NativeKnowledge source-file hashes. Two evidence
+documents were resolved to matching historical Git bytes; the captured overlong
+line range remains explicitly disclosed. Fresh Ghidra read-only verification
+compares all 88 entries, including exact comments and member layouts. Reimport
+is idempotent; wrong-image and manual-annotation protection are tested separately.
+See [operation, provenance and reproduction](../../tools/semantic/NATIVE_KNOWLEDGE.md).
+
+## Reviewed function names, 25 October 2026
+
+The subsequent function-name review on 25 October adds two confirmed reconstructed
+roles (`c_game_building_get_type_height_offset` and
+`c_game_unit_update_standing_height`) and mirrors the two existing AI price helpers
+into APIShared's offline NativeKnowledge function reference. Both new roles passed
+full static review and a second pristine-code replay (115,546 comparisons).
+There are now 29 curated claims, five confirmed curated labels and 142 owned
+NativeKnowledge types. Function prototypes and historical machine facts are unchanged;
+30 affected functions/callers were freshly decompiled. See
+`validation/function-name-native-execution.json` and APIShared's `FUNKTIONEN.md`.
+
 ## Known limits
 
 - No matching native PDB or MAP file is available.

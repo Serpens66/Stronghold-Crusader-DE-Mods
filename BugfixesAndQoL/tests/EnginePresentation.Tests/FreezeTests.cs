@@ -10,6 +10,7 @@ internal static class FreezeTests
     internal static void Run(Action<bool, string> check, BepInEx.Logging.ManualLogSource log)
     {
         check(GateAttackFreezeRun.Instrumented, "freeze diagnostic installed after functional bridge");
+        ProbeTests(check, log);
         var direct = new GateAttackFreezeCapture.Run();
         long millisecond = Stopwatch.Frequency / 1000;
         direct.Depth = 2;
@@ -85,5 +86,96 @@ internal static class FreezeTests
         var rejected = GateAttackFreezeRun.Transpile(original, method).ToList();
         check(rejected.Count == original.Count && rejected.Zip(original, ReferenceEquals).All(x => x), "unrecognized IL returned untouched");
         GateAttackFreezeRun.Transpile(HarmonyLib.PatchProcessor.GetOriginalInstructions(method), method).ToList();
+    }
+
+    private static void ProbeTests(Action<bool, string> check, BepInEx.Logging.ManualLogSource log)
+    {
+        long ms = Stopwatch.Frequency / 1000;
+        var record = new ManualProbeCapture.Record();
+        for (int i = 0; i < 200; i++)
+        {
+            var probe = new ManualProbeCapture.Probe {
+                Enabled = true, Seen = 15, Saved = ms, Planned = 2 * ms, Restored = 3 * ms,
+                Origin = ManualProbeCapture.TileCursor, Result = i % 2, Completed = true, RestoreCompleted = true,
+                Context = new ManualProbeCapture.Context { Unit = new GateAttackFreezeCapture.Context { Unit = i + 1 } } };
+            ManualProbeCapture.Account(record, probe, 7 * ms);
+        }
+        check(record.Probes == 200 && record.Positive == 100 && record.Negative == 100 && record.Phases.Sum(x => x.Sum) == 1400 * ms &&
+            record.Phases.All(x => x.Calls == 200) && record.Phases[ManualProbeCapture.Administration].Sum == 200 * ms,
+            "many short probes sum disjoint phases with explicit administration remainder");
+        check(record.Phases[ManualProbeCapture.Restore].Max == 3 * ms && record.Phases[ManualProbeCapture.Restore].Context.Unit.Unit == 200,
+            "sub-threshold phase maximum retains its matching context");
+        var merge = new ManualProbeCapture.Record(); ManualProbeCapture.Merge(merge, record);
+        check(merge.Probes == 200 && merge.Phases.Sum(x => x.Sum) == 1400 * ms && merge.Phases.Length == 4 && merge.Reasons.Length == 7,
+            "summary merge retains sums and fixed bounded context storage");
+        ManualProbeCapture.ExchangeSummary();
+        var scope = ManualProbeCapture.BeginOperation(ManualProbeCapture.TileCursor);
+        check(scope.Value != null && scope.Value.EngineRun == 0 && scope.Value.Id > 0, "cursor operation outside engine has independent identity");
+        using (ManualProbeCapture.BeginOperation(ManualProbeCapture.BuildingCursor))
+            check(ManualProbeCapture.Current.Origin == ManualProbeCapture.BuildingCursor, "nested caller attribution uses actual probe origin");
+        check(ManualProbeCapture.Current.Origin == ManualProbeCapture.TileCursor, "nested origin restores enclosing operation");
+        ManualProbeCapture.Cache(true); ManualProbeCapture.Cache(false); ManualProbeCapture.Invalidate(true, true, false);
+        ManualProbeCapture.RegionReject(0); ManualProbeCapture.RegionReject(1); ManualProbeCapture.RegionReject(2);
+        var p = ManualProbeCapture.BeginProbe(default, true);
+        ManualProbeCapture.Copied(ref p, false, 0, 0, 1168);
+        ManualProbeCapture.Mark(ref p, ManualProbeCapture.Native);
+        ManualProbeCapture.Mark(ref p, ManualProbeCapture.Restore);
+        ManualProbeCapture.Copied(ref p, true, 3967084, 1283200, 1224);
+        p.RestoreCompleted = true; ManualProbeCapture.Result(ref p, -1); ManualProbeCapture.EndProbe(ref p);
+        check(scope.Value.Hits == 1 && scope.Value.Misses == 1 && scope.Value.Probes == 1 && scope.Value.Reused == 1 &&
+            scope.Value.SaveManager == 0 && scope.Value.SaveSmall == 1168 && scope.Value.RestoreManager == 3967084,
+            "cache events separate from actual reused probe and exact copied bytes");
+        scope.Dispose();
+        var summary = ManualProbeCapture.ExchangeSummary();
+        check(summary.RejectCandidates == 1 && summary.RejectLearned == 1 && summary.RejectHits == 1 && summary.NativeAvoided == 1 && summary.Probes == 1,
+            "region proof counters aggregate separately from actual native probes and cursor cache hits");
+        check(summary.Probes == 1 && summary.MaxContext.Operation > 0 && summary.MaxContext.EngineRun == 0 && summary.Phases[0].Calls == 1,
+            "five-second summary retains even a small probe and its operation context");
+        var run = GateAttackFreezeCapture.Begin(false);
+        using (ManualProbeCapture.BeginOperation(ManualProbeCapture.GroupFallback))
+        {
+            check(ManualProbeCapture.Current.EngineRun == run.Value.Id, "probe operation correlates with actual engine run");
+            ManualProbeCapture.RegionReject(0); ManualProbeCapture.RegionReject(2);
+            check(run.Value.Probes.RejectCandidates == 1 && run.Value.Probes.NativeAvoided == 1, "avoided probes retain actual engine correlation");
+            ManualProbeCapture.GroundReject(0, Stopwatch.GetTimestamp(), 0, 0);
+            ManualProbeCapture.GroundReject(1, 0, 0, 0);
+            ManualProbeCapture.GroundReject(2, 0, 0, 0);
+            ManualProbeCapture.GroundReject(7, 0, 12, 12);
+            check(run.Value.Probes.GroundReasons[1] == 1 && run.Value.Probes.GroundReasons[2] == 1 && run.Value.Probes.NativeAvoided == 2 &&
+                ManualProbeCapture.Format(run.Value.Probes, false, true).Contains("regionSample=12->12"),
+                "ground proof cost, hits, region context and avoided copies retain engine correlation");
+            var failure = ManualProbeCapture.BeginProbe(default, false);
+            ManualProbeCapture.Mark(ref failure, ManualProbeCapture.Native);
+            ManualProbeCapture.Mark(ref failure, ManualProbeCapture.Restore);
+            failure.RestoreCompleted = true; ManualProbeCapture.EndProbe(ref failure);
+            check(ManualProbeCapture.Current.Incomplete == 1, "native exception has incomplete result and still records restoration phase");
+            var nestedRun = GateAttackFreezeCapture.Begin(false);
+            var nestedProbe = ManualProbeCapture.BeginProbe(default, false);
+            ManualProbeCapture.Mark(ref nestedProbe, ManualProbeCapture.Native);
+            ManualProbeCapture.Result(ref nestedProbe, 1);
+            ManualProbeCapture.Mark(ref nestedProbe, ManualProbeCapture.Restore);
+            nestedProbe.RestoreCompleted = true;
+            ManualProbeCapture.EndProbe(ref nestedProbe);
+            check(nestedRun.Value.Probes.Probes == 1 && nestedRun.Value.Probes.MaxContext.EngineRun == nestedRun.Value.Id &&
+                ManualProbeCapture.Current.EngineRun == run.Value.Id,
+                "nested engine run gets its own probe phases while enclosing operation retains its start identity");
+            GateAttackFreezeCapture.End(nestedRun, true);
+        }
+        check(run.Value.Metrics[GateAttackFreezeCapture.ManualProbe].Calls == 1 && run.Value.Probes.Probes == 1 &&
+            run.Value.Probes.Phases[ManualProbeCapture.Restore].Calls == 1,
+            "probe participates in nested engine accounting including disjoint phases below operation threshold");
+        GateAttackFreezeCapture.End(run, true);
+        int lines = log.Lines.Count;
+        var overload = new ManualProbeCapture.Scope[100];
+        // Keep completed slow records in the bounded queue without draining it.
+        for (int i = 0; i < overload.Length; i++)
+        {
+            overload[i] = ManualProbeCapture.BeginOperation(ManualProbeCapture.Unknown);
+            if (overload[i].Value != null) { overload[i].Value.Start -= Stopwatch.Frequency; overload[i].Value.Probes = 1; }
+            overload[i].Dispose();
+        }
+        check(log.Lines.Count == lines && ManualProbeCapture.Current == null, "hot-path capture never logs and throttled records restore operation state");
+        ManualProbeCapture.Drain();
+        check(log.Lines.Count - lines <= 5 && log.Lines.Any(x => x.Contains("MANUAL_PROBE operation=")), "render delivery is bounded and reports 20ms operation evidence");
     }
 }

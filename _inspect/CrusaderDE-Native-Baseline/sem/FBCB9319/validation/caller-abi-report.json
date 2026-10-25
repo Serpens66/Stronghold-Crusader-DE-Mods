@@ -195,5 +195,19 @@
     "callerObservations": 1,
     "observedSignatures": [],
     "compatible": true
+  },
+  {
+    "claimId": "fn-building-get-type-height-offset",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
+  },
+  {
+    "claimId": "fn-unit-update-standing-height",
+    "abiConfidence": "candidate",
+    "callerObservations": 0,
+    "observedSignatures": [],
+    "compatible": true
   }
 ]

@@ -51,6 +51,8 @@ namespace BugfixesAndQoL.UnitCommands
 
                 try { result = assassinRoute.Complete(result); }
                 catch (Exception ex) { TryLogDiagnosticFailure("assassin-route-publication", ex); }
+                try { ObserveCursorGroundBuilder(pathManager, movementClass, movementProfile, result); }
+                catch (Exception ex) { TryLogDiagnosticFailure("cursor-ground-reject-capture", ex); }
                 completed = true;
                 return result;
             }

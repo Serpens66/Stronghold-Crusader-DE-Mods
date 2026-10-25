@@ -215,6 +215,9 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal bool CanReachNativePlacement(GameUnit* unit, int unitId, int x, int y)
         {
+#if SERP_DEVDIAG
+            using var probeOperation = ManualProbeCapture.BeginOperation(ManualProbeCapture.Placement);
+#endif
             if (ProbeNativeManualPath(unitId, x, y)) return true;
             if (!TraversalEnabled || !CanDigMoat(unit)) return false;
             return Traversal.CanReachPlacementThroughFriendlyMoatTraversal(unitId, x, y);

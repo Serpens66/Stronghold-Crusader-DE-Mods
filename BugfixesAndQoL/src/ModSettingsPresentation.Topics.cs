@@ -104,6 +104,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableQuarryPileRelocation => options["EnableQuarryPileRelocation"];
         public SettingsOptionPresentation EnableCtrlSingleMarketTrade => options["EnableCtrlSingleMarketTrade"];
         public SettingsOptionPresentation EnableBakerMillerBreaks => options["EnableBakerMillerBreaks"];
+        public SettingsOptionPresentation EnableTreeBlightDecayFix => options["EnableTreeBlightDecayFix"];
         public SettingsOptionPresentation EnableWorkshopIdleDelayFix => options["EnableWorkshopIdleDelayFix"];
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
@@ -212,6 +213,7 @@ namespace BugfixesAndQoL
             AddOption("EnableRallyTerrainSlowdownFix", "bugfixes.rally-terrain", SettingsCategory.Qol, HostTroops);
             AddOption("EnableLordUnitControls", "bugfixes.enable-lord-unit-controls", SettingsCategory.Qol, HostTroops);
             HostEconomy = AddTopic("HostEconomy", "bugfixes.topic.host-economy", true);
+            AddOption("EnableTreeBlightDecayFix", "bugfixes.enable-tree-blight-decay-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnableKeepFlagRotationFix", "bugfixes.enable-keep-flag-rotation-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnableTanneryAnimationFix", "bugfixes.enable-tannery-animation-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnablePlaguePopularityFix", "bugfixes.enable-plague-popularity-fix", SettingsCategory.Fixes, HostEconomy);

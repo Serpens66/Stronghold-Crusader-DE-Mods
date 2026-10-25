@@ -101,6 +101,7 @@ namespace BugfixesAndQoL
             options["EnableBakerMillerBreaks"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableBakerMillerBreaks");
             options["EnableWorkshopIdleDelayFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableWorkshopIdleDelayFix");
             options["EnableGatehouseLivingCaptureFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseLivingCaptureFix");
+            options["EnableTreeBlightDecayFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix");
             options["EnableDrawbridgeDestructionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableDrawbridgeDestructionFix");
             options["EnableAssassinGatehouseClimbFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinGatehouseClimbFix");
             options["EnableTunnelPlacementDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTunnelPlacementDistanceFix");

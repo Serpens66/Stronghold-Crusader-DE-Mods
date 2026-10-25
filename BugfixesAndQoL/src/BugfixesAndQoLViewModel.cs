@@ -66,6 +66,7 @@ namespace BugfixesAndQoL
         private bool enableEnemyGatePathfindingFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableDrawbridgeDestructionFix = true;
+        private bool enableTreeBlightDecayFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
         private bool enableAssassinGatehouseClimbFix = true;
         private bool enableAssassinCapturedGateProtectionFix = true;
@@ -335,6 +336,9 @@ namespace BugfixesAndQoL
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string EnableMoatTerrainRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestoration");
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
+        public string EnableTreeBlightDecayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFix");
+        public string EnableTreeBlightDecayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFixHelp");
+
         public string EnableDrawbridgeDestructionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFix");
         public string EnableDrawbridgeDestructionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp");
         public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
@@ -1143,6 +1147,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableTreeBlightDecayFix
+        {
+            get => enableTreeBlightDecayFix;
+            set => SetSetting(ref enableTreeBlightDecayFix, value, nameof(EnableTreeBlightDecayFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableDrawbridgeDestructionFix
         {
             get => enableDrawbridgeDestructionFix;
@@ -1651,6 +1662,7 @@ namespace BugfixesAndQoL
                 EnableEnemyGatePathfindingFix = true;
                 EnableMoatTerrainRestoration = true;
                 EnableDrawbridgeDestructionFix = true;
+                EnableTreeBlightDecayFix = true;
                 EnableGatehouseLivingCaptureFix = true;
                 EnableAssassinGatehouseClimbFix = true;
                 EnableAssassinCapturedGateProtectionFix = true;

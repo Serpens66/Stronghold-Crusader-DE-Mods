@@ -93,6 +93,8 @@ namespace BugfixesAndQoL
         private static MoatTerrain.TerrainRuntime processMoatTerrainRuntime;
         private static bool moatTerrainInitializationAttempted;
         private static DrawbridgeDestructionFix.FixRuntime processDrawbridgeDestructionFixRuntime;
+        private static TreeBlightDecay.FixRuntime processTreeBlightDecayRuntime;
+        private static bool treeBlightDecayInitializationAttempted;
         private static bool drawbridgeDestructionFixInitializationAttempted;
         private static GatehouseLivingCapture.CaptureRuntime processGatehouseLivingCaptureRuntime;
         private static bool gatehouseLivingCaptureInitializationAttempted;
@@ -479,6 +481,14 @@ namespace BugfixesAndQoL
                 processMoatTerrainRuntime = new MoatTerrain.TerrainRuntime(log, settings);
                 processMoatTerrainRuntime.Install(context, isFixedLayoutHashValidated);
             });
+            TryInitializePersistentFeature("tree-blight decay fix", () =>
+            {
+                if (treeBlightDecayInitializationAttempted) return;
+                treeBlightDecayInitializationAttempted = true;
+                processTreeBlightDecayRuntime = new TreeBlightDecay.FixRuntime(log);
+                processTreeBlightDecayRuntime.Install(context, isFixedLayoutHashValidated);
+                processTreeBlightDecayRuntime.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
+            });
             TryInitializePersistentFeature("drawbridge destruction fix", () =>
             {
                 if (drawbridgeDestructionFixInitializationAttempted) return;
@@ -575,6 +585,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
+            processTreeBlightDecayRuntime?.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
             TryApplyFeature("moat terrain restoration", () => processMoatTerrainRuntime?.Refresh());
             processAIKeepRangeRuntime?.Refresh();
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(

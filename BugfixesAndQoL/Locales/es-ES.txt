@@ -610,3 +610,6 @@ Common.ModSettingsSearchStateHelp=Filter configured values. Checkboxes use their
 BugfixesAndQoL.EnableMoatTerrainRestoration=Restore terrain after moat removal
 BugfixesAndQoL.EnableMoatTerrainRestorationHelp=Remembers the original ground type of new moats and restores it when they are deleted or filled, including by enemies. Oasis grass becomes usable for farms again. Applies to humans, AI and the map editor. Existing moats without recorded ground data are unchanged. Disabling this option discards the recorded ground data.
 BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration=Whether filling a moat permanently destroys fertile ground is a gameplay preference. Enabling this option restores the original ground type.
+BugfixesAndQoL.EnableTreeBlightDecayFix=Tree blight: fix dead-tree decay
+BugfixesAndQoL.EnableTreeBlightDecayFixHelp=Starts blighted woodland trees at the normal dead-tree phase and lets them decay despite previous chopping damage or felling. Also repairs prematurely stalled dead trees from existing saves during normal simulation updates. Does not allow overbuilding or enable tree growth in the editor.
+BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix=Corrects persistent building obstructions caused by inconsistent dead-tree state while preserving normal woodland growth and harvesting.

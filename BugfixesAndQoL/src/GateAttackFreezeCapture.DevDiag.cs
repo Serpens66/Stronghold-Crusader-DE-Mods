@@ -11,9 +11,9 @@ namespace BugfixesAndQoL
     internal static class GateAttackFreezeCapture
     {
         internal const int Approach = 0, Consumer = 1, Move = 2, Builder = 3,
-            OriginalApproach = 4, OriginalConsumer = 5, OriginalBuilder = 6, Stages = 7;
+            OriginalApproach = 4, OriginalConsumer = 5, OriginalBuilder = 6, ManualProbe = 7, Stages = 8;
         private static readonly string[] Names = { "buildingApproach", "buildingConsumer", "unitMoveEvent", "builder",
-            "originalApproach.filtered", "originalConsumer.filtered", "originalBuilder.filtered" };
+            "originalApproach.filtered", "originalConsumer.filtered", "originalBuilder.filtered", "manualProbe" };
         internal struct Context
         {
             internal int Unit, Type, Tribe, Player, Command, Building, StartX, StartY, TargetX, TargetY;
@@ -41,6 +41,7 @@ namespace BugfixesAndQoL
             internal readonly Segment[] Stack = new Segment[64];
             internal readonly Example[] Examples = new Example[8];
             internal readonly Mismatch[] Mismatches = new Mismatch[4];
+            internal readonly ManualProbeCapture.Record Probes = new ManualProbeCapture.Record();
             internal void Reset()
             {
                 Parent = null; Id = ParentId = Start = End = LockStart = Acquired = Released = NativeStart = NativeEnd = TopLevel =
@@ -49,6 +50,7 @@ namespace BugfixesAndQoL
                 Skip = NativeEntered = NativeCompleted = LockObserved = CountersBefore = CountersAfter = Completed = FirstNative = false;
                 Array.Clear(Metrics, 0, Metrics.Length); Array.Clear(Stack, 0, Stack.Length);
                 Array.Clear(Examples, 0, Examples.Length); Array.Clear(Mismatches, 0, Mismatches.Length);
+                Probes.Reset();
             }
         }
         internal struct Cookie { internal Run Value, Parent; }
@@ -70,6 +72,7 @@ namespace BugfixesAndQoL
         {
             if (Interlocked.Exchange(ref initialized, 1) != 0) return;
             for (int i = 0; i < 32; i++) free.Enqueue(new Run());
+            ManualProbeCapture.Initialize();
             lastSummary = Stopwatch.GetTimestamp();
             Shared.DevDiag.Log(() => "GATE_FREEZE ready thresholdMs=100 pool=32 examples=8 mismatchExamples=4 nativeOriginalsIncludeActiveHooks=true");
         }
@@ -82,6 +85,7 @@ namespace BugfixesAndQoL
                 if (!free.TryDequeue(out Run run)) { Interlocked.Increment(ref dropped); active = null; return cookie; }
                 run.Reset(); run.Parent = active; run.ParentId = active?.Id ?? 0; run.Id = Interlocked.Increment(ref nextRun);
                 run.Thread = Thread.CurrentThread.ManagedThreadId; run.Skip = skip;
+                run.Probes.Id = run.Probes.EngineRun = run.Id; run.Probes.Thread = run.Thread;
                 run.Start = Stopwatch.GetTimestamp(); run.GcBefore = GC.CollectionCount(0);
                 active = run; cookie.Value = run;
             }
@@ -234,6 +238,7 @@ namespace BugfixesAndQoL
                     .Append("/g").Append(m.LeaderGlobal).Append(" control=").Append(m.Control).Append(" rawPlayer=").Append(m.RawPlayer)
                     .Append(" planning=").Append(m.Planning);
             }
+            if (run.Probes.Attempts != 0 || run.Probes.Hits != 0 || run.Probes.NativeAvoided != 0) text.Append(" | ").Append(ManualProbeCapture.Format(run.Probes, false, true));
             return text.ToString();
         }
         internal static void Drain(int frame)
@@ -249,6 +254,7 @@ namespace BugfixesAndQoL
                     Shared.DevDiag.Log(() => "GATE_FREEZE renderCallbackGapMs=" + Ms(gap).ToString("F3", CultureInfo.InvariantCulture) + " cause=unattributed");
                 }
                 lastFrame = now;
+                ManualProbeCapture.Drain();
                 if (outsideScopes.TryDequeue(out Mismatch outside))
                 {
                     Interlocked.Decrement(ref outsideCount);

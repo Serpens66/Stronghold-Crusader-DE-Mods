@@ -60,6 +60,9 @@ unsafe partial class UnitCommandPathRuntime {
  private void EndTemporaryRouteReport(IntPtr p,object s,bool b,int r){}
  private void EndEnemyGateSearch(object g,object s,EnemyGateSearchKind k,bool b,bool success){}
  private void TryLogDiagnosticFailure(string s,Exception e){}
+ // No cursor proof scope is active in this publication fixture; its observation
+ // and failure barriers are exercised by the actual manual cursor harness.
+ private void ObserveCursorGroundBuilder(IntPtr p,int player,int profile,int result){}
  private int BuildPathWithCompletedMoatRouteVariantWithMoat(IntPtr p,int c,int v)=>builder();
  private sealed class Probe : ITemporaryGateRouteAcceptanceObserver, ITemporaryAssassinGateObserver {
   public object BeginRoute(int p,int t,uint tg,int u,uint ug,int type,int x,int y,int tx,int ty,string c)=>null;

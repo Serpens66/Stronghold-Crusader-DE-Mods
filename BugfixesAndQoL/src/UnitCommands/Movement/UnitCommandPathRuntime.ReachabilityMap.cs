@@ -44,6 +44,9 @@ namespace BugfixesAndQoL.UnitCommands
 #endif
             manualCommandContexts?.Clear(); targetCommandParents?.Clear();
             moveEventObservers?.Clear(); moveEventDepths?.Clear(); targetEventObservers?.Clear();
+#if SERP_DEVDIAG
+            ManualProbeCapture.Invalidate(false, false, true);
+#endif
             nativeCursorAnswers.Clear(); nativeCursorAnswerTick = int.MinValue;
             ResetMapStep("fast-moat-metrics", LogAndResetFastMoatMetrics);
             ResetMapStep("unit-move-frames", ClearUnitMoveFrames);

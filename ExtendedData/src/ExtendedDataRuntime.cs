@@ -288,13 +288,15 @@ namespace ExtendedData
             subscriptions.Add(NetworkR3EventHooks.OnReceiveLobbyChatMessage.Observable.Subscribe(notification =>
             {
                 if (notification?.Message == null ||
-                    !notification.Message.StartsWith("Extended Data: Start blocked. ", StringComparison.Ordinal))
+                    !CoopLaunchBlockDiagnostics.IsBlockedStartChat(notification.Message))
                     return;
                 string message = notification.Message;
                 ulong senderId = notification.SteamId.m_SteamID;
                 if (!Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
                 {
                     FRONT_Multiplayer chatLobby = GetExistingMainViewModel()?.FRONTMultiplayer;
+                    CoopLaunchBlockDiagnostics.ReportRemote(log, senderId,
+                        chatLobby?.currentLobby?.id.m_SteamID.ToString() ?? "unknown", message);
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
                         LogInfo("Blocked-start lobby chat received: lobby=" +
                             chatLobby?.currentLobby?.id.m_SteamID +
@@ -305,7 +307,8 @@ namespace ExtendedData
                             (GetExistingMainViewModel()?.Show_HUD_Confirmation == true) +
                             ",uiRenderingNotConfirmed=true.");
                 }))
-                    LogError("Blocked-start lobby chat receipt could not be dispatched for diagnostics.");
+                    LogError("Blocked-start lobby chat receipt could not be dispatched: sender=" +
+                        senderId + ", message=" + message);
             }));
 
             MethodInfo initMethod = RequireMethod("InitCoopMissions");
@@ -567,7 +570,8 @@ namespace ExtendedData
                 buttonTrampoline(self, command);
                 return;
             }
-            if (IsLaunchCommand(command) && !missionSettingsCoordinator.TryPrepareRestartSettings())
+            if (IsLaunchCommand(command) && !missionSettingsCoordinator.TryPrepareRestartSettings(
+                reason => BlockLaunch(command, reason)))
                 return;
             if (activation.CoopPackages && IsLaunchCommand(command) && CurrentSlotOutsidePackage(self))
             {
@@ -662,13 +666,15 @@ namespace ExtendedData
                             participantStates.Select(state => state.PlayerId),
                             out string syncError))
                     {
-                        LogError("Blocked custom Coop package launch because Shared personal settings are incomplete: " + syncError);
-                        BlockLaunch(command, SerpLocalization.Get("ExtendedData.ErrorPackageNotReady"));
+                        BlockLaunch(command, SerpLocalization.Get("ExtendedData.ErrorPackageNotReady"),
+                            "Shared personal settings incomplete: " + syncError + "; " +
+                            DescribeHumanPackageStates(self, participantStates));
                         return;
                     }
                     if (!AreAllHumanPlayersPackageReady(participantStates))
                     {
-                        BlockLaunch(command, GetParticipantPackageBlockReason(participantStates));
+                        BlockLaunch(command, GetParticipantPackageBlockReason(participantStates),
+                            DescribeHumanPackageStates(self, participantStates));
                         return;
                     }
                 }
@@ -708,7 +714,8 @@ namespace ExtendedData
                         (!string.Equals(command, "COOP_START", StringComparison.Ordinal) ||
                          self.singlePlayerCoop || self.currentLobby?.CountHumanPlayers() == 2))
                     {
-                        if (!missionSettingsCoordinator.TryPrepareRestartSettings()) return;
+                        if (!missionSettingsCoordinator.TryPrepareRestartSettings(
+                            reason => BlockLaunch(command, reason))) return;
                         coopLaunchPending = true;
                         missionSettingsCoordinator.PrepareCoopMissionLaunch();
                         if (!self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost)
@@ -723,8 +730,7 @@ namespace ExtendedData
                 {
                     missionSettingsCoordinator.RecoverCoopDraft();
                     string reason = SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message;
-                    LogError("Blocked custom Coop mission " + command + " because launch preparation failed: " + exception);
-                    ShowBlockedMessage(reason);
+                    BlockLaunch(command, reason, "Launch preparation failed: " + exception);
                     return;
                 }
             }
@@ -1477,7 +1483,8 @@ namespace ExtendedData
                 state.Name + "[playerId=" + state.PlayerId +
                 ", kind=" + (state.SkirmishMember ? "skirmish-human" : "coop-human") +
                 ", skirmishHuman=" + state.SkirmishHumanMember +
-                ", status=" + DescribePackageStatus(state.Status, expected) + "]"));
+                ", status=" + DescribePackageStatus(state.Status, expected) +
+                ", reported=" + state.Status + "]"));
         }
 
         private static string DescribePackageStatus(string status, string expected)
@@ -1610,14 +1617,22 @@ namespace ExtendedData
         internal static MainViewModel GetExistingMainViewModel() =>
             MainViewModelInstanceField?.GetValue(null) as MainViewModel;
 
-        private void BlockLaunch(string command, string reason)
+        private void BlockLaunch(string command, string reason, string detail = null)
         {
-            LogError("Blocked launch " + command + ": " + reason);
+            FRONT_Multiplayer lobby = GetExistingMainViewModel()?.FRONTMultiplayer;
+            string context = "role=" + (lobby?.singlePlayerCoop == true ? "single-player" :
+                lobby?.currentLobby == null ? "unknown" : lobby.currentLobby.isHost ? "host" : "client") +
+                ", lobby=" + (lobby?.currentLobby?.id.m_SteamID.ToString() ?? "unknown") +
+                ", package=" + settings.ActiveCoopPackageId +
+                ", fingerprint=" + settings.ActiveCoopPackageFingerprint +
+                ", mission=" + (lobby?.currentLobby == null ? "unknown" :
+                    "Trail" + (lobby.currentLobby.coopTrailID + 1) + "/" + lobby.currentLobby.coopSelectedMission) +
+                ", localStatus=" + settings.CoopPackageStatus;
+            CoopLaunchBlockDiagnostics.ReportLocal(log, command, reason, context, detail);
             bool chatMuted = Platform_Multiplayer.MPChatMuted;
             ShowBlockedMessage(reason);
             if (!IsStartCommand(command))
                 return;
-            FRONT_Multiplayer lobby = GetExistingMainViewModel()?.FRONTMultiplayer;
             if (FRONT_Multiplayer.skirmishGame || lobby?.singlePlayerCoop == true ||
                 lobby?.currentLobby?.isHost != true ||
                 lobby.currentLobby.id.m_SteamID == 0 ||
@@ -1635,7 +1650,7 @@ namespace ExtendedData
                 return;
             }
             string chatReason = (reason ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ');
-            string chatMessage = "Extended Data: Start blocked. " + chatReason;
+            string chatMessage = CoopLaunchBlockDiagnostics.ChatPrefix + chatReason;
             if (chatMessage.Length > 280)
                 chatMessage = chatMessage.Substring(0, 277) + "...";
             DateTime now = DateTime.UtcNow;
@@ -1722,7 +1737,7 @@ namespace ExtendedData
         {
             if (CurrentSlotOutsidePackage(lobby))
             {
-                ShowBlockedMessage(CustomCoopTrailEndNotice(lobby));
+                BlockLaunch("COOP_START", CustomCoopTrailEndNotice(lobby));
                 return false;
             }
             if (!activation.CoopPackages || lobby?.currentLobby == null || !lobby.singlePlayerCoop ||
@@ -1753,7 +1768,8 @@ namespace ExtendedData
                     lobby,
                     editable: false,
                     source: "single-player Coop restart", starting: true);
-                if (!missionSettingsCoordinator.TryPrepareRestartSettings()) return false;
+                if (!missionSettingsCoordinator.TryPrepareRestartSettings(
+                    reason => BlockLaunch("COOP_START", reason))) return false;
                 ExtendedDataLaunchOriginApi.PrepareCoopLaunch(trailId, missionId, MissionRestart.IsInProgress);
                 missionSettingsCoordinator.PrepareCoopMissionLaunch();
                 coopLaunchPending = true;
@@ -1768,8 +1784,7 @@ namespace ExtendedData
                 coopLaunchPending = false;
                 missionSettingsCoordinator.RecoverCoopDraft();
                 string reason = SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message;
-                LogError("Blocked custom single-player Coop restart: " + exception);
-                ShowBlockedMessage(reason);
+                BlockLaunch("COOP_START", reason, "Single-player Coop restart failed: " + exception);
                 return false;
             }
         }

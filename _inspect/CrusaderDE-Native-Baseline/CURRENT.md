@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [NativeKnowledge in Ghidra](./tools/semantic/NATIVE_KNOWLEDGE.md): all 88 APIShared catalog fields and four double-reviewed function records, including newly named building-height-offset and unit-standing-height helpers; confidence, provenance, historical views and reader documentation remain visible; raw baseline unchanged.
+
 - [CastlePlanner visual observation](./sem/FBCB9319/knowledge/CASTLE_VISUAL_OBSERVATION.md): construction and native/managed graphics boundaries, read-only diagnostic snapshots and pending Wolf-6 reproduction evidence.
 
 - [Foreign troop HUD skins](./sem/FBCB9319/knowledge/FOREIGN_TROOP_SKINS.md): current unit material, Monk/Temple Guard render flow, colored portrait variants and isolated view regression coverage; in-game visual acceptance remains separate.
@@ -49,6 +51,8 @@ Current canonical DLL SHA-256:
 Start with the [scan report](./FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/SCAN_INFO.md).
 
 Primary reusable artifacts:
+
+- [Tree Blight and woodland decay](./sem/FBCB9319/knowledge/TREE_BLIGHT_DECAY.md): common Vanilla/RandomEvents path, native mode distinction, cumulative thresholds, blocked decay, permanent interception and pending game acceptance.
 
 - [Lobby save loading and Skirmish load-button visibility](./sem/FBCB9319/knowledge/LOBBY_SAVE_LOADING.md): solo-host eligibility, absent-human removal, persistent frontend path and consumer acceptance limits.
 

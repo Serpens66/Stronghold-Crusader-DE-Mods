@@ -870,17 +870,25 @@ namespace ExtendedData
                 }
             }
 
-            internal bool TryPrepareRestartSettings()
+            internal bool TryPrepareRestartSettings(Action<string> onBlocked = null)
             {
+                string reason;
                 try
                 {
                     if (ModSettingsApplication.PrepareLaunch()) return true;
-                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), SerpLocalization.Get("ExtendedData.SettingsRestartRequired"));
+                    reason = SerpLocalization.Get("ExtendedData.SettingsRestartRequired");
                 }
                 catch (Exception error)
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:845", "Configuration launch preparation failed: " + error);
-                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), error.GetBaseException().Message);
+                    reason = error.GetBaseException().Message;
+                }
+                // Button callers use their contextual reporter; other launch routes retain one dialog.
+                if (onBlocked != null) onBlocked(reason);
+                else
+                {
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData.ConfigurationLaunchBlocked", reason);
+                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), reason);
                 }
                 RecoverCoopDraft();
                 return false;
@@ -1047,6 +1055,25 @@ namespace ExtendedData
                 {
                     manageTrailButtonOriginal(self, command);
                     return;
+                }
+                if (string.Equals(command, "DoImport", StringComparison.Ordinal) &&
+                    (self.FindName("ImportList") as ListView)?.SelectedItem is FileRow row)
+                {
+                    bool mapped = coopImportSourceBySelection.TryGetValue(row.Text1, out string source);
+                    source = mapped ? source : IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), row.Text1);
+                    if (mapped || File.Exists(IOPath.Combine(source, "cooptrail.json")))
+                    {
+                        CoopTrailMakerSources.RequestImport(source,
+                            () => manageTrailButtonOriginal(self, command),
+                            exception =>
+                            {
+                                Shared.DebugLogHelper.LogErrorLimited(log, "trail-maker-import",
+                                    "Could not import Coop Trail [" + source + "]: " + exception);
+                                ShowInformation(SerpLocalization.Get("ExtendedData.SidecarsIncompleteTitle"),
+                                    SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message);
+                            });
+                        return;
+                    }
                 }
                 FileHeader loadedHeader = null;
                 if (string.Equals(command, "Load", StringComparison.Ordinal))
@@ -1485,27 +1512,26 @@ namespace ExtendedData
                 var existing = new HashSet<string>(
                     rows.Where(row => row?.trail != null).Select(row => row.trail.Name),
                     StringComparer.OrdinalIgnoreCase);
-                foreach (CoopTrailSource source in GetImportableCoopSources(includeWorkshop: false))
+                foreach (CoopTrailMakerSource source in GetImportableCoopSources(includeWorkshop: false))
                 {
                     if (!existing.Add(source.SelectionName))
                         continue;
                     string packageRoot = source.PackageRoot;
-                    CoopTrailPackage package = CoopTrailPackageCatalog.Load(packageRoot);
                     var trail = new MapFileManager.CustomTrailInfo
                     {
                         Name = source.SelectionName,
-                        DisplayName = package.Manifest.DisplayName,
+                        DisplayName = source.Manifest.DisplayName,
                         FullPath = packageRoot,
                         workshopUploadInfoAvailable = File.Exists(IOPath.Combine(packageRoot, source.SelectionName + ".data")),
                     };
                     // Vanilla derives Count from the headers dictionary. Placeholder keys retain
                     // its existing length display and Short/Medium/Long Workshop categorisation.
-                    for (int mission = 1; mission <= package.Manifest.MissionCount; mission++)
+                    for (int mission = 1; mission <= source.Manifest.MissionCount; mission++)
                         trail.headers[mission.ToString("00", CultureInfo.InvariantCulture)] = null;
                     var row = new FileRow
                     {
-                        Text1 = package.Manifest.DisplayName,
-                        Text2 = package.Manifest.MissionCount.ToString(CultureInfo.InvariantCulture),
+                        Text1 = source.Manifest.DisplayName,
+                        Text2 = source.Manifest.MissionCount.ToString(CultureInfo.InvariantCulture),
                         trail = trail,
                     };
                     if (trail.workshopUploadInfoAvailable)
@@ -1613,13 +1639,13 @@ namespace ExtendedData
 
             private void AddCoopRows(
                 ObservableCollection<FileRow> rows,
-                IEnumerable<CoopTrailSource> sources,
+                IEnumerable<CoopTrailMakerSource> sources,
                 bool registerImportSources)
             {
                 var existing = new HashSet<string>(
                     rows.Where(row => row != null).Select(row => row.Text1),
                     StringComparer.OrdinalIgnoreCase);
-                foreach (CoopTrailSource source in sources)
+                foreach (CoopTrailMakerSource source in sources)
                 {
                     if (!existing.Add(source.SelectionName))
                         continue;
@@ -1635,43 +1661,23 @@ namespace ExtendedData
                         {
                             Name = source.SelectionName,
                             FullPath = source.PackageRoot,
-                            workshop = !IsDirectChildOf(source.PackageRoot, ConfigSettings.GetUserCustomTrailsPath()),
+                            workshop = source.Workshop,
                         },
                     });
                 }
             }
 
-            private IEnumerable<CoopTrailSource> GetImportableCoopSources(bool includeWorkshop)
+            private readonly CoopTrailMakerSources makerSources = new CoopTrailMakerSources();
+
+            private IReadOnlyList<CoopTrailMakerSource> GetImportableCoopSources(bool includeWorkshop)
             {
                 string localRoot = IOPath.GetFullPath(ConfigSettings.GetUserCustomTrailsPath());
                 var roots = new List<string> { localRoot };
                 if (includeWorkshop)
                     roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(message =>
                         Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1562", message)));
-                var catalog = new CoopTrailPackageCatalog();
-                catalog.Scan(roots, null, message => Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1564", message));
-                foreach (CoopTrailPackage package in catalog.Packages.Values
-                    .OrderBy(item => item.Manifest.DisplayName, StringComparer.OrdinalIgnoreCase))
-                {
-                    string source = IOPath.Combine(package.RootPath, CoopTrailMakerSourceDirectory);
-                    if (!Directory.Exists(source))
-                        continue;
-                    int count = Directory.GetFiles(source, "*.trail").Length;
-                    if (count > 0)
-                    {
-                        bool workshop = !IsDirectChildOf(package.RootPath, localRoot);
-                        string selectionName = workshop
-                            ? package.Manifest.DisplayName + " [Steam Workshop]"
-                            : IOPath.GetFileName(package.RootPath);
-                        yield return new CoopTrailSource(selectionName, package.RootPath, count);
-                    }
-                }
-            }
-
-            private static bool IsDirectChildOf(string directory, string parent)
-            {
-                string actualParent = IOPath.GetDirectoryName(IOPath.GetFullPath(directory));
-                return string.Equals(actualParent, IOPath.GetFullPath(parent), StringComparison.OrdinalIgnoreCase);
+                return makerSources.Discover(roots, localRoot, message =>
+                    Shared.DebugLogHelper.LogWarningLimited(log, "trail-maker-discovery", message));
             }
 
             private void BackupHook(FRONT_ManageTrail self, string source, string destination)
@@ -1715,20 +1721,6 @@ namespace ExtendedData
                     SetMakerCoopEnabled(coopPackage);
                     RefreshTrailMakerCoopCheckbox();
                 });
-            }
-
-            private sealed class CoopTrailSource
-            {
-                public CoopTrailSource(string selectionName, string packageRoot, int missionCount)
-                {
-                    SelectionName = selectionName;
-                    PackageRoot = packageRoot;
-                    MissionCount = missionCount;
-                }
-
-                public string SelectionName { get; }
-                public string PackageRoot { get; }
-                public int MissionCount { get; }
             }
 
             private void ExportHook(FRONT_ManageTrail self, string destination)
@@ -2092,9 +2084,7 @@ namespace ExtendedData
             {
                 if (!coopPackage)
                     return packageRoot;
-                string nested = IOPath.Combine(packageRoot, CoopTrailMakerSourceDirectory);
-                // Packages produced before 1.3.5 kept their editable sources in the root.
-                return Directory.Exists(nested) ? nested : packageRoot;
+                return CoopTrailMakerSources.GetSourceDirectory(packageRoot);
             }
 
             private static void RemoveNormalTrailFiles(string destination)

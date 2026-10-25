@@ -7,6 +7,25 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
+        private ManualProbeCapture.Context FreezeProbeContext(GameUnit* unit, int id, int x, int y)
+        {
+            var context = new ManualProbeCapture.Context();
+            try
+            {
+                // Use the already validated pointer; never perform another game query for capture.
+                context.Unit = new GateAttackFreezeCapture.Context {
+                    Unit = id, Global = unit->r_GlobalId, Type = (int)unit->r_UnitChimp,
+                    Tribe = unit->r_TribeId, Player = unit->r_ControllableForPlayerId,
+                    Command = (int)unit->r_AI_LastIssuedTribeCommand,
+                    StartX = unit->r_CurrentTilePositionX, StartY = unit->r_CurrentTilePositionY,
+                    TargetX = x, TargetY = y };
+                context.Sequence = activeMoveCommand?.Sequence ?? activeAttackCommand?.Sequence ?? 0;
+                context.Unit.Building = activeAttackCommand != null && IsBuildingAttackCommand(activeAttackCommand.Command)
+                    ? activeAttackCommand.TargetValue1 : 0;
+            }
+            catch (Exception) { GateAttackFreezeCapture.Fault(); }
+            return context;
+        }
         private GateAttackFreezeCapture.Context FreezeUnitContext(int id)
         {
             var x = new GateAttackFreezeCapture.Context { Unit = id, Type = -1, StartX = -1, StartY = -1, TargetX = -1, TargetY = -1 };

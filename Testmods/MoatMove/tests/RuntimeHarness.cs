@@ -292,6 +292,8 @@ namespace MoatMove
         private void RecordFallbackContractRejection(PlanScope p, string reason = "retry-contract", IntPtr m = default)
         { if (activeMoveCommand != null) activeMoveCommand.FallbackContractRejections++; }
         private static void TryLogDiagnosticFailure(string s, Exception e) { }
+        // No active cursor batch in this traversal fixture; covered by ManualHarness.
+        private void ObserveCursorGroundBuilder(IntPtr manager, int player, int profile, int result) { }
         private static void StartOrRefreshMoatMoveTracker(PlanScope p, RouteProbeSummary s, int r) { }
         private static bool IsPublishedWalkableBuildingApproach(int unitId, int tileId) => false;
         private bool occupied { get => GameTileManagerAPI.Instance.ForceOccupied; set => GameTileManagerAPI.Instance.ForceOccupied=value; }

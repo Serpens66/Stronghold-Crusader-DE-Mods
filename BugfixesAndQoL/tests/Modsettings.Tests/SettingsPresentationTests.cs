@@ -198,6 +198,13 @@ internal static partial class Program
             SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
             keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
             "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
+        object treeDecay = options.Single(o => (string)Get(o, "PropertyName") == "EnableTreeBlightDecayFix");
+        var treeEditor = editors.Single(e => e.Property == "EnableTreeBlightDecayFix");
+        XmlNode treeRow = Ancestors(treeEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(treeDecay, "Category").ToString() == "Fixes" && (string)Get(treeDecay, "Symbol") == "★" &&
+            !(bool)Get(treeDecay, "IsPreference") &&
+            treeRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostEconomy.FixesVisibility}",
+            "tree decay is Recommended in Host Economy Fixes");
         object moatTerrain = options.Single(o => (string)Get(o, "PropertyName") == "EnableMoatTerrainRestoration");
         var moatEditor = editors.Single(e => e.Property == "EnableMoatTerrainRestoration");
         Check(Get(moatTerrain, "Category").ToString() == "Fixes" && (bool)Get(moatTerrain, "IsPreference") &&

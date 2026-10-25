@@ -321,6 +321,15 @@ call :step_start "tests" "41-WorkshopIdleDelay.Tests.exe"
 "%PROJECT_DIR%tests\WorkshopIdleDelay.Tests\bin\WorkshopIdleDelay.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Tree-blight native regression
+call :step_start "tests" "TreeBlightDecay.Tests build"
+"%MSBUILD%" tests\TreeBlightDecay.Tests\TreeBlightDecay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "TreeBlightDecay.Tests execution"
+"%PROJECT_DIR%tests\TreeBlightDecay.Tests\bin\TreeBlightDecay.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "42-WorkerBreakPause.Tests.csproj"
 "%MSBUILD%" tests\WorkerBreakPause.Tests\WorkerBreakPause.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"

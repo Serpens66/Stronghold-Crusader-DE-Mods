@@ -2101,6 +2101,7 @@ internal static class Program
         setting.ActivatePresets();
         Check(setting.EnableGatehouseLivingCaptureFix, "gatehouse fix did not default to true" );
         Check(setting.EnableDrawbridgeDestructionFix, "drawbridge fix did not default to true" );
+        Check(setting.EnableTreeBlightDecayFix, "tree-blight decay fix did not default to true" );
         Check(setting.EnableAssassinGatehouseClimbFix, "gatehouse fix did not default to true" );
         Check(setting.EnableAiFixes, "EnableAiFixes did not default to true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
@@ -2117,6 +2118,7 @@ internal static class Program
             "obsolete EnableSurrender property remains present");
         setting.EnableGatehouseLivingCaptureFix = false;
         setting.EnableDrawbridgeDestructionFix = false;
+        setting.EnableTreeBlightDecayFix = false;
         setting.EnableAssassinGatehouseClimbFix = false;
         setting.EnableAiFixes = false;
         setting.EnableSurrenderAndStatistics = false;
@@ -2127,6 +2129,7 @@ internal static class Program
         setting.AllowFullAiMultiplayerLobby = false;
         Check(!setting.EnableGatehouseLivingCaptureFix, "gatehouse false did not round-trip through presets");
         Check(!setting.EnableDrawbridgeDestructionFix, "drawbridge false did not round-trip through presets");
+        Check(!setting.EnableTreeBlightDecayFix, "tree-blight decay false did not round-trip through presets");
         Check(!setting.EnableAssassinGatehouseClimbFix, "gatehouse false did not round-trip through presets");
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
@@ -2166,9 +2169,11 @@ internal static class Program
             $"SelectedPreset={migratedSetting.SelectedPreset})");
         Check(!migratedSetting.EnableGatehouseLivingCaptureFix, "stored gatehouse false did not survive reload");
         Check(!migratedSetting.EnableDrawbridgeDestructionFix, "stored drawbridge false did not survive reload");
+        Check(!migratedSetting.EnableTreeBlightDecayFix, "stored tree-blight decay false did not survive reload");
         Check(!migratedSetting.EnableAssassinGatehouseClimbFix, "stored gatehouse false did not survive reload");
         stalePreset.Remove(nameof(setting.EnableGatehouseLivingCaptureFix));
         stalePreset.Remove(nameof(setting.EnableDrawbridgeDestructionFix));
+        stalePreset.Remove(nameof(setting.EnableTreeBlightDecayFix));
         stalePreset.Remove(nameof(setting.EnableAssassinGatehouseClimbFix));
         stalePayload["__SerpCurrentSettings"] = MessagePackSerializer.Serialize(stalePreset);
         File.WriteAllBytes(settingsPath, MessagePackSerializer.Serialize(stalePayload));
@@ -2177,6 +2182,7 @@ internal static class Program
         missingGatehouseSetting.ActivatePresets();
         Check(missingGatehouseSetting.EnableGatehouseLivingCaptureFix, "missing gatehouse preset key did not retain true default");
         Check(missingGatehouseSetting.EnableDrawbridgeDestructionFix, "missing drawbridge preset key did not retain true default");
+        Check(missingGatehouseSetting.EnableTreeBlightDecayFix, "missing tree-blight decay preset key did not retain true default");
         Check(missingGatehouseSetting.EnableAssassinGatehouseClimbFix, "missing gatehouse preset key did not retain true default");
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixesViewModelSource = File.ReadAllText(
@@ -2312,9 +2318,11 @@ internal static class Program
             "client mutated the host-only EnableReturnToMultiplayerLobby setting");
         setting.EnableGatehouseLivingCaptureFix = true;
         setting.EnableDrawbridgeDestructionFix = true;
+        setting.EnableTreeBlightDecayFix = true;
         setting.EnableAssassinGatehouseClimbFix = true;
         Check(!setting.EnableGatehouseLivingCaptureFix, "client changed the gatehouse host setting");
         Check(!setting.EnableDrawbridgeDestructionFix, "client changed the drawbridge host setting");
+        Check(!setting.EnableTreeBlightDecayFix, "client changed the tree-blight decay host setting");
         Check(!setting.EnableAssassinGatehouseClimbFix, "client changed the gatehouse host setting");
         Check(!setting.AllowFullAiMultiplayerLobby,
             "client mutated the host-only AllowFullAiMultiplayerLobby setting");
@@ -2322,6 +2330,7 @@ internal static class Program
         {
             setting.EnableGatehouseLivingCaptureFix = true;
             setting.EnableDrawbridgeDestructionFix = true;
+            setting.EnableTreeBlightDecayFix = true;
             setting.EnableAssassinGatehouseClimbFix = true;
             setting.EnableAiFixes = true;
             setting.EnableSurrenderAndStatistics = true;
@@ -2333,12 +2342,15 @@ internal static class Program
         });
         Check(setting.EnableGatehouseLivingCaptureFix, "host sync did not update gatehouse fix");
         Check(setting.EnableDrawbridgeDestructionFix, "host sync did not update drawbridge fix");
+        Check(setting.EnableTreeBlightDecayFix, "host sync did not update tree-blight decay fix");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
             setting.EnableDrawbridgeDestructionFix = false;
+            setting.EnableTreeBlightDecayFix = false;
             setting.ResetSurrenderAndStatistics();
         });
         Check(setting.EnableDrawbridgeDestructionFix, "reset did not restore drawbridge true default" );
+        Check(setting.EnableTreeBlightDecayFix, "reset did not restore tree-blight decay true default" );
         Check(setting.EnableAssassinGatehouseClimbFix, "host sync did not update gatehouse fix");
         Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
@@ -2356,6 +2368,7 @@ internal static class Program
             new Dictionary<string, byte[]>
             {
                 [nameof(setting.EnableDrawbridgeDestructionFix)] = MessagePackSerializer.Serialize(false),
+                [nameof(setting.EnableTreeBlightDecayFix)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableAiFixes)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
@@ -2368,9 +2381,12 @@ internal static class Program
             editable: false);
         Check(!setting.EnableAiFixes, "read-only Trail did not apply EnableAiFixes");
         Check(!setting.EnableDrawbridgeDestructionFix, "read-only Trail did not apply drawbridge option");
+        Check(!setting.EnableTreeBlightDecayFix, "read-only Trail did not apply tree-blight decay option");
         setting.EnableDrawbridgeDestructionFix = true;
+        setting.EnableTreeBlightDecayFix = true;
         setting.ResetSurrenderAndStatistics();
         Check(!setting.EnableDrawbridgeDestructionFix, "read-only Trail allowed drawbridge editing/reset" );
+        Check(!setting.EnableTreeBlightDecayFix, "read-only Trail allowed tree-blight decay editing/reset" );
         Check(!setting.EnableSurrenderAndStatistics && !setting.CanEditHostSettings,
             "read-only Trail did not apply and lock EnableSurrenderAndStatistics");
         Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
@@ -5928,6 +5944,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
 {
     private bool enableAiFixes = true;
     private bool enableDrawbridgeDestructionFix = true;
+    private bool enableTreeBlightDecayFix = true;
     private bool enableGatehouseLivingCaptureFix = true;
     private bool enableAssassinGatehouseClimbFix = true;
     private bool enableSurrenderAndStatistics = true;
@@ -5947,6 +5964,19 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
                 return;
             enableDrawbridgeDestructionFix = value;
             OnPropertyChanged(nameof(EnableDrawbridgeDestructionFix));
+        }
+    }
+
+    [SyncHostOnly]
+    public bool EnableTreeBlightDecayFix
+    {
+        get { return enableTreeBlightDecayFix; }
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableTreeBlightDecayFix)) || enableTreeBlightDecayFix == value)
+                return;
+            enableTreeBlightDecayFix = value;
+            OnPropertyChanged(nameof(EnableTreeBlightDecayFix));
         }
     }
 
@@ -6082,6 +6112,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     internal void ResetSurrenderAndStatistics()
     {
         EnableDrawbridgeDestructionFix = true;
+        EnableTreeBlightDecayFix = true;
         EnableAiFixes = true;
         EnableSurrenderAndStatistics = true;
         EnableLordUnitControls = true;

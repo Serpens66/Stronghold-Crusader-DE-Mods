@@ -995,3 +995,114 @@ field layout, branch ingress, continuation, shared neighbor and live span. Run
 checks. Fixtures substitute external native refresh/call boundaries and do not prove
 actual game visuals, farm eligibility or real host/client acceptance. See
 `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOAT_TERRAIN_RESTORATION.md`.
+
+
+## Tree-Blight decay (EnableTreeBlightDecayFix)
+
+Hash-bound to FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Common event function 0x107A00 and growth 0x108320; exact half-open inline spans
+[0x107A6C,0x107A7A) and [0x10838E,0x10839C), both 14 bytes. Reference patterns:
+`41 FF C1 49 81 C0 9C 00 00 00 45 3B 4A 10` and
+`66 83 BB 9A 00 00 00 00 0F 85 A9 02 00 00`. Following instructions are
+`7C 9A` (jl 0x107A16) and `0F B7 83 98 00 00 00` (movzx eax,[rbx+0x98]).
+NativePatternResolver validates the original load snapshot; moved matches are
+refused until the complete semantics are audited. Live claimed spans must remain
+original before installation. RedBird must displace exactly 14 bytes (3/7/4 and
+8/6); there are no interior branch/jump-table/external entries. Re-audit these
+properties on updates; a matching short pattern alone is insufficient.
+
+Table RVA 0x31E220 is cumulative Int32 thresholds with seven entries per type.
+Native woodland IDs 1..4 correspond to SE Chestnut/Oak/Pine/Birch and stage5 is 5.
+Native record stride 0x9C, alive/type at +0x68/+0x6A, health/max +0x96/+0x98,
+felled +0x9A, stage/progress +0xA4/+0xA8. SE struct offsets have a 0x18 header
+translation. Event R8 points to type; R9D index and R10 manager feed the unchanged
+loop tail. Growth RBX is record, RDI manager. Conditional bypass targets 0x1083B0;
+original rejection is 0x108645. Global raw mode 0x3665F28, frontend 0x3665ED8,
+scenario state 0x3665F90 and bucket selection must retain their audited semantics.
+Mode 1/6 are editors, not played Freebuild. Preserve all original growth gates.
+
+Validate both sites together, registry group TreeBlightDecay (exclusive), then
+commit one owned permanent transaction from LibraryLoaded. Keep published hooks
+and the 32-byte native state rooted for process lifetime. Changes only write the
+aligned enabled flag; verification failure after publication cannot reactivate it.
+No load scan, extra RNG, managed per-tree callback, save/network extension or
+health/resource/worker reset. Preserve Extender entry 0x108320 and observer
+0x108518, and recheck Fixes/APIShared spans on update.
+
+Run tests/TreeBlightDecay.Tests (the production emitter, x64 native fixtures),
+production Test-Modsettings.ps1 and relevant HostClientPresetTests. Keep in-game
+Vanilla/RandomEvents, Freebuild/skirmish/mission, Save/Load, real host/client,
+occupancy cleanup and paired 800x800 load/event/throughput acceptance separate from
+private-memory fixture results. Full audit and ABI details:
+`_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/TREE_BLIGHT_DECAY.md`.
+
+## 2026-10-25: per-cursor mandatory region rejection reuse
+
+Owner: Improved manual unit commands. Native SHA-256 remains
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+The installed 18E1E0 instruction stream confirms the ordinary branch at
+18E391..18E3C6: with manager modes +84/+88 zero, E2610 is mandatory for unequal
+PCLs and zero immediately returns failure. Its five arguments are manager,
+signed player, signed source PCL, signed destination PCL and signed connection
+mode. 18E39A reads mode at native record +9B8 (GameUnit +35C); player +6EE is
+GameUnit +92, coordinates +71C/+71E are GameUnit +C0/+C2. The structure bias
+is 65C and unit IDs/stride stay one-based/490. 196840 reads the completed-moat
+flag from the unit's current tile ID (+72C, GameUnit +D0); do not substitute
+GetNativeMovementStart's next-tile coordinates for this wrapper's coordinates.
+
+The optional optimization validates that complete ordinary branch and the real
+GameUnit field offsets at startup. It requires the already-published E2610 hook;
+failure disables only reuse, retaining full probes. No native entry, hook span,
+public API or serializer is added. The existing effective E2610 return is learned
+only after one matching zero call and a failed, fully restored native probe.
+Same-PCL/arrived/moat/special/ambiguous cases retain their full checks. Proofs
+live only inside the existing consecutive cursor batch (8 contexts, 128 keys),
+never across ticks, targets or native building calls. All executed probes retain
+the full buffers, copies and repair suppression. Reaudit the complete wrapper,
+mode hook, E2610 filtering and context isolation on native/interop/hook updates;
+there is no signature-only fallback for this branch/layout proof.
+
+## Cursor closed-set negative witnesses (2026-10-25)
+
+Owner: ordinary manual cursor probes only. Native reference SHA-256
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No new native hook or native query. The existing F4930 wrapper observes its result
+before the unchanged complete probe restoration; E2610 observation remains authoritative
+for mandatory region rejection, including unequal zero/sign-extended PCL values.
+
+The constructor already requires that exact full native hash. The optional ground
+contract additionally checks the original F4930 prefix and DA783 connection/stamp
+load span, never live patched bytes. Its dependent data layout is hash-bound: manager
++4 generation; +8/+C actual start and +10/+14 actual target; +84 moat and +88 Assassin
+modes. Stamps are the second 9CA40-byte half of the existing 139480-byte probe-grid
+snapshot (RVA 52C2550). Connections are 51890D0, direction bits 312620, row-indexed
+eight-int neighbor deltas 405EDB0; Y is the public SE MapColumnLookupTable, independently
+used by GetTileVectorFromId. The profile is read live via the validated APIShared
+replacement, not SE's incorrectly-strided permission table. Profile Large=0 and
+Default=1 follow F32B0/F3060, DAAC0, DA590 and DB650; all ordinary search edges are
+subsets of the same directed connections. Special moat/Assassin modes are excluded.
+
+A stamp generation in 1..32000 only proposes a vertex set. The set is validated over
+all 320800 slots: actual start present, target absent, every allowed outgoing edge
+ends inside the set, with bounded neighbor/row accesses. This direct closure proof
+does not trust return zero, queue exhaustion, stale generations, search budgets or
+successful reconstruction as evidence. Direction is preserved, never symmetrized.
+Gate filtering is allowed only with the exact immutable snapshot captured inside the
+existing builder scope; reuse enters a fresh existing scope and checks provider,
+snapshot identity and IsCurrent. Missing scope/provider support validates against
+the unfiltered superset instead. No new public API or APIShared source change.
+
+Native 18E1E0 checks target availability (3A11EA4, y*800+x) before arrival, then
+target flags 30, then profile-zero-only flags 10000100. The pure cursor precheck
+preserves that order; these immediates are native bitmask contracts, not unit IDs.
+No real order, building-query batch boundary or executed probe snapshot is changed.
+Eight eager contexts contain four 5013-ulong sets each; capture requires selection
+size >=16 and at most four attempts in one existing contiguous cursor batch.
+
+No semantic fallback is claimed for these data layouts on an unknown hash. On byte,
+field/table or policy failure, retain full probes; new optional acceleration alone
+is disabled. For a native update re-audit both direct-line profiles, all F4930
+fallbacks, edge filtering, stamp/neighbor/row tables and 18E1E0 early-return ordering.
+Regression evidence: FriendlyMoatMovement ManualHarness production paths and closed-set
+oracle, existing GateRouting/Assassin fixtures; real island timing requires replay.
+

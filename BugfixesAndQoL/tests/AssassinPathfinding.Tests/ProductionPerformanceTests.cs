@@ -41,6 +41,9 @@ internal static partial class Program
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
             .Select(m => ActiveDiagnosticFixtureCode(m)));
+        // This kernel fixture has no active cursor proof scope; the observation
+        // boundary itself is exercised with real snapshots by ManualHarness.
+        publishing += "\nprivate void ObserveCursorGroundBuilder(IntPtr manager,int player,int profile,int result){}\n";
         // Passive timing is supplied at the fixture boundary. Its implementation and
         // exception isolation are covered by the production EnginePresentation fixture.
         if (development) publishing += "\nprivate long FreezeBuilder(IntPtr manager)=>0; private static class GateAttackFreezeCapture { internal static void Leave(long token,int result,bool completed){} }\n";

@@ -8,6 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="ManualHarness.cs" />
+    <Compile Remove="ManualRejectHarness.cs" />
+    <Compile Remove="ManualGroundHarness.cs" />
     <Compile Include="..\..\..\Testmods\MoatMove\tests\SplitContracts.cs" Link="SplitContracts.cs" />
     <Compile Include="..\..\..\BugfixesAndQoL\src\UnitCommands\Moat\MoatModeFlagIntermediaryFactory.cs" Link="MoatModeFlagIntermediaryFactory.cs" />
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>

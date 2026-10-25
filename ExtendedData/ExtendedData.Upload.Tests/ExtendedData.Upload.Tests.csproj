@@ -38,6 +38,7 @@
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs"><Link>WorkshopUploadStaging.cs</Link></Compile>
+    <Compile Include="..\src\CoopLaunchBlockDiagnostics.cs"><Link>CoopLaunchBlockDiagnostics.cs</Link></Compile>
     <Compile Include="Program.cs" />
     <Compile Include="SerpLocalizationStub.cs" />
     <Compile Include="TestExtenderTypes.cs" />

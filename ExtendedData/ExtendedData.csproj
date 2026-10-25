@@ -78,6 +78,7 @@
     <Compile Include="src\ExtendedDataFeatureActivation.cs" />
     <Compile Include="src\TrailModSelectionItem.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
+    <Compile Include="src\CoopLaunchBlockDiagnostics.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopCache.cs" />
     <Compile Include="src\CoopMissionDataCopies.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopAiStart.cs" />

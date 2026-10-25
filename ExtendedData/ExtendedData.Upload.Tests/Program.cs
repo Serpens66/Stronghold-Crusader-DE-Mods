@@ -16,6 +16,7 @@ namespace ExtendedData
             if (args.Length == 2 && args[0] == "--expect-unsafe-package")
                 return ExpectUnsafePackage(args[1]);
 
+            Run("Coop launch blocks remain visible without diagnostics", TestCoopLaunchBlockLogs);
             Run("complete package and retry", TestCompletePackageAndRetry);
             Run("upload allowlist and excluded gameplay gate", TestUploadAllowlistAndExcludedWarning);
             Run("local and Workshop Lord source selection", TestLordSourceSelection);
@@ -43,6 +44,47 @@ namespace ExtendedData
                 ? "All CustomLordUpload tests passed."
                 : failures + " CustomLordUpload test(s) failed.");
             return failures == 0 ? 0 : 1;
+        }
+
+        private static void TestCoopLaunchBlockLogs()
+        {
+            Assert(!Shared.DebugLogHelper.DiagnosticsEnabled, "fixture requires default-disabled diagnostics");
+            using (var log = new ManualLogSource("coop-block-fixture"))
+            {
+                var messages = new List<LogEventArgs>();
+                log.LogEvent += (_, args) => messages.Add(args);
+                string context = "role=host, lobby=12, package=test, fingerprint=ABC, mission=Trail1/2, localStatus=OK|test|ABC";
+                string[] reasons = { "Restart the game", "Package differs", "Required Lord files missing", "Preparation failed" };
+                foreach (string reason in reasons)
+                    CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", reason, context);
+                Assert(messages.Count == reasons.Length && messages.All(item => item.Level == LogLevel.Error),
+                    "local block logs were hidden or had the wrong severity");
+                for (int index = 0; index < reasons.Length; index++)
+                    Assert(messages[index].Data.ToString().Contains(reasons[index]) &&
+                        messages[index].Data.ToString().Contains(context), "block reason or context lost");
+                CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", reasons[0], context);
+                Assert(messages.Count == reasons.Length, "identical blocks were not throttled");
+                string longReason = new string('x', 350) + " FULL_REASON_END";
+                CoopLaunchBlockDiagnostics.ReportLocal(log, "COOP_START", longReason, context,
+                    "Player Two[playerId=2, status=mismatch, reported=OK|other|DEF]; sync missing");
+                string local = messages.Last().Data.ToString();
+                Assert(local.Contains(longReason) && local.Contains("Player Two") && local.Contains("sync missing"),
+                    "local log was shortened to chat length or lost participant details");
+                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", "ordinary chat");
+                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", null);
+                Assert(messages.Count == reasons.Length + 1, "unrelated chat was logged");
+                string chat = CoopLaunchBlockDiagnostics.ChatPrefix + "Package differs";
+                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", chat);
+                Assert(messages.Last().Level == LogLevel.Warning &&
+                    messages.Last().Data.ToString().Contains(chat) &&
+                    messages.Last().Data.ToString().Contains("sender=34"), "remote reason or sender missing");
+                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", chat);
+                Assert(messages.Count == reasons.Length + 2, "identical remote blocks were not throttled");
+                CoopLaunchBlockDiagnostics.ReportRemote(log, 35, "12", chat);
+                Assert(messages.Count == reasons.Length + 3, "independent sender was suppressed");
+                Assert(messages.All(item => System.Text.RegularExpressions.Regex.IsMatch(item.Data.ToString(),
+                    @"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]")), "millisecond timestamp missing");
+            }
         }
 
         private static void TestCompletePackageAndRetry()

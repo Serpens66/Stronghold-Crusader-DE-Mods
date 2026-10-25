@@ -1,10 +1,10 @@
 {
   "manifestSchemaVersion": 3,
   "database": {
-    "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/index-50932c3d7459.sqlite",
+    "path": "sem/FBCB9319/CrusaderDE-knowledge.sqlite",
     "schemaVersion": 6,
-    "referenceSize": 1943207936,
-    "referenceSha256": "92686962E214B0654EC2EA4312351AD82169D653B106D52528C4739BFAFA0AD8",
+    "referenceSize": 1944891392,
+    "referenceSha256": "CD91DEE638B0F8AA3749C29F6735F4C82B7A31D19EB6F404CC6620E1D7D37157",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
@@ -44,8 +44,8 @@
     "counts": {
       "binaries": 3,
       "functions": 8954,
-      "function_claims": 27,
-      "claim_evidence": 57,
+      "function_claims": 29,
+      "claim_evidence": 63,
       "hook_spans": 4,
       "api_contracts": 0,
       "chore_opcodes": 43,
@@ -62,7 +62,7 @@
       "managed_calls": 72559,
       "managed_native_links": 56123,
       "patterns": 746,
-      "data_types": 305,
+      "data_types": 457,
       "source_types": 253,
       "type_fields": 8879,
       "vtable_members": 345,
@@ -70,7 +70,7 @@
       "rtti_vtables": 142,
       "xaml_resources": 105,
       "xaml_links": 7860,
-      "classifications": 617,
+      "classifications": 643,
       "version_matches": 3818,
       "analysis_functions": 4478,
       "analysis_features": 69,
@@ -95,13 +95,13 @@
     },
     {
       "path": "sem/FBCB9319/exports/semantic-functions.jsonl",
-      "sha256": "58418AE6217520197158E41BC46E37ED16CAD230639393C684D099380696B447",
-      "bytes": 3574616
+      "sha256": "0F0E0BB9D263A4652899937DFCDE8BE7D14E03996C3B0FCFB04785D152CC0C8F",
+      "bytes": 3590352
     },
     {
       "path": "sem/FBCB9319/exports/semantic-decompiled-functions.c",
-      "sha256": "4B7048D0386C346606EF469B1B0C50499C44940F52529325646C860A9AEA1DAB",
-      "bytes": 10857489
+      "sha256": "327F8EC8BF899AF5EAD5A15491A6F0F0B623F161CBFD0709D038388F84599400",
+      "bytes": 10874868
     },
     {
       "path": "sem/FBCB9319/exports/globals.jsonl",
@@ -110,8 +110,8 @@
     },
     {
       "path": "sem/FBCB9319/exports/data-types.jsonl",
-      "sha256": "85A23046E20CD7A3B77B07A48A44C66177C082AB160E9674B06F7A91D65FFCDA",
-      "bytes": 830481
+      "sha256": "345DD7F07F4FE7FF019FD6D54E37C83E0BB2C1A8D8E12487E5A013B82B18EF4A",
+      "bytes": 2442484
     },
     {
       "path": "sem/FBCB9319/exports/rtti-vtables.jsonl",
@@ -120,8 +120,8 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/function-claims.jsonl",
-      "sha256": "822D137A600C2F947E49DAC92E8CBD59D1B9E8BBF99768D5EA8168106B4EB4CE",
-      "bytes": 44926
+      "sha256": "139623F2DC18B97FC104B0DE8F6FB86B5789A6617B3133A72718EEFF4FD70885",
+      "bytes": 49871
     },
     {
       "path": "sem/FBCB9319/knowledge/hook-spans.jsonl",
@@ -257,6 +257,16 @@
       "path": "sem/FBCB9319/resources/xaml-managed-links.jsonl",
       "sha256": "89B87F26A839B05C0CCC6EDF386D5D7642D119BEDC210CF6EF996D4351B5670B",
       "bytes": 1140525
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/native-field-catalog.json",
+      "sha256": "B8C2CC6B72E4E50C168A7C601D207380C617F12E76B4BBEF4662182F22FC0E2D",
+      "bytes": 527459
+    },
+    {
+      "path": "sem/FBCB9319/knowledge/native-field-ghidra.json",
+      "sha256": "3FDCB840EB5F09D10C4E3686A0CC71C0CDC0BE52911B4113D4686EFDFD95C35E",
+      "bytes": 1632810
     },
     {
       "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/facts-000.jsonl",
