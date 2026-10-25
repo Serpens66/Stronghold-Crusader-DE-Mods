@@ -142,6 +142,8 @@ For future chats, link this file and require the DLL hash to be checked before u
 
 - [Plague cloud height and damage](./sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md): explicit wall/roof immunity, standing-height contracts and standalone PlagueHeightTest native fixture evidence.
 
+- [Incoming gold and periodic amounts](./sem/FBCB9319/knowledge/PERIODIC_GOLD.md): signed positive-only delivery, pending versus direct debit, overflow limits and static evidence.
+
 ## Offline machine and data-flow analysis
 
 The Analysis stage adds hash-bound instruction facts, conservative liveness, selected High P-code, feature dossiers and installed-backend hook checks. See [operation and limitations](./tools/semantic/ANALYSIS.md). Queries: `instructions`, `flow`, `trace`, `global`, `feature`, `hookcheck`, `coverage`. The current database manifest selects the published schema-6 analysis generation; failed flows and unresolved audit boundaries remain explicit.

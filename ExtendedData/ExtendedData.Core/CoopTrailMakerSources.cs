@@ -11,7 +11,8 @@ namespace ExtendedData.Core
         {
             PackageRoot = overview.RootPath;
             Manifest = overview.Manifest;
-            Workshop = !string.Equals(Path.GetDirectoryName(PackageRoot), Path.GetFullPath(localRoot),
+            Workshop = !string.Equals(Path.GetDirectoryName(PackageRoot),
+                Path.GetFullPath(localRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 StringComparison.OrdinalIgnoreCase);
             SelectionName = Workshop ? Manifest.DisplayName + " [Steam Workshop]" : Path.GetFileName(PackageRoot);
             MissionCount = missionCount;

@@ -37,6 +37,8 @@ namespace ExtraFeatures
 
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
+            if (args.PropertyName == nameof(CanEditHostSettings))
+                OnPropertyChanged(nameof(CanConfigurePeriodicGold));
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
                 args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
@@ -404,6 +406,8 @@ namespace ExtraFeatures
                 MultiplyGoodsGainHuman = 1;
                 MultiplyGoodsGainInMoneyAI = 0;
                 MultiplyGoodsGainInMoneyHuman = 0;
+                PeriodicGoldHuman = 0;
+                PeriodicGoldAI = 0;
                 MarketBuyPriceMultiplier = 1.0;
                 MarketSellPriceMultiplier = 1.0;
                 MarketPricesAlsoForAI = false;

@@ -56,6 +56,8 @@ var tests = new (string Name, Action Run)[]
     ("package fingerprint detects content changes", TestPackageFingerprint),
     ("streaming package fingerprint retains the byte contract across buffers", TestStreamingFingerprint),
     ("package discovery reads manifests without opening mission assets", TestPackageDiscovery),
+    ("Maker menus discover twenty forty-mission packages without opening their contents", TestMakerPackageDiscovery),
+    ("Maker metadata preserves replicas, conflicts, legacy sources and refreshes", TestMakerPackageMetadata),
     ("selected package session reuses and invalidates validated data", TestPackageSession),
     ("lazy mission cache resolves only selected slots and retries failures", TestLazyMissionCache),
     ("mission dependencies detect catalog, map and external file changes", TestMissionDependencies),
@@ -1906,6 +1908,118 @@ static void TestPackageDiscovery()
     Directory.CreateDirectory(Path.Combine(root, ".cooptrail-build-test"));
     File.Copy(Path.Combine(package, "cooptrail.json"), Path.Combine(root, ".cooptrail-build-test", "cooptrail.json"));
     Assert(catalog.Discover(new[] { root }).Count == 1, "discovery included a staging package");
+}
+
+static void TestMakerPackageDiscovery()
+{
+    using Fixture fixture = Fixture.Create();
+    string local = Path.Combine(fixture.Root, "CustomTrails");
+    string workshop = Path.Combine(fixture.Root, "Workshop");
+    var packages = new List<string>();
+    var locks = new List<(string Package, FileStream Stream)>();
+    string workingTrail = Path.Combine(fixture.Root, "active-maker.trail");
+    File.WriteAllText(workingTrail, "keep current authoring work");
+    try
+    {
+        for (int index = 0; index < 20; index++)
+        {
+            string package = CreatePackage(fixture, index < 10 ? local : workshop, "Trail" + index.ToString("00"), 40);
+            packages.Add(package);
+            string sources = Path.Combine(package, CoopTrailPackagePublication.TrailMakerSourceDirectory);
+            Directory.CreateDirectory(sources);
+            for (int mission = 1; mission <= 40; mission++)
+            {
+                File.WriteAllText(Path.Combine(sources, "Trail_Mission_" + mission + ".trail"), "editable mission");
+                File.WriteAllText(Path.Combine(sources, "Trail_Mission_" + mission + ".modtrail.json"), "editable sidecar");
+            }
+            // Real exclusive locks cover missions, assets, sidecars and editable sources.
+            // A regression to full package loading cannot silently pass this boundary.
+            foreach (string file in Directory.GetFiles(package, "*", SearchOption.AllDirectories))
+                if (!string.Equals(file, Path.Combine(package, "cooptrail.json"), StringComparison.OrdinalIgnoreCase))
+                    locks.Add((package, File.Open(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None)));
+        }
+        var catalog = new CoopTrailMakerSources();
+        var errors = new List<string>();
+        var sourcesFound = catalog.Discover(new[] { local, workshop, local }, local, errors.Add);
+        Assert(errors.Count == 0 && sourcesFound.Count == 20, "Maker menus read locked mission contents or lost packages");
+        Assert(sourcesFound.All(item => item.MissionCount == 40 && item.Manifest.MissionCount == 40), "mission counts changed");
+        Assert(sourcesFound.Count(item => item.Workshop) == 10 && sourcesFound.Count(item => !item.Workshop) == 10,
+            "local and Workshop origins were confused");
+        Assert(sourcesFound.First().SelectionName == "Trail00" &&
+            sourcesFound.Last().SelectionName == "Trail19 [Steam Workshop]", "selection names or sorting changed");
+        Assert(catalog.Discover(new[] { local }, local, errors.Add).Count == 10, "local-only menus included subscriptions");
+
+        string selected = packages[0];
+        foreach (var item in locks.Where(item => item.Package == selected)) item.Stream.Dispose();
+        locks.RemoveAll(item => item.Package == selected);
+        int confirmations = 0;
+        int rejections = 0;
+        Action confirmation = () => { confirmations++; File.WriteAllText(workingTrail, "confirmation reached"); };
+        Action<Exception> rejected = _ => rejections++;
+        CoopTrailMakerSources.RequestImport(selected, confirmation, rejected);
+        Assert(confirmations == 1 && rejections == 0, "selected import accessed another locked package");
+
+        File.WriteAllText(workingTrail, "keep current authoring work");
+        File.AppendAllText(Path.Combine(selected, "CoopMissions", "map.map"), "corrupted");
+        Assert(catalog.Discover(new[] { local, workshop }, local, errors.Add).Count == 20,
+            "metadata discovery validated damaged mission contents");
+        CoopTrailMakerSources.RequestImport(selected, confirmation, rejected);
+        Assert(confirmations == 1 && rejections == 1 && File.ReadAllText(workingTrail) == "keep current authoring work",
+            "invalid import reached Vanilla confirmation or changed current work");
+        File.Delete(Path.Combine(selected, "cooptrail.json"));
+        CoopTrailMakerSources.RequestImport(selected, confirmation, rejected);
+        Assert(confirmations == 1 && rejections == 2, "removed selection reached confirmation");
+    }
+    finally
+    {
+        foreach (var item in locks) item.Stream.Dispose();
+    }
+}
+
+static void TestMakerPackageMetadata()
+{
+    using Fixture fixture = Fixture.Create();
+    string local = Path.Combine(fixture.Root, "CustomTrails");
+    string workshop = Path.Combine(fixture.Root, "Workshop");
+    string package = CreatePackage(fixture, local, "Replica", 1);
+    // Legacy root-level sources remain importable. Count editable filenames independently
+    // of the gameplay manifest, which is what the existing Maker import actually copies.
+    File.WriteAllText(Path.Combine(package, "Trail_Mission_1.trail"), "source one");
+    File.WriteAllText(Path.Combine(package, "Trail_Mission_2.trail"), "source two");
+    CopyTree(package, Path.Combine(workshop, "Replica"));
+    var catalog = new CoopTrailMakerSources();
+    var errors = new List<string>();
+    var sources = catalog.Discover(new[] { local, workshop }, local + Path.DirectorySeparatorChar, errors.Add);
+    Assert(errors.Count == 0 && sources.Count == 1 && sources[0].PackageRoot == package && !sources[0].Workshop,
+        "identical replicas did not prefer the local source");
+    Assert(sources[0].MissionCount == 2 && sources[0].Manifest.MissionCount == 1, "editable count used the gameplay count");
+
+    string conflict = CreatePackage(fixture, local, "Conflict", 1, sources[0].Manifest.PackageId);
+    File.WriteAllText(Path.Combine(conflict, "Trail_Mission_1.trail"), "conflict");
+    Assert(catalog.Discover(new[] { local, workshop }, local, errors.Add).Count == 0 &&
+        errors.Any(message => message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)), "conflicting IDs remained selectable");
+
+    string invalid = Path.Combine(local, "Invalid");
+    Directory.CreateDirectory(invalid);
+    File.WriteAllText(Path.Combine(invalid, "cooptrail.json"), "{}");
+    var manifest = CoopTrailPackageManifestJson.Read(Path.Combine(conflict, "cooptrail.json"));
+    manifest.PackageId = Guid.NewGuid().ToString("D");
+    manifest.DisplayName = "Updated";
+    CoopTrailPackageManifestJson.WriteAtomic(Path.Combine(conflict, "cooptrail.json"), manifest);
+    File.Delete(Path.Combine(conflict, "Trail_Mission_1.trail"));
+    sources = catalog.Discover(new[] { local, workshop }, local, errors.Add);
+    Assert(sources.Count == 1 && errors.Any(message => message.Contains("manifest", StringComparison.OrdinalIgnoreCase)),
+        "invalid manifests or removed editable sources were retained");
+    bool confirmed = false;
+    bool rejected = false;
+    CoopTrailMakerSources.RequestImport(conflict, () => confirmed = true, _ => rejected = true);
+    Assert(!confirmed && rejected, "an empty editable source reached destructive import");
+    File.WriteAllText(Path.Combine(conflict, "Trail_Mission_1.trail"), "repaired source");
+    sources = catalog.Discover(new[] { local }, local, errors.Add);
+    Assert(sources.Count == 2 && sources.Last().Manifest.DisplayName == "Updated", "metadata did not refresh after a repair");
+    AssertThrows<InvalidOperationException>(() => CoopTrailMakerSources.RequestImport(conflict,
+        () => throw new InvalidOperationException("Vanilla failure"), _ => throw new Exception("misreported UI failure")),
+        "Vanilla confirmation failure was swallowed as package corruption");
 }
 
 static void TestPackageSession()

@@ -588,6 +588,39 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <CheckBox Content="{Binding AiText}" IsChecked="{Binding NoKillRewardAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardAIHelpText}" Margin="0" MinHeight="28" Grid.Column="4" />
               </Grid>
             </StackPanel>
+            <StackPanel Visibility="{Binding SettingsPresentation.PeriodicGoldOptions.Visibility}" IsEnabled="{Binding CanConfigurePeriodicGold}">
+              <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding HumanText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="2" FontWeight="Bold" />
+                <TextBlock Text="{Binding AiText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="4" FontWeight="Bold" />
+              </Grid>
+              <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding PeriodicGoldTitle}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <Grid Grid.Column="2" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.periodic-gold-human" shared:ModSettingsSearch.Title="{Binding PeriodicGoldHumanTitle}" shared:ModSettingsSearch.ToolTipText="{Binding PeriodicGoldHelp}">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="8" /><ColumnDefinition Width="28" /></Grid.ColumnDefinitions>
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding PeriodicGoldHumanValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" shared:ModSettingsSearch.InactiveValues="0" shared:ModSettingsSearch.StateValue="{Binding PeriodicGoldHuman}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding PeriodicGoldHelp}" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" MinHeight="28" />
+                  <Image Source="{Binding GoldRefundIcon}" Grid.Column="2" Width="28" Height="28" VerticalAlignment="Center" Stretch="Uniform" />
+                </Grid>
+                <Grid Grid.Column="4" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.periodic-gold-ai" shared:ModSettingsSearch.Title="{Binding PeriodicGoldAITitle}" shared:ModSettingsSearch.ToolTipText="{Binding PeriodicGoldHelp}">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="8" /><ColumnDefinition Width="28" /></Grid.ColumnDefinitions>
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding PeriodicGoldAIValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" shared:ModSettingsSearch.InactiveValues="0" shared:ModSettingsSearch.StateValue="{Binding PeriodicGoldAI}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding PeriodicGoldHelp}" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" MinHeight="28" />
+                  <Image Source="{Binding GoldRefundIcon}" Grid.Column="2" Width="28" Height="28" VerticalAlignment="Center" Stretch="Uniform" />
+                </Grid>
+              </Grid>
+            </StackPanel>
             <StackPanel Visibility="{Binding SettingsPresentation.EconomyBonusOptions.Visibility}">
               <TextBlock Text="{Binding EconomyBuffsTitleText}" Style="{StaticResource SubsectionHeader}" />
               <Grid HorizontalAlignment="Left" Margin="0,0,0,6">

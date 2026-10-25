@@ -54,6 +54,13 @@ Set separate Singleplayer and Multiplayer enemy-exclusion radii for human and AI
 
 ## Economy features
 
+### Gold every 400 ticks
+Set separate whole-number gold amounts for human and AI players in the Economy settings. Both default to 0; positive and negative values are supported. The host chooses these settings between matches, and they are included in presets and multiplayer synchronization. The Active/Inactive search filter treats 0 as inactive and either sign as active.
+
+Every 400 simulation ticks (about 10 seconds at game speed 40), living players receive their configured amount. Positive amounts enter the normal incoming-gold queue and are credited gradually; negative amounts immediately reduce stored gold, stopping at 0 and leaving pending incoming gold intact. Positive amounts are limited to the remaining capacity of the stored and queued gold balances.
+
+Payments follow the saved simulation tick: 400, 800, 1200, and so on. Starting or loading a map never triggers an immediate or catch-up payment. The same rules apply in the map editor when the simulation is running and living players exist. When both amounts are 0, the gold tick callback is unsubscribed.
+
 ### Customize popularity
 Adjust popularity values independently for human and AI players in the Popularity section of the mod settings.
 
@@ -79,7 +86,7 @@ Set how far an apothecary searches from its assigned building for plague clouds.
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.16.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.16.1 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
 Plague-height, market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
 

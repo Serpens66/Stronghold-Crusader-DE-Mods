@@ -115,6 +115,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../src/ExtraFeaturesViewModel.Popularity.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.PeriodicGold.cs" />
+    <Compile Include="../src/PeriodicGoldRuntime.cs" />
+    <Compile Include="PeriodicGoldTests.cs" />
     <Compile Include="../src/IndependentFeatureRegistration.cs" />
     <Compile Include="PresetIntegration.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.cs" />

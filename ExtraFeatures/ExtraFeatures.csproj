@@ -77,6 +77,9 @@
     <Compile Include="src\ExtraFeaturesViewModel.Popularity.cs" />
     <Compile Include="src\PopularityCatalog.cs" />
     <Compile Include="src\PopularityRuntime.cs" />
+    <Compile Include="src\PeriodicGoldRuntime.cs" />
+    <Compile Include="src\PeriodicGoldGameWorld.cs" />
+    <Compile Include="src\ExtraFeaturesViewModel.PeriodicGold.cs" />
     <Compile Include="src\IndependentFeatureRegistration.cs" />
     <Content Include="Override\**\*"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
     <Content Include="info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>

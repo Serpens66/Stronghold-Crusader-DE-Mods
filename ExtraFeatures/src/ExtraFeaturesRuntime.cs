@@ -71,6 +71,7 @@ namespace ExtraFeatures
         private MonkAlwaysRunPatch monkAlwaysRunPatch;
         private FearFactorNeutralizationRuntime fearFactorRuntime;
         private PopularityRuntime popularityRuntime;
+        private PeriodicGoldRuntime periodicGoldRuntime;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
@@ -142,6 +143,13 @@ namespace ExtraFeatures
             TryRunFeature("Lord health lifecycle", lordHealthRuntime.Initialize);
             TryRunFeature("building repair HUD lifecycle", InitializeBuildingRepairHud);
             InitializeMissionLifecycle();
+            TryRunFeature("periodic gold lifecycle", () =>
+            {
+                if (periodicGoldRuntime != null) return;
+                var candidate = new PeriodicGoldRuntime(log, settings, new PeriodicGoldGameWorld());
+                candidate.Register();
+                periodicGoldRuntime = candidate;
+            });
             TryRunFeature("popularity lifecycle", () =>
             {
                 if (popularityRuntime != null) return;
@@ -477,6 +485,10 @@ namespace ExtraFeatures
 
         private void OnSettingChanged(string propertyName)
         {
+            // The independent gold runtime captures these at completed mission start.
+            // Editing an amount must not reapply unrelated native feature settings.
+            if (propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldHuman) ||
+                propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldAI)) return;
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod)) popularityRuntime?.RefreshActivation();
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod) || propertyName.StartsWith("PlagueDamage", StringComparison.Ordinal))
                 ApplyPlagueHeightSettings();

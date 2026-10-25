@@ -15,6 +15,8 @@ namespace Shared
         internal static readonly GameplayModeGate Gate = new GameplayModeGate(
             SerpsModProfiles.GetProfile("ExtraFeatures_Serp", "Extra Features"));
         internal static bool IsEnabled(bool configured) => Gate.IsEnabled(configured);
+        internal static event Action<bool> StateChanged;
+        internal static void PublishGateChanged() => StateChanged?.Invoke(Gate.IsAllowed);
     }
     internal static class MissionEvents
     {
@@ -24,6 +26,7 @@ namespace Shared
         internal static void Publish(MissionLifecycleNotification note)
         {
             GameplayModActivationGate.Gate.Update(note);
+            GameplayModActivationGate.PublishGateChanged();
             if (note.Kind == MissionLifecycleKind.Start) Started.OnNext(note);
             else if (note.Kind == MissionLifecycleKind.End) Ended.OnNext(note);
             else Initialization.OnNext(note);

@@ -20,7 +20,7 @@ namespace ExtraFeatures
             Groups = new[] { SoldierOptions, KnightOptions, LordOptions, MoatOptions, GateOptions, GateReopenOptions,
                 GateDistanceOptions, BuildingOptions, EnemyProximityOptions, EnemySingleplayerOptions,
                 EnemyMultiplayerOptions, AiRebuildOptions, PopulationOptions, KillRewardOptions,
-                EconomyBonusOptions, RefundOptions, PlagueOptions, PlagueSurfacesOptions, HealerOptions, MarketGeneralOptions }.Concat(PopularityGroups).ToArray();
+                EconomyBonusOptions, PeriodicGoldOptions, RefundOptions, PlagueOptions, PlagueSurfacesOptions, HealerOptions, MarketGeneralOptions }.Concat(PopularityGroups).ToArray();
             ExpandAllCommand = new SettingsViewCommand(() => SetAll(true));
             CollapseAllCommand = new SettingsViewCommand(() => SetAll(false));
         }
@@ -51,6 +51,7 @@ namespace ExtraFeatures
         public SettingsGroupPresentation PopulationOptions { get; } = new SettingsGroupPresentation("extra-church-priests", "campfire-peasants");
         public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("no-kill-reward");
         public SettingsGroupPresentation EconomyBonusOptions { get; } = new SettingsGroupPresentation("multiply-goods-gain", "multiply-goods-as-money");
+        public SettingsGroupPresentation PeriodicGoldOptions { get; } = new SettingsGroupPresentation("periodic-gold-human", "periodic-gold-ai");
         public SettingsGroupPresentation RefundOptions { get; } = new SettingsGroupPresentation("wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund");
         public SettingsGroupPresentation PlagueOptions { get; } = new SettingsGroupPresentation("plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance");
         public SettingsGroupPresentation PlagueSurfacesOptions { get; } = new SettingsGroupPresentation("plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps");

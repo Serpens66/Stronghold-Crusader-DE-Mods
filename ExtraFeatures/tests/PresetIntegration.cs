@@ -281,6 +281,7 @@ namespace ExtraFeatures.Tests
                 own.FearNegative3Human = 19;
                 own.ResetToDefaultCommand.Execute(null);
                 Check(!own.NegativeFearHumanEnabled && own.FearNegative3Human == -3, "Legacy ExtraFeatures reset includes Popularity");
+                PeriodicGoldTests.Run(Check);
                 PopularityLifecycleTests.Run(Check);
                 bool independent = false;
                 IndependentFeatureRegistration.Register(() => { throw new InvalidOperationException("adapter unavailable"); },

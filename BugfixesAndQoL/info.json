@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.201",
+  "Version": "1.0.202",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.202",
+      "Changes": [
+        "Add a default-enabled Host preference to restore the original terrain after newly tracked moats are deleted or completely filled, including by enemies. Preserve oasis grass for farm construction and retain terrain history in saves and maps; existing moats without recorded terrain remain unchanged."
+      ]
+    },
     {
       "Version": "1.0.201",
       "Changes": [

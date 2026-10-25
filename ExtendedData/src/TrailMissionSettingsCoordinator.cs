@@ -1071,6 +1071,10 @@ namespace ExtendedData
                                     "Could not import Coop Trail [" + source + "]: " + exception);
                                 ShowInformation(SerpLocalization.Get("ExtendedData.SidecarsIncompleteTitle"),
                                     SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message);
+                                // The Maker lives on the MP frontend, just like its export error popup.
+                                MainViewModel.Instance.Show_HUD_Confirmation = false;
+                                MainViewModel.Instance.Show_HUD_ConfirmationMP = true;
+                                MainViewModel.Instance.FrontEndMenu.UpdateFrontMenuPopupScale();
                             });
                         return;
                     }
@@ -1648,7 +1652,13 @@ namespace ExtendedData
                 foreach (CoopTrailMakerSource source in sources)
                 {
                     if (!existing.Add(source.SelectionName))
+                    {
+                        // Vanilla already lists legacy local packages with root-level .trail
+                        // files. Retain their identity too if the manifest disappears later.
+                        if (registerImportSources && !source.Workshop)
+                            coopImportSourceBySelection[source.SelectionName] = source.PackageRoot;
                         continue;
+                    }
                     if (registerImportSources)
                         coopImportSourceBySelection[source.SelectionName] = source.PackageRoot;
                     rows.Add(new FileRow
